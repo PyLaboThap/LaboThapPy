@@ -10,8 +10,8 @@ import __init__
 import numpy as np
 from CoolProp.CoolProp import PropsSI
 
-from library.connector.mass_connector import MassConnector
-from library.component.steady_state.heat_exchanger.heat_pipe_based.simulation_model import HP_HTX
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.component.steady_state.heat_exchanger.heat_pipe_based.simulation_model import HP_HTX
 
 "-----------------------------------------------------------  TEST   ----------------------------------------------------------------"
 

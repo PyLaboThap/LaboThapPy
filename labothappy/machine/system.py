@@ -11,7 +11,7 @@ from machine.circuit import Circuit
 from machine.boundary_conditions.mass_source import MassSource
 from machine.boundary_conditions.mass_sink import MassSink
 
-from component.heat_exchanger.epsilon_NTU.simulation_model import HXeNTU
+from labothappy.component.heat_exchanger.epsilon_NTU.simulation_model import HXeNTU
 from component.volumetric_machine.expander.constant_isentropic_efficiency.simulation_model import ExpanderCstEff
 from component.pump.constant_efficiency.simulation_model import PumpCstEff
 
