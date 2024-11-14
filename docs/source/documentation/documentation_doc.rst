@@ -1,7 +1,7 @@
 Documentation
 =============
 
-This section includes documentation about the PyLaboThap library. The documentation section is divided in three parts:
+This section includes documentation about the LaboThapPy library. The documentation section is divided in three parts:
 
 - **Connector**: This section includes the documentation of how the connector modules were implemented and how to use them.
 - **Component**: This section includes the documentation of how the component modules were implemented and how to use them. It also includes all of the necessary information about each model of component. 

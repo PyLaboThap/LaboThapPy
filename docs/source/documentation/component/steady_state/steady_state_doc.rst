@@ -1,7 +1,7 @@
 Steady-state models
 ===================
 
-This section provides an overview of the steady-state models for components in the PyLaboThap library.
+This section provides an overview of the steady-state models for components in the LaboThapPy library.
 
 .. toctree::
    :maxdepth: 2
