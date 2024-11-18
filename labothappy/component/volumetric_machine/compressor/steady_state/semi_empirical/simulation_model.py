@@ -212,7 +212,7 @@ class CompressorSE(BaseComponent):
         #------------------------------------------------------------------
         
         "3. Internal leakage: ex2->su1"
-        s_ex2_bis = PropsSI('S', 'T', self.T_ex2, 'P', self.P_ex2, Fluid) # C ICI LE PB??
+        s_ex2_bis = PropsSI('S', 'T', self.T_ex2, 'P', self.P_ex2, Fluid)
         h_ex2_bis = PropsSI('H', 'T', self.T_ex2, 'P', self.P_ex2, Fluid)
         
         try: 

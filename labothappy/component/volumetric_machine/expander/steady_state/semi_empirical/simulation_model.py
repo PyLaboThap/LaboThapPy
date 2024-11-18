@@ -1,5 +1,8 @@
-# -*- coding: utf-8 -*-
-
+"""
+Author: Elise Neven
+email: elise.neven@uliege.be
+Date: 18/11/2023
+"""
 from component.base_component import BaseComponent
 from connector.mass_connector import MassConnector
 from connector.work_connector import WorkConnector
@@ -127,9 +130,9 @@ class ExpanderSE(BaseComponent):
             self.su.set_p(self.inputs['su_p'])
         if 'ex_p' in self.inputs:
             self.ex.set_p(self.inputs['ex_p'])
-        if 'N_rot' is self.inputs:
+        if 'N_rot' in self.inputs:
             self.W_exp.set_N(self.inputs['N_rot'])
-        if 'T_amb' is self.inputs:
+        if 'T_amb' in self.inputs:
             self.Q_amb.set_T_cold(self.inputs['T_amb'])
 
 
@@ -170,7 +173,6 @@ class ExpanderSE(BaseComponent):
             
         #Boundary on the mass flow rate
         self.m_dot = max(self.m_dot, 1e-5)
-        
         "1. Supply conditions: su"
         T_su = self.su.T
         P_su = self.su.p
@@ -183,7 +185,6 @@ class ExpanderSE(BaseComponent):
 
         h_ex_is = PropsSI('H', 'P', P_ex, 'S', s_su, Fluid)
         h_max = PropsSI('H', 'P', 4e6, 'T', 500, Fluid)
-
         T_sat_su = PropsSI('T', 'P', P_su, 'Q', 1, Fluid)
         if T_su<T_sat_su:
             print('----Warning the expander inlet stream is not in vapor phase---')
@@ -214,7 +215,6 @@ class ExpanderSE(BaseComponent):
         
         h_su2 = min(h_max, max(max(h_ex_is, PropsSI('H','Q', 0.1, 'P', P_su1, Fluid)), h_su1 - Q_dot_su/self.m_dot))
         P_su2 = P_su1 #No pressure drop just heat transfer
-        
         rho_su2 = PropsSI('D', 'P', P_su2, 'H', h_su2, Fluid)
         T_su2 = PropsSI('T', 'P', P_su2, 'H', h_su2, Fluid)
         s_su2 = PropsSI('S', 'P', P_su2, 'H', h_su2, Fluid)
@@ -231,13 +231,8 @@ class ExpanderSE(BaseComponent):
         h_thr_leak = PropsSI('H', 'P', P_thr_leak, 'S', s_su2, Fluid)
         C_thr_leak = np.sqrt(2*(h_su2-h_thr_leak))
         m_dot_leak = self.params['A_leak']*C_thr_leak*rho_thr_leak
-        if self.su.m_dot == None:
-            m_dot_in = self.N*self.params['V_s']*rho_su2
-            m_dot_leak_bis = self.m_dot-m_dot_in
-        elif self.su.m_dot != None:
-            m_dot_in = self.m_dot-m_dot_leak
-            if self.params['N_rot'] == None:
-                self.N = m_dot_in/(self.params['V_s']*rho_su2)
+        m_dot_in = self.N*self.params['V_s']*rho_su2
+        m_dot_leak_bis = self.m_dot-m_dot_in
         
 
         "5. Internal expansion"
@@ -277,7 +272,6 @@ class ExpanderSE(BaseComponent):
         self.Q_dot_amb = self.params['AU_amb']*(self.T_w-self.inputs['T_amb'])
         W_dot_loss = self.params['alpha']*W_dot_in + self.params['W_dot_loss_0'] + self.params['C_loss']*self.N*2*np.pi
         self.W_dot_exp = W_dot_in - W_dot_loss
-
         "9. Performances"
         W_dot_s = self.m_dot*(h_su-h_ex_is)
         self.epsilon_is = self.W_dot_exp/W_dot_s
