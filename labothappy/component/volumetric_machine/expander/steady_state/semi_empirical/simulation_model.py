@@ -337,7 +337,6 @@ class ExpanderSE(BaseComponent):
         self.ex.set_fluid(self.su.fluid)
         self.ex.set_m_dot(self.m_dot)
         self.ex.set_h(self.h_ex)
-        self.ex.set_p(self.P_ex)
 
         self.W_exp.set_W_dot(self.W_dot_exp)
         self.Q_amb.set_Q_dot(self.Q_dot_amb)

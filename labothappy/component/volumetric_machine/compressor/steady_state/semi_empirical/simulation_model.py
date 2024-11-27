@@ -134,9 +134,9 @@ class CompressorSE(BaseComponent):
             self.su.set_p(self.inputs['su_p'])
         if 'ex_p' in self.inputs:
             self.ex.set_p(self.inputs['ex_p'])
-        if 'N_rot' is self.inputs:
+        if 'N_rot' in self.inputs:
             self.W_cp.set_N(self.inputs['N_rot'])
-        if 'T_amb' is self.inputs:
+        if 'T_amb' in self.inputs:
             self.Q_amb.set_T_cold(self.inputs['T_amb'])
 
     def get_required_parameters(self):
@@ -348,7 +348,7 @@ class CompressorSE(BaseComponent):
             start_time = time.time()
             
             x_m_guess = [1.1, 0.99, 1.3, 1, 1.15] #guesses on the filling factor to provide suitable initial point for the iteration
-            x_T_guess = [0.9, 1.01, 0.7, 1.1, 0.2] #For the iteration on the T_w
+            x_T_guess = [0.9, 0.8, 0.7, 0.2] #For the iteration on the T_w
             stop = 0
             
             j = 0
@@ -387,6 +387,28 @@ class CompressorSE(BaseComponent):
             self.solved = False
         
         self.elapsed_time = time.time() - start_time
+
+
+#         x_T_guess = [0.9 0.8 0.7 0.2];
+# stop = 0;
+# k_iter = 0;
+# while not(stop) && k_iter<min(length(x_T_guess),20)
+#    k_iter = k_iter + 1;
+#    x0(1) = x_T_guess(k_iter)*min(T_su,T_amb) + (1-x_T_guess(k_iter))*max(T_amb,T_ex_s);  % Initial value for T_w 
+#    x0(2) = CoolProp.PropsSI('T','P',P_ex,'S',s_su,fluid); % Initial value for T_ex_2
+
+    
+#    lb = [min(T_su,T_amb)-10     x0(2)-50];
+#    ub = [max(T_amb,T_ex_s)+50   x0(2)+50];
+    
+#    options = optimoptions('fmincon','Display','none');
+#    [x, ~, flag] = fmincon(@(x)  FCT_Compr_SemiEmp_res(x, ub, fluid, M_dot, T_amb, P_su, T_su, h_su, P_ex, h_ex_s, param.V_s, param.r_v_in, param.A_leak0, param.alpha, param.W_dot_loss_0, param.AU_su_n, param.M_dot_n, param.AU_ex_n, param.AU_amb,param.h_min,param.h_max),x0./ub, [],[],[],[],lb./ub, ub./ub, [], options);
+#    if flag > 0 
+#       stop = 1;
+#    end
+# end
+# x = x.*ub;
+# int = FCT_Compr_SemiEmp(x(1), x(2), fluid, M_dot, T_amb, P_su, T_su, h_su, P_ex, h_ex_s, param.V_s, param.r_v_in, param.A_leak0, param.alpha, param.W_dot_loss_0, param.AU_su_n, param.M_dot_n, param.AU_ex_n, param.AU_amb,param.h_min,param.h_max);
             
 
     def update_connectors(self):
