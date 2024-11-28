@@ -148,5 +148,6 @@ HX.set_parameters(
 HX.set_DP()
 
 "Solve the component"
+
 HX.solve()
 HX.plot_cells()

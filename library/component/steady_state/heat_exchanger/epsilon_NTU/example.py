@@ -16,7 +16,6 @@ HX.set_inputs(
     Csu_p = 4*1e5, # Pa
     Csu_m_dot = 0.08, # kg/s  # Make sure to include fluid information
 )
-
  
 A_htx = 0.752 # m^2
 

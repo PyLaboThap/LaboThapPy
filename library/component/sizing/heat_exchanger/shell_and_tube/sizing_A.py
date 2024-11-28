@@ -181,11 +181,11 @@ class SizingAHTX(BaseComponent):
 
         return global_best_position, global_best_score
     
-    def opt_size(self):
+    # def opt_size(self):
         
-        self.particle_swarm_optimization(bounds = )
+    #     self.particle_swarm_optimization(bounds = )
 
-        return
+    #     return
 
 #%%
 

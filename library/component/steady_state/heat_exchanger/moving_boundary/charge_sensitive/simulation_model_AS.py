@@ -258,7 +258,6 @@ class HeatExchangerMB(BaseComponent):
             else:
                 print(f"  - {input}: Not set")
 
-
         print("\nParameters:")
         for param in self.get_required_parameters():
             if param in self.params:
