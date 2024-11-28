@@ -134,9 +134,9 @@ class CompressorSE(BaseComponent):
             self.su.set_p(self.inputs['su_p'])
         if 'ex_p' in self.inputs:
             self.ex.set_p(self.inputs['ex_p'])
-        if 'N_rot' is self.inputs:
+        if 'N_rot' in self.inputs:
             self.W_cp.set_N(self.inputs['N_rot'])
-        if 'T_amb' is self.inputs:
+        if 'T_amb' in self.inputs:
             self.Q_amb.set_T_cold(self.inputs['T_amb'])
 
     def get_required_parameters(self):

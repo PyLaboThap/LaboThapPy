@@ -7,9 +7,6 @@ Created on Tue Sep 10 14:09:18 2024
 
 """
 
-import os
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
 
 class BaseComponent:
     """
