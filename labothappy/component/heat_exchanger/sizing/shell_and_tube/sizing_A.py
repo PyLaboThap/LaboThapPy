@@ -2,8 +2,8 @@
 import __init__
 import numpy as np 
 
-from library.connector.mass_connector import MassConnector
-from library.component.base_component import BaseComponent
+from labothappy.connector.mass_connector import MassConnector
+from component.base_component import BaseComponent
 
 class SizingAHTX(BaseComponent):
 

@@ -45,15 +45,15 @@ Baffle_cut = 0.25 # Could be varied from 0.15 to 0.4 but 0.25 is usual value for
 
 import __init__
 import copy
-from library.component.sizing.heat_exchanger.shell_and_tube.modules.tubes_toolbox import estimate_number_of_tubes, carbon_steel_pipe_thickness, pitch_ratio_fun
+from labothappy.component.heat_exchanger.sizing.shell_and_tube.modules.tubes_toolbox import estimate_number_of_tubes, carbon_steel_pipe_thickness, pitch_ratio_fun
 from scipy.interpolate import interp1d
 from CoolProp.CoolProp import PropsSI
-from library.component.sizing.heat_exchanger.basic_sizing_UA import find_UA
+from labothappy.component.heat_exchanger.sizing.basic_sizing_UA import find_UA
 from central_spacing_comp import find_divisors_between_bounds
-from library.connector.mass_connector import MassConnector
+from labothappy.connector.mass_connector import MassConnector
 from component.base_component import BaseComponent
 
-from library.component.steady_state.heat_exchanger.moving_boundary.charge_sensitive.simulation_model_AS import HeatExchangerMB
+from labothappy.component.heat_exchanger.steady_state.moving_boundary.charge_sensitive.simulation_model_AS import HeatExchangerMB
 
 import pandas as pd
 import random
