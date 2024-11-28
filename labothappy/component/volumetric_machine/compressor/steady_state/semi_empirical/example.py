@@ -1,5 +1,5 @@
 import __init__
-from component.steady_state.volumetric_machine.compressor.semi_empirical.simulation_model import CompressorSE
+from component.volumetric_machine.compressor.steady_state.semi_empirical.simulation_model import CompressorSE
 
 import numpy as np
 
