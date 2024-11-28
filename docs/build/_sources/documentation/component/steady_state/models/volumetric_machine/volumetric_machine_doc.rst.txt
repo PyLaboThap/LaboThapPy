@@ -7,4 +7,5 @@ Details about volumetric machines.
    :maxdepth: 2
 
    compressor/compressor_doc
+   expander/expander_doc
 

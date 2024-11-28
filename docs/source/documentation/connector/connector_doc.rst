@@ -1,10 +1,10 @@
 Connector
 =========
 
-This section includes details on the connectors of the PyLaboThap library.
+This section includes details on the connectors of the LaboThapPy library.
 
-The purpose of the **Connector class** is to link components between each other. There are trhee different types of connectors that represent different
-types of energy transfer within the system;
+The purpose of the **Connector class** is to link components between each other. There are three different types of connectors that represent different
+types of energy transfer within the system:
 
 - **Mass Connector**: energy transfer in the form of mass flow (:math:`\dot{m} \cdot h`).
 - **Heat Connector**: energy transfer in the form of heat flow (:math:`\dot{Q}`).
@@ -14,9 +14,17 @@ types of energy transfer within the system;
    :alt: Connectors description.
    :width: 100%
 
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+
+   mass_connector/mass_connector_doc
+   heat_connector/heat_connector_doc
+   work_connector/work_connector_doc
 
 Example
 -------
+
 Consider a compressor connected to a motor. 
 The compressor is connected with connectors:
 
@@ -35,15 +43,7 @@ The compressor is connected with connectors:
         <li><strong>One heat connector</strong>: heat flow is connected to the ambient air.</li>
         <li><strong>One work connector</strong>: work flow is connected to a motor.</li>
    </ul>
-   
+
 .. raw:: html
 
    </div>
-
-.. toctree::
-   :maxdepth: 3
-   :caption: Contents:
-
-   mass_connector/mass_connector_doc
-   heat_connector/heat_connector_doc
-   work_connector/work_connector_doc

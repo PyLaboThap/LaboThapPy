@@ -1,27 +1,10 @@
-Constant Isentropic Efficiency Compressor model
+Constant isentropic efficiency compressor model
 ===============================================
-
-.. raw:: html
-
-   <div class="side-by-side">
-
-.. image:: ../../../../../../../../figures/component/constant_isentropic_efficiency_compressor_in_out.png
-   :alt: Description of the plot
-   :width: 100%
-
-.. image:: ../../../../../../../../figures/component/constant_isentropic_efficiency_compressor_connectors.png
-   :alt: Description of the plot
-   :width: 100%
-
-.. raw:: html
-
-   </div>
-
-
-
 
 Model description
 -----------------
+
+.. autoclass:: component.steady_state.volumetric_machine.compressor.constant_isentropic_efficiency.simulation_model.CompressorCstEff
 
 The constant isentropic efficiency model is a simple model based on the assumption that the isentropic efficiency stays constant.
 

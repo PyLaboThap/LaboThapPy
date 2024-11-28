@@ -11,9 +11,8 @@ __pycache__/
 *.pyo
 *.pyd
 
-# Ignore Jupyter Notebook checkpoints
-notebook.ipynb
-*.ipynb_checkpoints/
+# Ignore all Jupyter Notebook files
+*.ipynb
 
 # Confidential codes
 c_*.py

@@ -1,11 +1,20 @@
-Steady-State Models
+Steady-state models
 ===================
 
-This section provides an overview of the steady-state models for components in the PyLaboThap library.
+This section provides an overview of the steady-state models for components in the LaboThapPy library.
 
-Steady-state models serve as the fundamental building blocks for simulating systems. They are used to represent the behavior of 
-individual components under steady conditions and can be interconnected using connectors to model more complex systems. Components 
-can be defined in two different ways:
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+
+   base_component/base_component_doc
+   models/models_doc
+
+
+Steady-state models serve as the fundamental building blocks for simulating systems. They are used to represent
+individual components under steady-state conditions and can be interconnected using connectors to model more complex systems. Components 
+can be defined in two different ways. The first approach is to use connectors to set the inputs for components, while the second approach
+is to set the inputs directly within each component.
 
 Connector Approach
 -------------------
@@ -27,13 +36,15 @@ them to other components.
    :alt: Components inlet/outlet description.
    :width: 100%
 
-Contents
---------
+.. toctree::
+   :maxdepth: 2
+   :caption: Example of usage:
+
+   ../../../notebooks/semi_empirical_cp_example
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Example of setup:
 
-   base_component/base_component_doc
-   models/models_doc
+   base_component/exampleofsetup_doc
 

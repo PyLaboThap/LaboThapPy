@@ -1,0 +1,22 @@
+Semi-empirical model of a volumetric compressor
+===============================================
+
+Model description
+-----------------
+
+The semi-empirical model of the expander is based on the model proposed by (V. Lemort et al., 2009). The following connectors, inputs, outputs, and parameters for this model are:
+
+.. autoclass:: component.steady_state.volumetric_machine.compressor.semi_empirical.simulation_model.CompressorSE
+
+References
+----------
+
+.. _PDF: ../../../../../../../_static/pdf_files/PhD_Lemort.pdf
+
+You can download the PDF from this link: `PDF`_.
+
+
+You can find more details in the `Contribution to the Characterization of Scroll Machines in Compressor and Expander Modes <_Link to PDF>`_.
+
+You can download the PDF from this `link <_static/pdf_files/PhD_Lemort.pdf>`.
+

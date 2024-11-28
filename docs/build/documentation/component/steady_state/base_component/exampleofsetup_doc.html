@@ -1,0 +1,574 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../../../../">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../../../../genindex.html" /><link rel="search" title="Search" href="../../../../search.html" /><link rel="next" title="Dynamic models" href="../../dynamic/dynamic_doc.html" /><link rel="prev" title="Semi-Empirical Compressor Model Example" href="../../../../notebooks/semi_empirical_cp_example.html" />
+
+    <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
+        <title>Example of a Steady-State Component Model - PyLaboThap Documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo.css?v=354aac6f" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/custom.css?v=173837f2" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo-extensions.css?v=302659d7" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../../../../index.html"><div class="brand">PyLaboThap Documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../../index.html">
+  
+  
+  <span class="sidebar-brand-text">PyLaboThap Documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../../../../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../../user_guide/installation_and_setup.html">Installation and Setup</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><div class="visually-hidden">Toggle navigation of Installation and Setup</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l1 current has-children"><a class="reference internal" href="../../../documentation_doc.html">Documentation</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><div class="visually-hidden">Toggle navigation of Documentation</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul class="current">
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../connector/connector_doc.html">Connector</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><div class="visually-hidden">Toggle navigation of Connector</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../connector/mass_connector/mass_connector_doc.html">Mass Connector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../connector/heat_connector/heat_connector_doc.html">Heat Connector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../connector/work_connector/work_connector_doc.html">Work Connector</a></li>
+</ul>
+</li>
+<li class="toctree-l2 current has-children"><a class="reference internal" href="../../component_doc.html">Components</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" role="switch" type="checkbox"/><label for="toctree-checkbox-4"><div class="visually-hidden">Toggle navigation of Components</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul class="current">
+<li class="toctree-l3 current has-children"><a class="reference internal" href="../steady_state_doc.html">Steady-state models</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><div class="visually-hidden">Toggle navigation of Steady-state models</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="base_component_doc.html">BaseComponent Class</a></li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../models/models_doc.html">Steady-State Models</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" role="switch" type="checkbox"/><label for="toctree-checkbox-6"><div class="visually-hidden">Toggle navigation of Steady-State Models</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l5 has-children"><a class="reference internal" href="../models/volumetric_machine/volumetric_machine_doc.html">Volumetric Machine</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><div class="visually-hidden">Toggle navigation of Volumetric Machine</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l6 has-children"><a class="reference internal" href="../models/volumetric_machine/compressor/compressor_doc.html">Compressor models</a><input class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" role="switch" type="checkbox"/><label for="toctree-checkbox-8"><div class="visually-hidden">Toggle navigation of Compressor models</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l7"><a class="reference internal" href="../models/volumetric_machine/compressor/constant_isentropic_efficiency/constant_isentropic_efficiency_doc.html">Constant isentropic efficiency compressor model</a></li>
+<li class="toctree-l7"><a class="reference internal" href="../models/volumetric_machine/compressor/semi_empirical/semi_empirical_doc.html">Semi-empirical model of a volumetric compressor</a></li>
+</ul>
+</li>
+<li class="toctree-l6 has-children"><a class="reference internal" href="../models/volumetric_machine/expander/expander_doc.html">Expander models</a><input class="toctree-checkbox" id="toctree-checkbox-9" name="toctree-checkbox-9" role="switch" type="checkbox"/><label for="toctree-checkbox-9"><div class="visually-hidden">Toggle navigation of Expander models</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l7"><a class="reference internal" href="../models/volumetric_machine/expander/constant_isentropic_efficiency/constant_isentropic_efficiency_doc.html">Constant isentropic efficiency compressor model</a></li>
+<li class="toctree-l7"><a class="reference internal" href="../models/volumetric_machine/expander/semi_empirical/semi_empirical_doc.html">Semi-empirical model of a volumetric expander</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l5 has-children"><a class="reference internal" href="../models/heat_exchanger/heat_exchanger_doc.html">Heat Exchanger</a><input class="toctree-checkbox" id="toctree-checkbox-9" name="toctree-checkbox-9" role="switch" type="checkbox"/><label for="toctree-checkbox-9"><div class="visually-hidden">Toggle navigation of Heat Exchanger</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l6 has-children"><a class="reference internal" href="../models/heat_exchanger/moving_boundary/moving_boundary_doc.html">Moving Boundary Heat Exchanger Models</a><input class="toctree-checkbox" id="toctree-checkbox-10" name="toctree-checkbox-10" role="switch" type="checkbox"/><label for="toctree-checkbox-10"><div class="visually-hidden">Toggle navigation of Moving Boundary Heat Exchanger Models</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l7"><a class="reference internal" href="../models/heat_exchanger/moving_boundary/charge_sensitive/charge_sensitive_mb_doc.html">General Charge Sensitive Moving Boundary Model for Heat Exchangers</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../notebooks/semi_empirical_cp_example.html">Semi-Empirical Compressor Model Example</a></li>
+<li class="toctree-l4 current current-page"><a class="current reference internal" href="#">Example of a Steady-State Component Model</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../dynamic/dynamic_doc.html">Dynamic models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../sizing/sizing_doc.html">Sizing models</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="../../../../_sources/documentation/component/steady_state/base_component/exampleofsetup_doc.rst.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="example-of-a-steady-state-component-model">
+<h1>Example of a Steady-State Component Model<a class="headerlink" href="#example-of-a-steady-state-component-model" title="Link to this heading">¶</a></h1>
+<p>The following example demonstrates how to create a steady-state model using the PyLaboThap library nomenclature.
+The different methods to implement are described below.</p>
+<p>This example is based on the semif-empirical model of a volumetric compressor (XXX). For more details on this model,
+refer to the documentation [here](lien).</p>
+<p>Inputs for the model can be defined using either the connector approach or the input/output approach.
+The figures below illustrate these two approaches for the compressor model:</p>
+<div class="side-by-side"><a class="reference internal image-reference" href="../../../../_images/compressor_connectors.png"><img alt="Connectors approach for a compressor model." src="../../../../_images/compressor_connectors.png" style="width: 100%;" /></a>
+<a class="reference internal image-reference" href="../../../../_images/compressor_in_out.png"><img alt="Input/Output approach for a compressor model." src="../../../../_images/compressor_in_out.png" style="width: 100%;" /></a>
+</div><p>For each model, the following methods need to be implemented:</p>
+<p>1. <strong>Creating the class</strong>:
+Name the model accoring to PyLaboThap’s conventions. In this example, the model is named ‘CompressorSE’ (SE stands for Semi-Empirical). The model inherits from <cite>BaseComponent</cite> its methods and attributes.
+In the ‘__init__(self)’ method, define the connectors for the component. <em>Note: super().__init__() is used to call the parent class constructor</em>.</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">        Component: Volumetric compressor</span>
+
+<span class="s2">        Model: The model is based on the thesis of V. Lemort (2008) and is a semi-empirical model.</span>
+
+<span class="s2">        **Descritpion**:</span>
+
+</pre></div>
+</div>
+</div></blockquote>
+<p>2. <strong>Defining the required inputs</strong>:
+In the ‘get_required_inputs’ method, specif the inputs necessary for the models.</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span>            <span class="n">The</span> <span class="n">parameters</span> <span class="n">of</span> <span class="n">the</span> <span class="n">model</span> <span class="n">need</span> <span class="n">to</span> <span class="n">be</span> <span class="n">calibrated</span> <span class="k">with</span> <span class="n">experimental</span> <span class="n">datas</span> <span class="n">to</span> <span class="n">represent</span> <span class="n">the</span> <span class="n">real</span> <span class="n">behavior</span> <span class="n">of</span> <span class="n">the</span> <span class="n">compressor</span><span class="o">.</span>
+
+        <span class="o">**</span><span class="n">Assumptions</span><span class="o">**</span><span class="p">:</span>
+
+</pre></div>
+</div>
+</div></blockquote>
+<p>3. <strong>Synchronizing the inputs</strong>:
+In the <cite>sync_inputs</cite> method synchronizes the inputs dictionary with the connectors’ states. If the inputs are provided through the connectors, this methods ensures that the model reads them correctly.</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span>
+        <span class="o">**</span><span class="n">Connectors</span><span class="o">**</span><span class="p">:</span>
+
+            <span class="n">su</span> <span class="p">(</span><span class="n">MassConnector</span><span class="p">):</span> <span class="n">Mass</span> <span class="n">connector</span> <span class="k">for</span> <span class="n">the</span> <span class="n">suction</span> <span class="n">side</span><span class="o">.</span>
+
+            <span class="n">ex</span> <span class="p">(</span><span class="n">MassConnector</span><span class="p">):</span> <span class="n">Mass</span> <span class="n">connector</span> <span class="k">for</span> <span class="n">the</span> <span class="n">exhaust</span> <span class="n">side</span><span class="o">.</span>
+
+            <span class="n">W_cp</span> <span class="p">(</span><span class="n">WorkConnector</span><span class="p">):</span> <span class="n">Work</span> <span class="n">connector</span><span class="o">.</span>
+
+            <span class="n">Q_amb</span> <span class="p">(</span><span class="n">HeatConnector</span><span class="p">):</span> <span class="n">Heat</span> <span class="n">connector</span> <span class="k">for</span> <span class="n">the</span> <span class="n">ambient</span> <span class="n">heat</span> <span class="n">transfer</span><span class="o">.</span>
+
+        <span class="o">**</span><span class="n">Parameters</span><span class="o">**</span><span class="p">:</span>
+
+            <span class="n">AU_amb</span><span class="p">:</span> <span class="n">Heat</span> <span class="n">transfer</span> <span class="n">coefficient</span> <span class="k">for</span> <span class="n">the</span> <span class="n">ambient</span> <span class="n">heat</span> <span class="n">transfer</span><span class="o">.</span> <span class="p">[</span><span class="n">W</span><span class="o">/</span><span class="n">K</span><span class="p">]</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>4. <strong>Setting the inputs</strong>:
+In the <cite>set_inputs</cite> method, the inputs are set directly by the user. This method ensures that the connectors are updated automatically.</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span>            <span class="n">AU_su_n</span><span class="p">:</span> <span class="n">Nominal</span> <span class="n">heat</span> <span class="n">transfer</span> <span class="n">coefficient</span> <span class="k">for</span> <span class="n">the</span> <span class="n">suction</span> <span class="n">side</span> <span class="n">heat</span> <span class="n">transfer</span><span class="o">.</span> <span class="p">[</span><span class="n">W</span><span class="o">/</span><span class="n">K</span><span class="p">]</span>
+
+            <span class="n">AU_ex_n</span><span class="p">:</span> <span class="n">Nominal</span> <span class="n">heat</span> <span class="n">transfer</span> <span class="n">coefficient</span> <span class="k">for</span> <span class="n">the</span> <span class="n">exhaust</span> <span class="n">side</span> <span class="n">heat</span> <span class="n">transfer</span><span class="o">.</span> <span class="p">[</span><span class="n">W</span><span class="o">/</span><span class="n">K</span><span class="p">]</span>
+
+            <span class="n">d_ex</span><span class="p">:</span> <span class="n">Pressure</span> <span class="n">drop</span> <span class="n">diameter</span><span class="o">.</span> <span class="p">[</span><span class="n">m</span><span class="p">]</span>
+
+            <span class="n">m_dot_n</span><span class="p">:</span> <span class="n">Nominal</span> <span class="n">mass</span> <span class="n">flow</span> <span class="n">rate</span><span class="o">.</span> <span class="p">[</span><span class="n">kg</span><span class="o">/</span><span class="n">s</span><span class="p">]</span>
+
+            <span class="n">A_leak</span><span class="p">:</span> <span class="n">Leakage</span> <span class="n">area</span><span class="o">.</span> <span class="p">[</span><span class="n">m</span><span class="o">^</span><span class="mi">2</span><span class="p">]</span>
+
+            <span class="n">W_dot_loss_0</span><span class="p">:</span> <span class="n">Constant</span> <span class="n">loss</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">compressor</span><span class="o">.</span> <span class="p">[</span><span class="n">W</span><span class="p">]</span>
+
+            <span class="n">alpha</span><span class="p">:</span> <span class="n">Loss</span> <span class="n">coefficient</span><span class="o">.</span> <span class="p">[</span><span class="o">-</span><span class="p">]</span>
+
+            <span class="n">C_loss</span><span class="p">:</span> <span class="n">Torque</span> <span class="n">losses</span><span class="o">.</span> <span class="p">[</span><span class="n">N</span><span class="o">.</span><span class="n">m</span><span class="p">]</span>
+
+            <span class="n">rv_in</span><span class="p">:</span> <span class="n">Inlet</span> <span class="n">volume</span> <span class="n">ratio</span><span class="o">.</span> <span class="p">[</span><span class="o">-</span><span class="p">]</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>5. <strong>Defining required parameters</strong>:
+Use the <cite>get_required_parameters</cite> method to list all parameters necessary for the model.</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span>            <span class="n">V_s</span><span class="p">:</span> <span class="n">Swept</span> <span class="n">volume</span><span class="o">.</span> <span class="p">[</span><span class="n">m</span><span class="o">^</span><span class="mi">3</span><span class="p">]</span>
+
+        <span class="o">**</span><span class="n">Inputs</span><span class="o">**</span><span class="p">:</span>
+
+            <span class="n">su_p</span><span class="p">:</span> <span class="n">Suction</span> <span class="n">side</span> <span class="n">pressure</span><span class="o">.</span> <span class="p">[</span><span class="n">Pa</span><span class="p">]</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>6. <strong>Printing setup information</strong>:
+The <cite>print_setup</cite> method prints details of the connectors and inputs needed to run the simulation.</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span>            <span class="n">su_T</span><span class="p">:</span> <span class="n">Suction</span> <span class="n">side</span> <span class="n">temperature</span><span class="o">.</span> <span class="p">[</span><span class="n">K</span><span class="p">]</span>
+
+            <span class="n">ex_p</span><span class="p">:</span> <span class="n">Exhaust</span> <span class="n">side</span> <span class="n">pressure</span><span class="o">.</span> <span class="p">[</span><span class="n">Pa</span><span class="p">]</span>
+
+            <span class="n">su_fluid</span><span class="p">:</span> <span class="n">Suction</span> <span class="n">side</span> <span class="n">fluid</span><span class="o">.</span> <span class="p">[</span><span class="o">-</span><span class="p">]</span>
+
+            <span class="n">N_rot</span><span class="p">:</span> <span class="n">Rotational</span> <span class="n">speed</span><span class="o">.</span> <span class="p">[</span><span class="n">rpm</span><span class="p">]</span>
+
+            <span class="n">T_amb</span><span class="p">:</span> <span class="n">Ambient</span> <span class="n">temperature</span><span class="o">.</span> <span class="p">[</span><span class="n">K</span><span class="p">]</span>
+
+        <span class="o">**</span><span class="n">Ouputs</span><span class="o">**</span><span class="p">:</span>
+
+            <span class="n">eta_is</span><span class="p">:</span> <span class="n">Isentropic</span> <span class="n">efficiency</span><span class="o">.</span> <span class="p">[</span><span class="o">-</span><span class="p">]</span>
+
+            <span class="n">ex_h</span><span class="p">:</span> <span class="n">Exhaust</span> <span class="n">side</span> <span class="n">specific</span> <span class="n">enthalpy</span><span class="o">.</span> <span class="p">[</span><span class="n">J</span><span class="o">/</span><span class="n">kg</span><span class="p">]</span>
+
+            <span class="n">ex_T</span><span class="p">:</span> <span class="n">Exhaust</span> <span class="n">side</span> <span class="n">temperature</span><span class="o">.</span> <span class="p">[</span><span class="n">K</span><span class="p">]</span>
+
+            <span class="n">W_dot_cp</span><span class="p">:</span> <span class="n">Compressor</span> <span class="n">power</span><span class="o">.</span> <span class="p">[</span><span class="n">W</span><span class="p">]</span>
+
+            <span class="n">m_dot</span><span class="p">:</span> <span class="n">Mass</span> <span class="n">flow</span> <span class="n">rate</span><span class="o">.</span> <span class="p">[</span><span class="n">kg</span><span class="o">/</span><span class="n">s</span><span class="p">]</span>
+            
+            <span class="n">epsilon_v</span><span class="p">:</span> <span class="n">Volumetric</span> <span class="n">efficiency</span><span class="o">.</span> <span class="p">[</span><span class="o">-</span><span class="p">]</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>7. <strong>Solving the model</strong>:
+The <cite>solve</cite> method checks if the model is ready to be calculated (i.e., if all inputs and parameters are set) before performing the necessary calculations and updating the connectors with the results.</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span>        <span class="k">try</span><span class="p">:</span>
+            <span class="n">cp_ex</span> <span class="o">=</span> <span class="n">PropsSI</span><span class="p">(</span><span class="s1">&#39;C&#39;</span><span class="p">,</span> <span class="s1">&#39;P&#39;</span><span class="p">,</span> <span class="n">P_ex</span><span class="p">,</span> <span class="s1">&#39;H&#39;</span><span class="p">,</span> <span class="n">h_ex1</span><span class="p">,</span> <span class="n">Fluid</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">cp_su</span> <span class="o">=</span> <span class="n">PropsSI</span><span class="p">(</span><span class="s1">&#39;C&#39;</span><span class="p">,</span> <span class="s1">&#39;P&#39;</span><span class="p">,</span> <span class="n">P_ex</span><span class="p">,</span> <span class="s1">&#39;Q&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">Fluid</span><span class="p">)</span>
+        
+        <span class="n">C_dot_ex</span> <span class="o">=</span> <span class="n">cp_ex</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">m_dot</span>
+        <span class="n">NTU_ex</span> <span class="o">=</span> <span class="n">AU_ex</span><span class="o">/</span><span class="n">C_dot_ex</span>
+        <span class="n">epsilon_ex</span> <span class="o">=</span> <span class="mi">1</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">NTU_ex</span><span class="p">)</span>
+        <span class="n">Q_dot_ex</span> <span class="o">=</span> <span class="n">epsilon_ex</span><span class="o">*</span><span class="n">C_dot_ex</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">T_w</span><span class="o">-</span><span class="n">T_ex1</span><span class="p">)</span>
+        
+        <span class="n">h_ex</span> <span class="o">=</span> <span class="n">h_ex1</span><span class="o">+</span><span class="p">(</span><span class="n">Q_dot_ex</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">m_dot</span><span class="p">)</span>
+        
+        <span class="s2">&quot;Fictious enveloppe heat balance&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Q_dot_amb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;AU_amb&#39;</span><span class="p">]</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">T_w</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="p">[</span><span class="s1">&#39;T_amb&#39;</span><span class="p">])</span>
+        
+        <span class="s2">&quot;Compression work and power&quot;</span>
+        <span class="n">W_dot_in</span> <span class="o">=</span> <span class="n">m_dot_in</span><span class="o">*</span><span class="n">w_in</span>
+        <span class="n">W_dot_loss</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;alpha&#39;</span><span class="p">]</span><span class="o">*</span><span class="n">W_dot_in</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;W_dot_loss_0&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;C_loss&#39;</span><span class="p">]</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="o">*</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">W_dot_cp</span> <span class="o">=</span> <span class="n">W_dot_in</span> <span class="o">+</span> <span class="n">W_dot_loss</span>
+        
+        <span class="s2">&quot;Exit data&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">h_ex</span> <span class="o">=</span> <span class="n">h_ex</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">P_ex</span> <span class="o">=</span> <span class="n">P_ex</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">T_ex</span> <span class="o">=</span> <span class="n">PropsSI</span><span class="p">(</span><span class="s1">&#39;T&#39;</span><span class="p">,</span> <span class="s1">&#39;H&#39;</span><span class="p">,</span> <span class="n">h_ex</span><span class="p">,</span> <span class="s1">&#39;P&#39;</span><span class="p">,</span> <span class="n">P_ex</span><span class="p">,</span> <span class="n">Fluid</span><span class="p">)</span>
+        
+        <span class="s2">&quot;Isentropic efficiency&quot;</span>
+        <span class="n">h_ex_is</span> <span class="o">=</span> <span class="n">PropsSI</span><span class="p">(</span><span class="s1">&#39;H&#39;</span><span class="p">,</span> <span class="s1">&#39;S&#39;</span><span class="p">,</span> <span class="n">s_su</span><span class="p">,</span> <span class="s1">&#39;P&#39;</span><span class="p">,</span> <span class="n">P_ex</span><span class="p">,</span> <span class="n">Fluid</span><span class="p">)</span>
+        <span class="n">w_s</span> <span class="o">=</span> <span class="n">h_ex_is</span><span class="o">-</span><span class="n">h_su</span>
+        <span class="n">W_dot_s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">m_dot</span><span class="o">*</span><span class="n">w_s</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">epsilon_is</span> <span class="o">=</span> <span class="n">W_dot_s</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">W_dot_cp</span>
+        
+        <span class="s2">&quot;Volumetric efficiency&quot;</span>
+        <span class="c1">#Theoretical flowrate</span>
+        <span class="n">V_s_dot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;V_s&#39;</span><span class="p">]</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">N</span>
+        <span class="n">m_dot_th</span> <span class="o">=</span> <span class="n">V_s_dot</span><span class="o">*</span><span class="n">rho_su</span>
+        
+        <span class="n">m_dot_in_bis</span> <span class="o">=</span> <span class="n">V_s_dot</span><span class="o">*</span><span class="n">rho_su2</span>
+        
+        <span class="c1">#Volumetric efficiencies definitions</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">epsilon_v</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">m_dot</span><span class="o">/</span><span class="n">m_dot_th</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">epsilon_v_l</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">m_dot</span><span class="o">/</span><span class="n">m_dot_in</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">epsilon_v_PT</span> <span class="o">=</span> <span class="n">m_dot_in</span><span class="o">/</span><span class="n">m_dot_th</span>
+        
+        <span class="s2">&quot;Residue&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">res_h_ex1</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">h_ex1_bis</span><span class="o">-</span><span class="n">h_ex1</span><span class="p">)</span><span class="o">/</span><span class="n">h_ex1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">resE</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">((</span><span class="n">W_dot_loss</span> <span class="o">-</span> <span class="n">Q_dot_ex</span> <span class="o">-</span> <span class="n">Q_dot_su</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">Q_dot_amb</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="n">W_dot_loss</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">res_h_ex2</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">h_ex2_bis</span><span class="o">-</span><span class="n">h_ex2</span><span class="p">)</span><span class="o">/</span><span class="n">h_ex2</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">res_m_dot_in</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">m_dot_in</span><span class="o">-</span><span class="n">m_dot_in_bis</span><span class="p">)</span><span class="o">/</span><span class="n">m_dot_in</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">res</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">res_h_ex1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">resE</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">res_h_ex2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">res_m_dot_in</span><span class="p">]</span>
+ 
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">res</span>
+    
+                
+</pre></div>
+</div>
+</div></blockquote>
+<p>8. <strong>Updating the connectors</strong>:
+After solving the model, the <cite>update_connectors</cite> method updates the state of the connectors based on the calculated results.</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="k">def</span> <span class="nf">solve</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_calculable</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_parametrized</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">calculable</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">parametrized</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">solved</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;CompressorSE could not be solved. It is not calculable and/or not parametrized&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+        
+        <span class="k">try</span><span class="p">:</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>9. <strong>Printing results</strong>:
+Use the <cite>print_results</cite> method to display the results of the model calculations.</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span>            <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+            
+            <span class="n">x_m_guess</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.1</span><span class="p">,</span> <span class="mf">0.99</span><span class="p">,</span> <span class="mf">1.3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mf">1.15</span><span class="p">]</span> <span class="c1">#guesses on the filling factor to provide suitable initial point for the iteration</span>
+            <span class="n">x_T_guess</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.9</span><span class="p">,</span> <span class="mf">1.01</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">,</span> <span class="mf">1.1</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">]</span> <span class="c1">#For the iteration on the T_w</span>
+            <span class="n">stop</span> <span class="o">=</span> <span class="mi">0</span>
+            
+            <span class="n">j</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="c1"># Loop to permit multiple attempts to solve the implicit calculation</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>10. <strong>Printing the states of connectors</strong>:
+The <cite>print_states_connectors</cite> method prints the current state of the connectors after the simulation has been run.</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span>                    <span class="c1"># Guesses for the initial values</span>
+                    <span class="n">T_w_guess</span> <span class="o">=</span> <span class="n">x_T_guess</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">*</span><span class="n">PropsSI</span><span class="p">(</span><span class="s1">&#39;T&#39;</span><span class="p">,</span> <span class="s1">&#39;P&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ex</span><span class="o">.</span><span class="n">p</span><span class="p">,</span> <span class="s1">&#39;S&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">su</span><span class="o">.</span><span class="n">s</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">su</span><span class="o">.</span><span class="n">fluid</span><span class="p">)</span><span class="o">+</span><span class="mi">5</span> <span class="c1">#x_T_guess[j]*self.su.T+(1-x_T_guess[j])*self.T_amb</span>
+                    <span class="n">m_dot_guess</span> <span class="o">=</span> <span class="n">x_m_guess</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;V_s&#39;</span><span class="p">]</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="p">[</span><span class="s1">&#39;N_rot&#39;</span><span class="p">]</span><span class="o">/</span><span class="mi">60</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">su</span><span class="o">.</span><span class="n">D</span> <span class="c1">#ff_guess[k]*self.V_s*self.N_rot/60*PropsSI(&#39;D&#39;, &#39;P&#39;, self.su.p, &#39;H&#39;, self.su.h, self.su.fluid) #initial value for M_dot</span>
+                    <span class="n">T_ex2_guess</span> <span class="o">=</span> <span class="n">PropsSI</span><span class="p">(</span><span class="s1">&#39;T&#39;</span><span class="p">,</span><span class="s1">&#39;P&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ex</span><span class="o">.</span><span class="n">p</span><span class="p">,</span><span class="s1">&#39;S&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">su</span><span class="o">.</span><span class="n">s</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">su</span><span class="o">.</span><span class="n">fluid</span><span class="p">)</span><span class="o">+</span><span class="mi">5</span> <span class="c1">#PropsSI(&#39;T&#39;, &#39;P&#39;, self.su.p*self.rp,&#39;S&#39;, self.su.s, self.su.fluid)</span>
+                    <span class="n">P_ex2_guess</span> <span class="o">=</span> <span class="mf">0.9</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">ex</span><span class="o">.</span><span class="n">p</span>
+                    <span class="c1">#---------------------------------------------------------------------</span>
+                    <span class="n">args</span> <span class="o">=</span> <span class="p">()</span>
+                    <span class="n">x</span> <span class="o">=</span> <span class="p">[</span><span class="n">T_ex2_guess</span><span class="p">,</span> <span class="n">T_w_guess</span><span class="p">,</span> <span class="n">P_ex2_guess</span><span class="p">,</span> <span class="n">m_dot_guess</span><span class="p">]</span>
+                    <span class="c1">#--------------------------------------------------------------------------</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">fsolve</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">System</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">args</span> <span class="o">=</span> <span class="n">args</span><span class="p">)</span>
+                        <span class="n">res_norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">res</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>For further details on this model, refer to the [documentation](link).</p>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="../../dynamic/dynamic_doc.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Dynamic models</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="../../../../notebooks/semi_empirical_cp_example.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Semi-Empirical Compressor Model Example</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2024, Basile Chaudoir, Elise Neven
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer no-toc">
+      
+      
+      
+    </aside>
+  </div>
+</div><script src="../../../../_static/documentation_options.js?v=f2a433a1"></script>
+    <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    </body>
+</html>
