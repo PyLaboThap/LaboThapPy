@@ -13,7 +13,7 @@ Modification w/r to previous version:
 
 # from __future__ import division, print_function
 
-from simulation_model import HeatExchangerMB
+from simulation_model_AS import HeatExchangerMB
 from modules.geometry_tube_and_fins_hx import TubeAndFinsGeom
 
 #%%
@@ -123,6 +123,7 @@ HX.set_parameters(
 
 # HX.set_HTC(htc_type = 'User-Defined', UD_H_HTC = UD_H_HTC, UD_C_HTC = UD_C_HTC) # 'User-Defined' or 'Correlation'
 HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation' # 33
+HX.set_DP()
 
 "Solve the component"
 HX.solve()

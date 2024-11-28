@@ -25,7 +25,7 @@ from scipy.interpolate import interp1d
 try:
     # Internal Toolbox 
     from modules.f_lmtd2 import f_lmtd2
-    from modules.propsfluid import propsfluid
+    from modules.propsfluid_AS import propsfluid_AS
     from modules.find_2P_boundaries import find_2P_boundaries
 
     # HTC and DP Correlations
@@ -49,7 +49,7 @@ try:
 except:
     # Internal Toolbox 
     from .modules.f_lmtd2 import f_lmtd2
-    from .modules.propsfluid import propsfluid
+    from .modules.propsfluid_AS import propsfluid_AS
     from .modules.find_2P_boundaries import find_2P_boundaries
 
     # HTC and DP Correlations
@@ -258,7 +258,6 @@ class HeatExchangerMB(BaseComponent):
             else:
                 print(f"  - {input}: Not set")
 
-
         print("\nParameters:")
         for param in self.get_required_parameters():
             if param in self.params:
@@ -343,7 +342,8 @@ class HeatExchangerMB(BaseComponent):
         "2) Hot fluid side pinch"
         
         # Computation of outlet lowest possible enthalpy of the hot fluid using either the entrance cold fluid inlet temperature, or the arbitrary minimal
-        self.h_ho = CP.PropsSI('H','T', max(self.T_ci, T_hmin),'P',self.p_hi,self.H_su.fluid) # Equation 5 (Bell et al. 2015)
+        self.AS_H.update(CP.PT_INPUTS, self.p_hi, max(self.T_ci, T_hmin))
+        self.h_ho = self.AS_H.hmass() # Equation 5 (Bell et al. 2015)
         
         # Q_max computation
         Qmaxh = self.mdot_h*(self.h_hi-self.h_ho) # Equation 4 (Bell et al. 2015)
@@ -357,7 +357,8 @@ class HeatExchangerMB(BaseComponent):
         "3) Cold fluid side pinch"
                 
         # Computation of highest possible outlet enthalpy of the hot fluid using either the entrance hot fluid inlet temperature, or the arbitrary maximal
-        self.h_co = CP.PropsSI('H','T',min(self.T_hi, T_cmax),'P',self.p_ci,self.C_su.fluid) # Equation  (Bell et al. 2015)
+        self.AS_C.update(CP.PT_INPUTS, self.p_ci, min(self.T_hi, T_cmax))
+        self.h_co = self.AS_C.hmass() # Equation  (Bell et al. 2015)
         
         # Q_max computation
         Qmaxc = self.mdot_c*(self.h_co-self.h_ci) # Equation 6 (Bell et al. 2015)
@@ -407,8 +408,12 @@ class HeatExchangerMB(BaseComponent):
                 self.p_cbubble = p_cbubble
                 self.h_cdew = h_cdew
                 self.h_cbubble = h_cbubble
-                self.T_cdew = CP.PropsSI("T", "P", self.p_cdew, "Q", 1, self.C_su.fluid)
-                self.T_cbubble = CP.PropsSI("T", "P", self.p_cbubble, "Q", 0, self.C_su.fluid)
+
+                self.AS_C.update(CP.PQ_INPUTS, self.p_cdew, 1)
+                self.T_cdew = self.AS_C.T()
+
+                self.AS_C.update(CP.PQ_INPUTS, self.p_cbubble, 0)
+                self.T_cbubble = self.AS_C.T()
                 
         "2.2) For the hot fluid"
         
@@ -427,8 +432,12 @@ class HeatExchangerMB(BaseComponent):
                 self.p_hbubble = p_hbubble
                 self.h_hdew = h_hdew
                 self.h_hbubble = h_hbubble
-                self.T_hdew = CP.PropsSI("T", "P", self.p_hdew, "Q", 1, self.H_su.fluid)
-                self.T_hbubble = CP.PropsSI("T", "P", self.p_hbubble, "Q", 0, self.H_su.fluid)
+
+                self.AS_H.update(CP.PQ_INPUTS, self.p_hdew, 1)
+                self.T_hdew = self.AS_H.T()
+
+                self.AS_H.update(CP.PQ_INPUTS, self.p_hbubble, 0)
+                self.T_hbubble = self.AS_H.T()
 
         "3) Discretization of the heat exchanger, user defined"
         # The minimum number of cells desired is n_disc
@@ -525,14 +534,23 @@ class HeatExchangerMB(BaseComponent):
         self.pvec_c = (1-self.hnorm_c)*self.p_ci + self.hnorm_c*self.p_co
         self.pvec_h = (1-self.hnorm_h)*self.p_hi + self.hnorm_h*self.p_ho
 
-        # Calculate the temperature and entropy at each cell boundary
-        self.Tvec_c = CP.PropsSI('T','H',self.hvec_c,'P',self.pvec_c,self.C_su.fluid)
+        self.Tvec_c = np.zeros(np.size(self.pvec_c))
+        self.Tvec_h = np.zeros(np.size(self.pvec_h))
         
-        self.Tvec_h = CP.PropsSI('T','H',self.hvec_h,'P',self.pvec_h,self.H_su.fluid)
-        self.svec_h = CP.PropsSI('S','H',self.hvec_h,'P',self.pvec_h,self.H_su.fluid)
-        
-        self.svec_c = CP.PropsSI('S','H',self.hvec_c,'P',self.pvec_c,self.C_su.fluid)
+        self.svec_c = np.zeros(np.size(self.pvec_c))
+        self.svec_h = np.zeros(np.size(self.pvec_h))
 
+        # Calculate the temperature and entropy at each cell boundary
+        for i in range(len(self.hvec_c)):
+            self.AS_C.update(CP.HmassP_INPUTS, self.hvec_c[i], self.pvec_c[i])
+
+            self.Tvec_c[i] = self.AS_C.T()
+            self.svec_c[i] = self.AS_C.smass()
+
+            self.AS_H.update(CP.HmassP_INPUTS, self.hvec_h[i], self.pvec_h[i])
+
+            self.Tvec_h[i] = self.AS_H.T()
+            self.svec_h[i] = self.AS_H.smass()
 
         "6) Vapour quality calculation if in the two-phase zone. If not, force, the value to -2 or 2"
         # Take Transcritical into account. in that Case, force x = 3
@@ -564,11 +582,19 @@ class HeatExchangerMB(BaseComponent):
                 self.x_vec_c.append(3)
 
         "7) Vector of saturation temperatures at quality = 0.5, considering the pressure drop at each cell"
-        
-        if not self.Transcritical_c:
-            self.Tvec_sat_pure_c = CP.PropsSI("T", "Q", 0.5, "P", self.pvec_c, self.C_su.fluid)
-        if not self.Transcritical_h and not self.h_incomp_flag:
-            self.Tvec_sat_pure_h = CP.PropsSI("T", "Q", 0.5, "P", self.pvec_h, self.H_su.fluid)
+
+        self.Tvec_sat_pure_c = np.zeros(np.size(self.pvec_c))
+        self.Tvec_sat_pure_h = np.zeros(np.size(self.pvec_h))
+
+        for i in range(len(self.pvec_c)):
+            if not self.Transcritical_c:
+                self.AS_C.update(CP.PQ_INPUTS, self.pvec_c[i], 0.5)
+                self.Tvec_sat_pure_c[i] = self.AS_C.T()
+
+        for i in range(len(self.pvec_h)):    
+            if not self.Transcritical_h and not self.h_incomp_flag:
+                self.AS_H.update(CP.PQ_INPUTS, self.pvec_h[i], 0.5)
+                self.Tvec_sat_pure_h[i] = self.AS_H.T()
             
         "8) Calculate pinch and heat exchanger border temperature deltas"
         
@@ -597,7 +623,8 @@ class HeatExchangerMB(BaseComponent):
                     if (abs(self.hvec_h[i] - self.h_hdew) < 1e-6 and self.Tvec_c[i] > self.Tvec_h[i]):
                         
                         # Enthalpy of the cold stream at the pinch temperature
-                        h_c_pinch = CP.PropsSI('H','T',self.T_hdew,'P',self.pvec_c[i], self.C_su.fluid) # Equation 10 (Bell et al. 2015)
+                        self.AS_C.update(CP.PT_INPUTS, self.pvec_c[i], self.T_hdew)
+                        h_c_pinch = self.AS_C.hmass() # Equation 10 (Bell et al. 2015)
 
                         # Heat transfer in the cell
                         Qright = self.mdot_h*(self.h_hi-self.h_hdew) # Equation 9 (Bell et al. 2015)
@@ -624,8 +651,9 @@ class HeatExchangerMB(BaseComponent):
                     # Check if enthalpy is equal to the bubblepoint enthalpy of cold stream and hot stream is colder than cold stream (impossible)
                     if (abs(self.hvec_c[i] - self.h_cbubble) < 1e-6 and self.Tvec_c[i] > self.Tvec_h[i]):
                         
-                        # Enthalpy of the cold stream at the pinch temperatur
-                        h_h_pinch = CP.PropsSI('H','T',self.T_cbubble,'P',self.pvec_h[i], self.H_su.fluid) # Equation 14 (Bell et al. 2015)
+                        # Enthalpy of the hot stream at the pinch temperature
+                        self.AS_H.update(CP.PT_INPUTS, self.pvec_h[i], self.T_cbubble)
+                        h_h_pinch = self.AS_H.hmass() # Equation 10 (Bell et al. 2015)
 
                         # Heat transfer in the cell
                         Qleft = self.mdot_c*(self.h_cbubble-self.h_ci) # Equation 13 (Bell et al. 2015)
@@ -667,7 +695,8 @@ class HeatExchangerMB(BaseComponent):
         if self.C.HeatExchange_Correlation == "Correlation":
             if self.C.Correlation_2phase == "Boiling_curve": # Compute the fluid boiling curve beforehand
                     try:
-                        T_sat = CP.PropsSI('T','P', self.su_C.p,'Q',0,self.su_C.fluid)
+                        self.AS_C.update(CP.PQ_INPUTS, self.su_C.p, 0)
+                        T_sat = self.AS_C.T()
                         (h_boil, DT_vect) = boiling_curve(self.params['Tube_OD'], self.su_C.fluid, T_sat, self.su_C.p)
                         self.C_f_boiling = interp1d(DT_vect,h_boil)
                     except:
@@ -690,8 +719,11 @@ class HeatExchangerMB(BaseComponent):
         self.H_ex = self.ex_H
         self.C_ex = self.ex_C  
 
+        self.AS_C = CP.AbstractState("HEOS", self.C_su.fluid)
+        self.AS_H = CP.AbstractState("HEOS", self.H_su.fluid)
+        
         self.h_incomp_flag = (self.H_su.fluid.find("INCOMP") != -1)
-                
+
         # Hot fluid
         self.mdot_h = self.H_su.m_dot
         self.h_hi = self.H_su.h
@@ -703,8 +735,12 @@ class HeatExchangerMB(BaseComponent):
         self.p_ci = self.C_su.p
                 
         # Determine the inlet temperatures from the pressure/enthalpy pairs
-        self.T_ci = CP.PropsSI('T', 'P', self.p_ci, 'H', self.h_ci, self.C_su.fluid)
-        self.T_hi = CP.PropsSI('T', 'P', self.p_hi, 'H', self.h_hi, self.H_su.fluid)
+
+        self.AS_C.update(CP.HmassP_INPUTS, self.h_ci, self.p_ci)
+        self.AS_H.update(CP.HmassP_INPUTS, self.h_hi, self.p_hi)
+
+        self.T_ci = self.AS_C.T()
+        self.T_hi = self.AS_H.T()
 
         "2) Determine if the streams come in at a higher pressure than the transcritical pressure"
         
@@ -712,23 +748,35 @@ class HeatExchangerMB(BaseComponent):
         self.Transcritical_c = False
         self.Transcritical_h = False
         
-        if not self.h_incomp_flag and (self.p_hi - CP.PropsSI("PCRIT", self.H_su.fluid)) >= 1e-06:
+        if not self.h_incomp_flag and (self.p_hi - self.AS_H.p_critical()) >= 1e-06:
             self.Transcritical_h = True
 
         "3) Calculate the ideal bubble and dew temperatures/enthalpies for each stream IF the fluid is not transcritical"
         
         
         if not self.Transcritical_c:
-            self.T_cbubble_ideal = CP.PropsSI('T', 'P', self.p_ci, 'Q', 0, self.C_su.fluid)
-            self.T_cdew_ideal    = CP.PropsSI('T', 'P', self.p_ci, 'Q', 1, self.C_su.fluid)
-            self.h_cbubble_ideal = CP.PropsSI('H', 'T', self.T_cbubble_ideal, 'Q', 0, self.C_su.fluid)
-            self.h_cdew_ideal    = CP.PropsSI('H', 'T', self.T_cdew_ideal, 'Q', 1, self.C_su.fluid)  
+
+            self.AS_C.update(CP.PQ_INPUTS, self.p_ci, 0)
+        
+            self.T_cbubble_ideal = self.AS_C.T()
+            self.h_cbubble_ideal = self.AS_C.hmass()
+
+            self.AS_C.update(CP.PQ_INPUTS, self.p_ci, 1)
+
+            self.T_cdew_ideal    = self.AS_C.T()
+            self.h_cdew_ideal    = self.AS_C.hmass()
             
         if not self.Transcritical_h and not self.h_incomp_flag:
-            self.T_hbubble_ideal = CP.PropsSI('T', 'P', self.p_hi, 'Q', 0, self.H_su.fluid)
-            self.T_hdew_ideal    = CP.PropsSI('T', 'P', self.p_hi, 'Q', 1, self.H_su.fluid)
-            self.h_hbubble_ideal = CP.PropsSI('H', 'T', self.T_hbubble_ideal, 'Q', 0, self.H_su.fluid)
-            self.h_hdew_ideal    = CP.PropsSI('H', 'T', self.T_hdew_ideal, 'Q', 1, self.H_su.fluid)
+
+            self.AS_H.update(CP.PQ_INPUTS, self.p_hi, 0)
+
+            self.T_hbubble_ideal = self.AS_H.T()
+            self.h_hbubble_ideal = self.AS_H.hmass()
+
+            self.AS_H.update(CP.PQ_INPUTS, self.p_hi, 1)
+
+            self.T_hdew_ideal    = self.AS_H.T()
+            self.h_hdew_ideal    = self.AS_H.hmass()
             
         "4) Calculate pressure drops"
         
@@ -799,20 +847,32 @@ class HeatExchangerMB(BaseComponent):
             
             for i in range(len(self.hvec_h)):
                 if self.x_vec_h[i] <= 0 or self.x_vec_h[i] >= 1: 
-                    self.Dvec_h[i] = CP.PropsSI('D', "P", self.pvec_h[i], "H", self.hvec_h[i], self.H_su.fluid)
+                    self.AS_H.update(CP.HmassP_INPUTS, self.hvec_h[i], self.pvec_h[i])
+                    
+                    self.Dvec_h[i] = self.AS_H.rhomass()
                     self.eps_void_h[i] = -1
                 else:
-                    rho_g = CP.PropsSI('D', 'P', self.pvec_h[i], "Q", 1, self.H_su.fluid)
-                    rho_l = CP.PropsSI('D', 'P', self.pvec_h[i], "Q", 0, self.H_su.fluid)
+                    self.AS_H.update(CP.PQ_INPUTS, self.pvec_h[i], 1)
+                    rho_g = self.AS_H.rhomass()
+
+                    self.AS_H.update(CP.PQ_INPUTS, self.pvec_h[i], 0)
+                    rho_l = self.AS_H.rhomass()
+
                     self.eps_void_h[i], self.Dvec_h[i] = void_fraction(self.x_vec_h[i], rho_g, rho_l)
                     
             for i in range(len(self.hvec_c)-1):
                 if self.x_vec_c[i] <= 0 or self.x_vec_c[i] >= 1: 
-                    self.Dvec_c[i] = CP.PropsSI('D', "P", self.pvec_c[i], "H", self.hvec_c[i], self.C_su.fluid)
+                    self.AS_C.update(CP.HmassP_INPUTS, self.hvec_c[i], self.pvec_c[i])
+                    
+                    self.Dvec_c[i] = self.AS_C.rhomass()
                     self.eps_void_c[i] = -1
                 else:
-                    rho_g = CP.PropsSI('D', 'P', self.pvec_c[i], "Q", 1, self.C_su.fluid)
-                    rho_l = CP.PropsSI('D', 'P', self.pvec_c[i], "Q", 0, self.C_su.fluid)
+                    self.AS_C.update(CP.PQ_INPUTS, self.pvec_c[i], 1)
+                    rho_g = self.AS_C.rhomass()
+
+                    self.AS_C.update(CP.PQ_INPUTS, self.pvec_c[i], 0)
+                    rho_l = self.AS_C.rhomass()
+
                     self.eps_void_c[i], self.Dvec_c[i] = void_fraction(self.x_vec_c[i], rho_g, rho_l)
             
             "5.5) Computation of the fluid mass inside the HTX"
@@ -865,6 +925,7 @@ class HeatExchangerMB(BaseComponent):
                 self.C_ex = self.ex_C
                                             
                 self.defined = True
+
                 return Q
             
         else: # Just a flag if the heat exchanger is not solved
@@ -1013,17 +1074,19 @@ class HeatExchangerMB(BaseComponent):
                 # Mass flow in tubes if the fluid is in the tubes
                 G_h = (self.mdot_h/self.params['n_tubes'])/A_in_one_tube
                 G_c = (self.mdot_c/self.params['n_tubes'])/A_in_one_tube
-                
+
             # F correction factor for LMTD method:
             if self.params['Flow_Type'] != "CounterFlow":
                 
                 try:
-                    C_c = CP.PropsSI('C', 'T', Tc_mean,'P',p_c_mean,self.C_su.fluid)
+                    self.AS_C.update(CP.PT_INPUTS, p_c_mean, Tc_mean)
+                    C_c = self.AS_C.cpmass()
                 except:
                     C_c = 20000
                     
                 try:
-                    C_h = CP.PropsSI('C', 'T', Th_mean,'P',p_h_mean,self.H_su.fluid)
+                    self.AS_H.update(CP.PT_INPUTS, p_h_mean, Th_mean)
+                    C_h = self.AS_H.cpmass()
                 except:
                     C_h = 20000
                 
@@ -1069,15 +1132,27 @@ class HeatExchangerMB(BaseComponent):
                                         
                     if self.H.Correlation_1phase == "Gnielinski":
                         try:
-                            mu_h, Pr_h, k_h, mu_wall, mu_rat, _, _ = propsfluid(Th_mean, p_h_mean, T_wall_h, self.H_su.fluid, False)
-                            Pr_h_w, mu_h_w = CP.PropsSI(('PRANDTL','V'), 'T', Th_mean,'P',p_h_mean,self.H_su.fluid)
+                            mu_h, Pr_h, k_h, mu_wall, mu_rat, _, _ = propsfluid_AS(Th_mean, p_h_mean, T_wall_h, self.H_su.fluid, False, self.AS_H)
+
+                            self.AS_H.update(CP.PT_INPUTS, p_h_mean, T_wall)
+
+                            Pr_h_w = self.AS_H.Prandtl()
+                            mu_h_w = self.AS_H.viscosity()
+
                         except (ValueError):
                             if self.phases_h[k] == "liquid":
-                                mu_h, Pr_h, k_h, mu_wall, mu_rat, _, _ = propsfluid(Th_mean, p_h_mean, T_wall_h, self.H_su.fluid, False)
-                                Pr_h_w, mu_h_w = CP.PropsSI(('PRANDTL','V'), 'T', Th_mean-1,'P',p_h_mean,self.H_su.fluid)
+                                mu_h, Pr_h, k_h, mu_wall, mu_rat, _, _ = propsfluid_AS(Th_mean, p_h_mean, T_wall_h, self.H_su.fluid, False, self.AS_H)
+                                self.AS_H.update(CP.PT_INPUTS, p_h_mean, T_wall-1)
+
+                                Pr_h_w = self.AS_H.Prandtl()
+                                mu_h_w = self.AS_H.viscosity()
+
                             elif self.phases_h[k] == "vapor":
-                                mu_h, Pr_h, k_h, mu_wall, mu_rat, _, _ = propsfluid(Th_mean, p_h_mean, T_wall_h, self.H_su.fluid, False)
-                                Pr_h_w, mu_h_w = CP.PropsSI(('PRANDTL','V'), 'T', Th_mean+1,'P',p_h_mean,self.H_su.fluid)
+                                mu_h, Pr_h, k_h, mu_wall, mu_rat, _, _ = propsfluid_AS(Th_mean, p_h_mean, T_wall_h, self.H_su.fluid, False, self.AS_H)
+                                self.AS_H.update(CP.PT_INPUTS, p_h_mean, T_wall-1)
+
+                                Pr_h_w = self.AS_H.Prandtl()
+                                mu_h_w = self.AS_H.viscosity()
 
                         if self.HTX_Type == 'Plate':
                             alpha_h = gnielinski_pipe_htc(mu_h, Pr_h, Pr_h_w, k_h, G_h, self.params['H_Dh'], self.params['l']) # Muley_Manglik_BPHEX_HTC(mu_h, mu_h_w, Pr_h, k_h, G_h, self.geom.H_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_h, Pr_h, k_h, G_h, self.geom.H_Dh) # 
@@ -1092,7 +1167,7 @@ class HeatExchangerMB(BaseComponent):
                         alpha_h = shell_bell_delaware_htc(self.mdot_h, Th_mean, T_wall, p_h_mean, self.H_su.fluid, self.params)
 
                     elif self.H.Correlation_1phase == "shell_htc_kern":
-                        alpha_h = shell_htc_kern(self.mdot_h, T_wall, Th_mean, p_h_mean, self.H_su.fluid, self.params)[0]
+                        alpha_h = shell_htc_kern(self.mdot_h, T_wall, Th_mean, p_h_mean, self.H_su.fluid, self.params)
 
                     elif self.H.Correlation_1phase == 'Tube_And_Fins':
                         alpha_h = htc_tube_and_fins(self.H_su.fluid, self.params, p_h_mean, Th_mean, self.mdot_h, self.params['Fin_type'])[0]
@@ -1105,20 +1180,23 @@ class HeatExchangerMB(BaseComponent):
                         x_h = 1
                     
                     # Thermodynamical variables
-                    mu_h_l = CP.PropsSI("V", "Q", 0, "P", p_h_mean, self.H_su.fluid)
-                    k_h_l = CP.PropsSI("L", "Q", 0, "P", p_h_mean, self.H_su.fluid)
-                    Pr_h_l = CP.PropsSI("Prandtl", "Q", 0, "P", p_h_mean, self.H_su.fluid)
-                    rho_h_l = CP.PropsSI("D", "Q", 0, "P", p_h_mean, self.H_su.fluid)
-                    rho_h_v = CP.PropsSI("D", "Q", 1, "P", p_h_mean, self.H_su.fluid)
-                    # i_fg_h = CP.PropsSI('H', 'Q', 1, 'P', p_h_mean, self.H_su.fluid) - CP.PropsSI('H', 'Q', 0, 'P', p_h_mean, self.H_su.fluid)
+                    self.AS_H.update(CP.PQ_INPUTS, p_h_mean, 0)
+
+                    mu_h_l = self.AS_H.viscosity()
+                    k_h_l = self.AS_H.conductivity()
+                    Pr_h_l = self.AS_H.Prandtl()
+                    rho_h_l = self.AS_H.rhomass()
+
+                    self.AS_H.update(CP.PQ_INPUTS, p_h_mean, 1)
+                    rho_h_v = self.AS_H.rhomass()
                     
                     # !!! Include different types of Correlation HERE
                     if self.H.Correlation_2phase == "Han_cond_BPHEX":
                         alpha_h_2phase, _, DP_H = han_cond_BPHEX_HTC(x_h, mu_h_l, k_h_l, Pr_h_l, rho_h_l, rho_h_v, G_h, self.params['H_Dh'], self.params['plate_pitch_co'], self.params['chevron_angle'], self.params['l_v'], self.params['H_n_canals'], self.H_su.m_dot, self.params['H_canal_t'])
                     
                     if self.H.Correlation_2phase == 'ext_tube_film_condens':
-
-                        V_flow = G_h/CP.PropsSI('D','H',havg_h,'P',p_h_mean,self.H_su.fluid)
+                        self.AS_H.update(CP.HmassP_INPUTS, havg_h, p_h_mean)
+                        V_flow = G_h/self.AS_H.rhomass()
                         
                         if self.H.Correlation_1phase == "Shell_Bell_Delaware_HTC":
                             try: 
@@ -1128,19 +1206,25 @@ class HeatExchangerMB(BaseComponent):
                         
                         elif self.H.Correlation_1phase == "shell_htc_kern":
                             try:
-                                alpha_h = shell_htc_kern(self.mdot_h, T_wall, Th_mean, p_h_mean, self.H_su.fluid, self.params)[0]
+                                alpha_h = shell_htc_kern(self.mdot_h, T_wall, Th_mean, p_h_mean, self.H_su.fluid, self.params)
                             except:
-                                alpha_h = shell_htc_kern(self.mdot_h, T_wall, Th_mean-0.1, p_h_mean, self.H_su.fluid, self.params)[0]
+                                alpha_h = shell_htc_kern(self.mdot_h, T_wall, Th_mean-0.1, p_h_mean, self.H_su.fluid, self.params)
                                 
                         elif self.H.Correlation_1phase == 'Tube_And_Fins':
                             alpha_h = htc_tube_and_fins(self.C_su.fluid, self.params, p_c_mean, Tc_mean, self.mdot_c, self.params['Fin_type'])[0]
                         
                         alpha_h_2phase = ext_tube_film_condens(self.params['Tube_OD'], self.H_su.fluid, Th_mean, T_wall, V_flow)
-                        
+
                     if self.H.Correlation_2phase == 'Horizontal_Tube_Internal_Condensation':
-                        mu_h, Pr_h, k_h = CP.PropsSI(('V','PRANDTL','L'), 'H', havg_h,'P',p_h_mean,self.H_su.fluid)
-                        Pr_h_w, mu_h_w = CP.PropsSI(('PRANDTL','V'), 'T', T_wall,'P',p_h_mean,self.H_su.fluid)
-                                
+                        self.AS_H.update(CP.HmassP_INPUTS, havg_h, p_h_mean)
+                        mu_h = self.AS_H.viscosity()
+                        Pr_h = self.AS_H.Prandtl()
+                        k_h = self.AS_H.conductivity()
+
+                        self.AS_H.update(CP.PT_INPUTS, T_wall, p_h_mean)
+                        Pr_h_w = self.AS_H.Prandtl()
+                        mu_h_w = self.AS_H.viscosity()   
+
                         alpha_h = gnielinski_pipe_htc(mu_h, Pr_h, Pr_h_w, k_h, G_h, self.params['Tube_OD'] - 2*self.params['Tube_t'], self.params['Tube_L'])
                         alpha_h_2phase = horizontal_tube_internal_condensation(self.H_su.fluid , G_c, p_h_mean, self.x_vec_h[k], T_wall, self.params['Tube_OD'] - 2*self.params['Tube_t'])
                                         
@@ -1176,22 +1260,32 @@ class HeatExchangerMB(BaseComponent):
                 
                 # 1 phase case
                 if self.phases_c[k] == "liquid" or self.phases_c[k] == "vapor" or self.phases_c[k] == "transcritical":
-                    mu_c, Pr_c, k_c, mu_wall, mu_rat, _, _ = propsfluid(Tc_mean, p_c_mean, T_wall_c, self.C_su.fluid, False)
+                    mu_c, Pr_c, k_c, mu_wall, mu_rat, _, _ = propsfluid_AS(Tc_mean, p_c_mean, T_wall_c, self.C_su.fluid, False, self.AS_C)
             
                     if self.HTX_Type == 'Plate' and self.C_su.fluid == 'water':
                         alpha_c = water_plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.H_Dh)
 
                     elif self.C.Correlation_1phase  == "Gnielinski":
                         try:
-                            mu_c, Pr_c, k_c, mu_wall, mu_rat, _, _ = propsfluid(Tc_mean, p_c_mean, T_wall_c, self.C_su.fluid, False)
-                            Pr_c_w, mu_c_w = CP.PropsSI(('PRANDTL','V'), 'T', Tc_mean,'P',p_c_mean,self.C_su.fluid)
+                            mu_c, Pr_c, k_c, mu_wall, mu_rat, _, _ = propsfluid_AS(Tc_mean, p_c_mean, T_wall_c, self.C_su.fluid, False, self.AS_C)
+                            self.AS_C.update(CP.PT_INPUTS, p_c_mean, Tc_mean)
+
+                            Pr_c_w = self.AS_C.Prandtl()
+                            mu_c_w = self.AS_C.viscosity()
+
                         except (ValueError):
                             if self.phases_c[k] == "liquid":
-                                mu_c, Pr_c, k_c, mu_wall, mu_rat, _, _ = propsfluid(Tc_mean-0.1, p_c_mean, T_wall_c, self.C_su.fluid, False)
-                                Pr_c_w, mu_c_w = CP.PropsSI(('PRANDTL','V'), 'T', Tc_mean-1,'P',p_c_mean,self.C_su.fluid)
+                                mu_c, Pr_c, k_c, mu_wall, mu_rat, _, _ = propsfluid_AS(Tc_mean-0.1, p_c_mean, T_wall_c, self.C_su.fluid, False, self.AS_C)
+                                self.AS_C.update(CP.PT_INPUTS, p_c_mean, Tc_mean-0.1)
+
+                                Pr_c_w = self.AS_C.Prandtl()
+                                mu_c_w = self.AS_C.viscosity()                            
                             elif self.phases_c[k] == "vapor":
-                                mu_c, Pr_c, k_c, mu_wall, mu_rat, _, _ = propsfluid(Tc_mean+0.1, p_c_mean, T_wall_c, self.C_su.fluid, False)
-                                Pr_c_w, mu_c_w = CP.PropsSI(('PRANDTL','V'), 'T', Tc_mean+1,'P',p_c_mean,self.C_su.fluid)
+                                mu_c, Pr_c, k_c, mu_wall, mu_rat, _, _ = propsfluid_AS(Tc_mean+0.1, p_c_mean, T_wall_c, self.C_su.fluid, False, self.AS_C)
+                                self.AS_C.update(CP.PT_INPUTS, p_c_mean, Tc_mean+0.1)
+
+                                Pr_c_w = self.AS_C.Prandtl()
+                                mu_c_w = self.AS_C.viscosity()
                         
                         if self.HTX_Type == 'Plate':
                             alpha_c = gnielinski_pipe_htc(mu_c, Pr_c, Pr_c_w, k_c, G_c, self.params['H_Dh'], self.params['l']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
@@ -1206,7 +1300,7 @@ class HeatExchangerMB(BaseComponent):
                         alpha_c = shell_bell_delaware_htc(self.mdot_c, Tc_mean, T_wall, p_c_mean, self.C_su.fluid, self.params)
 
                     elif self.C.Correlation_1phase == "shell_htc_kern":
-                        alpha_c = shell_htc_kern(self.mdot_c, T_wall, Tc_mean, p_c_mean, self.C_su.fluid, self.params)[0]
+                        alpha_c = shell_htc_kern(self.mdot_c, T_wall, Tc_mean, p_c_mean, self.C_su.fluid, self.params)
 
                     elif self.C.Correlation_1phase == 'Tube_And_Fins':
                         alpha_c = htc_tube_and_fins(self.C_su.fluid, self.params, p_c_mean, Tc_mean, self.mdot_c, self.params['Fin_type'])[0]
@@ -1222,13 +1316,19 @@ class HeatExchangerMB(BaseComponent):
                         x_c = 1
                         
                     # Thermodynamical variables
-                    mu_c_l = CP.PropsSI("V", "Q", 0, "P", p_c_mean, self.C_su.fluid)
-                    k_c_l = CP.PropsSI("L", "Q", 0, "P", p_c_mean, self.C_su.fluid)
-                    Pr_c_l = CP.PropsSI("Prandtl", "Q", 0, "P", p_c_mean, self.C_su.fluid)
-                    rho_c_l = CP.PropsSI("D", "Q", 0, "P", p_c_mean, self.C_su.fluid)
-                    rho_c_v = CP.PropsSI("D", "Q", 1, "P", p_c_mean, self.C_su.fluid)
-                    i_fg_c = CP.PropsSI('H', 'Q', 1, 'P', p_c_mean, self.C_su.fluid) - CP.PropsSI('H', 'Q', 0, 'P', p_c_mean, self.C_su.fluid)
-                    
+                    self.AS_C.update(CP.PQ_INPUTS, p_c_mean, 0)
+
+                    mu_c_l = self.AS_C.viscosity()
+                    k_c_l = self.AS_C.conductivity()
+                    Pr_c_l = self.AS_C.Prandtl()
+                    rho_c_l = self.AS_C.rhomass()
+                    h_sat_c_l = self.AS_C.hmass()
+
+                    self.AS_C.update(CP.PQ_INPUTS, p_c_mean, 1)
+                    rho_c_v = self.AS_C.rhomass()
+                    h_sat_c_v = self.AS_C.hmass()
+                    i_fg_c = h_sat_c_v - h_sat_c_l
+
                     # This boolean serves to spare to recalculate this properties in the dry-out analysis further ahead.
                     self.ColdSide_Props_Calculated = True
                     
@@ -1326,15 +1426,21 @@ class HeatExchangerMB(BaseComponent):
             if not self.dry_out_c and self.phases_h[k] == "two-phase" and not self.Transcritical_c:
                     if not self.ColdSide_Props_Calculated:
                         #If these properties where not calculated before, do it:
-                        mu_c_l = CP.PropsSI("V", "Q", 0, "P", p_c_mean, self.C_su.fluid)
-                        rho_c_l = CP.PropsSI('D', 'Q', 0, 'P', p_c_mean, self.C_su.fluid)
-                        rho_c_v = CP.PropsSI('D', 'Q', 1, 'P', p_c_mean, self.H_su.fluid)
-                        i_fg_c = CP.PropsSI('H', 'Q', 1, 'P', p_c_mean, self.C_su.fluid) - CP.PropsSI('H', 'Q', 0, 'P', p_c_mean, self.C_su.fluid)
+                        self.AS_C.update(CP.PQ_INPUTS, p_c_mean, 0)
+                        mu_c_l = self.AS_C.viscosity()
+                        rho_c_l = self.AS_C.rhomass()
+                        h_sat_c_l = self.AS_C.hmass()
+
+                        self.AS_C.update(CP.PQ_INPUTS, p_c_mean, 1)
+                        rho_c_v = self.AS_C.rhomass()
+                        h_sat_c_v = self.AS_C.hmass()
+                        i_fg_c = h_sat_c_v - h_sat_c_l
                     
-                    P_star_c = p_c_mean/CP.PropsSI("Pcrit", "Q", 1, "P", p_c_mean, self.C_su.fluid)
+                    P_star_c = p_c_mean/self.AS_C.p_critical()
                     q_c = self.Qvec_c[k]/self.Avec_h[k]
                     try:
-                        sigma_c_l = CP.PropsSI("I", 'Q', 0, "P", p_c_mean, self.C_su.fluid)
+                        self.AS_C.update(CP.PQ_INPUTS, p_c_mean, 0)
+                        sigma_c_l = self.AS_C.surface_tension()
                         
                         if self.HTX_Type == 'Plate':
                             self.x_di_c = kim_dry_out_incipience(G_c, q_c, self.params['C_Dh'], P_star_c, rho_c_l, rho_c_v, mu_c_l, sigma_c_l, i_fg_c)

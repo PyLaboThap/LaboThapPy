@@ -133,6 +133,7 @@ UD_C_HTC = {'Liquid':100,
 
 # HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation' # 28
 HX.set_htc(htc_type = 'User-Defined', UD_H_HTC = UD_H_HTC, UD_C_HTC = UD_C_HTC) # 'User-Defined' or 'Correlation'
+HX.set_DP()
 
 "Solve the component"
 HX.solve()

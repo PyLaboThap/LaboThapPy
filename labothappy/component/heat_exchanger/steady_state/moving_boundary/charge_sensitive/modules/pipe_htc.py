@@ -78,13 +78,12 @@ def gnielinski_pipe_htc(mu, Pr, Pr_w, k, G, Dh, L):
     #-------------------------------------------------------------------------
     return hConv
 
-def pipe_internal_DP(mu, Pr, Np, rho, G, Dh, L):
+def pipe_internal_DP(mu, rho, m_dot, params):
     """
     Inputs
     ------
     
     mu   : Dynamic Viscosity [Pa*s]
-    Pr   : Prantl number [-]
     Np   : Number of tube passes [-]
     rho  : Density [kg/m^3]
     G    : Flow rate per cross section area [kg/(m^2 * s)]
@@ -101,8 +100,13 @@ def pipe_internal_DP(mu, Pr, Np, rho, G, Dh, L):
     ?
     """
     
+    A_in_1_tube = np.pi*(params["Tube_OD"] - 2*params["Tube_t"])**2 / 4
+    A_in_tubes = A_in_1_tube*params["n_tubes"]
+
+    G = m_dot/A_in_tubes
+
     # Reynolds number
-    Re = G*Dh/mu
+    Re = G*(params["Tube_OD"] - 2*params["Tube_t"])/mu
     
     # Flow speed
     u = G/rho
@@ -111,7 +115,7 @@ def pipe_internal_DP(mu, Pr, Np, rho, G, Dh, L):
     f = (1.8*log10(Re) - 1.5)**(-2)
     
     # Pressure drop (Np : number of passes)
-    DP = (4*f*L*Np/Dh + 4*Np)*rho*(u**2)/2
+    DP = (4*f*params["Tube_L"]*params["Tube_pass"]/params["Tube_OD"] + 4*params["Tube_pass"])*rho*(u**2)/2
     
     return DP
 
