@@ -8,6 +8,7 @@ Created on Wed Jan 10 14:09:18 2024
 """
 
 from CoolProp.CoolProp import PropsSI
+import warnings
 
 class MassConnector:
     """
@@ -135,7 +136,7 @@ class MassConnector:
     def check_completely_known(self):
         if self.fluid != None:
             if len(self.variables_input)>2:
-                print("Error: Too many state variables")
+                warnings.warn("Error: Too many state variables")
             elif len(self.variables_input)<2:
                 pass
             elif len(self.variables_input)==2:
@@ -161,7 +162,7 @@ class MassConnector:
                 self.cp = PropsSI('CPMASS', self.variables_input[0][0], self.variables_input[0][1], self.variables_input[1][0], self.variables_input[1][1], self.fluid)
                 self.state_known = True
             except:
-                print("Error: This pair of inputs is not yet supported.")
+                warnings.warn("Error: This pair of inputs is not yet supported.")
 
         else:
             try:
@@ -176,7 +177,7 @@ class MassConnector:
             except:
                 try:
                     if self.is_two_phase_PT():
-                        print('Cannot use the temperature and the pressure to calculate the properties in two-phase.')
+                        warnings.warn('Cannot use the temperature and the pressure to calculate the properties in two-phase.')
                     else:
                         self.x = PropsSI('Q', self.variables_input[0][0], self.variables_input[0][1], self.variables_input[1][0], self.variables_input[1][1], self.fluid)
                         self.h = PropsSI('H', self.variables_input[0][0], self.variables_input[0][1], self.variables_input[1][0], self.variables_input[1][1], self.fluid)
@@ -187,7 +188,7 @@ class MassConnector:
                         self.cp = PropsSI('CPMASS', self.variables_input[0][0], self.variables_input[0][1], self.variables_input[1][0], self.variables_input[1][1], self.fluid)
                         self.state_known = True
                 except:
-                    print("Error: This pair of inputs is not yet supported.")
+                    warnings.warn("Error: This pair of inputs is not yet supported.")
     
     def is_two_phase_PT(self):
         if 'T' in [var[0] for var in self.variables_input] and 'P' in [var[0] for var in self.variables_input]:
@@ -221,7 +222,7 @@ class MassConnector:
             elif key == 'cp':
                 self.set_cp(value)
             else:
-                print(f"Error: Invalid property '{key}'")
+                warnings.warn(f"Error: Invalid property '{key}'")
 
     def set_fluid(self, value):
         if self.fluid != None:
@@ -236,7 +237,7 @@ class MassConnector:
                     PropsSI('M', value)
                 self.fluid = value
             except:
-                print("Error: Incorrect fluid name:", value)
+                warnings.warn("Error: Incorrect fluid name:", value)
         self.check_completely_known()
 
 

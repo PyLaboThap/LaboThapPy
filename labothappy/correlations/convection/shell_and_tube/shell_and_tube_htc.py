@@ -375,7 +375,7 @@ def shell_bell_delaware_htc(m_dot_shell, T_shell, T_shell_w, P_shell, shell_flui
         
     # Ideal Tube bank heat transfer coefficient
     h_id = j_i * cp * (m_dot_shell/S_T) * (Pr)**(-2/3) * (mu/mu_w)**0.14 
-        
+    
     "1.2) Correction factor for Baffle Window Flow : J_c"
     
     # Diameter effectively covered by the tube
