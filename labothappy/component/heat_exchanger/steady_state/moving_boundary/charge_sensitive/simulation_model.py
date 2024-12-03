@@ -25,20 +25,20 @@ from scipy.interpolate import interp1d
 
 # Internal Toolbox 
 import __init__
-from component.steady_state.heat_exchanger.moving_boundary.charge_sensitive.modules.f_lmtd2 import f_lmtd2
-from component.steady_state.heat_exchanger.moving_boundary.charge_sensitive.modules.propsfluid import propsfluid
-from component.steady_state.heat_exchanger.moving_boundary.charge_sensitive.modules.find_2P_boundaries import find_2P_boundaries
+from component.heat_exchanger.steady_state.moving_boundary.charge_sensitive.modules.f_lmtd2 import f_lmtd2
+from component.heat_exchanger.steady_state.moving_boundary.charge_sensitive.modules.propsfluid import propsfluid
+from component.heat_exchanger.steady_state.moving_boundary.charge_sensitive.modules.find_2P_boundaries import find_2P_boundaries
 
 # HTC and DP Correlations
-from component.steady_state.heat_exchanger.moving_boundary.charge_sensitive.modules.plate_htc import han_BPHEX_DP, water_plate_HTC, martin_BPHEX_HTC, muley_manglik_BPHEX_HTC, han_boiling_BPHEX_HTC, han_cond_BPHEX_HTC
-from component.steady_state.heat_exchanger.moving_boundary.charge_sensitive.modules.pipe_htc import gnielinski_pipe_htc, boiling_curve, horizontal_tube_internal_condensation
-from component.steady_state.heat_exchanger.moving_boundary.charge_sensitive.modules.shell_and_tube_htc import shell_bell_delaware_htc
-from component.steady_state.heat_exchanger.moving_boundary.charge_sensitive.modules.tube_bank_htc import ext_tube_film_condens
-from component.steady_state.heat_exchanger.moving_boundary.charge_sensitive.modules.fins import htc_tube_and_fins
+from component.heat_exchanger.steady_state.moving_boundary.charge_sensitive.modules.plate_htc import han_BPHEX_DP, water_plate_HTC, martin_BPHEX_HTC, muley_manglik_BPHEX_HTC, han_boiling_BPHEX_HTC, han_cond_BPHEX_HTC
+from component.heat_exchanger.steady_state.moving_boundary.charge_sensitive.modules.pipe_htc import gnielinski_pipe_htc, boiling_curve, horizontal_tube_internal_condensation
+from component.heat_exchanger.steady_state.moving_boundary.charge_sensitive.modules.shell_and_tube_htc import shell_bell_delaware_htc
+from component.heat_exchanger.steady_state.moving_boundary.charge_sensitive.modules.tube_bank_htc import ext_tube_film_condens
+from component.heat_exchanger.steady_state.moving_boundary.charge_sensitive.modules.fins import htc_tube_and_fins
 
 # Phase related correlations
-from component.steady_state.heat_exchanger.moving_boundary.charge_sensitive.modules.void_fraction import void_fraction
-from component.steady_state.heat_exchanger.moving_boundary.charge_sensitive.modules.kim_dry_out_incipience import kim_dry_out_incipience
+from component.heat_exchanger.steady_state.moving_boundary.charge_sensitive.modules.void_fraction import void_fraction
+from component.heat_exchanger.steady_state.moving_boundary.charge_sensitive.modules.kim_dry_out_incipience import kim_dry_out_incipience
 
 # Connectors
 from connector.mass_connector import MassConnector
