@@ -23,7 +23,7 @@ point.print_resume(unit_T='C', unit_p='bar')
 point.set_p(200000)
 
 "What you cannot do with a mass connector:"
-# Put three properteis at the same time
+# Put three properties at the same time
 point = MassConnector()
 point.set_properties(T=500, m_dot=0.5, fluid = 'INCOMP::DowQ', P=101325, H=100000)
 

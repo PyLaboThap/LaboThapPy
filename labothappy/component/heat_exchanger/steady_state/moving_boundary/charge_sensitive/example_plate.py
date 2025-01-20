@@ -12,8 +12,9 @@ Modification w/r to previous version:
 """
 
 # from __future__ import division, print_function
+import __init__
 
-from simulation_model import HeatExchangerMB
+from simulation_model_elise import HeatExchangerMB
 from modules.geometry_plate_hx_swep import PlateGeomSWEP
 
 #%%
@@ -101,8 +102,8 @@ Corr_C = {"1P" : "Gnielinski", "2P" : "Han_Boiling_BPHEX_HTC"}
 # HX_geom = PlateGeomSWEP()
 # HX_geom.set_parameters("B35TM0x10/1P") 
 
-# Corr_H = {"1P" : "Gnielinski", "2P" : "Han_cond_BPHEX"}
-# Corr_C = {"1P" : "Gnielinski", "2P" : "Han_Boiling_BPHEX_HTC"}
+Corr_H = {"1P" : "Gnielinski", "2P" : "Han_cond_BPHEX"}
+Corr_C = {"1P" : "Gnielinski", "2P" : "Han_Boiling_BPHEX_HTC"}
 
 # ---------------------------------------------------------------------------------------------------------
 
@@ -115,7 +116,7 @@ HX.set_parameters(
     casing_t = HX_geom.casing_t, chevron_angle = HX_geom.chevron_angle, fooling = HX_geom.fooling, # 18
     n_plates = HX_geom.n_plates, plate_cond = HX_geom.plate_cond, plate_pitch_co = HX_geom.plate_pitch_co, t_plates = HX_geom.t_plates, w = HX_geom.w, # 23
     
-    Flow_Type = 'CounterFlow', H_DP_ON = True, C_DP_ON = True, n_disc = 50) # 27
+    Flow_Type = 'CounterFlow', H_DP_ON = True, C_DP_ON = True, n_disc = 0) # 27
 
 UD_H_HTC = {'Liquid':100,
             'Vapor' : 100,
@@ -131,10 +132,11 @@ UD_C_HTC = {'Liquid':100,
             'Dryout' : 10000,
             'Transcritical' : 200}
 
-# HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation' # 28
-HX.set_htc(htc_type = 'User-Defined', UD_H_HTC = UD_H_HTC, UD_C_HTC = UD_C_HTC) # 'User-Defined' or 'Correlation'
+HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation' # 28
+# HX.set_htc(htc_type = 'User-Defined', UD_H_HTC = UD_H_HTC, UD_C_HTC = UD_C_HTC) # 'User-Defined' or 'Correlation'
 HX.set_DP()
 
 "Solve the component"
 HX.solve()
 HX.plot_cells()
+

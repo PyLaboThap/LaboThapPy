@@ -1,15 +1,20 @@
 
 import sys
 
-from library.connector.mass_connector import MassConnector
-from library.connector.work_connector import WorkConnector
-from library.connector.heat_connector import HeatConnector
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.connector.work_connector import WorkConnector
+from labothappy.connector.heat_connector import HeatConnector
 
-from library.component.steadystate.heat_exchanger.moving_boundary.charge_sensitive.simulation_model import HeatExchangerMB
-from library.component.steadystate.heat_exchanger.pinch_cst.simulation_model import HXPinchCst
-from library.component.steadystate.heat_exchanger.moving_boundary.charge_sensitive.modules.geometry_plate_hx_swep import PlateGeomSWEP
-from library.component.steadystate.volumetric_machine.expander.constant_isentropic_efficiency.simulation_model import ExpanderCstEff
-from library.component.steadystate.pump.constant_efficiency.simulation_model import PumpCstEff
+from labothappy.component.heat_exchanger.steady_state.moving_boundary.charge_sensitive.simulation_model import HeatExchangerMB
+from labothappy.component.heat_exchanger.steady_state.pinch_cst.simulation_model import HXPinchCst
+
+# from labothappy.component.heat_exchanger.steady_state.moving_boundary.charge_sensitive.modules.geometry_plate_hx_swep import PlateGeomSWEP
+import labothappy.component.heat_exchanger.steady_state.moving_boundary.charge_sensitive.modules as modules #.geometry_plate_hx_swep import PlateGeomSWEP
+
+A = modules
+
+from labothappy.component.volumetric_machine.expander.steady_state.constant_isentropic_efficiency.simulation_model import ExpanderCstEff
+from labothappy.component.pump.steady_state.constant_efficiency.simulation_model import PumpCstEff
 from machine.circuit import Circuit
 
 from circuit import Circuit
