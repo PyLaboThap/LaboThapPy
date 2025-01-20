@@ -127,9 +127,9 @@ class ExpanderSE(BaseComponent):
             self.su.set_p(self.inputs['su_p'])
         if 'ex_p' in self.inputs:
             self.ex.set_p(self.inputs['ex_p'])
-        if 'N_rot' is self.inputs:
+        if 'N_rot' in self.inputs:
             self.W_exp.set_N(self.inputs['N_rot'])
-        if 'T_amb' is self.inputs:
+        if 'T_amb' in self.inputs:
             self.Q_amb.set_T_cold(self.inputs['T_amb'])
 
 
@@ -206,6 +206,7 @@ class ExpanderSE(BaseComponent):
             cp_su1 = PropsSI('CPMASS', 'P', P_su1, 'H', h_su1, Fluid)
         except:
             cp_su1 = PropsSI('CPMASS', 'P', P_su1, 'Q', 0, Fluid)
+            
         AU_su = self.params['AU_su_n']*(self.m_dot/self.params['m_dot_n'])**(0.8)
         C_dot_su = self.m_dot*cp_su1
         NTU_su = AU_su/C_dot_su
@@ -231,6 +232,7 @@ class ExpanderSE(BaseComponent):
         h_thr_leak = PropsSI('H', 'P', P_thr_leak, 'S', s_su2, Fluid)
         C_thr_leak = np.sqrt(2*(h_su2-h_thr_leak))
         m_dot_leak = self.params['A_leak']*C_thr_leak*rho_thr_leak
+        
         if self.su.m_dot == None:
             m_dot_in = self.N*self.params['V_s']*rho_su2
             m_dot_leak_bis = self.m_dot-m_dot_in
@@ -295,17 +297,21 @@ class ExpanderSE(BaseComponent):
         self.check_calculable()
         self.check_parametrized()
 
+        self.su.set_m_dot(None)
+
         if not (self.calculable and self.parametrized):
             self.solved = False
             print("ExpanderSE could not be solved. It is not calculable and/or not parametrized")
             return
+                
+        try: # !!!
 
-        try:
             start_time = time.time()
             ff_guess = [0.7, 1.2, 0.8, 1.3, 0.4, 1.7, 3]
             x_T_guess = [0.7, 0.95, 0.8, 0.99, 0.9]
             stop = 0
             j = 0
+            
             while not stop and j < len(x_T_guess):
                 k = 0
                 while not stop and k < len(ff_guess):
@@ -316,23 +322,23 @@ class ExpanderSE(BaseComponent):
                     args = ()
                     x = [m_dot_guess, T_w_guess]
                     #--------------------------------------------------------------------------
-                    try:
+                    try: # !!!
                         fsolve(self.System, x, args=args)
                         res_norm = np.linalg.norm(self.res)
-                    except:
+                    except: # !!!
                         res_norm = 1
                     if res_norm < 1e-4:
                         stop = 1
                     k += 1
                 j += 1
-
+    
             self.convergence = stop
-
+    
             if self.convergence:
                 self.update_connectors()
                 self.solved = True
 
-        except Exception as e:
+        except Exception as e: # !!!
             print(f"ExpanderSE could not be solved. Error: {e}")
             self.solved = False
 

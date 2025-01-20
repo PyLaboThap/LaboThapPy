@@ -7,13 +7,10 @@ Created on Wed Jun  5 10:07:43 2024
 import __init__
 
 from connector.mass_connector import MassConnector
-<<<<<<<< HEAD:library/component/steady_state/turbomachinery/pump/polynomial_efficiency/example_main.py
 from component.steady_state.turbomachinery.pump.polynomial_efficiency.simulation_model import PumpPolynEff
 from component.steady_state.turbomachinery.pump.polynomial_efficiency.modules.c_pump_polyn_geom import GeometryPolynPump
-========
 from component.steady_state.pump.polynomial_efficiency.simulation_model import PumpPolynEff
 from component.steady_state.pump.polynomial_efficiency.modules.c_pump_polyn_geom import GeometryPolynPump
->>>>>>>> main:labothappy/component/pump/steady_state/polynomial_efficiency/example_main.py
 from CoolProp.CoolProp import PropsSI    
 
 "--------- 1) EXAMPLE : DECAGONE PUMP ------------------------------------------------------------------------------------------"

@@ -5,12 +5,12 @@ Created on Tue Jul 30 14:32:39 2024
 @author: Basile
 """
 
-from labothappy.component.base_component import BaseComponent
-from labothappy.component.heat_exchanger.steady_state.epsilon_NTU.modules.pipe_HTC import Gnielinski_Pipe_HTC
+from component.base_component import BaseComponent
+from component.heat_exchanger.steady_state.epsilon_NTU.modules.pipe_HTC import Gnielinski_Pipe_HTC
 
-from labothappy.connector.mass_connector import MassConnector
-from labothappy.connector.work_connector import WorkConnector
-from labothappy.connector.heat_connector import HeatConnector
+from connector.mass_connector import MassConnector
+from connector.work_connector import WorkConnector
+from connector.heat_connector import HeatConnector
 
 from CoolProp.CoolProp import PropsSI
 from scipy.optimize import fsolve
@@ -161,7 +161,11 @@ class HXeNTU(BaseComponent):
             h_h_Tc = PropsSI('H','T',self.su_cold.T,'P',self.su_hot.p,self.su_hot.fluid)
             
             DH_pc_c = PropsSI('H','Q',1,'P',self.su_cold.p,self.su_cold.fluid) - PropsSI('H','Q',0,'P',self.su_cold.p,self.su_cold.fluid)
-            DH_pc_h = PropsSI('H','Q',1,'P',self.su_hot.p,self.su_hot.fluid) - PropsSI('H','Q',0,'P',self.su_hot.p,self.su_hot.fluid)
+
+            if "INCOMP" not in self.su_hot.fluid:
+                DH_pc_h = PropsSI('H','Q',1,'P',self.su_hot.p,self.su_hot.fluid) - PropsSI('H','Q',0,'P',self.su_hot.p,self.su_hot.fluid)
+            else:
+                DH_pc_h = 0
             
             Qmax_c = self.su_cold.m_dot*((h_c_Th - self.su_cold.h))
             Qmax_h = self.su_hot.m_dot*((self.su_hot.h - h_h_Tc))

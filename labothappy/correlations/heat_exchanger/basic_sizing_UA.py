@@ -20,7 +20,7 @@ def f_lmtd2(R,P,params):
     
     Reference
     ---------
-    EES code for LMTD method
+    Ian Bell HX Model
     """
     
     def res_NTU_shell_and_tube(NTU, epsilon, C_r, params):

@@ -14,7 +14,7 @@ Modification w/r to previous version:
 # from __future__ import division, print_function
 import __init__
 
-from simulation_model import HeatExchangerMB
+from simulation_model_elise import HeatExchangerMB
 from modules.geometry_plate_hx_swep import PlateGeomSWEP
 
 #%%

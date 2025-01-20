@@ -30,9 +30,6 @@ def compressor_0D_design(Omega, Q, h_1, h_2, v_1, v_2, p_1, p_2, rho_1):
 
     Omega_s_imp = 2733*Omega_s
 
-    print(Omega_s)
-    print(Omega_s_imp)
-
     if Omega_s_imp < 1500:
         geom = "Radial-Vane Area"
     elif Omega_s_imp < 4000:

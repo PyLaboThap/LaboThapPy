@@ -3,6 +3,7 @@ import __init__
 import numpy as np
 from scipy.interpolate import interp1d
 from CoolProp.CoolProp import PropsSI
+import matplotlib.pyplot as plt
 
 def cordier_line():
 
@@ -30,9 +31,6 @@ def pump_0D_design(Omega, Q, h_1, h_2, v_1, v_2, p_1, p_2, rho_1):
 
     Omega_s_imp = 2733*Omega_s
 
-    print(Omega_s)
-    print(Omega_s_imp)
-
     if Omega_s_imp < 1500:
         geom = "Radial-Vane Area"
     elif Omega_s_imp < 4000:
@@ -50,7 +48,7 @@ def pump_0D_design(Omega, Q, h_1, h_2, v_1, v_2, p_1, p_2, rho_1):
 
     return Omega_s, D_s, D, geom
 
-case = 'Cuerva'
+case = 'Torrecid'
 
 if case == 'Cuerva':
     # Working fluid
@@ -118,7 +116,55 @@ elif case == "Zorlu":
 
     Omega_s,D_s,D,geom = pump_0D_design(Omega_pp_rads, Q, h_1, h_2, v_1, v_2, p_1, p_2, rho_1)
   
-print(f"Omega_s: {Omega_s}")
-print(f"D_s: {D_s}")
-print(f"D: {D}")
-print(f"geom: {geom}")
+elif case == "Torrecid":
+    # Working fluid
+    fluid = 'Cyclopentane'
+
+    # ORC pump assumptions for heights and velocities
+    h_1 = 0 # m
+    h_2 = 0 # m
+
+    v_1 = 0 # m/s
+    v_2 = 0 # m/s
+
+    # Static pressures
+    p_1 = 53.63*1e3 # Pa
+    p_2 = 3390*1e3 # Pa
+
+    # Temperatures and densities
+    T_1 = 30.8 + 273.15 # K
+    T_2 = 32.6 + 273.15 # K
+
+    rho_1 = PropsSI('D', 'P', p_1, 'T', T_1, fluid) # kg/m^3
+    rho_2 = PropsSI('D', 'P', p_2, 'T', T_2, fluid) # kg/m^3
+
+    # Flowrate
+    m_dot = 3.58 # kg/s
+    Q = m_dot/rho_1 # m^3/s
+
+    Omega_pp_vec = np.linspace(3000, 3000, 100)
+    Omega_s_vec = np.zeros(len(Omega_pp_vec))
+    D_s_vec = np.zeros(len(Omega_pp_vec))
+    D_vec = np.zeros(len(Omega_pp_vec))
+
+    for i in range(len(Omega_pp_vec)):
+        # Rotating speed
+        Omega_pp = Omega_pp_vec[i] # RPM
+        Omega_pp_Hz = Omega_pp/60 # Hz
+        Omega_pp_rads = Omega_pp_Hz*(2*np.pi) # rad/s
+
+        Omega_s_vec[i],D_s_vec[i],D_vec[i],geom = pump_0D_design(Omega_pp_rads, Q, h_1, h_2, v_1, v_2, p_1, p_2, rho_1)
+
+    plt.plot(Omega_pp_vec, Omega_s_vec)
+    plt.show()
+
+    plt.plot(Omega_pp_vec, D_s_vec)
+    plt.show()
+
+    plt.plot(Omega_pp_vec, D_vec)
+    plt.show()
+
+# print(f"Omega_s: {Omega_s}")
+# print(f"D_s: {D_s}")
+# print(f"D: {D}")
+# print(f"geom: {geom}")
