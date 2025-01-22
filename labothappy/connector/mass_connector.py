@@ -208,7 +208,7 @@ class MassConnector:
                 self.set_V_dot(value)
             elif key == 'T':
                 self.set_T(value)
-            elif key == 'P':
+            elif key == 'p':
                 self.set_p(value)
             elif key == 'H':
                 self.set_h(value)

@@ -120,6 +120,7 @@ class HXPinchCst(BaseComponent):
         P_ev = x[0]
         # Ensure the pressure is non-negative
         if P_ev < 0:
+            print("P_ev is negative")
             P_ev = 10000
         
         # Get the temperature of the evaporator based on the pressure and quality
@@ -130,7 +131,7 @@ class HXPinchCst(BaseComponent):
         h_ev_su = self.su_C.h
         h_ev_l = PropsSI('H', 'P', P_ev, 'Q', 0, self.su_C.fluid)
         Q_dot_ev_l = self.su_C.m_dot * (h_ev_l - h_ev_su)
-
+        
         if Q_dot_ev_l < 0:
             Q_dot_ev_l = 0
         
@@ -158,12 +159,10 @@ class HXPinchCst(BaseComponent):
         # Update the state of the working fluid
         self.Q = Q_dot_ev
         self.P_sat = P_ev
-        
         return res
     
     def system_cond(self, x):
         P_cd = x[0]
-        
         # Ensure the pressure is non-negative
         if P_cd < 0:
             P_cd = 10000
@@ -208,7 +207,6 @@ class HXPinchCst(BaseComponent):
         # Update the state of the working fluid
         self.Q = Q_dot_cd
         self.P_sat = P_cd
-        
         return res
 
     def solve(self):
@@ -223,7 +221,7 @@ class HXPinchCst(BaseComponent):
 
         # Determine the type of heat exchanger and set the initial guess for pressure
         if self.params['type_HX'] == 'evaporator':
-            P_ev_guess = self.guesses.get('P_sat', PropsSI('P', 'T', 120 + 273.15, 'Q', 0.5, self.su_C.fluid)) # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
+            P_ev_guess = self.guesses.get('P_sat', PropsSI('P', 'T', self.su_H.T, 'Q', 0.5, self.su_C.fluid)) # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
             x = [P_ev_guess]
 
             try:
@@ -241,7 +239,7 @@ class HXPinchCst(BaseComponent):
                 print(f"Convergence problem in evaporator model: {e}")
 
         elif self.params['type_HX'] == 'condenser':
-            P_cd_guess = self.guesses.get('P_sat', PropsSI('P', 'T', 25 + 273.15, 'Q', 0.5, self.su_H.fluid)) # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
+            P_cd_guess = self.guesses.get('P_sat', PropsSI('P', 'T', self.su_C.T, 'Q', 0.5, self.su_H.fluid)) # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
             x = [P_cd_guess]
 
             try:

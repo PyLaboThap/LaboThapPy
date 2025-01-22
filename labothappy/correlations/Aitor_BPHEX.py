@@ -288,7 +288,7 @@ def Simple_Plate_HTC(mu, Pr, k, G, Dh):
     return h_conv
 
 def Muley_Manglik_BPHEX_HTC(mu, mu_w, Pr, k, G, Dh, chevron_angle):
-    # Reynolds number
+    # Reynolds numberNu = C1*(Re^m)*(Pr^0.33)*((mu/mu_w)^0.17)
     Re = G*Dh/mu
     
     beta = 180*chevron_angle/np.pi

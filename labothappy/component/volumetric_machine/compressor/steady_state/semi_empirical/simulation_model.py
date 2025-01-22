@@ -140,6 +140,7 @@ class CompressorSE(BaseComponent):
             self.Q_amb.set_T_cold(self.inputs['T_amb'])
 
     def get_required_parameters(self):
+        
         return [
             'AU_amb', 'AU_su_n', 'AU_ex_n', 'd_ex', 'm_dot_n', 
             'A_leak', 'W_dot_loss_0', 'alpha', 'C_loss', 'rv_in', 'V_s'

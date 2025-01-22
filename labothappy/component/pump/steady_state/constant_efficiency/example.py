@@ -9,7 +9,7 @@ Created on Aug 03 21:31:37 2023
 
 import __init__
 
-from component.steadystate.pump.constant_efficiency.simulation_model import PumpCstEff
+from component.pump.steady_state.constant_efficiency.simulation_model import PumpCstEff
 import numpy as np
 
 # Example usage
