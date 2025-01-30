@@ -209,7 +209,7 @@ class MassConnector:
                 self.set_V_dot(value)
             elif key == 'T':
                 self.set_T(value)
-            elif key == 'P':
+            elif key == 'P' or key == 'p':
                 self.set_p(value)
             elif key == 'H':
                 self.set_h(value)
@@ -340,8 +340,11 @@ class MassConnector:
         unit_p = Temperature unit: 'Pa' or 'bar'
         
         """
-        
-        print("Fluid: " + self.fluid + "")
+        if self.fluid is not None:
+            print("Fluid: " + self.fluid + "")
+        else:
+            print("Fluid: None")            
+            
         print("Mass flow rate: " + str(self.m_dot) + "[kg/s]")
         print("Volume flow rate: " + str(self.V_dot) + "[m^3/h]")
         

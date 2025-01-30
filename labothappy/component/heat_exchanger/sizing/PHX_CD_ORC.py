@@ -17,7 +17,7 @@ from BaseClases import VoidFraction as VF
 # =============================================================================
 " -------------------------------- Historial ---------------------------------"
 # =============================================================================    
-'''
+"""
     * 2024-05-20: Geometry verification.
                   1.- Hydraulic diameter: Ok
                   2.- Geometry correlations it is okay, is important remark that
@@ -34,7 +34,7 @@ from BaseClases import VoidFraction as VF
     * 2024-07-09: * Integration of the foulling coefficient
                         f_fouling = f_thickness/k_p
                 
-'''  
+"""  
 #%%
 # =============================================================================
 " ------------ Geometry of the Brazed Plate Heat Exchanger -------------------"
@@ -44,7 +44,7 @@ L_p = 593e-3          # Port-port centerline distance (Large), m
 B_p = 300e-3          # Port-port centerline distance (Width), m
 D_p = 150e-3          # Port Diameter, m
 N_pas = 1             # Number of passes per channels
-N_p = 160              # N° of Plates, - (only uses par number if impar -1)
+N_p = 160             # N° of Plates, - (only uses par number if impar -1)
 t = 0.25e-3           # Plate thickness, m
 L_c = (61.38 + 2.39*N_p)*1e-3        # Depth of the heat exchanger, m 
 Lambda = 2.6e-3       # Plate corrugation wavelength, m, in kaka{c} the name corresponds to Pc
@@ -496,19 +496,4 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.show()
     plt.savefig('CD-ORC-B633x250.svg')
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
     

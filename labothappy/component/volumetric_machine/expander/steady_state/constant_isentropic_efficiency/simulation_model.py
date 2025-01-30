@@ -39,6 +39,8 @@ class ExpanderCstEff(BaseComponent):
         su_p: Suction side pressure. [Pa]
 
         su_T: Suction side temperature. [K]
+        
+        su_m_dot: Suction side flow rate. [kg/s]
 
         ex_p: Exhaust side pressure. [Pa]
 
