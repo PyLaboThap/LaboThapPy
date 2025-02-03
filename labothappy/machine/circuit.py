@@ -197,7 +197,6 @@ class Circuit:
 
                     return target_variable_desired_value          
                     
-                    
         
 #%%
 
@@ -390,8 +389,7 @@ class Circuit:
 
     def set_cycle_guess(self, **kwargs):
         # Set properties for a specific component and connector
-        target = kwargs.pop('target')        
-        
+        target = kwargs.pop('target')
         try:
             SC = kwargs.pop('SC')
             guess = Circuit.Guess(target, 'SC', SC)
@@ -429,7 +427,7 @@ class Circuit:
                 
         except:
             pass
-                
+
         for arg_name in kwargs:
             value = kwargs[arg_name]
             guess = Circuit.Guess(target, arg_name, value)

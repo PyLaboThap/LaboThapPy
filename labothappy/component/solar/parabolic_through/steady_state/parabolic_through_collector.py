@@ -10,6 +10,7 @@ along solar parabolic trough collectors
 Rémi Dickes, Vincent Lemort and Sylvain Quoilin 
 
 """
+
 import parabolic_through_collector
 from CoolProp.CoolProp import PropsSI
 import numpy as np
@@ -136,24 +137,6 @@ class PT_collector(BaseComponent):
         Terms_np = np.array(Terms) # W/m (of line collector)
 
         return sum(Terms_np)
-
-    # def Q_dot_abs(self, k):
-
-    #     # Sun absorbed power
-    #     eta_opt = self.params['eta_opt']*self.params['alpha_r']*self.params['refl_m']*self.params['envel_tau']
-    #     Q_dot_sun_raw = self.DNI*np.cos(self.Theta)*self.params['W']# *eta_opt # self.L_disc
-    #     Q_dot_sun = Q_dot_sun_raw*eta_opt
-    #     Opt_losses = Q_dot_sun_raw*(1-eta_opt)
-
-    #     # Heat loss power
-    #     HL = self.heat_losses(k)
-    #     Q_dot_loss = HL #*self.L_disc
-    #     Q_dot_abs = Q_dot_sun - Q_dot_loss
-
-    #     print(f"Q_dot_abs : {Q_dot_abs} [W/m]")
-
-
-    #     return Q_dot_abs
 
     def Q_dot_abs(self, k):
 

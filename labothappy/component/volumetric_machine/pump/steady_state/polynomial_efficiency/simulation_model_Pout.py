@@ -211,10 +211,15 @@ class PumpPolyEff(BaseComponent):
             
             T_sat_su = PropsSI('T', 'P', self.su.p, 'Q', 0.5, self.su.fluid)
             
-            if self.su.T < T_sat_su:
+            if self.su.T < T_sat_su - 1e-2:
                 DH_water = self.DH_fun(self.inputs['N_pp'], V_dot_water) # N_pp is in RPM
             else:
-                raise ValueError(f"Inlet Pump temperature ({self.su.T}K) above saturation temperature ({round(T_sat_su,2)}K), fluid is gasoeus in the pump")
+                self.solved = False
+                
+                import sys
+                sys.exit("Pump Problem")
+                
+                raise ValueError(f"Inlet Pump temperature ({round(self.su.T,2)}K) above saturation temperature ({round(T_sat_su,2)}K), fluid is gasoeus in the pump")
             
             DP_water = DH_water*(rho_water*g)
             
