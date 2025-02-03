@@ -13,7 +13,7 @@ Modification w/r to previous version:
 
 # from __future__ import division, print_function
 
-from simulation_model_AS import HeatExchangerMB
+from simulation_model_elise import HeatExchangerMB
 from modules.geometry_tube_and_fins_hx import TubeAndFinsGeom
 
 #%%
