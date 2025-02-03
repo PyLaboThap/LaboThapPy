@@ -118,9 +118,12 @@ class HXPinchCst(BaseComponent):
 
     def system_evap(self, x):
         P_ev = x[0]
+
         # Ensure the pressure is non-negative
         if P_ev < 0:
             P_ev = 10000
+        
+        T_su_C = PropsSI('T', 'P', P_ev, 'H', self.su_C.h, self.su_C.fluid)
         
         # Get the temperature of the evaporator based on the pressure and quality
         T_ev = PropsSI('T', 'P', P_ev, 'Q', 0.5, self.su_C.fluid)
@@ -153,13 +156,13 @@ class HXPinchCst(BaseComponent):
         
         # Calculate pinch point and residual
         PP = min(self.su_H.T - self.T_C_ex, self.T_H_l - T_ev)
-        res = abs(PP - self.params['Pinch']) / self.params['Pinch']
+        self.res = abs(PP - self.params['Pinch']) / self.params['Pinch']
         
         # Update the state of the working fluid
         self.Q = Q_dot_ev
         self.P_sat = P_ev
         
-        return res
+        return self.res
     
     def system_cond(self, x):
         P_cd = x[0]
@@ -203,13 +206,13 @@ class HXPinchCst(BaseComponent):
         Pinch_cd = min(self.T_H_ex - self.su_C.T, T_cd - T_C_cd_v)
 
         # Calculate residual
-        res = abs(Pinch_cd - self.params['Pinch']) / self.params['Pinch']
+        self.res = abs(Pinch_cd - self.params['Pinch']) / self.params['Pinch']
         
         # Update the state of the working fluid
         self.Q = Q_dot_cd
         self.P_sat = P_cd
         
-        return res
+        return self.res
 
     def solve(self):
         # Ensure all required checks are performed
@@ -223,7 +226,7 @@ class HXPinchCst(BaseComponent):
 
         # Determine the type of heat exchanger and set the initial guess for pressure
         if self.params['type_HX'] == 'evaporator':
-            P_ev_guess = self.guesses.get('P_sat', PropsSI('P', 'T', 120 + 273.15, 'Q', 0.5, self.su_C.fluid)) # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
+            P_ev_guess = self.guesses.get('P_sat', PropsSI('P', 'T', 20 + 273.15, 'Q', 0.5, self.su_C.fluid)) # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
             x = [P_ev_guess]
 
             try:
@@ -241,7 +244,7 @@ class HXPinchCst(BaseComponent):
                 print(f"Convergence problem in evaporator model: {e}")
 
         elif self.params['type_HX'] == 'condenser':
-            P_cd_guess = self.guesses.get('P_sat', PropsSI('P', 'T', 25 + 273.15, 'Q', 0.5, self.su_H.fluid)) # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
+            P_cd_guess = self.guesses.get('P_sat', PropsSI('P', 'T', 20 + 273.15, 'Q', 0.5, self.su_H.fluid)) # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
             x = [P_cd_guess]
 
             try:

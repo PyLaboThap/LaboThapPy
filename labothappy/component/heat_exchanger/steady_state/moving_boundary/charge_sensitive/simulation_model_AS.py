@@ -753,7 +753,6 @@ class HeatExchangerMB(BaseComponent):
 
         "3) Calculate the ideal bubble and dew temperatures/enthalpies for each stream IF the fluid is not transcritical"
         
-        
         if not self.Transcritical_c:
 
             self.AS_C.update(CP.PQ_INPUTS, self.p_ci, 0)

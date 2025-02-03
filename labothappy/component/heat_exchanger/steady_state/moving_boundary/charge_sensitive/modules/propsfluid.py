@@ -9,8 +9,6 @@ Modification w/r to previous version:
 """
 
 import CoolProp.CoolProp as CP
-import numpy as np
-from scipy.interpolate import interp1d
 from correlations.properties.thermal_conductivity import conducticity_R1233zd
 
 def propsfluid(T_mean, P_mean, T_wall, fluid, incompr_flag):

@@ -379,6 +379,3 @@ class ExpanderSE(BaseComponent):
         print(f"  - T_hot: {self.Q_amb.T_hot} [K]")
         print(f"  - T_cold: {self.Q_amb.T_cold} [K]")
         print("=========================")
-
-
-
