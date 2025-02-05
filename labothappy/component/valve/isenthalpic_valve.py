@@ -126,6 +126,7 @@ class Isenthalpic_Valve(BaseComponent):
     
     def update_connectors(self, h_ex):
         self.ex.set_h(h_ex)
+        self.ex.set_m_dot(self.su.m_dot)
 
     def print_results(self):
         print("=== Expander Results ===")
