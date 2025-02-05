@@ -15,7 +15,7 @@ from component.tank.mixer.simulation_model import Mixer
 
 if __name__ == "__main__":
 
-    case_study = 'Recuperator' # 'Recuperator' or 'Simple'    
+    case_study = 'Simple' # 'Recuperator' or 'Simple'    
 
     if case_study == 'Simple':
         ORC = Circuit('R1233zd(E)')
@@ -325,11 +325,11 @@ if __name__ == "__main__":
         ORC.add_source("CD_Water", CD_water_source, ORC.components["Condenser"], "m-su_C")
         ORC.set_source_properties(T=15 + 273.15, fluid='Water', m_dot=2.6, target='CD_Water', P = 2e5)
     
-    #%% CYCLE FIXED VARIABLES
-        
+    #%% CYCLE GUESSES
+    
         P_low = 2*1e5
     
-        ORC.set_cycle_guess(target='Pump:su', m_dot = 0.3, SC = 5, p = P_low)
+        ORC.set_cycle_guess(target='Pump:su', m_dot = 0.3, SC = 3, p = P_low)
     
         ORC.set_cycle_guess(target='Spliter:su', T = 340, m_dot = 0.3, p = 4*1e5)
         
@@ -338,13 +338,11 @@ if __name__ == "__main__":
         ORC.set_cycle_guess(target='Expander_2:ex', p = P_low)
         
         ORC.set_cycle_guess(target='Expander_3:ex', p = P_low)
+
+    #%% CYCLE FIXED VARIABLES AND ITERATION VARIABLE
     
-        ORC.set_fixed_properties(target='Pump:su', SC = 5)
-    
-    #%% CYCLE ITERATION VARIABLES
-    
+        ORC.set_fixed_properties(target='Pump:su', SC = 5)    
         ORC.set_iteration_variable(target=['Expander_1:ex','Expander_2:ex','Expander_3:ex'], variable='p', objective = 'Pump:su-SC', tol = 1e-2, rel = 1, damping_factor = 0.1)
-    
     
     #%% CYCLE RESIDUAL VARIABLES
         ORC.set_residual_variable(target='Evaporator:ex_C', variable='h', tolerance= 1e-3)
