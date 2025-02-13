@@ -1,4 +1,6 @@
 LICENSE
+README.md
+pyproject.toml
 setup.py
 LaboThapPy.egg-info/PKG-INFO
 LaboThapPy.egg-info/SOURCES.txt
@@ -101,9 +103,6 @@ labothappy/component/volumetric_machine/expander/steady_state/constant_isentropi
 labothappy/component/volumetric_machine/expander/steady_state/semi_empirical/__init__.py
 labothappy/component/volumetric_machine/expander/steady_state/semi_empirical/example.py
 labothappy/component/volumetric_machine/expander/steady_state/semi_empirical/simulation_model.py
-labothappy/component/volumetric_machine/expander/steady_state/semi_empirical/calibration_fct/__init__.py
-labothappy/component/volumetric_machine/expander/steady_state/semi_empirical/calibration_fct/calibration.py
-labothappy/component/volumetric_machine/expander/steady_state/semi_empirical/calibration_fct/example_calibration.py
 labothappy/connector/__init__.py
 labothappy/connector/heat_connector.py
 labothappy/connector/mass_connector.py

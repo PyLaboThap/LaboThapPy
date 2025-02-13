@@ -118,96 +118,129 @@ class HXPinchCst(BaseComponent):
 
     def system_evap(self, x):
         P_ev = x[0]
+
         # Ensure the pressure is non-negative
         if P_ev < 0:
-            print("P_ev is negative")
             P_ev = 10000
-        
+                
         # Get the temperature of the evaporator based on the pressure and quality
-        T_ev = PropsSI('T', 'P', P_ev, 'Q', 0.5, self.su_C.fluid)
+        T_sat_ev = PropsSI('T', 'P', P_ev, 'Q', 0.5, self.su_C.fluid)
         
-        # Refrigerant side calculations
+        "Refrigerant side calculations"
         # Liquid zone
-        h_ev_su = self.su_C.h
-        h_ev_l = PropsSI('H', 'P', P_ev, 'Q', 0, self.su_C.fluid)
-        Q_dot_ev_l = self.su_C.m_dot * (h_ev_l - h_ev_su)
+        h_C_su = self.su_C.h
+        h_C_x0 = PropsSI('H', 'P', P_ev, 'Q', 0, self.su_C.fluid)
         
-        if Q_dot_ev_l < 0:
-            Q_dot_ev_l = 0
-        
+        Q_dot_sc = self.su_C.m_dot * (h_C_x0 - h_C_su)
+
         # Two-phase zone
-        h_ev_v = PropsSI('H', 'P', P_ev, 'Q', 1, self.su_C.fluid)
-        Q_dot_ev_tp = self.su_C.m_dot * (h_ev_v - h_ev_l)
-        
+        h_C_x1 = PropsSI('H', 'P', P_ev, 'Q', 1, self.su_C.fluid)
+
+        if Q_dot_sc > 0:
+            Q_dot_tp = self.su_C.m_dot * (h_C_x1 - h_C_x0)
+        else:
+            Q_dot_sc = 0
+            Q_dot_tp = self.su_C.m_dot * (h_C_x1 - self.su_C.h)
+            
         # Vapor zone
-        self.T_C_ex = T_ev + self.params['Delta_T_sh_sc']
-        h_ev_ex = PropsSI('H', 'P', P_ev, 'T', self.T_C_ex, self.su_C.fluid)
-        Q_dot_ev_v = self.su_C.m_dot * (h_ev_ex - h_ev_v)
-        
+        self.T_C_ex = T_sat_ev + self.params['Delta_T_sh_sc']
+        h_C_ex = PropsSI('H', 'P', P_ev, 'T', self.T_C_ex, self.su_C.fluid)
+
+        if Q_dot_tp > 0:
+            Q_dot_sh = self.su_C.m_dot * (h_C_ex - h_C_x1)
+        else:
+            Q_dot_tp = 0
+            Q_dot_sh = self.su_C.m_dot * (h_C_ex - self.su_C.h) 
+
         # Total heat transfer
-        Q_dot_ev = Q_dot_ev_l + Q_dot_ev_tp + Q_dot_ev_v
+        Q_dot_ev = Q_dot_sc + Q_dot_tp + Q_dot_sh
         
-        # Secondary fluid side calculations
-        self.T_H_ex = self.su_H.T - Q_dot_ev / (self.su_H.m_dot * self.su_H.cp)
-        self.T_H_v = self.su_H.T - Q_dot_ev_v / (self.su_H.m_dot * self.su_H.cp)
-        self.T_H_l = self.T_H_v - Q_dot_ev_tp / (self.su_H.m_dot * self.su_H.cp)
+        "Secondary fluid side calculations"
+        # First zone
+        self.h_H_x1 = self.su_H.h - Q_dot_sh/self.su_H.m_dot
+        self.T_H_x1 = PropsSI('T', 'P', self.su_H.p, 'H', self.h_H_x1, self.su_H.fluid)
+        
+        # Second zone
+        self.h_H_x0 = self.h_H_x1 - Q_dot_tp/self.su_H.m_dot
+        self.T_H_x0 = PropsSI('T', 'P', self.su_H.p, 'H', self.h_H_x0, self.su_H.fluid)
+
+        # Third zone
+        self.h_H_ex = self.h_H_x0 - Q_dot_sc/self.su_H.m_dot
+        self.T_H_ex = PropsSI('T', 'P', self.su_H.p, 'H', self.h_H_ex, self.su_H.fluid)        
         
         # Calculate pinch point and residual
-        PP = min(self.su_H.T - self.T_C_ex, self.T_H_l - T_ev)
-        res = abs(PP - self.params['Pinch']) / self.params['Pinch']
+        PPTD = min(self.T_H_ex - self.su_C.T, self.T_H_x0 - T_sat_ev, self.T_H_x1 - T_sat_ev, self.su_H.T - self.T_C_ex)
+        self.res = abs(PPTD - self.params['Pinch']) / self.params['Pinch']
         
         # Update the state of the working fluid
         self.Q = Q_dot_ev
         self.P_sat = P_ev
-        return res
+                
+        return self.res
     
     def system_cond(self, x):
         P_cd = x[0]
+        
         # Ensure the pressure is non-negative
         if P_cd < 0:
             P_cd = 10000
         
         # Get the temperature of the condenser based on pressure and quality
-        T_cd = PropsSI('T', 'P', P_cd, 'Q', 0.5, self.su_H.fluid)
+        T_sat_cd = PropsSI('T', 'P', P_cd, 'Q', 0.5, self.su_H.fluid)
         
-        # Refrigerant side calculations
-        # Initial state enthalpy
-        h_wf_su_cd = self.su_H.h
-        
+        "Refrigerant side calculations"
         # Vapor zone
-        h_wf_cd_v = PropsSI('H', 'P', P_cd, 'Q', 1, self.su_H.fluid)
-        Q_dot_cd_v = self.su_H.m_dot * (h_wf_su_cd - h_wf_cd_v)
-
-        if Q_dot_cd_v < 0:
-            Q_dot_cd_v = 0
+        h_H_su = self.su_H.h
+        h_H_x1 = PropsSI('H', 'P', P_cd, 'Q', 1, self.su_H.fluid)
         
+        Q_dot_sh = self.su_H.m_dot * (h_H_su - h_H_x1)
+
         # Two-phase zone
-        h_wf_cd_l = PropsSI('H', 'P', P_cd, 'Q', 0, self.su_H.fluid)
-        Q_dot_cd_tp = self.su_H.m_dot * (h_wf_cd_v - h_wf_cd_l)
+        h_H_x0 = PropsSI('H', 'P', P_cd, 'Q', 0, self.su_H.fluid)
+        
+        if Q_dot_sh > 0:
+            Q_dot_tp = self.su_C.m_dot * (h_H_x1 - h_H_x0)
+        else:
+            Q_dot_cd_v = 0
+            Q_dot_tp = self.su_H.m_dot * (self.su_H.h - h_H_x0)
         
         # Liquid zone
-        self.T_H_ex = T_cd - self.params['Delta_T_sh_sc']
-        h_H_ex_cd = PropsSI('H', 'P', P_cd, 'T', self.T_H_ex, self.su_H.fluid)
-        Q_dot_cd_l = self.su_H.m_dot * (h_wf_cd_l - h_H_ex_cd)
+        self.T_H_ex = T_sat_cd - self.params['Delta_T_sh_sc']
+        h_c_ex = PropsSI('H', 'P', P_cd, 'T', self.T_H_ex, self.su_H.fluid)
         
+        if Q_dot_tp > 0:
+            Q_dot_sc = self.su_H.m_dot * (h_H_x0 - h_c_ex)
+        else:
+            Q_dot_tp = 0
+            Q_dot_sc = self.su_H.m_dot * (self.su_H.h - h_c_ex)
+
         # Total heat transfer
-        Q_dot_cd = Q_dot_cd_v + Q_dot_cd_tp + Q_dot_cd_l
+        Q_dot_cd = Q_dot_sh + Q_dot_tp + Q_dot_sc
         
-        # Water side calculations
-        self.T_C_ex = self.su_C.T + Q_dot_cd / (self.su_C.m_dot * self.su_C.cp)
-        T_C_cd_l = self.su_C.T + Q_dot_cd_l / (self.su_C.m_dot * self.su_C.cp)
-        T_C_cd_v = T_C_cd_l + Q_dot_cd_tp / (self.su_C.m_dot * self.su_C.cp)
+        "Secondary fluid side calculations"
+        # First zone
+        self.h_C_x0 = self.su_C.h + Q_dot_sc/self.su_C.m_dot
+        self.T_C_x0 = PropsSI('T', 'P', self.su_C.p, 'H', self.h_C_x0, self.su_C.fluid)
+        
+        # Second zone
+        self.h_C_x1 = self.h_C_x0 + Q_dot_tp/self.su_C.m_dot
+        self.T_C_x1 = PropsSI('T', 'P', self.su_C.p, 'H', self.h_C_x0, self.su_C.fluid)
+
+        # Third zone
+        self.h_C_ex = self.h_C_x1 + Q_dot_sh/self.su_C.m_dot
+        self.T_C_ex = PropsSI('T', 'P', self.su_C.p, 'H', self.h_C_ex, self.su_C.fluid)        
         
         # Pinch point position
-        Pinch_cd = min(self.T_H_ex - self.su_C.T, T_cd - T_C_cd_v)
+        PPTD = min(self.T_H_ex - self.su_C.T, self.T_H_x0 - T_sat_cd, self.T_H_x1 - T_sat_cd, self.su_H.T - self.T_C_ex)
 
         # Calculate residual
-        res = abs(Pinch_cd - self.params['Pinch']) / self.params['Pinch']
+        self.res = abs(PPTD - self.params['Pinch']) / self.params['Pinch']
         
         # Update the state of the working fluid
         self.Q = Q_dot_cd
         self.P_sat = P_cd
-        return res
+        
+        return self.res
 
     def solve(self):
         # Ensure all required checks are performed
@@ -221,7 +254,7 @@ class HXPinchCst(BaseComponent):
 
         # Determine the type of heat exchanger and set the initial guess for pressure
         if self.params['type_HX'] == 'evaporator':
-            P_ev_guess = self.guesses.get('P_sat', PropsSI('P', 'T', self.su_H.T, 'Q', 0.5, self.su_C.fluid)) # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
+            P_ev_guess = self.guesses.get('P_sat', PropsSI('P', 'T', 20 + 273.15, 'Q', 0.5, self.su_C.fluid)) # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
             x = [P_ev_guess]
 
             try:
@@ -239,7 +272,7 @@ class HXPinchCst(BaseComponent):
                 print(f"Convergence problem in evaporator model: {e}")
 
         elif self.params['type_HX'] == 'condenser':
-            P_cd_guess = self.guesses.get('P_sat', PropsSI('P', 'T', self.su_C.T, 'Q', 0.5, self.su_H.fluid)) # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
+            P_cd_guess = self.guesses.get('P_sat', PropsSI('P', 'T', 20 + 273.15, 'Q', 0.5, self.su_H.fluid)) # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
             x = [P_cd_guess]
 
             try:

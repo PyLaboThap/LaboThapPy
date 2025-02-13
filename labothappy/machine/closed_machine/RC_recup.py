@@ -5,13 +5,13 @@ from connector.mass_connector import MassConnector
 from connector.work_connector import WorkConnector
 from connector.heat_connector import HeatConnector
 
-from component.steadystate.heat_exchanger.moving_boundary.charge_sensitive.simulation_model import HeatExchangerMB
-from component.steadystate.heat_exchanger.pinch_cst.simulation_model import HXPinchCst
-from component.steadystate.heat_exchanger.moving_boundary.charge_sensitive.modules.geometry_plate_hx_swep import PlateGeomSWEP
-from component.steadystate.heat_exchanger.efficiency_cst.simulation_model import HXEffCst
+from component.steady_state.heat_exchanger.moving_boundary.charge_sensitive.simulation_model import HeatExchangerMB
+from component.steady_state.heat_exchanger.pinch_cst.simulation_model import HXPinchCst
+from component.steady_state.heat_exchanger.moving_boundary.charge_sensitive.modules.geometry_plate_hx_swep import PlateGeomSWEP
+from component.steady_state.heat_exchanger.efficiency_cst.simulation_model import HXEffCst
 
-from component.steadystate.volumetric_machine.expander.constant_isentropic_efficiency.simulation_model import ExpanderCstEff
-from component.steadystate.pump.constant_efficiency.simulation_model import PumpCstEff
+from component.steady_state.volumetric_machine.expander.constant_isentropic_efficiency.simulation_model import ExpanderCstEff
+from component.steady_state.pump.constant_efficiency.simulation_model import PumpCstEff
 from machine.circuit import Circuit
 
 from circuit import Circuit

@@ -1,7 +1,8 @@
+
 import __init__
-from component.heat_exchanger.steady_state.epsilon_NTU.simulation_model import HXeNTU 
-# from simulation_model import HXeNTU
 import numpy as np
+
+from component.heat_exchanger.steady_state.epsilon_NTU.simulation_model import HXeNTU 
 
 HX = HXeNTU()
 
@@ -18,7 +19,6 @@ HX.set_inputs(
     Csu_p = 4*1e5, # Pa
     Csu_m_dot = 0.08, # kg/s  # Make sure to include fluid information
 )
-
  
 A_htx = 0.752 # m^2
 

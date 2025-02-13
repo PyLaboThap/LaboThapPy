@@ -40,64 +40,64 @@ class HXEffCst(BaseComponent):
     def get_required_inputs(self): # Used in check_calculablle to see if all of the required inputs are set
         self.sync_inputs()
         # Return a list of required inputs
-        return['su_C_fluid', 'su_C_h', 'su_C_m_dot', 'su_H_fluid', 'su_H_T', 'su_H_cp', 'su_H_m_dot']
+        return['Csu_fluid', 'Csu_h', 'Csu_p', 'Csu_m_dot', 'Hsu_fluid', 'Hsu_h', 'Hsu_p', 'Hsu_m_dot']
     
     def sync_inputs(self):
         """Synchronize the inputs dictionary with the connector states."""
         if self.su_C.fluid is not None:
-            self.inputs['su_C_fluid'] = self.su_C.fluid
+            self.inputs['Csu_fluid'] = self.su_C.fluid
         if self.su_C.h is not None:
-            self.inputs['su_C_h'] = self.su_C.h
+            self.inputs['Csu_h'] = self.su_C.h
         if self.su_C.T is not None:
-            self.inputs['su_C_T'] = self.su_C.T
+            self.inputs['Csu_T'] = self.su_C.T
         if self.su_C.m_dot is not None:
-            self.inputs['su_C_m_dot'] = self.su_C.m_dot
+            self.inputs['Csu_m_dot'] = self.su_C.m_dot
         if self.su_C.p is not None:
-            self.inputs['su_C_p'] = self.su_C.p
+            self.inputs['Csu_p'] = self.su_C.p
 
         if self.su_H.fluid is not None:
-            self.inputs['su_H_fluid'] = self.su_H.fluid
+            self.inputs['Hsu_fluid'] = self.su_H.fluid
         if self.su_H.T is not None:
-            self.inputs['su_H_T'] = self.su_H.T
+            self.inputs['Hsu_T'] = self.su_H.T
         if self.su_H.h is not None:
-            self.inputs['su_H_h'] = self.su_H.h
+            self.inputs['Hsu_h'] = self.su_H.h
         if self.su_H.cp is not None:
-            self.inputs['su_H_cp'] = self.su_H.cp
+            self.inputs['Hsu_cp'] = self.su_H.cp
         if self.su_H.m_dot is not None:
-            self.inputs['su_H_m_dot'] = self.su_H.m_dot
+            self.inputs['Hsu_m_dot'] = self.su_H.m_dot
         if self.su_H.p is not None:
-            self.inputs['su_H_p'] = self.su_H.p
+            self.inputs['Hsu_p'] = self.su_H.p
 
     def set_inputs(self, **kwargs):
         """Set inputs directly through a dictionary and update connector properties."""
         self.inputs.update(kwargs) # This line merges the keyword arguments ('kwargs') passed to the 'set_inputs()' method into the eisting 'self.inputs' dictionary.
 
         # Update the connectors based on the new inputs
-        if 'su_C_fluid' in self.inputs:
-            self.su_C.set_fluid(self.inputs['su_C_fluid'])
-        if 'su_C_T' in self.inputs:
-            self.su_C.set_T(self.inputs['su_C_T'])
-        if 'su_C_h' in self.inputs:
-            self.su_C.set_h(self.inputs['su_C_h'])
-        if 'su_C_m_dot' in self.inputs:
-            self.su_C.set_m_dot(self.inputs['su_C_m_dot'])
-        if 'su_C_p' in self.inputs:
-            self.su_C.set_p(self.inputs['su_C_p'])
+        if 'Csu_fluid' in self.inputs:
+            self.su_C.set_fluid(self.inputs['Csu_fluid'])
+        if 'Csu_T' in self.inputs:
+            self.su_C.set_T(self.inputs['Csu_T'])
+        if 'Csu_h' in self.inputs:
+            self.su_C.set_h(self.inputs['Csu_h'])
+        if 'Csu_m_dot' in self.inputs:
+            self.su_C.set_m_dot(self.inputs['Csu_m_dot'])
+        if 'Csu_p' in self.inputs:
+            self.su_C.set_p(self.inputs['Csu_p'])
 
-        if 'su_H_fluid' in self.inputs:
-            self.su_H.set_fluid(self.inputs['su_H_fluid'])
-        if 'su_H_T' in self.inputs:
-            self.su_H.set_T(self.inputs['su_H_T'])
-        if 'su_H_h' in self.inputs:
-            self.su_H.set_h(self.inputs['su_H_h'])
-        if 'su_H_cp' in self.inputs:
-            self.su_H.set_cp(self.inputs['su_H_cp'])
-        if 'su_H_m_dot' in self.inputs:
-            self.su_H.set_m_dot(self.inputs['su_H_m_dot'])
-        if 'su_H_p' in self.inputs:
-            self.su_H.set_p(self.inputs['su_H_p'])
+        if 'Hsu_fluid' in self.inputs:
+            self.su_H.set_fluid(self.inputs['Hsu_fluid'])
+        if 'Hsu_T' in self.inputs:
+            self.su_H.set_T(self.inputs['Hsu_T'])
+        if 'Hsu_h' in self.inputs:
+            self.su_H.set_h(self.inputs['Hsu_h'])
+        if 'Hsu_cp' in self.inputs:
+            self.su_H.set_cp(self.inputs['Hsu_cp'])
+        if 'Hsu_m_dot' in self.inputs:
+            self.su_H.set_m_dot(self.inputs['Hsu_m_dot'])
+        if 'Hsu_p' in self.inputs:
+            self.su_H.set_p(self.inputs['Hsu_p'])
 
-        return['su_C_fluid', 'su_C_h', 'su_C_m_dot', 'su_H_fluid', 'su_H_T', 'su_H_cp', 'su_H_m_dot']
+        return['Csu_fluid', 'Csu_h', 'Csu_p', 'Csu_m_dot', 'Hsu_fluid', 'Hsu_h', 'Hsu_p', 'Hsu_m_dot']
     
     def get_required_parameters(self):
         return [
@@ -149,68 +149,46 @@ class HXEffCst(BaseComponent):
             print("HTX IS NOT PARAMETRIZED")
             return
 
-        "Heat Capacity Fluxes"
-
-        C_cp = PropsSI('C','P',self.su_C.p,'H',self.su_C.h,self.su_C.fluid)
-        H_cp = PropsSI('C','P',self.su_H.p,'H',self.su_H.h,self.su_H.fluid)
-
-        C_Cdot = C_cp*self.su_C.m_dot
-        H_Cdot = H_cp*self.su_H.m_dot
+        "Define Q_dot_max through enthalpies"
         
-        Cdot_min = min(C_Cdot,H_Cdot)
-
+        H_h_id = PropsSI('H', 'P', self.su_H.p, 'T', self.su_C.T, self.su_H.fluid)
+        H_c_id = PropsSI('H', 'P', self.su_C.p, 'T', self.su_H.T, self.su_C.fluid)
+        
+        Q_dot_maxh = self.su_H.m_dot*abs(H_h_id-self.su_H.h)
+        Q_dot_maxc = self.su_C.m_dot*abs(H_c_id-self.su_C.h)
+        
+        Q_dot_max = min(Q_dot_maxh,Q_dot_maxc)
+        
         "Heat Transfer Rate"
-        Q_dot = Cdot_min*self.params['eta']*(self.su_H.T - self.su_C.T)
+        Q_dot = self.params['eta']*Q_dot_max
 
-        "Outlet state"
+        "Outlet states"   
+        self.update_connectors(Q_dot)
+        self.solved = True
+        return
 
-        self.ex_C.set_fluid(self.su_C.fluid)
-        self.ex_C.set_p(self.su_C.p)
-        self.ex_C.set_m_dot(self.su_C.m_dot)
-        self.ex_C.set_h(self.su_C.h + Q_dot/self.ex_C.m_dot)
-
-        self.ex_H.set_fluid(self.su_H.fluid)
-        self.ex_H.set_p(self.su_H.p)
-        self.ex_H.set_m_dot(self.su_H.m_dot)
-        self.ex_H.set_h(self.su_H.h - Q_dot/self.ex_H.m_dot)
-        
-        self.Q_dot.set_Q_dot(Q_dot)
-
-    def update_connectors(self):
+    def update_connectors(self, Q_dot):
         
         "Mass Connectors"
+        self.ex_C.set_fluid(self.su_C.fluid)
+        self.ex_C.set_m_dot(self.su_C.m_dot)
+        self.ex_C.set_h(self.su_C.h + Q_dot/self.su_C.m_dot)
+        self.ex_C.set_p(self.su_C.p)
+        self.ex_C.set_T(PropsSI("T", "H", self.ex_C.h, "P", self.ex_C.p, self.su_C.fluid))
 
-        if self.params['type_HX'] == 'evaporator':
+        self.ex_H.set_fluid(self.su_H.fluid)
+        self.ex_H.set_m_dot(self.su_H.m_dot)
+        self.ex_H.set_h(self.su_H.h - Q_dot/self.su_H.m_dot)
+        self.ex_H.set_p(self.su_H.p)
+        self.ex_H.set_T(PropsSI("T", "H", self.ex_H.h, "P", self.ex_H.p, self.su_H.fluid))
 
-            self.su_C.set_p(self.P_sat)
+        "Heat conector"
+        self.Q_dot.set_Q_dot(Q_dot)
 
-            self.ex_C.set_fluid(self.su_C.fluid)
-            self.ex_C.set_T(self.T_C_ex)
-            self.ex_C.set_p(self.P_sat)
-            self.ex_C.set_m_dot(self.su_C.m_dot)
-
-            self.ex_H.set_fluid(self.su_H.fluid)
-            self.ex_H.set_m_dot(self.su_H.m_dot)
-            self.ex_H.set_T(self.T_H_ex)
-            
-            "Heat conector"
-            self.Q_dot.set_Q_dot(self.Q)
-
-        else: 
-
-            self.su_H.set_p(self.P_sat)
-
-            self.ex_H.set_fluid(self.su_H.fluid)
-            self.ex_H.set_T(self.T_H_ex)
-            self.ex_H.set_p(self.P_sat)
-            self.ex_H.set_m_dot(self.su_H.m_dot)
-
-            self.ex_C.set_fluid(self.su_C.fluid)
-            self.ex_C.set_m_dot(self.su_C.m_dot)
-            self.ex_C.set_T(self.T_C_ex)
-            
-            "Heat conector"
-            self.Q_dot.set_Q_dot(self.Q)
+        print(f"h: {self.ex_H.h}")
+        print(f"h: {self.su_H.h - Q_dot/self.su_H.m_dot}")
+        print(f"T: {self.ex_H.T}")
+        print(f"p: {self.ex_H.p}")
 
     def print_results(self):
         print("=== Heat Exchanger Results ===")
