@@ -146,7 +146,7 @@ def htc_tube_and_fins_annular(fluid, params, P_in, T_in, m_dot_in):
 
     return h_rdc, A_out_tot
 
-def htc_tube_and_fins_square(fluid, params, P_in, T_in, m_dot_in):
+def htc_tube_and_fins_square(fluid, params, P_in, h_in, m_dot_in):
     """
     Parameters
     ----------
@@ -181,7 +181,7 @@ def htc_tube_and_fins_square(fluid, params, P_in, T_in, m_dot_in):
     
     "Gas data"
     
-    rho_in = PropsSI('D','P',P_in,'T',T_in,fluid)
+    rho_in = PropsSI('D','P',P_in,'H',h_in,fluid)
     V_dot_in = m_dot_in/rho_in # m^3/s
     
     "Geom data"
@@ -244,8 +244,7 @@ def htc_tube_and_fins_square(fluid, params, P_in, T_in, m_dot_in):
     # print("n_tpr*D_fin_c", n_tpr*D_fin_c)
 
     "h_c computation"
-    
-    k_g, Pr_g, nu_g = PropsSI(("L","PRANDTL","V"),'T',T_in,'P',P_in,fluid)
+    k_g, Pr_g, nu_g = PropsSI(("L","PRANDTL","V"),'H',h_in,'P',P_in,fluid)
     
     "Fin Coefficient - Psi_f"
     

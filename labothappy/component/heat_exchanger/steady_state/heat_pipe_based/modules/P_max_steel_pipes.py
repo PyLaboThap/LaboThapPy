@@ -56,7 +56,7 @@ def P_max_adm(D_o_in,T_tube_in,plot_boolean):
     
     S_tube_calc = S_fun(T_tube_in)  # [MPa]
     
-    t = 3.5 # [mm]
+    t = 0.5 # [mm]
     D_i_in = D_o_in - 2*t  # [mm]
     
     P_max_1 = S_tube_calc*((2*t - 0.01*D_o_in - 2*e)/(D_o_in - (t-0.005*D_o_in-e)))
@@ -72,7 +72,7 @@ def P_max_adm(D_o_in,T_tube_in,plot_boolean):
     if plot_boolean == 1:
         T_tube = 373.15 + 273.15  # [K]
         S_tube = S_fun(T_tube)  # [MPa]
-        D_o_vect = np.linspace(18, 58, 101)  # [mm]
+        D_o_vect = np.linspace(1, 10, 101)  # [mm]
         P_max = np.zeros(len(D_o_vect))
         P_max_bouch = np.zeros(len(D_o_vect))
         T_max_sat_cel = np.zeros(len(D_o_vect))

@@ -10,19 +10,19 @@ import numpy as np
 HTX = HXEffCst()
 
 HTX.set_inputs(
-    su_C_fluid = 'Cyclopentane',
-    su_C_T = 273.155 + 25.85,
-    su_C_m_dot = 26.61,
-    su_C_p = 1048 * 1e3,
+    su_C_fluid = 'Water',
+    su_C_T = 273.155 + 60,
+    su_C_m_dot = 1,
+    su_C_p = 3e5,
 
-    su_H_fluid = 'Cyclopentane',
-    su_H_T = 273.15 + 79.86,
-    su_H_m_dot = 26.61,
-    su_H_p = 48.13 * 1e3,
+    su_H_fluid = 'CO2',
+    su_H_T = 273.15 + 160,
+    su_H_m_dot = 0.08,
+    su_H_p = 130*1e5,
 )
 
 HTX.set_parameters(**{
-    'eta': 0.8,
+    'eta': 0.95,
 })
 
 HTX.solve()

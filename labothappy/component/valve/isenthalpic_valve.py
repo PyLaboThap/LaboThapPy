@@ -9,30 +9,25 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import os
 
-class CompressorCstEff(BaseComponent):
+class Isenthalpic_Valve(BaseComponent):
     """
-    Component: Compressor
+    Component: Valve
 
-    Model: Constant isentropic efficiency
+    Model: Isenthalpic
 
     **Descritpion**:
 
-        This model determines the exhqust specific enthalpy and the exhaust temperature of a compressor. This model can be used for on-design models of systems.
+        This model determines the outlet conditions for an isenthalpic valve. This model can be used for on-design models of systems.
 
     **Assumptions**:
 
         - Steady-state operation.
-        - Isentropic efficiency stays constant for all the conditions.
 
     **Connectors**:
 
         su (MassConnector): Mass connector for the suction side.
 
         ex (MassConnector): Mass connector for the exhaust side.
-
-    **Parameters**:
-
-        eta_is: Isentropic efficiency. [-]
 
     **Inputs**:
 
@@ -55,7 +50,6 @@ class CompressorCstEff(BaseComponent):
         super().__init__()
         self.su = MassConnector() # Mass_connector for the suction side
         self.ex = MassConnector() # Mass_connector for the exhaust side
-        self.W_dot = WorkConnector()
 
     def get_required_inputs(self):
             self.sync_inputs()
@@ -88,9 +82,7 @@ class CompressorCstEff(BaseComponent):
             self.ex.set_p(self.inputs['ex_p'])
 
     def get_required_parameters(self):
-        return [
-            'eta_is',
-        ]
+        return []
     
     def print_setup(self):
         print("=== Compressor Setup ===")
@@ -122,12 +114,9 @@ class CompressorCstEff(BaseComponent):
             print("CompressorCstEff could not be solved. It is not calculable and/or not parametrized")
             return
         try:
-            h_ex_is = PropsSI('H', 'P', self.ex.p, 'S', self.su.s, self.su.fluid)
-            h_ex = self.su.h + (h_ex_is - self.su.h) / self.params['eta_is']
-
-            W_dot = self.su.m_dot*(h_ex - self.su.h)
-
-            self.update_connectors(h_ex, W_dot)
+            
+            h_ex = self.su.h
+            self.update_connectors(h_ex)
 
             self.solved = True
         except Exception as e:
@@ -135,10 +124,9 @@ class CompressorCstEff(BaseComponent):
             self.solved = False
             return
     
-    def update_connectors(self, h_ex, W_dot):
+    def update_connectors(self, h_ex):
         self.ex.set_h(h_ex)
         self.ex.set_m_dot(self.su.m_dot)
-        self.W_dot.set_W_dot(W_dot)
 
     def print_results(self):
         print("=== Expander Results ===")

@@ -8,6 +8,9 @@ Created on Tue Jul 30 14:32:39 2024
 from component.base_component import BaseComponent
 from component.heat_exchanger.steady_state.epsilon_NTU.modules.pipe_HTC import Gnielinski_Pipe_HTC
 
+# from correlation.convection.pipe_HTC import #### 
+# from toolbox.heat_exchanger.e_NTU import e_NTU
+
 from connector.mass_connector import MassConnector
 from connector.work_connector import WorkConnector
 from connector.heat_connector import HeatConnector

@@ -201,25 +201,25 @@ class MassConnector:
 
     def set_properties(self, **kwargs):
         for key, value in kwargs.items():
-            if key == 'fluid':
+            if key.lower() == 'fluid':
                 self.set_fluid(value)
             elif key == 'm_dot':
                 self.set_m_dot(value)
             elif key == 'V_dot':
                 self.set_V_dot(value)
-            elif key == 'T':
+            elif key.upper() == 'T':
                 self.set_T(value)
-            elif key == 'P' or key == 'p':
+            elif key.upper() == 'P':
                 self.set_p(value)
-            elif key == 'H':
+            elif key.upper() == 'H':
                 self.set_h(value)
-            elif key == 'S':
+            elif key.upper() == 'S':
                 self.set_s(value)
-            elif key == 'D':
+            elif key.upper() == 'D':
                 self.set_D(value)
-            elif key == 'x':
+            elif key.lower() == 'x':
                 self.set_x(value)
-            elif key == 'cp':
+            elif key.lower() == 'cp':
                 self.set_cp(value)
             else:
                 warnings.warn(f"Error: Invalid property '{key}'")
@@ -257,8 +257,19 @@ class MassConnector:
             self.T = value
             for i, var in enumerate(self.variables_input):
                 if var[0] == 'T':
-                    self.variables_input[i][1] = value
-                    break
+                    self.variables_input[i][1] = value                    
+                    
+                    if i == 1:
+                        self.variables_input[0], self.variables_input[1] = self.variables_input[1], self.variables_input[0]
+
+                    self.check_completely_known()
+                    return
+                
+            self.variables_input.pop()
+            self.variables_input.insert(0, ['T', value])
+            self.check_completely_known()
+            return
+                
         else:              # If the temperature is not known, set the value and add the variable to the list
             self.T = value
             self.variables_input = self.variables_input+[['T',value]]
@@ -271,7 +282,18 @@ class MassConnector:
             for i, var in enumerate(self.variables_input):
                 if var[0] == 'P':
                     self.variables_input[i][1] = value
-                    break
+                    
+                    if i == 1:
+                        self.variables_input[0], self.variables_input[1] = self.variables_input[1], self.variables_input[0]
+                    
+                    self.check_completely_known()                        
+                    return
+            
+            self.variables_input.pop()
+            self.variables_input.insert(0, ['P', value])
+            self.check_completely_known()       
+            return
+            
         else:             # If the pressure is not known, set the value and add the variable to the list
             self.p = value
             self.variables_input = self.variables_input+[['P',value]]
@@ -280,10 +302,22 @@ class MassConnector:
     def set_h(self, value):
         if self.h != None: # If the specific enthalpy is already known, update the value and the corresponding variable in the list
             self.h = value
+            
             for i, var in enumerate(self.variables_input):
                 if var[0] == 'H':
                     self.variables_input[i][1] = value
-                    break
+                    
+                    if i == 1:
+                        self.variables_input[0], self.variables_input[1] = self.variables_input[1], self.variables_input[0]
+
+                    self.check_completely_known()                        
+                    return
+            
+            self.variables_input.pop()
+            self.variables_input.insert(0, ['H', value])
+            self.check_completely_known()
+
+            return
         else:            # If the specific enthalpy is not known, set the value and add the variable to the list
             self.h = value
             self.variables_input = self.variables_input+[['H',value]]
@@ -295,7 +329,17 @@ class MassConnector:
             for i, var in enumerate(self.variables_input):
                 if var[0] == 'S':
                     self.variables_input[i][1] = value
-                    break
+                    
+                    if i == 1:
+                        self.variables_input[0], self.variables_input[1] = self.variables_input[1], self.variables_input[0]
+                        
+                    self.check_completely_known()
+                    return
+
+            self.variables_input.pop()
+            self.variables_input.insert(0, ['S', value])
+            self.check_completely_known()
+            return                
         else:           # If the specific entropy is not known, set the value and add the variable to the list
             self.s = value
             self.variables_input = self.variables_input+[['S',value]]
@@ -307,7 +351,18 @@ class MassConnector:
             for i, var in enumerate(self.variables_input):
                 if var[0] == 'D':
                     self.variables_input[i][1] = value
-                    break
+                    
+                    if i == 1:
+                        self.variables_input[0], self.variables_input[1] = self.variables_input[1], self.variables_input[0]
+                    
+                    self.check_completely_known()
+                    return
+
+            self.variables_input.pop()
+            self.variables_input.insert(0, ['D', value])
+            self.check_completely_known()
+            
+            return
         else:           # If the mass density is not known, set the value and add the variable to the list
             self.D = value
             self.variables_input = self.variables_input+[['D',value]]
@@ -319,7 +374,19 @@ class MassConnector:
             for i, var in enumerate(self.variables_input):
                 if var[0] == 'Q':
                     self.variables_input[i][1] = value
-                    break
+                    
+                    if i == 1:
+                        self.variables_input[0], self.variables_input[1] = self.variables_input[1], self.variables_input[0]
+                    
+                    self.check_completely_known()
+                    return
+
+            self.variables_input.pop()
+            self.variables_input.insert(0, ['Q', value])
+            self.check_completely_known()
+
+            return
+
         else:          # If the quality is not known, set the value and add the variable to the list
             self.x = value
             self.variables_input = self.variables_input+[['Q',value]]

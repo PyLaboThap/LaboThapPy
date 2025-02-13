@@ -632,7 +632,7 @@ def han_boiling_BPHEX_HTC(x, mu_l, k_l, Pr_l, rho_l, rho_v, i_fg, G, DT_log, Qdo
     Giovanni A. Longo, Andrea Gasparella
     """
     
-    def iter_Han_boiling(Bo_g, Ge1, Ge2,Re_eq, Pr_l, k_l, hconv_h, AU_tp, Qdot, G_eq, i_fg, Dh):
+    def iter_Han_boiling(Bo_g, Ge1, Ge2,Re_eq, Pr_l, k_l, honv_h, AU_tp, Qdot, G_eq, i_fg, Dh):
         Bo_g = max(Bo_g, 1e-8)
         Nu = Ge1*Re_eq**Ge2*Bo_g**0.3*Pr_l**0.4
         h = Nu*k_l/Dh

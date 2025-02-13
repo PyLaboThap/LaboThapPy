@@ -1,29 +1,47 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Sep  8 14:25:03 2021
-
-Reference: VDI section G1, page 696
-
-@author: jvega
+@author: Basile Chaudoir
 """
 
-from math import log10, sqrt, inf
+from math import log10, inf
 import numpy as np
 import warnings
 from CoolProp.CoolProp import PropsSI
-import matplotlib.pyplot as plt
 from scipy.optimize import fsolve
-from scipy.interpolate import interp1d
 
 #%%
-def Gnielinski_Pipe_HTC(mu, Pr, Pr_w, k, G, Dh, L):
+def gnielinski_pipe_htc(mu, Pr, Pr_w, k, G, Dh, L):
+    """
+    Inputs
+    ------
+    
+    mu   : Dynamic Viscosity [Pa*s]
+    Pr   : Prantl number [-]
+    Pr_w : Prandtl number at wall conditions [-]
+    k    : Thermal conductivity [W/(m*K)]
+    G    : Flow rate per cross section area [kg/(m^2 * s)]
+    Dh   : Hydraulic diameter [m]
+    L    : Flow length [m]
+    
+    Outputs
+    -------
+    
+    hConv : Convection heat transfer coefficient [W/(m^2 * K)]
+    
+    Reference
+    ---------
+    Validation of the Gnielinski correlation for evaluation of heat transfer coefficient of enhanced tubes by non-linear 
+    regression model: An experimental study of absorption refrigeration system
+    
+    Syed Muhammad Ammar, Chan Woo Park
+    """
     #-------------------------------------------------------------------------
-    def Gnielinski_Laminar(Re, Pr, Dh, L):
+    def gnielinski_laminar(Re, Pr, Dh, L):
         Nu_1 = 4.364
         Nu_2 = 1.953*(Re*Pr*Dh/L)**(1/3)
         Nu = (Nu_1**3 + 0.6**3 + (Nu_2 - 0.6)**3)**(1/3)
         return Nu
-    def Gnielinski_Turbulent(Re, Pr):
+    def gnielinski_turbulent(Re, Pr):
         f = (1.8*log10(Re) - 1.5)**(-2)
         Nu = (((f/8)*(Re-1000)*Pr) / (1+12.7*(f/8)**(1/2) * (Pr**(2/3)-1)) )*(1 + (Dh/L)**(2/3))*(Pr/Pr_w)**(0.11)
         return Nu
@@ -35,17 +53,17 @@ def Gnielinski_Pipe_HTC(mu, Pr, Pr_w, k, G, Dh, L):
     if Re > 1e4: #fully turbulent
         Pr_min = 0.1
         Pr_max = 1000
-        Nu = Gnielinski_Turbulent(Re, Pr)
+        Nu = gnielinski_turbulent(Re, Pr)
     elif Re < 2300: #fully laminar
         Pr_min = 0.6
         Pr_max = inf
-        Nu = Gnielinski_Laminar(Re, Pr, Dh, L)
+        Nu = gnielinski_laminar(Re, Pr, Dh, L)
     else: #transition zone
         Pr_min = 0.1
         Pr_max = 1000
         gamma = (Re - 2300)/(1e4 - 2300)
-        Nu_lam2300 = Gnielinski_Laminar(2300, Pr, Dh, L)
-        Nu_turb10000 = Gnielinski_Turbulent(1e4, Pr)
+        Nu_lam2300 = gnielinski_laminar(2300, Pr, Dh, L)
+        Nu_turb10000 = gnielinski_turbulent(1e4, Pr)
         Nu = (1-gamma)*Nu_lam2300 + gamma*Nu_turb10000
     #-------------------------------------------------------------------------
     hConv = Nu*k/Dh
@@ -59,9 +77,36 @@ def Gnielinski_Pipe_HTC(mu, Pr, Pr_w, k, G, Dh, L):
         warnings.warn('Gnielinski singe-phase: Prandtl Out of validity range  !!!')
     #-------------------------------------------------------------------------
     return hConv
-def Pipe_Internal_DP(mu, Pr, Np, rho, G, Di, L):
+
+def pipe_internal_DP(mu, rho, m_dot, params):
+    """
+    Inputs
+    ------
+    
+    mu   : Dynamic Viscosity [Pa*s]
+    Np   : Number of tube passes [-]
+    rho  : Density [kg/m^3]
+    G    : Flow rate per cross section area [kg/(m^2 * s)]
+    Dh   : Hydraulic diameter [m]
+    L    : Flow length [m]
+    
+    Outputs
+    -------
+    
+    DP : Pipe pressure drop [Pa]
+    
+    Reference
+    ---------
+    ?
+    """
+    
+    A_in_1_tube = np.pi*(params["Tube_OD"] - 2*params["Tube_t"])**2 / 4
+    A_in_tubes = A_in_1_tube*params["n_tubes"]
+
+    G = m_dot/A_in_tubes
+
     # Reynolds number
-    Re = G*Di/mu
+    Re = G*(params["Tube_OD"] - 2*params["Tube_t"])/mu
     
     # Flow speed
     u = G/rho
@@ -70,12 +115,26 @@ def Pipe_Internal_DP(mu, Pr, Np, rho, G, Di, L):
     f = (1.8*log10(Re) - 1.5)**(-2)
     
     # Pressure drop (Np : number of passes)
-    DP = (4*f*L*Np/Di + 4*Np)*rho*(u**2)/2
+    DP = (4*f*params["Tube_L"]*params["Tube_pass"]/params["Tube_OD"] + 4*params["Tube_pass"])*rho*(u**2)/2
     
     return DP
 
-def Horizontal_Tube_Internal_Condensation(fluid,m_dot,P_sat,h_in,T_w,D_in):
+def horizontal_tube_internal_condensation(fluid,m_dot,P_sat,h_in,T_w,D_in):
     """
+    Inputs
+    ------
+    
+    fluid : fluid name [-]
+    m_dot : Flowrate [kg/s]
+    P_sat : Saturation pressure [Pa]
+    h_in  : Inlet enthalpy [J/kg]
+    T_w   : Wall temperature [K]
+    D_in  : Pipe internal diameter [m]
+    
+    Outputs
+    -------
+    
+    h : Condensation heat transfer coeffieicnt [W/(m^2 * K)]
     
     Reference
     ---------
@@ -117,6 +176,7 @@ def Horizontal_Tube_Internal_Condensation(fluid,m_dot,P_sat,h_in,T_w,D_in):
         
         # Martinelli parameter
         x_tt = ((1-x)/x)**(0.9)*(rho_v/rho_l)**(0.5)*(mu_l/mu_v)**(0.1)
+        
         # Nusselt
         Nu = 0.023*Re_Dl**0.8 * Pr_l **0.4 * (1 + (2.22/x_tt**(0.89)))
     
@@ -124,9 +184,26 @@ def Horizontal_Tube_Internal_Condensation(fluid,m_dot,P_sat,h_in,T_w,D_in):
         
     return h
 
-def Horizontal_Tube_Internal_Boiling(fluid,Q_act,A,m_dot,P_sat,h_in,T_w,D_in,L):
+def horizontal_tube_internal_boiling(fluid,Q_act,A,m_dot,P_sat,h_in,T_w,D_in,L):
     """
+    Inputs
+    ------
     
+    fluid : fluid name [-]
+    Q_act : Actual heat transfer [W]
+    A     : Heat exchange area [m^2]
+    m_dot : Flowrate [kg/s]
+    P_sat : Saturation pressure [Pa]
+    h_in  : Inlet enthalpy [J/kg]
+    T_w   : Wall temperature [K]
+    D_in  : Pipe internal diameter [m]
+    L     : Flow length [m]
+    
+    Outputs
+    -------
+    
+    h_tp : Boiling heat transfer coeffieicnt [W/(m^2 * K)]
+
     Reference
     ---------
     Boiling Heat Transfer Inside Plain Tubes - Wolverine Tube, INC
@@ -136,7 +213,6 @@ def Horizontal_Tube_Internal_Boiling(fluid,Q_act,A,m_dot,P_sat,h_in,T_w,D_in,L):
         
     # Geometrical parameters
     A_in = np.pi*(D_in/2)**2
-    g = 9.81 # gravity acceleration constant m/s^2
     
     # 2 phase properties
     x = PropsSI('Q','H',h_in,'P',P_sat,fluid)
@@ -152,20 +228,18 @@ def Horizontal_Tube_Internal_Boiling(fluid,Q_act,A,m_dot,P_sat,h_in,T_w,D_in,L):
     k_v = PropsSI('L','Q',1,'P',P_sat,fluid)
     rho_v = PropsSI('D','Q',1,'P',P_sat,fluid)
     Pr_v = PropsSI('PRANDTL', 'Q',1,'P',P_sat,fluid)
-    sigma_v = PropsSI('I','P',P_sat,'Q',1,fluid) 
     
     # Liquid properties
     mu_l = PropsSI('V','Q',0,'P',P_sat,fluid)
     k_l = PropsSI('L','Q',0,'P',P_sat,fluid)
     rho_l = PropsSI('D','Q',0,'P',P_sat,fluid)
     Pr_l = PropsSI('PRANDTL', 'Q',0,'P',P_sat,fluid)
-    sigma_l = PropsSI('I','P',P_sat,'Q',0,fluid) 
     
     # Wall property
     Pr_w = PropsSI('PRANDTL','T',T_w,'P',P_sat,fluid)
     
     # Liquid convective HTC
-    h_L = Gnielinski_Pipe_HTC(mu_l, Pr_l, Pr_w, k_l, G, D_in, L)
+    h_L = gnielinski_pipe_htc(mu_l, Pr_l, Pr_w, k_l, G, D_in, L)
     
     # Heat flux
     q_act = Q_act/A
@@ -176,7 +250,7 @@ def Horizontal_Tube_Internal_Boiling(fluid,Q_act,A,m_dot,P_sat,h_in,T_w,D_in,L):
     
     if q_act < q_ONB:
         # Vapor convective HTC
-        h_v = Gnielinski_Pipe_HTC(mu_v, Pr_v, Pr_w, k_v, G, D_in, L)
+        h_v = gnielinski_pipe_htc(mu_v, Pr_v, Pr_w, k_v, G, D_in, L)
         
         a = (1-x)**1.5 + 1.9*x**0.6 * (1-x)**0.1 * (rho_l/rho_v)**0.35
         b = (h_v/h_L)*x**0.01*(1+8*(1-x)**0.7)*(rho_l/rho_v)**0.67
@@ -225,18 +299,17 @@ def pool_boiling(fluid, T_sat, T_tube):
     """
     ---- Inputs : -------- 
     
-    Corr : Correlation used for the heat transfer coefficient (name)
-    fluid (char) : fluid name (oil)
-    T_sat : External fluid saturation temperature [K]
+    fluid  : fluid name [-]
+    T_sat  : External fluid saturation temperature [K]
     T_tube : Tube temperature [K]
     
     ---- Outputs : --------
     
-    h_pool : Heat transfer coefficient at the condenser [W/(m^2*K)]
+    h_pool : Heat transfer coefficient for pool boiling [W/(m^2*K)]
     
     ---- Reference(s) : --------
     
-    ?
+    Van Long Le - Heat Pipe Code
     
     """
     
@@ -267,15 +340,15 @@ def film_boiling(D_out,fluid,T_sat,T_tube,P_sat):
     """
     ---- Inputs : -------- 
     
-    D_out : Outer Tube diameter [m]
-    fluid (char) : fluid name (oil)
-    T_sat : External fluid saturation temperature [K]
-    P_sat = Saturation Pressure [Pa]
-    q_flux : Condenser design heat rate [W]
+    D_out  : Outer Tube diameter [m]
+    fluid  : fluid name [-]
+    T_sat  : External fluid saturation temperature [K]
+    T_tube : Tube wall temperature [K]
+    P_sat  : Saturation Pressure [Pa]
     
     ---- Outputs : --------
     
-    h_film : Heat transfer coefficient at the condenser [W/(m^2*K)]
+    h_film : Heat transfer coefficient for film boiling [W/(m^2*K)]
     
     ---- Reference(s) : --------
     
@@ -309,9 +382,6 @@ def film_boiling(D_out,fluid,T_sat,T_tube,P_sat):
     def equation_to_solve_with_parameters(x):
         return equation_to_solve(x, h_conv, h_rad)
     
-    # Initial guess for x
-    initial_guess = 1.0
-    
     # Use fsolve to find the numerical solution
     (h_film) = fsolve(equation_to_solve_with_parameters,x0 = [100])
     
@@ -330,6 +400,8 @@ def boiling_curve(D_out, fluid, T_sat, P_sat):
     ---- Outputs : --------
     
     h_final : Heat transfer coefficient vector for 0.01-1000 [K] of surface temperature difference [W/(m^2)]
+                
+    Surface temperature difference = T_wall - T_sat_fluid
     
     ---- Reference(s) : --------
     
@@ -353,7 +425,7 @@ def boiling_curve(D_out, fluid, T_sat, P_sat):
     
     rho_l = PropsSI('D','T',T_sat,'Q',0,fluid) # density at saturated liquid in kg/m^3
     rho_v = PropsSI('D','T',T_sat,'Q',1,fluid) # density at saturated vapor in kg/m^3
-    sigma = PropsSI('I','T',T_sat,'Q',0.5,fluid) # surface tension of liquid vapor equilibrium
+    sigma = PropsSI('I','T',T_sat,'Q',0,fluid) # surface tension of liquid vapor equilibrium
     Dh_evap = PropsSI('H','T',T_sat,'Q',1,fluid) - PropsSI('H','T',T_sat,'Q',0,fluid) # Evaporation specific heat
     
     # q value ending nucleate boiling phase
