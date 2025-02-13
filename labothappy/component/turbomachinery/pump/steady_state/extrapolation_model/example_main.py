@@ -7,8 +7,8 @@ Created on Wed Jun  5 10:07:43 2024
 import __init__
 
 from connector.mass_connector import MassConnector
-from labothappy.component.turbomachinery.pump.steady_state.extrapolation_model.simulation_model import PumpExtrapolationModel
-from labothappy.component.turbomachinery.pump.steady_state.extrapolation_model.modules.geometry_extrapolation_pump import Geometry_extrapol_pump
+from component.turbomachinery.pump.steady_state.extrapolation_model.simulation_model import PumpExtrapolationModel
+from component.turbomachinery.pump.steady_state.extrapolation_model.modules.geometry_extrapolation_pump import Geometry_extrapol_pump
 from CoolProp.CoolProp import PropsSI    
 
 "--------- 1) DECAGONE PUMP ------------------------------------------------------------------------------------------"

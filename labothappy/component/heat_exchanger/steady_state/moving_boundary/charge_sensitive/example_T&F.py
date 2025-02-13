@@ -13,7 +13,7 @@ Modification w/r to previous version:
 
 # from __future__ import division, print_function
 
-from simulation_model_elise import HeatExchangerMB
+from simulation_model_elise_2 import HeatExchangerMB
 from modules.geometry_tube_and_fins_hx import TubeAndFinsGeom
 
 #%%
@@ -33,61 +33,61 @@ HX = HeatExchangerMB('Tube&Fins')
 
 # DECAGONE Recuperator HTX case
 
-HX.set_inputs(
-    # First fluid
-    Hsu_fluid = 'Cyclopentane',
-    Hsu_T = 133.8 + 273.15, # K
-    Hsu_p = 0.8*1e5, # Pa
-    Hsu_m_dot = 13.8, # kg/s
-
-    # Second fluid
-    Csu_fluid = 'Cyclopentane',
-    Csu_T = 35.1 + 273.15, # K
-    Csu_p = 31.5*1e5, # Pa
-    Csu_m_dot = 13.8, # kg/s  # Make sure to include fluid information
-)
-
-"Geometry Loading"
-
-HX_geom = TubeAndFinsGeom()
-HX_geom.set_parameters("DECAGONE_RECUP") 
-
-Fin_Side = 'H'
-
-"Correlation Loading"
-
-Corr_H = {"1P" : "Tube_And_Fins", "2P" : "ext_tube_film_condens"}
-Corr_C = {"1P" : "Gnielinski", "2P" : "Boiling_curve"}
-
-# -------------------------------------------------------------------------------------------------------------
-
-# DECAGONE ACC HTX case
-
 # HX.set_inputs(
 #     # First fluid
 #     Hsu_fluid = 'Cyclopentane',
-#     Hsu_T = 53.6 + 273.15, # K
-#     Hsu_p = 0.7*1e5, # Pa
-#     Hsu_m_dot = 13.8/2, # kg/s
+#     Hsu_T = 133.8 + 273.15, # K
+#     Hsu_p = 0.8*1e5, # Pa
+#     Hsu_m_dot = 13.8, # kg/s
 
 #     # Second fluid
-#     Csu_fluid = 'Air',
-#     Csu_T = 12 + 273.15, # K
-#     Csu_p = 1.05*1e5, # Pa
-#     Csu_m_dot = 158.5, # kg/s  # Make sure to include fluid information
+#     Csu_fluid = 'Cyclopentane',
+#     Csu_T = 35.1 + 273.15, # K
+#     Csu_p = 31.5*1e5, # Pa
+#     Csu_m_dot = 13.8, # kg/s  # Make sure to include fluid information
 # )
 
 # "Geometry Loading"
 
 # HX_geom = TubeAndFinsGeom()
-# HX_geom.set_parameters("DECAGONE_ACC") 
+# HX_geom.set_parameters("DECAGONE_RECUP") 
 
-# Fin_Side = 'C'
+# Fin_Side = 'H'
 
 # "Correlation Loading"
 
-# Corr_H = {"1P" : "Gnielinski", "2P" : "Horizontal_Tube_Internal_Condensation"}
-# Corr_C = {"1P" : "Tube_And_Fins", "2P" : "Boiling_curve"}
+# Corr_H = {"1P" : "Tube_And_Fins", "2P" : "ext_tube_film_condens"}
+# Corr_C = {"1P" : "Gnielinski", "2P" : "Boiling_curve"}
+
+# -------------------------------------------------------------------------------------------------------------
+
+# DECAGONE ACC HTX case
+
+HX.set_inputs(
+    # First fluid
+    Hsu_fluid = 'Cyclopentane',
+    Hsu_T = 53.6 + 273.15, # K
+    Hsu_p = 0.7*1e5, # Pa
+    Hsu_m_dot = 13.8/2, # kg/s
+
+    # Second fluid
+    Csu_fluid = 'Air',
+    Csu_T = 12 + 273.15, # K
+    Csu_p = 1.05*1e5, # Pa
+    Csu_m_dot = 158.5, # kg/s  # Make sure to include fluid information
+)
+
+"Geometry Loading"
+
+HX_geom = TubeAndFinsGeom()
+HX_geom.set_parameters("DECAGONE_ACC") 
+
+Fin_Side = 'C'
+
+"Correlation Loading"
+
+Corr_H = {"1P" : "Gnielinski", "2P" : "Horizontal_Tube_Internal_Condensation"}
+Corr_C = {"1P" : "Tube_And_Fins", "2P" : "Boiling_curve"}
 
 # -------------------------------------------------------------------------------------------------------------
 
@@ -103,7 +103,7 @@ HX.set_parameters(
 
     Fin_Side = Fin_Side, # 28
 
-    Flow_Type = 'CrossFlow', H_DP_ON = True, C_DP_ON = True, n_disc = 100) # 32
+    Flow_Type = 'CrossFlow', H_DP_ON = True, C_DP_ON = True, n_disc = 50) # 32
 
 # Shell&Tube
 

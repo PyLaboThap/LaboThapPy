@@ -1330,7 +1330,10 @@ class HeatExchangerMB(BaseComponent):
                                 alpha_h = shell_bell_delaware_htc(self.mdot_h, Th_mean-0.1, T_wall, p_h_mean, self.su_H.fluid, self.params)
                             
                         elif self.H.Correlation_1phase == 'Tube_And_Fins':
-                            alpha_h = htc_tube_and_fins(self.su_H.fluid, self.params, p_h_mean, Th_mean, self.mdot_h, self.params['Fin_type'])[0]
+                            try: 
+                                alpha_h = htc_tube_and_fins(self.su_H.fluid, self.params, p_h_mean, Th_mean, self.mdot_h, self.params['Fin_type'])[0]
+                            except:
+                                alpha_h = htc_tube_and_fins(self.su_H.fluid, self.params, p_h_mean, Th_mean+0.1, self.mdot_h, self.params['Fin_type'])[0]
                         
                         alpha_h_2phase = ext_tube_film_condens(self.params['Tube_OD'], self.su_H.fluid, Th_mean, T_wall, V_flow)
                         

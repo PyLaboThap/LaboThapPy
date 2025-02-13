@@ -58,7 +58,7 @@ class Circuit:
             self.add_next(output_connector, target_component)
             target_component.add_previous(input_connector, self)
 
-            print(f"Linked {self.name}.{output_connector} to {target_component.name}.{input_connector}")
+            # print(f"Linked {self.name}.{output_connector} to {target_component.name}.{input_connector}")
 
         def set_properties(self, connector_name, **kwargs):
             # Set properties for a specific connector
@@ -96,7 +96,7 @@ class Circuit:
                 setattr(target_component.model, next_comp_input_port.split('-')[1], self.properties) # Voir si ça fait juste référence ou si ça crée un nouvel objet    
                 self.next[target_component.name] = target_component.model
                 target_component.add_previous(next_comp_input_port, self)
-                print(f"Linked source {self.name} to {target_component.name}.{next_comp_input_port}")
+                # print(f"Linked source {self.name} to {target_component.name}.{next_comp_input_port}")
 
     #%%
 
@@ -387,7 +387,7 @@ class Circuit:
 
 #%%
 
-    def set_cycle_guess(self, **kwargs):
+    def set_cycle_guess(self, external_set = False, **kwargs):
         # Set properties for a specific component and connector
         target = kwargs.pop('target')
                 
@@ -395,7 +395,7 @@ class Circuit:
             SC = kwargs.pop('SC')
             guess = Circuit.Guess(target, 'SC', SC)
             
-            if self.guess_update == True or guess.name not in self.guesses:
+            if self.guess_update == True or guess.name not in self.guesses or external_set == True:
                 self.guesses[guess.name] = guess
 
             component_name, connector_name = target.split(':')
@@ -414,7 +414,7 @@ class Circuit:
             SH = kwargs.pop('SH')
             guess = Circuit.Guess(target, 'SH', SH)
             
-            if self.guess_update == True or guess.name not in self.guesses:
+            if self.guess_update == True or guess.name not in self.guesses or external_set == True:
                 self.guesses[guess.name] = guess
 
             component_name, connector_name = target.split(':')
@@ -436,7 +436,7 @@ class Circuit:
             component_name, connector_name = target.split(':')
             connector = getattr(self.components[component_name].model, connector_name, None)
             
-            if self.guess_update == True or guess.name not in self.guesses:
+            if self.guess_update == True or guess.name not in self.guesses or external_set == True:
                 self.guesses[guess.name] = guess
                         
             if arg_name.upper() == 'P':
@@ -788,14 +788,14 @@ class Circuit:
         return
 
     def recursive_solve(self, component_name):
-        print(f"Recursive Solve : {component_name}")
+        # print(f"Recursive Solve : {component_name}")
         
         component = self.get_component(component_name)
         component_model = component.model
 
         # if component_name == self.solve_start_component:
         if component_model.solved:
-            print("Back to a solved component.")
+            # print("Back to a solved component.")
             return
 
         component_model.check_calculable()
@@ -840,7 +840,8 @@ class Circuit:
             print("All components solved in first iteration.")
             pass
         else:
-            raise ValueError("Not all components were solved in first iteration.")
+            print("Not all components were solved in first iteration.")
+            return
         
         # print("Set residual variables")
         
@@ -853,17 +854,17 @@ class Circuit:
                                     
             self.res_vars[res_var_name].set_value(value)
         
-        print("Print guesses")
-        print("-------------")
+        # print("Print guesses")
+        # print("-------------")
 
-        self.print_guesses()
+        # self.print_guesses()
         
-        print("-------------")
+        # print("-------------")
 
         self.guess_update = True
 
         i=0
-        n_it_max = 50
+        n_it_max = 100
 
         # m_dot_su_pp = []
         # m_dot_ex_pp = []
@@ -872,7 +873,19 @@ class Circuit:
         # m_dot_ex_mix = []
         # P_cd = []        
 
+        h_in_cp = []
+        h_in_gc = []
+        h_in_vv = []
+        h_in_ev = []
+        res_ev = []
+        
         while i < n_it_max:
+            
+            # h_in_cp.append(self.components['Compressor'].model.su.p)
+            # h_in_gc.append(self.components['GasCooler'].model.su_H.p)
+            # h_in_vv.append(self.components['Valve'].model.su.p)
+            # h_in_ev.append(self.components['Evaporator'].model.su_C.p)
+            # res_ev.append(self.components['Evaporator'].model.res)
             
             # P_cd.append(self.components['Pump'].model.su.p)
             
@@ -962,13 +975,13 @@ class Circuit:
                 else:
                     pass
 
-            print("-------------")    
-            print("Print guesses")
-            print("-------------")
+            # print("-------------")    
+            # print("Print guesses")
+            # print("-------------")
 
-            self.print_guesses()
+            # self.print_guesses()
     
-            print("-------------")
+            # print("-------------")
 
             # print("Print residual vars")
             # print("-------------")
@@ -1026,12 +1039,38 @@ class Circuit:
             #     plt.plot(P_cd, 'r')
                 
             #     plt.legend(['P_cd'])
-                
-                print(f"Solver successfully converged in {i} iterations !")
+
+                # plt.figure()
+
+                # plt.plot(h_in_cp, 'r')
+                # plt.plot(h_in_gc, 'g',  marker='o')
+                # plt.plot(h_in_vv, 'b')
+                # plt.plot(h_in_ev, 'k',  marker='o')                            
+
+                # plt.legend(['su_cp', 'su_gc', 'su_vv', 'su_ev'])
+
+                # plt.show()
+
+                print(f"Solver successfully converged in {i+1} iteration(s) !")
                 return
             
             i = i + 1
         
+        plt.figure()
+
+        plt.plot(h_in_cp, 'r')
+        plt.plot(h_in_gc, 'g',  marker='o')
+        plt.plot(h_in_vv, 'b')
+        plt.plot(h_in_ev, 'k',  marker='o')                            
+
+        plt.legend(['su_cp', 'su_gc', 'su_vv', 'su_ev'])
+
+        plt.show()
+
+        # plt.figure()
+        # plt.plot(res_ev, 'r',  marker='o')                            
+        # plt.show()
+
         print(f"Solver failed to converge in {n_it_max} iterations.")
         
         # self.print_res_vars()

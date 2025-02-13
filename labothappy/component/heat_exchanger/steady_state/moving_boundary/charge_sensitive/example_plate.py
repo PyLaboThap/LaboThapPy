@@ -107,7 +107,7 @@ HX = HeatExchangerMB('Plate')
 
 # ---------------------------------------------------------------------------------------------------------
 
-# Evaporator Case
+# Condenser Case
 HX.set_inputs(
     # First fluid
     Hsu_fluid = 'R1233zd(E)',
