@@ -4,7 +4,7 @@ save_data_on_exit = True
 save_history = True
 save_non_project_files = False
 project_type = 'empty-project-type'
-recent_files = ['machine\\circuit.py', 'component\\heat_exchanger\\steady_state\\moving_boundary\\charge_sensitive\\simulation_model_elise.py', 'component\\volumetric_machine\\pump\\steady_state\\polynomial_efficiency\\simulation_model_Pout.py', 'connector\\mass_connector.py', 'component\\heat_exchanger\\template_heat_exchanger.py', 'component\\volumetric_machine\\compressor\\steady_state\\semi_empirical\\simulation_model.py', 'connector\\heat_connector.py']
+recent_files = ['component\\tank\\Separator\\LV_separator.py', 'component\\tank\\Separator\\LV_Separator_SG.py', 'component\\tank\\Separator\\example_SG.py', 'component\\heat_exchanger\\steady_state\\epsilon_NTU\\simulation_model.py']
 
 [main]
 version = 0.2.0
