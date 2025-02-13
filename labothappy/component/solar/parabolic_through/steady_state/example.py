@@ -5,7 +5,7 @@ from CoolProp.CoolProp import PropsSI
 import numpy as np
 import matplotlib.pyplot as plt
 
-from modules.parabolic_through_geometry import PT_Collector_Geom
+from labothappy.geometries.solar.parabolic_through_geometry import PT_Collector_Geom
 from parabolic_through_collector import PT_collector
 
 PT_geom = PT_Collector_Geom()
