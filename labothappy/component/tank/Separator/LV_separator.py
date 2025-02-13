@@ -34,7 +34,7 @@ from component.base_component import BaseComponent
 
 #%% CLASS DEFINITION : # !!! The name of the class shall be written in the same fashion as hereunder
 
-class LV_Separator_SG(BaseComponent):
+class LV_Separator(BaseComponent):
     
 #%% DOCSTRING : #!!! IMPORTANT AS IT AUTOMATIZES PART OF THE DOCUMENTATION
 
@@ -140,23 +140,23 @@ class LV_Separator_SG(BaseComponent):
         self.sync_inputs()
 
         # The inputs should be defined in order to define the state of the fluid (i.e x_su should be defined at saturation)
-        return['su_x', 'su_T', 'su_h', 'su_p', 'su_m_dot', 'su_fluid'] 
+        return['x_su', 'T_su', 'h_su', 'p_su', 'm_dot_su', 'su_fluid'] 
     
     def sync_inputs(self): # Makes the link between inputs and MassConnector() in object supply and exhaust attributes
         """Synchronize the inputs dictionary with the connector states."""
         
         if self.su.x is not None:
-            self.inputs['su_x'] = self.su.x
+            self.inputs['x_su'] = self.su.x
         if self.su.T is not None:
-            self.inputs['su_T'] = self.su.T
+            self.inputs['T_su'] = self.su.T
         if self.su.h is not None:
-            self.inputs['su_h'] = self.su.h
+            self.inputs['h_su'] = self.su.h
         if self.su.p is not None:
-            self.inputs['su_p'] = self.su.p
+            self.inputs['p_su'] = self.su.p
         if self.su.fluid is not None:
             self.inputs['su_fluid'] = self.su.fluid
         if self.su.m_dot is not None:
-            self.inputs['su_m_dot'] = self.su.m_dot
+            self.inputs['m_dot_su'] = self.su.m_dot
 
 
     def set_inputs(self, **kwargs):
@@ -165,16 +165,16 @@ class LV_Separator_SG(BaseComponent):
 
         # Update the connectors based on the new inputs
         self.su.set_fluid(self.inputs['su_fluid'])
-        if 'su_x' in self.inputs:
-            self.su.set_x(self.inputs['su_x'])
-        if 'su_T' in self.inputs:
-            self.su.set_T(self.inputs['su_T'])
-        if 'su_h' in self.inputs:
-            self.su.set_h(self.inputs['su_h'])
-        if 'su_p' in self.inputs:
-            self.su.set_p(self.inputs['su_p'])
-        if 'su_m_dot' in self.inputs:
-            self.su.set_m_dot(self.inputs['su_m_dot'])
+        if 'x_su' in self.inputs:
+            self.su.set_x(self.inputs['x_su'])
+        if 'T_su' in self.inputs:
+            self.su.set_T(self.inputs['T_su'])
+        if 'h_su' in self.inputs:
+            self.su.set_h(self.inputs['h_su'])
+        if 'p_su' in self.inputs:
+            self.su.set_p(self.inputs['p_su'])
+        if 'm_dot_su' in self.inputs:
+            self.su.set_m_dot(self.inputs['m_dot_su'])
 
 
     def get_required_parameters(self): # Used in check_parametrized (in BaseComponent) to see if all of the required parameters are set

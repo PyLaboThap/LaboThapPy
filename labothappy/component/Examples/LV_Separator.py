@@ -11,25 +11,25 @@ import numpy as np
 from CoolProp.CoolProp import PropsSI
 
 # from labothappy.connector.mass_connector import MassConnector
-from component.tank.Separator.LV_Separator_SG import LV_Separator_SG
+from component.tank.Separator.LV_Separator import LV_Separator
 
 "-----------------------------------------------------------  TEST   ----------------------------------------------------------------"
 
-LV_Separator_SG = LV_Separator_SG()
+LV_Separator = LV_Separator()
 
 # Inputs
-LV_Separator_SG.set_inputs(
+LV_Separator.set_inputs(
                   su_fluid = 'R22',
-                  su_T=350,
-                  su_p = 100000,
-                  su_m_dot = 14,
+                  T_su=350,
+                  p_su = 100000,
+                  m_dot_su = 14,
                   
                   )
 
 # Params
-LV_Separator_SG.set_parameters()
+LV_Separator.set_parameters()
 
 # Solve
-LV_Separator_SG.solve()
-LV_Separator_SG.print_results()
-LV_Separator_SG.print_states_connectors()
+LV_Separator.solve()
+LV_Separator.print_results()
+LV_Separator.print_states_connectors()
