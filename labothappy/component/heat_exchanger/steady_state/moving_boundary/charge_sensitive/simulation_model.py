@@ -282,7 +282,6 @@ class HeatExchangerMB(BaseComponent):
         """
         
         self.params['htc_type'] = htc_type
-        
         self.check_calculable()
         
         if self.params['htc_type'] == "User-Defined":
