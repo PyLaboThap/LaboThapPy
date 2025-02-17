@@ -4,7 +4,7 @@ save_data_on_exit = True
 save_history = True
 save_non_project_files = False
 project_type = 'empty-project-type'
-recent_files = ['component\\volumetric_machine\\compressor\\steady_state\\semi_empirical\\example.py', 'component\\volumetric_machine\\compressor\\steady_state\\semi_empirical\\simulation_model.py', 'connector\\humid_air_connector.py', 'connector\\__init__.py', 'component\\ha_heat_exchanger\\steady_state\\dec_kpi.py', 'component\\ha_heat_exchanger\\steady_state\\dw_correlation.py', 'component\\ha_heat_exchanger\\steady_state\\channel.py']
+recent_files = ['connector\\humid_air_connector.py', 'connector\\__init__.py', 'component\\ha_heat_exchanger\\steady_state\\dec_kpi.py', 'component\\ha_heat_exchanger\\steady_state\\dw_correlation.py', 'component\\ha_heat_exchanger\\steady_state\\channel.py', 'component\\base_component.py']
 
 [main]
 version = 0.2.0
