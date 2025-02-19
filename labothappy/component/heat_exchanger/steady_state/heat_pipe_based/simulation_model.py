@@ -4,14 +4,15 @@ Created on Fri Dec 15 09:59:44 2023
 
 @author: Basile
 """
-import __init__
 
 import numpy as np
 from CoolProp.CoolProp import PropsSI
+
 from connector.mass_connector import MassConnector
 from connector.heat_connector import HeatConnector
-from component.heat_exchanger.steady_state.heat_pipe_based.modules.Airflow import nozzle
-from component.heat_exchanger.steady_state.heat_pipe_based.modules.P_max_steel_pipes import P_max_adm
+
+from toolbox.nozzle.airflow import nozzle
+from component.heat_exchanger.steady_state.heat_pipe_based.modules.HP_h_coeffs import fg_radiative_htc_corr
 from component.heat_exchanger.steady_state.heat_pipe_based.modules.HP_tube_model import thermosyphon_model
 from component.base_component import BaseComponent
 
@@ -229,7 +230,7 @@ class HP_HTX(BaseComponent):
             R_e_o_mean = 0
             R_c_o_mean = 0
             
-            (Q_dot_tube[i], T_wc_o[i], T_we_o[i], P_v_e[i], T_v_e[i], m_dot_v[i], P_fg[i+1], V_max_air, a_gf, R_tot_tube[i], R_e_o[i], R_c_o[i]) = thermosyphon_model(self.params['beta'], D_i, self.params['D_o'], self.params['F_r'], self.su_C.fluid, self.su_H.fluid, fluid_thermosiphon, self.params['geo'], self.params['k_pipe'], L_a, L_c, L_e, L_M, self.su_H.m_dot, self.su_C.m_dot, N_col, self.params['p_CO2'], self.params['p_H2O'], self.su_C.p, P_fg[i], S_L, S_T, T_wf[i], T_fg[i], u_gas_fume, u_wf_in, A_casing, W_casing, self.params['arrang'], h_wf[i], self.params['foul'], vect_init)  # call of the model for one tube
+            (Q_dot_tube[i], T_wc_o[i], T_we_o[i], P_v_e[i], T_v_e[i], m_dot_v[i], P_fg[i+1], V_max_air, a_gf, R_tot_tube[i], R_e_o[i], R_c_o[i]) = thermosyphon_model(self.params['beta'], D_i, self.params['D_o'], self.params['F_r'], self.su_C.fluid, self.su_H.fluid, fluid_thermosiphon, self.params['geo'], self.params['k_pipe'], L_a, L_c, L_e, L_M, self.su_H.m_dot, self.su_C.m_dot, N_col, self.params['p_CO2'], self.params['p_H2O'], self.su_C.p, P_fg[i], S_L, S_T, T_wf[i], T_fg[i], u_gas_fume, u_wf_in, A_casing, W_casing, self.params['arrang'], h_wf[i], self.params['foul'], vect_init, self.f_0, self.f_1, self.f_2, self.f_3)  # call of the model for one tube
             
             # if i == 0:
             #     P_in_max = P_v_e[i]
@@ -296,6 +297,8 @@ class HP_HTX(BaseComponent):
     
         if self.params['arrang'] == "staggered":
             self.set_parameters(arrang = "Staggered")
+        
+        [self.f_0, self.f_1, self.f_2, self.f_3] = fg_radiative_htc_corr()
         
         C_h_in = PropsSI('H','P', self.su_C.p,'T', self.su_C.T,self.su_C.fluid)
         

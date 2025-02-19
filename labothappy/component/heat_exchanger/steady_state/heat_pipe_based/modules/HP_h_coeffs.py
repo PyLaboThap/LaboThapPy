@@ -25,31 +25,7 @@ Functions in this library are used for computations realted to the external heat
     - ext_conv_boil : Convective coefficient between heat pipe and a fluid boiling with a forced convective 
 """
 
-def radiative_coeff(p_CO2,p_H2O,T_g,T_w,L):
-    """
-    ---- Inputs : -------- 
-        
-    p_CO2 : CO2 partial pressure in fume gases [/]
-    p_H2O : H2O partial pressure in fume gases [/]
-    T_g : Mean fume gas temperature [K]
-    T_w : Mean thermosyphon evaporator wall temperature [K]
-    L : Mean beam length [m]
-        
-    ---- Outputs : --------
-    
-    h_r : Radiative heat transfer coefficient between fume gases and evaporator wall [W/(m^2 * K)]
-    
-    ---- Reference(s) : --------
-    
-    ?
-    
-    """ 
-    
-    sigma = 5.67*1e-8 # W/(m^2 * K^4) Stefan-Boltzmann constant
-    
-    # Emissivity
-    pL = (p_CO2+p_H2O)*L
-    p_ratio = p_CO2 / p_H2O
+def fg_radiative_htc_corr():
     
     # Interpolation of a_i parameters : values in Long's code
     p_ratio_val = np.array([0,0.5,1,2,3,1e9])
@@ -88,20 +64,38 @@ def radiative_coeff(p_CO2,p_H2O,T_g,T_w,L):
     f_2 = RectBivariateSpline(p_ratio_val, T_g_val, a_2_val)
     f_3 = RectBivariateSpline(p_ratio_val, T_g_val, a_3_val)
 
-    # f_0 = RectBivariateSpline(T_g_val, p_ratio_val,a_0_val)
-    # f_1 = RectBivariateSpline(T_g_val, p_ratio_val,a_1_val)
-    # f_2 = RectBivariateSpline(T_g_val, p_ratio_val,a_2_val)
-    # f_3 = RectBivariateSpline(T_g_val, p_ratio_val,a_3_val)
+    return [f_0, f_1, f_2, f_3]
 
+def radiative_htc_fg(p_CO2,p_H2O,T_g,T_w,L,f_0,f_1,f_2,f_3):
+    """
+    ---- Inputs : -------- 
+        
+    p_CO2 : CO2 partial pressure in fume gases [/]
+    p_H2O : H2O partial pressure in fume gases [/]
+    T_g : Mean fume gas temperature [K]
+    T_w : Mean thermosyphon evaporator wall temperature [K]
+    L : Mean beam length [m]
+        
+    ---- Outputs : --------
+    
+    h_r : Radiative heat transfer coefficient between fume gases and evaporator wall [W/(m^2 * K)]
+    
+    ---- Reference(s) : --------
+    
+    ?
+    
+    """ 
+    
+    sigma = 5.67*1e-8 # W/(m^2 * K^4) Stefan-Boltzmann constant
+    
+    # Emissivity
+    pL = (p_CO2+p_H2O)*L
+    p_ratio = p_CO2 / p_H2O
+    
     a_0 = f_0(p_ratio,T_g)
     a_1 = f_1(p_ratio,T_g)
     a_2 = f_2(p_ratio,T_g)
     a_3 = f_3(p_ratio,T_g)
-
-    # a_0 = f_0(T_g,p_ratio)
-    # a_1 = f_1(T_g,p_ratio)
-    # a_2 = f_2(T_g,p_ratio)
-    # a_3 = f_3(T_g,p_ratio)
     
     epsilon = 10**(a_0+a_1*np.log10(pL)+a_2*(np.log10(pL))**2+a_3*(np.log10(pL))**3)/T_g
     

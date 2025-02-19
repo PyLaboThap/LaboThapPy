@@ -10,7 +10,6 @@ import __init__
 import numpy as np
 from CoolProp.CoolProp import PropsSI
 
-# from labothappy.connector.mass_connector import MassConnector
 from labothappy.component.heat_exchanger.steady_state.heat_pipe_based.simulation_model import HP_HTX
 
 "-----------------------------------------------------------  TEST   ----------------------------------------------------------------"
@@ -33,7 +32,7 @@ HP_HTX.set_inputs(
 # Params
 HP_HTX.set_parameters(
                       p_CO2 = 0.176, p_H2O = 0.101, beta = np.pi/2, D_o = 20/1000, t = 3.5/1000, 
-                      F_r = 0.6, k_pipe = 42.55, geo = "annular", H_core = 3, L_core = 2, W_core = 3, Bank_side = 'H',
+                      F_r = 0.6, k_pipe = 42.55, geo = "annular", H_core = 3, L_core = 5, W_core = 3, Bank_side = 'H',
                       coef_evap = 0.64, foul = 0.2, arrang = "inline", pitch_T = 2, pitch_L = 2, D_chimney = 2.2
                       )
 
