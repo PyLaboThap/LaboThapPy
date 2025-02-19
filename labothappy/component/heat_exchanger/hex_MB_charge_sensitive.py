@@ -9,7 +9,8 @@ Modification w/r to previous version:
     - Implemenation of the code in the LaboThap Python Library
 """
 
-# External Toolbox 
+"EXTERNAL IMPORTS"
+
 import CoolProp.CoolProp as CP
 from CoolProp.Plots import PropertyPlot
 import matplotlib.pyplot as plt
@@ -19,8 +20,8 @@ from scipy.interpolate import interp1d
 import copy
 import __init__
 
-# try:
-    # Internal Toolbox 
+"INTERNAL IMPORTS"
+
 from correlations.heat_exchanger.f_lmtd2 import f_lmtd2
 from correlations.heat_exchanger.find_2P_boundaries import find_2P_boundaries
 
@@ -232,7 +233,7 @@ class HeatExchangerMB(BaseComponent):
         self.ex_H = MassConnector()
         self.ex_C = MassConnector() # Mass_connector
                 
-        self.Q_dot = HeatConnector()
+        self.Q_HX = HeatConnector()
         
         self.AS_C = None
         self.AS_H = None
@@ -1095,29 +1096,33 @@ class HeatExchangerMB(BaseComponent):
         self.T_hi = self.AS_H.T()
         
         # Determine the inlet temperatures from the pressure/enthalpy pairs
-        x_ci = CP.PropsSI('Q', 'P', self.p_ci, 'H', self.h_ci, self.C_su.fluid)
+        x_ci = self.AS_C.Q()
         if x_ci > 0.999 or x_ci < 0.001: # Verify that the quality is well between 0 and 1
-            self.T_ci = CP.PropsSI('T', 'P', self.p_ci, 'H', self.h_ci, self.C_su.fluid)
+            self.T_ci = self.AS_C.T()
         else:
             try:
-                self.T_ci = CP.PropsSI('T', 'Q', 0.5, 'H', self.h_ci, self.C_su.fluid)
+                self.AS_C.update(CP.HQ_INPUTS, 0.5, self.h_ci)
+                self.T_ci = self.AS_C.T()
             except:
-                self.T_ci = CP.PropsSI('T', 'Q', 0.5, 'P', self.p_ci, self.C_su.fluid)
-        
+                self.AS_C.update(CP.QP_INPUTS, 0.5, self.p_ci)
+                self.T_ci = self.AS_C.T()
+                
         if not self.h_incomp_flag:
         
-            x_hi = CP.PropsSI('Q', 'P', self.p_hi, 'H', self.h_hi, self.H_su.fluid)
+            x_hi = self.AS_H.Q()
 
             if x_hi > 0.999 or x_hi < 0.001:
-                self.T_hi = CP.PropsSI('T', 'P', self.p_hi, 'H', self.h_hi, self.H_su.fluid)
+                self.AS_H.T()
             else:
                 try:    
-                    self.T_hi = CP.PropsSI('T', 'Q', 0.5, 'H', self.h_hi, self.H_su.fluid)
+                    self.AS_H.update(CP.HQ_INPUTS, 0.5, self.h_hi)
+                    self.T_hi = self.AS_H.T()
                 except:
-                    self.T_hi = CP.PropsSI('T', 'Q', 0.5, 'P', self.p_hi, self.H_su.fluid) # If the fluid is R1233zd(E) the T = f(H) is not implemented in CoolProp yet
+                    self.AS_H.update(CP.PQ_INPUTS, self.p_hi, 0.5)
+                    self.T_hi = self.AS_H.T() # If the fluid is R1233zd(E) the T = f(H) is not implemented in CoolProp yet
         
         else: 
-            self.T_hi = CP.PropsSI('T', 'P', self.p_hi, 'H', self.h_hi, self.H_su.fluid)
+            self.AS_H.T()
             
         "2) Determine if the streams come in at a higher pressure than the transcritical pressure"
         

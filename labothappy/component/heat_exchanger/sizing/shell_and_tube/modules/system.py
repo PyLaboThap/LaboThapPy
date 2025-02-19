@@ -49,12 +49,11 @@ from tubes_toolbox import estimate_number_of_tubes, carbon_steel_pipe_thickness,
 from scipy.interpolate import interp1d
 from CoolProp.CoolProp import PropsSI
 # from basic_sizing_UA import find_UA
-from central_spacing_comp import find_divisors_between_bo
-unds
+from central_spacing_comp import find_divisors_between_bounds
 from connector.mass_connector import MassConnector
 from component.base_component import BaseComponent
 
-from steady_state.moving_boundary.charge_sensitive.simulation_model_AS import HeatExchangerMB
+from component.heat_exchanger.steady_state.moving_boundary.charge_sensitive.simulation_model_AS import HeatExchangerMB
 
 import pandas as pd
 import random

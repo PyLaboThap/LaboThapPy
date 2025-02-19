@@ -13,8 +13,10 @@ Modification w/r to previous version:
 
 # from __future__ import division, print_function
 
-from simulation_model import HeatExchangerMB
-from modules.geometry_shell_and_tube_hx import ShellAndTubeGeom
+import __init__
+
+from simulation_model_elise_2 import HeatExchangerMB
+from toolbox.geometries.heat_exchanger.geometry_shell_and_tube_hx import ShellAndTubeGeom
 from CoolProp.CoolProp import PropsSI    
 
 

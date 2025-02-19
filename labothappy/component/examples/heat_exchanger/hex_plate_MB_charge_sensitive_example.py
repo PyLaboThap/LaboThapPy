@@ -15,7 +15,7 @@ Modification w/r to previous version:
 import __init__
 
 from simulation_model_elise_2 import HeatExchangerMB
-from modules.geometry_plate_hx_swep import PlateGeomSWEP
+from toolbox.geometries.heat_exchanger.geometry_plate_hx_swep import PlateGeomSWEP
 
 #%%
 
@@ -107,7 +107,7 @@ HX = HeatExchangerMB('Plate')
 
 # ---------------------------------------------------------------------------------------------------------
 
-# Evaporator Case
+# Condenser Case
 HX.set_inputs(
     # First fluid
     Hsu_fluid = 'R1233zd(E)',
