@@ -176,7 +176,6 @@ class LV_Separator(BaseComponent):
         if 'm_dot_su' in self.inputs:
             self.su.set_m_dot(self.inputs['m_dot_su'])
 
-        self.sync_inputs()
 
     def get_required_parameters(self): # Used in check_parametrized (in BaseComponent) to see if all of the required parameters are set
         """
@@ -251,6 +250,8 @@ class LV_Separator(BaseComponent):
         # Get saturation temperature at supply pressure
         T_sat = CP.PropsSI('T', 'P', p_su, 'Q', 0.5, fluid)
     
+       
+
         if 0 <= x_su <= 1:  # Two-phase mixture
             m_dot_l = (1 - x_su) * m_dot_su
             m_dot_v = x_su * m_dot_su
@@ -262,7 +263,7 @@ class LV_Separator(BaseComponent):
                 m_dot_l = m_dot_su
                 m_dot_v = 0
                 
-        # Set exhaust enthalpy
+                # Set exhaust enthalpy
         x_ex_v=1
         T_ex_v=T_su
         h_ex_v = CP.PropsSI('H', 'P', p_su, 'Q', 1, fluid)
@@ -272,6 +273,7 @@ class LV_Separator(BaseComponent):
         h_ex_l = CP.PropsSI('H', 'P', p_su, 'Q', 0, fluid)
         T_ex_l=T_su
         p_ex_l=p_su
+        
         
         # Update mass connectors
         self.update_connectors(x_ex_l, T_ex_l, h_ex_l, p_ex_l, m_dot_l, x_ex_v, T_ex_v, h_ex_v, p_ex_v, m_dot_v)
@@ -294,3 +296,4 @@ class LV_Separator(BaseComponent):
         print(f"  - ex_liq: fluid={self.ex_l.fluid}, T={self.ex_l.T}, p={self.ex_l.p}, m_dot={self.ex_l.m_dot}")
         print(f"  - ex_vap: fluid={self.ex_v.fluid}, T={self.ex_v.T}, p={self.ex_v.p}, m_dot={self.ex_v.m_dot}")
         print("======================")
+
