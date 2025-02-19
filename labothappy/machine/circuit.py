@@ -811,6 +811,16 @@ class Circuit:
         else:
             raise ValueError(f"Component '{component_name}' not parametrized.")
         
+        if component_name == 'Mixer':
+            print(f"su_1 m_dot : {component_model.su_1.m_dot}")
+            print(f"su_2 m_dot : {component_model.su_2.m_dot}")
+
+            print(f"----------------------")
+            print(f"ex m_dot : {component_model.ex.m_dot}")
+
+            print(f"----------------------------------------------")
+
+        
         for output_port in component.next:
             next_comp_name = component.next[output_port].name
             self.recursive_solve(next_comp_name)
