@@ -4,7 +4,7 @@ save_data_on_exit = True
 save_history = True
 save_non_project_files = False
 project_type = 'empty-project-type'
-recent_files = ['component\\heat_exchanger\\steady_state\\moving_boundary\\charge_sensitive\\example_S&T.py', 'component\\heat_exchanger\\steady_state\\moving_boundary\\charge_sensitive\\example_T&F.py', 'component\\heat_exchanger\\steady_state\\moving_boundary\\charge_sensitive\\example_plate.py', '__init__.py', 'toolbox\\__init__.py']
+recent_files = ['component\\heat_exchanger\\steady_state\\moving_boundary\\charge_sensitive\\example_S&T.py', 'component\\heat_exchanger\\steady_state\\moving_boundary\\charge_sensitive\\example_T&F.py', 'component\\heat_exchanger\\steady_state\\moving_boundary\\charge_sensitive\\example_plate.py']
 
 [main]
 version = 0.2.0
