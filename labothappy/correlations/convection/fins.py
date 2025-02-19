@@ -8,7 +8,7 @@ Created on Mon Apr 22 17:34:23 2024
 import numpy as np
 from CoolProp.CoolProp import PropsSI
 
-def htc_tube_and_fins_annular(fluid, params, P_in, T_in, m_dot_in):
+def htc_tube_and_fins_annular(fluid, params, P_in, h_in, m_dot_in):
     """
     Parameters
     ----------
@@ -43,7 +43,7 @@ def htc_tube_and_fins_annular(fluid, params, P_in, T_in, m_dot_in):
     
     "Air data (Pure air considered)"
     
-    rho_in = PropsSI('D','P',P_in,'T',T_in,fluid)
+    rho_in = PropsSI('D','P',P_in,'H',h_in,fluid)
     V_dot_in = m_dot_in/rho_in # m^3/s
     
     "Geom data"
@@ -106,7 +106,7 @@ def htc_tube_and_fins_annular(fluid, params, P_in, T_in, m_dot_in):
     
     "h_c computation"
     
-    k_g, Pr_g, nu_g = PropsSI(("L","PRANDTL","V"),'T',T_in,'P',P_in,fluid)
+    k_g, Pr_g, nu_g = PropsSI(("L","PRANDTL","V"),'H',h_in,'P',P_in,fluid)
     
     "Fin Coefficient - Psi_f"
     
@@ -286,7 +286,7 @@ def htc_tube_and_fins_square(fluid, params, P_in, h_in, m_dot_in):
     
     return h_rdc, A_tot
 
-def htc_tube_and_fins(fluid, params, P_in, T_in, m_dot_in, Fin_type):
+def htc_tube_and_fins(fluid, params, P_in, h_in, m_dot_in, Fin_type):
     """
     Parameters
     ----------
@@ -320,10 +320,10 @@ def htc_tube_and_fins(fluid, params, P_in, T_in, m_dot_in, Fin_type):
     """
     
     if Fin_type == "Annular":
-        h_rdc, A_tot = htc_tube_and_fins_annular(fluid, params, P_in, T_in, m_dot_in)
+        h_rdc, A_tot = htc_tube_and_fins_annular(fluid, params, P_in, h_in, m_dot_in)
         
     elif Fin_type == "Square":
-        h_rdc, A_tot = htc_tube_and_fins_square(fluid, params, P_in, T_in, m_dot_in)
+        h_rdc, A_tot = htc_tube_and_fins_square(fluid, params, P_in, h_in, m_dot_in)
     
     return h_rdc, A_tot
 
