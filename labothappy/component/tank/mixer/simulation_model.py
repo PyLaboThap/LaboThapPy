@@ -92,8 +92,7 @@ class Mixer(BaseComponent):
                 connector.set_m_dot(self.inputs[f"su_{inlet_num}_m_dot"])
 
     def get_required_parameters(self):
-        return [
-        ]
+        return []
     
     def print_setup(self):
         print("=== Pump Setup ===")
@@ -154,7 +153,9 @@ class Mixer(BaseComponent):
                 
                 self.solved = True
             else:
-                raise ValueError(f"Mixing different pressure flows (difference higher than tolerance = {tolerance} Pa) in 'Mixer'")
+                self.solved = False
+                return
+                # raise ValueError(f"Mixing different pressure flows (difference higher than tolerance = {tolerance} Pa) in 'Mixer'")
         else:
             raise ValueError("Mixing different fluids in 'Mixer'")
 

@@ -20,39 +20,44 @@ class Turb_polyn_eff(BaseComponent):
         self.su = MassConnector()
         self.ex = MassConnector() 
         self.W_turb = WorkConnector()
-
-    def get_required_inputs(self):
         
-        if self.inputs == {}:
-            if self.su.T is not None:
-                self.inputs['su_T'] = self.su.T
-            elif self.su.h is not None:
-                self.inputs['su_h'] = self.su.h
-            if self.su.p is not None:
-                self.inputs['su_p'] = self.su.p
-            if self.ex.p is not None:
-                self.inputs['ex_p'] = self.ex.p
-            if self.work_exp.speed is not None:
-                self.inputs['N_rot'] = self.work_exp.speed
-            if self.su.fluid is not None:
-                self.inputs['su_fluid'] = self.su.fluid
-        
-        if self.inputs != {}:
-            self.su.set_fluid(self.inputs['su_fluid'])
-            if 'su_T' in self.inputs:
-                self.su.set_T(self.inputs['su_T'])
-            elif 'su_h' in self.inputs:
-                self.su.set_h(self.inputs['su_h'])
-            if 'su_p' in self.inputs:
-                self.su.set_p(self.inputs['su_p'])
-            if 'ex_p' in self.inputs:
-                self.ex.set_p(self.inputs['ex_p'])
-            if 'N_rot' in self.inputs:
-                self.W_turb.set_N(self.inputs['N_rot'])
-            if 'su_fluid' in self.inputs:
-                self.su.set_fluid(self.inputs['su_fluid'])
-
+    def get_required_inputs(self): # Used in check_calculablle to see if all of the required inputs are set
+        self.sync_inputs()
+        # Return a list of required inputs
         return ['su_p', 'su_T', 'ex_p', 'N_rot', 'su_fluid']
+
+    def sync_inputs(self):
+        """Synchronize the inputs dictionary with the connector states."""
+        if self.su.fluid is not None:
+            self.inputs['su_fluid'] = self.su.fluid
+        if self.su.T is not None:
+            self.inputs['su_T'] = self.su.T
+        if self.su.h is not None:
+            self.inputs['su_h'] = self.su.h
+        if self.su.p is not None:
+            self.inputs['su_p'] = self.su.p
+        if self.ex.p is not None:
+            self.inputs['ex_p'] = self.ex.p
+        if self.W_turb.N is not None:
+            self.inputs['N_rot'] = self.W_turb.N
+
+    def set_inputs(self, **kwargs):
+        """Set inputs directly through a dictionary and update connector properties."""
+        self.inputs.update(kwargs) # This line merges the keyword arguments ('kwargs') passed to the 'set_inputs()' method into the eisting 'self.inputs' dictionary.
+
+        # Update the connectors based on the new inputs
+        if 'su_fluid' in self.inputs:
+            self.su.set_fluid(self.inputs['su_fluid'])
+        if 'su_T' in self.inputs:
+            self.su.set_T(self.inputs['su_T'])
+        if 'su_h' in self.inputs:
+            self.su.set_h(self.inputs['su_h'])
+        if 'su_p' in self.inputs:
+            self.su.set_p(self.inputs['su_p'])
+        if 'ex_p' in self.inputs:
+            self.ex.set_p(self.inputs['ex_p'])
+        if 'N_rot' in self.inputs:
+            self.W_turb.set_N(self.inputs['N_rot'])
 
     def get_required_parameters(self):
         return [
@@ -134,7 +139,7 @@ class Turb_polyn_eff(BaseComponent):
             R = 8.3144 # Ideal gas constant
             R_M = R/PropsSI('M',self.su.fluid)
             
-            (cp_in,cv_in) = PropsSI(('C','CVMASS'),'T', self.su.T, 'P', self.su.p, self.su.fluid)
+            (cp_in,cv_in) = PropsSI(('C','CVMASS'),'H', self.su.h, 'P', self.su.p, self.su.fluid)
             gamma = cp_in/cv_in # Heat capacity ratio      
             
             self.a = np.sqrt(gamma*R_M*self.su.T) # m/s
@@ -164,7 +169,7 @@ class Turb_polyn_eff(BaseComponent):
             
             self.W_turb.set_W_dot(self.W_dot)
 
-            self.defined = True
+            self.solved = True
             
         else:
             if self.calculable == False:
