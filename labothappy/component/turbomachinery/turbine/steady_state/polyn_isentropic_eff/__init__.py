@@ -1,9 +1,10 @@
 import os
 import sys
 
+
 def find_project_root(starting_dir):
     # Define markers that identify the project root
-    markers = ['connector', 'component']
+    markers = ["connector", "component"]
 
     current_dir = starting_dir
     while True:
@@ -13,12 +14,13 @@ def find_project_root(starting_dir):
 
         # Move up one directory
         parent_dir = os.path.abspath(os.path.join(current_dir, os.pardir))
-        
+
         # If we have reached the root of the filesystem, stop searching
         if parent_dir == current_dir:
             return None
-        
+
         current_dir = parent_dir
+
 
 # Get the absolute path of the directory that contains the current script
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -31,4 +33,6 @@ if project_root:
     if project_root not in sys.path:
         sys.path.insert(0, project_root)
 else:
-    raise RuntimeError("Project root not found. Make sure you have 'connector' and 'component' directories.")
+    raise RuntimeError(
+        "Project root not found. Make sure you have 'connector' and 'component' directories."
+    )
