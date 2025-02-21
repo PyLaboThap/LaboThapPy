@@ -4,14 +4,9 @@ save_data_on_exit = True
 save_history = True
 save_non_project_files = False
 project_type = 'empty-project-type'
-<<<<<<< Updated upstream
-
-recent_files = ['connector\\humid_air_connector.py', 'connector\\__init__.py', 'component\\ha_heat_exchanger\\steady_state\\dec_kpi.py', 'component\\ha_heat_exchanger\\steady_state\\dw_correlation.py', 'component\\ha_heat_exchanger\\steady_state\\channel.py', 'component\\base_component.py']
-=======
-recent_files = ['..\\..\\..\\Projects\\SAB_2025\\TPV\\T_su_mixture.py', 'component\\heat_exchanger\\steady_state\\epsilon_NTU\\simulation_model.py']
->>>>>>> Stashed changes
+recent_files = ['examples\\machine\\CO2_HeatPump_circuit.py', 'machine\\circuit.py', 'component\\heat_exchanger\\steady_state\\pinch_cst\\simulation_model.py', 'component\\heat_exchanger\\steady_state\\pinch_cst\\example.py', 'component\\heat_exchanger\\steady_state\\cst_efficiency\\simulation_model.py', 'examples\\machine\\orc_circuit.py']
 
 [main]
 version = 0.2.0
-recent_files = []
+recent_files = ['..\\..\\..\\..\\.spyder-py3\\temp.py', 'examples\\ORC\\DECAGONE_ORC.py', 'component\\examples\\heat_exchanger\\hex_thermosyphon_example.py', 'component\\heat_exchanger\\hex_thermosyphon.py']
 
