@@ -11,7 +11,7 @@ from simulation_model import Mixer
 
 "Instanciation"
 
-Mixer = Mixer(outlet_repartition = [0.3,0.4,0.3])
+Mixer = Mixer(n_inlets = 2)
  
 Mixer.set_inputs(
     su_1_T = 50 + 273.15, # K

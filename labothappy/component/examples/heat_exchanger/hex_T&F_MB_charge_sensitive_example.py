@@ -12,9 +12,9 @@ Modification w/r to previous version:
 """
 
 # from __future__ import division, print_function
-
-from simulation_model_elise import HeatExchangerMB
-from modules.geometry_tube_and_fins_hx import TubeAndFinsGeom
+import __init__
+from simulation_model_elise_2 import HeatExchangerMB
+from toolbox.geometries.heat_exchanger.geometry_tube_and_fins_hx import TubeAndFinsGeom
 
 #%%
 
@@ -31,7 +31,7 @@ HX = HeatExchangerMB('Tube&Fins')
 
 # -------------------------------------------------------------------------------------------------------------
 
-# DECAGONE Recuperator HTX case
+# # DECAGONE Recuperator HTX case
 
 HX.set_inputs(
     # First fluid
@@ -61,7 +61,7 @@ Corr_C = {"1P" : "Gnielinski", "2P" : "Boiling_curve"}
 
 # -------------------------------------------------------------------------------------------------------------
 
-# DECAGONE ACC HTX case
+# # DECAGONE ACC HTX case
 
 # HX.set_inputs(
 #     # First fluid
@@ -103,7 +103,7 @@ HX.set_parameters(
 
     Fin_Side = Fin_Side, # 28
 
-    Flow_Type = 'CrossFlow', H_DP_ON = True, C_DP_ON = True, n_disc = 100) # 32
+    Flow_Type = 'CrossFlow', H_DP_ON = True, C_DP_ON = True, n_disc = 50) # 32
 
 # Shell&Tube
 

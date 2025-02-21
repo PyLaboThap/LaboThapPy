@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import os
 
-class Isenthalpic_Valve(BaseComponent):
+class Isenthalpic_Valve_x_ex(BaseComponent):
     """
     Component: Valve
 
@@ -54,7 +54,7 @@ class Isenthalpic_Valve(BaseComponent):
     def get_required_inputs(self):
             self.sync_inputs()
             # Return a list of required inputs
-            return ['su_p', 'su_T', 'ex_p', 'su_fluid']
+            return ['su_p', 'su_T', 'ex_x', 'su_fluid']
     
     def sync_inputs(self):
         """Synchronize the inputs dictionary with the connector states."""
@@ -64,8 +64,8 @@ class Isenthalpic_Valve(BaseComponent):
             self.inputs['su_T'] = self.su.T
         if self.su.p is not None:
             self.inputs['su_p'] = self.su.p
-        if self.ex.p is not None:
-            self.inputs['ex_p'] = self.ex.p
+        if self.ex.x is not None:
+            self.inputs['ex_x'] = self.ex.x
 
     def set_inputs(self, **kwargs):
         """Set inputs directly through a dictionary and update connector properties."""
@@ -78,8 +78,8 @@ class Isenthalpic_Valve(BaseComponent):
             self.su.set_T(self.inputs['su_T'])
         if 'su_p' in self.inputs:
             self.su.set_p(self.inputs['su_p'])
-        if 'ex_p' in self.inputs:
-            self.ex.set_p(self.inputs['ex_p'])
+        if 'ex_x' in self.inputs:
+            self.ex.set_x(self.inputs['ex_x'])
 
     def get_required_parameters(self):
         return []

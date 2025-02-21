@@ -13,8 +13,10 @@ Modification w/r to previous version:
 
 # from __future__ import division, print_function
 
-from simulation_model import HeatExchangerMB
-from modules.geometry_shell_and_tube_hx import ShellAndTubeGeom
+import __init__
+
+from component.heat_exchanger.hex_MB_charge_sensitive import HeatExchangerMB
+from toolbox.geometries.heat_exchanger.geometry_shell_and_tube_hx import ShellAndTubeGeom
 from CoolProp.CoolProp import PropsSI    
 
 
@@ -41,9 +43,9 @@ HX.set_inputs(
 
     # Second fluid
     Csu_fluid = 'Cyclopentane',
-    Csu_T = 95.1 + 273.15, # K
-    Csu_p = 31.5*1e5, # Pa
-    Csu_m_dot = 13.84, # kg/s  # Make sure to include fluid informastion
+    Csu_T = 369.66, # 95.1 + 273.15, # K
+    Csu_p = 3005929, # 31.5*1e5, # Pa
+    Csu_m_dot = 14, # 13.84, # kg/s  # Make sure to include fluid informastion
 )
 
 "Geometry Loading"
