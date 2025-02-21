@@ -11,7 +11,7 @@ import numpy as np
 from CoolProp.CoolProp import PropsSI
 
 # from labothappy.connector.mass_connector import MassConnector
-from component.tank.Separator.LV_Separator import LV_Separator
+from component.tank.LV_Separator import LV_Separator
 
 "-----------------------------------------------------------  TEST   ----------------------------------------------------------------"
 
