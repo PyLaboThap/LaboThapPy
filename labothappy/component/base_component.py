@@ -76,7 +76,6 @@ class BaseComponent:
     def set_parameters(self, **parameters):
         for key, value in parameters.items():
             self.params[key] = value
-        self.check_parametrized()
 
     def set_guesses(self, **guesses):
         for key, value in guesses.items():

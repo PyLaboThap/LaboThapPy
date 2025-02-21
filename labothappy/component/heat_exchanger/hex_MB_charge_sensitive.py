@@ -506,7 +506,7 @@ class HeatExchangerMB(BaseComponent):
         
         "1) Set temperature bound values" # !!! Find out why      
         T_hmin = 218 
-        T_cmax = 273.15+260 
+        T_cmax = 273.15+260 # 481 # 
         
         "2) Hot fluid side pinch"
         
@@ -707,10 +707,19 @@ class HeatExchangerMB(BaseComponent):
         
         self.svec_c = np.zeros(np.size(self.pvec_c))
         self.svec_h = np.zeros(np.size(self.pvec_h))
-
+        
         # Calculate the temperature and entropy at each cell boundary
         for i in range(len(self.hvec_c)):
-            self.AS_C.update(CP.HmassP_INPUTS, self.hvec_c[i], self.pvec_c[i])
+            
+            # try and except because some CoolProp convergence problems could occur when evaluating the propertie
+            # Error Code : unable to solve 1phase PY flash with Tmin=179.699, Tmax=481.825 due to error: 
+            # HSU_P_flash_singlephase_Brent could not find a solution because Hmolar [27458.3 J/mol] is above 
+            # the maximum value of 27404.148193 J/mol : PropsSI("T","H",391244,"P",3005929,"Cyclopentane")
+            
+            try:
+                self.AS_C.update(CP.HmassP_INPUTS, self.hvec_c[i], self.pvec_c[i])
+            except:
+                self.AS_C.update(CP.HmassP_INPUTS, (self.hvec_c[i-1] + self.hvec_c[i+1])/2, self.pvec_c[i])
 
             self.Tvec_c[i] = self.AS_C.T()
             self.svec_c[i] = self.AS_C.smass()

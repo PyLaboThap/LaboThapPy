@@ -789,9 +789,15 @@ class Circuit:
 
     def recursive_solve(self, component_name):
         # print(f"Recursive Solve : {component_name}")
-        
+                
         component = self.get_component(component_name)
         component_model = component.model
+
+        # if component_name == "Evaporator":
+        #     print(component_model.su_C.T)
+        #     print(component_model.su_C.h)
+        #     print(component_model.su_C.p)
+        #     print(component_model.su_C.m_dot)
 
         # if component_name == self.solve_start_component:
         if component_model.solved:

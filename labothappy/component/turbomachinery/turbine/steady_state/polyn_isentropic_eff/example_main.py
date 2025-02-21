@@ -9,7 +9,7 @@ import __init__
 
 from connector.mass_connector import MassConnector
 from component.turbomachinery.turbine.steady_state.polyn_isentropic_eff.simulation_model import Turb_polyn_eff
-from modules.geometry_turb_polyn import Geometry_polyn_turb
+from component.turbomachinery.turbine.steady_state.polyn_isentropic_eff.modules.geometry_turb_polyn import Geometry_polyn_turb
 from CoolProp.CoolProp import PropsSI   
 import numpy as np 
 import matplotlib.pyplot as plt

@@ -3,7 +3,7 @@ import __init__
 import matplotlib.pyplot as plt
 from connector.mass_connector import MassConnector
 from CoolProp.CoolProp import PropsSI
-from modules.geometry_tube_and_fins_hx import GeometryCrossFlowFins
+from modules.geometry_tube_and_fins_hx import CFTubeAndFinsGeom
 from simulation_model import CrossFlowTubeAndFinsHTX
 
 "--------- 1) Data ------------------------------------------------------------------------------------------"
@@ -36,7 +36,7 @@ ACC.set_inputs(
 
 "Geometry"
 
-HX_geom = GeometryCrossFlowFins()
+HX_geom = CFTubeAndFinsGeom()
 HX_geom.set_parameters("DECAGONE_ACC") # DECAGONE_ACC_1Bundle # DECAGONE_ACC
 
 ACC.set_parameters(
