@@ -1,14 +1,5 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri May 31 14:52:28 2024
-
-@author: Basile
-"""
-
-import matplotlib.pyplot as plt
 import numpy as np
 from CoolProp.CoolProp import PropsSI
-from scipy.optimize import fsolve
 
 from component.base_component import BaseComponent
 from connector.mass_connector import MassConnector
@@ -80,7 +71,6 @@ class Turb_polyn_eff(BaseComponent):
             f"  - ex: fluid={self.ex.fluid}, T={self.ex.T}, p={self.ex.p}, m_dot={self.ex.m_dot}"
         )
         print(f"  - W_dot: speed={self.W_turb.N}")
-        # print(f"  - Q_dot_amb: temperature_in={self.heat_amb.temperature_in}")
 
         print("\nInputs:")
         for input in self.get_required_inputs():
