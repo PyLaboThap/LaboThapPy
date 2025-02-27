@@ -16,12 +16,11 @@ from component.heat_exchanger.steady_state.pinch_cst.simulation_model import HXP
 from component.heat_exchanger.steady_state.cst_efficiency.simulation_model import HXEffCst
 from component.volumetric_machine.compressor.steady_state.constant_isentropic_efficiency.simulation_model import CompressorCstEff 
 from component.valve.isenthalpic_valve_P_ex import Isenthalpic_Valve_P_ex
-from component.volumetric_machine.expander.steady_state.constant_isentropic_efficiency.simulation_model import ExpanderCstEff
 from component.valve.isenthalpic_valve_x_ex import Isenthalpic_Valve_x_ex
 from component.tank.mixer.simulation_model import Mixer
-from component.tank.LV_Separator import LV_Separator
+from component.tank.Separator.LV_separator import LV_Separator
 
-def basic_CO2_HP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low, P_high):
+def basic_CO2_TC(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low, P_high):
     CO2_HP = Circuit('CO2')
     
     # Create components
@@ -78,74 +77,6 @@ def basic_CO2_HP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low, P_high):
     CO2_HP.set_cycle_guess(target='Compressor:ex', p = P_high)
         
     CO2_HP.set_cycle_guess(target='Valve:ex', p = P_low)
-    
-    #%% CYCLE RESIDUAL VARIABLES
-    CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='GasCooler:ex_H', variable='h', tolerance= 1e-3)
-    
-    return CO2_HP
-
-def Exp_CO2_HP(HSource, CSource, eta_cp, eta_exp, eta_gc, PP_ev, SH_ev, P_low, P_high):
-    CO2_HP = Circuit('CO2')
-    
-    # Create components
-    Compressor = CompressorCstEff()
-    GasCooler = HXEffCst()
-    Expander = ExpanderCstEff()
-    Evaporator = HXPinchCst()
-    
-    #%% COMPRESSOR PARAMETERS
-    
-    Compressor.set_parameters(eta_is=eta_cp)
-
-    #%% EXPANDER PARAMETERS
-    
-    Expander.set_parameters(eta_is=eta_exp)
-    
-    #%% GASCOOLER PARAMETERS
-    
-    GasCooler.set_parameters(**{
-        'eta': eta_gc,
-    })
-    
-    #%% EVAPORATOR PARAMETERS
-    
-    Evaporator.set_parameters(**{
-        'Pinch': PP_ev,
-        'Delta_T_sh_sc': SH_ev,
-        'type_HX': 'evaporator'
-    })
-    
-    #%% ADD AND LINK COMPONENTS
-    
-    # Add components
-    CO2_HP.add_component(Compressor, "Compressor")
-    CO2_HP.add_component(GasCooler, "GasCooler")
-    CO2_HP.add_component(Expander, "Expander")
-    CO2_HP.add_component(Evaporator, "Evaporator")
-    
-    # Link components
-    CO2_HP.link_components("Compressor", "m-ex", "GasCooler", "m-su_H")
-    CO2_HP.link_components("GasCooler", "m-ex_H", "Expander", "m-su")
-    CO2_HP.link_components("Expander", "m-ex", "Evaporator", "m-su_C")
-    CO2_HP.link_components("Evaporator", "m-ex_C", "Compressor", "m-su")
-    
-    #%% SOURCES AND SINKS
-    
-    Gas_cooler_source = MassConnector()
-    CO2_HP.add_source("GC_Water", Gas_cooler_source, CO2_HP.components["GasCooler"], "m-su_C")
-    CO2_HP.set_source_properties(T=HSource.T, fluid=HSource.fluid, m_dot=HSource.m_dot, target='GC_Water', P = HSource.p)
-    
-    EV_source = MassConnector()
-    CO2_HP.add_source("EV_Water", EV_source, CO2_HP.components["Evaporator"], "m-su_H")
-    CO2_HP.set_source_properties(T=CSource.T, fluid=CSource.fluid, m_dot=CSource.m_dot, target='EV_Water', P = CSource.p)
-    
-    #%% CYCLE GUESSES
-    
-    CO2_HP.set_cycle_guess(target='Compressor:su', m_dot = 0.08, SH = 5, p = P_low)
-    CO2_HP.set_cycle_guess(target='Compressor:ex', p = P_high)
-        
-    CO2_HP.set_cycle_guess(target='Expander:ex', p = P_low)
     
     #%% CYCLE RESIDUAL VARIABLES
     CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='h', tolerance= 1e-3)
@@ -327,24 +258,24 @@ def Flash_CO2_HP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low, P_mid, P
 
 if __name__ == "__main__":
 
-    study_case = "Flash"    
+    study_case = "Flash_IHX"    
 
     # Pressure levels
     P_low_guess = 40*1e5
-    P_high = 180*1e5
+    P_high = 160*1e5
     
     # Compressor param
     eta_compressor = 0.7
     
     # GasCooler param
-    eta_GC = 0.9
+    eta_GC = 0.95
 
     # Evap Param
     DT_pp_ev = 3
     SH_ev = 3
     
     # Hot Source
-    T_high = 100 + 273.15
+    T_high = 60 + 273.15
     p_high = 3e5
     fluid_high = 'Water'
     m_dot_high = 2
@@ -367,8 +298,6 @@ if __name__ == "__main__":
         CO2_HP = Flash_CO2_HP(HSource, CSource, eta_compressor, eta_GC, DT_pp_ev, SH_ev, P_low_guess, P_mid, P_high)
         
         CO2_HP.solve()
-
-        COP = CO2_HP.components["GasCooler"].model.Q_dot.Q_dot/(CO2_HP.components["Compressor_1"].model.W_dot.W_dot + CO2_HP.components["Compressor_2"].model.W_dot.W_dot)
 
     elif study_case == "IHX":
 
@@ -396,24 +325,6 @@ if __name__ == "__main__":
         
         CO2_HP.solve()      
 
-    elif study_case == "Expander":
-
-        # Compressor param
-        eta_exp = 0.7
-
-        HSource = MassConnector()
-        HSource.set_properties(fluid = 'Water', T = T_high, p = p_high, m_dot = 2)
-        
-        CSource = MassConnector()
-        CSource.set_properties(fluid = 'Water', T = T_low, p = p_low, m_dot = 2)
-        
-        CO2_HP = Exp_CO2_HP(HSource, CSource, eta_compressor, eta_exp, eta_GC, DT_pp_ev, SH_ev, P_low_guess, P_high)
-        
-        CO2_HP.solve()      
-    
-        COP = CO2_HP.components["GasCooler"].model.Q_dot.Q_dot/(CO2_HP.components["Compressor"].model.W_dot.W_dot - CO2_HP.components["Expander"].model.W_exp.W_dot)
-    
-    print(f"COP : {COP}")
 
 # """
 # T_cold_source = -10 + 273.15

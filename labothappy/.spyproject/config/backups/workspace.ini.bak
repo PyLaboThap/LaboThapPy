@@ -4,7 +4,11 @@ save_data_on_exit = True
 save_history = True
 save_non_project_files = False
 project_type = 'empty-project-type'
+<<<<<<< Updated upstream
 recent_files = ['examples\\machine\\CO2_HeatPump_circuit.py', 'machine\\circuit.py', 'component\\heat_exchanger\\steady_state\\pinch_cst\\simulation_model.py', 'component\\heat_exchanger\\steady_state\\pinch_cst\\example.py', 'component\\heat_exchanger\\steady_state\\cst_efficiency\\simulation_model.py', 'examples\\machine\\orc_circuit.py']
+=======
+recent_files = ['..\\..\\..\\..\\.spyder-py3\\temp.py', 'component\\heat_exchanger\\steady_state\\finite_volumes\\cross_flow_tube_and_fins\\example_main.py', 'component\\heat_exchanger\\steady_state\\finite_volumes\\cross_flow_tube_and_fins\\__init__.py', 'component\\heat_exchanger\\steady_state\\finite_volumes\\cross_flow_tube_and_fins\\modules\\__init__.py']
+>>>>>>> Stashed changes
 
 [main]
 version = 0.2.0

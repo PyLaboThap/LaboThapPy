@@ -250,8 +250,6 @@ class LV_Separator(BaseComponent):
         # Get saturation temperature at supply pressure
         T_sat = CP.PropsSI('T', 'P', p_su, 'Q', 0.5, fluid)
     
-       
-
         if 0 <= x_su <= 1:  # Two-phase mixture
             m_dot_l = (1 - x_su) * m_dot_su
             m_dot_v = x_su * m_dot_su
@@ -274,6 +272,10 @@ class LV_Separator(BaseComponent):
         T_ex_l=T_su
         p_ex_l=p_su
         
+        if abs((m_dot_l + m_dot_v) - self.su.m_dot) < 1e-2:
+            print("OK m_dot")
+        else: 
+            print("Not OK m_dot")
         
         # Update mass connectors
         self.update_connectors(x_ex_l, T_ex_l, h_ex_l, p_ex_l, m_dot_l, x_ex_v, T_ex_v, h_ex_v, p_ex_v, m_dot_v)
