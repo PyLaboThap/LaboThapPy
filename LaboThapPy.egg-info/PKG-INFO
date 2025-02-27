@@ -1,0 +1,37 @@
+Metadata-Version: 2.1
+Name: LaboThapPy
+Version: 0.1.0
+Summary: Open-source Python library for the modelling and simulation of thermodynamic systems
+Home-page: https://github.com/PyLaboThap/LaboThapPy
+Author: Elise Neven, Basile Chaudoir
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# LaboThapPy: A Thermodynamic Modelling Library
+
+**LaboThapPy** is an open-source Python library that consolidates a wide range of thermodynamic models developed over years of research at the University of LiÃ¨ge. Its primary purpose is to provide a standardized framework for detailed thermodynamic system and component modeling.
+
+## Why LaboThapPy?
+
+At the University of LiÃ¨ge's Thermodynamic Laboratory, we noticed a recurring issue:  
+- Identical or similar models were being recreated across different software and codes.  
+- Some models were lost when researchers left.  
+
+**LaboThapPy** was created to address these challenges by:  
+- Establishing a shared repository of thermodynamic models.  
+- Providing a standardized framework for model implementation.  
+
+## Authors
+
+This library was initially developed by:  
+- **Elise Neven** (University of LiÃ¨ge) â€“ [elise.neven@uliege.be](mailto:elise.neven@uliege.be)  
+- **Basile Chaudoir** (University of LiÃ¨ge) â€“ [Basile.Chaudoir@uliege.be](mailto:Basile.Chaudoir@uliege.be)  
+
+## Documentation
+
+Detailed documentation is available on [ReadTheDocs](https://labothappy.readthedocs.io).
+
+## Reporting Issues
+
+If you encounter any issues or have suggestions, please report them through the [GitHub Issues page](../../issues).

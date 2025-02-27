@@ -2,13 +2,13 @@ import os
 import sys
 
 # Add the path to the library directory
-sys.path.insert(0, os.path.abspath('../../library'))
+sys.path.insert(0, os.path.abspath('../../labothappy'))
 
 
 
 
 # -- Project information -----------------------------------------------------
-project = 'PyLaboThap'
+project = 'LaboThapPy'
 copyright = '2024, Basile Chaudoir, Elise Neven'
 author = 'Elise Neven, Basile Chaudoir'
 release = '1.0'
@@ -41,7 +41,7 @@ html_static_path = ['_static']
 def setup(app):
     app.add_css_file('custom.css')
 
-html_title = "PyLaboThap Documentation"
+html_title = "LaboThapPy Documentation"
 
 
 # -- Options for mathematical equations ------------------------------------------------

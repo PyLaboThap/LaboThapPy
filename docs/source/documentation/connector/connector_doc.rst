@@ -1,7 +1,7 @@
 Connector
 =========
 
-This section includes details on the connectors of the PyLaboThap library.
+This section includes details on the connectors of the LaboThapPy library.
 
 The purpose of the **Connector class** is to link components between each other. There are three different types of connectors that represent different
 types of energy transfer within the system:

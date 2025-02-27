@@ -1,7 +1,7 @@
 Components
 ==========
 
-This section includes details on the components of the PyLaboThap library. The components are the building blocks of the library.
+This section includes details on the components of the LaboThapPy library. The components are the building blocks of the library.
 They are divided into three categories: steady state, dynamic and sizing models.
 
 .. toctree::
