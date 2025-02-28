@@ -14,12 +14,12 @@ Rémi Dickes, Vincent Lemort and Sylvain Quoilin
 import parabolic_through_collector
 from CoolProp.CoolProp import PropsSI
 import numpy as np
-from labothappy.geometries.solar.parabolic_through_geometry import PT_Collector_Geom
-from labothappy.component.base_component import BaseComponent
+from geometries.solar.parabolic_through_geometry import PT_Collector_Geom
+from component.base_component import BaseComponent
 
-from labothappy.connector.mass_connector import MassConnector
-from labothappy.connector.work_connector import WorkConnector
-from labothappy.connector.heat_connector import HeatConnector
+from connector.mass_connector import MassConnector
+from connector.work_connector import WorkConnector
+from connector.heat_connector import HeatConnector
 
 class PT_collector(BaseComponent):
     def __init__(self):
