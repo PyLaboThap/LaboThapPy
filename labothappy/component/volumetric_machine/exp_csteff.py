@@ -189,3 +189,42 @@ class ExpanderCstEff(BaseComponent):
         # print(f"  - W_exp: w={self.W_exp.w} [J/kg]") 'WorkConnector' object has no attribute 'w'
         print(f"  - W_dot_exp: {self.W_exp.W_dot} [W]")
         print("=========================")
+
+
+if __name__ == '__main__':
+    # Example usage
+    EXP = ExpanderCstEff()
+    EXP.print_setup()
+
+    # "If the inputs are not set directly BUT throught the connectors"
+    EXP.su.set_properties(P=955214.9, T=374.18, fluid='R134a')
+    EXP.ex.set_properties(P=293940.1)
+    EXP.set_parameters(eta_is=0.8)
+    EXP.print_setup()
+
+    EXP.solve()
+    EXP.print_results()
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
