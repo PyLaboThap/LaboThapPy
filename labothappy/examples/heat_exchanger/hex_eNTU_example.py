@@ -2,7 +2,7 @@
 import __init__
 import numpy as np
 
-from component.heat_exchanger.steady_state.epsilon_NTU.simulation_model import HXeNTU 
+from component.heat_exchanger.hex_eNTU import HXeNTU 
 
 HX = HXeNTU()
 
