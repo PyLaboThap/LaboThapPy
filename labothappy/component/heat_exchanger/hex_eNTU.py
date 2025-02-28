@@ -6,10 +6,10 @@ Created on Tue Jul 30 14:32:39 2024
 """
 
 from component.base_component import BaseComponent
-from component.heat_exchanger.steady_state.epsilon_NTU.modules.pipe_HTC import Gnielinski_Pipe_HTC
+# from component.heat_exchanger.steady_state.epsilon_NTU.modules.pipe_HTC import Gnielinski_Pipe_HTC
 
-# from correlation.convection.pipe_HTC import #### 
-# from toolbox.heat_exchanger.e_NTU import e_NTU
+from correlations.convection.pipe_htc import gnielinski_pipe_htc 
+from toolbox.geometries.heat_exchanger.e_NTU import e_NTU
 
 from connector.mass_connector import MassConnector
 from connector.work_connector import WorkConnector
@@ -114,11 +114,7 @@ class HXeNTU(BaseComponent):
 
 #%%
     
-    def e_NTU(self, NTU, C_r):
-        
-        if self.params['Flow_Type'] == "CounterFlow":
-            eps = (1 - np.exp(-NTU * (1 - C_r))) / (1 - C_r * np.exp(-NTU * (1 - C_r)))    
-            return eps
+
     
     def solve(self):
         self.check_calculable()
@@ -149,15 +145,18 @@ class HXeNTU(BaseComponent):
             G_h = self.su_hot.m_dot/self.params['A_canal_h']
             G_c = self.su_cold.m_dot/self.params['A_canal_c']
             
-            h_h = Gnielinski_Pipe_HTC(mu_h, Pr_h, Pr_h, k_h, G_h, self.params['D_h'], self.params['L_HTX'])
-            h_c = Gnielinski_Pipe_HTC(mu_c, Pr_c, Pr_c, k_c, G_c, self.params['D_h'], self.params['L_HTX'])
+                
+            h_h = gnielinski_pipe_htc(mu_h, Pr_h, Pr_h, k_h, G_h, self.params['D_h'], self.params['L_HTX'])
+            h_c = gnielinski_pipe_htc(mu_c, Pr_c, Pr_c, k_c, G_c, self.params['D_h'], self.params['L_HTX'])
                         
             AU = (1/(self.params['A_htx']*h_h) + 1/(self.params['A_htx']*h_c) + self.params['t_plate']/(self.params['k_plate']*self.params['A_htx']) + self.params['fouling']/self.params['A_htx'])**(-1)         
 
             NTU = AU/C_min
                         
             # epsilon NTU 
-            eps = self.e_NTU(NTU, C_r)
+            
+            eps = e_NTU(NTU, C_r, self.params['Flow_Type'])
+
                         
             # Calcul de Q
             h_c_Th = PropsSI('H','T',self.su_hot.T,'P',self.su_cold.p,self.su_cold.fluid)

@@ -6,7 +6,7 @@ Created on Aug 03 21:31:37 2023
 """
 
 import __init__
-from component.steady_state.volumetric_machine.expander.constant_isentropic_efficiency.simulation_model import ExpanderCstEff
+from component.volumetric_machine.exp_csteff import ExpanderCstEff
 
 import numpy as np
 
