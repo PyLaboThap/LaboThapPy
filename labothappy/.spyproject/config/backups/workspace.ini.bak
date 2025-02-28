@@ -8,5 +8,5 @@ recent_files = ['examples\\machine\\CO2_HeatPump_circuit.py', 'machine\\circuit.
 
 [main]
 version = 0.2.0
-recent_files = []
+recent_files = ['..\\..\\..\\..\\.spyder-py3\\temp.py', 'examples\\ORC\\DECAGONE_ORC.py', 'component\\examples\\heat_exchanger\\hex_thermosyphon_example.py', 'component\\heat_exchanger\\hex_thermosyphon.py']
 

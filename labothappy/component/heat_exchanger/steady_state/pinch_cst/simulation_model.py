@@ -22,7 +22,7 @@ from component.base_component import BaseComponent
 # from component.heat_exchanger.moving_boundary.simple_model.modules.U import U_Gnielinski_calibrated, U_DittusBoelter, U_Cooper_calibrater, U_Thonon
 
 from CoolProp.CoolProp import PropsSI
-from scipy.optimize import fsolve
+from scipy.optimize import fsolve, root
 import numpy as np
 import math
 
@@ -118,13 +118,24 @@ class HXPinchCst(BaseComponent):
 
     def system_evap(self, x):
         P_ev = x[0]
-
+        
+        # print("-----------------------")
+        # print(P_ev)
+        
+        PP_list = []
+        
         # Ensure the pressure is non-negative
-        if P_ev < 0:
-            P_ev = 10000
-                
+        if P_ev < PropsSI("ptriple", self.su_C.fluid):
+            P_ev = PropsSI("ptriple", self.su_C.fluid) + 1
+        
+        if P_ev > PropsSI("PCRIT", "CO2"):
+            P_ev = PropsSI("PCRIT", "CO2") - 1000
+
+        # print(P_ev)
+                        
         # Get the temperature of the evaporator based on the pressure and quality
         T_sat_ev = PropsSI('T', 'P', P_ev, 'Q', 0.5, self.su_C.fluid)
+        self.T_sat_ev = T_sat_ev
         
         "Refrigerant side calculations"
         # Liquid zone
@@ -168,8 +179,20 @@ class HXPinchCst(BaseComponent):
         self.h_H_ex = self.h_H_x0 - Q_dot_sc/self.su_H.m_dot
         self.T_H_ex = PropsSI('T', 'P', self.su_H.p, 'H', self.h_H_ex, self.su_H.fluid)        
         
+        
+        PP_list.append(self.T_H_ex - self.su_C.T)
+        
+        if Q_dot_sc > 0:
+            PP_list.append(self.T_H_x0 - T_sat_ev)            
+
+        if Q_dot_sh > 0:
+            PP_list.append(self.su_H.T - self.T_C_ex)
+                
         # Calculate pinch point and residual
-        PPTD = min(self.T_H_ex - self.su_C.T, self.T_H_x0 - T_sat_ev, self.T_H_x1 - T_sat_ev, self.su_H.T - self.T_C_ex)
+        PPTD = min(min(abs(np.array([PP_list]))))
+
+        # PPTD = min(self.T_H_ex - self.su_C.T, self.T_H_x0 - T_sat_ev, self.T_H_x1 - T_sat_ev, self.su_H.T - self.T_C_ex)
+
         self.res = abs(PPTD - self.params['Pinch']) / self.params['Pinch']
         
         # Update the state of the working fluid
@@ -254,18 +277,36 @@ class HXPinchCst(BaseComponent):
 
         # Determine the type of heat exchanger and set the initial guess for pressure
         if self.params['type_HX'] == 'evaporator':
-            P_ev_guess = self.guesses.get('P_sat', PropsSI('P', 'T', 20 + 273.15, 'Q', 0.5, self.su_C.fluid)) # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
+            guess_T_sat = self.su_H.T - self.params['Pinch'] - self.params['Delta_T_sh_sc']
+            
+            # print(f"guess_T_sat: {guess_T_sat}")
+            
+            P_ev_guess = PropsSI('P', 'T', guess_T_sat, 'Q', 0.5, self.su_C.fluid) # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
             x = [P_ev_guess]
 
             try:
                 """EVAPORATOR MODEL"""
-                fsolve(self.system_evap, x)
+                root(self.system_evap, x, method='lm', tol=1e-7)
 
+                # print(f"res: {self.res}")
+                # print(f"T_su: {self.su_C.T}")
+                
+                
+                # print(f"DT_1: {self.T_H_ex - self.su_C.T}")
+                # print(f"DT_2: {self.T_H_x0 - self.T_sat_ev}")
+                # print(f"DT_3: {self.T_H_x1 - self.T_sat_ev}")
+                # print(f"DT_4: {self.su_H.T - self.T_C_ex}")
+                
                 """Update connectors after the calculations"""
                 self.update_connectors()
 
                 # Mark the model as solved if successful
-                self.solved = True
+                if self.res < 1e-2:
+                    self.solved = True
+                else:
+                    print("System not solved according to specified tolerance in Evaporator")
+                    self.solved = False
+                    
             except Exception as e:
                 # Handle any errors that occur during solving
                 self.solved = False

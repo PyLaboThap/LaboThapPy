@@ -5,8 +5,6 @@ Created on Wed Jul 07 11:47:52 2024
 @author: elise neven
 """
 
-print("vchgdvcdhgs")
-
 from connector.mass_connector import MassConnector
 from connector.work_connector import WorkConnector
 from connector.heat_connector import HeatConnector
