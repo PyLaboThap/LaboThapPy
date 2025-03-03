@@ -4,7 +4,7 @@ Created on Aug 03 21:31:37 2023
 @author: Elise
 """
 import __init__
-from component.steady_state.volumetric_machine.compressor.constant_isentropic_efficiency.simulation_model import CompressorCstEff
+from component.volumetric_machine.compressor.steady_state.constant_isentropic_efficiency.simulation_model import CompressorCstEff
 
 import numpy as np
 
@@ -20,5 +20,5 @@ CP.print_setup()
 
 CP.solve()
 CP.print_results()
-CP.plot_component_comp_cst_eff()
-CP.plot_connectors_comp_cst_eff()
+#CP.plot_component_comp_cst_eff()   #This function does not exist in the simulation model
+#CP.plot_connectors_comp_cst_eff()  #This function does not exist in the simulation model
