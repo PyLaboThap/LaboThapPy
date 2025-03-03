@@ -4,9 +4,9 @@ save_data_on_exit = True
 save_history = True
 save_non_project_files = False
 project_type = 'empty-project-type'
-recent_files = ['examples\\machine\\CO2_HeatPump_circuit.py', 'machine\\circuit.py', 'component\\heat_exchanger\\steady_state\\pinch_cst\\simulation_model.py', 'component\\heat_exchanger\\steady_state\\pinch_cst\\example.py', 'component\\heat_exchanger\\steady_state\\cst_efficiency\\simulation_model.py', 'examples\\machine\\orc_circuit.py']
+recent_files = ['toolbox\\geometries\\heat_exchanger\\e_NTU.py', 'component\\heat_exchanger\\hex_eNTU.py', 'component\\volumetric_machine\\exp_csteff.py', 'toolbox\\nozzle\\airflow.py', 'correlations\\convection\\fins.py', 'correlations\\convection\\U.py', 'correlations\\convection\\tube_bank_htc.py', 'correlations\\convection\\plate_htc.py', 'component\\Examples\\tank\\tank_mixer_example.py', 'component\\Examples\\volumetric_machine\\exp_csteff_example.py', 'component\\Examples\\tank\\LV_Separator_example.py', 'component\\Examples\\heat_exchanger\\hex_thermosyphon_example.py', 'component\\Examples\\heat_exchanger\\hex_T&F_MB_charge_sensitive_example.py', 'component\\Examples\\heat_exchanger\\hex_S&T_MB_charge_sensitive_example.py', 'component\\Examples\\heat_exchanger\\hex_plate_MB_charge_sensitive_example.py', 'component\\Examples\\heat_exchanger\\hex_eNTU_example.py', 'component\\tank\\__init__.py']
 
 [main]
 version = 0.2.0
-recent_files = ['..\\..\\..\\..\\.spyder-py3\\temp.py', 'examples\\ORC\\DECAGONE_ORC.py', 'component\\examples\\heat_exchanger\\hex_thermosyphon_example.py', 'component\\heat_exchanger\\hex_thermosyphon.py']
+recent_files = []
 
