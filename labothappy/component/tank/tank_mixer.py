@@ -10,6 +10,23 @@ from CoolProp.CoolProp import PropsSI
 from component.base_component import BaseComponent
 import numpy as np
 
+
+
+class Mixer_Geom(object):
+    
+    def __init__(self, **kwargs):
+        
+        self.n_inlet = None
+        self.V = None # Volume [m^3]
+
+    def set_parameters(self, name, **kwargs):
+        
+        if name == "DECAGONE_ACC_Mixer":
+            self.V = 2 # [m^3]
+            self.n_inlet = 2 
+            
+            
+            
 class Mixer(BaseComponent):
     
     class geom():
@@ -162,3 +179,9 @@ class Mixer(BaseComponent):
         
         
         return
+    
+    
+    
+    
+    
+    
