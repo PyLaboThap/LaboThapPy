@@ -111,14 +111,14 @@ def d_h(Tube_OD, pitch_ratio, tube_layout): # Hydraulic diameter (m)
 
 #%%
 
-def shell_htc_kern(m_dot, T_wall, T_in, P_in, fluid, params):
+def shell_DP_kern(m_dot, T_wall, h_in, P_in, fluid, params):
     """
     Inputs
     ----------
     
     m_dot  : Flow rate [kg/s]
     T_wall : Wall Temperature [K]
-    T_in   : Inlet Temperature [K]
+    h_in   : Inlet Enthalpy [K]
     P_in   : Inlet pressure [Pa]
     fluid  : fluid name [-]
     params : HTX parameters [-]
@@ -136,10 +136,7 @@ def shell_htc_kern(m_dot, T_wall, T_in, P_in, fluid, params):
     
     "1) HTC"
     
-    rho = PropsSI('D','T',T_in, 'P',P_in,fluid)
-    mu = PropsSI('V','T',T_in, 'P',P_in,fluid)
-    Pr = PropsSI('PRANDTL','T',T_in, 'P',P_in,fluid)
-    k = PropsSI('L','T',T_in, 'P',P_in,fluid)
+    (rho, mu) = PropsSI(('D','V'),'H',h_in, 'P',P_in,fluid)
     
     mu_w = PropsSI('V','T',T_wall,'P',P_in,fluid)
 
@@ -150,25 +147,19 @@ def shell_htc_kern(m_dot, T_wall, T_in, P_in, fluid, params):
     
     Re = rho*V_t*(D_hydro/mu)
     
-    if Re < 2e3:
-        
-        JH1 = 0.111 * Re**0.66
-        JH2 = 0.0548 * Re**0.68
-        
-        JH = JH2 + (params['Baffle_cut']/100 - 0.2) * (JH1 - JH2)/(0.8)
-        Nu = Pr**0.33 * JH # * (mu/mu)**(0.14)
-
-    else:
-        # McAdams, if no Baffles -> HYP : mu = mu_w
-        Nu = 0.36*Pr**0.33 * Re**(0.55) # * (mu/mu_w)**(0.14)  
-
-    h = Nu*k/D_hydro
+    "2) DP"
     
-    return h
+    f = np.e**(0.576 - 0.19*np.log(Re)) # [-] : Friction coefficient
+    G = m_dot/S_T # kg/(m^2 * s)
+    phi_s = (mu/mu_w)**(0.14)  
+
+    DP = (f*G**2 * params['Shell_ID'] * (params['cross_passes'] + 1))/(2*rho*D_hydro*phi_s)
+    
+    return DP
 
 #%%
 
-def shell_htc_donohue(m_dot, T_in, P_in, fluid, params):
+def shell_DP_donohue(m_dot, T_in, P_in, fluid, params):
     """
     Inputs
     ----------
@@ -177,12 +168,12 @@ def shell_htc_donohue(m_dot, T_in, P_in, fluid, params):
     T_in   : Inlet Temperature [K]
     P_in   : Inlet pressure [Pa]
     fluid  : fluid name [-]
-    geom   : HTX geometry [-]
+    params : HTX geometrical parameters [-]
 
     Outputs
     -------
     
-    h = shell side heat transfer coefficient [W/(m^2 * K)]    
+    DP = shell side pressure drop [Pa]
     
     References
     -------
@@ -205,13 +196,17 @@ def shell_htc_donohue(m_dot, T_in, P_in, fluid, params):
     V_R = (V_L*V_t)**(1/2)
     
     Re = rho*V_R*(params['Tube_OD']/mu)
+    
+    "2) DP"
+    
+    f = np.e**(0.576 - 0.19*np.log(Re)) # [-] : Friction coefficient
+    G = m_dot/S_T # kg/(m^2 * s)
+    phi_s = 1 # (mu/mu_w)**(0.14)  
 
-    # HYP : mu_in_wf = mu_w_in_wf
-    Nu = 0.22*Re**(0.6)*Pr**(0.33) # * (mu_in_wf/mu_w_in_wf)**(0.14)  
+    DP = (f*G**2 * params['Shell_ID'] * (params['cross_passes'] + 1))/(2*rho*D_hydro*phi_s)
     
-    h = Nu*k/params['Tube_OD']   
-    
-    return h
+    return DP
+
 
 #%%
 
@@ -308,11 +303,13 @@ def bell_delaware_coefs(layout_angle, Re):
     
     return a, b
 
-def shell_bell_delaware_htc(m_dot_shell, T_shell, T_shell_w, P_shell, shell_fluid, params):
+#%% 
+
+def shell_bell_delaware_DP(m_dot_shell, h_shell, P_shell, shell_fluid, params):
     """
     Inputs
     ----------
-    m_dot : shell fluid flowrate [kg/s]
+    m_dot : shell fluid flowrate
     T_in : 
     T_w : 
     P_in : 
@@ -330,127 +327,136 @@ def shell_bell_delaware_htc(m_dot_shell, T_shell, T_shell_w, P_shell, shell_flui
     https://cheguide.com/heat_exchanger_rating.html
     """
     
-    "1) HTC"
-    
-    "1.1) Ideal HTC"
+    "1) DP"
+
+    "1.1) DP for ideal Tube bank"
     
     # Bulk fluid thermodynamical properties
     
-    mu = PropsSI('V','T',T_shell, 'P',P_shell,shell_fluid)
-    cp = PropsSI('C','T',T_shell, 'P',P_shell,shell_fluid)
-    Pr = PropsSI('PRANDTL','T',T_shell, 'P',P_shell,shell_fluid)
+    rho = PropsSI('D','H',h_shell, 'P',P_shell,shell_fluid)
+    mu = PropsSI('V','H',h_shell, 'P',P_shell,shell_fluid)
+    cp = PropsSI('C','H',h_shell, 'P',P_shell,shell_fluid)
 
-    try:
-        # Wall fluid thermodynamical properties
-        mu_w = PropsSI('V','T',T_shell_w, 'P',P_shell,shell_fluid)
-    except: 
-        mu_w = PropsSI('V','T',T_shell, 'P',P_shell,shell_fluid)
-
-    # Effective sections and hydraulic diameter
+    # Wall fluid thermodynamical properties
+    mu_w = PropsSI('V','H',h_shell, 'P',P_shell,shell_fluid)
+    
+    # Effective sections and hydraulic diameter  
     S_T = s_max(params['Tube_OD'], params['pitch_ratio'], params['Shell_ID'], params['central_spacing'], params['tube_layout']) # m^2
     S_L = s_L(params['Baffle_cut'], params['Shell_ID'], params['n_tubes'], params['Tube_OD']) # m^2
-
+    D_hydro = d_h(params['Tube_OD'], params['pitch_ratio'], params['tube_layout']) # m
+    
     # Transversal to tube Flow speed and Reynolds number
-    G_s = m_dot_shell/S_T
+    V_t = m_dot_shell/(S_T*rho)
+    Re = rho*V_t*(D_hydro/mu)
     
-    Re = G_s*(params['Tube_OD']/mu)
-        
+    a_vec, b_vec = bell_delaware_coefs(params["tube_layout"], Re)
+    
     # Coefficients required for modelling tube bank flow
-    a_vec, b_vec = bell_delaware_coefs(params['tube_layout'], Re)
-    a = a_vec[2]/(1+0.14*Re**a_vec[3])
-    j_i = a_vec[0]*(1.33/params['pitch_ratio'])**a * Re**a_vec[1]
-        
-    # Ideal Tube bank heat transfer coefficient
-    h_id = j_i * cp * (m_dot_shell/S_T) * (Pr)**(-2/3) * (mu/mu_w)**0.14 
-        
-    "1.2) Correction factor for Baffle Window Flow : J_c"
+    b = b_vec[2]/(1+0.14*Re**b_vec[3])
+    f_i = b_vec[0]*(1.33/params["pitch_ratio"])**b * Re**b_vec[1]
     
+    # Shell transverse mass Flux
+    G_shell = m_dot_shell / (S_T)
+    
+    # Tube pitch
+    P_T = params["Tube_OD"]*params["pitch_ratio"]
+    
+    # Tube pitch relative to the flow    
+    if params["tube_layout"] == 0: # Square inline tube arrangement
+        P_p = P_T # for 90° layout
+    elif params["tube_layout"] == 60: # Triangular staggered tube arrangement
+        P_p = P_T * (3**(0.5)/2) 
+    elif params["tube_layout"] == 45: # Square staggered tube arrangement
+        P_p = P_T / (2**(0.5))     
+
+    # Number of effective tube rows crossed between two baffles
+    N_tcc = (params["Shell_ID"]/P_p)*(1 - 2*params["Baffle_cut"]/100)
+    
+    # Ideal Pressure drop    
+    DP_ideal = 2*f_i*(G_shell**2 / rho) * (mu/mu_w)**(0.14) * N_tcc
+    
+    "1.2) Correction factor for Baffle Leakage : R_l"
+
     # Diameter effectively covered by the tube
-    D_CTL = params['D_OTL'] - params['Tube_OD']
+    D_CTL = params["D_OTL"] - params["Tube_OD"]
     
-    theta_CTL = 2*np.arccos((params['Shell_ID'] * (1 - 2*params['Baffle_cut']/100))/D_CTL)
+    theta_CTL = 2*np.arccos((params["Shell_ID"] * (1 - 2*params["Baffle_cut"]/100))/D_CTL)
     F_w = (theta_CTL - np.sin(theta_CTL))/(2*np.pi)
-    F_c = 1 - 2*F_w
-    
-    J_c = 0.55 + 0.72*F_c
-    
-    "1.3) Correction factor for Baffle Leakage : J_l"
 
     # Clearances (tube to baffle and shell to baffle)
-    S_tb = params['clear_TB'] # (np.pi/4)*((geom.Tube_OD + geom.clear_TB)**2 - geom.Tube_OD**2)*geom.n_tubes*(1-F_w)
-    S_sb = params['clear_BS']
+    S_tb = params["clear_TB"] # (np.pi/4)*((geom.Tube_OD + geom.clear_TB)**2 - geom.Tube_OD**2)*geom.n_tubes*(1-F_w)
+    S_sb = params["clear_BS"]
 
     r_L = (S_sb + S_tb)/S_L
     r_S = S_sb /(S_sb + S_tb)
 
-    J_l = 0.44*(1-r_S) + (1 - 0.44*(1-r_S))*np.e**(-2.2*r_L)
+    p = 0.8 - 0.15*(1 + r_S)    
+    R_l = np.e**(-1.33*(1+r_S)*r_L**p)
+    
+    "1.3) Pressure drop for window section : DP_w"
+    
+    theta_DS = 2*np.arccos(1 - 2*params["Baffle_cut"]/100)
+    
+    SWG = (params["Shell_ID"]**2/8)*(theta_DS - np.sin(theta_DS))
+    SWT = params["n_tubes"]*F_w*(np.pi*params["Tube_OD"]**2/4)
+    SW = SWG - SWT
+    GW = m_dot_shell/(S_T*SW)**0.5
+    DW = 4*SW /(np.pi*params["Tube_OD"]*params["n_tubes"]*F_w + theta_DS*params["Shell_ID"])
+    
+    # Number of effective tube rows crossed in the main flow region ?
+    N_tcw = (0.8/P_p)*(params["Shell_ID"]*(params["Baffle_cut"]/100) - ((params["Shell_ID"]-(params["D_OTL"]-params["Tube_OD"]))/2))
+    
+    if Re >= 100: # turbulent flow
+        DP_w = params["cross_passes"]*R_l*(2+0.6*N_tcw)*GW**2/(2*rho)
         
-    "1.4) Correction factor for Bundle Bypass effects : J_b"
-    
-    # Tube pitch
-    P_T = params['Tube_OD']*params['pitch_ratio']
+    else: # laminar flow
+        a_coef = (26*GW*cp)/rho
+        b_coef = N_tcw/(P_T-params["Tube_OD"])
+        c_coef = params["central_spacing"]/DW**2
+        d_coef = GW**2/rho
+        
+        DP_w = params["cross_passes"]*R_l*(a_coef*(b_coef + c_coef) + d_coef)
+        
+    "1.4) Correction factor for Bundle Bypass effect : R_b"
 
-    # Tube pitch relative to the flow    
-    if params['tube_layout'] == 0: # Square inline tube arrangement
-        P_p = P_T # for 90° layout
-    elif params['tube_layout'] == 60: # Triangular staggered tube arrangement
-        P_p = P_T * (3**(0.5)/2) 
-    elif params['tube_layout'] == 45: # Square staggered tube arrangement
-        P_p = P_T / (2**(0.5)) 
-    
-    # Number of effective tube rows crossed between two baffles
-    N_tcc = (params['Shell_ID']/P_p)*(1 - 2*params['Baffle_cut']/100)
-    
     # Number of sealing strips
-    N_ss = params['N_strips']
+    N_ss = params["N_strips"]
     
     # Sealing strips ratio
     r_ss = N_ss/N_tcc
 
-    if r_ss > 0.5:
-        J_b = 1
-    else:
+    if r_ss < 0.5:
+        if Re >= 100:
+            C_r = 3.7
+        else:
+            C_r = 4.5
+        
         # Bypass flow area
-        S_b = params['central_spacing'] * (params['Shell_ID'] - params['D_OTL'] - params['Tube_OD']/2)
+        S_b = params["central_spacing"] * (params["Shell_ID"] - params["D_OTL"] - params["Tube_OD"]/2)
         
-        if Re < 100:
-            C_j = 1.35
-        else:
-            C_j = 1.25
-            
-        J_b = np.e**(-C_j*(S_b / S_T)*(1 - (2*r_ss)**(1/3)))
-    
-    "1.5) Correction factor for adverse temperature gradient : J_r"
-    
-    # Effective number of baffles
-    N_B = 1 + int((params['Tube_L'] - params['Tubesheet_t'] - params['inlet_spacing'] - params['outlet_spacing']) / params['central_spacing'])
-    
-    # Number of effective tube rows crossed in the main flow region ?
-    N_tcw = (0.8/P_p)*(params['Shell_ID']*(params['Baffle_cut']/100) - ((params['Shell_ID']-(params['D_OTL']-params['Tube_OD']))/2))
-            
-    if Re >= 100:
-        J_r = 1
-    else:
-        N_C = (N_tcw + N_tcc)*(1 + N_B)
-        J_rl = (10/N_C)*0.18   
-
-        if Re <= 20:
-            J_r = J_rl
-        else:
-            J_r = J_rl + (20-Re)*(J_rl - 1)/80
-
-
-    "1.6) Correction factor for unequal baffle spacing : J_s"
-    
-    if Re >= 100:
-        n1 = 0.6
-    else:
-        n1 = 1/3
+        R_b = np.e**(-C_r*(S_b/S_T)*(1-(2*r_ss)**(1/3)))
         
-    J_s = ((N_B-1)+(params['inlet_spacing']/ params['central_spacing'])**(1-n1) + (params['outlet_spacing']/params['central_spacing'])**(1-n1))/((N_B-1)+(params['inlet_spacing']/params['central_spacing']) + (params['outlet_spacing']/params['central_spacing']))
+    else:
+        R_b = 1
+        
+    "1.5) Correction factor for unequal baffle spacing : R_s"
+
+    if Re >= 100:
+        n = 0.2
+    else:
+        n = 1
     
-    "1.7) Final Heat Transfer Coefficient"
+    R_s = 0.5*((params["central_spacing"]/params["inlet_spacing"])**(2-n) + (params["central_spacing"]/params["outlet_spacing"])**(2-n))
     
-    h = h_id*J_c*J_l*J_b*J_r*J_s
+    "1.6) Final DP"
     
-    return h
+    # Pressure drop in Central Baffle spaces
+    DP_PC = (params["cross_passes"] - 1)*DP_ideal*R_l*R_b
+    
+    # Pressure drop in entrance & exit baffle spaces
+    DP_PE = DP_ideal*(1 + N_tcw/N_tcc)*R_b*R_s
+
+    # Final DP
+    DP_shell = DP_PE + DP_PC + DP_w
+
+    return DP_shell

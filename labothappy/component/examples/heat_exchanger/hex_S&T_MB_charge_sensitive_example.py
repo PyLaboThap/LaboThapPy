@@ -43,9 +43,9 @@ HX.set_inputs(
 
     # Second fluid
     Csu_fluid = 'Cyclopentane',
-    Csu_T = 369.66, # 95.1 + 273.15, # K
-    Csu_p = 3005929, # 31.5*1e5, # Pa
-    Csu_m_dot = 14, # 13.84, # kg/s  # Make sure to include fluid informastion
+    Csu_T = 95.1 + 273.15, # 95.1 + 273.15, # K
+    Csu_p = 31.5*1e5, # 31.5*1e5, # Pa
+    Csu_m_dot = 13.84, # 13.84, # kg/s  # Make sure to include fluid informastion
 )
 
 "Geometry Loading"
@@ -55,7 +55,7 @@ HX_geom.set_parameters("DECAGONE_EVAP_Equ")
 
 "Correlation Loading"
 
-Corr_H = {"1P" : "Shell_Bell_Delaware_HTC", "2P" : "Shell_Bell_Delaware_HTC"}
+Corr_H = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
 Corr_C = {"1P" : "Gnielinski", "2P" : "Boiling_curve"}
 
 # -------------------------------------------------------------------------------------------------------------
@@ -144,7 +144,15 @@ HX.set_parameters(
     Shell_Side = 'H', # 26
     Flow_Type = 'Shell&Tube', H_DP_ON = True, C_DP_ON = True, n_disc = 50) # 30
 
-HX.set_DP()
+# Corr_H_DP = "Shell_Bell_Delaware_DP"
+# Corr_C_DP = "Gnielinski_DP"
+
+Corr_H_DP = "Shell_Kern_DP"
+Corr_C_DP = "Gnielinski_DP"
+
+# HX.set_DP()
+
+HX.set_DP(DP_type="Correlation", Corr_H=Corr_H_DP, Corr_C=Corr_C_DP)
 
 "Solve the component"
 

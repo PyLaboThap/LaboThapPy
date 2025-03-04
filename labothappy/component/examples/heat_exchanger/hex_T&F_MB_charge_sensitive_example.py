@@ -13,7 +13,7 @@ Modification w/r to previous version:
 
 # from __future__ import division, print_function
 import __init__
-from simulation_model_elise_2 import HeatExchangerMB
+from component.heat_exchanger.hex_MB_charge_sensitive import HeatExchangerMB
 from toolbox.geometries.heat_exchanger.geometry_tube_and_fins_hx import TubeAndFinsGeom
 
 #%%
@@ -37,7 +37,7 @@ HX.set_inputs(
     # First fluid
     Hsu_fluid = 'Cyclopentane',
     Hsu_T = 133.8 + 273.15, # K
-    Hsu_p = 0.8*1e5, # Pa
+    Hsu_p = 0.9*1e5, # Pa
     Hsu_m_dot = 13.8, # kg/s
 
     # Second fluid
@@ -56,7 +56,8 @@ Fin_Side = 'H'
 
 "Correlation Loading"
 
-Corr_H = {"1P" : "Tube_And_Fins", "2P" : "ext_tube_film_condens"}
+# Corr_H = {"1P" : "Tube_And_Fins", "2P" : "ext_tube_film_condens"}
+Corr_H = {"1P" : "Tube_And_Fins", "2P" : "Tube_And_Fins"}
 Corr_C = {"1P" : "Gnielinski", "2P" : "Boiling_curve"}
 
 # -------------------------------------------------------------------------------------------------------------
@@ -123,7 +124,8 @@ HX.set_parameters(
 
 # HX.set_HTC(htc_type = 'User-Defined', UD_H_HTC = UD_H_HTC, UD_C_HTC = UD_C_HTC) # 'User-Defined' or 'Correlation'
 HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation' # 33
-HX.set_DP()
+HX.set_DP(DP_type="User-Defined", UD_H_DP = 5*1e3, UD_C_DP = 10*1e3)
+# HX.set_DP()
 
 "Solve the component"
 HX.solve()

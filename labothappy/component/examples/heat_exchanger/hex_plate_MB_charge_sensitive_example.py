@@ -150,7 +150,9 @@ Corr_H = {"1P" : "martin_holger_plate_HTC", "2P" : "Han_cond_BPHEX"}
 Corr_C = {"1P" : "water_plate_HTC", "2P" : "Han_Boiling_BPHEX_HTC"}
 
 # Set the pressure drop correlations of the condenser
-HX.set_DP()
+# HX.set_DP()
+HX.set_DP(DP_type="User-Defined", UD_H_DP = 20*1e3, UD_C_DP = 50*1e3)
+
 
 # Set the heat transfer coefficients correlations of the condenser           
 HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C)
