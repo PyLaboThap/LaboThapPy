@@ -903,7 +903,7 @@ class HeatExchangerMB(BaseComponent):
 
         if self.HTX_Type == 'Plate' and (self.C_su.fluid == 'water' or self.C_su.fluid == 'Water'):
             alpha_c = water_plate_HTC(mu_c, Pr_c, k_c, G_c, self.params['C_Dh'])
-
+        
         elif self.C.Correlation_1phase  == "Gnielinski":
             if self.HTX_Type == 'Plate':
                 alpha_c = gnielinski_pipe_htc(mu_c, Pr_c, Pr_c_w, k_c, G_c, self.params['H_Dh'], self.params['l']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
@@ -1263,12 +1263,10 @@ class HeatExchangerMB(BaseComponent):
 
         if self.params['H_DP_ON'] == True: # if the pressure drop are not neglected
             if self.H.PressureDrop_Correlation == "User-Defined":
-                print("OH")
                 self.p_ho = self.p_hi - self.H.DP_val
             else:
                 self.DP_h = self.compute_H_DP()
                 self.p_ho = self.p_hi - self.DP_h   
-        
         else:
             self.DP_h = 0
             self.p_ho = self.p_hi - self.DP_h  
@@ -1617,6 +1615,7 @@ class HeatExchangerMB(BaseComponent):
             if self.HTX_Type == 'Plate':     
                 # In the equation below, thickness resistance is given with respect to A_h arbitrarely
                 UA_avail = 1/((1+self.params['fooling'])/(alpha_h*self.params['A_h']) + 1/(alpha_c*self.params['A_c'])) #+ self.params['t_plates']/(self.params['plate_cond'])) 
+            
             elif self.HTX_Type == 'Shell&Tube':       
                 fact_cond_1 = np.log(self.params['Tube_OD']/(self.params['Tube_OD'] - 2*self.params['Tube_t']))
                 fact_cond_2 = 2*np.pi*self.params['tube_cond']*self.params['Tube_L']*self.params['n_series']*self.params['n_tubes']
@@ -1634,8 +1633,14 @@ class HeatExchangerMB(BaseComponent):
                     R_fouling_t = self.params['foul_t'] / self.A_in_tubes
                 else: 
                     R_fouling_t = 0                
-            
-                UA_avail = 1/(1/(alpha_c*self.A_in_tubes) + 1/(alpha_h*self.A_out_tubes) + R_fouling_s + R_fouling_t + R_cond) 
+                    
+                try: 
+                    self.params["Overdesign"]
+                except:
+                    self.params["Overdesign"] = 0
+                    
+                    
+                UA_avail = (1-self.params["Overdesign"])/(1/(alpha_c*self.A_in_tubes) + 1/(alpha_h*self.A_out_tubes) + R_fouling_s + R_fouling_t + R_cond) 
             
             elif self.HTX_Type == 'Tube&Fins':
                 
