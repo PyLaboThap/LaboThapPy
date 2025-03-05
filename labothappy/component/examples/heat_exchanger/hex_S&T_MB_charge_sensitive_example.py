@@ -126,14 +126,38 @@ HX.set_inputs(
               # Cold Fluid
               Csu_T = 273.15 + 24, # K
               Csu_p = 131*1e3, # 51.75*1e3, # Pa
-              Csu_m_dot = 900, # kg/s
+              Csu_m_dot = 700, # kg/s
               Csu_fluid = 'Water'
               )
 
 # "Geometry Loading"
 
 # params =  {'tube_layout': 45, 'Tube_pass': 2, 'n_series': 1, 'Baffle_cut': 25, 'foul_t': 0, 'foul_s': 0, 'tube_cond': 50, 'Shell_Side': 'C', 'Flow_Type': 'Shell&Tube', 'H_DP_ON': True, 'C_DP_ON': True, 'n_disc': 30, 'A_eff': 697.3292368049083, 'S_V_tot': 10.268864099111516, 'Shell_ID': 1.524, 'T_V_tot': 2.42544652488181, 'Tube_L': 7.45, 'Tube_OD': 0.038099999999999995, 'Tube_t': 0.00277, 'central_spacing': 0.745, 'cross_passes': 9, 'n_tubes': 391, 'pitch_ratio': 1.25}
-params = {'tube_layout': 45, 'Tube_pass': 2, 'n_series': 1, 'Baffle_cut': 25, 'foul_t': 0, 'foul_s': 0, 'tube_cond': 50, 'Shell_Side': 'C', 'Flow_Type': 'Shell&Tube', 'H_DP_ON': True, 'C_DP_ON': True, 'n_disc': 30, 'A_eff': 570.0315506230726, 'S_V_tot': 8.394279511891156, 'Shell_ID': 1.524, 'T_V_tot': 1.9826804478564055, 'Tube_L': 6.089999999999999, 'Tube_OD': 0.038099999999999995, 'Tube_t': 0.00277, 'central_spacing': 2.03, 'cross_passes': 2, 'n_tubes': 391, 'pitch_ratio': 1.25}
+params = {'htc_type': 'Correlation',
+ 'A_eff': 574.7116126150519,
+ 'Baffle_cut': 25,
+ 'S_V_tot': 8.463198062891905,
+ 'Shell_ID': 1.524,
+ 'T_V_tot': 1.9989586124529277,
+ 'Tube_L': 6.14,
+ 'Tube_OD': 0.038099999999999995,
+ 'Tube_pass': 2,
+ 'Tube_t': 0.00277,
+ 'central_spacing': 1.535,
+ 'cross_passes': 3,
+ 'foul_s': 0,
+ 'foul_t': 0,
+ 'n_series': 1,
+ 'n_tubes': 391,
+ 'pitch_ratio': 1.25,
+ 'tube_cond': 50,
+ 'tube_layout': 45,
+ 'Shell_Side': 'C',
+ 'Flow_Type': 'Shell&Tube',
+ 'H_DP_ON': True,
+ 'C_DP_ON': True,
+ 'n_disc': 50,
+ 'DP_type': 'Correlation'}
 
 HX.set_parameters(
     A_eff = params['A_eff'], Baffle_cut = params['Baffle_cut'], S_V_tot = params['S_V_tot'],
