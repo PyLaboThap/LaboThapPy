@@ -491,12 +491,12 @@ class ShellAndTubeSizingOpt(BaseComponent):
         self.global_best_DP_c = self.particles[np.argmin(self.personal_best_scores)].DP_c
         self.best_particle = copy.copy(self.particles[np.argmin(self.personal_best_scores)])
 
-        # for i in range(num_particles):
-        #     print("==============================")
-        #     print(f"Initial score ({i}) : {self.particles[i].score}")
-        #     print(f"Initial position ({i}) : {self.particles[i].position}")
-        #     print(f"Initial velocity ({i}) : {self.particles[i].velocity}")
-        #     print("\n")
+        for i in range(num_particles):
+            print("==============================")
+            print(f"Initial score ({i}) : {self.particles[i].score}")
+            print(f"Initial position ({i}) : {self.particles[i].position}")
+            print(f"Initial velocity ({i}) : {self.particles[i].velocity}")
+            print("\n")
 
         # Initialize velocities and positions as dictionaries
         cognitive_velocity = {}
@@ -636,6 +636,10 @@ class ShellAndTubeSizingOpt(BaseComponent):
             for i in range(num_particles):
                 self.all_scores[i][iteration + 1] = self.particles[i].score
 
+            for i in range(num_particles):
+                print("OH")
+                self.particles[i].compute_geom()
+
             self.personal_best_positions = np.array([self.particles[i].personnal_best_position for i in range(len(self.particles))])
             self.personal_best_scores = np.array([self.particles[i].personnal_best_score for i in range(len(self.particles))])
 
@@ -649,20 +653,19 @@ class ShellAndTubeSizingOpt(BaseComponent):
                 self.global_best_DP_c = self.particles[np.argmin(self.personal_best_scores)].DP_c            
                 self.best_particle = copy.copy(self.particles[np.argmin(self.personal_best_scores)])
 
-
             # Optionally, print progress
             print("===========================")
             print(f"Iteration {iteration+1}/{max_iterations}, Global Best Score: {self.global_best_score}, Related Q: {self.global_best_Q}")
             print(f"Related DP_h: {self.global_best_DP_h}, Related DP_c: {self.global_best_DP_c}")
             print(f"Best Position : {self.global_best_position}")
         
-
-
+        print("===========================")
+            
         return self.global_best_position, self.global_best_score, self.best_particle
     
     def opt_size(self):
 
-        return self.particle_swarm_optimization(objective_function = self.HX_Mass , bounds = self.bounds, num_particles = 10, num_dimensions = len(self.opt_vars), max_iterations = 30, inertia_weight = 0.6,
+        return self.particle_swarm_optimization(objective_function = self.HX_Mass , bounds = self.bounds, num_particles = 10, num_dimensions = len(self.opt_vars), max_iterations = 15, inertia_weight = 0.6,
                                          cognitive_constant = 1, social_constant = 1, constraints = [self.constraint_Q_dot], penalty_factor = 1)
 
         
