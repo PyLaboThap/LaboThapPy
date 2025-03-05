@@ -47,6 +47,7 @@ import __init__
 import copy
 from tubes_toolbox import estimate_number_of_tubes, carbon_steel_pipe_thickness, pitch_ratio_fun
 from shell_toolbox import shell_thickness
+from tubesheet_toolbox import tube_sheet_thickness
 from scipy.interpolate import interp1d
 from central_spacing_comp import find_divisors_between_bounds
 from connector.mass_connector import MassConnector
@@ -253,6 +254,8 @@ class ShellAndTubeSizingOpt(BaseComponent):
         self.global_best_position = None
         self.global_best_score = None
         self.best_particle = None
+        
+        self.suitable_param_set = []
 
         # Optimization related parameters/variables
         self.opt_vars = {}
@@ -324,19 +327,27 @@ class ShellAndTubeSizingOpt(BaseComponent):
         
         T_mass = np.pi*((particle_params['Tube_OD']/2)**2 - ((particle_params['Tube_OD'] - particle_params['Tube_t'])/2)**2) * particle_params['Tube_L'] * rho_carbon_steel * particle_params['n_tubes'] * particle_params['n_series']
 
-        return T_mass + Shell_mass
+        "Tube Sheet Mass"
+        
+        TS_t = tube_sheet_thickness(particle_params['Tube_OD'],particle_params['Tube_OD']*particle_params['pitch_ratio'], self.su_S.T, self.su_S.p,particle_params["gasket_D"])
+        Full_Tube_sheet_A = particle_params["Shell_ID"]*(1-particle_params["Baffle_cut"]/100)
+        Tube_in_tube_sheet_A = particle_params["n_tubes"]*(1-particle_params["Baffle_cut"]/100)*np.pi*(particle_params["Tube_OD"]/2)**2
+        
+        TS_mass = TS_t*(Full_Tube_sheet_A - Tube_in_tube_sheet_A)*rho_carbon_steel
+        
+        return T_mass + Shell_mass + TS_mass
 
     def constraint_Q_dot(self, Q_particle):
         Q_dot_val_cstr = 14000*1e3 # W
-        return Q_particle - Q_dot_val_cstr # [W] : Q_dot - 13300000 <= 0
+        return max(Q_dot_val_cstr - Q_particle,0) # [W] : Q_dot - 13300000 <= 0
 
     def constraint_DP_h(self, DP_h_particle):
         DP_h_val_ctsr = 15*1e3 # Pa
-        return DP_h_particle - DP_h_val_ctsr # [W] : DP_h - 15000 <= 0
+        return max(DP_h_particle - DP_h_val_ctsr,0) # [W] : DP_h - 15000 <= 0
 
     def constraint_DP_c(self, DP_c_particle):
         DP_c_val_ctsr = 30*1e3 # Pa 
-        return DP_c_particle - DP_c_val_ctsr # [W] : DP_c - 30000 <= 0
+        return max(DP_c_particle - DP_c_val_ctsr,0) # [W] : DP_c - 30000 <= 0
 
     def random_multiple(self, lower_bound, upper_bound, multiple):
         """
@@ -409,31 +420,31 @@ class ShellAndTubeSizingOpt(BaseComponent):
         """
         Evaluates the objective function with a penalty for constraint violations.
         """
+
         score = objective_function(particle.params)
         penalty = 0
+    
+        # List of constraint checks
+        constraints = [
+            self.constraint_Q_dot(particle.Q),
+            self.constraint_DP_h(particle.DP_h),
+            self.constraint_DP_c(particle.DP_c)
+        ]
+    
+        # Compute total penalty
+        penalty = sum(penalty_factor * abs(value) for value in constraints)
+    
+        # Update particle score
+        total_score = score + penalty
+        particle.set_score(total_score)
+    
+        # If no penalty, add unique params to the suitable set
+        if penalty == 0 and particle.params not in self.suitable_param_set:
+            self.suitable_param_set.append(copy.deepcopy(particle.params))
+            self.suitable_param_set[-1]['score'] = particle.score
+    
+        return total_score
 
-        # Q_dot constraint
-        Q_constraint_value = self.constraint_Q_dot(particle.Q)
-
-        # DP_h constraint
-        DP_h_constraint_value = self.constraint_DP_h(particle.DP_h)
-
-        # DP_c constraint
-        DP_c_constraint_value = self.constraint_DP_c(particle.DP_c)
-        
-        if Q_constraint_value < 0:  # If constraint is violated, add a penalty
-            penalty += penalty_factor * abs(Q_constraint_value)
-
-        if DP_h_constraint_value > 0:  # If constraint is violated, add a penalty
-            penalty += penalty_factor * abs(Q_constraint_value)
-            
-        if DP_c_constraint_value > 0:  # If constraint is violated, add a penalty
-            penalty += penalty_factor * abs(Q_constraint_value)
-
-        particle.set_score(score + penalty)
-
-        return score + penalty
-        
     def particle_swarm_optimization(self, objective_function, bounds, num_particles=30, num_dimensions=2, max_iterations=50, 
                                 inertia_weight=0.4, cognitive_constant=1.5, social_constant=1.5, constraints = None,
                                 penalty_factor=1000):
@@ -510,13 +521,13 @@ class ShellAndTubeSizingOpt(BaseComponent):
 
             for i in range(num_particles):
 
-                print(f"New score ({i}) : {self.particles[i].score}")
-                print(f"Related Q ({i}) : {self.particles[i].Q}")
-                print(f"Related DP_h ({i}) : {self.particles[i].DP_h}")
-                print(f"Related DP_c ({i}) : {self.particles[i].DP_c}")
-                print(f"New position ({i}) : {self.particles[i].position}")
-                print(f"New velocity ({i}) : {self.particles[i].velocity}")
-                print(f"\n")
+                # print(f"New score ({i}) : {self.particles[i].score}")
+                # print(f"Related Q ({i}) : {self.particles[i].Q}")
+                # print(f"Related DP_h ({i}) : {self.particles[i].DP_h}")
+                # print(f"Related DP_c ({i}) : {self.particles[i].DP_c}")
+                # print(f"New position ({i}) : {self.particles[i].position}")
+                # print(f"New velocity ({i}) : {self.particles[i].velocity}")
+                # print(f"\n")
 
                 flag = self.particles[i].check_reinit()
                 if flag:
@@ -614,21 +625,22 @@ class ShellAndTubeSizingOpt(BaseComponent):
                     # Bound constraints
                     if self.particles[i].position[bound_key] < self.bounds[bound_key][0]:
                         self.particles[i].position[bound_key] = self.bounds[bound_key][0]
+                        self.particles[i].velocity[bound_key] = -self.particles[i].velocity[bound_key]
                         bound_flag = 1
 
                     if self.particles[i].position[bound_key] > self.bounds[bound_key][1]:
                         self.particles[i].position[bound_key] = self.bounds[bound_key][1]
+                        self.particles[i].velocity[bound_key] = -self.particles[i].velocity[bound_key]
                         bound_flag = 1
 
                 # Evaluate the new position with penalty for constraint violation
+                
+                self.particles[i].compute_geom()
+                self.particles[i].HeatTransferRate()
+                
                 if bound_flag == 1:
-                    self.particles[i].compute_geom()
-                    self.particles[i].Q, self.particles[i].DP_h, self.particles[i].DP_c = self.particles[i].HeatTransferRate()
                     new_score = self.evaluate_with_penalty(objective_function, self.particles[i], constraints, penalty_factor) + 1e6
-
                 else:
-                    self.particles[i].compute_geom()
-                    self.particles[i].HeatTransferRate()
                     new_score = self.evaluate_with_penalty(objective_function, self.particles[i], constraints, penalty_factor)
 
                 self.particles[i].set_score(new_score)
@@ -656,13 +668,11 @@ class ShellAndTubeSizingOpt(BaseComponent):
             print(f"Related DP_h: {self.global_best_DP_h}, Related DP_c: {self.global_best_DP_c}")
             print(f"Best Position : {self.global_best_position}")
         
-
-
         return self.global_best_position, self.global_best_score, self.best_particle
     
     def opt_size(self):
 
-        return self.particle_swarm_optimization(objective_function = self.HX_Mass , bounds = self.bounds, num_particles = 10, num_dimensions = len(self.opt_vars), max_iterations = 30, inertia_weight = 0.6,
+        return self.particle_swarm_optimization(objective_function = self.HX_Mass , bounds = self.bounds, num_particles = 10, num_dimensions = len(self.opt_vars), max_iterations = 10, inertia_weight = 0.6,
                                          cognitive_constant = 1, social_constant = 1, constraints = [self.constraint_Q_dot], penalty_factor = 1)
 
         
@@ -717,9 +727,9 @@ Optimization related parameters/variables
 HX_test.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac'])
 
 choice_vectors = {
-                    'D_o_inch' : [1, 1.25, 1.5], # [0.5, 0.75, 1, 1.25, 1.5],
-                    'Shell_ID_inch' : [60, 66, 72, 78, 84, 90, 96, 108, 120] # [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
-                        # 29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78,
+                    'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
+                    'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
+                        29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60] #, 66, 72, 78,
                         # 84, 90, 96, 108, 120]
 }
 
@@ -749,14 +759,14 @@ Thermodynamical parameters : Inlet and Outlet Design States
 su_S = MassConnector()
 su_S.set_properties(T = 273.15 + 24, # K
                     P = 1.31*1e5, # Pa
-                    m_dot = 900, # kg/s
+                    m_dot = 700, # kg/s
                     fluid = 'Water'
                     )
 
 ex_S = MassConnector()
 ex_S.set_properties(T = 273.15 + 27.78, # K
                     P = 1*1e5, # Pa
-                    m_dot = 900, # kg/s
+                    m_dot = 700, # kg/s
                     fluid = 'Water'
                     )
 
@@ -790,13 +800,15 @@ HX_test.set_parameters(
                         foul_t = 0,
                         foul_s = 0,
                         tube_cond = 50, # W/(m*K)
+                        gasket_D = 0.14, # m
+                        Overdesign = 0.2, 
                         
                         Shell_Side = 'C',
 
                         Flow_Type = 'Shell&Tube', 
                         H_DP_ON = True, 
                         C_DP_ON = True, 
-                        n_disc = 30
+                        n_disc = 50
                       )
 
 """
@@ -813,7 +825,7 @@ Geometry Computation Test
 # HX_test.compute_geom()
 
 bounds = {
-            "L_shell" : [3,10],
+            "L_shell" : [1,10],
             "D_o_inch" : [choice_vectors['D_o_inch'][0], choice_vectors['D_o_inch'][-1]],
             "Shell_ID_inch" : [choice_vectors['Shell_ID_inch'][0], choice_vectors['Shell_ID_inch'][-1]]
             }
@@ -830,9 +842,9 @@ for row in all_scores:
 plt.show()
 
 for row in all_scores: 
-    filtered_row = [x if x <= 10000 else None for x in row]
+    filtered_row = [x if x <= 3e7 else None for x in row]
     plt.plot(filtered_row)
-    plt.axis([0,50, 0,10000])
+    plt.axis([0,50, 0,3e7])
 
 plt.show()
 
@@ -846,6 +858,44 @@ for opt_var in HX_test.particles_all_pos:
     
     plt.title(opt_var)
     plt.show()
+
+Volume_values = [dic["S_V_tot"] + dic["T_V_tot"] for dic in HX_test.suitable_param_set]
+Score_values = [dic["score"] for dic in HX_test.suitable_param_set]
+Area_values = [dic["A_eff"] for dic in HX_test.suitable_param_set]
+Shell_ID_values = [dic["Shell_ID"] for dic in HX_test.suitable_param_set]
+L_values = [dic["Tube_L"] for dic in HX_test.suitable_param_set]
+
+# Define a color gradient (e.g., based on Score_values)
+colors = np.array(Score_values)  # Use Score_values as the color gradient
+
+# Scatter plot with gradient
+plt.scatter(Volume_values, Score_values, c=colors, cmap="viridis", alpha=0.7)
+plt.colorbar(label="Score")  # Add color legend
+plt.xlabel("Volume")
+plt.ylabel("Score")
+plt.title("Volume vs Score (Gradient Color)")
+plt.show()
+
+plt.scatter(Area_values, Score_values, c=colors, cmap="viridis", alpha=0.7)
+plt.colorbar(label="Score")
+plt.xlabel("Effective Area")
+plt.ylabel("Score")
+plt.title("Area vs Score (Gradient Color)")
+plt.show()
+
+plt.scatter(Area_values, Volume_values, c=colors, cmap="viridis", alpha=0.7)
+plt.colorbar(label="Score")
+plt.xlabel("Effective Area")
+plt.ylabel("Volume")
+plt.title("Area vs Volume (Gradient Color)")
+plt.show()
+
+plt.scatter(Shell_ID_values, L_values, c=colors, cmap="viridis", alpha=0.7)
+plt.colorbar(label="Score")
+plt.xlabel("Shell ID")
+plt.ylabel("Tube Length")
+plt.title("Shell ID vs Tube Length (Gradient Color)")
+plt.show()
 
 print(f"Best global position : {global_best_position}")
 print(f"Best global score : {global_best_score}")

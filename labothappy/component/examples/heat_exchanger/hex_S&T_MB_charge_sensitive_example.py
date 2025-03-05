@@ -142,7 +142,7 @@ HX.set_parameters(
     n_tubes = HX_geom.n_tubes, outlet_spacing = HX_geom.outlet_spacing, pitch_ratio = HX_geom.pitch_ratio, tube_cond = HX_geom.tube_cond, tube_layout = HX_geom.tube_layout, # 25
 
     Shell_Side = 'H', # 26
-    Flow_Type = 'Shell&Tube', H_DP_ON = True, C_DP_ON = True, n_disc = 50) # 30
+    Flow_Type = 'Shell&Tube', H_DP_ON = True, C_DP_ON = True, n_disc = 100) # 30
 
 # Corr_H_DP = "Shell_Bell_Delaware_DP"
 # Corr_C_DP = "Gnielinski_DP"

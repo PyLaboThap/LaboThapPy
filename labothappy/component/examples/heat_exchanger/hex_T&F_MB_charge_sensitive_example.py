@@ -14,7 +14,7 @@ Modification w/r to previous version:
 # from __future__ import division, print_function
 import __init__
 from component.heat_exchanger.hex_MB_charge_sensitive import HeatExchangerMB
-from toolbox.geometries.heat_exchanger.geometry_tube_and_fins_hx import TubeAndFinsGeom
+from toolbox.geometries.heat_exchanger.geometry_tube_and_fins_hx import CFTubeAndFinsGeom
 
 #%%
 
@@ -49,7 +49,7 @@ HX.set_inputs(
 
 "Geometry Loading"
 
-HX_geom = TubeAndFinsGeom()
+HX_geom = CFTubeAndFinsGeom()
 HX_geom.set_parameters("DECAGONE_RECUP") 
 
 Fin_Side = 'H'
