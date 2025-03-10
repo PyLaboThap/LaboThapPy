@@ -50,6 +50,12 @@ def gnielinski_pipe_DP(mu, rho, G, Dh, L):
         # warnings.warn('Gnielinski singe-phase: Out of validity range --> Re = ', Re, ' is out of [', Re_min, ' - ', Re_max, '] !!!')
         warnings.warn('Gnielinski singe-phase: Reynolds Out of validity range !!!')
     #-------------------------------------------------------------------------
+    # print(f"Re : {Re}")
+    # print(f"f : {f}")
+    # print(f"v_flow : {v_flow}")
+    # print(f"DP : {DP}")
+    # print(f"rho : {rho}")
+    
     return DP
 
 def Churchill_DP(mu, rho, G, Dh, L):

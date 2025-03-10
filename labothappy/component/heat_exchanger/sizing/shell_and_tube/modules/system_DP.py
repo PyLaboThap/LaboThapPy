@@ -67,10 +67,10 @@ warnings.filterwarnings('ignore')
 
 class ShellAndTubeSizingOpt(BaseComponent):
     class Particle(BaseComponent):
-        def __init__(self, params = None, su_S = None, ex_S = None, su_T = None, ex_T = None, choice_vectors = None, P_max_cycle = None, T_max_cycle = None):
+        def __init__(self, params = {}, su_S = None, ex_S = None, su_T = None, ex_T = None, choice_vectors = None, P_max_cycle = None, T_max_cycle = None):
             super().__init__()
 
-            self.params = params
+            self.params = copy.deepcopy(params)
             
             self.choice_vectors = choice_vectors
             
@@ -88,7 +88,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
             self.DP_c = None
 
             self.personnal_best_position = None
-            self.personnal_best_score = None
+            self.personnal_best_score = 1e20
 
             # Will be Mass connectors
             self.su_S = su_S
@@ -108,7 +108,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
         def set_score(self, score):
             self.score = score
             
-            if self.personnal_best_score is None or self.personnal_best_score > score:
+            if self.personnal_best_score > score:
                 self.personnal_best_score = self.score
                 self.personnal_best_position = self.position
 
@@ -147,7 +147,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
             Shell_ID = self.position['Shell_ID_inch']*25.4*1e-3
 
             # Number of tubes 
-            min_tubes_in_row = 8
+            min_tubes_in_row = 4 # 8
             n_tubes = estimate_number_of_tubes(Shell_ID, D_o, pitch_ratio*D_o, self.params['tube_layout'], min_tubes_in_row)[0]
 
             # HT Area and HTX volumes
@@ -168,6 +168,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
         def HeatTransferRate(self):
             
             self.compute_geom()
+            
             self.HX = HeatExchangerMB('Shell&Tube')
 
             if self.params['Shell_Side'] == 'C':
@@ -214,24 +215,26 @@ class ShellAndTubeSizingOpt(BaseComponent):
                 Tube_OD = self.params['Tube_OD'], Tube_pass = self.params['Tube_pass'], Tube_t = self.params['Tube_t'],
                 central_spacing = self.params['central_spacing'], cross_passes = self.params['cross_passes'], foul_s = self.params['foul_s'],
                 foul_t = self.params['foul_t'], n_series = self.params['n_series'], n_tubes = self.params['n_tubes'], 
-                pitch_ratio = self.params['pitch_ratio'], tube_cond = self.params['tube_cond'], tube_layout = self.params['tube_layout'],
+                pitch_ratio = self.params['pitch_ratio'], tube_cond = self.params['tube_cond'], tube_layout = self.params['tube_layout'], gasket_d = self.params['gasket_d'],
 
                 Shell_Side = self.params['Shell_Side'],
 
                 Flow_Type = self.params['Flow_Type'], H_DP_ON = self.params['H_DP_ON'], C_DP_ON = self.params['C_DP_ON'], n_disc = self.params['n_disc']) 
 
-            Corr_C_DP = "Shell_Kern_DP"
-            Corr_H_DP = "Gnielinski_DP"
+            # Corr_C_DP = "Shell_Kern_DP"
+            # Corr_H_DP = "Gnielinski_DP"
+
+            Corr_H_DP = "Shell_Kern_DP"
+            Corr_C_DP = "Gnielinski_DP"
 
             # HX.set_DP(DP_type="User-Defined", UD_H_DP=1e4, UD_C_DP=1e4)
             self.HX.set_DP(DP_type = "Correlation", Corr_H=Corr_H_DP, Corr_C=Corr_C_DP)    
-            
-            self.params = self.HX.params
             
             if self.HX.params['n_tubes'] == 0:
                 self.Q = 0
                 self.DP_h = 0
                 self.DP_c = 0
+                
                 return 0, 0, 0
             
             try: 
@@ -311,7 +314,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
         self.ex_T = ex_T
         return 
 
-    def HX_Mass(self, particle_params):
+    def HX_Mass(self, HX_params):
         
         rho_carbon_steel = 7850 # kg/m^3
         
@@ -319,36 +322,36 @@ class ShellAndTubeSizingOpt(BaseComponent):
         
         P_design = 7*1e5 # bar
         
-        shell_t = shell_thickness(particle_params['Shell_ID'], (self.su_S.T + self.ex_S.T)/2, P_design)        
+        shell_t = shell_thickness(HX_params['Shell_ID'], (self.su_S.T + self.ex_S.T)/2, P_design)        
         
-        Shell_OD = particle_params['Shell_ID'] + 2*shell_t       
-        Shell_volume = np.pi*((Shell_OD/2)**2 - (particle_params['Shell_ID']/2)**2)*particle_params['Tube_L'] + shell_t*np.pi*Shell_OD**2/4 
+        Shell_OD = HX_params['Shell_ID'] + 2*shell_t       
+        Shell_volume = np.pi*((Shell_OD/2)**2 - (HX_params['Shell_ID']/2)**2)*HX_params['Tube_L'] + shell_t*np.pi*Shell_OD**2/4 
         Shell_mass = Shell_volume*rho_carbon_steel
         
         "Tube Mass"
         
-        T_mass = np.pi*((particle_params['Tube_OD']/2)**2 - ((particle_params['Tube_OD'] - particle_params['Tube_t'])/2)**2) * particle_params['Tube_L'] * rho_carbon_steel * particle_params['n_tubes'] * particle_params['n_series']
+        T_mass = np.pi*((HX_params['Tube_OD']/2)**2 - ((HX_params['Tube_OD'] - HX_params['Tube_t'])/2)**2) * HX_params['Tube_L'] * rho_carbon_steel * HX_params['n_tubes'] * HX_params['n_series'] * HX_params['Tube_pass']
 
         "Tube Sheet Mass"
         
-        TS_t = tube_sheet_thickness(particle_params['Tube_OD'],particle_params['Tube_OD']*particle_params['pitch_ratio'], self.su_S.T, self.su_S.p,particle_params["gasket_D"])
-        Full_Tube_sheet_A = particle_params["Shell_ID"]*(1-particle_params["Baffle_cut"]/100)
-        Tube_in_tube_sheet_A = particle_params["n_tubes"]*(1-particle_params["Baffle_cut"]/100)*np.pi*(particle_params["Tube_OD"]/2)**2
+        TS_t = tube_sheet_thickness(HX_params['Tube_OD'],HX_params['Tube_OD']*HX_params['pitch_ratio'], self.su_S.T, self.su_S.p,HX_params["gasket_d"])
+        Full_Tube_sheet_A = HX_params["Shell_ID"]*(1-HX_params["Baffle_cut"]/100)
+        Tube_in_tube_sheet_A = HX_params["n_tubes"]*(1-HX_params["Baffle_cut"]/100)*np.pi*(HX_params["Tube_OD"]/2)**2
         
-        TS_mass = TS_t*(Full_Tube_sheet_A - Tube_in_tube_sheet_A)*rho_carbon_steel
+        TS_mass = TS_t*(Full_Tube_sheet_A - Tube_in_tube_sheet_A)*rho_carbon_steel*HX_params["cross_passes"]
         
         return T_mass + Shell_mass + TS_mass
 
     def constraint_Q_dot(self, Q_particle):
-        Q_dot_val_cstr = 14000*1e3 # W
+        Q_dot_val_cstr = 0.46*1e6 # 14000*1e3 # W
         return max(Q_dot_val_cstr - Q_particle,0) # [W] : Q_dot - 13300000 <= 0
 
     def constraint_DP_h(self, DP_h_particle):
-        DP_h_val_ctsr = 15*1e3 # Pa
+        DP_h_val_ctsr = 35789 # 15*1e3 # Pa
         return max(DP_h_particle - DP_h_val_ctsr,0) # [W] : DP_h - 15000 <= 0
 
     def constraint_DP_c(self, DP_c_particle):
-        DP_c_val_ctsr = 30*1e3 # Pa 
+        DP_c_val_ctsr = 6251 # 30*1e3 # Pa 
         return max(DP_c_particle - DP_c_val_ctsr,0) # [W] : DP_c - 30000 <= 0
 
     def random_multiple(self, lower_bound, upper_bound, multiple):
@@ -423,7 +426,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
         Evaluates the objective function with a penalty for constraint violations.
         """
 
-        score = objective_function(particle.params)
+        score = objective_function(particle.HX.params)
         penalty = 0
     
         # List of constraint checks
@@ -435,6 +438,8 @@ class ShellAndTubeSizingOpt(BaseComponent):
     
         # Compute total penalty
         penalty = sum(penalty_factor * abs(value) for value in constraints)
+        
+        # print(f"penalty : {penalty}")
     
         # Update particle score
         total_score = score + penalty
@@ -494,11 +499,19 @@ class ShellAndTubeSizingOpt(BaseComponent):
             score = self.evaluate_with_penalty(objective_function, self.particles[i], constraints, penalty_factor)
             self.all_scores[i][0] = score
 
+            # print(f"Init score ({i}) : {self.particles[i].score}")
+            # print(f"Related Q ({i}) : {self.particles[i].Q}")
+            # print(f"Related DP_h ({i}) : {self.particles[i].DP_h}")
+            # print(f"Related DP_c ({i}) : {self.particles[i].DP_c}")
+            # print(f"Init position ({i}) : {self.particles[i].position}")
+            # print(f"Init velocity ({i}) : {self.particles[i].velocity}")
+            # print(f"\n")
+
         self.personal_best_positions = np.array([self.particles[i].personnal_best_position for i in range(len(self.particles))])
         self.personal_best_scores = np.array([self.particles[i].personnal_best_score for i in range(len(self.particles))])
 
         self.global_best_score = min(self.personal_best_scores)
-        self.global_best_position = self.personal_best_positions[np.argmin(self.personal_best_scores)]
+        self.global_best_position = copy.deepcopy(self.personal_best_positions[np.argmin(self.personal_best_scores)])
         self.global_best_Q = self.particles[np.argmin(self.personal_best_scores)].Q
         self.global_best_DP_h = self.particles[np.argmin(self.personal_best_scores)].DP_h
         self.global_best_DP_c = self.particles[np.argmin(self.personal_best_scores)].DP_c
@@ -522,14 +535,6 @@ class ShellAndTubeSizingOpt(BaseComponent):
             print(f"Iteration {iteration + 1}")
 
             for i in range(num_particles):
-
-                # print(f"New score ({i}) : {self.particles[i].score}")
-                # print(f"Related Q ({i}) : {self.particles[i].Q}")
-                # print(f"Related DP_h ({i}) : {self.particles[i].DP_h}")
-                # print(f"Related DP_c ({i}) : {self.particles[i].DP_c}")
-                # print(f"New position ({i}) : {self.particles[i].position}")
-                # print(f"New velocity ({i}) : {self.particles[i].velocity}")
-                # print(f"\n")
 
                 flag = self.particles[i].check_reinit()
                 if flag:
@@ -647,6 +652,14 @@ class ShellAndTubeSizingOpt(BaseComponent):
 
                 self.particles[i].set_score(new_score)
 
+                # print(f"New score ({i}) : {self.particles[i].score}")
+                # print(f"Related Q ({i}) : {self.particles[i].Q}")
+                # print(f"Related DP_h ({i}) : {self.particles[i].DP_h}")
+                # print(f"Related DP_c ({i}) : {self.particles[i].DP_c}")
+                # print(f"New position ({i}) : {self.particles[i].position}")
+                # print(f"New velocity ({i}) : {self.particles[i].velocity}")
+                # print(f"\n")
+
             for i in range(num_particles):
                 self.all_scores[i][iteration + 1] = self.particles[i].score
 
@@ -654,15 +667,17 @@ class ShellAndTubeSizingOpt(BaseComponent):
             self.personal_best_scores = np.array([self.particles[i].personnal_best_score for i in range(len(self.particles))])
 
             new_pot_global_best_score = min(self.personal_best_scores)
+            
+            print(f"New Challenger Score: {new_pot_global_best_score}")
 
-            if new_pot_global_best_score < self.global_best_score:
+            if new_pot_global_best_score + 0.1 < self.global_best_score:
+                print("BEST SCORE BEATEN")
                 self.global_best_score = new_pot_global_best_score
-                self.global_best_position = self.personal_best_positions[np.argmin(self.personal_best_scores)]
+                self.global_best_position = copy.deepcopy(self.personal_best_positions[np.argmin(self.personal_best_scores)])
                 self.global_best_Q = self.particles[np.argmin(self.personal_best_scores)].Q
                 self.global_best_DP_h = self.particles[np.argmin(self.personal_best_scores)].DP_h
                 self.global_best_DP_c = self.particles[np.argmin(self.personal_best_scores)].DP_c            
                 self.best_particle = copy.copy(self.particles[np.argmin(self.personal_best_scores)])
-
 
             # Optionally, print progress
             print("===========================")
@@ -674,8 +689,8 @@ class ShellAndTubeSizingOpt(BaseComponent):
     
     def opt_size(self):
 
-        return self.particle_swarm_optimization(objective_function = self.HX_Mass , bounds = self.bounds, num_particles = 30, num_dimensions = len(self.opt_vars), max_iterations = 15, inertia_weight = 0.6,
-                                          cognitive_constant = 1, social_constant = 1, constraints = [self.constraint_Q_dot], penalty_factor = 1)
+        return self.particle_swarm_optimization(objective_function = self.HX_Mass , bounds = self.bounds, num_particles = 30, num_dimensions = len(self.opt_vars), max_iterations = 30, inertia_weight = 0.6,
+                                          cognitive_constant = 1, social_constant = 1, constraints = [self.constraint_Q_dot, self.constraint_DP_h, self.constraint_DP_c], penalty_factor = 1)
 
         
 
@@ -750,7 +765,7 @@ Max T and P for pipe thickness computation
 
 # Worst Case
 P_max_cycle = 1048*1e3 # Pa
-T_max_cycle = 273.15+147
+T_max_cycle = 273.15+40 # K 
 
 HX_test.set_max_cycle_prop(T_max_cycle = T_max_cycle, p_max_cycle = P_max_cycle)
 
@@ -758,34 +773,60 @@ HX_test.set_max_cycle_prop(T_max_cycle = T_max_cycle, p_max_cycle = P_max_cycle)
 Thermodynamical parameters : Inlet and Outlet Design States
 """
 
+# su_S = MassConnector()
+# su_S.set_properties(T = 273.15 + 24, # K
+#                     P = 1.31*1e5, # Pa
+#                     m_dot = 700, # kg/s
+#                     fluid = 'Water'
+#                     )
+
+# ex_S = MassConnector()
+# ex_S.set_properties(T = 273.15 + 27.78, # K
+#                     P = 1*1e5, # Pa
+#                     m_dot = 700, # kg/s
+#                     fluid = 'Water'
+#                     )
+
+# su_T = MassConnector()
+# su_T.set_properties(T = 273.15 + 39.94, # K
+#                     P = 71.82*1e3, # 51.75*1e3, # Pa
+#                     m_dot = 34.51, # kg/s
+#                     fluid = 'Cyclopentane'
+#                     )
+
+# ex_T = MassConnector()
+# ex_T.set_properties(T = 273.15 + 31.7, # K
+#                     P = 56.82*1e3, # Pa
+#                     m_dot = 34.51, # kg/s
+#                     fluid = 'Cyclopentane'
+#                     )
+
 su_S = MassConnector()
-su_S.set_properties(T = 273.15 + 24, # K
-                    P = 1.31*1e5, # Pa
-                    m_dot = 700, # kg/s
+su_S.set_properties(T = 273.15 + 33.9, # K
+                    P = 2*1e5, # Pa
+                    m_dot = 22.07, # kg/s
                     fluid = 'Water'
                     )
 
 ex_S = MassConnector()
-ex_S.set_properties(T = 273.15 + 27.78, # K
-                    P = 1*1e5, # Pa
-                    m_dot = 700, # kg/s
+ex_S.set_properties(T = 273.15 + 29.4, # K
+                    P = 1.5*1e5, # Pa
+                    m_dot = 22.07, # kg/s
                     fluid = 'Water'
                     )
 
-"From Aitor Code"
-
 su_T = MassConnector()
-su_T.set_properties(T = 273.15 + 39.94, # K
-                    P = 71.82*1e3, # 51.75*1e3, # Pa
-                    m_dot = 34.51, # kg/s
-                    fluid = 'Cyclopentane'
+su_T.set_properties(T = 273.15 + 23.9, # K
+                    P = 2*1e5, # 51.75*1e3, # Pa
+                    m_dot = 35.31, # kg/s
+                    fluid = 'Water'
                     )
 
 ex_T = MassConnector()
-ex_T.set_properties(T = 273.15 + 31.7, # K
-                    P = 56.82*1e3, # Pa
-                    m_dot = 34.51, # kg/s
-                    fluid = 'Cyclopentane'
+ex_T.set_properties(T = 273.15 + 26.7, # K
+                    P = 1.5*1e5, # Pa
+                    m_dot = 35.31, # kg/s
+                    fluid = 'Water'
                     )
 
 HX_test.set_thermo_BC(su_S = su_S, ex_S = ex_S, su_T = su_T, ex_T = ex_T)
@@ -795,17 +836,17 @@ Parameters Setting
 """
 
 HX_test.set_parameters(
+                        gasket_d = 0.1, # 0.14, # m
                         tube_layout = 45, # [°]
                         Tube_pass = 2, # [-]
                         n_series = 1, # [-]
                         Baffle_cut = 25, # [%]
-                        foul_t = 0,
-                        foul_s = 0,
+                        foul_t = 0.00017, # 0 # (m^2 * K/W)
+                        foul_s = 0.00017, # 0 # (m^2 * K/W)
                         tube_cond = 50, # W/(m*K)
-                        gasket_D = 0.14, # m
-                        Overdesign = 0.2, 
+                        Overdesign = 0, 
                         
-                        Shell_Side = 'C',
+                        Shell_Side = 'H',
 
                         Flow_Type = 'Shell&Tube', 
                         H_DP_ON = True, 
@@ -890,6 +931,7 @@ plt.colorbar(label="Score")
 plt.xlabel("Effective Area")
 plt.ylabel("Volume")
 plt.title("Area vs Volume (Gradient Color)")
+plt.axis([0,500, 0,2])
 plt.show()
 
 plt.scatter(Shell_ID_values, L_values, c=colors, cmap="viridis", alpha=0.7)
@@ -903,3 +945,25 @@ print(f"Best global position : {global_best_position}")
 print(f"Best global score : {global_best_score}")
 print(f"Best particle parameters : {best_particle.params}")
 print(f"Related Q : {HX_test.global_best_Q} [W]")
+
+rho_carbon_steel = 7850
+HX_params = HX_test.best_particle.HX.params
+
+T_mass = np.pi*((HX_params['Tube_OD']/2)**2 - ((HX_params['Tube_OD'] - HX_params['Tube_t'])/2)**2) * HX_params['Tube_L'] * rho_carbon_steel * HX_params['n_tubes'] * HX_params['n_series']
+
+def ref_val():
+    L = 1.45
+    D_o = 0.0145
+    t = 0.00211
+    n_t = 894
+    
+    rho_carbon_steel = 7850
+    
+    A_eff = np.pi*D_o * L * n_t
+    
+    D_i = D_o - 2*t
+    M_tubes = (np.pi*(D_o/2)**2 - np.pi*(D_i/2)**2)*L*n_t*rho_carbon_steel
+    
+    return A_eff, M_tubes
+
+
