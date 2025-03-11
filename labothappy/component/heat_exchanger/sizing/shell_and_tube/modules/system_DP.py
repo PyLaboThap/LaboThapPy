@@ -108,11 +108,13 @@ class ShellAndTubeSizingOpt(BaseComponent):
         def set_score(self, score):
             self.score = score
             
-            if self.personnal_best_score > score:
+            if self.personnal_best_score - 0.1 > score:
                 self.personnal_best_score = self.score
                 self.personnal_best_position = self.position
 
-            return
+                return 1 
+            
+            return 0
 
         def check_reinit(self):
             re_init_flag = True
@@ -208,7 +210,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
             self.HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation' # 31
 
             "Parameters Setting"
-
+                        
             self.HX.set_parameters(
                 A_eff = self.params['A_eff'], Baffle_cut = self.params['Baffle_cut'], S_V_tot = self.params['S_V_tot'],
                 Shell_ID = self.params['Shell_ID'], T_V_tot = self.params['T_V_tot'], Tube_L = self.params['Tube_L'], 
@@ -314,6 +316,27 @@ class ShellAndTubeSizingOpt(BaseComponent):
         self.ex_T = ex_T
         return 
 
+    def clone_Particle(self, particle):
+        # Create a new Particle instance
+        new_particle = self.Particle(
+            params=particle.params, su_S=particle.su_S, ex_S=particle.ex_S, su_T=particle.su_T, ex_T=particle.ex_T, choice_vectors=particle.choice_vectors,
+            P_max_cycle=particle.P_max_cycle, T_max_cycle=particle.T_max_cycle
+        )
+        
+        # Manually copy attributes (excluding AbstractState)
+        new_particle.position = particle.position.copy()
+        new_particle.velocity = particle.velocity.copy()
+        new_particle.Q = particle.Q
+        new_particle.DP_h = particle.DP_h
+        new_particle.DP_c = particle.DP_c
+        new_particle.personnal_best_position = particle.personnal_best_position.copy()
+        new_particle.personnal_best_score = particle.personnal_best_score
+        new_particle.HX = copy.copy(particle.HX)
+        
+        # ⚠️ Do NOT copy the AbstractState object
+        
+        return new_particle
+
     def HX_Mass(self, HX_params):
         
         rho_carbon_steel = 7850 # kg/m^3
@@ -340,10 +363,14 @@ class ShellAndTubeSizingOpt(BaseComponent):
         
         TS_mass = TS_t*(Full_Tube_sheet_A - Tube_in_tube_sheet_A)*rho_carbon_steel*HX_params["cross_passes"]
         
+        # print(T_mass)
+        # print(Shell_mass)
+        # print(TS_mass)
+        
         return T_mass + Shell_mass + TS_mass
 
     def constraint_Q_dot(self, Q_particle):
-        Q_dot_val_cstr = 0.46*1e6 # 14000*1e3 # W
+        Q_dot_val_cstr = 4.34*1e6 # 0.46*1e6 # 14000*1e3 # W
         return max(Q_dot_val_cstr - Q_particle,0) # [W] : Q_dot - 13300000 <= 0
 
     def constraint_DP_h(self, DP_h_particle):
@@ -421,7 +448,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
 
         return 
 
-    def evaluate_with_penalty(self, objective_function, particle, constraints, penalty_factor):
+    def evaluate_with_penalty(self, objective_function, particle, constraints, penalty_factor,i):
         """
         Evaluates the objective function with a penalty for constraint violations.
         """
@@ -443,7 +470,10 @@ class ShellAndTubeSizingOpt(BaseComponent):
     
         # Update particle score
         total_score = score + penalty
-        particle.set_score(total_score)
+        flag = particle.set_score(total_score)
+    
+        # if flag == 1:
+        #     print(f"Particle {i} PB !!!")
     
         # If no penalty, add unique params to the suitable set
         if penalty == 0 and particle.params not in self.suitable_param_set:
@@ -496,7 +526,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
         for i in range(len(self.particles)):
             # self.particles[i].compute_geom()       
             self.particles[i].HeatTransferRate()
-            score = self.evaluate_with_penalty(objective_function, self.particles[i], constraints, penalty_factor)
+            score = self.evaluate_with_penalty(objective_function, self.particles[i], constraints, penalty_factor,i)
             self.all_scores[i][0] = score
 
             # print(f"Init score ({i}) : {self.particles[i].score}")
@@ -511,11 +541,18 @@ class ShellAndTubeSizingOpt(BaseComponent):
         self.personal_best_scores = np.array([self.particles[i].personnal_best_score for i in range(len(self.particles))])
 
         self.global_best_score = min(self.personal_best_scores)
-        self.global_best_position = copy.deepcopy(self.personal_best_positions[np.argmin(self.personal_best_scores)])
-        self.global_best_Q = self.particles[np.argmin(self.personal_best_scores)].Q
-        self.global_best_DP_h = self.particles[np.argmin(self.personal_best_scores)].DP_h
-        self.global_best_DP_c = self.particles[np.argmin(self.personal_best_scores)].DP_c
-        self.best_particle = copy.copy(self.particles[np.argmin(self.personal_best_scores)])
+        self.best_particle = self.clone_Particle(self.particles[np.argmin(self.personal_best_scores)])
+        self.global_best_position = self.best_particle.position
+        self.global_best_Q = self.best_particle.Q
+        self.global_best_DP_h = self.best_particle.DP_h
+        self.global_best_DP_c = self.best_particle.DP_c     
+
+        # self.global_best_score = min(self.personal_best_scores)
+        # self.global_best_position = copy.deepcopy(self.personal_best_positions[np.argmin(self.personal_best_scores)])
+        # self.global_best_Q = self.particles[np.argmin(self.personal_best_scores)].Q
+        # self.global_best_DP_h = self.particles[np.argmin(self.personal_best_scores)].DP_h
+        # self.global_best_DP_c = self.particles[np.argmin(self.personal_best_scores)].DP_c
+        # self.best_particle = copy.copy(self.particles[np.argmin(self.personal_best_scores)])
 
         # for i in range(num_particles):
         #     print("==============================")
@@ -646,11 +683,11 @@ class ShellAndTubeSizingOpt(BaseComponent):
                 self.particles[i].HeatTransferRate()
                 
                 if bound_flag == 1:
-                    new_score = self.evaluate_with_penalty(objective_function, self.particles[i], constraints, penalty_factor) + 1e6
+                    new_score = self.evaluate_with_penalty(objective_function, self.particles[i], constraints, penalty_factor,i) + 1e6
                 else:
-                    new_score = self.evaluate_with_penalty(objective_function, self.particles[i], constraints, penalty_factor)
+                    new_score = self.evaluate_with_penalty(objective_function, self.particles[i], constraints, penalty_factor,i)
 
-                self.particles[i].set_score(new_score)
+                # flag = self.particles[i].set_score(new_score)
 
                 # print(f"New score ({i}) : {self.particles[i].score}")
                 # print(f"Related Q ({i}) : {self.particles[i].Q}")
@@ -668,23 +705,36 @@ class ShellAndTubeSizingOpt(BaseComponent):
 
             new_pot_global_best_score = min(self.personal_best_scores)
             
+            # print("Best Positions :")
+
+            # print(self.personal_best_positions)
+            
+            # print("xxxxxxxxxxxxxxxx")
+
+            # print("Best Scores :")
+
+            # print(self.personal_best_scores)
+
+            # print("xxxxxxxxxxxxxxxx")
+            
             print(f"New Challenger Score: {new_pot_global_best_score}")
 
             if new_pot_global_best_score + 0.1 < self.global_best_score:
                 print("BEST SCORE BEATEN")
                 self.global_best_score = new_pot_global_best_score
-                self.global_best_position = copy.deepcopy(self.personal_best_positions[np.argmin(self.personal_best_scores)])
-                self.global_best_Q = self.particles[np.argmin(self.personal_best_scores)].Q
-                self.global_best_DP_h = self.particles[np.argmin(self.personal_best_scores)].DP_h
-                self.global_best_DP_c = self.particles[np.argmin(self.personal_best_scores)].DP_c            
-                self.best_particle = copy.copy(self.particles[np.argmin(self.personal_best_scores)])
+                self.best_particle = self.clone_Particle(self.particles[np.argmin(self.personal_best_scores)])
+                self.global_best_position = self.best_particle.position
+                self.global_best_Q = self.best_particle.Q
+                self.global_best_DP_h = self.best_particle.DP_h
+                self.global_best_DP_c = self.best_particle.DP_c            
 
             # Optionally, print progress
             print("===========================")
             print(f"Iteration {iteration+1}/{max_iterations}, Global Best Score: {self.global_best_score}, Related Q: {self.global_best_Q}")
             print(f"Related DP_h: {self.global_best_DP_h}, Related DP_c: {self.global_best_DP_c}")
             print(f"Best Position : {self.global_best_position}")
-        
+            print(self.best_particle)    
+            
         return self.global_best_position, self.global_best_score, self.best_particle
     
     def opt_size(self):
@@ -801,33 +851,67 @@ Thermodynamical parameters : Inlet and Outlet Design States
 #                     fluid = 'Cyclopentane'
 #                     )
 
+# ------------------------------------------------------------
+
+# su_S = MassConnector()
+# su_S.set_properties(T = 273.15 + 33.9, # K
+#                     P = 2*1e5, # Pa
+#                     m_dot = 22.07, # kg/s
+#                     fluid = 'Water'
+#                     )
+
+# ex_S = MassConnector()
+# ex_S.set_properties(T = 273.15 + 29.4, # K
+#                     P = 1.5*1e5, # Pa
+#                     m_dot = 22.07, # kg/s
+#                     fluid = 'Water'
+#                     )
+
+# su_T = MassConnector()
+# su_T.set_properties(T = 273.15 + 23.9, # K
+#                     P = 2*1e5, # 51.75*1e3, # Pa
+#                     m_dot = 35.31, # kg/s
+#                     fluid = 'Water'
+#                     )
+
+# ex_T = MassConnector()
+# ex_T.set_properties(T = 273.15 + 26.7, # K
+#                     P = 1.5*1e5, # Pa
+#                     m_dot = 35.31, # kg/s
+#                     fluid = 'Water'
+#                     )
+
+# ------------------------------------------------------------
+
 su_S = MassConnector()
-su_S.set_properties(T = 273.15 + 33.9, # K
-                    P = 2*1e5, # Pa
-                    m_dot = 22.07, # kg/s
-                    fluid = 'Water'
+su_S.set_properties(T = 273.15 + 95, # K
+                    P = 5*1e5, # 5*1e5, # Pa
+                    m_dot = 27.8, # kg/s
+                    fluid = 'Methanol'
                     )
 
 ex_S = MassConnector()
-ex_S.set_properties(T = 273.15 + 29.4, # K
-                    P = 1.5*1e5, # Pa
-                    m_dot = 22.07, # kg/s
-                    fluid = 'Water'
+ex_S.set_properties(T = 273.15 + 40, # K
+                    P = 4.5*1e5, # 4.5*1e5, # Pa
+                    m_dot = 27.8, # kg/s
+                    fluid = 'Methanol'
                     )
 
 su_T = MassConnector()
-su_T.set_properties(T = 273.15 + 23.9, # K
+su_T.set_properties(T = 273.15 + 25, # K
                     P = 2*1e5, # 51.75*1e3, # Pa
-                    m_dot = 35.31, # kg/s
+                    m_dot = 68.9, # kg/s
                     fluid = 'Water'
                     )
 
 ex_T = MassConnector()
-ex_T.set_properties(T = 273.15 + 26.7, # K
+ex_T.set_properties(T = 273.15 + 40, # K
                     P = 1.5*1e5, # Pa
-                    m_dot = 35.31, # kg/s
+                    m_dot = 68.9, # kg/s
                     fluid = 'Water'
                     )
+
+# ------------------------------------------------------------
 
 HX_test.set_thermo_BC(su_S = su_S, ex_S = ex_S, su_T = su_T, ex_T = ex_T)
 
@@ -841,8 +925,8 @@ HX_test.set_parameters(
                         Tube_pass = 2, # [-]
                         n_series = 1, # [-]
                         Baffle_cut = 25, # [%]
-                        foul_t = 0.00017, # 0 # (m^2 * K/W)
-                        foul_s = 0.00017, # 0 # (m^2 * K/W)
+                        foul_t = 0.00033, # 0.00017 # (m^2 * K/W)
+                        foul_s = 0.0002, # 0.00017 # (m^2 * K/W)
                         tube_cond = 50, # W/(m*K)
                         Overdesign = 0, 
                         
@@ -956,14 +1040,81 @@ def ref_val():
     D_o = 0.0145
     t = 0.00211
     n_t = 894
+    D_s = 0.59
+    B = 0.423
     
     rho_carbon_steel = 7850
     
     A_eff = np.pi*D_o * L * n_t
     
     D_i = D_o - 2*t
+    
+    "Shell Mass"
+    
+    P_design = 7*1e5 # bar
+    
+    shell_t = shell_thickness(D_s, 273.15+(34+29)/2, P_design)        
+    
+    Shell_OD = D_s + 2*shell_t       
+    Shell_volume = np.pi*((Shell_OD/2)**2 - (D_s/2)**2)*L + shell_t*np.pi*Shell_OD**2/4 
+    Shell_mass = Shell_volume*rho_carbon_steel
+    
+    "Tube Mass"
+    
     M_tubes = (np.pi*(D_o/2)**2 - np.pi*(D_i/2)**2)*L*n_t*rho_carbon_steel
     
-    return A_eff, M_tubes
+    "Tube Sheet Mass"
+    
+    TS_t = tube_sheet_thickness(D_o, 0.0181, 34+273.15, 2*1e5 , 0.1)
+        
+    Full_Tube_sheet_A = D_s*(1-0.25)
+    Tube_in_tube_sheet_A = n_t*(1-0.25)*np.pi*(D_o/2)**2
+    
+    TS_mass = TS_t*(Full_Tube_sheet_A - Tube_in_tube_sheet_A)*rho_carbon_steel*round(L/B)
+    
+    M_tot = M_tubes + Shell_mass + TS_mass
+    
+    return A_eff, M_tot, M_tubes, Shell_mass, TS_mass
 
+
+def ref_val_2():
+    L = 3.115
+    D_o = 0.015
+    t = 0.00211
+    n_t = 1658
+    D_s = 0.81
+    B = 0.424
+    
+    rho_carbon_steel = 7850
+    
+    A_eff = np.pi*D_o * L * n_t
+    
+    D_i = D_o - 2*t
+    
+    "Shell Mass"
+    
+    P_design = 7*1e5 # bar
+    
+    shell_t = shell_thickness(D_s, 273.15+(95+40)/2, P_design)        
+    
+    Shell_OD = D_s + 2*shell_t       
+    Shell_volume = np.pi*((Shell_OD/2)**2 - (D_s/2)**2)*L + shell_t*np.pi*Shell_OD**2/4 
+    Shell_mass = Shell_volume*rho_carbon_steel
+    
+    "Tube Mass"
+    
+    M_tubes = (np.pi*(D_o/2)**2 - np.pi*(D_i/2)**2)*L*n_t*rho_carbon_steel
+    
+    "Tube Sheet Mass"
+    
+    TS_t = tube_sheet_thickness(D_o, 0.0187, 95+273.15, 5*1e5 , 0.1)
+        
+    Full_Tube_sheet_A = D_s*(1-0.25)
+    Tube_in_tube_sheet_A = n_t*(1-0.25)*np.pi*(D_o/2)**2
+    
+    TS_mass = TS_t*(Full_Tube_sheet_A - Tube_in_tube_sheet_A)*rho_carbon_steel*round(L/B)
+    
+    M_tot = M_tubes + Shell_mass + TS_mass
+    
+    return A_eff, M_tot, M_tubes, Shell_mass, TS_mass
 

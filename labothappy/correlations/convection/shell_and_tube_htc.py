@@ -156,14 +156,14 @@ def shell_htc_kern(m_dot, T_wall, T_in, P_in, fluid, params):
         JH2 = 0.0548 * Re**0.68
         
         JH = JH2 + (params['Baffle_cut']/100 - 0.2) * (JH1 - JH2)/(0.8)
-        Nu = Pr**0.33 * JH # * (mu/mu)**(0.14)
+        Nu = Pr**0.33 * JH * (mu/mu_w)**(0.14)
 
     else:
         # McAdams, if no Baffles -> HYP : mu = mu_w
-        Nu = 0.36*Pr**0.33 * Re**(0.55) # * (mu/mu_w)**(0.14)  
+        Nu = 0.36*Pr**0.33 * Re**(0.55) * (mu/mu_w)**(0.14)  
 
     h = Nu*k/D_hydro
-    
+        
     return h
 
 #%%
