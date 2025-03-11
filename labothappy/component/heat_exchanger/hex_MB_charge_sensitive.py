@@ -353,7 +353,7 @@ class HeatExchangerMB(BaseComponent):
             if self.H.Correlation_1phase == "Shell_Bell_Delaware_HTC" or self.C.Correlation_1phase == "Shell_Bell_Delaware_HTC":
 
                 geometry_parameters = ['A_eff', 'Baffle_cut', 'D_OTL', 'N_strips', 'S_V_tot',
-                                    'Shell_ID', 'T_V_tot', 'Tube_L', 'Tube_OD', 'Tube_pass',
+                                    'Shell_ID', 'T_V_tot', 'Tube_L', 'Tube_OD', 'n_tube_passes',
                                     'Tube_t', 'Tubesheet_t', 'central_spacing', 'clear_BS', 'clear_TB',
                                     'cross_passes', 'foul_s', 'foul_t', 'inlet_spacing', 'n_series',
                                     'n_tubes', 'outlet_spacing', 'pitch_ratio', 'tube_cond', 'tube_layout', 'Shell_Side']
@@ -361,7 +361,7 @@ class HeatExchangerMB(BaseComponent):
             if self.H.Correlation_1phase == "Shell_Kern_HTC" or self.C.Correlation_1phase == "Shell_Kern_HTC":
 
                 geometry_parameters = ['A_eff', 'Baffle_cut', 'S_V_tot', 'Shell_ID', 'T_V_tot',
-                                    'Tube_L', 'Tube_OD', 'Tube_pass','Tube_t', 'central_spacing',
+                                    'Tube_L', 'Tube_OD', 'n_tube_passes','Tube_t', 'central_spacing',
                                     'cross_passes', 'foul_s', 'foul_t', 'n_tubes', 'pitch_ratio', 
                                     'tube_cond', 'tube_layout', 'Shell_Side']
         
@@ -1065,7 +1065,7 @@ class HeatExchangerMB(BaseComponent):
             mu_h_in = CP.PropsSI('V', 'H', self.su_H.h, 'P', self.su_H.p, self.su_H.fluid)
             G_c, G_h = self.G_h_c_computation()
             
-            DP_H = gnielinski_pipe_DP(mu_h_in, self.su_H.D, G_h, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"])    
+            DP_H = gnielinski_pipe_DP(mu_h_in, self.su_H.D, G_h, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["n_tube_passes"])    
         else:
             DP_H = 0
             
@@ -1096,10 +1096,10 @@ class HeatExchangerMB(BaseComponent):
             # print(f"rho_c_in : {self.su_C.D}")
             # print(f"G_c : {G_c}")
             # print(f"D_in : {self.params['Tube_OD']-2*self.params['Tube_t']}")
-            # print(f"L : {self.params['Tube_L']*self.params['Tube_pass']}")
+            # print(f"L : {self.params['Tube_L']*self.params['n_tube_passes']}")
             # print(f"Fluid : {self.su_C.fluid}")
             
-            DP_C = gnielinski_pipe_DP(mu_c_in, self.su_C.D, G_c, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"])    
+            DP_C = gnielinski_pipe_DP(mu_c_in, self.su_C.D, G_c, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["n_tube_passes"])    
         else:
             DP_C = 0
         
@@ -1111,7 +1111,7 @@ class HeatExchangerMB(BaseComponent):
             mu_c_in = CP.PropsSI('V', 'H', self.su_C.h, 'P', self.su_C.p, self.su_C.fluid)
             G_c, G_h = self.G_h_c_computation()
             
-            DP_C = gnielinski_pipe_DP(mu_c_in, self.su_C.D, G_c, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"]/self.params['n_disc'])    
+            DP_C = gnielinski_pipe_DP(mu_c_in, self.su_C.D, G_c, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["n_tube_passes"]/self.params['n_disc'])    
         else:
             DP_C = 0
         
@@ -1125,12 +1125,12 @@ class HeatExchangerMB(BaseComponent):
             G_h = (self.mdot_h/self.params['H_n_canals'])/self.params['H_CS']
         elif self.HTX_Type == 'Shell&Tube':
             A_in_one_tube = np.pi*((self.params['Tube_OD']-2*self.params['Tube_t'])/2)**2
-            G_h = (self.mdot_h/self.params['n_tubes'])/A_in_one_tube
-            G_c = (self.mdot_c/self.params['n_tubes'])/A_in_one_tube
+            G_h = (self.mdot_h/(self.params['n_series']*self.params['n_tubes']/self.params['n_tube_passes']))/A_in_one_tube
+            G_c = (self.mdot_c/(self.params['n_series']*self.params['n_tubes']/self.params['n_tube_passes']))/A_in_one_tube
         elif self.HTX_Type == 'Tube&Fins':
             A_in_one_tube = np.pi*((self.params['Tube_OD']-2*self.params['Tube_t'])/2)**2
-            G_h = (self.mdot_h/self.params['n_tubes'])/A_in_one_tube
-            G_c = (self.mdot_c/self.params['n_tubes'])/A_in_one_tube
+            G_h = (self.mdot_h/(self.params['n_tubes']/self.params['n_tube_passes']))/A_in_one_tube
+            G_c = (self.mdot_c/(self.params['n_tubes']/self.params['n_tube_passes']))/A_in_one_tube
         return G_c, G_h
 
     def solve(self, only_external = False, and_solve = True):
@@ -1621,8 +1621,8 @@ class HeatExchangerMB(BaseComponent):
                 fact_cond_2 = 2*np.pi*self.params['tube_cond']*self.params['Tube_L']*self.params['n_series']*self.params['n_tubes']
                 R_cond = fact_cond_1/fact_cond_2                      
 
-                self.A_in_tubes = self.params['Tube_pass']*self.params['Tube_L']*self.params['n_tubes']*np.pi*((self.params['Tube_OD'] - 2*self.params['Tube_t']))
-                self.A_out_tubes = self.params['Tube_pass']*self.params['Tube_L']*self.params['n_tubes']*np.pi*(self.params['Tube_OD'])
+                self.A_in_tubes = self.params['n_series']*self.params['Tube_L']*self.params['n_tubes']*np.pi*((self.params['Tube_OD'] - 2*self.params['Tube_t']))
+                self.A_out_tubes = self.params['n_series']*self.params['Tube_L']*self.params['n_tubes']*np.pi*(self.params['Tube_OD'])
             
                 if self.params['foul_s'] != None:
                     R_fouling_s = self.params['foul_s'] / self.A_out_tubes
@@ -1648,7 +1648,7 @@ class HeatExchangerMB(BaseComponent):
                 fact_cond_2 = 2*np.pi*self.params['Tube_cond']*self.params['Tube_L']*self.params['n_tubes']*self.params['n_passes']
                 R_cond = fact_cond_1/fact_cond_2                      
                 
-                self.A_in_tubes = self.params['n_passes']*self.params['Tube_L']*self.params['n_tubes']*np.pi*((self.params['Tube_OD'] - 2*self.params['Tube_t'])) # *self.geom.n_passes 
+                self.A_in_tubes = self.params['Tube_L']*self.params['n_tubes']*np.pi*((self.params['Tube_OD'] - 2*self.params['Tube_t'])) # *self.geom.n_passes 
                 self.A_out_tubes = self.params['A_finned']
                                         
                 R_fouling = 0 # self.geom.fouling / self.A_out_tubes             

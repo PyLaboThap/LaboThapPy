@@ -27,7 +27,8 @@ def estimate_number_of_tubes(D_main, d_tube, P, config_angle, min_tube_row):
         d_tube (float): Tube diameter.
         P (float): Center-to-center distance (pitch).
         config_angle (float): Configuration angle (in degrees), typically 60 for triangular or 45 for staggered square.
-    
+        min_tube_row (int) : Minimum number of tubes in a row
+        
     Returns:
         int: Estimated number of tubes.
         list: List containing number of tubes in each row.
@@ -50,7 +51,7 @@ def estimate_number_of_tubes(D_main, d_tube, P, config_angle, min_tube_row):
     tubes_per_row = []
 
     # Start at the top (y_pos = 0) and move row by row vertically down
-    y_pos = 20*1e-3
+    y_pos = P
     
     # Iterate row by row while staying within the half diameter of the circle
     while y_pos < D_main / 2:
@@ -71,7 +72,7 @@ def estimate_number_of_tubes(D_main, d_tube, P, config_angle, min_tube_row):
         # Move to the next row down by vertical pitch
         y_pos += P_v
     
-    return tubes_total, tubes_per_row
+    return tubes_total*2, tubes_per_row[::-1] + tubes_per_row
 
 #%% PIPE THICKNESS RELATED FUN
 

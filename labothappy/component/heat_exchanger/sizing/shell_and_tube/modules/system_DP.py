@@ -19,7 +19,7 @@ L_shell has free values
 COULD BE VARIABLES BUT FIXED
 ----------------------------
 
-n_passes = 2 # (or 1)
+n_tube_passes = 2 # (or 1)
 
 Tube_layout_angle = 45 # [°] (or 60, 90) : 45 and 90 mean square / 60 means triangular
 
@@ -153,7 +153,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
             n_tubes = estimate_number_of_tubes(Shell_ID, D_o, pitch_ratio*D_o, self.params['tube_layout'], min_tubes_in_row)[0]
 
             # HT Area and HTX volumes
-            A_eff = n_tubes*L_tube*np.pi*D_o*self.params['Tube_pass']
+            A_eff = n_tubes*L_tube*np.pi*D_o*self.params['n_tube_passes']
             
             T_V_tot = L_tube*n_tubes*np.pi*((D_o - 2*Tube_t)/2)**2
 
@@ -214,7 +214,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
             self.HX.set_parameters(
                 A_eff = self.params['A_eff'], Baffle_cut = self.params['Baffle_cut'], S_V_tot = self.params['S_V_tot'],
                 Shell_ID = self.params['Shell_ID'], T_V_tot = self.params['T_V_tot'], Tube_L = self.params['Tube_L'], 
-                Tube_OD = self.params['Tube_OD'], Tube_pass = self.params['Tube_pass'], Tube_t = self.params['Tube_t'],
+                Tube_OD = self.params['Tube_OD'], n_tube_passes = self.params['n_tube_passes'], Tube_t = self.params['Tube_t'],
                 central_spacing = self.params['central_spacing'], cross_passes = self.params['cross_passes'], foul_s = self.params['foul_s'],
                 foul_t = self.params['foul_t'], n_series = self.params['n_series'], n_tubes = self.params['n_tubes'], 
                 pitch_ratio = self.params['pitch_ratio'], tube_cond = self.params['tube_cond'], tube_layout = self.params['tube_layout'], gasket_d = self.params['gasket_d'],
@@ -353,13 +353,13 @@ class ShellAndTubeSizingOpt(BaseComponent):
         
         "Tube Mass"
         
-        T_mass = np.pi*((HX_params['Tube_OD']/2)**2 - ((HX_params['Tube_OD'] - HX_params['Tube_t'])/2)**2) * HX_params['Tube_L'] * rho_carbon_steel * HX_params['n_tubes'] * HX_params['n_series'] * HX_params['Tube_pass']
+        T_mass = np.pi*((HX_params['Tube_OD']/2)**2 - ((HX_params['Tube_OD'] - HX_params['Tube_t'])/2)**2) * HX_params['Tube_L'] * rho_carbon_steel * HX_params['n_tubes'] * HX_params['n_series']
 
         "Tube Sheet Mass"
         
         TS_t = tube_sheet_thickness(HX_params['Tube_OD'],HX_params['Tube_OD']*HX_params['pitch_ratio'], self.su_S.T, self.su_S.p,HX_params["gasket_d"])
         Full_Tube_sheet_A = HX_params["Shell_ID"]*(1-HX_params["Baffle_cut"]/100)
-        Tube_in_tube_sheet_A = HX_params["n_tubes"]*(1-HX_params["Baffle_cut"]/100)*np.pi*(HX_params["Tube_OD"]/2)**2
+        Tube_in_tube_sheet_A = HX_params["n_tube_passes"]*HX_params["n_tubes"]*(1-HX_params["Baffle_cut"]/100)*np.pi*(HX_params["Tube_OD"]/2)**2
         
         TS_mass = TS_t*(Full_Tube_sheet_A - Tube_in_tube_sheet_A)*rho_carbon_steel*HX_params["cross_passes"]
         
@@ -739,7 +739,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
     
     def opt_size(self):
 
-        return self.particle_swarm_optimization(objective_function = self.HX_Mass , bounds = self.bounds, num_particles = 30, num_dimensions = len(self.opt_vars), max_iterations = 30, inertia_weight = 0.6,
+        return self.particle_swarm_optimization(objective_function = self.HX_Mass , bounds = self.bounds, num_particles = 10, num_dimensions = len(self.opt_vars), max_iterations = 10, inertia_weight = 0.6,
                                           cognitive_constant = 1, social_constant = 1, constraints = [self.constraint_Q_dot, self.constraint_DP_h, self.constraint_DP_c], penalty_factor = 1)
 
         
@@ -765,14 +765,14 @@ Preliminary Sizing Method : Heat Exchangers (Kakac, Liu, Pramuanjaroenkij) - Sec
 #     # Number of Tubes
     
 #     # Tube count constant
-#     if params['Tube_pass'] == 1:
+#     if params['n_tube_passes'] == 1:
 #         CTP = 0.93
-#     elif params['Tube_pass'] == 2:
+#     elif params['n_tube_passes'] == 2:
 #         CTP = 0.9
-#     elif params['Tube_pass'] == 3:
+#     elif params['n_tube_passes'] == 3:
 #         CTP = 0.85
 #     else:
-#         print("Tube_pass number not considered.")
+#         print("n_tube_passes number not considered.")
 
 #     # Tube layout constant
 #     if params['tube_layout'] == 45 or params['tube_layout'] == 90:
@@ -796,8 +796,8 @@ HX_test.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac'])
 choice_vectors = {
                     'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
                     'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
-                        29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60 , 66, 72, 78,
-                        84, 90, 96, 108, 120]
+                        29, 31, 33, 35, 37, 39, 42, 45, 48]#, 54, 60 , 66, 72, 78,
+                        #84, 90, 96, 108, 120]
 }
 
 """
@@ -922,7 +922,7 @@ Parameters Setting
 HX_test.set_parameters(
                         gasket_d = 0.1, # 0.14, # m
                         tube_layout = 45, # [°]
-                        Tube_pass = 2, # [-]
+                        n_tube_passes = 2, # [-]
                         n_series = 1, # [-]
                         Baffle_cut = 25, # [%]
                         foul_t = 0.00033, # 0.00017 # (m^2 * K/W)
