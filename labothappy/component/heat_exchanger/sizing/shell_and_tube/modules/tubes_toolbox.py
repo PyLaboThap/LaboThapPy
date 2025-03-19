@@ -37,8 +37,15 @@ def estimate_number_of_tubes(D_main, d_tube, P, config_angle, min_tube_row):
     config_angle_rad = np.pi * config_angle / 180
     
     # Vertical and horizontal pitches based on the configuration angle
-    P_v = P * np.sin(config_angle_rad)  # Vertical pitch
-    P_h = 2 * P * np.cos(config_angle_rad)  # Horizontal pitch
+    if config_angle == 45 or config_angle == 60:
+        P_v = 2 * P * np.sin(config_angle_rad)  # Vertical pitch
+        P_h = 2 * P * np.cos(config_angle_rad)  # Horizontal pitch
+    elif config_angle == 0 or config_angle == 90:
+        P_v = P   # Vertical pitch
+        P_h = P   # Horizontal pitch
+    else:
+        print("Config angle not set to 0, 45, 60, 90 degrees")
+        return None
 
     # Tube radius
     tube_radius = d_tube / 2
@@ -56,6 +63,7 @@ def estimate_number_of_tubes(D_main, d_tube, P, config_angle, min_tube_row):
     while y_pos < D_main / 2:
         # Calculate number of tubes in the current row
         tubes_in_current_row = tubes_in_row(D_main, P_h, y_pos, tube_radius)
+        
         if tubes_in_current_row >= min_tube_row:  # Only add rows with at least one tube
             tubes_per_row.append(tubes_in_current_row)
             tubes_total += tubes_in_current_row
@@ -63,7 +71,6 @@ def estimate_number_of_tubes(D_main, d_tube, P, config_angle, min_tube_row):
             # If staggered (triangular), add a staggered row below
             if config_angle != 90 and config_angle != 0:
                 tubes_in_next_row = tubes_in_row(D_main, P_h, y_pos + P_v / 2, tube_radius)
-                y_pos += P_v
                 if tubes_in_next_row >= min_tube_row and y_pos < D_main/2:
                     tubes_per_row.append(tubes_in_next_row)
                     tubes_total += tubes_in_next_row
@@ -71,7 +78,7 @@ def estimate_number_of_tubes(D_main, d_tube, P, config_angle, min_tube_row):
         # Move to the next row down by vertical pitch
         y_pos += P_v
     
-    return tubes_total, tubes_per_row
+    return tubes_total*2, tubes_per_row[::-1] + tubes_per_row
 
 #%% PIPE THICKNESS RELATED FUN
 
@@ -169,6 +176,7 @@ def carbon_steel_pipe_thickness(D_o_vect, tube_T, ext_p, int_p):
 
     thickness = np.array([
                 [2.11, 2.41, 2.77, 3.73], # 1/2
+                [2.11, 2.41, 2.82, 3.89], # 5/8
                 [2.11, 2.41, 2.87, 3.91], # 3/4
                 [2.77, 2.90, 3.38, 4.55], # 1
                 [2.77, 2.97, 3.56, 4.85], # 1 + 1/4
@@ -197,8 +205,10 @@ def carbon_steel_pipe_thickness(D_o_vect, tube_T, ext_p, int_p):
 
 def pitch_ratio_fun(D_o, Layout_angle_deg):
 
-    if Layout_angle_deg == 45 or Layout_angle_deg == 90: # Square arrangement 
+    if Layout_angle_deg == 45 or Layout_angle_deg == 0: # Square arrangement 
         if D_o == 1/2:
+            Pitch_ratio = 1.25
+        elif D_o == 5/8:
             Pitch_ratio = 1.25
         elif D_o == 3/4:
             Pitch_ratio = (1)/D_o
@@ -214,6 +224,8 @@ def pitch_ratio_fun(D_o, Layout_angle_deg):
 
     elif Layout_angle_deg == 30 or Layout_angle_deg == 60: # Square arrangement 
         if D_o == 1/2:
+            Pitch_ratio = 1.25
+        elif D_o == 5/8:
             Pitch_ratio = 1.25
         elif D_o == 3/4:
             Pitch_ratio = (15/16)/D_o
@@ -232,8 +244,6 @@ def pitch_ratio_fun(D_o, Layout_angle_deg):
 
     return Pitch_ratio
 
-
-
 test = 0
 
 if test == 1:
@@ -250,3 +260,19 @@ if test == 1:
 
     print(f"Estimated number of tubes: {num_tubes}")
     print(f"Tubes per row : {tubes_per_row}")
+
+if test == 2:
+    # Example inputs
+    clearance = 0.017
+    D_main =  - clearance + 0.81  # Main diameter
+    d_tube = 0.015    # Tube diameter
+    P = 0.0187       # Pitch
+    config_angle = 60  # Triangular (60) / Square (45) arrangement
+    min_tube_row = 1
+
+    # Estimate how many tubes fit in half of the shell (consider 2 passes)
+    num_tubes, tubes_per_row = estimate_number_of_tubes(D_main, d_tube, P, config_angle,min_tube_row)
+
+    print(f"Estimated number of tubes: {num_tubes}")
+    print(f"Tubes per row : {tubes_per_row}")
+

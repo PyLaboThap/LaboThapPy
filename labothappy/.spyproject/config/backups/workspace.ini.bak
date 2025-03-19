@@ -8,5 +8,5 @@ recent_files = ['component\\heat_exchanger\\sizing\\shell_and_tube\\modules\\sys
 
 [main]
 version = 0.2.0
-recent_files = []
+recent_files = ['component\\heat_exchanger\\sizing\\shell_and_tube\\modules\\system_DP.py']
 

@@ -722,6 +722,9 @@ class HeatExchangerMB(BaseComponent):
         self.svec_c = np.zeros(np.size(self.pvec_c))
         self.svec_h = np.zeros(np.size(self.pvec_h))
         
+        self.LMTD = np.zeros(np.size(self.pvec_h)-1)
+        self.F = np.zeros(np.size(self.pvec_h)-1)
+        
         # Calculate the temperature and entropy at each cell boundary
         for i in range(len(self.hvec_c)):
             
@@ -875,7 +878,7 @@ class HeatExchangerMB(BaseComponent):
             if self.HTX_Type == 'Plate':
                 alpha_h = gnielinski_pipe_htc(mu_h, Pr_h, Pr_h_w, k_h, G_h, self.params['H_Dh'], self.params['l']) # Muley_Manglik_BPHEX_HTC(mu_h, mu_h_w, Pr_h, k_h, G_h, self.geom.H_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_h, Pr_h, k_h, G_h, self.geom.H_Dh) # 
             elif self.HTX_Type == 'Shell&Tube':
-                alpha_h = gnielinski_pipe_htc(mu_h, Pr_h, Pr_h_w, k_h, G_h, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
+                alpha_h = gnielinski_pipe_htc(mu_h, Pr_h, Pr_h_w, k_h, G_h, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']*self.params['Tube_pass']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
             elif self.HTX_Type == 'Tube&Fins':
                 alpha_h = gnielinski_pipe_htc(mu_h, Pr_h, Pr_h_w, k_h, G_h, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']*self.params['n_passes']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
         elif self.H.Correlation_1phase == "Shell_Bell_Delaware_HTC":
@@ -908,7 +911,7 @@ class HeatExchangerMB(BaseComponent):
             if self.HTX_Type == 'Plate':
                 alpha_c = gnielinski_pipe_htc(mu_c, Pr_c, Pr_c_w, k_c, G_c, self.params['H_Dh'], self.params['l']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
             elif self.HTX_Type == 'Shell&Tube':
-                alpha_c = gnielinski_pipe_htc(mu_c, Pr_c, Pr_c_w, k_c, G_c, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
+                alpha_c = gnielinski_pipe_htc(mu_c, Pr_c, Pr_c_w, k_c, G_c, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']**self.params['Tube_pass']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
             elif self.HTX_Type == 'Tube&Fins':
                 alpha_c = gnielinski_pipe_htc(mu_c, Pr_c, Pr_c_w, k_c, G_c, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']*self.params['n_passes']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
         elif self.C.Correlation_1phase == 'Shell_Bell_Delaware_HTC':
@@ -986,7 +989,7 @@ class HeatExchangerMB(BaseComponent):
             Pr_h_w = self.AS_H.Prandtl()
             mu_h_w = self.AS_H.viscosity()   
                         
-            alpha_h = gnielinski_pipe_htc(mu_h, Pr_h, Pr_h_w, k_h, G_h, self.params['Tube_OD'] - 2*self.params['Tube_t'], self.params['Tube_L'])
+            alpha_h = gnielinski_pipe_htc(mu_h, Pr_h, Pr_h_w, k_h, G_h, self.params['Tube_OD'] - 2*self.params['Tube_t'], self.params['Tube_L']*self.params["Tube_pass"])
             alpha_h_2phase = horizontal_tube_internal_condensation(self.H_su.fluid , G_h, p_h_mean, self.x_vec_h[k], T_wall_h, self.params['Tube_OD'] - 2*self.params['Tube_t'])
         if self.H.Correlation_2phase == 'shah_condensation_plate_HTC':
             alpha_h_2phase = shah_condensation_plate_HTC(self.params['H_Dh'], self.params['l_v'], self.params['w_v'], self.params['amplitude'], self.params['phi'], self.mdot_h, p_h_mean, self.params['H_n_canals'], self.H_su.fluid)
@@ -1035,7 +1038,7 @@ class HeatExchangerMB(BaseComponent):
         if self.C.Correlation_2phase == "Han_cond_BPHEX":
             alpha_c_2phase, _ = han_cond_BPHEX_HTC(x_c, mu_c_l, k_c_l, Pr_c_l, rho_c_l, rho_c_v, G_c, self.params['C_Dh'], self.params['plate_pitch_co'], self.params['chevron_angle'])
         elif self.C.Correlation_2phase == "Han_Boiling_BPHEX_HTC":
-            alpha_c_2phase, _ = han_boiling_BPHEX_HTC(min(x_c, self.x_di_c), mu_c_l, k_c_l, Pr_c_l, rho_c_l, rho_c_v,  i_fg_c, G_c, LMTD*self.F, self.Qvec_c[k], alpha_h, self.params['C_Dh'], self.params['chevron_angle'], self.params['plate_pitch_co'])
+            alpha_c_2phase, _ = han_boiling_BPHEX_HTC(min(x_c, self.x_di_c), mu_c_l, k_c_l, Pr_c_l, rho_c_l, rho_c_v,  i_fg_c, G_c, LMTD*self.F[k], self.Qvec_c[k], alpha_h, self.params['C_Dh'], self.params['chevron_angle'], self.params['plate_pitch_co'])
         elif self.C.Correlation_2phase == "Boiling_curve":                  
             alpha_c_2phase = self.C_f_boiling(abs(T_wall_c - Tc_mean))
         elif self.C.Correlation_2phase == "gnielinski_pipe_htc":
@@ -1125,12 +1128,12 @@ class HeatExchangerMB(BaseComponent):
             G_h = (self.mdot_h/self.params['H_n_canals'])/self.params['H_CS']
         elif self.HTX_Type == 'Shell&Tube':
             A_in_one_tube = np.pi*((self.params['Tube_OD']-2*self.params['Tube_t'])/2)**2
-            G_h = (self.mdot_h/self.params['n_tubes'])/A_in_one_tube
-            G_c = (self.mdot_c/self.params['n_tubes'])/A_in_one_tube
+            G_h = self.params["Tube_pass"]*(self.mdot_h/self.params['n_tubes'])/A_in_one_tube
+            G_c = self.params["Tube_pass"]*(self.mdot_c/self.params['n_tubes'])/A_in_one_tube
         elif self.HTX_Type == 'Tube&Fins':
             A_in_one_tube = np.pi*((self.params['Tube_OD']-2*self.params['Tube_t'])/2)**2
-            G_h = (self.mdot_h/self.params['n_tubes'])/A_in_one_tube
-            G_c = (self.mdot_c/self.params['n_tubes'])/A_in_one_tube
+            G_h = self.params["Tube_pass"]*(self.mdot_h/self.params['n_tubes'])/A_in_one_tube
+            G_c = self.params["Tube_pass"]*(self.mdot_c/self.params['n_tubes'])/A_in_one_tube
         return G_c, G_h
 
     def solve(self, only_external = False, and_solve = True):
@@ -1455,10 +1458,10 @@ class HeatExchangerMB(BaseComponent):
             DTB = max(Tho - Tci, 1e-02)
             
             if DTA == DTB:
-                LMTD = DTA
+                self.LMTD[k] = DTA
             else:
                 try:
-                    LMTD = (DTA-DTB)/np.log(abs(DTA/DTB))
+                    self.LMTD[k] = (DTA-DTB)/np.log(abs(DTA/DTB))
                 except ValueError as VE:
                     print(Q, DTA, DTB)
                     raise
@@ -1552,12 +1555,12 @@ class HeatExchangerMB(BaseComponent):
                 
                 self.R = (Thi - Tho)/(Tco - Tci)
                 self.P = (Tco - Tci)/(Thi - Tci)
-                self.F = f_lmtd2(self.R, self.P, self.params, C_r)
+                self.F[k] = f_lmtd2(self.R, self.P, self.params, C_r)
             else:
-                self.F = 1
+                self.F[k] = 1
             
             #UA_req including F correction factor in case of cross flow
-            UA_req = self.mdot_h*(self.hvec_h[k+1]-self.hvec_h[k])/(self.F*LMTD)          
+            UA_req = self.mdot_h*(self.hvec_h[k+1]-self.hvec_h[k])/(self.F[k]*self.LMTD[k])          
 
             "3) Cell heat transfer coefficients"            
             "3.1) Hot side - User defined"
@@ -1604,7 +1607,7 @@ class HeatExchangerMB(BaseComponent):
                     alpha_c = self.compute_C_1P_HTC(k, Tc_mean, p_c_mean, T_wall_c, G_c, havg_c)
                 # 2 PHASE CORRELATION
                 elif self.phases_c[k] == "two-phase" or self.phases_c[k] == "vapor-wet":
-                    alpha_c = self.compute_C_2P_HTC(k, Tc_mean, p_c_mean, T_wall_c, G_c, Tc_sat_mean, alpha_h, LMTD)
+                    alpha_c = self.compute_C_2P_HTC(k, Tc_mean, p_c_mean, T_wall_c, G_c, Tc_sat_mean, alpha_h, self.LMTD[k])
                           
             "3.3) Store the heat transfer coefficients"
             self.alpha_c.append(alpha_c)
@@ -1621,8 +1624,8 @@ class HeatExchangerMB(BaseComponent):
                 fact_cond_2 = 2*np.pi*self.params['tube_cond']*self.params['Tube_L']*self.params['n_series']*self.params['n_tubes']
                 R_cond = fact_cond_1/fact_cond_2                      
 
-                self.A_in_tubes = self.params['Tube_pass']*self.params['Tube_L']*self.params['n_tubes']*np.pi*((self.params['Tube_OD'] - 2*self.params['Tube_t']))
-                self.A_out_tubes = self.params['Tube_pass']*self.params['Tube_L']*self.params['n_tubes']*np.pi*(self.params['Tube_OD'])
+                self.A_in_tubes = self.params['Tube_L']*self.params['n_tubes']*np.pi*((self.params['Tube_OD'] - 2*self.params['Tube_t']))
+                self.A_out_tubes = self.params['Tube_L']*self.params['n_tubes']*np.pi*(self.params['Tube_OD'])
             
                 if self.params['foul_s'] != None:
                     R_fouling_s = self.params['foul_s'] / self.A_out_tubes
@@ -1640,15 +1643,23 @@ class HeatExchangerMB(BaseComponent):
                     self.params["Overdesign"] = 0
                     
                     
-                UA_avail = (1-self.params["Overdesign"])/(1/(alpha_c*self.A_in_tubes) + 1/(alpha_h*self.A_out_tubes) + R_fouling_s + R_fouling_t + R_cond) 
-            
+                UA_avail = (1-self.params["Overdesign"])/(1/(alpha_c*self.A_in_tubes) + 1/(alpha_h*self.A_out_tubes) + R_fouling_s + R_fouling_t) # + R_fouling_s + R_fouling_t + R_cond) 
+                
+                # print("---------------")
+                # print(UA_avail)
+                # print("---------------")
+                # print(1/(alpha_c*self.A_in_tubes))
+                # print(1/(alpha_h*self.A_out_tubes))
+                # print(R_fouling_s)
+                # print(R_fouling_t)
+                
             elif self.HTX_Type == 'Tube&Fins':
                 
                 fact_cond_1 = np.log(self.params['Tube_OD']/(self.params['Tube_OD'] - 2*self.params['Tube_t']))
-                fact_cond_2 = 2*np.pi*self.params['Tube_cond']*self.params['Tube_L']*self.params['n_tubes']*self.params['n_passes']
+                fact_cond_2 = 2*np.pi*self.params['Tube_cond']*self.params['Tube_L']*self.params['n_tubes']*self.params['n_series']
                 R_cond = fact_cond_1/fact_cond_2                      
                 
-                self.A_in_tubes = self.params['n_passes']*self.params['Tube_L']*self.params['n_tubes']*np.pi*((self.params['Tube_OD'] - 2*self.params['Tube_t'])) # *self.geom.n_passes 
+                self.A_in_tubes = self.params['Tube_L']*self.params['n_tubes']*np.pi*((self.params['Tube_OD'] - 2*self.params['Tube_t'])) # *self.geom.n_passes 
                 self.A_out_tubes = self.params['A_finned']
                                         
                 R_fouling = 0 # self.geom.fouling / self.A_out_tubes             

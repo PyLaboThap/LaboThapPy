@@ -39,6 +39,8 @@ def shell_thickness(D_i, T_shell, P_des):
     
     """
 
+    P_des = max(P_des, 7*1e5)
+
     "Compute P_max for inputs"
     
     S_tube_calc = S_fun(T_shell)*1e6  # [Pa]
