@@ -457,5 +457,5 @@ class CrossFlowTubeAndFinsHTX(BaseComponent):
             self.T_ex.set_h(h_out_mean_tube)
             self.T_ex.set_p(p_out_tube)
                         
-            self.defined = True
+            self.solved = True
         return

@@ -185,11 +185,6 @@ class HXEffCst(BaseComponent):
         "Heat conector"
         self.Q_dot.set_Q_dot(Q_dot)
 
-        print(f"h: {self.ex_H.h}")
-        print(f"h: {self.su_H.h - Q_dot/self.su_H.m_dot}")
-        print(f"T: {self.ex_H.T}")
-        print(f"p: {self.ex_H.p}")
-
     def print_results(self):
         print("=== Heat Exchanger Results ===")
         print(f"Q: {self.Q_dot.Q_dot}")

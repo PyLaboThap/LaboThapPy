@@ -6,6 +6,7 @@ Created on Tue Jan 14 11:12:17 2025
 """
 
 from CoolProp.CoolProp import HAPropsSI
+import pandas as pd
 import warnings
 
 class HAConnector:
@@ -63,8 +64,22 @@ class HAConnector:
 
     def __init__(self,**kwargs):
         # Definition of attributes
-        self.attributes = ['P','T','h','w','RH','Tdp','Twb','v','cp','m_dot','V_dot']
-        for attr in self.attributes:
+        # Add attribute table with name of variable, def of variable and units
+        attr_data = {'m_dot':['Mass flow rate','kg/s'],
+                     'V_dot':['Volumetric flow rate','m^3/s'],
+                     'P':['Pressure','Pa'],
+                     'T':['Temperature','K'],
+                     'h':['Spec. enthalpy','J/K'],
+                     'w':['Humidity ratio','kg/kg'],
+                     'RH':['Relative humidity',''],
+                     'Tdp':['Dew point','K'],
+                     'Twb':['Wet bulb','K'],
+                     'v':['Spec. volume','m^3/kg'],
+                     'cp':['Spec. heat','J/kg.K']}
+        self.attributes = pd.DataFrame(data=attr_data,index=['Name','Units'])
+        
+        # Initialisation of all attributes to None
+        for attr in self.attributes.columns:
             setattr(self,attr,None)
         
         # Definition of properties usable in HAPropsSI
@@ -104,10 +119,15 @@ class HAConnector:
            setattr(self,attr,value)
            
            if prop in self.HA_prop:
-               self.unknown_prop.remove(prop)
-               self.known_prop.append(prop)
+               if prop in self.known_prop:
+                   # Place the property at the end of the list to use it as a reference to compute the fluid state
+                   self.known_prop.remove(prop)
+                   self.known_prop.append(prop)
+               else:
+                   self.unknown_prop.remove(prop)
+                   self.known_prop.append(prop)
                
-        if getattr(self,'P') == None:
+        if getattr(self,'P') is None:
             self.P = 101325         # Default: atmospheric value
 
     def get_properties(self,properties):
@@ -115,12 +135,12 @@ class HAConnector:
         # Properties can be computed only if 3 properties (including presssure) are known
         if len(self.known_prop) > 1:
             # Property 1
-            arg1 = self.known_prop[0]
+            arg1 = self.known_prop[-1]
             attr1 = self.HA_attributes[self.HA_prop.index(arg1)]
             val1 = getattr(self,attr1)
             
             # Property 2
-            arg2 = self.known_prop[1]
+            arg2 = self.known_prop[-2]
             attr2 = self.HA_attributes[self.HA_prop.index(arg2)]
             val2 = getattr(self,attr2)
             
@@ -185,34 +205,41 @@ class HAConnector:
             print("Not enough properties known.")
         
             
-    # def print_resume(self, unit_T='K', unit_p='Pa'):
-    #     """
-    #     Parameters
-    #     ----------
-    #     unit_T = Temperature unit: 'K' or 'C'
-    #     unit_p = Temperature unit: 'Pa' or 'bar'
+    def print_resume(self, unit_T='K', unit_P='Pa', unit_w='kg/kg', unit_RH=''):
+        """
+        Parameters
+        ----------
+        unit_T = Temperature unit: 'K' or 'C'
+        unit_P = Temperature unit: 'Pa' or 'bar'
+        unit_w = Temperature unit: 'kg/kg' or 'g/kg'
+        unit_RH = Temperature unit: '' or '%' 
+        """
         
-    #     """
-        
-    #     print("Mass flow rate: " + str(self.m_dot) + "[kg/s]")
-    #     print("Volume flow rate: " + str(self.V_dot) + "[m^3/h]")
-        
-    #     if unit_T == 'K':
-    #         print("Temperature: " + str(self.T) + "[K]")
-    #     elif unit_T == 'C':
-    #         print("Temperature: " + str(self.T-273.15) + "[°C]")
-    #     else:
-    #         print("Error: Wrong argument unit_T in the method print_resume")
-
-    #     if unit_p == 'Pa':
-    #         print("Pressure: " + str(self.p) + "[Pa]")
-    #     elif unit_p == 'bar':
-    #         print("Pressure: " + str(self.p/1e5) + "[bar]")
-    #     else:
-    #         print("Error: Wrong argument unit_p in the method print_resume")
-            
-        
-    #     print("Spec. enthalpy: " + str(self.h) + "[J/kg]")
-        
-    #     print("Mass density: " + str(self.D) + "[kg/m^3]")
-    #     print("Quality: " + str(self.x) + "[-]")
+        for attr in self.attributes.columns:
+            name = self.attributes[attr]['Name']
+            value = getattr(self,attr)
+            if value is not None:
+                units = self.attributes[attr]['Units']
+                
+                match units:
+                    case 'Pa':
+                        if unit_P == 'bar':
+                            units = unit_P
+                            value = value/1e5
+                            
+                    case 'K':
+                        if unit_T == 'C':
+                            units = unit_T
+                            value = value-273.15
+                            
+                    case 'kg/kg':
+                        if unit_w == 'g/kg':
+                            units = unit_w
+                            value = value*1e3
+                            
+                    case '':
+                        if unit_RH == '%':
+                            units = unit_RH
+                            value = value*1e2
+                
+                print(name + " : " + str(format(value,'.2f')) + " " + units)

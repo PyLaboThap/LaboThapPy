@@ -8,8 +8,8 @@ Created on Wed Jun  5 10:07:43 2024
 import __init__ 
 
 from connector.mass_connector import MassConnector
-from component.steady_state.turbomachinery.turbine.polyn_isentropic_eff.simulation_model import Turb_polyn_eff
-from modules.c_turb_polyn_geom import Geometry_polyn_turb
+from component.turbomachinery.turbine.steady_state.polyn_isentropic_eff.simulation_model import Turb_polyn_eff
+from component.turbomachinery.turbine.steady_state.polyn_isentropic_eff.modules.geometry_turb_polyn import Geometry_polyn_turb
 from CoolProp.CoolProp import PropsSI   
 import numpy as np 
 import matplotlib.pyplot as plt
