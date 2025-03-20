@@ -1,13 +1,13 @@
 import pandas as pd
 from scipy.optimize import least_squares
 
-from component.volumetric_machine.expander.steady_state.semi_empirical.simulation_model import ExpanderSE
+from labothappy.component.volumetric_machine.expander.steady_state.semi_empirical.exp_semi_empirical import ExpanderSE
 from toolbox.parity_plot import plot_parity
 # from labothappy.connector. mass_connector import MassConnector
 
 import pandas as pd
 from scipy.optimize import least_squares
-from component.volumetric_machine.expander.steady_state.semi_empirical.simulation_model import ExpanderSE
+from labothappy.component.volumetric_machine.expander.steady_state.semi_empirical.exp_semi_empirical import ExpanderSE
 from toolbox.parity_plot import plot_parity
 
 def calibrate_expander_model(data_path, col_names, initial_params, bounds, fitting_params, fluid):

@@ -97,7 +97,7 @@ class ExpanderSE(BaseComponent):
     def get_required_inputs(self):
             self.sync_inputs()
             # Return a list of required inputs
-            return ['su_p', 'su_T', 'ex_p', 'N_rot', 'T_amb', 'su_fluid']
+            return ['P_su', 'T_su', 'ex_p', 'N_rot', 'T_amb', 'su_fluid']
     
     def sync_inputs(self):
         """Synchronize the inputs dictionary with the connector states."""
@@ -141,12 +141,6 @@ class ExpanderSE(BaseComponent):
     
     def print_setup(self):
         print("=== Expander Setup ===")
-        print("Connectors:")
-        print(f"  - su: fluid={self.su.fluid}, T={self.su.T}, p={self.su.p}, m_dot={self.su.m_dot}")
-        print(f"  - ex: fluid={self.ex.fluid}, T={self.ex.T}, p={self.ex.p}, m_dot={self.ex.m_dot}")
-        print(f"  - W_exp: N={self.W_exp.N}, W={self.W_exp.W_dot}")
-        print(f"  - Q_amb: T_cold={self.Q_amb.T_cold}, T_hot={self.Q_amb.T_hot}, Q={self.Q_amb.Q_dot}")
-
         print("\nInputs:")
         for input in self.get_required_inputs():
             if input in self.inputs:

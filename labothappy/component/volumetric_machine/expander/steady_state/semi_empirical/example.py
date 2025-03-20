@@ -6,7 +6,7 @@ Created on Wed Nov 22 14:39:37 2023
 """
 
 import __init__
-from simulation_model import ExpanderSE
+from labothappy.component.volumetric_machine.expander.steady_state.semi_empirical.exp_semi_empirical import ExpanderSE
 
 import numpy as np
 

@@ -1,5 +1,5 @@
 import pandas as pd
-from labothappy.component.volumetric_machine.expander.steady_state.semi_empirical.simulation_model import ExpanderSE
+from labothappy.component.volumetric_machine.expander.steady_state.semi_empirical.exp_semi_empirical import ExpanderSE
 from toolbox.parity_plot import plot_parity
 # Load data
 data_path = "labothappy/component/volumetric_machine/expander/steady_state/semi_empirical/calibration_fct/data_example.csv"
