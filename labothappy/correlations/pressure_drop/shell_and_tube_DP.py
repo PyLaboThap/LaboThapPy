@@ -104,12 +104,59 @@ def d_h(Tube_OD, pitch_ratio, tube_layout): # Hydraulic diameter (m)
         D_h = 4*( (p_T**2 - np.pi*(Tube_OD**2 / 4)) / (np.pi*Tube_OD) )
 
     else:
-    
-        D_h = 2 * (3**(1/2) / np.pi) * (p_T**2 / Tube_OD) - Tube_OD
+        
+        D_h = (4*(0.43*p_T**2 - (0.5*np.pi*Tube_OD**2 /4)))/(0.5*np.pi*Tube_OD)
+        # D_h = 2 * (3**(1/2) / np.pi) * (p_T**2 / Tube_OD) - Tube_OD
         
     return D_h
 
 #%%
+
+# def shell_DP_kern(m_dot, T_wall, h_in, P_in, fluid, params):
+#     """
+#     Inputs
+#     ----------
+    
+#     m_dot  : Flow rate [kg/s]
+#     T_wall : Wall Temperature [K]
+#     h_in   : Inlet Enthalpy [K]
+#     P_in   : Inlet pressure [Pa]
+#     fluid  : fluid name [-]
+#     params : HTX parameters [-]
+
+#     Outputs
+#     -------
+    
+#     h = shell side heat transfer coefficient [W/(m^2 * K)]    
+#     DP = shell side pressure drop [Pa]
+    
+#     References
+#     -------
+#     Process Heat Transfer - D. Q. Kern
+#     """
+    
+#     "1) HTC"
+    
+#     (rho, mu) = PropsSI(('D','V'),'H',h_in, 'P',P_in,fluid)
+    
+#     mu_w = PropsSI('V','T',T_wall,'P',P_in,fluid)
+
+#     S_T = s_max(params['Tube_OD'], params['pitch_ratio'], params['Shell_ID'], params['central_spacing'], params['tube_layout']) # m^2
+#     D_hydro = d_h(params['Tube_OD'], params['pitch_ratio'], params['tube_layout'])
+
+#     V_t = m_dot/(S_T*rho)
+    
+#     Re = rho*V_t*(D_hydro/mu)
+    
+#     "2) DP"
+    
+#     f = np.e**(0.576 - 0.19*np.log(Re)) # [-] : Friction coefficient
+#     G = m_dot/S_T # kg/(m^2 * s)
+#     phi_s = (mu/mu_w)**(0.14)  
+
+#     DP = (f*G**2 * params['Shell_ID'] * (params['cross_passes'] + 1))/(2*rho*D_hydro*phi_s)
+    
+#     return DP
 
 def shell_DP_kern(m_dot, T_wall, h_in, P_in, fluid, params):
     """
@@ -142,18 +189,17 @@ def shell_DP_kern(m_dot, T_wall, h_in, P_in, fluid, params):
 
     S_T = s_max(params['Tube_OD'], params['pitch_ratio'], params['Shell_ID'], params['central_spacing'], params['tube_layout']) # m^2
     D_hydro = d_h(params['Tube_OD'], params['pitch_ratio'], params['tube_layout'])
-
-    V_t = m_dot/(S_T*rho)
     
-    Re = rho*V_t*(D_hydro/mu)
+    V_s = m_dot/(S_T*rho)
+    
+    Re = rho*V_s*(D_hydro/mu)
     
     "2) DP"
+    bo = 0.72
     
-    f = np.e**(0.576 - 0.19*np.log(Re)) # [-] : Friction coefficient
-    G = m_dot/S_T # kg/(m^2 * s)
-    phi_s = (mu/mu_w)**(0.14)  
+    f = 2*bo*Re**(-0.15) # [-] : Friction coefficient
 
-    DP = (f*G**2 * params['Shell_ID'] * (params['cross_passes'] + 1))/(2*rho*D_hydro*phi_s)
+    DP = f*(rho*V_s**2 / 2)*(params['Tube_L']/params['central_spacing'])*(params['Shell_ID']/D_hydro) # (f*G**2 * params['Shell_ID'] * (params['cross_passes'] + 1))/(2*rho*D_hydro*phi_s)
     
     return DP
 

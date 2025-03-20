@@ -27,7 +27,8 @@ def estimate_number_of_tubes(D_main, d_tube, P, config_angle, min_tube_row):
         d_tube (float): Tube diameter.
         P (float): Center-to-center distance (pitch).
         config_angle (float): Configuration angle (in degrees), typically 60 for triangular or 45 for staggered square.
-    
+        min_tube_row (int) : Minimum number of tubes in a row
+        
     Returns:
         int: Estimated number of tubes.
         list: List containing number of tubes in each row.
@@ -57,7 +58,7 @@ def estimate_number_of_tubes(D_main, d_tube, P, config_angle, min_tube_row):
     tubes_per_row = []
 
     # Start at the top (y_pos = 0) and move row by row vertically down
-    y_pos = 20*1e-3
+    y_pos = P
     
     # Iterate row by row while staying within the half diameter of the circle
     while y_pos < D_main / 2:
@@ -177,10 +178,10 @@ def carbon_steel_pipe_thickness(D_o_vect, tube_T, ext_p, int_p):
     thickness = np.array([
                 [2.11, 2.41, 2.77, 3.73], # 1/2
                 [2.11, 2.41, 2.82, 3.89], # 5/8
-                [2.11, 2.41, 2.87, 3.91], # 3/4
-                [2.77, 2.90, 3.38, 4.55], # 1
-                [2.77, 2.97, 3.56, 4.85], # 1 + 1/4
-                [2.77, 3.18, 3.68, 5.08]  # 1 + 1/2
+                # [2.11, 2.41, 2.87, 3.91], # 3/4
+                # [2.77, 2.90, 3.38, 4.55], # 1
+                # [2.77, 2.97, 3.56, 4.85], # 1 + 1/4
+                # [2.77, 3.18, 3.68, 5.08]  # 1 + 1/2
                 ])*1e-3 # m
 
     thickness_df = pd.DataFrame(index = D_o_vect, columns = standards, data = thickness)

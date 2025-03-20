@@ -31,9 +31,9 @@ start_time = time.time()
 
 HX = HeatExchangerMB('Shell&Tube')
 
-# "Setting inputs"
-# -------------------------------------------------------------------------------------------------------------
-# DECAGONE Evaporator case
+# # "Setting inputs"
+# # -------------------------------------------------------------------------------------------------------------
+# # DECAGONE Evaporator case
 # HX.set_inputs(
 #     # First fluid
 #     Hsu_fluid = 'INCOMP::T66',
@@ -55,6 +55,7 @@ HX = HeatExchangerMB('Shell&Tube')
 
 # "Correlation Loading"
 
+# # Corr_H = {"1P" : "Shell_Bell_Delaware_HTC", "2P" : "Shell_Bell_Delaware_HTC"}
 # Corr_H = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
 # Corr_C = {"1P" : "Gnielinski", "2P" : "Boiling_curve"}
 
@@ -118,47 +119,47 @@ HX = HeatExchangerMB('Shell&Tube')
 
 HX.set_inputs(
               # Hot Fluid
-              Hsu_T = 273.15 + 39.94, # K
-              Hsu_p = 71.82*1e3, # 51.75*1e3, # Pa
-              Hsu_m_dot = 34.51, # kg/s
-              Hsu_fluid = 'Cyclopentane',
+              Hsu_T = 273.15 + 33.9, # K
+              Hsu_p = 2*1e5, # 51.75*1e3, # Pa
+              Hsu_m_dot = 22.07, # kg/s
+              Hsu_fluid = 'Water',
               
               # Cold Fluid
-              Csu_T = 273.15 + 24, # K
-              Csu_p = 131*1e3, # 51.75*1e3, # Pa
-              Csu_m_dot = 700, # kg/s
+              Csu_T = 273.15 + 23.9, # K
+              Csu_p = 2*1e3, # 51.75*1e3, # Pa
+              Csu_m_dot = 35.31, # kg/s
               Csu_fluid = 'Water'
               )
 
-# "Geometry Loading"
+# # # "Geometry Loading"
 
-# params =  {'tube_layout': 45, 'Tube_pass': 2, 'n_series': 1, 'Baffle_cut': 25, 'foul_t': 0, 'foul_s': 0, 'tube_cond': 50, 'Shell_Side': 'C', 'Flow_Type': 'Shell&Tube', 'H_DP_ON': True, 'C_DP_ON': True, 'n_disc': 30, 'A_eff': 697.3292368049083, 'S_V_tot': 10.268864099111516, 'Shell_ID': 1.524, 'T_V_tot': 2.42544652488181, 'Tube_L': 7.45, 'Tube_OD': 0.038099999999999995, 'Tube_t': 0.00277, 'central_spacing': 0.745, 'cross_passes': 9, 'n_tubes': 391, 'pitch_ratio': 1.25}
+# # params =  {'tube_layout': 45, 'Tube_pass': 2, 'n_series': 1, 'Baffle_cut': 25, 'foul_t': 0, 'foul_s': 0, 'tube_cond': 50, 'Shell_Side': 'C', 'Flow_Type': 'Shell&Tube', 'H_DP_ON': True, 'C_DP_ON': True, 'n_disc': 30, 'A_eff': 697.3292368049083, 'S_V_tot': 10.268864099111516, 'Shell_ID': 1.524, 'T_V_tot': 2.42544652488181, 'Tube_L': 7.45, 'Tube_OD': 0.038099999999999995, 'Tube_t': 0.00277, 'central_spacing': 0.745, 'cross_passes': 9, 'n_tubes': 391, 'pitch_ratio': 1.25}
 params = {'htc_type': 'Correlation',
- 'A_eff': 574.7116126150519,
- 'Baffle_cut': 25,
- 'S_V_tot': 8.463198062891905,
- 'Shell_ID': 1.524,
- 'T_V_tot': 1.9989586124529277,
- 'Tube_L': 6.14,
- 'Tube_OD': 0.038099999999999995,
- 'Tube_pass': 2,
- 'Tube_t': 0.00277,
- 'central_spacing': 1.535,
- 'cross_passes': 3,
- 'foul_s': 0,
- 'foul_t': 0,
- 'n_series': 1,
- 'n_tubes': 391,
- 'pitch_ratio': 1.25,
- 'tube_cond': 50,
- 'tube_layout': 45,
- 'Shell_Side': 'C',
- 'Flow_Type': 'Shell&Tube',
- 'H_DP_ON': True,
- 'C_DP_ON': True,
- 'n_disc': 50,
- 'DP_type': 'Correlation'}
-
+  'A_eff': 62.5,
+  'Baffle_cut': 25,
+  'S_V_tot': 0.26411652309695416,
+  'Shell_ID': 0.62,
+  'T_V_tot': 0.12188261269318262,
+  'Tube_L': 1.548,
+  'Tube_OD': 0.016,
+  'Tube_pass': 2,
+  'Tube_t': 0.00211,
+  'central_spacing': 0.44,
+  'cross_passes': 3,
+  'foul_s': 0.00017,
+  'foul_t': 0.00017,
+  'n_series': 1,
+  'n_tubes': 803,
+  'pitch_ratio': 1.25,
+  'tube_cond': 50,
+  'tube_layout': 60,
+  'Shell_Side': 'H',
+  'Flow_Type': 'Shell&Tube',
+  'H_DP_ON': True,
+  'C_DP_ON': True,
+  'n_disc': 50,
+  'DP_type': 'Correlation'}
+    
 HX.set_parameters(
     A_eff = params['A_eff'], Baffle_cut = params['Baffle_cut'], S_V_tot = params['S_V_tot'],
     Shell_ID = params['Shell_ID'], T_V_tot = params['T_V_tot'], Tube_L = params['Tube_L'], 
@@ -171,17 +172,15 @@ HX.set_parameters(
 
     Flow_Type = params['Flow_Type'], H_DP_ON = params['H_DP_ON'], C_DP_ON = params['C_DP_ON'], n_disc = params['n_disc']) 
 
-# "Correlation Loading"
+# # "Correlation Loading"
 
-Corr_H = {"1P" : "Gnielinski", "2P" : "Horizontal_Tube_Internal_Condensation"}
-Corr_C = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
+Corr_C = {"1P" : "Gnielinski", "2P" : "Horizontal_Tube_Internal_Condensation"}
+Corr_H = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
 
-Corr_C_DP = "Shell_Kern_DP"
-Corr_H_DP = "Gnielinski_DP"
-
+Corr_H_DP = "Shell_Kern_DP"
+Corr_C_DP = "Gnielinski_DP"
 
 # -------------------------------------------------------------------------------------------------------------
-
 
 "Parameters Setting"
 
@@ -218,7 +217,6 @@ HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-D
 
 HX.set_DP(DP_type="Correlation", Corr_H=Corr_H_DP, Corr_C=Corr_C_DP)
 # HX.set_DP()
-
 
 "Solve the component"
 

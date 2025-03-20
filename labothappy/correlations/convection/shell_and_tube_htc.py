@@ -165,6 +165,10 @@ def shell_htc_kern(m_dot, T_wall, T_in, P_in, fluid, params):
         Nu = 0.36*Pr**0.33 * Re**(0.55) * (mu/mu_w)**(0.14)  
 
     h = Nu*k/D_hydro
+    
+    # print(f"h : {h}")
+    # print(f"Re : {Re}")
+    # print(f"Pr : {Pr}")
         
     return h
 

@@ -10,7 +10,76 @@ from CoolProp.CoolProp import PropsSI
 from scipy.optimize import fsolve
 
 #%%
-def gnielinski_pipe_htc(mu, Pr, Pr_w, k, G, Dh, L):
+
+# def gnielinski_pipe_htc(mu, Pr, Pr_w, k, G, Dh, L):
+#     """
+#     Inputs
+#     ------
+    
+#     mu   : Dynamic Viscosity [Pa*s]
+#     Pr   : Prantl number [-]
+#     Pr_w : Prandtl number at wall conditions [-]
+#     k    : Thermal conductivity [W/(m*K)]
+#     G    : Flow rate per cross section area [kg/(m^2 * s)]
+#     Dh   : Hydraulic diameter [m]
+#     L    : Flow length [m]
+    
+#     Outputs
+#     -------
+    
+#     hConv : Convection heat transfer coefficient [W/(m^2 * K)]
+    
+#     Reference
+#     ---------
+#     Validation of the Gnielinski correlation for evaluation of heat transfer coefficient of enhanced tubes by non-linear 
+#     regression model: An experimental study of absorption refrigeration system
+    
+#     Syed Muhammad Ammar, Chan Woo Park
+#     """
+#     #-------------------------------------------------------------------------
+#     def gnielinski_laminar(Re, Pr, Dh, L):
+#         Nu_1 = 4.364
+#         Nu_2 = 1.953*(Re*Pr*Dh/L)**(1/3)
+#         Nu = (Nu_1**3 + 0.6**3 + (Nu_2 - 0.6)**3)**(1/3)
+#         return Nu
+#     def gnielinski_turbulent(Re, Pr):
+#         f = (1.82*log10(Re) - 1.64)**(-2) # (1.8*log10(Re) - 1.5)**(-2)
+#         Nu = (((f/8)*(Re-1000)*Pr) / (1+12.7*(f/8)**(1/2) * (Pr**(2/3)-1)) )*(1 + (Dh/L)**(2/3)) #*(Pr/Pr_w)**(0.11)
+#         return Nu
+#     #-------------------------------------------------------------------------
+#     Re_min = 0
+#     Re_max = 1e06
+#     Re = G*Dh/mu
+#     #-------------------------------------------------------------------------
+#     if Re > 1e4: #fully turbulent
+#         Pr_min = 0.1
+#         Pr_max = 1000
+#         Nu = gnielinski_turbulent(Re, Pr)
+#     elif Re < 2300: #fully laminar
+#         Pr_min = 0.6
+#         Pr_max = inf
+#         Nu = gnielinski_laminar(Re, Pr, Dh, L)
+#     else: #transition zone
+#         Pr_min = 0.1
+#         Pr_max = 1000
+#         gamma = (Re - 2300)/(1e4 - 2300)
+#         Nu_lam2300 = gnielinski_laminar(2300, Pr, Dh, L)
+#         Nu_turb10000 = gnielinski_turbulent(1e4, Pr)
+#         Nu = (1-gamma)*Nu_lam2300 + gamma*Nu_turb10000
+#     #-------------------------------------------------------------------------
+#     hConv = Nu*k/Dh
+    
+#     #-------------------------------------------------------------------------
+#     if Re >= Re_max or Re <=Re_min:
+#         # warnings.warn('Gnielinski singe-phase: Out of validity range --> Re = ', Re, ' is out of [', Re_min, ' - ', Re_max, '] !!!')
+#         warnings.warn('Gnielinski singe-phase: Reynolds Out of validity range !!!')
+#     if Pr >= Pr_max or Pr <= Pr_min:
+#         # warnings.warn('Gnielinski singe-phase: Out of validity range --> Re = ', Pr, ' is out of [', Pr_min, ' - ', Pr_max, '] !!!')
+#         warnings.warn('Gnielinski singe-phase: Prandtl Out of validity range  !!!')
+#     #-------------------------------------------------------------------------
+#     return hConv
+
+def gnielinski_pipe_htc(mu, Pr, mu_w, k, G, Dh, L):
     """
     Inputs
     ------
@@ -36,38 +105,39 @@ def gnielinski_pipe_htc(mu, Pr, Pr_w, k, G, Dh, L):
     Syed Muhammad Ammar, Chan Woo Park
     """
     #-------------------------------------------------------------------------
-    def gnielinski_laminar(Re, Pr, Dh, L):
-        Nu_1 = 4.364
-        Nu_2 = 1.953*(Re*Pr*Dh/L)**(1/3)
-        Nu = (Nu_1**3 + 0.6**3 + (Nu_2 - 0.6)**3)**(1/3)
+    def Stephan_Preusser(Re, Pr, Dh, L):
+        Nu_1 = 0.0677*(Re*Pr*(Dh/L)**1.33)
+        Nu_2 = 1 + 0.1*Pr*(Re*Dh/L)**(0.3)
+        Nu = 3.657 + Nu_1/Nu_2
         return Nu
-    def gnielinski_turbulent(Re, Pr):
-        f = (1.8*log10(Re) - 1.5)**(-2)
-        Nu = (((f/8)*(Re-1000)*Pr) / (1+12.7*(f/8)**(1/2) * (Pr**(2/3)-1)) )*(1 + (Dh/L)**(2/3))*(Pr/Pr_w)**(0.11)
+    def gnielinski_transition(Re, Pr):
+        f = (1.82*np.log10(Re) - 1.64)**(-2) # (1.8*log10(Re) - 1.5)**(-2)
+        Nu = (((f/8)*(Re-1000)*Pr) / (1+12.7*(f/8)**(1/2) * (Pr**(2/3)-1)) )*(1 + (Dh/L)**(2/3)) #*(Pr/Pr_w)**(0.11)
+        return Nu
+    def sieder_tate(Re, Pr):
+        Nu = 0.027*Re**0.8*Pr**(1/3)*(mu/mu_w)**0.14
         return Nu
     #-------------------------------------------------------------------------
     Re_min = 0
     Re_max = 1e06
     Re = G*Dh/mu
+
     #-------------------------------------------------------------------------
-    if Re > 1e4: #fully turbulent
+    if Re > 10000: #fully turbulent
         Pr_min = 0.1
         Pr_max = 1000
-        Nu = gnielinski_turbulent(Re, Pr)
-    elif Re < 2300: #fully laminar
+        Nu = sieder_tate(Re, Pr)
+    if Re < 2300: #fully laminar
         Pr_min = 0.6
         Pr_max = inf
-        Nu = gnielinski_laminar(Re, Pr, Dh, L)
-    else: #transition zone
+        Nu = Stephan_Preusser(Re, Pr, Dh, L)
+    else: #transition zone    
         Pr_min = 0.1
         Pr_max = 1000
-        gamma = (Re - 2300)/(1e4 - 2300)
-        Nu_lam2300 = gnielinski_laminar(2300, Pr, Dh, L)
-        Nu_turb10000 = gnielinski_turbulent(1e4, Pr)
-        Nu = (1-gamma)*Nu_lam2300 + gamma*Nu_turb10000
-    #-------------------------------------------------------------------------
+        Nu = gnielinski_transition(Re, Pr)
+        #-------------------------------------------------------------------------
     hConv = Nu*k/Dh
-    
+        
     #-------------------------------------------------------------------------
     if Re >= Re_max or Re <=Re_min:
         # warnings.warn('Gnielinski singe-phase: Out of validity range --> Re = ', Re, ' is out of [', Re_min, ' - ', Re_max, '] !!!')
