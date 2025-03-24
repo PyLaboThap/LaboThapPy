@@ -56,6 +56,7 @@ from baffle_toolbox import baffle_thickness
 
 from component.heat_exchanger.hex_MB_charge_sensitive import HeatExchangerMB
 
+from CoolProp.CoolProp import PropsSI
 import pandas as pd
 import random
 import numpy as np
@@ -181,38 +182,81 @@ class ShellAndTubeSizingOpt(BaseComponent):
             self.HX = HeatExchangerMB('Shell&Tube')
 
             if self.params['Shell_Side'] == 'C':
+                # self.HX.set_inputs(
+                #     # First fluid
+                #     Hsu_fluid = self.su_T.fluid,
+                #     Hsu_T = self.su_T.T, # K
+                #     Hsu_p = self.su_T.p, # Pa
+                #     Hsu_m_dot = self.su_T.m_dot, # kg/s
+
+                #     # Second fluid
+                #     Csu_fluid = self.su_S.fluid,
+                #     Csu_T = self.su_S.T, # K
+                #     Csu_p = self.su_S.p, # Pa
+                #     Csu_m_dot = self.su_S.m_dot, # kg/s  # Make sure to include fluid information
+                # )
+                
                 self.HX.set_inputs(
                     # First fluid
                     Hsu_fluid = self.su_T.fluid,
-                    Hsu_T = self.su_T.T, # K
-                    Hsu_p = self.su_T.p, # Pa
                     Hsu_m_dot = self.su_T.m_dot, # kg/s
 
                     # Second fluid
                     Csu_fluid = self.su_S.fluid,
-                    Csu_T = self.su_S.T, # K
-                    Csu_p = self.su_S.p, # Pa
                     Csu_m_dot = self.su_S.m_dot, # kg/s  # Make sure to include fluid information
                 )
+                
+                HX_req_inputs = self.HX.get_required_inputs()
+
+                for input_var in self.su_S.variables_input:
+                    input_str = 'Csu_' + input_var[0]
+                    if input_str in HX_req_inputs:    
+                        self.HX.set_inputs(**{input_str: input_var[1]})
+                    else:
+                        input_str = 'Csu_' + input_var[0].lower()
+                        self.HX.set_inputs(**{input_str: input_var[1]})
+
+                for input_var in self.su_T.variables_input:
+                    input_str = 'Hsu_' + input_var[0]
+                    if input_str in HX_req_inputs:    
+                        self.HX.set_inputs(**{input_str: input_var[1]})
+                    else:
+                        input_str = 'Hsu_' + input_var[0].lower()
+                        self.HX.set_inputs(**{input_str: input_var[1]})
+
             else:
                 self.HX.set_inputs(
                     # First fluid
                     Hsu_fluid = self.su_S.fluid,
-                    Hsu_T = self.su_S.T, # K
-                    Hsu_p = self.su_S.p, # Pa
                     Hsu_m_dot = self.su_S.m_dot, # kg/s
 
                     # Second fluid
                     Csu_fluid = self.su_T.fluid,
-                    Csu_T = self.su_T.T, # K
-                    Csu_p = self.su_T.p, # Pa
                     Csu_m_dot = self.su_T.m_dot, # kg/s  # Make sure to include fluid information
-                )          
+                )    
+                
+                HX_req_inputs = self.HX.get_required_inputs()
+
+                for input_var in self.su_T.variables_input:
+                    input_str = 'Csu_' + input_var[0]
+                    if input_str in HX_req_inputs:    
+                        self.HX.set_inputs(**{input_str: input_var[1]})
+                    else:
+                        input_str = 'Csu_' + input_var[0].lower()
+                        self.HX.set_inputs(**{input_str: input_var[1]})
+
+                for input_var in self.su_S.variables_input:
+                    input_str = 'Hsu_' + input_var[0]
+                    if input_str in HX_req_inputs:    
+                        self.HX.set_inputs(**{input_str: input_var[1]})
+                    else:
+                        input_str = 'Hsu_' + input_var[0].lower()
+                        self.HX.set_inputs(**{input_str: input_var[1]})
 
             "Correlation Loading And Setting"
 
             Corr_H = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
-            Corr_C = {"1P" : "Gnielinski", "2P" : "Horizontal_Tube_Internal_Condensation"}
+            Corr_C = {"1P" : "Gnielinski", "2P" : "Boiling_curve"}
 
             self.HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation' # 31
 
@@ -253,7 +297,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
                 self.DP_c = self.HX.DP_c
         
                 return self.HX.Q, self.HX.DP_h, self.HX.DP_c
-            
+        
             except:
                 self.Q = 0
                 self.DP_h = 0
@@ -615,9 +659,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
                     self.init_particle(self.particles[i])
 
                 for opt_var in self.opt_vars:
-                    
                     self.particles_all_pos[opt_var][i][iteration] = self.particles[i].position[opt_var]
-
                     if iteration > 1:
                         pos = round(self.particles_all_pos[opt_var][i][iteration],2)
                         pos_previous = round(self.particles_all_pos[opt_var][i][iteration-1],2)
@@ -783,7 +825,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
     
     def opt_size(self):
 
-        return self.particle_swarm_optimization(objective_function = self.HX_Mass , bounds = self.bounds, num_particles = 100, num_dimensions = len(self.opt_vars), max_iterations = 50, inertia_weight = 0.5,
+        return self.particle_swarm_optimization(objective_function = self.HX_Mass , bounds = self.bounds, num_particles = 100, num_dimensions = len(self.opt_vars), max_iterations = 5, inertia_weight = 0.5,
                                           cognitive_constant = 0.5, social_constant = 0.5, constraints = [self.constraint_Q_dot, self.constraint_DP_h, self.constraint_DP_c], penalty_factor = 1)
 
 """
@@ -836,11 +878,10 @@ Optimization related parameters/variables
 HX_test.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'Tube_pass', 'tube_layout', 'Baffle_cut'])
 
 choice_vectors = {
-                    'D_o_inch' : [0.5, 0.625], # [0.5, 0.625, 0.75, 1, 1.25, 1.5],
-                    'Shell_ID_inch' : [21.25, 23.25, 25, 27,
-                        29, 31, 33], # [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
-                        # 29, 31, 33], # 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78,
-                        # 84, 90, 96, 108, 120],
+                    'D_o_inch' : [0.5, 0.625, 0.75, 1, 1.25, 1.5],
+                    'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
+                        29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78,
+                        84, 90, 96, 108, 120],
                     'Tube_pass' : [2], # [1,2,4], #,6,8,10]
                     'tube_layout' : [60]} # [0, 45, 60]}
 
@@ -898,33 +939,33 @@ Thermodynamical parameters : Inlet and Outlet Design States
 
 # ------------------------------------------------------------
 
-su_S = MassConnector()
-su_S.set_properties(T = 273.15 + 33.9, # K
-                    P = 2*1e5, # Pa
-                    m_dot = 22.07, # kg/s
-                    fluid = 'Water'
-                    )
+# su_S = MassConnector()
+# su_S.set_properties(T = 273.15 + 33.9, # K
+#                     P = 2*1e5, # Pa
+#                     m_dot = 22.07, # kg/s
+#                     fluid = 'Water'
+#                     )
 
-ex_S = MassConnector()
-ex_S.set_properties(T = 273.15 + 29.4, # K
-                    P = 1.5*1e5, # Pa
-                    m_dot = 22.07, # kg/s
-                    fluid = 'Water'
-                    )
+# ex_S = MassConnector()
+# ex_S.set_properties(T = 273.15 + 29.4, # K
+#                     P = 1.5*1e5, # Pa
+#                     m_dot = 22.07, # kg/s
+#                     fluid = 'Water'
+#                     )
 
-su_T = MassConnector()
-su_T.set_properties(T = 273.15 + 23.9, # K
-                    P = 2*1e5, # 51.75*1e3, # Pa
-                    m_dot = 35.31, # kg/s
-                    fluid = 'Water'
-                    )
+# su_T = MassConnector()
+# su_T.set_properties(T = 273.15 + 23.9, # K
+#                     P = 2*1e5, # 51.75*1e3, # Pa
+#                     m_dot = 35.31, # kg/s
+#                     fluid = 'Water'
+#                     )
 
-ex_T = MassConnector()
-ex_T.set_properties(T = 273.15 + 26.7, # K
-                    P = 1.5*1e5, # Pa
-                    m_dot = 35.31, # kg/s
-                    fluid = 'Water'
-                    )
+# ex_T = MassConnector()
+# ex_T.set_properties(T = 273.15 + 26.7, # K
+#                     P = 1.5*1e5, # Pa
+#                     m_dot = 35.31, # kg/s
+#                     fluid = 'Water'
+#                     )
 
 # ------------------------------------------------------------
 
@@ -958,6 +999,36 @@ ex_T.set_properties(T = 273.15 + 26.7, # K
 
 # ------------------------------------------------------------
 
+su_S = MassConnector()
+su_S.set_properties(T = 273.15 + 26, # K
+                    P = 2*1e5, # 51.75*1e3, # Pa
+                    m_dot = 5.35, # kg/s
+                    fluid = 'Water'
+                    )
+
+ex_S = MassConnector()
+ex_S.set_properties(T = 273.15 + 11.7, # K
+                    P = 1.9*1e5, # Pa
+                    m_dot = 5.35, # kg/s
+                    fluid = 'Water'
+                    )
+
+su_T = MassConnector()
+su_T.set_properties(P = PropsSI('P','T', 273.15+7,'Q',0,'R134a'), # K
+                    H = PropsSI('H','T', 273.15+7,'Q',0,'R134a')-100, # Pa
+                    m_dot = 1.62, # kg/s
+                    fluid = 'R134a'
+                    )
+
+ex_T = MassConnector()
+ex_T.set_properties(P = PropsSI('P','T', 273.15+7,'Q',1,'R134a') - 15*1e3, # K
+                    H = PropsSI('H','T', 273.15+7,'Q',1,'R134a'), # Pa
+                    m_dot = 1.62, # kg/s
+                    fluid = 'R134a'
+                    )
+
+# ------------------------------------------------------------
+
 HX_test.set_thermo_BC(su_S = su_S, ex_S = ex_S, su_T = su_T, ex_T = ex_T)
 
 """
@@ -968,8 +1039,8 @@ HX_test.set_parameters(
                         n_series = 1, # [-]
                         # OPTI -> Oui (regarder le papier pour déterminer ça)
 
-                        foul_t = 0.00017, # 0.0002 # 0.00017 # (m^2 * K/W)
-                        foul_s = 0.00017, # 0.00033 # 0.00017 # (m^2 * K/W)
+                        foul_t = 0.000176, # 0.0002 # 0.00017 # (m^2 * K/W)
+                        foul_s = 0.000176, # 0.00033 # 0.00017 # (m^2 * K/W)
                         tube_cond = 50, # W/(m*K)
                         Overdesign = 0,
                         
@@ -978,7 +1049,7 @@ HX_test.set_parameters(
                         Flow_Type = 'Shell&Tube',
                         H_DP_ON = True,
                         C_DP_ON = True,
-                        n_disc = 50
+                        n_disc = 5
                       )
 
 """
@@ -995,7 +1066,7 @@ Geometry Computation Test
 # HX_test.compute_geom()
 
 bounds = {
-            "L_shell" : [1,7], # 10],
+            "L_shell" : [1,15], # 10],
             "D_o_inch" : [choice_vectors['D_o_inch'][0], choice_vectors['D_o_inch'][-1]],
             "Shell_ID_inch" : [choice_vectors['Shell_ID_inch'][0], choice_vectors['Shell_ID_inch'][-1]],
             "Tube_pass" : [choice_vectors['Tube_pass'][0], choice_vectors['Tube_pass'][-1]],
@@ -1005,7 +1076,7 @@ bounds = {
 
 HX_test.set_bounds(bounds)
 
-HX_test.set_constraints(Q_dot = 0.46*1e6, DP_h = 60*1e3, DP_c = 60*1e3)
+HX_test.set_constraints(Q_dot = 0.303*1e6, DP_h = 8.1*1e3, DP_c = 15.7*1e3)
 
 global_best_position, global_best_score, best_particle = HX_test.opt_size()
 

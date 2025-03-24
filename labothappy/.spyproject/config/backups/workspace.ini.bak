@@ -4,7 +4,7 @@ save_data_on_exit = True
 save_history = True
 save_non_project_files = False
 project_type = 'empty-project-type'
-recent_files = ['component\\heat_exchanger\\sizing\\shell_and_tube\\modules\\system_DP.py', 'component\\heat_exchanger\\sizing\\shell_and_tube\\modules\\tubes_toolbox.py', 'correlations\\heat_exchanger\\f_lmtd2.py', 'component\\heat_exchanger\\hex_MB_charge_sensitive.py', 'correlations\\convection\\pipe_htc.py', '..\\..\\..\\..\\Desktop\\F_fun_python.py']
+recent_files = ['component\\heat_exchanger\\sizing\\shell_and_tube\\modules\\system_DP.py', 'component\\heat_exchanger\\hex_MB_charge_sensitive.py', 'component\\examples\\heat_exchanger\\hex_S&T_MB_charge_sensitive_example.py', 'correlations\\convection\\pipe_htc.py']
 
 [main]
 version = 0.2.0

@@ -233,7 +233,7 @@ def horizontal_tube_internal_condensation(fluid,m_dot,P_sat,h_in,T_w,D_in):
     k_l = PropsSI('L','Q',0,'P',P_sat,fluid)
     rho_l = PropsSI('D','Q',0,'P',P_sat,fluid)
     cp_l = PropsSI('C','Q',0,'P',P_sat,fluid)
-    Pr_l = PropsSI('PRANDTL', 'Q',0,'P',P_sat,fluid)
+    Pr_l = PropsSI('PRANDTL','Q',0,'P',P_sat,fluid)
 
     if Re_v <= 35000: # Low speed vapor flow
         # Dobson and Chato

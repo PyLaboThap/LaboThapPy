@@ -341,7 +341,8 @@ class HeatExchangerMB(BaseComponent):
             
         """
         general_parameters = ['Flow_Type','htc_type', 'H_DP_ON', 'C_DP_ON','n_disc']
-        
+        geometry_parameters = []
+
         if self.HTX_Type == 'Plate':     
             geometry_parameters = ['A_c', 'A_h', 'h', 'l', 'l_v',
                                    'C_CS', 'C_Dh', 'C_V_tot', 'C_canal_t', 'C_n_canals',
@@ -374,7 +375,7 @@ class HeatExchangerMB(BaseComponent):
                                    'Tube_cond', 'Tube_t', 'fouling', 'h', 'k_fin',
                                    'n_passes', 'n_rows', 'n_tubes', 'pitch', 'pitch_ratio', 'tube_arrang',
                                    'w','Fin_Side']
-        
+                
         return general_parameters + geometry_parameters
     
     #%% PRINT RELATED METHODS
@@ -461,7 +462,9 @@ class HeatExchangerMB(BaseComponent):
 
             if self.C.Correlation_2phase == "Boiling_curve": # Compute the fluid boiling curve beforehand
                 try:
+                    self.AS_C = CP.AbstractState("BICUBIC&HEOS", self.su_C.fluid)   
                     self.AS_C.update(CP.PQ_INPUTS, self.su_C.p, 0)
+                    
                     T_sat = self.AS_C.T()
                     (h_boil, DT_vect) = boiling_curve(self.params['Tube_OD'], self.su_C.fluid, T_sat, self.su_C.p)
                     self.C_f_boiling = interp1d(DT_vect,h_boil)
@@ -1008,7 +1011,7 @@ class HeatExchangerMB(BaseComponent):
 
         return alpha_h
 
-    def compute_C_2P_HTC(self, k, Tc_mean, p_c_mean, T_wall_c, G_c, Tc_sat_mean, alpha_h, LMTD):
+    def compute_C_2P_HTC(self, k, Tc_mean, p_c_mean, T_wall_c, G_c, Tc_sat_mean, alpha_h, LMTD, havg_c):
         if self.phases_c[k] == "two-phase":
             x_c = min(1, max(0, 0.5*(self.x_vec_c[k] + self.x_vec_c[k])))
         elif self.phases_c[k] == "vapor-wet":
@@ -1040,7 +1043,7 @@ class HeatExchangerMB(BaseComponent):
             alpha_c_2phase, _ = han_cond_BPHEX_HTC(x_c, mu_c_l, k_c_l, Pr_c_l, rho_c_l, rho_c_v, G_c, self.params['C_Dh'], self.params['plate_pitch_co'], self.params['chevron_angle'])
         elif self.C.Correlation_2phase == "Han_Boiling_BPHEX_HTC":
             alpha_c_2phase, _ = han_boiling_BPHEX_HTC(min(x_c, self.x_di_c), mu_c_l, k_c_l, Pr_c_l, rho_c_l, rho_c_v,  i_fg_c, G_c, LMTD*self.F[k], self.Qvec_c[k], alpha_h, self.params['C_Dh'], self.params['chevron_angle'], self.params['plate_pitch_co'])
-        elif self.C.Correlation_2phase == "Boiling_curve":                  
+        elif self.C.Correlation_2phase == "Boiling_curve":              
             alpha_c_2phase = self.C_f_boiling(abs(T_wall_c - Tc_mean))
         elif self.C.Correlation_2phase == "gnielinski_pipe_htc":
             alpha_c_2phase = gnielinski_pipe_htc(mu_c_l, Pr_c_l, mu_c_l, k_c_l, G_c, self.params['C_Dh'], self.params['l']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) #
@@ -1155,8 +1158,8 @@ class HeatExchangerMB(BaseComponent):
         Returns
         -------
             - Q : Exchanged heat rate [W]
-
         """
+        
         self.check_calculable()
         self.check_parametrized()
                 
@@ -1171,7 +1174,7 @@ class HeatExchangerMB(BaseComponent):
         self.C_su = self.su_C
             
         self.H_ex = self.ex_H
-        self.C_ex = self.ex_C  
+        self.C_ex = self.ex_C
         
         # Incompressible fluid tag setting
         self.h_incomp_flag = (self.H_su.fluid.find("INCOMP") != -1)
@@ -1199,7 +1202,7 @@ class HeatExchangerMB(BaseComponent):
             self.AS_C = CP.AbstractState("INCOMP", fluid_name)
         else:
             self.AS_C = CP.AbstractState("BICUBIC&HEOS", self.C_su.fluid)    
-        
+
         self.AS_C.update(CP.HmassP_INPUTS, self.h_ci, self.p_ci)
         self.AS_H.update(CP.HmassP_INPUTS, self.h_hi, self.p_hi)
 
@@ -1234,7 +1237,7 @@ class HeatExchangerMB(BaseComponent):
         
         else: 
             self.AS_H.T()
-            
+                
         "2) Determine if the streams come in at a higher pressure than the transcritical pressure"
         
         # Initialization of the flags:    
@@ -1301,7 +1304,8 @@ class HeatExchangerMB(BaseComponent):
         #     else:
         #         self.DP_c = 0 # self.C.f_dp["K"] * self.mdot_c**(self.C.f_dp["B"]) # Han_BPHEX_DP(mu_c, G_c, self.geom.H_Dh, self.geom.chevron_angle, self.geom.plate_pitch_co, rho_v, rho_l, self.geom.l_v, self.geom.C_n_canals, self.mdot_c, self.geom.C_canal_t) # 
         #         self.p_co = self.p_ci - self.DP_c
-            
+        
+        
         "5) Calculate maximum and actual heat rates"
         if (self.T_hi - self.T_ci) > 1e-2  and self.mdot_h  > 0 and self.mdot_c > 0: # Check that the operating conditions allow for heat transfer
             "5.1) Compute the external pinching & update cell boundaries"
@@ -1624,7 +1628,7 @@ class HeatExchangerMB(BaseComponent):
                     alpha_c = self.compute_C_1P_HTC(k, Tc_mean, p_c_mean, T_wall_c, G_c, havg_c)
                 # 2 PHASE CORRELATION
                 elif self.phases_c[k] == "two-phase" or self.phases_c[k] == "vapor-wet":
-                    alpha_c = self.compute_C_2P_HTC(k, Tc_mean, p_c_mean, T_wall_c, G_c, Tc_sat_mean, alpha_h, self.LMTD[k])
+                    alpha_c = self.compute_C_2P_HTC(k, Tc_mean, p_c_mean, T_wall_c, G_c, Tc_sat_mean, alpha_h, self.LMTD[k], havg_c)
                           
             "3.3) Store the heat transfer coefficients"
             self.alpha_c.append(alpha_c)
@@ -1734,7 +1738,7 @@ class HeatExchangerMB(BaseComponent):
             
         return 1-sum(w)
 
-#%%
+#%% 
     def solve_hx(self):
         """ 
         Solve the objective function using Brent's method and the maximum heat transfer 
@@ -1744,7 +1748,7 @@ class HeatExchangerMB(BaseComponent):
         # print('OUT of evap', self.Q)
         return self.Q
     
-#%%
+#%% 
     def plot_objective_function(self, N = 100):
         """ Plot the objective function """
         Q = np.linspace(1e-5,self.Qmax,N)
