@@ -26,7 +26,7 @@ expander.su.set_T(273.15+70)  # You need to set su.h appropriately
 expander.ex.set_p(1.1*1e5)
 
 # Set rotational speed
-expander.W_exp.set_N(6000)
+# expander.W_exp.set_N(6000)
 
 # Set ambient temperature
 expander.Q_amb.set_T_cold(293)
@@ -41,31 +41,24 @@ expander.Q_amb.set_T_cold(293)
 #     su_fluid='R134a'  # Make sure to include fluid information
 # )
 
-expander.set_parameters(AU_amb=8.33758799e+00, AU_su_n=6.67152053e-01, AU_ex_n=3.21181352e+01, d_su1=6.31789061e-03, m_dot_n=0.1, 
-            A_leak=1.00000000e-10, W_dot_loss_0=8.19123951e-01, alpha= 7.79756524e-02, C_loss=4.68294054e-01, rv_in=1.7, V_s=0.0000712)
+# expander.set_parameters(AU_amb=8.33758799e+00, AU_su_n=6.67152053e-01, AU_ex_n=3.21181352e+01, d_su1=6.31789061e-03, m_dot_n=0.1, 
+#             A_leak=1.00000000e-10, W_dot_loss_0=8.19123951e-01, alpha= 7.79756524e-02, C_loss=4.68294054e-01, rv_in=1.7, V_s=0.0000712,
+#             mode = 'm_dot')
 
-expander.set_inputs(N_rot=6000, T_amb=293)
+expander.set_parameters(AU_amb=8.33758799e+00, AU_su_n=6.67152053e-01, d_su1=6.31789061e-03, m_dot_n=0.1, 
+            A_leak=1.00000000e-10, rv_in=1.7, V_s=0.0000712,
+            mode = 'N_rot')
 
+expander.set_inputs(N_rot = 6000, T_amb=293)
+# expander.print_setup()
 # Solve the expander component
 expander.solve()
 
 # expander.print_setup()
-# expander.print_results()
+expander.print_results()
 
 # print(expander.defined)  # Should print True if the component was successfully solved
 
 
-# m-su:
-
-
-# Fluid: R1233zd(E)
-# Mass flow rate: 0.449[kg/s]
-# Volume flow rate: 151.86253311317586[m^3/h]
-# Temperature: 315.74539914862277[K]
-# Pressure: 200000.0[Pa]
-# Spec. enthalpy: 465664.22392372205[J/kg]
-# Spec. entropy: 1887.6846063307426[J/kg/K]
-# Mass density: 10.643836678236987[kg/m^3]
-# Quality: -1.0[-]
 
 
