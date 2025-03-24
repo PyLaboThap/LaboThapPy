@@ -78,8 +78,12 @@ class BaseComponent:
             self.su.set_fluid(self.inputs['fluid'])
         if 'T_su' in self.inputs:
             self.su.set_T(self.inputs['T_su'])
+        if 'h_su' in self.inputs:
+            self.su.set_h(self.inputs['h_su'])
         if 'P_su' in self.inputs:
             self.su.set_p(self.inputs['P_su'])
+        if 'm_dot' in self.inputs:
+            self.su.set_m_dot(self.inputs['m_dot'])
         if 'P_ex' in self.inputs:
             self.ex.set_p(self.inputs['P_ex'])
         if 'N_rot' in self.inputs:
@@ -94,8 +98,12 @@ class BaseComponent:
                 self.inputs['fluid'] = self.su.fluid
             if self.su.T is not None:
                 self.inputs['T_su'] = self.su.T
+            if self.su.h is not None:
+                self.inputs['h_su'] = self.su.h
             if self.su.p is not None:
                 self.inputs['P_su'] = self.su.p
+            if self.su.m_dot is not None:
+                self.inputs['m_dot'] = self.su.m_dot
         except:
             pass
         try:

@@ -5,7 +5,7 @@ from connector.mass_connector import MassConnector
 
 from component.heat_exchanger.steady_state.moving_boundary.charge_sensitive.simulation_model_elise_2 import HeatExchangerMB
 from component.heat_exchanger.steady_state.moving_boundary.charge_sensitive.modules.geometry_plate_hx_swep import PlateGeomSWEP
-from labothappy.component.volumetric_machine.expander.steady_state.semi_empirical.exp_semi_empirical import ExpanderSE
+from labothappy.component.volumetric_machine.expander.steady_state.semi_empirical.expander_semi_empirical import ExpanderSE
 from component.volumetric_machine.pump.steady_state.polynomial_efficiency.simulation_model_Pout import PumpPolyEff
 from component.tank.spliter.simulation_model import Spliter
 from component.tank.mixer.simulation_model import Mixer
