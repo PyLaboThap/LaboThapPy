@@ -69,9 +69,78 @@ class BaseComponent:
         self.params = {}
         self.guesses = {}
 
-    def set_inputs(self, **inputs):
-        for key, value in inputs.items():
-            self.inputs[key] = value
+    def set_inputs(self, **kwargs):
+        """Set inputs directly through a dictionary and update connector properties."""
+        self.inputs.update(kwargs)
+
+        # Update the connectors based on the new inputs
+        if 'fluid' in self.inputs:
+            self.su.set_fluid(self.inputs['fluid'])
+        if 'T_su' in self.inputs:
+            self.su.set_T(self.inputs['T_su'])
+        if 'h_su' in self.inputs:
+            self.su.set_h(self.inputs['h_su'])
+        if 'P_su' in self.inputs:
+            self.su.set_p(self.inputs['P_su'])
+        if 'm_dot' in self.inputs:
+            self.su.set_m_dot(self.inputs['m_dot'])
+        if 'P_ex' in self.inputs:
+            self.ex.set_p(self.inputs['P_ex'])
+        if 'N_rot' in self.inputs:
+            self.W_exp.set_N(self.inputs['N_rot'])
+        if 'T_amb' in self.inputs:
+            self.Q_amb.set_T_cold(self.inputs['T_amb'])
+
+    def sync_inputs(self):
+        """Synchronize the inputs dictionary with the connector states."""
+        try:
+            if self.su.fluid is not None:
+                self.inputs['fluid'] = self.su.fluid
+            if self.su.T is not None:
+                self.inputs['T_su'] = self.su.T
+            if self.su.h is not None:
+                self.inputs['h_su'] = self.su.h
+            if self.su.p is not None:
+                self.inputs['P_su'] = self.su.p
+            if self.su.m_dot is not None:
+                self.inputs['m_dot'] = self.su.m_dot
+        except:
+            pass
+        try:
+            if self.ex.p is not None:
+                self.inputs['P_ex'] = self.ex.p
+        except:
+            pass
+        try:
+            if self.W_exp.N is not None:
+                self.inputs['N_rot'] = self.W_exp.N
+        except:
+            pass
+        try:
+            if self.Q_amb.T_cold is not None:
+                self.inputs['T_amb'] = self.Q_amb.T_cold
+        except:
+            pass
+
+    def print_setup(self):
+        self.sync_inputs()
+        print("=== Component Setup ===")
+        print("\nInputs:")
+        for input in self.get_required_inputs():
+            if input in self.inputs:
+                print(f"  - {input}: {self.inputs[input]}")
+            else:
+                print(f"  - {input}: Not set")
+
+
+        print("\nParameters:")
+        for param in self.get_required_parameters():
+            if param in self.params:
+                print(f"  - {param}: {self.params[param]}")
+            else:
+                print(f"  - {param}: Not set")
+
+        print("======================")
 
     def set_parameters(self, **parameters):
         for key, value in parameters.items():
@@ -82,6 +151,7 @@ class BaseComponent:
             self.guesses[key] = value
 
     def check_calculable(self):
+        self.sync_inputs()
         required_inputs = self.get_required_inputs() 
         self.calculable = all(self.inputs.get(inp) is not None for inp in required_inputs) # check if all required inputs are set
         return self.calculable

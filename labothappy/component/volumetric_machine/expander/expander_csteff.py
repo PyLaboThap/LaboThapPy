@@ -59,9 +59,7 @@ class ExpanderCstEff(BaseComponent):
         self.ex = MassConnector()  # Mass_connector
         self.W_exp = WorkConnector()
 
-    def get_required_inputs(
-        self,
-    ):  # Used in check_calculablle to see if all of the required inputs are set
+    def get_required_inputs(self):  # Used in check_calculablle to see if all of the required inputs are set
         self.sync_inputs()
         # Return a list of required inputs
         return ["su_p", "su_T", "ex_p", "su_fluid"]
