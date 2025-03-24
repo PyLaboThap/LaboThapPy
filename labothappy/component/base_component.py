@@ -74,22 +74,39 @@ class BaseComponent:
         self.inputs.update(kwargs)
 
         # Update the connectors based on the new inputs
-        if 'fluid' in self.inputs:
-            self.su.set_fluid(self.inputs['fluid'])
-        if 'T_su' in self.inputs:
-            self.su.set_T(self.inputs['T_su'])
-        if 'h_su' in self.inputs:
-            self.su.set_h(self.inputs['h_su'])
-        if 'P_su' in self.inputs:
-            self.su.set_p(self.inputs['P_su'])
-        if 'm_dot' in self.inputs:
-            self.su.set_m_dot(self.inputs['m_dot'])
-        if 'P_ex' in self.inputs:
-            self.ex.set_p(self.inputs['P_ex'])
-        if 'N_rot' in self.inputs:
-            self.W_exp.set_N(self.inputs['N_rot'])
-        if 'T_amb' in self.inputs:
-            self.Q_amb.set_T_cold(self.inputs['T_amb'])
+        try:
+            if 'fluid' in self.inputs:
+                self.su.set_fluid(self.inputs['fluid'])
+            if 'T_su' in self.inputs:
+                self.su.set_T(self.inputs['T_su'])
+            if 'h_su' in self.inputs:
+                self.su.set_h(self.inputs['h_su'])
+            if 'P_su' in self.inputs:
+                self.su.set_p(self.inputs['P_su'])
+            if 'm_dot' in self.inputs:
+                self.su.set_m_dot(self.inputs['m_dot'])
+        except:
+            pass
+        try:
+            if 'P_ex' in self.inputs:
+                self.ex.set_p(self.inputs['P_ex'])
+        except:
+            pass
+        try:
+            if 'N_rot' in self.inputs:
+                self.W_exp.set_N(self.inputs['N_rot'])
+        except:
+            pass
+        try:
+            if 'N_rot' in self.inputs:
+                self.W_cp.set_N(self.inputs['N_rot'])
+        except:
+            pass
+        try:
+            if 'T_amb' in self.inputs:
+                self.Q_amb.set_T_cold(self.inputs['T_amb'])
+        except:
+            pass
 
     def sync_inputs(self):
         """Synchronize the inputs dictionary with the connector states."""

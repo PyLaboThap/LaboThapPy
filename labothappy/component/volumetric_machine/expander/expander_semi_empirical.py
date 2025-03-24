@@ -151,6 +151,12 @@ class ExpanderSE(BaseComponent):
         fluid = self.su.fluid  # Extract fluid name
         self.AS = AbstractState("HEOS", fluid)  # Create a reusable state object
 
+        # Check if the fluid is in the two-phase region at the suction side
+        self.AS.update(CoolProp.PQ_INPUTS, P_su, 1)  
+        T_sat_su = self.AS.T()
+        if T_su<T_sat_su:
+            print('----Warning the expander inlet stream is not in vapor phase---')
+
         ff_guess = [0.7, 1.2, 0.8, 1.3, 0.4, 1.7] # Guesses for the filling factor (ff)
         x_T_guess = [0.7, 0.95, 0.8, 0.9] # Guesses for the temperature ratio (x_T)
         stop = 0 # Stop flag
@@ -193,7 +199,7 @@ class ExpanderSE(BaseComponent):
                     x = [T_w_guess]
                     #--------------------------------------------------------------------------
                     try:
-                        fsolve(self.System, x, args=args) # Solve the system of equations
+                        fsolve(self.system, x, args=args) # Solve the system of equations
                         res_norm = np.linalg.norm(self.res) # Calculate the norm of the residuals
                     except:
                         res_norm = 1
@@ -212,19 +218,18 @@ class ExpanderSE(BaseComponent):
             self.solved = True
 
 
-    def System(self, x):
+    def system(self, x):
         """System of equations to solve the expander model."""
 
-        # Guesses of the system for the mass flow rate and the wall temperature
         if self.params['mode'] == 'N_rot': # The rotational speed is given as an input
-            self.m_dot, self.T_w = x
+            self.m_dot, self.T_w = x # Values on which the system iterates
             self.N_rot = self.inputs['N_rot']
             # Boundary on the mass flow rate guess
             self.m_dot = max(self.m_dot, 1e-5)
         elif self.params['mode'] == 'm_dot': # The mass flow rate is given as an input
             self.m_dot = self.inputs['m_dot']
-            self.T_w = x[0]
-
+            self.T_w = x[0] # Values on which the system iterates
+ 
         #------------------------------------------------------------------------------------------------
         "1. Supply conditions: su"
         T_su = self.su.T
@@ -238,10 +243,6 @@ class ExpanderSE(BaseComponent):
         h_ex_is = self.AS.hmass()
         self.AS.update(CoolProp.PT_INPUTS, 4e6, 500)
         h_max = self.AS.hmass()
-        self.AS.update(CoolProp.PQ_INPUTS, P_su, 1)  
-        T_sat_su = self.AS.T()
-        if T_su<T_sat_su:
-            print('----Warning the expander inlet stream is not in vapor phase---')
         
         #------------------------------------------------------------------------------------------------
         "2. Supply pressure drop: su->su1"
