@@ -315,7 +315,7 @@ def horizontal_flow_boiling(fluid, G, P_sat, x, D_in, q):
     Outputs
     -------
     
-    h : Condensation heat transfer coeffieicnt [W/(m^2 * K)]
+    alpha : Condensation heat transfer coeffieicnt [W/(m^2 * K)]
     
     Reference
     ---------
