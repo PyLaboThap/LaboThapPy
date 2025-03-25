@@ -191,6 +191,14 @@ def carbon_steel_pipe_thickness(D_o_vect, tube_T, ext_p, int_p):
             P_max_int = Internal_Max_P_carbon_steel(pd.to_numeric(D_o, errors='coerce'), thickness_df[standard][D_o], tube_T)
             P_max_ext = External_Max_P_carbon_steel(pd.to_numeric(D_o, errors='coerce'), thickness_df[standard][D_o], tube_T)
 
+            # print("-----------------------")
+
+            # print(f"P_max_int : {P_max_int}")
+            # print(f"P_max_ext : {P_max_ext}")
+
+            # print(f"ext_p : {ext_p}")
+            # print(f"int_p : {int_p}")
+
             if int_p > P_max_int or ext_p > P_max_ext:
                 thickness_df[standard][D_o] = 10000     
 

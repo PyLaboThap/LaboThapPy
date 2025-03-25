@@ -151,7 +151,9 @@ def shell_htc_kern(m_dot, T_wall, T_in, P_in, fluid, params):
     V_t = m_dot/(S_T*rho)
     
     Re = rho*V_t*(D_hydro/mu)
-        
+    
+    # print(Re)    
+    
     if Re < 2e3:
         
         JH1 = 0.111 * Re**0.66

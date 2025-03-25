@@ -39,7 +39,7 @@ def gnielinski_pipe_DP(mu, rho, G, Dh, L):
     Re_min = 0
     Re_max = 1e06
     Re = G*Dh/mu
-    
+
     #-------------------------------------------------------------------------
     f = (1.8*log10(Re) - 1.5)**(-2)
     v_flow = G/rho

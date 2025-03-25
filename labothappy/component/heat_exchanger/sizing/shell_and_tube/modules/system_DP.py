@@ -256,7 +256,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
             "Correlation Loading And Setting"
 
             Corr_H = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
-            Corr_C = {"1P" : "Gnielinski", "2P" : "Boiling_curve"}
+            Corr_C = {"1P" : "Gnielinski", "2P" : "Flow_boiling"}
 
             self.HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation' # 31
 
@@ -428,7 +428,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
 
         B_mass = HX_params["cross_passes"] * B_t * (Full_Baffle_A - Tube_in_Baffle_A)*rho_carbon_steel*HX_params['n_series']
         
-        return T_mass + Shell_mass + TS_mass + B_mass
+        return abs(T_mass + Shell_mass + TS_mass + B_mass)
 
     def constraint_Q_dot(self, Q_particle):
         if self.Q_dot_constr == None:
@@ -825,7 +825,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
     
     def opt_size(self):
 
-        return self.particle_swarm_optimization(objective_function = self.HX_Mass , bounds = self.bounds, num_particles = 100, num_dimensions = len(self.opt_vars), max_iterations = 5, inertia_weight = 0.5,
+        return self.particle_swarm_optimization(objective_function = self.HX_Mass , bounds = self.bounds, num_particles = 50, num_dimensions = len(self.opt_vars), max_iterations = 30, inertia_weight = 0.5,
                                           cognitive_constant = 0.5, social_constant = 0.5, constraints = [self.constraint_Q_dot, self.constraint_DP_h, self.constraint_DP_c], penalty_factor = 1)
 
 """
@@ -880,8 +880,8 @@ HX_test.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'T
 choice_vectors = {
                     'D_o_inch' : [0.5, 0.625, 0.75, 1, 1.25, 1.5],
                     'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
-                        29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78,
-                        84, 90, 96, 108, 120],
+                        29, 31, 33, 35, 37, 39], #, 42, 45, 48, 54, 60, 66, 72, 78,
+                        # 84, 90, 96, 108, 120],
                     'Tube_pass' : [2], # [1,2,4], #,6,8,10]
                     'tube_layout' : [60]} # [0, 45, 60]}
 
@@ -901,7 +901,7 @@ Max T and P for pipe thickness computation
 
 # Worst Case
 P_max_cycle = 1048*1e3 # Pa
-T_max_cycle = 273.15+40 # K 
+T_max_cycle = 273.15+100 # K 
 
 HX_test.set_max_cycle_prop(T_max_cycle = T_max_cycle, p_max_cycle = P_max_cycle)
 
@@ -969,63 +969,63 @@ Thermodynamical parameters : Inlet and Outlet Design States
 
 # ------------------------------------------------------------
 
-# su_S = MassConnector()
-# su_S.set_properties(T = 273.15 + 95, # K
-#                     P = 10*1e5, # 5*1e5, # Pa
-#                     m_dot = 27.8, # kg/s
-#                     fluid = 'Methanol'
-#                     )
-
-# ex_S = MassConnector()
-# ex_S.set_properties(T = 273.15 + 40, # K
-#                     P = 10*1e5, # 4.5*1e5, # Pa
-#                     m_dot = 27.8, # kg/s
-#                     fluid = 'Methanol'
-#                     )
-
-# su_T = MassConnector()
-# su_T.set_properties(T = 273.15 + 25, # K
-#                     P = 2*1e5, # 51.75*1e3, # Pa
-#                     m_dot = 68.9, # kg/s
-#                     fluid = 'Water'
-#                     )
-
-# ex_T = MassConnector()
-# ex_T.set_properties(T = 273.15 + 40, # K
-#                     P = 1.5*1e5, # Pa
-#                     m_dot = 68.9, # kg/s
-#                     fluid = 'Water'
-#                     )
-
-# ------------------------------------------------------------
-
 su_S = MassConnector()
-su_S.set_properties(T = 273.15 + 26, # K
-                    P = 2*1e5, # 51.75*1e3, # Pa
-                    m_dot = 5.35, # kg/s
-                    fluid = 'Water'
+su_S.set_properties(T = 273.15 + 95, # K
+                    P = 5*1e5, # 5*1e5, # Pa
+                    m_dot = 27.8, # kg/s
+                    fluid = 'Methanol'
                     )
 
 ex_S = MassConnector()
-ex_S.set_properties(T = 273.15 + 11.7, # K
-                    P = 1.9*1e5, # Pa
-                    m_dot = 5.35, # kg/s
-                    fluid = 'Water'
+ex_S.set_properties(T = 273.15 + 40, # K
+                    P = 5*1e5, # 4.5*1e5, # Pa
+                    m_dot = 27.8, # kg/s
+                    fluid = 'Methanol'
                     )
 
 su_T = MassConnector()
-su_T.set_properties(P = PropsSI('P','T', 273.15+7,'Q',0,'R134a'), # K
-                    H = PropsSI('H','T', 273.15+7,'Q',0,'R134a')-100, # Pa
-                    m_dot = 1.62, # kg/s
-                    fluid = 'R134a'
+su_T.set_properties(T = 273.15 + 25, # K
+                    P = 2*1e5, # 51.75*1e3, # Pa
+                    m_dot = 68.9, # kg/s
+                    fluid = 'Water'
                     )
 
 ex_T = MassConnector()
-ex_T.set_properties(P = PropsSI('P','T', 273.15+7,'Q',1,'R134a') - 15*1e3, # K
-                    H = PropsSI('H','T', 273.15+7,'Q',1,'R134a'), # Pa
-                    m_dot = 1.62, # kg/s
-                    fluid = 'R134a'
+ex_T.set_properties(T = 273.15 + 40, # K
+                    P = 1.5*1e5, # Pa
+                    m_dot = 68.9, # kg/s
+                    fluid = 'Water'
                     )
+
+# ------------------------------------------------------------
+
+# su_S = MassConnector()
+# su_S.set_properties(T = 273.15 + 26, # K
+#                     P = 2*1e5, # 51.75*1e3, # Pa
+#                     m_dot = 5.35, # kg/s
+#                     fluid = 'Water'
+#                     )
+
+# ex_S = MassConnector()
+# ex_S.set_properties(T = 273.15 + 11.7, # K
+#                     P = 1.9*1e5, # Pa
+#                     m_dot = 5.35, # kg/s
+#                     fluid = 'Water'
+#                     )
+
+# su_T = MassConnector()
+# su_T.set_properties(P = PropsSI('P','T', 273.15+7,'Q',0,'R134a'), # K
+#                     H = PropsSI('H','T', 273.15+7,'Q',0,'R134a')-100, # Pa
+#                     m_dot = 1.62, # kg/s
+#                     fluid = 'R134a'
+#                     )
+
+# ex_T = MassConnector()
+# ex_T.set_properties(P = PropsSI('P','T', 273.15+7,'Q',1,'R134a') - 15*1e3, # K
+#                     H = PropsSI('H','T', 273.15+7,'Q',1,'R134a'), # Pa
+#                     m_dot = 1.62, # kg/s
+#                     fluid = 'R134a'
+#                     )
 
 # ------------------------------------------------------------
 
@@ -1039,8 +1039,8 @@ HX_test.set_parameters(
                         n_series = 1, # [-]
                         # OPTI -> Oui (regarder le papier pour déterminer ça)
 
-                        foul_t = 0.000176, # 0.0002 # 0.00017 # (m^2 * K/W)
-                        foul_s = 0.000176, # 0.00033 # 0.00017 # (m^2 * K/W)
+                        foul_t = 0.0002, # 0.0002 # 0.00017 # (m^2 * K/W)
+                        foul_s = 0.00033, # 0.00033 # 0.00017 # (m^2 * K/W)
                         tube_cond = 50, # W/(m*K)
                         Overdesign = 0,
                         
@@ -1049,7 +1049,7 @@ HX_test.set_parameters(
                         Flow_Type = 'Shell&Tube',
                         H_DP_ON = True,
                         C_DP_ON = True,
-                        n_disc = 5
+                        n_disc = 30
                       )
 
 """
@@ -1076,7 +1076,7 @@ bounds = {
 
 HX_test.set_bounds(bounds)
 
-HX_test.set_constraints(Q_dot = 0.303*1e6, DP_h = 8.1*1e3, DP_c = 15.7*1e3)
+HX_test.set_constraints(Q_dot = 4.34*1e6, DP_h = 10*1e3, DP_c = 10*1e3)
 
 global_best_position, global_best_score, best_particle = HX_test.opt_size()
 

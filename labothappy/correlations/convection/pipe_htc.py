@@ -11,74 +11,6 @@ from scipy.optimize import fsolve
 
 #%%
 
-# def gnielinski_pipe_htc(mu, Pr, Pr_w, k, G, Dh, L):
-#     """
-#     Inputs
-#     ------
-    
-#     mu   : Dynamic Viscosity [Pa*s]
-#     Pr   : Prantl number [-]
-#     Pr_w : Prandtl number at wall conditions [-]
-#     k    : Thermal conductivity [W/(m*K)]
-#     G    : Flow rate per cross section area [kg/(m^2 * s)]
-#     Dh   : Hydraulic diameter [m]
-#     L    : Flow length [m]
-    
-#     Outputs
-#     -------
-    
-#     hConv : Convection heat transfer coefficient [W/(m^2 * K)]
-    
-#     Reference
-#     ---------
-#     Validation of the Gnielinski correlation for evaluation of heat transfer coefficient of enhanced tubes by non-linear 
-#     regression model: An experimental study of absorption refrigeration system
-    
-#     Syed Muhammad Ammar, Chan Woo Park
-#     """
-#     #-------------------------------------------------------------------------
-#     def gnielinski_laminar(Re, Pr, Dh, L):
-#         Nu_1 = 4.364
-#         Nu_2 = 1.953*(Re*Pr*Dh/L)**(1/3)
-#         Nu = (Nu_1**3 + 0.6**3 + (Nu_2 - 0.6)**3)**(1/3)
-#         return Nu
-#     def gnielinski_turbulent(Re, Pr):
-#         f = (1.82*log10(Re) - 1.64)**(-2) # (1.8*log10(Re) - 1.5)**(-2)
-#         Nu = (((f/8)*(Re-1000)*Pr) / (1+12.7*(f/8)**(1/2) * (Pr**(2/3)-1)) )*(1 + (Dh/L)**(2/3)) #*(Pr/Pr_w)**(0.11)
-#         return Nu
-#     #-------------------------------------------------------------------------
-#     Re_min = 0
-#     Re_max = 1e06
-#     Re = G*Dh/mu
-#     #-------------------------------------------------------------------------
-#     if Re > 1e4: #fully turbulent
-#         Pr_min = 0.1
-#         Pr_max = 1000
-#         Nu = gnielinski_turbulent(Re, Pr)
-#     elif Re < 2300: #fully laminar
-#         Pr_min = 0.6
-#         Pr_max = inf
-#         Nu = gnielinski_laminar(Re, Pr, Dh, L)
-#     else: #transition zone
-#         Pr_min = 0.1
-#         Pr_max = 1000
-#         gamma = (Re - 2300)/(1e4 - 2300)
-#         Nu_lam2300 = gnielinski_laminar(2300, Pr, Dh, L)
-#         Nu_turb10000 = gnielinski_turbulent(1e4, Pr)
-#         Nu = (1-gamma)*Nu_lam2300 + gamma*Nu_turb10000
-#     #-------------------------------------------------------------------------
-#     hConv = Nu*k/Dh
-    
-#     #-------------------------------------------------------------------------
-#     if Re >= Re_max or Re <=Re_min:
-#         # warnings.warn('Gnielinski singe-phase: Out of validity range --> Re = ', Re, ' is out of [', Re_min, ' - ', Re_max, '] !!!')
-#         warnings.warn('Gnielinski singe-phase: Reynolds Out of validity range !!!')
-#     if Pr >= Pr_max or Pr <= Pr_min:
-#         # warnings.warn('Gnielinski singe-phase: Out of validity range --> Re = ', Pr, ' is out of [', Pr_min, ' - ', Pr_max, '] !!!')
-#         warnings.warn('Gnielinski singe-phase: Prandtl Out of validity range  !!!')
-#     #-------------------------------------------------------------------------
-#     return hConv
-
 def gnielinski_pipe_htc(mu, Pr, mu_w, k, G, Dh, L):
     """
     Inputs
@@ -103,6 +35,9 @@ def gnielinski_pipe_htc(mu, Pr, mu_w, k, G, Dh, L):
     regression model: An experimental study of absorption refrigeration system
     
     Syed Muhammad Ammar, Chan Woo Park
+    
+    Heat Exchanger design based on economic optiisation
+    Caputo et al.
     """
     #-------------------------------------------------------------------------
     def Stephan_Preusser(Re, Pr, Dh, L):
@@ -364,6 +299,134 @@ def horizontal_tube_internal_boiling(fluid,Q_act,A,m_dot,P_sat,h_in,T_w,D_in,L):
         h_tp = ((h_nb_o*F_nb)**3 + (h_L*F_tp)**3)**(1/3)
 
     return h_tp
+
+def horizontal_flow_boiling(fluid, G, P_sat, x, D_in, q):
+    """
+    Inputs
+    ------
+    
+    fluid : fluid name [-]
+    G     : Flowrate per area unit [kg/(m**2 * s)]
+    P_sat : Saturation pressure [Pa]
+    x     : Vapor mass fraction [-]
+    D_in  : Pipe internal diameter [m]
+    q     : Heat flux [W/(m**2 * K)]
+
+    Outputs
+    -------
+    
+    h : Condensation heat transfer coeffieicnt [W/(m^2 * K)]
+    
+    Reference
+    ---------
+    VDI Heat Atlas 2010 
+    """
+    
+    if fluid == 'Helium' or "He":
+        q_0 = 1000
+    elif fluid == 'H2' or fluid == 'N2' or fluid == 'Neon' or fluid == 'Air' or fluid == 'O2' or fluid == 'Ar':
+        q_0 = 10000
+    elif fluid == 'Hydrogen' or fluid == 'Nitrogen' or fluid == 'Neon' or fluid == 'Air' or fluid == 'Oxygen' or fluid == 'Argon':
+        q_0 = 10000
+    elif fluid == 'H2O' or fluid == 'NH3' or fluid == 'CO2' or fluid == 'SF6':
+        q_0 = 150000
+    elif fluid == 'Water' or fluid == 'Ammonia':
+        q_0 = 150000
+    else:
+        q_0 = 20000
+    
+    a_0_dict = {
+        # Substances with their corresponding formulas
+        "Methane": 8060, "CH4": 8060,
+        "Ethane": 5210, "C2H6": 5210,
+        "Propane": 4000, "C3H8": 4000,
+        "n-Butane": 3300, "C4H10": 3300,
+        "n-Pentane": 3070, "C5H12": 3070,
+        "Cyclopentane": 3070,
+        "Isopentane": 2940,
+        "n-Hexane": 2840, "C6H14": 2840,
+        "n-Heptane": 2420, "C7H16": 2420,
+        "Cyclohexane": 2420, "C6H12": 2420,
+        "Benzene": 2730, "C6H6": 2730,
+        "Toluene": 2910, "C7H8": 2910,
+        "Diphenyl": 2030, "C12H10": 2030,
+        "Methanol": 2770, "CH4O": 2770,
+        "Ethanol": 3690, "C2H6O": 3690,
+        "n-Propanol": 3170, "C3H8O": 3170,
+        "Isopropanol": 2920, "C3H8O": 2920,
+        "n-Butanol": 2750, "C4H10O": 2750,
+        "Isobutanol": 2940, "C4H10O": 2940,
+        "Acetone": 3270, "C3H6O": 3270,
+        "R11": 2690, "CCl3F": 2690,
+        "R12": 3290, "CCl2F2": 3290,
+        "R13": 3910, "CClF3": 3910,
+        "CBrF3": 3380,
+        "R22": 3930, "CHClF2": 3930,
+        "R23": 4870, "CHF3": 4870,
+        "R113": 2180, "C2Cl3F3": 2180,
+        "R114": 2460, "C2Cl2F4": 2460,
+        "R115": 2890, "C2ClF5": 2890,
+        "R123": 2600, "C2H2Cl2F3": 2600,
+        "R134a": 3500, "C2H2F4": 3500,
+        "R152a": 4000, "C2H4F2": 4000,
+        "R226": 3700, "C3HClF6": 3700,
+        "R227": 3800, "C3HF7": 3800,
+        "RC318": 2710, "C4F8": 2710,
+        "R502": 2900, "CHClF2" : 2900, "C2F5Cl": 2900,
+        "Chloromethane": 4790, "CH3Cl": 4790,
+        "Tetrachloromethane": 2320, "CCl4": 2320,
+        "Tetrafluoromethane": 4500, "CF4": 4500,
+        "Helium": 1990, "He": 1990,
+        "Hydrogen": 12220, "H2": 12220,
+        "Neon": 8920, "Ne": 8920,
+        "Nitrogen": 4380, "N2": 4380,
+        "Argon": 3870, "Ar": 3870,
+        "Oxygen": 4120, "O2": 4120,
+    } # W/(m**2 * K)
+    
+    a_0 = a_0_dict[fluid]
+    
+    # n exponent
+    P_crit = PropsSI('PCRIT', fluid)
+    P_star = P_sat/P_crit
+    n = 0.9 - 0.36*P_star**0.13
+    
+    # Factor depending on the fluid molar mass
+    MM_H2 = PropsSI('M', 'H2')
+    MM_fluid = PropsSI('M', fluid)
+    C_F = 0.789*(MM_fluid/MM_H2)**0.11
+    
+    # F_p : Contribution of pressure
+    F_p = 2.692*P_star**0.43 + (1.65*P_star**6.5 / (1-P_star**4.4))
+    
+    # F_d : Contribution of tube diameter
+    F_d = (1e-2/D_in)**0.5
+
+    # F_W : Contribution of tube wall roughness    
+    Ra = 3e-6 # between 1.6 and 6.3 *1e-6 for carbon steel pipes
+    Ra_o = 1e-6
+    F_W = (Ra/Ra_o)**0.133
+    
+    # F_G : Contribution of mass flowrate
+    G_0 = 100 # kg/(m**2 * s)
+    F_G = (G/G_0)**0.25
+    
+    # F_x : Contribution of vapor quality
+    P_01 = 0.1*P_crit
+    g = 9.81 # m/s**2
+    sigma_01 = PropsSI('I', 'Q', 0.5, 'P', P_01, fluid)
+    rho_l_01 = PropsSI('D', 'Q', 0, 'P', P_01, fluid)
+    rho_v_01 = PropsSI('D', 'Q', 1, 'P', P_01, fluid)
+    Dh_evap_01 = PropsSI('H','P',P_01,'Q',1,fluid) - PropsSI('H','P',P_01,'Q',0,fluid) # Evaporation specific heat
+    
+    q_cr_01 = 0.13*Dh_evap_01*rho_v_01**0.5 * (sigma_01*g*(rho_l_01-rho_v_01))**0.25
+    q_cr_PB = 2.79*q_cr_01*P_star**0.4*(1-P_star)
+    F_x = 1 - P_star**0.1 * (q/q_cr_PB)**0.3 * x
+    
+    # Heat transfer coefficient
+    alpha = a_0*C_F*(q/q_0)**n * F_p * F_d * F_W * F_G * F_x # W/(m*2 * K)
+    
+    return alpha
 
 def pool_boiling(fluid, T_sat, T_tube):
     """

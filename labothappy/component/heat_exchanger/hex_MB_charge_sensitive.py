@@ -27,7 +27,7 @@ from correlations.heat_exchanger.find_2P_boundaries import find_2P_boundaries
 
 # HTC Correlations
 from correlations.convection.plate_htc import han_BPHEX_DP, water_plate_HTC, martin_BPHEX_HTC, muley_manglik_BPHEX_HTC, han_boiling_BPHEX_HTC, han_cond_BPHEX_HTC, thonon_plate_HTC, kumar_plate_HTC, martin_holger_plate_HTC, amalfi_plate_HTC, shah_condensation_plate_HTC
-from correlations.convection.pipe_htc import gnielinski_pipe_htc, boiling_curve, horizontal_tube_internal_condensation
+from correlations.convection.pipe_htc import gnielinski_pipe_htc, boiling_curve, horizontal_tube_internal_condensation, horizontal_flow_boiling
 from correlations.convection.shell_and_tube_htc import shell_bell_delaware_htc, shell_htc_kern
 from correlations.convection.tube_bank_htc import ext_tube_film_condens
 from correlations.convection.fins import htc_tube_and_fins
@@ -736,11 +736,11 @@ class HeatExchangerMB(BaseComponent):
             # Error Code : unable to solve 1phase PY flash with Tmin=179.699, Tmax=481.825 due to error: 
             # HSU_P_flash_singlephase_Brent could not find a solution because Hmolar [27458.3 J/mol] is above 
             # the maximum value of 27404.148193 J/mol : PropsSI("T","H",391244,"P",3005929,"Cyclopentane")
-            
+                        
             try:
                 self.AS_C.update(CP.HmassP_INPUTS, self.hvec_c[i], self.pvec_c[i])
             except:
-                self.AS_C.update(CP.HmassP_INPUTS, (self.hvec_c[i-1] + self.hvec_c[i+1])/2, (self.pvec_c[i-1] + self.pvec_c[i+1])/2)
+                self.AS_C.update(CP.HmassP_INPUTS, (self.hvec_c[i-1] + self.hvec_c[i])/2, (self.pvec_c[i-1] + self.pvec_c[i])/2)
 
             self.Tvec_c[i] = self.AS_C.T()
             self.svec_c[i] = self.AS_C.smass()
@@ -748,7 +748,7 @@ class HeatExchangerMB(BaseComponent):
             try:
                 self.AS_H.update(CP.HmassP_INPUTS, self.hvec_h[i], self.pvec_h[i])
             except:
-                self.AS_H.update(CP.HmassP_INPUTS, (self.hvec_h[i-1] + self.hvec_h[i+1])/2, self.pvec_h[i])
+                self.AS_H.update(CP.HmassP_INPUTS, (self.hvec_h[i-1] + self.hvec_h[i])/2, self.pvec_h[i])
 
             self.Tvec_h[i] = self.AS_H.T()
             self.svec_h[i] = self.AS_H.smass()
@@ -1049,6 +1049,12 @@ class HeatExchangerMB(BaseComponent):
             alpha_c_2phase = gnielinski_pipe_htc(mu_c_l, Pr_c_l, mu_c_l, k_c_l, G_c, self.params['C_Dh'], self.params['l']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) #
         elif self.C.Correlation_2phase == "amalfi_plate_HTC":
             alpha_c_2phase = amalfi_plate_HTC(self.params['C_Dh'], self.params['l'], self.params['w'], self.params['amplitude'], self.params['chevron_angle'], self.params['C_n_canals'], self.params['A_c'], self.mdot_c, p_c_mean, self.C_su.fluid)
+        elif self.C.Correlation_2phase == "Flow_boiling":
+            q = self.Qvec_c[k]/(self.params['A_eff']*self.w[k])
+            D_in = self.params['Tube_OD']-2*self.params['Tube_t']
+            
+            alpha_c_2phase = horizontal_flow_boiling(self.su_C.fluid, G_c, p_c_mean, x_c, D_in, q)
+            
         else:
             raise ValueError("Correlation not found for Cold Side 2-Phase")
         if self.phases_c[k] == "two-phase":
@@ -1442,7 +1448,8 @@ class HeatExchangerMB(BaseComponent):
         self.ColdSide_Props_Calculated = False
         
         # Initialise results arrays
-        w = [] # The wet-bulb potential temperature
+        # w = [] 
+        self.w = np.ones(len(self.hvec_h)-1)/(len(self.hvec_h)-1)
         self.Avec_h = []
         self.alpha_c = []
         self.alpha_h = []
@@ -1694,8 +1701,11 @@ class HeatExchangerMB(BaseComponent):
 
             "5) Calculate w, the main objective of this function. This variable serves for residual minimization in the solver"
             
-            w.append(UA_req/UA_avail)
-            self.w = w
+            self.w[k] = UA_req/UA_avail
+            # w.append(UA_req/UA_avail)
+            # self.w = w
+            
+            w = self.w
             
             if self.HTX_Type == 'Plate':
                 self.Avec_h.append(w[k]*self.params['A_h']) 
