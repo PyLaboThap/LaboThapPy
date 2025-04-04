@@ -9,6 +9,33 @@ import numpy as np
 from CoolProp.CoolProp import PropsSI
 import CoolProp.CoolProp as CP
 
+def s_max_kern(Tube_OD, pitch_ratio, Shell_ID, central_spacing, tube_layout): # Maximum flow section (m**2)
+    """
+    Input
+    -----
+    
+    Tube_OD         : Tube outside diameter [m]
+    pitch_ratio     : Tube pitch_ratio (tube spacing/tube outside diameter) [-]
+    Shell_ID        : Shell inside diameter [m]
+    central_spacing : Spacing between two baffles [m]
+    tube_layout     : Angle of tube layout [°]
+    
+    Output
+    ------
+    
+    s_max : Maximum flow area in the tube bank [m^2]
+    
+    Reference
+    ---------
+    https://cheguide.com/heat_exchanger_rating.html
+    
+    """
+    
+    p_T = Tube_OD * pitch_ratio # Tube Pitch
+    s_max = (Shell_ID / p_T)*(p_T -  Tube_OD) * central_spacing
+
+    return s_max
+
 
 def s_max(Tube_OD, pitch_ratio, Shell_ID, central_spacing, tube_layout): # Maximum flow section (m**2)
     """
@@ -145,7 +172,7 @@ def shell_htc_kern(m_dot, T_wall, T_in, P_in, fluid, params):
     
     mu_w = PropsSI('V','T',T_wall,'P',P_in,fluid)
 
-    S_T = s_max(params['Tube_OD'], params['pitch_ratio'], params['Shell_ID'], params['central_spacing'], params['tube_layout']) # m^2
+    S_T = s_max_kern(params['Tube_OD'], params['pitch_ratio'], params['Shell_ID'], params['central_spacing'], params['tube_layout']) # m^2
     D_hydro = d_h(params['Tube_OD'], params['pitch_ratio'], params['tube_layout'])
 
     V_t = m_dot/(S_T*rho)
@@ -155,16 +182,10 @@ def shell_htc_kern(m_dot, T_wall, T_in, P_in, fluid, params):
     # print(Re)    
     
     if Re < 2e3:
-        
-        JH1 = 0.111 * Re**0.66
-        JH2 = 0.0548 * Re**0.68
-        
-        JH = JH2 + (params['Baffle_cut']/100 - 0.2) * (JH1 - JH2)/(0.8)
-        Nu = Pr**0.33 * JH * (mu/mu_w)**(0.14)
-
+        Nu = 0.427 * Re**0.528 * Pr**(1/3) 
     else:
         # McAdams, if no Baffles -> HYP : mu = mu_w
-        Nu = 0.36*Pr**0.33 * Re**(0.55) * (mu/mu_w)**(0.14)  
+        Nu = 0.36*Pr**(1/3) * Re**(0.55) * (mu/mu_w)**(0.14)  
 
     h = Nu*k/D_hydro
     
@@ -172,7 +193,7 @@ def shell_htc_kern(m_dot, T_wall, T_in, P_in, fluid, params):
     # print(f"Re : {Re}")
     # print(f"Pr : {Pr}")
         
-    return h
+    return h, Re, Pr
 
 #%%
 

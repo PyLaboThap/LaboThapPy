@@ -8,6 +8,33 @@ Created on Wed Mar 13 10:36:53 2024
 import numpy as np
 from CoolProp.CoolProp import PropsSI
 
+def s_max_kern(Tube_OD, pitch_ratio, Shell_ID, central_spacing, tube_layout): # Maximum flow section (m**2)
+    """
+    Input
+    -----
+    
+    Tube_OD         : Tube outside diameter [m]
+    pitch_ratio     : Tube pitch_ratio (tube spacing/tube outside diameter) [-]
+    Shell_ID        : Shell inside diameter [m]
+    central_spacing : Spacing between two baffles [m]
+    tube_layout     : Angle of tube layout [°]
+    
+    Output
+    ------
+    
+    s_max : Maximum flow area in the tube bank [m^2]
+    
+    Reference
+    ---------
+    https://cheguide.com/heat_exchanger_rating.html
+    
+    """
+    
+    p_T = Tube_OD * pitch_ratio # Tube Pitch
+    s_max = (Shell_ID / p_T)*(p_T -  Tube_OD) * central_spacing
+        
+    return s_max
+
 def s_max(Tube_OD, pitch_ratio, Shell_ID, central_spacing, tube_layout): # Maximum flow section (m**2)
     """
     Input
@@ -187,7 +214,7 @@ def shell_DP_kern(m_dot, T_wall, h_in, P_in, fluid, params):
     
     mu_w = PropsSI('V','T',T_wall,'P',P_in,fluid)
 
-    S_T = s_max(params['Tube_OD'], params['pitch_ratio'], params['Shell_ID'], params['central_spacing'], params['tube_layout']) # m^2
+    S_T = s_max_kern(params['Tube_OD'], params['pitch_ratio'], params['Shell_ID'], params['central_spacing'], params['tube_layout']) # m^2
     D_hydro = d_h(params['Tube_OD'], params['pitch_ratio'], params['tube_layout'])
     
     V_s = m_dot/(S_T*rho)

@@ -81,9 +81,9 @@ def gnielinski_pipe_htc(mu, Pr, mu_w, k, G, Dh, L):
         # warnings.warn('Gnielinski singe-phase: Out of validity range --> Re = ', Pr, ' is out of [', Pr_min, ' - ', Pr_max, '] !!!')
         warnings.warn('Gnielinski singe-phase: Prandtl Out of validity range  !!!')
     #-------------------------------------------------------------------------
-    return hConv
+    return hConv, Re, Pr
 
-def pipe_internal_DP(mu, rho, m_dot, params):
+def dittus_boetler_heating(mu, Pr, k, G, Dh):
     """
     Inputs
     ------
@@ -98,31 +98,56 @@ def pipe_internal_DP(mu, rho, m_dot, params):
     Outputs
     -------
     
-    DP : Pipe pressure drop [Pa]
+    h : Convection [W/(m^2 * K)]
     
     Reference
     ---------
-    ?
+    Incropera's Foundation of heat transfer
     """
-    
-    A_in_1_tube = np.pi*(params["Tube_OD"] - 2*params["Tube_t"])**2 / 4
-    A_in_tubes = A_in_1_tube*params["n_tubes"]
-
-    G = m_dot/A_in_tubes
 
     # Reynolds number
-    Re = G*(params["Tube_OD"] - 2*params["Tube_t"])/mu
+    Re = G*Dh/mu
     
-    # Flow speed
-    u = G/rho
+    # Nusselt number
+    Nu = 0.023*Re**0.8 * Pr**(0.4)
     
-    # Friction coefficient
-    f = (1.8*log10(Re) - 1.5)**(-2)
+    # HTC 
+    h = Nu*k/Dh
     
-    # Pressure drop (Np : number of passes)
-    DP = (4*f*params["Tube_L"]*params["Tube_pass"]/params["Tube_OD"] + 4*params["Tube_pass"])*rho*(u**2)/2
+    return h
+
+def dittus_boetler_cooling(mu, Pr, k, G, Dh):
+    """
+    Inputs
+    ------
     
-    return DP
+    mu   : Dynamic Viscosity [Pa*s]
+    Np   : Number of tube passes [-]
+    rho  : Density [kg/m^3]
+    G    : Flow rate per cross section area [kg/(m^2 * s)]
+    Dh   : Hydraulic diameter [m]
+    L    : Flow length [m]
+    
+    Outputs
+    -------
+    
+    h : Convection [W/(m^2 * K)]
+    
+    Reference
+    ---------
+    Incropera's Foundation of heat transfer
+    """
+
+    # Reynolds number
+    Re = G*Dh/mu
+    
+    # Nusselt number
+    Nu = 0.023*Re**0.8 * Pr**(0.3)
+    
+    # HTC 
+    h = Nu*k/Dh
+    
+    return h
 
 def horizontal_tube_internal_condensation(fluid,m_dot,P_sat,h_in,T_w,D_in):
     """
@@ -189,7 +214,7 @@ def horizontal_tube_internal_condensation(fluid,m_dot,P_sat,h_in,T_w,D_in):
         
     return h
 
-def horizontal_tube_internal_boiling(fluid,Q_act,A,m_dot,P_sat,h_in,T_w,D_in,L):
+def steiner_taborek_internal_boiling(fluid,Q_act,A,m_dot,P_sat,h_in,T_w,D_in,L):
     """
     Inputs
     ------
@@ -315,7 +340,7 @@ def horizontal_flow_boiling(fluid, G, P_sat, x, D_in, q):
     Outputs
     -------
     
-    alpha : Condensation heat transfer coeffieicnt [W/(m^2 * K)]
+    alpha : Evaporation heat transfer coeffieicnt [W/(m^2 * K)]
     
     Reference
     ---------
@@ -427,6 +452,92 @@ def horizontal_flow_boiling(fluid, G, P_sat, x, D_in, q):
     alpha = a_0*C_F*(q/q_0)**n * F_p * F_d * F_W * F_G * F_x # W/(m*2 * K)
     
     return alpha
+
+def flow_boiling_gungor_winterton(fluid, G, P_sat, x, D_in, q, mu_l, Pr_l, k_l):
+    """
+    Inputs
+    ------
+    
+    fluid : fluid name [-]
+    G     : Flowrate per area unit [kg/(m**2 * s)]
+    P_sat : Saturation pressure [Pa]
+    x     : Vapor mass fraction [-]
+    D_in  : Pipe internal diameter [m]
+    q     : Heat flux [W/(m**2 * K)]
+
+    Outputs
+    -------
+    
+    h_tp : Evaporation heat transfer coeffieicnt [W/(m^2 * K)]
+    
+    Reference
+    ---------
+    
+    """
+    
+    # Pipe roughness
+    Ra = 3e-6 # between 1.6 and 6.3 *1e-6 for carbon steel pipes
+    
+    h_f = dittus_boetler_heating(mu_l, Pr_l, k_l, G, D_in)
+    h_lv = PropsSI('H', 'P', P_sat, 'Q', 1, fluid) - PropsSI('H', 'P', P_sat, 'Q', 0, fluid)
+    
+    rho_v, mu_v = PropsSI(('D','V'), 'P', P_sat, 'Q', 1, fluid)
+    rho_l, mu_l = PropsSI(('D','V'), 'P', P_sat, 'Q', 0, fluid)
+
+    mu_tp = PropsSI('V', 'P', P_sat, 'Q', x, fluid)
+
+    
+    P_crit = PropsSI('PCRIT', fluid)
+    MM = PropsSI('M', fluid)
+    
+    # Froude Number
+    g = 9.81 # m/s^2
+    v_l = G/rho_l
+    Fr = (v_l/(g*D_in)**0.5)
+    
+    # print(Fr)
+    
+    # Reduced pressure
+    P_r = P_sat/P_crit
+    
+    # Lockhart-Martinelli parameter
+    X_tt = ((1-x)/x)**0.9 * (rho_v/rho_l)**0.5 * (mu_l/mu_v)**0.1
+    
+    # Boiling number
+    Bo = q/(G*h_lv)
+        
+    if Fr <= 0.05:
+        E_2 = Fr**(0.1 - 2*Fr)
+        S_2 = Fr**0.5
+    else:
+        E_2 = 1
+        S_2 = 1
+        
+    # Convection enhancement factor
+    E = E_2*(1 + 24000*Bo**1.16 + 1.23 * (1/X_tt)**0.86)
+    
+    # Boiling suppression factor
+    A_in = (np.pi/4)*D_in**2
+    P_wet = np.pi*D_in
+    D_e = 4*A_in/P_wet
+    
+    # Re_l = G*(1-x)*D_e/mu_l
+    # S = S_2*((1 + 0.00000253 * Re_l**1.17)**(-1))
+
+    Re_tp = G*D_in/mu_tp
+    S = S_2*((1 + 0.00000253 * Re_tp**1.17)**(-1))
+    
+    # Nucleate Bpiling : Cooper Correlation
+    h_nb = 55*P_r**(0.12)  * (-np.log10(P_r))**(-0.55) * (MM*1e3)**(-0.5) * q**0.67 # - 0.2*np.log(Ra)
+    
+    h_tp = E*h_f + S*h_nb
+    
+    # print(f"E : {E}")
+    # print(f"h_f : {h_f}")
+    # print(f"S : {S}")
+    # print(f"h_nb : {h_nb}")
+    
+    return h_tp
 
 def pool_boiling(fluid, T_sat, T_tube):
     """
