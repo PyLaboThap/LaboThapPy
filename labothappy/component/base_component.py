@@ -7,7 +7,6 @@ Created on Tue Sep 10 14:09:18 2024
 
 """
 
-
 class BaseComponent:
     """
 
