@@ -39,7 +39,7 @@ class CompressorSE(BaseComponent):
 
             ex (MassConnector): Mass connector for the exhaust side.
 
-            W_cp (WorkConnector): Work connector.
+            W_mec (WorkConnector): Work connector.
 
             Q_amb (HeatConnector): Heat connector for the ambient heat transfer.
 
@@ -99,7 +99,7 @@ class CompressorSE(BaseComponent):
         super().__init__()
         self.su = MassConnector() # Suction side mass connector
         self.ex = MassConnector() # Exhaust side mass connector
-        self.W_cp = WorkConnector() # Work connector of the compressor
+        self.W_mec = WorkConnector() # Work connector of the compressor
         self.Q_amb = HeatConnector() # Heat connector to the ambient
 
     def get_required_inputs(self):
@@ -416,11 +416,11 @@ class CompressorSE(BaseComponent):
         self.ex.set_h(self.h_ex)
         self.ex.set_m_dot(self.m_dot)
 
-        self.W_cp.set_W_dot(self.W_dot_cp)
+        self.W_mec.set_W_dot(self.W_dot_cp)
         if self.params['mode'] == 'N_rot':
             self.su.set_m_dot(self.m_dot)
         if self.params['mode'] == 'm_dot':
-            self.W_cp.set_N(self.N_rot)
+            self.W_mec.set_N(self.N_rot)
             
         self.Q_amb.set_Q_dot(self.Q_dot_amb)
         self.Q_amb.set_T_hot(self.T_w)
@@ -429,7 +429,7 @@ class CompressorSE(BaseComponent):
         print("=== Expander Results ===")
         print(f"  - h_ex: {self.ex.h} [J/kg]")
         print(f"  - T_ex: {self.ex.T} [K]")
-        print(f"  - W_dot_cp: {self.W_cp.W_dot} [W]")
+        print(f"  - W_dot_cp: {self.W_mec.W_dot} [W]")
         print(f"  - epsilon_is: {self.epsilon_is} [-]")
         print(f"  - m_dot: {self.m_dot} [kg/s]")
         print(f"  - epsilon_v: {self.epsilon_v} [-]")
@@ -442,7 +442,7 @@ class CompressorSE(BaseComponent):
         print(f"  - ex: fluid={self.ex.fluid}, T={self.ex.T} [K], p={self.ex.p} [Pa], h={self.ex.h} [J/kg], s={self.ex.s} [J/K.kg], m_dot={self.ex.m_dot} [kg/s]")
         print("=========================")
         print("Work connector:")
-        print(f"  - W_dot_cp: {self.W_cp.W_dot} [W]")
+        print(f"  - W_dot_cp: {self.W_mec.W_dot} [W]")
         print("=========================")
         print("Heat connector:")
         print(f"  - Q_dot_amb: {self.Q_amb.Q_dot} [W]")

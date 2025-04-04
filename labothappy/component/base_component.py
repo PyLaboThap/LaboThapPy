@@ -94,12 +94,7 @@ class BaseComponent:
             pass
         try:
             if 'N_rot' in self.inputs:
-                self.W_exp.set_N(self.inputs['N_rot'])
-        except:
-            pass
-        try:
-            if 'N_rot' in self.inputs:
-                self.W_cp.set_N(self.inputs['N_rot'])
+                self.W_mec.set_N(self.inputs['N_rot'])
         except:
             pass
         try:
@@ -129,7 +124,7 @@ class BaseComponent:
         except:
             pass
         try:
-            if self.W_exp.N is not None:
+            if self.W_mec.N is not None:
                 self.inputs['N_rot'] = self.W_exp.N
         except:
             pass
