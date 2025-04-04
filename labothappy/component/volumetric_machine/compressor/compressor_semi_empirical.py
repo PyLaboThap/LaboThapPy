@@ -69,13 +69,13 @@ class CompressorSE(BaseComponent):
 
         **Inputs**:
 
-            su_p: Suction side pressure. [Pa]
+            P_su: Suction side pressure. [Pa]
 
-            su_T: Suction side temperature. [K]
+            T_su: Suction side temperature. [K]
 
-            ex_p: Exhaust side pressure. [Pa]
+            P_ex: Exhaust side pressure. [Pa]
 
-            su_fluid: Suction side fluid. [-]
+            fluid: Suction side fluid. [-]
 
             N_rot: Rotational speed. [rpm]
 
@@ -85,13 +85,15 @@ class CompressorSE(BaseComponent):
 
             eta_is: Isentropic efficiency. [-]
 
-            ex_h: Exhaust side specific enthalpy. [J/kg]
+            h_ex: Exhaust side specific enthalpy. [J/kg]
 
-            ex_T: Exhaust side temperature. [K]
+            T_ex: Exhaust side temperature. [K]
 
             W_dot_cp: Compressor power. [W]
 
             m_dot: Mass flow rate. [kg/s]
+            or
+            N_rot: Rotational speed. [rpm]
             
             epsilon_v: Volumetric efficiency. [-]
     """

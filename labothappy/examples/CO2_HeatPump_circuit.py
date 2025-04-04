@@ -12,7 +12,7 @@ from component.heat_exchanger.steady_state.cst_efficiency.simulation_model impor
 )
 from component.heat_exchanger.steady_state.pinch_cst.simulation_model import HXPinchCst
 from component.valve.isenthalpic_valve import Isenthalpic_Valve
-from component.volumetric_machine.compressor.steady_state.constant_isentropic_efficiency.simulation_model import (
+from labothappy.component.volumetric_machine.compressor.compressor_csteff import (
     CompressorCstEff,
 )
 from connector.mass_connector import MassConnector
