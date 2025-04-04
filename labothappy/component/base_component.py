@@ -125,7 +125,7 @@ class BaseComponent:
             pass
         try:
             if self.W_mec.N is not None:
-                self.inputs['N_rot'] = self.W_exp.N
+                self.inputs['N_rot'] = self.W_mec.N
         except:
             pass
         try:
