@@ -58,6 +58,91 @@ def gnielinski_pipe_DP(mu, rho, G, Dh, L):
     
     return DP
 
+def Muller_Steinhagen_Heck_DP(fluid, G, P_sat, x, L, D_in):
+    """
+    For 1 phase flow
+    
+    Inputs
+    ------
+    
+    mu   : Dynamic Viscosity [Pa*s]
+    rho  : Density [kg/m^3]
+    G    : Flow rate per cross section area [kg/(m^2 * s)]
+    Dh   : Hydraulic diameter [m]
+    L    : Flow length [m]
+    
+    Outputs
+    -------
+    
+    DP : Pressure drop [Pa]
+    
+    Reference
+    ---------
+    GENERALIZED PRESSURE DROP CORRELATIONFOR EVAPORATION AND CONDENSATIONIN SMOOTH AND MICRO-FIN TUBES
+    
+    Choi, Kedzierski, Domanski
+    """    
+    mu_l, h_l, rho_l = PropsSI(('V','H','D'), 'P', P_sat, 'Q', 0, fluid)
+    mu_v, h_v, rho_v = PropsSI(('V','H','D'), 'P', P_sat, 'Q', 1, fluid)
+        
+    Re_l = G*D_in/mu_l
+    Re_v = G*D_in/mu_v
+    
+    f_l = 0.079/Re_l**0.25
+    f_v = 0.079/Re_v**0.25
+    
+    A = f_l*2*G**2 / (D_in*rho_l)
+    B = f_v*2*G**2 / (D_in*rho_v)
+    
+    Y = A + 2*(B-A)*x
+    
+    DP_dz = Y*(1-x)**(1/3) + B*x**3
+
+    DP = DP_dz*L
+
+    return DP
+
+def Choi_DP(fluid, G, rho_out, rho_in, P_sat, x_o, x_i, L, D_in):
+    """
+    For 1 phase flow
+    
+    Inputs
+    ------
+    
+    mu   : Dynamic Viscosity [Pa*s]
+    rho  : Density [kg/m^3]
+    G    : Flow rate per cross section area [kg/(m^2 * s)]
+    Dh   : Hydraulic diameter [m]
+    L    : Flow length [m]
+    
+    Outputs
+    -------
+    
+    DP : Pressure drop [Pa]
+    
+    Reference
+    ---------
+    GENERALIZED PRESSURE DROP CORRELATIONFOR EVAPORATION AND CONDENSATIONIN SMOOTH AND MICRO-FIN TUBES
+    
+    Choi, Kedzierski, Domanski
+    """
+    g = 9.81
+    
+    mu_l, h_l = PropsSI(('V','H'), 'P', P_sat, 'Q', 0, fluid)
+    h_v = PropsSI('H', 'P', P_sat, 'Q', 1, fluid)
+    
+    Dh_lv = h_v - h_l
+    Re_f = G*D_in/mu_l
+    
+    K_f = (x_o - x_i)*Dh_lv/(g*L)
+    
+    f_N = 0.00506*Re_f**(-0.0951) * K_f**(0.1554)
+
+    DP = (f_N*L*(1/rho_out + 1/rho_in)/D_in + (1/rho_out + 1/rho_in))*G**2 
+
+    return DP
+
+
 def Churchill_DP(mu, rho, G, Dh, L):
     """
     For 1 phase flow

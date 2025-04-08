@@ -97,9 +97,12 @@ def Internal_Max_P_carbon_steel(D_o,t,T_tube):
         
     Reference
     ---------
-    2007 ASME BPV Code 
+    2007 ASME BPV Code + ASME B31
     
     """
+    # Interpolation data from engineering Tooblox
+    # For steel
+    
     T_S_interp = np.array([0, 93.33, 204.444, 315.556, 371.111,
                           398.889, 426.667]) + 273.15  # [K] : Temperature vector
     # [MPa] : Max stress with respect to temperature vector
@@ -107,22 +110,19 @@ def Internal_Max_P_carbon_steel(D_o,t,T_tube):
                         134.44777, 131.00039, 103.42136, 82.737088])
     
     S_fun = interp1d(T_S_interp, S_interp, kind='linear')
-    
-    """
-    
-    Max allowable pressure depending on pipe outside diameter and thickness
-    If under critical pressure, associated saturation temperature
-    
-    """
 
     "Compute P_max for inputs"
     
     S_tube_calc = S_fun(T_tube)*1e6  # [Pa]
 
-    # from in to m
-    D_o = D_o*25.4*1e-3
-
     P_max = S_tube_calc*((2*t - 0.01*D_o)/(D_o - (t-0.005*D_o)))
+    
+    if D_o/t > 20: # Thin wall : Barlow
+        P_max = (2 * S_tube_calc * t) / D_o
+    else: # Thick wall : Lame
+        r_o = D_o/2
+        r_i = D_o/2 - t
+        P_max = S_tube_calc * ((r_o**2 - r_i**2) / (r_o**2 + r_i**2))
     
     return P_max
 
@@ -143,14 +143,10 @@ def External_Max_P_carbon_steel(D_o,t,T_tube):
     2007 ASME BPV Code 
     
     """
-    T_S_interp = np.array([0, 93.33, 204.444, 315.556, 371.111,
-                          398.889, 426.667]) + 273.15  # [K] : Temperature vector
-    # [MPa] : Max stress with respect to temperature vector
-    S_interp = np.array([158.57942, 158.57942, 158.57942,
-                        134.44777, 131.00039, 103.42136, 82.737088])
     
-    S_fun = interp1d(T_S_interp, S_interp, kind='linear')
-    
+    sigma = 250*1e6 # Pa : Yield strength for steel
+    E = 200*1e9 # Pa : Yield strength for steel
+        
     """
     
     Max allowable pressure depending on pipe outside diameter and thickness
@@ -160,36 +156,43 @@ def External_Max_P_carbon_steel(D_o,t,T_tube):
 
     "Compute P_max for inputs"
     
-    S_tube_calc = S_fun(T_tube)*1e6  # [Pa] : Young Modulus
     mu = 0.3 # Poisson Ratio
 
     # from in to m
-    D_o = D_o*25.4*1e-3
+    D_o = D_o
 
     r = D_o/2
 
-    P_max = (S_tube_calc)/(4*(1-mu**2)) * (t/r)**3
-    
+    P_max_el = 2*E/(1-mu**2) * (t/r)**3
+    P_max_pl = 2*sigma/3 * t/r    
+
+    P_max = min(P_max_el, P_max_pl)
+
     return P_max
 
-def carbon_steel_pipe_thickness(D_o_vect, tube_T, ext_p, int_p):
-    standards = ['10','30','40','80']
+def carbon_steel_pipe_thickness(D_o_vect, tube_T, ext_p, int_p):    
+    # ASTM A312 standard
+    
+    schedules = ['5S','10S','40S','80S']
 
     thickness = np.array([
-                [2.11, 2.41, 2.77, 3.73], # 1/2
-                # [2.11, 2.41, 2.82, 3.89], # 5/8
-                # [2.11, 2.41, 2.87, 3.91], # 3/4
-                # [2.77, 2.90, 3.38, 4.55], # 1
-                # [2.77, 2.97, 3.56, 4.85], # 1 + 1/4
-                # [2.77, 3.18, 3.68, 5.08]  # 1 + 1/2
-                ])*1e-3 # m
+                # [0.035, 0.049, 0.068, 0.095], # 1/8
+                # [0.049, 0.065, 0.088, 0.119], # 1/4
+                [0.049, 0.065, 0.091, 0.126], # 3/8
+                [0.065, 0.083, 0.109, 0.147], # 1/2
+                [0.065, 0.083, 0.111, 0.150], # 5/8
+                [0.065, 0.083, 0.113, 0.154], # 3/4
+                # [0.065, 0.109, 0.133, 0.179], # 1
+                # [0.065, 0.109, 0.140, 0.191], # 1 + 1/4
+                # [0.065, 0.109, 0.145, 0.2  ]  # 1 + 1/2
+                ])*25.4*1e-3 # m
 
-    thickness_df = pd.DataFrame(index = D_o_vect, columns = standards, data = thickness)
+    thickness_df = pd.DataFrame(index = D_o_vect, columns = schedules, data = thickness)
 
     for D_o in thickness_df.index: 
         for standard in thickness_df.columns:
-            P_max_int = Internal_Max_P_carbon_steel(pd.to_numeric(D_o, errors='coerce'), thickness_df[standard][D_o], tube_T)
-            P_max_ext = External_Max_P_carbon_steel(pd.to_numeric(D_o, errors='coerce'), thickness_df[standard][D_o], tube_T)
+            P_max_int = Internal_Max_P_carbon_steel(pd.to_numeric(D_o, errors='coerce')*25.4*1e-3, thickness_df[standard][D_o], tube_T)
+            P_max_ext = External_Max_P_carbon_steel(pd.to_numeric(D_o, errors='coerce')*25.4*1e-3, thickness_df[standard][D_o], tube_T)
 
             # print("-----------------------")
 
@@ -215,7 +218,13 @@ def carbon_steel_pipe_thickness(D_o_vect, tube_T, ext_p, int_p):
 def pitch_ratio_fun(D_o, Layout_angle_deg):
 
     if Layout_angle_deg == 45 or Layout_angle_deg == 0: # Square arrangement 
-        if D_o == 1/2:
+        if D_o == 1/8:
+            Pitch_ratio = 1.25  
+        elif D_o == 1/4:
+            Pitch_ratio = 1.25  
+        elif D_o == 3/8:
+            Pitch_ratio = 1.33    
+        elif D_o == 1/2:
             Pitch_ratio = 1.25
         elif D_o == 5/8:
             Pitch_ratio = 1.25
@@ -232,7 +241,13 @@ def pitch_ratio_fun(D_o, Layout_angle_deg):
             return -1
 
     elif Layout_angle_deg == 30 or Layout_angle_deg == 60: # Square arrangement 
-        if D_o == 1/2:
+        if D_o == 1/8:
+            Pitch_ratio = 1.25  
+        elif D_o == 1/4:
+            Pitch_ratio = 1.25  
+        elif D_o == 3/8:
+            Pitch_ratio = 1.33     
+        elif D_o == 1/2:
             Pitch_ratio = 1.25
         elif D_o == 5/8:
             Pitch_ratio = 1.25

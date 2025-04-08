@@ -165,12 +165,18 @@ def shell_htc_kern(m_dot, T_wall, T_in, P_in, fluid, params):
     
     "1) HTC"
     
-    rho = PropsSI('D','T',T_in, 'P',P_in,fluid)
-    mu = PropsSI('V','T',T_in, 'P',P_in,fluid)
-    Pr = PropsSI('PRANDTL','T',T_in, 'P',P_in,fluid)
-    k = PropsSI('L','T',T_in, 'P',P_in,fluid)
+    AS = CP.AbstractState("BICUBIC&HEOS", fluid)
     
-    mu_w = PropsSI('V','T',T_wall,'P',P_in,fluid)
+    AS.update(CP.PT_INPUTS, P_in, T_in)
+    
+    rho = AS.rhomass()
+    mu = AS.viscosity()
+    Pr = AS.Prandtl()
+    k = AS.conductivity()
+
+    AS.update(CP.PT_INPUTS, P_in, T_wall)
+    
+    mu_w = AS.viscosity()
 
     S_T = s_max_kern(params['Tube_OD'], params['pitch_ratio'], params['Shell_ID'], params['central_spacing'], params['tube_layout']) # m^2
     D_hydro = d_h(params['Tube_OD'], params['pitch_ratio'], params['tube_layout'])

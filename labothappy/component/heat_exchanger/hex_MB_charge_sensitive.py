@@ -27,14 +27,14 @@ from correlations.heat_exchanger.find_2P_boundaries import find_2P_boundaries
 
 # HTC Correlations
 from correlations.convection.plate_htc import han_BPHEX_DP, water_plate_HTC, martin_BPHEX_HTC, muley_manglik_BPHEX_HTC, han_boiling_BPHEX_HTC, han_cond_BPHEX_HTC, thonon_plate_HTC, kumar_plate_HTC, martin_holger_plate_HTC, amalfi_plate_HTC, shah_condensation_plate_HTC
-from correlations.convection.pipe_htc import gnielinski_pipe_htc, boiling_curve, horizontal_tube_internal_condensation, horizontal_flow_boiling
+from correlations.convection.pipe_htc import gnielinski_pipe_htc, boiling_curve, horizontal_tube_internal_condensation, horizontal_flow_boiling, flow_boiling_gungor_winterton
 from correlations.convection.shell_and_tube_htc import shell_bell_delaware_htc, shell_htc_kern
 from correlations.convection.tube_bank_htc import ext_tube_film_condens
 from correlations.convection.fins import htc_tube_and_fins
 
 # DP Correlations 
 from correlations.pressure_drop.shell_and_tube_DP import shell_DP_kern, shell_DP_donohue, shell_bell_delaware_DP
-from correlations.pressure_drop.pipe_DP import gnielinski_pipe_DP , Churchill_DP
+from correlations.pressure_drop.pipe_DP import gnielinski_pipe_DP , Churchill_DP, Choi_DP, Muller_Steinhagen_Heck_DP
 
 # Fluid Correlations
 from correlations.properties.thermal_conductivity import conducticity_R1233zd
@@ -240,6 +240,7 @@ class HeatExchangerMB(BaseComponent):
                 
         self.Q_HX = HeatConnector()
         self.F_fun = None
+        self.w = [None]
         
         self.AS_C = None
         self.AS_H = None
@@ -1012,11 +1013,27 @@ class HeatExchangerMB(BaseComponent):
         return alpha_h
 
     def compute_C_2P_HTC(self, k, Tc_mean, p_c_mean, T_wall_c, G_c, Tc_sat_mean, alpha_h, LMTD, havg_c):
-        if self.phases_c[k] == "two-phase":
-            x_c = min(1, max(0, 0.5*(self.x_vec_c[k] + self.x_vec_c[k])))
+
+        try:
+            a = self.x_c_calc 
+        except:
+            self.x_c_calc = []
+                
+        if self.phases_c[k] == "two-phase": 
+            if len(self.phases_c[k]) == 1: 
+                x_c = min(1, max(0, (self.x_vec_c[k]+1)/2))
+            else:
+                try: 
+                    if self.phases_c[k+1] != "two-phase":
+                        x_c = min(1, max(0, (self.x_vec_c[k]+1)/2))
+                    else:
+                        x_c = min(1, max(0, (self.x_vec_c[k]+self.x_vec_c[k+1])/2))
+                except:
+                    x_c = min(1, max(0, (self.x_vec_c[k]+1)/2))
+                    
         elif self.phases_c[k] == "vapor-wet":
             x_c = 1
-      
+        
         # Thermodynamical variables
         self.AS_C.update(CP.PQ_INPUTS, p_c_mean, 0)
         mu_c_l = self.AS_C.viscosity()
@@ -1054,9 +1071,16 @@ class HeatExchangerMB(BaseComponent):
             D_in = self.params['Tube_OD']-2*self.params['Tube_t']
             
             alpha_c_2phase = horizontal_flow_boiling(self.su_C.fluid, G_c, p_c_mean, x_c, D_in, q)
+        
+        elif self.C.Correlation_2phase == "Flow_boiling_gungor_winterton":
+            q = self.Qvec_c[k]/(self.params['A_eff']*self.w[k])
+            D_in = self.params['Tube_OD']-2*self.params['Tube_t']
             
+            alpha_c_2phase = flow_boiling_gungor_winterton(self.su_C.fluid, G_c, p_c_mean, x_c, D_in, q, mu_c_l, Pr_c_l, k_c_l)
+        
         else:
             raise ValueError("Correlation not found for Cold Side 2-Phase")
+            
         if self.phases_c[k] == "two-phase":
             alpha_c = alpha_c_2phase
         elif self.phases_c[k] == "vapor-wet":
@@ -1112,7 +1136,20 @@ class HeatExchangerMB(BaseComponent):
             # print(f"L : {self.params['Tube_L']*self.params['Tube_pass']}")
             # print(f"Fluid : {self.su_C.fluid}")
             
-            DP_C = gnielinski_pipe_DP(mu_c_in, self.su_C.D, G_c, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"])    
+            DP_C = gnielinski_pipe_DP(mu_c_in, self.su_C.D, G_c, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"])   
+        elif self.C.PressureDrop_Correlation == "Choi_DP":
+
+            G_c, G_h = self.G_h_c_computation()
+            rho_out = CP.PropsSI('D', 'P', self.su_C.p, 'Q', 1, self.su_C.fluid)
+            
+            DP_C = Choi_DP(self.su_C.fluid, G_c, rho_out, self.su_C.D, self.su_C.p, 1, self.su_C.x, self.params["Tube_L"]*self.params["Tube_pass"], self.params["Tube_OD"]-2*self.params["Tube_t"])
+        
+        elif self.C.PressureDrop_Correlation == "Muller_Steinhagen_Heck_DP":
+            G_c, G_h = self.G_h_c_computation()
+            rho_out = CP.PropsSI('D', 'P', self.su_C.p, 'Q', 1, self.su_C.fluid)
+
+            DP_C = Muller_Steinhagen_Heck_DP(self.su_C.fluid, G_c, self.su_C.p, 0.5, self.params["Tube_L"]*self.params["Tube_pass"], self.params["Tube_OD"]-2*self.params["Tube_t"])
+        
         else:
             DP_C = 0
         
@@ -1449,7 +1486,10 @@ class HeatExchangerMB(BaseComponent):
         
         # Initialise results arrays
         # w = [] 
-        self.w = np.ones(len(self.hvec_h)-1)/(len(self.hvec_h)-1)
+        
+        if self.w[0] == None or abs(sum(self.w)-1) > 0.1:
+            self.w = np.ones(len(self.hvec_h)-1)/(len(self.hvec_h)-1)
+            
         self.Re_h = np.zeros(len(self.hvec_h)-1)
         self.Re_c = np.zeros(len(self.hvec_h)-1)
         self.Pr_h = np.zeros(len(self.hvec_h)-1)
@@ -1706,9 +1746,13 @@ class HeatExchangerMB(BaseComponent):
                 else: 
                     UA_avail =  1/(1/(alpha_h*self.A_in_tubes) + 1/(alpha_c*self.A_out_tubes) + R_fouling + R_cond) # 1/((1+self.geom.fooling)/(alpha_h*self.geom.A_h) + 1/(alpha_c*self.geom.A_c) + t/(self.geom.tube_cond)) 
 
-            "5) Calculate w, the main objective of this function. This variable serves for residual minimization in the solver"
-            
-            self.w[k] = UA_req/UA_avail
+            "5) Calculate w, the main objective of this function. This variable serves for residual minimization in the solver"      
+
+            if k > len(self.w)- 1:
+                self.w = np.append(self.w, UA_req/UA_avail) 
+            else:
+                self.w[k] = UA_req/UA_avail                
+                
             # w.append(UA_req/UA_avail)
             # self.w = w
             
@@ -1750,6 +1794,11 @@ class HeatExchangerMB(BaseComponent):
                             self.x_di_c = kim_dry_out_incipience(G_c, q_c,self.params['Tube_OD']-2*self.params['Tube_t'], P_star_c, rho_c_l, rho_c_v, mu_c_l, sigma_c_l, i_fg_c)
                     except:
                         self.x_di_c = -1
+        
+        if k < len(self.w) - 1:
+            self.w = self.w[:-1]
+                
+                        
         if debug:
             print(Q, 1-sum(w))
             

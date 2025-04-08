@@ -8,6 +8,7 @@ import numpy as np
 import warnings
 from CoolProp.CoolProp import PropsSI
 from scipy.optimize import fsolve
+import CoolProp.CoolProp as CP
 
 #%%
 
@@ -347,7 +348,7 @@ def horizontal_flow_boiling(fluid, G, P_sat, x, D_in, q):
     VDI Heat Atlas 2010 
     """
     
-    if fluid == 'Helium' or "He":
+    if fluid == 'Helium' or fluid == "He":
         q_0 = 1000
     elif fluid == 'H2' or fluid == 'N2' or fluid == 'Neon' or fluid == 'Air' or fluid == 'O2' or fluid == 'Ar':
         q_0 = 10000
@@ -410,15 +411,37 @@ def horizontal_flow_boiling(fluid, G, P_sat, x, D_in, q):
     } # W/(m**2 * K)
     
     a_0 = a_0_dict[fluid]
+        
+    AS = CP.AbstractState("BICUBIC&HEOS", fluid)
+
+    P_crit = AS.p_critical()    
+    P_01 = 0.1*P_crit
+
+    # Clamp x early
+    x = min(max(x, 0), 1)
+    
+    # Liquid state
+    AS.update(CP.PQ_INPUTS, P_01, 0)
+    MM_fluid = AS.molar_mass()
+    rho_l_01 = AS.rhomass()
+    h_l_01 = AS.hmass()
+    
+    # Vapor state
+    AS.update(CP.PQ_INPUTS, P_01, 1)
+    h_v_01 = AS.hmass()
+    rho_v_01 = AS.rhomass()
+    
+    if fluid == 'R134a':
+        sigma_01 = 0.010449499360652493
+    else:
+        sigma_01 = PropsSI('I', 'P', P_01, 'Q', 0.5, fluid)
     
     # n exponent
-    P_crit = PropsSI('PCRIT', fluid)
     P_star = P_sat/P_crit
     n = 0.9 - 0.36*P_star**0.13
     
     # Factor depending on the fluid molar mass
-    MM_H2 = PropsSI('M', 'H2')
-    MM_fluid = PropsSI('M', fluid)
+    MM_H2 = 0.00201588 # H2 Molar mass
     C_F = 0.789*(MM_fluid/MM_H2)**0.11
     
     # F_p : Contribution of pressure
@@ -428,7 +451,7 @@ def horizontal_flow_boiling(fluid, G, P_sat, x, D_in, q):
     F_d = (1e-2/D_in)**0.5
 
     # F_W : Contribution of tube wall roughness    
-    Ra = 3e-6 # between 1.6 and 6.3 *1e-6 for carbon steel pipes
+    Ra = 2e-6 # between 1.6 and 6.3 *1e-6 for carbon steel pipes
     Ra_o = 1e-6
     F_W = (Ra/Ra_o)**0.133
     
@@ -437,12 +460,8 @@ def horizontal_flow_boiling(fluid, G, P_sat, x, D_in, q):
     F_G = (G/G_0)**0.25
     
     # F_x : Contribution of vapor quality
-    P_01 = 0.1*P_crit
     g = 9.81 # m/s**2
-    sigma_01 = PropsSI('I', 'Q', 0.5, 'P', P_01, fluid)
-    rho_l_01 = PropsSI('D', 'Q', 0, 'P', P_01, fluid)
-    rho_v_01 = PropsSI('D', 'Q', 1, 'P', P_01, fluid)
-    Dh_evap_01 = PropsSI('H','P',P_01,'Q',1,fluid) - PropsSI('H','P',P_01,'Q',0,fluid) # Evaporation specific heat
+    Dh_evap_01 = h_v_01 - h_l_01 # Evaporation specific heat
     
     q_cr_01 = 0.13*Dh_evap_01*rho_v_01**0.5 * (sigma_01*g*(rho_l_01-rho_v_01))**0.25
     q_cr_PB = 2.79*q_cr_01*P_star**0.4*(1-P_star)
@@ -451,7 +470,103 @@ def horizontal_flow_boiling(fluid, G, P_sat, x, D_in, q):
     # Heat transfer coefficient
     alpha = a_0*C_F*(q/q_0)**n * F_p * F_d * F_W * F_G * F_x # W/(m*2 * K)
     
+    # print(f"a_0 : {a_0}")
+    # print(f"C_F : {C_F}")
+    # print(f"q : {q}")
+    # print(f"q_0 : {q_0}")
+    # print(f"n : {n}")
+    # print(f"F_p : {F_p}")
+    # print(f"F_d : {F_d}")
+    # print(f"F_W : {F_W}")
+    # print(f"F_G : {F_G}")
+    # print(f"F_x : {F_x}")
+    # print("-----------------")
+    
     return alpha
+
+# def flow_boiling_gungor_winterton(fluid, G, P_sat, x, D_in, q, mu_l, Pr_l, k_l):
+#     """
+#     Inputs
+#     ------
+    
+#     fluid : fluid name [-]
+#     G     : Flowrate per area unit [kg/(m**2 * s)]
+#     P_sat : Saturation pressure [Pa]
+#     x     : Vapor mass fraction [-]
+#     D_in  : Pipe internal diameter [m]
+#     q     : Heat flux [W/(m**2 * K)]
+
+#     Outputs
+#     -------
+    
+#     h_tp : Evaporation heat transfer coeffieicnt [W/(m^2 * K)]
+    
+#     Reference
+#     ---------
+    
+#     """
+    
+#     # Pipe roughness    
+#     h_f = dittus_boetler_heating(mu_l, Pr_l, k_l, G, D_in)
+#     h_lv = PropsSI('H', 'P', P_sat, 'Q', 1, fluid) - PropsSI('H', 'P', P_sat, 'Q', 0, fluid)
+    
+#     rho_v, mu_v = PropsSI(('D','V'), 'P', P_sat, 'Q', 1, fluid)
+#     rho_l, mu_l = PropsSI(('D','V'), 'P', P_sat, 'Q', 0, fluid)
+
+#     mu_tp = PropsSI('V', 'P', P_sat, 'Q', x, fluid)
+
+    
+#     P_crit = PropsSI('PCRIT', fluid)
+#     MM = PropsSI('M', fluid)
+    
+#     # Froude Number
+#     g = 9.81 # m/s^2
+#     v_l = G/rho_l
+#     Fr = (v_l/(g*D_in)**0.5)
+    
+#     # print(Fr)
+    
+#     # Reduced pressure
+#     P_r = P_sat/P_crit
+    
+#     # Lockhart-Martinelli parameter
+#     X_tt = ((1-x)/x)**0.9 * (rho_v/rho_l)**0.5 * (mu_l/mu_v)**0.1
+    
+#     # Boiling number
+#     Bo = q/(G*h_lv)
+        
+#     if Fr <= 0.05:
+#         E_2 = Fr**(0.1 - 2*Fr)
+#         S_2 = Fr**0.5
+#     else:
+#         E_2 = 1
+#         S_2 = 1
+        
+#     # Convection enhancement factor
+#     E = E_2*(1 + 24000*Bo**1.16 + 1.23 * (1/X_tt)**0.86)
+    
+#     # Boiling suppression factor
+#     A_in = (np.pi/4)*D_in**2
+#     P_wet = np.pi*D_in
+#     D_e = 4*A_in/P_wet
+    
+#     # Re_l = G*(1-x)*D_e/mu_l
+#     # S = S_2*((1 + 0.00000253 * Re_l**1.17)**(-1))
+
+#     Re_tp = G*D_e/mu_tp
+#     S = S_2*((1 + 0.00000253 * Re_tp**1.17)**(-1))
+    
+#     # Nucleate Bpiling : Cooper Correlation
+#     h_nb = 55*P_r**(0.12)  * (-np.log10(P_r))**(-0.55) * (MM*1e3)**(-0.5) * q**0.67 # - 0.2*np.log(Ra)
+    
+#     h_tp = E*h_f + S*h_nb
+    
+#     # print(f"E : {E}")
+#     # print(f"h_f : {h_f}")
+#     # print(f"S : {S}")
+#     # print(f"h_nb : {h_nb}")
+    
+#     return h_tp
 
 def flow_boiling_gungor_winterton(fluid, G, P_sat, x, D_in, q, mu_l, Pr_l, k_l):
     """
@@ -475,20 +590,29 @@ def flow_boiling_gungor_winterton(fluid, G, P_sat, x, D_in, q, mu_l, Pr_l, k_l):
     
     """
     
-    # Pipe roughness
-    Ra = 3e-6 # between 1.6 and 6.3 *1e-6 for carbon steel pipes
+    AS = CP.AbstractState("BICUBIC&HEOS", fluid)
     
+    AS.update(CP.PQ_INPUTS, P_sat, 1)
+    
+    h_v = AS.hmass()
+    rho_v = AS.rhomass()
+    mu_v = AS.viscosity()
+
+    AS.update(CP.PQ_INPUTS, P_sat, 0)
+
+    h_l = AS.hmass()
+    rho_l = AS.rhomass()
+    mu_l = AS.viscosity()
+    
+    AS.update(CP.PQ_INPUTS, P_sat, x)    
+    
+    mu_tp = AS.viscosity()
+    P_crit = AS.p_critical()
+    MM = AS.molar_mass()
+
+    # Pipe roughness    
     h_f = dittus_boetler_heating(mu_l, Pr_l, k_l, G, D_in)
-    h_lv = PropsSI('H', 'P', P_sat, 'Q', 1, fluid) - PropsSI('H', 'P', P_sat, 'Q', 0, fluid)
-    
-    rho_v, mu_v = PropsSI(('D','V'), 'P', P_sat, 'Q', 1, fluid)
-    rho_l, mu_l = PropsSI(('D','V'), 'P', P_sat, 'Q', 0, fluid)
-
-    mu_tp = PropsSI('V', 'P', P_sat, 'Q', x, fluid)
-
-    
-    P_crit = PropsSI('PCRIT', fluid)
-    MM = PropsSI('M', fluid)
+    h_lv = h_v - h_l
     
     # Froude Number
     g = 9.81 # m/s^2
@@ -514,7 +638,7 @@ def flow_boiling_gungor_winterton(fluid, G, P_sat, x, D_in, q, mu_l, Pr_l, k_l):
         S_2 = 1
         
     # Convection enhancement factor
-    E = E_2*(1 + 24000*Bo**1.16 + 1.23 * (1/X_tt)**0.86)
+    E = E_2*(1 + 24000*Bo**1.16 + 1.37 * (1/X_tt)**0.86)
     
     # Boiling suppression factor
     A_in = (np.pi/4)*D_in**2
@@ -524,11 +648,11 @@ def flow_boiling_gungor_winterton(fluid, G, P_sat, x, D_in, q, mu_l, Pr_l, k_l):
     # Re_l = G*(1-x)*D_e/mu_l
     # S = S_2*((1 + 0.00000253 * Re_l**1.17)**(-1))
 
-    Re_tp = G*D_in/mu_tp
-    S = S_2*((1 + 0.00000253 * Re_tp**1.17)**(-1))
+    Re_tp = G*D_e/mu_tp
+    S = S_2*((1 + 0.00000115*E**2 * Re_tp**1.17)**(-1))
     
     # Nucleate Bpiling : Cooper Correlation
-    h_nb = 55*P_r**(0.12)  * (-np.log10(P_r))**(-0.55) * (MM*1e3)**(-0.5) * q**0.67 # - 0.2*np.log(Ra)
+    h_nb = 55*P_r**(0.12)  * (-0.4343*np.log(P_r))**(-0.55) * (MM*1e3)**(-0.5) * q**0.67 # - 0.2*np.log(Ra)
     
     h_tp = E*h_f + S*h_nb
     
@@ -538,6 +662,7 @@ def flow_boiling_gungor_winterton(fluid, G, P_sat, x, D_in, q, mu_l, Pr_l, k_l):
     # print(f"h_nb : {h_nb}")
     
     return h_tp
+
 
 def pool_boiling(fluid, T_sat, T_tube):
     """
