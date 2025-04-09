@@ -451,7 +451,7 @@ def horizontal_flow_boiling(fluid, G, P_sat, x, D_in, q):
     F_d = (1e-2/D_in)**0.5
 
     # F_W : Contribution of tube wall roughness    
-    Ra = 2e-6 # between 1.6 and 6.3 *1e-6 for carbon steel pipes
+    Ra = 2.3*1e-6 # between 1.6 and 6.3 *1e-6 for carbon steel pipes
     Ra_o = 1e-6
     F_W = (Ra/Ra_o)**0.133
     
@@ -638,7 +638,7 @@ def flow_boiling_gungor_winterton(fluid, G, P_sat, x, D_in, q, mu_l, Pr_l, k_l):
         S_2 = 1
         
     # Convection enhancement factor
-    E = E_2*(1 + 24000*Bo**1.16 + 1.37 * (1/X_tt)**0.86)
+    E = E_2*(1 + 24000*Bo**1.16 + 1.23 * (1/X_tt)**0.86)
     
     # Boiling suppression factor
     A_in = (np.pi/4)*D_in**2
@@ -652,7 +652,7 @@ def flow_boiling_gungor_winterton(fluid, G, P_sat, x, D_in, q, mu_l, Pr_l, k_l):
     S = S_2*((1 + 0.00000115*E**2 * Re_tp**1.17)**(-1))
     
     # Nucleate Bpiling : Cooper Correlation
-    h_nb = 55*P_r**(0.12)  * (-0.4343*np.log(P_r))**(-0.55) * (MM*1e3)**(-0.5) * q**0.67 # - 0.2*np.log(Ra)
+    h_nb = 55*P_r**(0.12)  * (-np.log10(P_r))**(-0.55) * (MM*1e3)**(-0.5) * q**0.67 # - 0.2*np.log(Ra)
     
     h_tp = E*h_f + S*h_nb
     

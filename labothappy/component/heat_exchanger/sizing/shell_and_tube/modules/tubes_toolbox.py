@@ -171,23 +171,52 @@ def External_Max_P_carbon_steel(D_o,t,T_tube):
     return P_max
 
 def carbon_steel_pipe_thickness(D_o_vect, tube_T, ext_p, int_p):    
-    # ASTM A312 standard
+    # ASTM A179 standard (BWG for thickness)
+        
+    # Define BWG and corresponding thickness (in mm)
+    schedules_BWG = [str(int(x)) for x in np.linspace(0, 26, 27)]
+    thickness = [0.34, 0.3, 0.284, 0.259, 0.238, 0.22, 0.203, 0.18, 0.165, 0.148, 0.134,
+                 0.12, 0.109, 0.095, 0.083, 0.072, 0.065, 0.058, 0.049, 0.042, 0.035,
+                 0.032, 0.028, 0.025, 0.022, 0.02, 0.018]
     
-    schedules = ['5S','10S','40S','80S']
+    BWG_dict = dict(zip(schedules_BWG, thickness))
+    
+    # Define pipe size thickness lists (in mm)
+    # list_1_4 = [BWG_dict['22'], BWG_dict['24'], BWG_dict['26']] 
+    list_3_8 = [BWG_dict['18'], BWG_dict['20'], BWG_dict['22'], BWG_dict['24']]
+    list_1_2 = [BWG_dict['16'], BWG_dict['18'], BWG_dict['20'], BWG_dict['22']]
+    list_5_8 = [BWG_dict[x] for x in schedules_BWG[12:21]]     # 0.109 to 0.035
+    list_3_4 = [BWG_dict[x] for x in schedules_BWG[12:21]]
+    list_1   = [BWG_dict[x] for x in schedules_BWG[8:21]]      # 0.165 to 0.035
+    list_5_4 = [BWG_dict[x] for x in schedules_BWG[7:21]]      # 0.18 to 0.035
+    list_3_2 = [BWG_dict[x] for x in schedules_BWG[10:17]]     # 0.134 to 0.058
+    
+    # Pad lists to match length of full thickness list
+    def pad_list(lst, target_len):
+        return lst + [max(lst)] * (target_len - len(lst))
 
-    thickness = np.array([
-                # [0.035, 0.049, 0.068, 0.095], # 1/8
-                # [0.049, 0.065, 0.088, 0.119], # 1/4
-                [0.049, 0.065, 0.091, 0.126], # 3/8
-                [0.065, 0.083, 0.109, 0.147], # 1/2
-                [0.065, 0.083, 0.111, 0.150], # 5/8
-                [0.065, 0.083, 0.113, 0.154], # 3/4
-                # [0.065, 0.109, 0.133, 0.179], # 1
-                # [0.065, 0.109, 0.140, 0.191], # 1 + 1/4
-                # [0.065, 0.109, 0.145, 0.2  ]  # 1 + 1/2
-                ])*25.4*1e-3 # m
+    # list_1_4 = pad_list(list_1_4, len(thickness))    
+    list_3_8 = pad_list(list_3_8, len(thickness))
+    list_1_2 = pad_list(list_1_2, len(thickness))
+    list_5_8 = pad_list(list_5_8, len(thickness))
+    list_3_4 = pad_list(list_3_4, len(thickness))
+    list_1   = pad_list(list_1, len(thickness))
+    list_5_4 = pad_list(list_5_4, len(thickness))
+    list_3_2 = pad_list(list_3_2, len(thickness))
+    
+    # Create final thickness array (in meters)
+    thickness_array = np.array([
+        # list_1_4,
+        list_3_8,
+        list_1_2,
+        list_5_8,
+        list_3_4,
+        list_1,
+        list_5_4,
+        list_3_2
+    ]) * 25.4e-3  # Convert mm to meters
 
-    thickness_df = pd.DataFrame(index = D_o_vect, columns = schedules, data = thickness)
+    thickness_df = pd.DataFrame(index = D_o_vect, columns = schedules_BWG, data = thickness_array)
 
     for D_o in thickness_df.index: 
         for standard in thickness_df.columns:

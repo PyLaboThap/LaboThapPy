@@ -135,10 +135,6 @@ class ShellAndTubeSizingOpt(BaseComponent):
             Compute rest of geometry
             """
 
-            # Pipe Thickness
-            pipe_wall_T = (self.su_S.T + self.su_T.T)/2
-            pipe_thickness = carbon_steel_pipe_thickness(self.choice_vectors['D_o_inch'], self.T_max_cycle, self.su_S.p, self.P_max_cycle)
-
             # pitch_ratio
             pitch_ratio = pitch_ratio_fun(self.position['D_o_inch'], self.position['tube_layout'])
 
@@ -149,15 +145,15 @@ class ShellAndTubeSizingOpt(BaseComponent):
             Cross_Passes = round(self.position['L_shell']/self.position['Central_spac']) - 1
 
             D_o = self.position['D_o_inch']*25.4*1e-3
-
-            # Tube_t = pipe_thickness[str(self.position['D_o_inch'])]
-            Tube_t = D_o /10
+            # Pipe Thickness
+            pipe_thickness = carbon_steel_pipe_thickness(self.choice_vectors['D_o_inch'], self.T_max_cycle, self.su_S.p, self.P_max_cycle)
+            Tube_t = pipe_thickness[str(self.position['D_o_inch'])]
+            # Tube_t = D_o /10
             
             Shell_ID = self.position['Shell_ID_inch']*25.4*1e-3
+            
             # Number of tubes 
-
             min_tubes_in_row = 4 # 8
-
             n_tubes = estimate_number_of_tubes(Shell_ID, D_o, pitch_ratio*D_o, self.position['tube_layout'], min_tubes_in_row)[0]
 
 
@@ -913,10 +909,10 @@ Optimization related parameters/variables
 HX_test.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'Tube_pass', 'tube_layout', 'Baffle_cut'])
 
 choice_vectors = {
-                    'D_o_inch' : [0.375, 0.5, 0.625, 0.75], #0.5, 0.625, # [0.125, [0.25], # 0.375], #0.5, 0.625, 0.75, 1, 1.25, 1.5],
-                    'Shell_ID_inch' : [8, 10], # 12, 13.25], # 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
-                        # 29, 31, 33, 35], # 37, 39, 42, 45, 48], #, 54, 60, 66, 72, 78,
-                        # 84, 90, 96, 108, 120],
+                    'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
+                    'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
+                        29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78,
+                        84, 90, 96, 108, 120],
                     'Tube_pass' : [2], # [1,2,4], #,6,8,10]
                     'tube_layout' : [0, 45, 60]}
 
@@ -975,14 +971,14 @@ Thermodynamical parameters : Inlet and Outlet Design States
 
 # su_S = MassConnector()
 # su_S.set_properties(T = 273.15 + 95, # K
-#                     P = 5*1e5, # 5*1e5, # Pa
+#                     P = 10*1e5, # 5*1e5, # Pa
 #                     m_dot = 27.8, # kg/s
 #                     fluid = 'Methanol'
 #                     )
 
 # ex_S = MassConnector()
 # ex_S.set_properties(T = 273.15 + 40, # K
-#                     P = 5*1e5, # 4.5*1e5, # Pa
+#                     P = 10*1e5, # 4.5*1e5, # Pa
 #                     m_dot = 27.8, # kg/s
 #                     fluid = 'Methanol'
 #                     )
@@ -1005,14 +1001,14 @@ Thermodynamical parameters : Inlet and Outlet Design States
 
 su_S = MassConnector()
 su_S.set_properties(T = 273.15 + 26, # K
-                    P = 2*1e5, # 51.75*1e3, # Pa
+                    P = 5*1e5, # 51.75*1e3, # Pa
                     m_dot = 5.35, # kg/s
                     fluid = 'Water'
                     )
 
 ex_S = MassConnector()
 ex_S.set_properties(T = 273.15 + 11.7, # K
-                    P = 1.9*1e5, # Pa
+                    P = 5*1e5, # Pa
                     m_dot = 5.35, # kg/s
                     fluid = 'Water'
                     )
@@ -1061,8 +1057,8 @@ HX_test.set_parameters(
                         n_series = 1, # [-]
                         # OPTI -> Oui (regarder le papier pour déterminer ça)
 
-                        foul_t = 0.000176, # 0.0002 # 0.000176 # (m^2 * K/W)
-                        foul_s = 0.000176, # 0.00033 # 0.000176 # (m^2 * K/W)
+                        foul_t = 0.0002, # 0.0002 # 0.000176 # (m^2 * K/W)
+                        foul_s = 0.00033, # 0.00033 # 0.000176 # (m^2 * K/W)
                         tube_cond = 50, # W/(m*K)
                         Overdesign = 0,
                         

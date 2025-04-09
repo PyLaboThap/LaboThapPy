@@ -104,7 +104,7 @@ def Muller_Steinhagen_Heck_DP(fluid, G, P_sat, x, L, D_in):
 
 def Choi_DP(fluid, G, rho_out, rho_in, P_sat, x_o, x_i, L, D_in):
     """
-    For 1 phase flow
+    For 2 phase flow
     
     Inputs
     ------

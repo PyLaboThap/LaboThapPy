@@ -1018,7 +1018,7 @@ class HeatExchangerMB(BaseComponent):
             a = self.x_c_calc 
         except:
             self.x_c_calc = []
-                
+            
         if self.phases_c[k] == "two-phase": 
             if len(self.phases_c[k]) == 1: 
                 x_c = min(1, max(0, (self.x_vec_c[k]+1)/2))
@@ -1033,7 +1033,7 @@ class HeatExchangerMB(BaseComponent):
                     
         elif self.phases_c[k] == "vapor-wet":
             x_c = 1
-        
+                
         # Thermodynamical variables
         self.AS_C.update(CP.PQ_INPUTS, p_c_mean, 0)
         mu_c_l = self.AS_C.viscosity()
@@ -1611,13 +1611,14 @@ class HeatExchangerMB(BaseComponent):
                 C_max = max(C_c,C_h)
                 C_r = C_min/C_max
                 
-                if self.params['n_series'] > 1:
-                    self.R = (Thi - Tho)/(Tco - Tci)
-                    self.P = (Tco - Tci)/(Thi - Tci)
-                else:
-                    self.R = (self.Tvec_h[-1] - self.Tvec_h[0])/(self.Tvec_c[-1] - self.Tvec_c[0])
-                    self.P = (self.Tvec_c[-1] - self.Tvec_c[0])/(self.Tvec_h[-1] - self.Tvec_c[0])                    
-                
+                # if self.params['n_series'] > 1:
+                #     self.R = (Thi - Tho)/(Tco - Tci)
+                #     self.P = (Tco - Tci)/(Thi - Tci)
+                # else:
+                    
+                self.R = (self.Tvec_h[-1] - self.Tvec_h[0])/(self.Tvec_c[-1] - self.Tvec_c[0])
+                self.P = (self.Tvec_c[-1] - self.Tvec_c[0])/(self.Tvec_h[-1] - self.Tvec_c[0])                    
+                                
                 if self.params['Flow_Type'] == 'Shell&Tube':
                     
                     if self.P < 0.1 or self.R > 10 or self.R < 0.4:
