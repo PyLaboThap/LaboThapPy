@@ -1,3 +1,5 @@
+<<<<<<< HEAD
+=======
 # -*- coding: utf-8 -*-
 """
 Created on Wed Jun  5 10:07:43 2024
@@ -66,3 +68,4 @@ Pump.set_parameters(
 )
 
 Pump.solve()
+>>>>>>> f3c1eeec131999afb63fd3a31ec25f2fd9087f48
