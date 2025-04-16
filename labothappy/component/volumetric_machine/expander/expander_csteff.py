@@ -17,7 +17,7 @@ class ExpanderCstEff(BaseComponent):
 
     **Descritpion**:
 
-        This model determines the exhqust specific enthalpy and the exhaust temperature of an expander. This model can be used for on-design models of systems.
+        This model determines the exhaust specific enthalpy and the exhaust temperature of an expander. This model can be used for on-design models of systems.
 
     **Assumptions**:
 
