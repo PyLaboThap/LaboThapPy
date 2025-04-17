@@ -178,7 +178,7 @@ def shell_htc_kern(m_dot, T_wall, T_in, P_in, fluid, params):
     
     mu_w = AS.viscosity()
 
-    S_T = s_max_kern(params['Tube_OD'], params['pitch_ratio'], params['Shell_ID'], params['central_spacing'], params['tube_layout']) # m^2
+    S_T = s_max_kern(params['Tube_OD'], params['pitch_ratio'], params['Shell_ID'], params['central_spacing'], params['tube_layout']) # m^
     D_hydro = d_h(params['Tube_OD'], params['pitch_ratio'], params['tube_layout'])
 
     V_t = m_dot/(S_T*rho)

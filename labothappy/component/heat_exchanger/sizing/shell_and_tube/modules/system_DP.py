@@ -255,7 +255,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
             "Correlation Loading And Setting"
 
             Corr_H = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
-            Corr_C = {"1P" : "Gnielinski", "2P" : "Flow_boiling_gungor_winterton"}
+            Corr_C = {"1P" : "Gnielinski", "2P" : "Flow_boiling"}
 
             self.HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation' # 31
 
@@ -273,11 +273,11 @@ class ShellAndTubeSizingOpt(BaseComponent):
 
                 Flow_Type = self.params['Flow_Type'], H_DP_ON = self.params['H_DP_ON'], C_DP_ON = self.params['C_DP_ON'], n_disc = self.params['n_disc']) 
 
-            # Corr_H_DP = "Shell_Kern_DP"
-            # Corr_C_DP = "Gnielinski_DP"
-
             Corr_H_DP = "Shell_Kern_DP"
-            Corr_C_DP = "Muller_Steinhagen_Heck_DP"
+            Corr_C_DP = "Gnielinski_DP"
+
+            # Corr_H_DP = "Shell_Kern_DP"
+            # Corr_C_DP = "Muller_Steinhagen_Heck_DP"
 
             # HX.set_DP(DP_type="User-Defined", UD_H_DP=1e4, UD_C_DP=1e4)
             self.HX.set_DP(DP_type = "Correlation", Corr_H=Corr_H_DP, Corr_C=Corr_C_DP)    
@@ -600,7 +600,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
 
         # Compute particle geometry
         for i in range(len(self.particles)):
-            print(i)
+            # print(i)
             self.particles[i].HeatTransferRate()
             score = self.evaluate_with_penalty(objective_function, self.particles[i], constraints, penalty_factor,i)
 
@@ -656,14 +656,14 @@ class ShellAndTubeSizingOpt(BaseComponent):
         # PSO loop
         for iteration in range(max_iterations):
 
-            print("==============================")
-            print(f"Iteration {iteration + 1}")
+            # print("==============================")
+            # print(f"Iteration {iteration + 1}")
 
             for i in range(num_particles):
 
                 flag = self.particles[i].check_reinit()
                 if flag:
-                    print("Particle Reinitialized")
+                    # print("Particle Reinitialized")
                     self.init_particle(self.particles[i])
 
                 for opt_var in self.opt_vars:
@@ -777,8 +777,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
                             
                         if self.particles[i].position[bound_key] > high_bound_L_shell:
                             self.particles[i].position[bound_key] = high_bound_L_shell
-                            if high_bound_L_shell == self.bounds['L_shell'][-1]:
-                                self.particles[i].velocity[bound_key] = -self.particles[i].velocity[bound_key]
+                            self.particles[i].velocity[bound_key] = -self.particles[i].velocity[bound_key]
                             bound_flag = 1
                     
                     else:
@@ -833,10 +832,10 @@ class ShellAndTubeSizingOpt(BaseComponent):
 
             # print("xxxxxxxxxxxxxxxx")
             
-            print(f"New Challenger Score: {new_pot_global_best_score}")
+            # print(f"New Challenger Score: {new_pot_global_best_score}")
 
             if new_pot_global_best_score + 0.1 < self.global_best_score:
-                print("BEST SCORE BEATEN")
+                # print("BEST SCORE BEATEN")
                 self.global_best_score = new_pot_global_best_score
                 self.best_particle = self.clone_Particle(self.particles[np.argmin(self.personal_best_scores)])
                 self.global_best_position = self.best_particle.position
@@ -844,12 +843,12 @@ class ShellAndTubeSizingOpt(BaseComponent):
                 self.global_best_DP_h = self.best_particle.DP_h
                 self.global_best_DP_c = self.best_particle.DP_c
 
-            # Optionally, print progress
-            print("===========================")
-            print(f"Iteration {iteration+1}/{max_iterations}, Global Best Score: {self.global_best_score}, Related Q: {self.global_best_Q}")
-            print(f"Related DP_h: {self.global_best_DP_h}, Related DP_c: {self.global_best_DP_c}")
-            print(f"Best Position : {self.global_best_position}")
-            print(f"Best Part Velocity : {self.best_particle.velocity}")
+            # # Optionally, print progress
+            # print("===========================")
+            # print(f"Iteration {iteration+1}/{max_iterations}, Global Best Score: {self.global_best_score}, Related Q: {self.global_best_Q}")
+            # print(f"Related DP_h: {self.global_best_DP_h}, Related DP_c: {self.global_best_DP_c}")
+            # print(f"Best Position : {self.global_best_position}")
+            # print(f"Best Part Velocity : {self.best_particle.velocity}")
             
             
         return self.global_best_position, self.global_best_score, self.best_particle
@@ -911,10 +910,9 @@ HX_test.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'T
 choice_vectors = {
                     'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
                     'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
-                        29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78,
-                        84, 90, 96, 108, 120],
-                    'Tube_pass' : [2], # [1,2,4], #,6,8,10]
-                    'tube_layout' : [0, 45, 60]}
+                        29, 31, 33, 35,  37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
+                    'Tube_pass' : [1,2,4,6,8,10],
+                    'tube_layout' : [0,45,60]}
 
 """
 'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
@@ -969,63 +967,63 @@ Thermodynamical parameters : Inlet and Outlet Design States
 
 # ------------------------------------------------------------
 
-# su_S = MassConnector()
-# su_S.set_properties(T = 273.15 + 95, # K
-#                     P = 10*1e5, # 5*1e5, # Pa
-#                     m_dot = 27.8, # kg/s
-#                     fluid = 'Methanol'
-#                     )
-
-# ex_S = MassConnector()
-# ex_S.set_properties(T = 273.15 + 40, # K
-#                     P = 10*1e5, # 4.5*1e5, # Pa
-#                     m_dot = 27.8, # kg/s
-#                     fluid = 'Methanol'
-#                     )
-
-# su_T = MassConnector()
-# su_T.set_properties(T = 273.15 + 25, # K
-#                     P = 5*1e5, # 51.75*1e3, # Pa
-#                     m_dot = 68.9, # kg/s
-#                     fluid = 'Water'
-#                     )
-
-# ex_T = MassConnector()
-# ex_T.set_properties(T = 273.15 + 40, # K
-#                     P = 5*1e5, # Pa
-#                     m_dot = 68.9, # kg/s
-#                     fluid = 'Water'
-#                     )
-
-# ------------------------------------------------------------
-
 su_S = MassConnector()
-su_S.set_properties(T = 273.15 + 26, # K
-                    P = 5*1e5, # 51.75*1e3, # Pa
-                    m_dot = 5.35, # kg/s
-                    fluid = 'Water'
+su_S.set_properties(T = 273.15 + 95, # K
+                    P = 10*1e5, # 5*1e5, # Pa
+                    m_dot = 27.8, # kg/s
+                    fluid = 'Methanol'
                     )
 
 ex_S = MassConnector()
-ex_S.set_properties(T = 273.15 + 11.7, # K
-                    P = 5*1e5, # Pa
-                    m_dot = 5.35, # kg/s
-                    fluid = 'Water'
+ex_S.set_properties(T = 273.15 + 40, # K
+                    P = 10*1e5, # 4.5*1e5, # Pa
+                    m_dot = 27.8, # kg/s
+                    fluid = 'Methanol'
                     )
 
 su_T = MassConnector()
-su_T.set_properties(P = PropsSI('P','T', 273.15+7,'Q',0,'R134a'), # K
-                    H = PropsSI('H','T', 273.15+7,'Q',0,'R134a')+1, # Pa
-                    m_dot = 1.62, # kg/s
-                    fluid = 'R134a'
+su_T.set_properties(T = 273.15 + 25, # K
+                    P = 5*1e5, # 51.75*1e3, # Pa
+                    m_dot = 68.9, # kg/s
+                    fluid = 'Water'
                     )
 
 ex_T = MassConnector()
-ex_T.set_properties(P = PropsSI('P','T', 273.15+7,'Q',1,'R134a') - 15*1e3, # K
-                    H = PropsSI('H','T', 273.15+7,'Q',1,'R134a'), # Pa
-                    m_dot = 1.62, # kg/s
-                    fluid = 'R134a'
+ex_T.set_properties(T = 273.15 + 40, # K
+                    P = 5*1e5, # Pa
+                    m_dot = 68.9, # kg/s
+                    fluid = 'Water'
                     )
+
+# ------------------------------------------------------------
+
+# su_S = MassConnector()
+# su_S.set_properties(T = 273.15 + 26, # K
+#                     P = 5*1e5, # 51.75*1e3, # Pa
+#                     m_dot = 5.35, # kg/s
+#                     fluid = 'Water'
+#                     )
+
+# ex_S = MassConnector()
+# ex_S.set_properties(T = 273.15 + 11.7, # K
+#                     P = 5*1e5, # Pa
+#                     m_dot = 5.35, # kg/s
+#                     fluid = 'Water'
+#                     )
+
+# su_T = MassConnector()
+# su_T.set_properties(P = PropsSI('P','T', 273.15+7,'Q',0,'R134a'), # K
+#                     H = PropsSI('H','T', 273.15+7,'Q',0,'R134a')+1, # Pa
+#                     m_dot = 1.62, # kg/s
+#                     fluid = 'R134a'
+#                     )
+
+# ex_T = MassConnector()
+# ex_T.set_properties(P = PropsSI('P','T', 273.15+7,'Q',1,'R134a') - 15*1e3, # K
+#                     H = PropsSI('H','T', 273.15+7,'Q',1,'R134a'), # Pa
+#                     m_dot = 1.62, # kg/s
+#                     fluid = 'R134a'
+#                     )
 
 # ------------------------------------------------------------
 
@@ -1046,8 +1044,8 @@ bounds = {
 
 HX_test.set_bounds(bounds)
 
-# HX_test.set_constraints(Q_dot = 4.34*1e6, DP_h = 13.2*1e3, DP_c = 4.3*1e3)
-HX_test.set_constraints(Q_dot = 0.313*1e6, DP_h = 8.2*1e3, DP_c = 21.7*1e3)
+HX_test.set_constraints(Q_dot = 4.34*1e6, DP_h = 13.2*1e3, DP_c = 4.3*1e3)
+# HX_test.set_constraints(Q_dot = 0.313*1e6, DP_h = 8.2*1e3, DP_c = 21.7*1e3)
 
 """
 Parameters Setting
@@ -1057,8 +1055,8 @@ HX_test.set_parameters(
                         n_series = 1, # [-]
                         # OPTI -> Oui (regarder le papier pour déterminer ça)
 
-                        foul_t = 0.0002, # 0.0002 # 0.000176 # (m^2 * K/W)
-                        foul_s = 0.00033, # 0.00033 # 0.000176 # (m^2 * K/W)
+                        foul_t = 0.000176, # 0.0002 # 0.000176 # (m^2 * K/W)
+                        foul_s = 0.000176, # 0.00033 # 0.000176 # (m^2 * K/W)
                         tube_cond = 50, # W/(m*K)
                         Overdesign = 0,
                         
@@ -1067,10 +1065,188 @@ HX_test.set_parameters(
                         Flow_Type = 'Shell&Tube',
                         H_DP_ON = True,
                         C_DP_ON = True,
-                        n_disc = 30
+                        n_disc = 1
                       )
 
+# --------------------------------------------------------------------------------
+
+# n_disc = [1, 5, 10, 20, 30, 50]
+# scores_1 = [1766, 1743, 1738, 1743, 1743, 1745]
+# scores_2 = [166.1, 175.6, 179.4, 176.6, 174.4, 175]
+
+# times_1 = [46.82,  56.57,  68.62,  88.72,  109.2, 157.37]
+# times_2 = [81.06, 118.09, 173.38, 266.18, 350.69, 540.73]
+
+# axis_label_size = 18
+
+# fig, ax1 = plt.subplots()
+
+# color1 = 'tab:blue'
+# ax1.set_xlabel("Number of discretization [-]", fontsize=axis_label_size)
+# ax1.set_ylabel("HX mass [kg]", color=color1, fontsize=axis_label_size)
+# ax1.plot(n_disc, scores_1, color=color1, marker='o')
+# ax1.tick_params(axis='y', labelcolor=color1)
+# ax1.set_xlim(0, 52)
+# ax1.set_ylim(1730, 1770)
+# ax1.grid(True)
+
+# # Deuxième axe Y (à droite)
+# ax2 = ax1.twinx()
+
+# color2 = 'tab:red'
+# ax2.set_ylabel("Average optimization time [s]", color=color2, fontsize=axis_label_size)
+# ax2.plot(n_disc, times_1, color=color2, marker='s')
+# ax2.tick_params(axis='y', labelcolor=color2)
+# ax2.set_ylim(0, 180)
+
+# ax1.set_title('Case 1', fontsize = 16)
+
+# # Titre et sauvegarde
+# plt.tight_layout()
+# plt.savefig("Mass_Time_disc_1.svg", format='svg')
+# plt.show()
+
+# fig, ax1 = plt.subplots()
+
+# color1 = 'tab:blue'
+# ax1.set_xlabel("Number of discretization [-]", fontsize=axis_label_size)
+# ax1.set_ylabel("HX mass [kg]", color=color1, fontsize=axis_label_size)
+# ax1.plot(n_disc, scores_2, color=color1, marker='o')
+# ax1.tick_params(axis='y', labelcolor=color1)
+# ax1.set_xlim(0, 52)
+# ax1.set_ylim(165, 180)
+# ax1.grid(True)
+
+# # Deuxième axe Y (à droite)
+# ax2 = ax1.twinx()
+
+# color2 = 'tab:red'
+# ax2.set_ylabel("Average optimization time [s]", color=color2, fontsize=axis_label_size)
+# ax2.plot(n_disc, times_2, color=color2, marker='s')
+# ax2.tick_params(axis='y', labelcolor=color2)
+# ax2.set_ylim(0, 560)
+
+# ax1.set_title('Case 2', fontsize = 16)
+
+# # Titre et sauvegarde
+# plt.tight_layout()
+# plt.savefig("Mass_Time_disc_2.svg", format='svg')
+# plt.show()
+
+# --------------------------------------------------------------------------------
+
+# m_ref1 = [3008, 501, 120, 27]
+# m_opt11 = [2295, 407, 108, 17]
+# m_opt12 = [1254, 375, 100, 14]
+
+# m_ref2 = [213, 26, 0.5, 0.5]
+# m_opt21 = [218, 39, 3, 2]
+# m_opt22 = [131, 38, 3, 2]
+
+# import numpy as np
+# import matplotlib.pyplot as plt
+
+# labels = ['REF1', 'OPT1', 'OPT2']
+# categories = ['Tubes', 'Shell', 'Tubesheets', 'Baffles']
+
+# data = np.array([m_ref1, m_opt11, m_opt12])
+
+# # Plot setup
+# fig, ax = plt.subplots(figsize=(6, 4.5))
+# bar_width = 0.5
+# bar_positions = np.arange(len(data))
+
+# # Colors
+# colors = ['#4daf4a', '#377eb8', '#ff7f00', '#984ea3']
+
+# # Stack bars
+# cumulative = np.zeros(len(data))
+# for i in range(data.shape[1]):
+#     values = data[:, i]
+#     bars = ax.bar(bar_positions, values, bar_width, bottom=cumulative, label=categories[i], color=colors[i])
+    
+#     # Add labels
+#     for j, bar in enumerate(bars):
+#         height = bar.get_height()
+#         total = np.sum(data[j])
+#         if height > 0:
+#             percent = height / total * 100
+#             # Add a little bump for the top element only
+#             y_offset = 90 if i == data.shape[1] - 1 else 0
+#             ax.text(
+#                 bar.get_x() + bar.get_width() / 2,
+#                 cumulative[j] + height / 2 + y_offset,
+#                 f'{int(height)} ({percent:.1f}%)',
+#                 ha='center', va='center', fontsize=11, color='black'
+#             )
+#     cumulative += values
+
+# # Axis and labels
+# ax.set_xticks(bar_positions)
+# ax.set_xticklabels(labels, fontsize = 16)
+# ax.set_ylabel('Mass', fontsize = 16)
+# ax.set_title('Case 1', fontsize = 16)
+# ax.set_ylim(0, 4000)
+# ax.legend(title='Components', title_fontsize=14, fontsize = 12)
+# plt.tight_layout()
+# plt.savefig("Case_1_Mass.svg", format='svg')
+# plt.show()
+
+# # Second Plot
+
+# labels = ['REF2', 'OPT1', 'OPT2']
+# categories = ['Tubes', 'Shell', 'Tubesheets', 'Baffles']
+
+# data = np.array([m_ref2, m_opt21, m_opt22])
+
+# # Plot setup
+# fig, ax = plt.subplots(figsize=(6, 4.5))
+# bar_width = 0.5
+# bar_positions = np.arange(len(data))
+
+# # Colors
+# colors = ['#4daf4a', '#377eb8', '#ff7f00', '#984ea3']
+
+# # Stack bars
+# cumulative = np.zeros(len(data))
+# for i in range(data.shape[1]):
+#     values = data[:, i]
+#     bars = ax.bar(bar_positions, values, bar_width, bottom=cumulative, label=categories[i], color=colors[i])
+    
+#     # Add labels
+#     for j, bar in enumerate(bars):
+#         height = bar.get_height()
+#         total = np.sum(data[j])
+#         if height > 0:
+#             percent = height / total * 100
+#             # Add a little bump for the top element only
+#             y_offset = 10 if i == data.shape[1] - 1 else 0
+#             ax.text(
+#                 bar.get_x() + bar.get_width() / 2,
+#                 cumulative[j] + height / 2 + y_offset,
+#                 f'{int(height)} ({percent:.1f}%)',
+#                 ha='center', va='center', fontsize=11, color='black'
+#             )
+#     cumulative += values
+
+# # Axis and labels
+# ax.set_xticks(bar_positions)
+# ax.set_xticklabels(labels, fontsize = 16)
+# ax.set_ylabel('Mass [kg]', fontsize = 16)
+# ax.set_title('Case 2', fontsize = 16)
+# ax.legend(title='Components', title_fontsize=14, fontsize = 12)
+# ax.set_ylim(0, 340)
+# plt.tight_layout()
+# plt.savefig("Case_2_Mass.svg", format='svg')
+# plt.show()
+
+# --------------------------------------------------------------------------------
+
+# exec_time = []
+
 # import time
+
+# for i in range(10):
 # start_time = time.time()
 
 global_best_position, global_best_score, best_particle = HX_test.opt_size()
@@ -1081,6 +1257,10 @@ global_best_position, global_best_score, best_particle = HX_test.opt_size()
 
 # best_scores.append(global_best_score)
 # exec_time.append(execution_time)
+
+# print(f"{i+1} done")
+
+# exec_time_mean = sum(exec_time)/len(exec_time)
 
 # all_scores = HX_test.all_scores
 
@@ -1312,14 +1492,60 @@ global_best_position, global_best_score, best_particle = HX_test.opt_size()
         
 #     return Q_dot_recalc               
 
+# def HX_mass_comp():
+#     L = 4.18
+#     D_o = 0.01
+#     t = 0.001
+#     n_t = 230
+#     D_s = 0.173
+#     B = 0.381
+#     BC = 25
+        
+#     rho_carbon_steel = 7850
+    
+#     A_eff = np.pi*D_o * L * n_t
+#     D_i = D_o - 2*t    
+#     P_design = 10*1e5 # bar
+        
+#     "Shell Mass"
+            
+#     shell_t = shell_thickness(D_s, 273.15+(95+40)/2, P_design)      
+    
+#     Shell_OD = D_s + 2*shell_t       
+#     Shell_volume = np.pi*((Shell_OD/2)**2 - (D_s/2)**2)*L + shell_t*np.pi*Shell_OD**2/4 
+#     Shell_mass = Shell_volume*rho_carbon_steel
+    
+#     "Tube Mass"
+    
+#     T_mass = np.pi*((D_o/2)**2 - ((D_o-2*t)/2)**2)*L*n_t*rho_carbon_steel
+
+#     "Tube Sheet Mass"
+    
+#     TS_t = tube_sheet_thickness(D_o, D_o*1.25, 95+273.15, P_design , D_s)
+#     Full_Tube_sheet_A = np.pi*(D_s/2)**2
+#     Tube_in_tube_sheet_A = n_t*np.pi*(D_o/2)**2
+    
+#     TS_mass = TS_t*(Full_Tube_sheet_A - Tube_in_tube_sheet_A)*rho_carbon_steel*2
+    
+#     "Baffle Mass"
+#     B_t = baffle_thickness(D_s, BC/100, 716, 95+273.15)
+#     Full_Baffle_A = np.pi*(D_s/2)**2 * (1-BC/100)
+#     Tube_in_Baffle_A = n_t*(1-BC/100)*np.pi*(D_o/2)**2
+
+#     B_mass = round(L/B) * B_t * (Full_Baffle_A - Tube_in_Baffle_A)*rho_carbon_steel
+    
+#     M_tot = T_mass + Shell_mass + TS_mass + B_mass
+    
+#     return A_eff, M_tot, T_mass, Shell_mass, TS_mass, B_mass
+
 def HX_mass_comp():
-    L = 4.18
-    D_o = 0.01
-    t = 0.001
-    n_t = 230
-    D_s = 0.173
-    B = 0.381
-    BC = 25
+    L = 7.2
+    D_o = 0.02
+    t = 0.002
+    n_t = 546
+    D_s = 0.762
+    B = 0.7
+    BC = 40
         
     rho_carbon_steel = 7850
     
@@ -1349,6 +1575,8 @@ def HX_mass_comp():
     
     "Baffle Mass"
     B_t = baffle_thickness(D_s, BC/100, 716, 95+273.15)
+    print(B_t)
+    
     Full_Baffle_A = np.pi*(D_s/2)**2 * (1-BC/100)
     Tube_in_Baffle_A = n_t*(1-BC/100)*np.pi*(D_o/2)**2
 
@@ -1357,3 +1585,4 @@ def HX_mass_comp():
     M_tot = T_mass + Shell_mass + TS_mass + B_mass
     
     return A_eff, M_tot, T_mass, Shell_mass, TS_mass, B_mass
+

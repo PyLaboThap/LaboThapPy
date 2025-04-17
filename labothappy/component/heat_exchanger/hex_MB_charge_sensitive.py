@@ -1148,7 +1148,7 @@ class HeatExchangerMB(BaseComponent):
             G_c, G_h = self.G_h_c_computation()
             rho_out = CP.PropsSI('D', 'P', self.su_C.p, 'Q', 1, self.su_C.fluid)
 
-            DP_C = Muller_Steinhagen_Heck_DP(self.su_C.fluid, G_c, self.su_C.p, 0.5, self.params["Tube_L"]*self.params["Tube_pass"], self.params["Tube_OD"]-2*self.params["Tube_t"])
+            DP_C = Muller_Steinhagen_Heck_DP(self.su_C.fluid, G_c, self.su_C.p, 0.37, self.params["Tube_L"]*self.params["Tube_pass"], self.params["Tube_OD"]-2*self.params["Tube_t"])
         
         else:
             DP_C = 0

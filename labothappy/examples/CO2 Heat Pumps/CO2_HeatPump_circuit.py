@@ -22,6 +22,7 @@ from component.tank.mixer.simulation_model import Mixer
 from component.tank.LV_Separator import LV_Separator
 
 def basic_CO2_HP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low, P_high):
+    
     CO2_HP = Circuit('CO2')
     
     # Create components

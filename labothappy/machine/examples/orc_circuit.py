@@ -15,7 +15,7 @@ from component.tank.mixer.simulation_model import Mixer
 
 if __name__ == "__main__":
 
-    case_study = 'Recuperator' # 'Recuperator' or 'Simple'    
+    case_study = 'Simple' # 'Recuperator' or 'Simple'    
 
     if case_study == 'Simple':
         ORC = Circuit('R1233zd(E)')

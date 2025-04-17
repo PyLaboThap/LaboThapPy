@@ -125,7 +125,7 @@ HX = HeatExchangerMB('Shell&Tube')
 
 # -------------------------------------------------------------------------------------------------------------
 
-# # Methanol Sensible HT Case
+# Methanol Sensible HT Case
 # HX.set_inputs(
 #     # First fluid
 #     Hsu_fluid = 'Methanol',
@@ -140,34 +140,7 @@ HX = HeatExchangerMB('Shell&Tube')
 #     Csu_m_dot = 68.9, # kg/s  # Make sure to include fluid information
 # )
 
-"Geometry Loading"
-
-# params = {'htc_type': 'Correlation',
-#  'A_eff': 209.28437667668126,
-#  'Baffle_cut': 23.076,
-#  'S_V_tot': 0.723089560787637,
-#  'Shell_ID': 0.8382,
-#  'T_V_tot': 0.4252658534070162,
-#  'Tube_L': 2.5145999999999997,
-#  'Tube_OD': 0.0127,
-#  'Tube_pass': 2,
-#  'Tube_t': 0.0012699999999999999,
-#  'central_spacing': 1.111,
-#  'cross_passes': 1,
-#  'foul_s': 0,
-#  'foul_t': 0,
-#  'n_series': 1,
-#  'n_tubes': 2086,
-#  'pitch_ratio': 1.25,
-#  'tube_cond': 50,
-#  'tube_layout': 45,
-#  'Shell_Side': 'H',
-#  'Flow_Type': 'Shell&Tube',
-#  'H_DP_ON': True,
-#  'C_DP_ON': True,
-#  'n_disc': 50,
-#  'DP_type': 'Correlation',
-#  'Overdesign': 0}
+# "Geometry Loading"
 
 
 # params = {'n_series': 1,
@@ -223,7 +196,7 @@ HX = HeatExchangerMB('Shell&Tube')
 HX.set_inputs(
               # Hot Fluid
               Hsu_T = 273.15 + 26, # K
-              Hsu_p = 2*1e5, # 51.75*1e3, # Pa
+              Hsu_p = 10*1e5, # 51.75*1e3, # Pa
               Hsu_m_dot = 5.35, # kg/s
               Hsu_fluid = 'Water',
               
@@ -234,32 +207,32 @@ HX.set_inputs(
               Csu_fluid = 'R134a'
               )
 
-# "Geometry Loading"
+"Geometry Loading"
 
-# params = {'n_series': 1,
-#         'foul_t': 0.000176,
-#         'foul_s': 0.000176,
-#         'tube_cond': 50,
-#         'Overdesign': 0,
-#         'Shell_Side': 'H',
-#         'Flow_Type': 'Shell&Tube',
-#         'H_DP_ON': True,
-#         'C_DP_ON': True,
-#         'n_disc': 30,
-#         'A_eff': 24.687027770990294,
-#         'S_V_tot': 0.04289595502734753,
-#         'Shell_ID': 0.30479999999999996,
-#         'T_V_tot': 0.014487374876372378,
-#         'Tube_L': 1.1250000000000002,
-#         'Tube_OD': 0.00635,
-#         'Tube_t': 0.0012446,
-#         'central_spacing': 0.225,
-#         'Tube_pass': 2,
-#         'cross_passes': 4,
-#         'n_tubes': 1100,
-#         'pitch_ratio': 1.25,
-#         'tube_layout': 0,
-#         'Baffle_cut': 19.762}
+params = {'n_series': 1,
+        'foul_t': 0.000176,
+        'foul_s': 0.000176,
+        'tube_cond': 50,
+        'Overdesign': 0,
+        'Shell_Side': 'H',
+        'Flow_Type': 'Shell&Tube',
+        'H_DP_ON': True,
+        'C_DP_ON': True,
+        'n_disc': 30,
+        'A_eff': 24.687027770990294,
+        'S_V_tot': 0.04289595502734753,
+        'Shell_ID': 0.30479999999999996,
+        'T_V_tot': 0.014487374876372378,
+        'Tube_L': 1.1250000000000002,
+        'Tube_OD': 0.00635,
+        'Tube_t': 0.0012446,
+        'central_spacing': 0.225,
+        'Tube_pass': 2,
+        'cross_passes': 4,
+        'n_tubes': 1100,
+        'pitch_ratio': 1.25,
+        'tube_layout': 0,
+        'Baffle_cut': 19.762}
 
 params = {'n_series': 1,
           'foul_t': 0.000176,
@@ -270,7 +243,7 @@ params = {'n_series': 1,
           'Flow_Type': 'Shell&Tube',
           'H_DP_ON': True,
           'C_DP_ON': True,
-          'n_disc': 50,
+          'n_disc': 1,
           'A_eff': 30.2,
           'S_V_tot': 3.081237509643974,
           'Shell_ID': 0.173,
