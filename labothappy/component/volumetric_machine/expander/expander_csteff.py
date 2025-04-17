@@ -17,7 +17,7 @@ class ExpanderCstEff(BaseComponent):
 
     **Descritpion**:
 
-        This model determines the exhqust specific enthalpy and the exhaust temperature of an expander. This model can be used for on-design models of systems.
+        This model determines the exhaust specific enthalpy and the exhaust temperature of an expander. This model can be used for on-design models of systems.
 
     **Assumptions**:
 
@@ -59,9 +59,7 @@ class ExpanderCstEff(BaseComponent):
         self.ex = MassConnector()  # Mass_connector
         self.W_exp = WorkConnector()
 
-    def get_required_inputs(
-        self,
-    ):  # Used in check_calculablle to see if all of the required inputs are set
+    def get_required_inputs(self):  # Used in check_calculablle to see if all of the required inputs are set
         self.sync_inputs()
         # Return a list of required inputs
         return ["su_p", "su_T", "ex_p", "su_fluid"]
@@ -190,20 +188,6 @@ class ExpanderCstEff(BaseComponent):
         print(f"  - W_dot_exp: {self.W_exp.W_dot} [W]")
         print("=========================")
 
-
-if __name__ == '__main__':
-    # Example usage
-    EXP = ExpanderCstEff()
-    EXP.print_setup()
-
-    # "If the inputs are not set directly BUT throught the connectors"
-    EXP.su.set_properties(P=955214.9, T=374.18, fluid='R134a')
-    EXP.ex.set_properties(P=293940.1)
-    EXP.set_parameters(eta_is=0.8)
-    EXP.print_setup()
-
-    EXP.solve()
-    EXP.print_results()
 
     
     

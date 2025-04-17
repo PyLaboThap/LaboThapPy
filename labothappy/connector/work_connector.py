@@ -58,6 +58,11 @@ class WorkConnector:
         self.variables_input = self.variables_input + [['W_dot', value]]
         self.calculate_properties()
 
+    def set_w(self, value): #Specific work [J/kg]
+        self.w = value
+        self.variables_input = self.variables_input + [['w', value]]
+        self.calculate_properties()
+
     def set_N(self, value):
         self.N = value
         self.variables_input = self.variables_input + [['N', value]]

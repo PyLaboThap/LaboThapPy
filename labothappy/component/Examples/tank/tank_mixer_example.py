@@ -5,7 +5,9 @@ Created on Fri May 10 14:42:00 2024
 @author: Basile
 """
 
-from simulation_model import Mixer
+from component.tank.tank_mixer import Mixer 
+
+
 
 "--------- 1) Data ------------------------------------------------------------------------------------------"
 
