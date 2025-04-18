@@ -21,6 +21,32 @@ import numpy as np
 import time
 
 class HXeNTU(BaseComponent):
+    """
+    Component: Exchanger
+
+    Model: eNTU model
+
+    **Descritpion**:
+
+
+    **Assumptions**:
+
+        - 
+
+    **Connectors**:
+
+
+
+    **Parameters**:
+
+
+    **Inputs**:
+
+
+
+    **Ouputs**:
+
+    """
     def __init__(self):
         super().__init__()
         self.su_hot = MassConnector()

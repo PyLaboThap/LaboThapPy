@@ -13,6 +13,32 @@ import numpy as np
 
 
 class Mixer_Geom(object):
+    """
+    Component: Tank
+
+    Model: Mixer model
+
+    **Descritpion**:
+
+
+    **Assumptions**:
+
+        - 
+
+    **Connectors**:
+
+
+
+    **Parameters**:
+
+
+    **Inputs**:
+
+
+
+    **Ouputs**:
+
+    """
     
     def __init__(self, **kwargs):
         

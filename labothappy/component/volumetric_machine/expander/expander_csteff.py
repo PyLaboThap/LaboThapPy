@@ -1,12 +1,13 @@
-import time
-
-# from scipy.optimize import fsolve
+"External modules"
+from CoolProp.CoolProp import PropsSI
+from scipy.optimize import fsolve
 import numpy as np
+
+"Internal modules"
 from component.base_component import BaseComponent
 from connector.heat_connector import HeatConnector
 from connector.mass_connector import MassConnector
 from connector.work_connector import WorkConnector
-from CoolProp.CoolProp import PropsSI
 
 
 class ExpanderCstEff(BaseComponent):
@@ -55,9 +56,9 @@ class ExpanderCstEff(BaseComponent):
 
     def __init__(self):
         super().__init__()
-        self.su = MassConnector()
-        self.ex = MassConnector()  # Mass_connector
-        self.W_exp = WorkConnector()
+        self.su = MassConnector() # Suction side mass connector
+        self.ex = MassConnector()  # Exhaust side mass connector
+        self.W_exp = WorkConnector() # Work connector of the expander
 
     def get_required_inputs(self):  # Used in check_calculablle to see if all of the required inputs are set
         self.sync_inputs()
@@ -126,8 +127,8 @@ class ExpanderCstEff(BaseComponent):
 
     def solve(self):
         # Perform checks to ensure the model can be calculated and has parameters
-        # self.check_calculable()
-        # self.check_parametrized()
+        self.check_calculable()
+        self.check_parametrized()
 
         if not (self.calculable and self.parametrized):
             self.solved = False
