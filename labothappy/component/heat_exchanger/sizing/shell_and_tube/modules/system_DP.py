@@ -254,8 +254,11 @@ class ShellAndTubeSizingOpt(BaseComponent):
 
             "Correlation Loading And Setting"
 
-            Corr_H = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
-            Corr_C = {"1P" : "Gnielinski", "2P" : "Flow_boiling"}
+            # Corr_H = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
+            # Corr_C = {"1P" : "Gnielinski", "2P" : "Flow_boiling"}
+            
+            Corr_H = {"1P" : "Gnielinski", "2P" : "Flow_boiling", "SC" : "Liu_sCO2"}
+            Corr_C = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
 
             self.HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation' # 31
 
@@ -273,11 +276,14 @@ class ShellAndTubeSizingOpt(BaseComponent):
 
                 Flow_Type = self.params['Flow_Type'], H_DP_ON = self.params['H_DP_ON'], C_DP_ON = self.params['C_DP_ON'], n_disc = self.params['n_disc']) 
 
-            Corr_H_DP = "Shell_Kern_DP"
-            Corr_C_DP = "Gnielinski_DP"
+            # Corr_H_DP = "Shell_Kern_DP"
+            # Corr_C_DP = "Gnielinski_DP"
 
             # Corr_H_DP = "Shell_Kern_DP"
             # Corr_C_DP = "Muller_Steinhagen_Heck_DP"
+
+            Corr_H_DP = "Cheng_CO2_DP"
+            Corr_C_DP = "Shell_Kern_DP"
 
             # HX.set_DP(DP_type="User-Defined", UD_H_DP=1e4, UD_C_DP=1e4)
             self.HX.set_DP(DP_type = "Correlation", Corr_H=Corr_H_DP, Corr_C=Corr_C_DP)    
@@ -784,12 +790,12 @@ class ShellAndTubeSizingOpt(BaseComponent):
                         # Bound constraints
                         if self.particles[i].position[bound_key] < self.bounds[bound_key][0]:
                             self.particles[i].position[bound_key] = self.bounds[bound_key][0]
-                            self.particles[i].velocity[bound_key] = -self.particles[i].velocity[bound_key]
+                            self.particles[i].velocity[bound_key] = -self.particles[i].velocity[bound_key] #self.particles[i].velocity[bound_key]
                             bound_flag = 1
     
                         if self.particles[i].position[bound_key] > self.bounds[bound_key][1]:
                             self.particles[i].position[bound_key] = self.bounds[bound_key][1]
-                            self.particles[i].velocity[bound_key] = -self.particles[i].velocity[bound_key]
+                            self.particles[i].velocity[bound_key] = -self.particles[i].velocity[bound_key] # self.particles[i].velocity[bound_key]
                             bound_flag = 1
 
                 # Evaluate the new position with penalty for constraint violation
@@ -843,12 +849,12 @@ class ShellAndTubeSizingOpt(BaseComponent):
                 self.global_best_DP_h = self.best_particle.DP_h
                 self.global_best_DP_c = self.best_particle.DP_c
 
-            # # Optionally, print progress
-            # print("===========================")
-            # print(f"Iteration {iteration+1}/{max_iterations}, Global Best Score: {self.global_best_score}, Related Q: {self.global_best_Q}")
-            # print(f"Related DP_h: {self.global_best_DP_h}, Related DP_c: {self.global_best_DP_c}")
-            # print(f"Best Position : {self.global_best_position}")
-            # print(f"Best Part Velocity : {self.best_particle.velocity}")
+            # Optionally, print progress
+            print("===========================")
+            print(f"Iteration {iteration+1}/{max_iterations}, Global Best Score: {self.global_best_score}, Related Q: {self.global_best_Q}")
+            print(f"Related DP_h: {self.global_best_DP_h}, Related DP_c: {self.global_best_DP_c}")
+            print(f"Best Position : {self.global_best_position}")
+            print(f"Best Part Velocity : {self.best_particle.velocity}")
             
             
         return self.global_best_position, self.global_best_score, self.best_particle
@@ -910,9 +916,9 @@ HX_test.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'T
 choice_vectors = {
                     'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
                     'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
-                        29, 31, 33, 35,  37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
+                        29, 31, 33], # 35,  37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
                     'Tube_pass' : [1,2,4,6,8,10],
-                    'tube_layout' : [0,45,60]}
+                    'tube_layout' : [60]} # [0,45,60]}
 
 """
 'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
@@ -928,8 +934,8 @@ Max T and P for pipe thickness computation
 """
 
 # Worst Case
-P_max_cycle = 1048*1e3 # Pa
-T_max_cycle = 273.15+100 # K 
+P_max_cycle = 100*1e5 # Pa
+T_max_cycle = 273.15+110 # K 
 
 HX_test.set_max_cycle_prop(T_max_cycle = T_max_cycle, p_max_cycle = P_max_cycle)
 
@@ -938,62 +944,99 @@ Thermodynamical parameters : Inlet and Outlet Design States
 """
 
 # su_S = MassConnector()
-# su_S.set_properties(T = 273.15 + 24, # K
-#                     P = 1.31*1e5, # Pa
-#                     m_dot = 700, # kg/s
+# su_S.set_properties(T = 273.15 + 25, # K
+#                     P = 5*1e5, # 5*1e5, # Pa
+#                     m_dot = 980/4, # kg/s
 #                     fluid = 'Water'
 #                     )
 
 # ex_S = MassConnector()
-# ex_S.set_properties(T = 273.15 + 27.78, # K
-#                     P = 1*1e5, # Pa
-#                     m_dot = 700, # kg/s
+# ex_S.set_properties(T = 273.15 + 97.87, # K
+#                     P = 5*1e5, # 4.5*1e5, # Pa
+#                     m_dot = 980/4, # kg/s
 #                     fluid = 'Water'
 #                     )
 
 # su_T = MassConnector()
-# su_T.set_properties(T = 273.15 + 39.94, # K
-#                     P = 71.82*1e3, # 51.75*1e3, # Pa
-#                     m_dot = 34.51, # kg/s
-#                     fluid = 'Cyclopentane'
+# su_T.set_properties(T = 273.15 + 105.4, # K
+#                     P = 200*1e5, # 51.75*1e3, # Pa
+#                     m_dot = 1590.82/4, # kg/s
+#                     fluid = 'CO2'
 #                     )
 
 # ex_T = MassConnector()
-# ex_T.set_properties(T = 273.15 + 31.7, # K
-#                     P = 56.82*1e3, # Pa
-#                     m_dot = 34.51, # kg/s
-#                     fluid = 'Cyclopentane'
+# ex_T.set_properties(T = 273.15 + 28, # K
+#                     P = 200*1e5, # Pa
+#                     m_dot = 1590.82/4, # kg/s
+#                     fluid = 'CO2'
 #                     )
+
+# 1 : 59524.55
+# 10 : 38057.38
+# 20 : 38141.72
+# 30 : 37795.31
+# 50 : 38034.52
+
 
 # ------------------------------------------------------------
 
 su_S = MassConnector()
-su_S.set_properties(T = 273.15 + 95, # K
-                    P = 10*1e5, # 5*1e5, # Pa
-                    m_dot = 27.8, # kg/s
-                    fluid = 'Methanol'
+su_S.set_properties(T = 273.15 + 20, # K
+                    P = 5*1e5, # 5*1e5, # Pa
+                    m_dot = 47.82, # kg/s
+                    fluid = 'Water'
                     )
 
 ex_S = MassConnector()
-ex_S.set_properties(T = 273.15 + 40, # K
-                    P = 10*1e5, # 4.5*1e5, # Pa
-                    m_dot = 27.8, # kg/s
-                    fluid = 'Methanol'
+ex_S.set_properties(T = 273.15 + 80, # K
+                    P = 5*1e5, # 4.5*1e5, # Pa
+                    m_dot = 47.82, # kg/s
+                    fluid = 'Water'
                     )
 
 su_T = MassConnector()
-su_T.set_properties(T = 273.15 + 25, # K
-                    P = 5*1e5, # 51.75*1e3, # Pa
-                    m_dot = 68.9, # kg/s
-                    fluid = 'Water'
+su_T.set_properties(T = 273.15 + 100, # K
+                    P = 100*1e5, # 51.75*1e3, # Pa
+                    m_dot = 100, # kg/s
+                    fluid = 'CO2'
                     )
 
 ex_T = MassConnector()
-ex_T.set_properties(T = 273.15 + 40, # K
-                    P = 5*1e5, # Pa
-                    m_dot = 68.9, # kg/s
-                    fluid = 'Water'
+ex_T.set_properties(T = 273.15 + 50, # K
+                    P = 99*1e5, # Pa
+                    m_dot = 100, # kg/s
+                    fluid = 'CO2'
                     )
+
+# ------------------------------------------------------------
+
+# su_S = MassConnector()
+# su_S.set_properties(T = 273.15 + 95, # K
+#                     P = 10*1e5, # 5*1e5, # Pa
+#                     m_dot = 27.8, # kg/s
+#                     fluid = 'Methanol'
+#                     )
+
+# ex_S = MassConnector()
+# ex_S.set_properties(T = 273.15 + 40, # K
+#                     P = 10*1e5, # 4.5*1e5, # Pa
+#                     m_dot = 27.8, # kg/s
+#                     fluid = 'Methanol'
+#                     )
+
+# su_T = MassConnector()
+# su_T.set_properties(T = 273.15 + 25, # K
+#                     P = 5*1e5, # 51.75*1e3, # Pa
+#                     m_dot = 68.9, # kg/s
+#                     fluid = 'Water'
+#                     )
+
+# ex_T = MassConnector()
+# ex_T.set_properties(T = 273.15 + 40, # K
+#                     P = 5*1e5, # Pa
+#                     m_dot = 68.9, # kg/s
+#                     fluid = 'Water'
+#                     )
 
 # ------------------------------------------------------------
 
@@ -1044,8 +1087,10 @@ bounds = {
 
 HX_test.set_bounds(bounds)
 
-HX_test.set_constraints(Q_dot = 4.34*1e6, DP_h = 13.2*1e3, DP_c = 4.3*1e3)
+# HX_test.set_constraints(Q_dot = 4.34*1e6, DP_h = 13.2*1e3, DP_c = 4.3*1e3)
 # HX_test.set_constraints(Q_dot = 0.313*1e6, DP_h = 8.2*1e3, DP_c = 21.7*1e3)
+HX_test.set_constraints(Q_dot = 12*1e6, DP_h = 6*1e3, DP_c = 10*1e3)
+# HX_test.set_constraints(Q_dot = 298.84*1e6/4, DP_h = 200*1e3, DP_c = 200*1e3)
 
 """
 Parameters Setting
@@ -1055,18 +1100,48 @@ HX_test.set_parameters(
                         n_series = 1, # [-]
                         # OPTI -> Oui (regarder le papier pour déterminer ça)
 
-                        foul_t = 0.000176, # 0.0002 # 0.000176 # (m^2 * K/W)
-                        foul_s = 0.000176, # 0.00033 # 0.000176 # (m^2 * K/W)
+                        foul_t = 0, #0.000176, # 0.0002 # 0.000176 # (m^2 * K/W)
+                        foul_s = 0, #0.000176, # 0.00033 # 0.000176 # (m^2 * K/W)
                         tube_cond = 50, # W/(m*K)
                         Overdesign = 0,
                         
-                        Shell_Side = 'H',
+                        Shell_Side = 'C',
 
                         Flow_Type = 'Shell&Tube',
                         H_DP_ON = True,
                         C_DP_ON = True,
-                        n_disc = 1
+                        n_disc = 50
                       )
+
+# 1 : 2973.0 - 
+# alpha_h : [2287.389209719491]
+# alpha_c : [4305.586967073849]
+# LMTD : [24.63713705]
+# F : [0.63594051]
+
+# 5 : 2611.7 -  {'D_o_inch': 0.375, 'L_shell': 3.6149999999999998, 'Shell_ID_inch': 35, 'Central_spac': 0.723, 'Tube_pass': 1, 'tube_layout': 60, 'Baffle_cut': 37.16}
+# LMTD : 18.895249248272606
+# F : 0.8658799602199413
+# alpha_h : 2581.1110620985232
+# alpha_c : 4368.730745939736
+
+# 10 : 2590.3 -  {'D_o_inch': 0.375, 'L_shell': 3.378, 'Shell_ID_inch': 33, 'Central_spac': 0.623, 'Tube_pass': 1, 'tube_layout': 60, 'Baffle_cut': 18.34}
+# LMTD : 18.63
+# F : 0.8572
+# alpha_h : 2876.22
+# alpha_c : 4899.79
+
+# 20 : 2855.74
+# LMTD : 18.56
+# F : 0.8135
+# alpha_h : 2569.44
+# alpha_c : 4145.78
+
+# 30 : 2982.05
+# LMTD : 18.53
+# F : 0.8282
+# alpha_h : 2868.31
+# alpha_c : 4777.36
 
 # --------------------------------------------------------------------------------
 

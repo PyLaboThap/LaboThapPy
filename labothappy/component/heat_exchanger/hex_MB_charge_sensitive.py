@@ -27,14 +27,14 @@ from correlations.heat_exchanger.find_2P_boundaries import find_2P_boundaries
 
 # HTC Correlations
 from correlations.convection.plate_htc import han_BPHEX_DP, water_plate_HTC, martin_BPHEX_HTC, muley_manglik_BPHEX_HTC, han_boiling_BPHEX_HTC, han_cond_BPHEX_HTC, thonon_plate_HTC, kumar_plate_HTC, martin_holger_plate_HTC, amalfi_plate_HTC, shah_condensation_plate_HTC
-from correlations.convection.pipe_htc import gnielinski_pipe_htc, boiling_curve, horizontal_tube_internal_condensation, horizontal_flow_boiling, flow_boiling_gungor_winterton
+from correlations.convection.pipe_htc import gnielinski_pipe_htc, boiling_curve, horizontal_tube_internal_condensation, horizontal_flow_boiling, flow_boiling_gungor_winterton, Liu_sCO2, Cheng_sCO2
 from correlations.convection.shell_and_tube_htc import shell_bell_delaware_htc, shell_htc_kern
 from correlations.convection.tube_bank_htc import ext_tube_film_condens
 from correlations.convection.fins import htc_tube_and_fins
 
 # DP Correlations 
 from correlations.pressure_drop.shell_and_tube_DP import shell_DP_kern, shell_DP_donohue, shell_bell_delaware_DP
-from correlations.pressure_drop.pipe_DP import gnielinski_pipe_DP , Churchill_DP, Choi_DP, Muller_Steinhagen_Heck_DP
+from correlations.pressure_drop.pipe_DP import gnielinski_pipe_DP , Churchill_DP, Choi_DP, Muller_Steinhagen_Heck_DP, Cheng_CO2_DP
 
 # Fluid Correlations
 from correlations.properties.thermal_conductivity import conducticity_R1233zd
@@ -447,6 +447,7 @@ class HeatExchangerMB(BaseComponent):
             # Type 
             self.H.HeatExchange_Correlation = "Correlation"
             self.C.HeatExchange_Correlation = "Correlation"
+            
             if self.HTX_Type == 'Plate' or self.HTX_Type == 'Shell&Tube' or self.HTX_Type == 'Tube&Fins':
                 
                 self.H.Correlation_1phase = Corr_H["1P"]
@@ -454,12 +455,22 @@ class HeatExchangerMB(BaseComponent):
                     self.H.Correlation_2phase = Corr_H["2P"]
                 else:
                     self.H.Correlation_2phase = None
+                    
+                if "SC" in Corr_H:
+                    self.H.Correlation_TC = Corr_H["SC"]
+                else:
+                    self.H.Correlation_TC = None
                 
                 self.C.Correlation_1phase = Corr_C["1P"]
                 if "2P" in Corr_C:
                     self.C.Correlation_2phase = Corr_C["2P"]
                 else:
                     self.C.Correlation_2phase = None
+
+                if "SC" in Corr_C:
+                    self.C.Correlation_TC = Corr_C["SC"]
+                else:
+                    self.C.Correlation_TC = None
 
             if self.C.Correlation_2phase == "Boiling_curve": # Compute the fluid boiling curve beforehand
                 try:
@@ -934,6 +945,86 @@ class HeatExchangerMB(BaseComponent):
 
         return alpha_c
 
+    # --------------------------------------------------------------    
+
+    def compute_H_TC_HTC(self, k, Th_mean, p_h_mean, T_wall_h, G_h, havg_h):
+        try:
+            mu_h, Pr_h, k_h, mu_h_w, mu_rat, Pr_h_w, _ = propsfluid_AS(Th_mean, p_h_mean, T_wall_h, self.H_su.fluid, False, self.AS_H)       
+        except (ValueError):
+            if self.phases_h[k] == "liquid":
+                mu_h, Pr_h, k_h, mu_h_w, mu_rat, Pr_h_w, _ = propsfluid_AS(Th_mean, p_h_mean, T_wall_h-1, self.H_su.fluid, False, self.AS_H)
+            elif self.phases_h[k] == "vapor":
+                mu_h, Pr_h, k_h, mu_h_w, mu_rat, Pr_h_w, _ = propsfluid_AS(Th_mean, p_h_mean, T_wall_h+1, self.H_su.fluid, False, self.AS_H)  
+                
+        if self.H.Correlation_TC == "Gnielinski":
+            if self.HTX_Type == 'Plate':
+                alpha_h, self.Re_h[k], self.Pr_h[k] = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['H_Dh'], self.params['l']) # Muley_Manglik_BPHEX_HTC(mu_h, mu_h_w, Pr_h, k_h, G_h, self.geom.H_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_h, Pr_h, k_h, G_h, self.geom.H_Dh) # 
+            elif self.HTX_Type == 'Shell&Tube':
+                alpha_h, self.Re_h[k], self.Pr_h[k] = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']*self.params['Tube_pass']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
+            elif self.HTX_Type == 'Tube&Fins':
+                alpha_h, self.Re_h[k], self.Pr_h[k] = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']*self.params['n_passes']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
+        elif self.H.Correlation_TC == 'Liu_sCO2':
+            self.AS_H.update(CP.PT_INPUTS, p_h_mean, Th_mean)
+            rho_h = self.AS_H.rhomass()
+            cp_h = self.AS_H.cpmass()
+            
+            alpha_h = Liu_sCO2(G_h, p_h_mean, T_wall_h, k_h, rho_h, mu_h, cp_h, self.params['Tube_OD']-2*self.params['Tube_t'], self.H_su.fluid)
+        
+        elif self.H.Correlation_TC == 'Cheng_sCO2':
+            q = self.Qvec_h[k]/(self.params['A_eff']*self.w[k])
+            
+            # print(f"q : {q}")
+            # print(f"G : {G_h}")
+            
+            if k+1 > len(self.hvec_h):
+                h_next = self.hvec_h[k+1]
+            else:
+                h_next = self.hvec_h[k]                
+                
+            alpha_h = Cheng_sCO2(G_h, q, T_wall_h, p_h_mean, self.hvec_h[k], h_next, mu_h, k_h, self.params['Tube_OD']-2*self.params['Tube_t'], self.H_su.fluid)
+            
+            # print(f"-----------------")
+
+        return alpha_h
+
+    def compute_C_TC_HTC(self, k, Tc_mean, p_c_mean, T_wall_c, G_c, havg_c):
+        
+        try:
+            mu_c, Pr_c, k_c, mu_c_w, mu_rat, Pr_c_w, _ = propsfluid_AS(Tc_mean, p_c_mean, T_wall_c, self.C_su.fluid, False, self.AS_C)
+        except (ValueError):
+            if self.phases_c[k] == "liquid":
+                mu_c, Pr_c, k_c, mu_c_w, mu_rat, Pr_c_w, _ = propsfluid_AS(Tc_mean-0.1, p_c_mean, T_wall_c, self.C_su.fluid, False, self.AS_C)
+            elif self.phases_c[k] == "vapor":
+                mu_c, Pr_c, k_c, mu_c_w, mu_rat, Pr_c_w, _ = propsfluid_AS(Tc_mean+0.1, p_c_mean, T_wall_c, self.C_su.fluid, False, self.AS_C)
+        
+        if self.C.Correlation_TC  == "Gnielinski":
+            if self.HTX_Type == 'Plate':
+                alpha_c, self.Re_c[k], self.Pr_c[k]  = gnielinski_pipe_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, self.params['H_Dh'], self.params['l']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
+            elif self.HTX_Type == 'Shell&Tube':
+                alpha_c, self.Re_c[k], self.Pr_c[k]  = gnielinski_pipe_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']**self.params['Tube_pass']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
+            elif self.HTX_Type == 'Tube&Fins':
+                alpha_c, self.Re_c[k], self.Pr_c[k]  = gnielinski_pipe_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']*self.params['n_passes']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
+        elif self.C.Correlation_TC == 'Liu_sCO2':
+            self.AS_C.update(CP.PT_INPUTS, p_c_mean, Tc_mean)
+            rho_c = self.AS_C.rhomass()
+            cp_c = self.AS_C.cpmass()
+            
+            alpha_c = Liu_sCO2(G_c, p_c_mean, T_wall_c, k_c, rho_c, mu_c, cp_c, self.params['Tube_OD']-2*self.params['Tube_t'], self.C_su.fluid)
+        
+        elif self.C.Correlation_TC == 'Cheng_sCO2':
+            q = self.Qvec_c[k]/(self.params['A_eff']*self.w[k])
+            
+            if k+1 > len(self.hvec_c):
+                h_next = self.hvec_c[k+1]
+            else:
+                h_next = self.hvec_c[k]                
+                
+            alpha_c = Cheng_sCO2(G_c, q, T_wall_c, p_c_mean, self.hvec_c[k], h_next, mu_c, k_c, self.params['Tube_OD']-2*self.params['Tube_t'], self.C_su.fluid)
+        
+        return alpha_c
+
+    # --------------------------------------------------------------    
+
     def compute_H_2P_HTC(self, k, Th_mean, p_h_mean, T_wall_h, G_h, havg_h, Th_sat_mean):
         
         if self.phases_h[k] == "two-phase":
@@ -1102,7 +1193,12 @@ class HeatExchangerMB(BaseComponent):
             mu_h_in = CP.PropsSI('V', 'H', self.su_H.h, 'P', self.su_H.p, self.su_H.fluid)
             G_c, G_h = self.G_h_c_computation()
             
-            DP_H = gnielinski_pipe_DP(mu_h_in, self.su_H.D, G_h, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"])    
+            DP_H = gnielinski_pipe_DP(mu_h_in, self.su_H.D, G_h, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"])  
+        elif self.H.PressureDrop_Correlation == "Cheng_CO2_DP":
+            G_c, G_h = self.G_h_c_computation()
+            mu_h_in = CP.PropsSI('V', 'H', self.su_H.h, 'P', self.su_H.p, self.su_H.fluid)
+            
+            DP_H = Cheng_CO2_DP(G_h, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"], self.su_H.p, self.su_H.h, mu_h_in, self.su_H.fluid)
         else:
             DP_H = 0
             
@@ -1149,6 +1245,12 @@ class HeatExchangerMB(BaseComponent):
             rho_out = CP.PropsSI('D', 'P', self.su_C.p, 'Q', 1, self.su_C.fluid)
 
             DP_C = Muller_Steinhagen_Heck_DP(self.su_C.fluid, G_c, self.su_C.p, 0.37, self.params["Tube_L"]*self.params["Tube_pass"], self.params["Tube_OD"]-2*self.params["Tube_t"])
+        
+        elif self.C.PressureDrop_Correlation == "Cheng_CO2_DP":
+            G_c, G_h = self.G_h_c_computation()
+            mu_c_in = CP.PropsSI('V', 'H', self.su_C.h, 'P', self.su_C.p, self.su_C.fluid)
+            
+            DP_C = Cheng_CO2_DP(G_c, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"], self.su_C.p, self.su_C.h, mu_c_in, self.su_C.fluid)
         
         else:
             DP_C = 0
@@ -1626,7 +1728,10 @@ class HeatExchangerMB(BaseComponent):
                     elif self.P > 0.99:
                         self.F[k] = 0
                     else:
-                        self.F[k] = F_shell_and_tube(self.R,self.P,self.params['n_series'])
+                        if np.mod(self.params['Tube_pass'],2) == 0:
+                            self.F[k] = F_shell_and_tube(self.R,self.P,self.params['n_series'])
+                        else:
+                            self.F[k] = f_lmtd2(self.R, self.P, self.params, C_r)
                 else:    
                     self.F[k] = f_lmtd2(self.R, self.P, self.params, C_r)
                     
@@ -1656,8 +1761,10 @@ class HeatExchangerMB(BaseComponent):
                     
             elif self.H.HeatExchange_Correlation == "Correlation": # Heat transfer coefficient calculated from Correlations.
                 # 1 PHASE CORRELATION
-                if self.phases_h[k] == "liquid" or self.phases_h[k] == "vapor" or self.phases_h[k] == "transcritical":
+                if self.phases_h[k] == "liquid" or self.phases_h[k] == "vapor":
                     alpha_h = self.compute_H_1P_HTC(k, Th_mean, p_h_mean, T_wall_h, G_h, havg_h)
+                elif self.phases_h[k] == "transcritical":
+                    alpha_h = self.compute_H_TC_HTC(k, Th_mean, p_h_mean, T_wall_h, G_h, havg_h)
                 # 2 PHASE CORRELATION
                 elif self.phases_h[k] == "two-phase" or self.phases_h[k] == "vapor-wet":
                     alpha_h = self.compute_H_2P_HTC(k, Th_mean, p_h_mean, T_wall_h, G_h, havg_h, Th_sat_mean)
@@ -1679,9 +1786,11 @@ class HeatExchangerMB(BaseComponent):
                     
             elif self.C.HeatExchange_Correlation == "Correlation": # Heat transfer coefficient calculated from Correlations:
                 # 1 PHASE CORRELATION
-                if self.phases_c[k] == "liquid" or self.phases_c[k] == "vapor" or self.phases_c[k] == "transcritical":
+                if self.phases_c[k] == "liquid" or self.phases_c[k] == "vapor":
                     alpha_c = self.compute_C_1P_HTC(k, Tc_mean, p_c_mean, T_wall_c, G_c, havg_c)
                 # 2 PHASE CORRELATION
+                elif self.phases_c[k] == "transcritical":
+                    alpha_c = self.compute_C_TC_HTC(k, Tc_mean, p_c_mean, T_wall_c, G_c, havg_c)
                 elif self.phases_c[k] == "two-phase" or self.phases_c[k] == "vapor-wet":
                     alpha_c = self.compute_C_2P_HTC(k, Tc_mean, p_c_mean, T_wall_c, G_c, Tc_sat_mean, alpha_h, self.LMTD[k], havg_c)
                           

@@ -46,7 +46,8 @@ def F_shell_and_tube(R1,P1,N):
         S = np.sqrt(R1**2 + 1) / (R1 - 1)
         W = ((1 - P1 * R1) / (1 - P1))**(1 / N)
         F = S * np.log(W) / np.log((1 + W - S + S * W) / (1 + W + S - S * W))
-    
+        
+
     if np.isnan(F):
         F = 0
     
