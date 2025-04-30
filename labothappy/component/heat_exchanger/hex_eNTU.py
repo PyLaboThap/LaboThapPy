@@ -155,7 +155,7 @@ class HXeNTU(BaseComponent):
                         
             # epsilon NTU 
             
-            eps = e_NTU(NTU, C_r, self.params['Flow_Type'])
+            eps = e_NTU(NTU, C_r, self.params)
 
                         
             # Calcul de Q
