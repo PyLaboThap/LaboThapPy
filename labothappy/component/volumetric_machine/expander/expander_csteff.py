@@ -1,6 +1,4 @@
-import time
 
-# from scipy.optimize import fsolve
 import numpy as np
 from component.base_component import BaseComponent
 from connector.heat_connector import HeatConnector
@@ -14,6 +12,8 @@ class ExpanderCstEff(BaseComponent):
     Component: Expander
 
     Model: Constant isentropic efficiency model
+
+    Reference: /
 
     **Descritpion**:
 
@@ -36,21 +36,21 @@ class ExpanderCstEff(BaseComponent):
 
     **Inputs**:
 
-        su_p: Suction side pressure. [Pa]
+        P_su: Suction side pressure. [Pa]
 
-        su_T: Suction side temperature. [K]
+        T_su: Suction side temperature. [K]
         
-        su_m_dot: Suction side flow rate. [kg/s]
+        m_dot: Mass flow flow rate. [kg/s]
 
-        ex_p: Exhaust side pressure. [Pa]
+        P_ex: Exhaust side pressure. [Pa]
 
-        su_fluid: Suction side fluid. [-]
+        fluid: fluid. [-]
 
     **Ouputs**:
 
-        ex_h: Exhaust side specific enthalpy. [J/kg]
+        h_ex: Exhaust side specific enthalpy. [J/kg]
 
-        ex_T: Exhaust side temperature. [K]
+        T_ex: Exhaust side temperature. [K]
     """
 
     def __init__(self):

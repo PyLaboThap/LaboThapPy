@@ -21,9 +21,9 @@ class ExpanderSE(BaseComponent):
     """
         Component: Volumetric expander
 
-        Model: The model is based on the thesis of V. Lemort (2008) and is a semi-empirical model.
+        Model: Semi-empirical model.
 
-        Reference: 
+        Reference: V. Lemort, “Contribution to the Characterization of Scroll Machines in Compressor and Expander Modes,” Dec. 2008.
 
         **Descritpion**:
 
