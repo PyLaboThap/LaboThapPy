@@ -1,6 +1,6 @@
 
 import __init__
-from component.heat_exchanger.steady_state.pinch_cst.hex_cstpinch import HXPinchCst
+from component.heat_exchanger.hex_cstpinch import HXPinchCst
 
 # from simulation_model import HXPinchCst
 import numpy as np
