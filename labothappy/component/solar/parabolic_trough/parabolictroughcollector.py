@@ -11,10 +11,10 @@ Rémi Dickes, Vincent Lemort and Sylvain Quoilin
 
 """
 
-import parabolic_through_collector
+import component.solar.parabolic_trough.parabolictroughcollector as parabolictroughcollector
 from CoolProp.CoolProp import PropsSI
 import numpy as np
-from geometries.solar.parabolic_through_geometry import PT_Collector_Geom
+from geometries.solar.parabolictrough_geometry import PT_Collector_Geom
 from component.base_component import BaseComponent
 
 from connector.mass_connector import MassConnector
