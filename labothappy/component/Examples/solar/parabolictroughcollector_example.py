@@ -1,12 +1,13 @@
 
-import example
 import __init__
 from CoolProp.CoolProp import PropsSI
 import numpy as np
 import matplotlib.pyplot as plt
 
-from geometries.solar.parabolic_through_geometry import PT_Collector_Geom
-from parabolic_through_collector import PT_collector
+#import component.Examples.solar.parabolictroughcollector_example as parabolictroughcollector_example
+# Muted by Titouan, do not work without this line on Elise computer 
+from geometries.solar.parabolictrough_geometry import PT_Collector_Geom
+from component.solar.parabolic_trough.parabolictroughcollector import PT_collector
 
 PT_geom = PT_Collector_Geom()
 PT_geom.set_parameters("Soponova_MicroCSP")
