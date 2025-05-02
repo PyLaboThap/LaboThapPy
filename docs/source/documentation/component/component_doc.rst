@@ -5,7 +5,7 @@ This section includes details on the components of the LaboThapPy library. The c
 They are divided into three categories: steady state, dynamic and sizing models.
 
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 8
    :caption: Contents:
 
    compressor/compressor_doc
