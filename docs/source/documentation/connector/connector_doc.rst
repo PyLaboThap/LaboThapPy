@@ -1,8 +1,6 @@
 Connector
 =========
 
-This section includes details on the connectors of the LaboThapPy library.
-
 The purpose of the **Connector class** is to link components between each other. There are three different types of connectors that represent different
 types of energy transfer within the system:
 
@@ -14,13 +12,6 @@ types of energy transfer within the system:
    :alt: Connectors description.
    :width: 100%
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
-
-   mass_connector/mass_connector_doc
-   heat_connector/heat_connector_doc
-   work_connector/work_connector_doc
 
 Example
 -------
@@ -47,3 +38,11 @@ The compressor is connected with connectors:
 .. raw:: html
 
    </div>
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Contents:
+
+   mass_connector/mass_connector_doc
+   heat_connector/heat_connector_doc
+   work_connector/work_connector_doc
