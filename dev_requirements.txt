@@ -1,0 +1,27 @@
+# For notebooks and local dev
+ipython
+ipywidgets
+notebook
+jupyter
+jupyterlab
+nbconvert
+nbformat
+matplotlib-inline
+traitlets
+tornado
+
+# Debugging/dev tools
+psutil
+debugpy
+
+# Optional plotting/debug
+Pygments
+platformdirs
+
+# For docs (same as cleaned docs/requirements.txt earlier)
+Sphinx
+sphinx-autodoc-typehints
+sphinx-rtd-theme
+nbsphinx
+furo
+myst-parser
