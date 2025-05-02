@@ -1,7 +1,7 @@
-Expander
+Compressor
 ========
 
-The expander models are composed of volumetric machines as well as turbines.
+The compressor models are composed of volumetric machines as well as turbines.
 
 .. toctree::
    :maxdepth: 2

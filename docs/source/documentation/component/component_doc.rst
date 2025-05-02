@@ -9,6 +9,8 @@ They are divided into three categories: steady state, dynamic and sizing models.
    :caption: Contents:
 
    heat_exchanger/heat_exchanger_doc
+   exapnder/expander_doc
+   compressor/compressor_doc
 
 Component models
 ===================
