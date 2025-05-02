@@ -1,10 +1,12 @@
 Heat Exchanger
-===================
+===============
 
-Details about heat exchangers.
+This sections provides information about the heat exchanger models available in the LaboThapPy library.
+The heat exchanger models are limited to non-humid air applications.
+
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
-   moving_boundary/moving_boundary_doc
+   charge_sensitive_mb_doc
 
