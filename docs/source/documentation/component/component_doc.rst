@@ -8,9 +8,14 @@ They are divided into three categories: steady state, dynamic and sizing models.
    :maxdepth: 3
    :caption: Contents:
 
-   heat_exchanger/heat_exchanger_doc
-   expander/expander_doc
    compressor/compressor_doc
+   expander/expander_doc
+   heat_exchanger/ha_heat_exchanger_doc
+   heat_exchanger/heat_exchanger_doc
+   pump/pump_doc
+   solar/solar_doc
+   tank/tank_doc
+   valve/valve_doc
 
 Component models
 ===================
