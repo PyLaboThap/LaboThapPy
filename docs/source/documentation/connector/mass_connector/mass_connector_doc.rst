@@ -21,6 +21,6 @@ Example of usage
 You can see an interactive example in the following notebook:
 
 .. nbinclude:: ../../../../notebooks/mass_connector_demo.ipynb
-   :start-line: 5
-   :end-line: 20
+   :start-line: 1
+   :end-line: 2
 

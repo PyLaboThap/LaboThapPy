@@ -43,7 +43,6 @@ def setup(app):
 
 html_title = "LaboThapPy Documentation"
 
-
 # -- Options for mathematical equations ------------------------------------------------
 
 # MathJax settings
