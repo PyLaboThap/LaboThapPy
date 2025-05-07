@@ -163,9 +163,4 @@ them to other components.
 
    ../../../notebooks/semi_empirical_cp_example
 
-.. .. toctree::
-..    :maxdepth: 2
-..    :caption: Example of setup:
-
-..    base_component/exampleofsetup_doc
 

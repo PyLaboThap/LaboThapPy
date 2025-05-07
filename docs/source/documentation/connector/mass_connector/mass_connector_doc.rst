@@ -20,7 +20,9 @@ Example of usage
 
 You can see an interactive example in the following notebook:
 
-.. nbinclude:: ../../../../notebooks/mass_connector_demo.ipynb
-   :start-line: 2
-   :end-line: 3
+.. toctree::
+   :maxdepth: 1
+   :caption: Example of usage:
+
+   ../../../../notebooks/mass_connector_demo
 
