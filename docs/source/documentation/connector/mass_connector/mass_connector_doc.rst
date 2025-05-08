@@ -20,9 +20,6 @@ Example of usage
 
 You can see an interactive example in the following notebook:
 
-.. toctree::
-   :maxdepth: 1
-   :caption: Example of usage:
+.. nbinclude:: ../../../../notebooks/mass_connector_demo.ipynb
 
-   ../../../../notebooks/mass_connector_demo
 
