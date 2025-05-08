@@ -20,6 +20,6 @@ Example of usage
 
 You can see an interactive example in the following notebook:
 
-.. nbinclude:: ../../../../notebooks/mass_connector_demo.ipynb
+.. nbinclude:: ../../../../../notebooks/mass_connector_demo.ipynb
 
 
