@@ -4,11 +4,11 @@ import sys
 # Add the path to the library directory
 sys.path.insert(0, os.path.abspath('../../labothappy'))
 
-
+master_doc = 'index'  # This assumes 'index.rst' is in the 'source' directory
 
 
 # -- Project information -----------------------------------------------------
-project = 'LaboThapPy'
+project = 'LaboThApPy'
 copyright = '2024, Basile Chaudoir, Elise Neven'
 author = 'Elise Neven, Basile Chaudoir'
 release = '1.0'
@@ -41,7 +41,7 @@ html_static_path = ['_static']
 def setup(app):
     app.add_css_file('custom.css')
 
-html_title = "LaboThapPy Documentation"
+html_title = "LaboThApPy Documentation"
 
 # -- Options for mathematical equations ------------------------------------------------
 
