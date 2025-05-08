@@ -3,7 +3,7 @@ import __init__
 import matplotlib.pyplot as plt
 from connector.mass_connector import MassConnector
 from CoolProp.CoolProp import PropsSI
-from modules.geometry_tube_and_fins_hx import CFTubeAndFinsGeom
+from toolbox.geometries.heat_exchanger.geometry_tube_and_fins_hx import CFTubeAndFinsGeom
 from simulation_model import CrossFlowTubeAndFinsHTX
 
 "--------- 1) Data ------------------------------------------------------------------------------------------"
