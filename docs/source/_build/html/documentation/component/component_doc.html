@@ -346,23 +346,25 @@ All components inherit the properties and methods of the <cite>BaseComponent</ci
 </ul>
 </dd></dl>
 
-<section id="inputs-and-parameters-setting">
-<h3>Inputs and Parameters Setting<a class="headerlink" href="#inputs-and-parameters-setting" title="Link to this heading">¶</a></h3>
-<p>Components’ inputs can be set in two different ways: through connectors or directly within the components. The components is defined by its inputs and its connectors.</p>
 </section>
-</section>
-<section id="connector-approach">
-<h2>Connector Approach<a class="headerlink" href="#connector-approach" title="Link to this heading">¶</a></h2>
-<p>In this approach, the inputs for components are set through connectors. This is particularly useful when multiple components are linked
-to form a larger system. Connectors facilitate the transfer of inputs and outputs between components, enabling the simulation of system-wide
-behavior.</p>
+<section id="inputs-and-parameter-settings">
+<h2>Inputs and Parameter Settings<a class="headerlink" href="#inputs-and-parameter-settings" title="Link to this heading">¶</a></h2>
+<p>Component inputs can be defined in two main ways: either directly within the component or via connectors.
+These two approaches provide flexibility depending on the complexity of the system being modeled.</p>
+<section id="connector-based-approach">
+<h3>Connector-Based Approach<a class="headerlink" href="#connector-based-approach" title="Link to this heading">¶</a></h3>
+<p>In this approach, inputs are set through <strong>connectors</strong>, which handle the transfer of thermodynamic properties and mass flow between components.
+This method is especially useful when building systems composed of multiple interconnected components.</p>
+<p>By assigning properties to a connector, you automatically define the inputs for all components linked to it.
+This facilitates consistent and modular system design.</p>
+<p><em>See example below for practical usage.</em></p>
 <a class="reference internal image-reference" href="../../_images/Component_connectors.png"><img alt="Components connectors description." src="../../_images/Component_connectors.png" style="width: 100%;" />
 </a>
 </section>
-<section id="input-output-approach">
-<h2>Input/Output Approach<a class="headerlink" href="#input-output-approach" title="Link to this heading">¶</a></h2>
-<p>In this approach, inputs are set directly within each component. This is more suitable when using components individually, without linking
-them to other components.</p>
+<section id="direct-input-approach">
+<h3>Direct Input Approach<a class="headerlink" href="#direct-input-approach" title="Link to this heading">¶</a></h3>
+<p>In this method, inputs are assigned directly to each component using the <cite>set_inputs</cite> method.
+This approach is particularly well-suited for standalone component use, where no interconnection with other components is required.</p>
 <a class="reference internal image-reference" href="../../_images/Component_in_out.png"><img alt="Components inlet/outlet description." src="../../_images/Component_in_out.png" style="width: 100%;" />
 </a>
 <div class="toctree-wrapper compound">
@@ -377,6 +379,7 @@ them to other components.</p>
 </li>
 </ul>
 </div>
+</section>
 </section>
 </section>
 
@@ -438,11 +441,13 @@ them to other components.</p>
 <li><a class="reference internal" href="#">Components</a><ul>
 <li><a class="reference internal" href="#basecomponent-class">BaseComponent Class</a><ul>
 <li><a class="reference internal" href="#component.base_component.BaseComponent"><code class="docutils literal notranslate"><span class="pre">BaseComponent</span></code></a></li>
-<li><a class="reference internal" href="#inputs-and-parameters-setting">Inputs and Parameters Setting</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#connector-approach">Connector Approach</a></li>
-<li><a class="reference internal" href="#input-output-approach">Input/Output Approach</a></li>
+<li><a class="reference internal" href="#inputs-and-parameter-settings">Inputs and Parameter Settings</a><ul>
+<li><a class="reference internal" href="#connector-based-approach">Connector-Based Approach</a></li>
+<li><a class="reference internal" href="#direct-input-approach">Direct Input Approach</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>

@@ -3,8 +3,8 @@ Created on Aug 03 21:31:37 2023
 
 @author: Elise
 """
-import __init__
-from labothappy.component.volumetric_machine.compressor.compressor_csteff import CompressorCstEff
+# import __init__
+from component.compressor.compressor_csteff import CompressorCstEff
 
 import numpy as np
 

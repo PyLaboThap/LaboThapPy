@@ -132,26 +132,32 @@ All components inherit the properties and methods of the `BaseComponent` class.
 .. For further details on this model, refer to the [documentation](link).
 
 
-Inputs and Parameters Setting
--------------------------------
+Inputs and Parameter Settings
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Components' inputs can be set in two different ways: through connectors or directly within the components. The components is defined by its inputs and its connectors. 
+Component inputs can be defined in two main ways: either directly within the component or via connectors. 
+These two approaches provide flexibility depending on the complexity of the system being modeled.
 
-Connector Approach
-^^^^^^^^^^^^^^^^^^^^
-In this approach, the inputs for components are set through connectors. This is particularly useful when multiple components are linked 
-to form a larger system. Connectors facilitate the transfer of inputs and outputs between components, enabling the simulation of system-wide 
-behavior.
+Connector-Based Approach
+-------------------------
+
+In this approach, inputs are set through **connectors**, which handle the transfer of thermodynamic properties and mass flow between components. 
+This method is especially useful when building systems composed of multiple interconnected components.
+
+By assigning properties to a connector, you automatically define the inputs for all components linked to it. 
+This facilitates consistent and modular system design.
+
+*See example below for practical usage.*
 
 .. image:: ../../../figures/component/Component_connectors.png
    :alt: Components connectors description.
    :width: 100%
 
+Direct Input Approach
+-------------------------
 
-Input/Output Approach
-^^^^^^^^^^^^^^^^^^^^^
-In this approach, inputs are set directly within each component. This is more suitable when using components individually, without linking 
-them to other components.
+In this method, inputs are assigned directly to each component using the `set_inputs` method.
+This approach is particularly well-suited for standalone component use, where no interconnection with other components is required.
 
 .. image:: ../../../figures/component/Component_in_out.png
    :alt: Components inlet/outlet description.
