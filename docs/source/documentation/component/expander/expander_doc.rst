@@ -4,7 +4,7 @@ This section describes the expander models available in LaboThApPy. The term 'ex
 volumetric machines.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    expander_models/expander_csteff.rst
    expander_models/expander_semi_empirical.rst

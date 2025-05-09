@@ -1,5 +1,6 @@
-Humid air heat Exchanger
-===============
+Humid Air Heat Exchanger
+========================
 
-This sections provides information about the heat exchanger models available in the LaboThapPy library.
-The heat exchanger models are limited to non-humid air applications.
+This sections provides information about the heat exchanger using humid air models available in LaboThApPy.
+
+

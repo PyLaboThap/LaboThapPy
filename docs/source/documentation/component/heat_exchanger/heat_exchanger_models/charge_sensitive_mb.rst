@@ -4,7 +4,7 @@ General Charge Sensitive Moving Boundary Model for Heat Exchangers
 Model description
 -----------------
 
-.. autoclass:: component.steady_state.heat_exchanger.moving_boundary.charge_sensitive.simulation_model.HeatExchangerMB
+.. autoclass:: component.heat_exchanger.hex_MB_charge_sensitive.HeatExchangerMB
 
 References
 ----------
