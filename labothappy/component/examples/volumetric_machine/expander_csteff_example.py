@@ -5,7 +5,6 @@ Created on Aug 03 21:31:37 2023
 @author: Elise
 """
 
-import __init__
 from component.volumetric_machine.expander.expander_csteff import ExpanderCstEff
 
 import numpy as np
