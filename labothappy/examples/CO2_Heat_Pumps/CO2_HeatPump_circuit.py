@@ -74,14 +74,17 @@ def basic_CO2_HP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low, P_high):
     
     #%% CYCLE GUESSES
     
-    CO2_HP.set_cycle_guess(target='Compressor:su', m_dot = 0.08, SH = 5, p = P_low)
+    CO2_HP.set_cycle_guess(target='Compressor:su', m_dot = 0.16, SH = 5, p = P_low)
     CO2_HP.set_cycle_guess(target='Compressor:ex', p = P_high)
         
     CO2_HP.set_cycle_guess(target='Valve:ex', p = P_low)
     
     #%% CYCLE RESIDUAL VARIABLES
     CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='h', tolerance= 1e-3)
+    CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='p', tolerance= 1e-3)
+
     CO2_HP.set_residual_variable(target='GasCooler:ex_H', variable='h', tolerance= 1e-3)
+    CO2_HP.set_residual_variable(target='GasCooler:ex_H', variable='p', tolerance= 1e-3)
     
     return CO2_HP
 
@@ -216,10 +219,10 @@ def IHX_CO2_HP(HSource, CSource, eta_cp, eta_gc, eta_IHX, PP_ev, SH_ev, P_low, P
     
     #%% CYCLE GUESSES
     
-    CO2_HP.set_cycle_guess(target='Compressor:su', m_dot = 0.08, SH = 20, p = P_low)
+    CO2_HP.set_cycle_guess(target='Compressor:su', m_dot = 0.16, SH = 20, p = P_low)
     CO2_HP.set_cycle_guess(target='Compressor:ex', p = P_high)
 
-    CO2_HP.set_cycle_guess(target='Valve:su', p = P_high, T = 30+273.15, m_dot = 0.08)    
+    CO2_HP.set_cycle_guess(target='Valve:su', p = P_high, T = 30+273.15, m_dot = 0.16)    
     CO2_HP.set_cycle_guess(target='Valve:ex', p = P_low)
     
     #%% CYCLE RESIDUAL VARIABLES
@@ -230,7 +233,7 @@ def IHX_CO2_HP(HSource, CSource, eta_cp, eta_gc, eta_IHX, PP_ev, SH_ev, P_low, P
     
     return CO2_HP
 
-def Flash_CO2_HP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low, P_mid, P_high):
+def Flash_CO2_HP_Parallel_CP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low, P_mid, P_high):
     CO2_HP = Circuit('CO2')
 
     # Create components
@@ -304,12 +307,106 @@ def Flash_CO2_HP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low, P_mid, P
     
     #%% CYCLE GUESSES
     
-    m_dot_tot = 0.08
+    m_dot_tot = 0.16
     
     CO2_HP.set_cycle_guess(target='Compressor_1:su', m_dot = 0.5*m_dot_tot, SH = 3, p = P_low)
     CO2_HP.set_cycle_guess(target='Compressor_1:ex', p = P_high)
 
-    CO2_HP.set_cycle_guess(target='Compressor_2:su', m_dot = 0.5*m_dot_tot, SH = 1, p = P_low)
+    CO2_HP.set_cycle_guess(target='Compressor_2:su', m_dot = 0.5*m_dot_tot, SH = 3, p = P_low)
+    CO2_HP.set_cycle_guess(target='Compressor_2:ex', p = P_high)
+
+    CO2_HP.set_cycle_guess(target='Valve_HP:ex', p = P_mid)
+    CO2_HP.set_cycle_guess(target='Valve_LP:ex', p = P_low)
+    
+    #%% CYCLE RESIDUAL VARIABLES
+    CO2_HP.set_residual_variable(target='Mixer:ex', variable='h', tolerance= 1e-3)
+    CO2_HP.set_residual_variable(target='Mixer:ex', variable='m_dot', tolerance= 1e-3)
+    CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='h', tolerance= 1e-3)
+    CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='m_dot', tolerance= 1e-3)
+    CO2_HP.set_residual_variable(target='Valve_HP:ex', variable='h', tolerance= 1e-3)
+    CO2_HP.set_residual_variable(target='Valve_HP:ex', variable='m_dot', tolerance= 1e-3)
+    
+    return CO2_HP
+
+def Flash_CO2_HP_Series_CP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low, P_mid, P_high):
+    CO2_HP = Circuit('CO2')
+
+    # Create components
+    Compressor_1 = CompressorCstEff()
+    Compressor_2 = CompressorCstEff()
+    GasCooler = HXEffCst()
+    Valve_1 = Isenthalpic_Valve_P_ex()
+    Valve_2 = Isenthalpic_Valve_P_ex()
+    Evaporator = HXPinchCst()
+    Mixer_cp = Mixer(n_inlets = 2)
+    Separator = LV_Separator()
+    
+    #%% COMPRESSOR PARAMETERS
+    
+    Compressor_1.set_parameters(eta_is=eta_cp)
+    Compressor_2.set_parameters(eta_is=eta_cp)
+    
+    #%% GASCOOLER PARAMETERS
+    
+    GasCooler.set_parameters(**{
+        'eta': eta_gc,
+    })
+    
+    #%% EVAPORATOR PARAMETERS
+    
+    Evaporator.set_parameters(**{
+        'Pinch': PP_ev,
+        'Delta_T_sh_sc': SH_ev,
+        'type_HX': 'evaporator'
+    })
+    
+    #%% ADD AND LINK COMPONENTS
+    
+    # Add components
+    CO2_HP.add_component(Compressor_1, "Compressor_1")
+    CO2_HP.add_component(Compressor_2, "Compressor_2")
+    
+    CO2_HP.add_component(Mixer_cp, "Mixer")
+    CO2_HP.add_component(GasCooler, "GasCooler")
+    CO2_HP.add_component(Valve_1, "Valve_HP")
+
+    CO2_HP.add_component(Separator, "Separator")
+    
+    CO2_HP.add_component(Valve_2, "Valve_LP")
+    CO2_HP.add_component(Evaporator, "Evaporator")
+    
+    # Link components
+    CO2_HP.link_components("Evaporator", "m-ex_C", "Compressor_1", "m-su")
+    CO2_HP.link_components("Compressor_1", "m-ex", "Mixer", "m-su_1")
+    CO2_HP.link_components("Mixer", "m-ex", "Compressor_2", "m-su")
+    
+    CO2_HP.link_components("Compressor_2", "m-ex", "GasCooler", "m-su_H")
+    CO2_HP.link_components("GasCooler", "m-ex_H", "Valve_HP", "m-su")
+    CO2_HP.link_components("Valve_HP", "m-ex", "Separator", "m-su")
+
+    CO2_HP.link_components("Separator", "m-ex_l", "Valve_LP", "m-su")
+    CO2_HP.link_components("Separator", "m-ex_v", "Mixer", "m-su_2")
+    
+    CO2_HP.link_components("Valve_LP", "m-ex", "Evaporator", "m-su_C")
+    
+    #%% SOURCES AND SINKS
+    
+    Gas_cooler_source = MassConnector()
+    CO2_HP.add_source("GC_Water", Gas_cooler_source, CO2_HP.components["GasCooler"], "m-su_C")
+    CO2_HP.set_source_properties(T=HSource.T, fluid=HSource.fluid, m_dot=HSource.m_dot, target='GC_Water', P = HSource.p)
+    
+    EV_source = MassConnector()
+    CO2_HP.add_source("EV_Water", EV_source, CO2_HP.components["Evaporator"], "m-su_H")
+    CO2_HP.set_source_properties(T=CSource.T, fluid=CSource.fluid, m_dot=CSource.m_dot, target='EV_Water', P = CSource.p)
+    
+    #%% CYCLE GUESSES
+    
+    m_dot_tot = 0.1
+    
+    CO2_HP.set_cycle_guess(target='Compressor_1:su', m_dot = 0.5*m_dot_tot, SH = 3, p = P_low)
+    CO2_HP.set_cycle_guess(target='Compressor_1:ex', p = P_mid)
+
+    CO2_HP.set_cycle_guess(target='Compressor_2:su', m_dot = m_dot_tot, SH = 3, p = P_mid)
     CO2_HP.set_cycle_guess(target='Compressor_2:ex', p = P_high)
 
     CO2_HP.set_cycle_guess(target='Valve_HP:ex', p = P_mid)

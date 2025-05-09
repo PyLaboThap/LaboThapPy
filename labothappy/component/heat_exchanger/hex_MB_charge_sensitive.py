@@ -943,8 +943,12 @@ class HeatExchangerMB(BaseComponent):
                     
         # Thermodynamical variables
         self.AS_H.update(CP.PQ_INPUTS, p_h_mean, 0)
-
-        mu_h_l = self.AS_H.viscosity()
+        
+        try:
+            mu_h_l = self.AS_H.viscosity()
+        except:
+            mu_h_l = CP.PropsSI('V', 'P', p_h_mean, 'Q', 0, self.su_H.fluid)
+            
         rho_h_l = self.AS_H.rhomass()
 
         if self.H_su.fluid != 'R1233zd(E)':
@@ -1036,7 +1040,12 @@ class HeatExchangerMB(BaseComponent):
                 
         # Thermodynamical variables
         self.AS_C.update(CP.PQ_INPUTS, p_c_mean, 0)
-        mu_c_l = self.AS_C.viscosity()
+        
+        try:
+            mu_c_l = self.AS_C.viscosity()
+        except:
+            mu_c_l = CP.PropsSI('V', 'P', p_c_mean, 'Q', 0, self.su_C.fluid)
+            
         rho_c_l = self.AS_C.rhomass()
         h_sat_c_l = self.AS_C.hmass()   
           

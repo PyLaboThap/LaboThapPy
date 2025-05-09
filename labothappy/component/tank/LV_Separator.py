@@ -181,7 +181,7 @@ class LV_Separator(BaseComponent):
         """
         No required parameters for the model 
         """
-        print ('No required parameters')
+        # print ('No required parameters')
         return []
         
     
@@ -272,14 +272,15 @@ class LV_Separator(BaseComponent):
         T_ex_l=T_su
         p_ex_l=p_su
         
-        if abs((m_dot_l + m_dot_v) - self.su.m_dot) < 1e-2:
-            print("OK m_dot")
-        else: 
-            print("Not OK m_dot")
+        # if abs((m_dot_l + m_dot_v) - self.su.m_dot) < 1e-2:
+        #     print("OK m_dot")
+        # else: 
+        #     print("Not OK m_dot")
         
         # Update mass connectors
         self.update_connectors(x_ex_l, T_ex_l, h_ex_l, p_ex_l, m_dot_l, x_ex_v, T_ex_v, h_ex_v, p_ex_v, m_dot_v)
         self.solved = True  # Mark as solved
+        
 #%% PRINT THE RESULTS 
 
     # !!! These shall fit the output of your model

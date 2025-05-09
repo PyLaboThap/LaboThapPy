@@ -117,6 +117,10 @@ class CompressorCstEff(BaseComponent):
         print("======================")
 
     def solve(self):
+        
+        self.check_calculable()
+        self.check_parametrized()
+        
         if not (self.calculable and self.parametrized):
             self.solved = False
             print("CompressorCstEff could not be solved. It is not calculable and/or not parametrized")
