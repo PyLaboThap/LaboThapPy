@@ -3,9 +3,9 @@ from CoolProp.CoolProp import PropsSI
 
 from connector.mass_connector import MassConnector
 
-from component.heat_exchanger.steady_state.moving_boundary.charge_sensitive.simulation_model_elise_2 import HeatExchangerMB
-from component.heat_exchanger.steady_state.moving_boundary.charge_sensitive.modules.geometry_plate_hx_swep import PlateGeomSWEP
-from labothappy.component.volumetric_machine.expander.steady_state.semi_empirical.expander_semi_empirical import ExpanderSE
+from component.heat_exchanger.hex_MB_charge_sensitive import HeatExchangerMB
+from toolbox.geometries.heat_exchanger.geometry_plate_hx_swep import PlateGeomSWEP
+from component.volumetric_machine.expander.steady_state.semi_empirical.simulation_model import ExpanderSE
 from component.volumetric_machine.pump.steady_state.polynomial_efficiency.simulation_model_Pout import PumpPolyEff
 from component.tank.spliter.simulation_model import Spliter
 from component.tank.mixer.simulation_model import Mixer
@@ -15,7 +15,7 @@ from component.tank.mixer.simulation_model import Mixer
 
 if __name__ == "__main__":
 
-    case_study = 'Recuperator' # 'Recuperator' or 'Simple'    
+    case_study = 'Simple' # 'Recuperator' or 'Simple'    
 
     if case_study == 'Simple':
         ORC = Circuit('R1233zd(E)')

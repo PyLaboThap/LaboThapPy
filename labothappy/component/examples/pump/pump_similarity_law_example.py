@@ -1,3 +1,5 @@
+import __init__ 
+
 from labothappy.component.pump.pump_similarity_laws import PumpSimilarityLaws    
 
 

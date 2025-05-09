@@ -20,7 +20,7 @@ from component.valve.isenthalpic_valve_x_ex import Isenthalpic_Valve_x_ex
 from component.tank.mixer.simulation_model import Mixer
 from component.tank.Separator.LV_separator import LV_Separator
 
-def basic_CO2_HP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low, P_high):
+def basic_CO2_TC(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low, P_high):
     CO2_HP = Circuit('CO2')
     
     # Create components
@@ -54,7 +54,7 @@ def basic_CO2_HP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low, P_high):
     CO2_HP.add_component(GasCooler, "GasCooler")
     CO2_HP.add_component(Valve, "Valve")
     CO2_HP.add_component(Evaporator, "Evaporator")
-    
+            
     # Link components
     CO2_HP.link_components("Compressor", "m-ex", "GasCooler", "m-su_H")
     CO2_HP.link_components("GasCooler", "m-ex_H", "Valve", "m-su")
