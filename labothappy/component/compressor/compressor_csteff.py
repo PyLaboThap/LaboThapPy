@@ -56,7 +56,7 @@ class CompressorCstEff(BaseComponent):
 
     def get_required_inputs(self):
         # Return a list of required inputs
-        return ['P_su', 'T_su', 'P_ex', 'fluid']
+        return ['P_su', 'T_su', 'P_ex', 'fluid', 'm_dot']
 
     def get_required_parameters(self):
         return [
