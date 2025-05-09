@@ -63,7 +63,7 @@ class PumpExtrapolationModelP_out(BaseComponent):
             self.Omega_pp = self.inputs['Omega_pp']
 
     def get_required_parameters(self):
-        return ['Omega_rated','min_flowrate', 'rated_flowrate', 'max_flowrate', 'PI_rated', 'D_p', 'V_dot_curve', 'Delta_H_curve', 'eta_is_curve',
+        return ['Omega_rated', 'min_flowrate', 'rated_flowrate', 'max_flowrate', 'PI_rated', 'D_p', 'V_dot_curve', 'Delta_H_curve', 'eta_is_curve',
                 'NPSH_r_curve', 'eta_m', 'eta_max_motor', 'W_dot_el_rated']
 
     def print_setup(self):
@@ -120,7 +120,7 @@ class PumpExtrapolationModelP_out(BaseComponent):
             print("Component is not parametrized")
             return
 
-        #MODELLING PART
+        # MODELLING PART
         if self.su.m_dot < 0 or self.Omega_pp < 0: 
             print("Flow rate and/or rotation speed is negative")
         else:     
@@ -129,7 +129,7 @@ class PumpExtrapolationModelP_out(BaseComponent):
             
             "Speed extrapolation of curves"
 
-            self.V_dot_curve = self.params['V_dot_curve']*(self.Omega_pp/self.params['Omega_rated'])               
+            self.V_dot_curve = self.params['V_dot_curve']*(self.Omega_pp/self.params['Omega_rated'])
             self.DH_curve = self.params['Delta_H_curve']*(self.Omega_pp/self.params['Omega_rated'])**2
             self.eta_is_curve = self.params['eta_is_curve']
             self.NPSH_r_curve = self.params['NPSH_r_curve']*(self.Omega_pp/self.params['Omega_rated'])**2
