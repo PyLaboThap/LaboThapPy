@@ -1,7 +1,7 @@
-Components
+Component
 ==========
 
-The components are the building blocks of the library. The LaboThapPy library provides a variety of component models that can be used to simulate different thermodynamic cycles by interconnecting the models using connectors.
+The components are the building blocks of the library. The LaboThApPy library provides a variety of component models that can be used to simulate different thermodynamic cycles by interconnecting the models using connectors.
 These models are designed to represent various types of components commonly found in thermodynamic systems, such as compressors, expanders, heat exchangers, pumps, solar collectors, tanks, valves,...
 The documentation for each component model is organized into separate sections, making it easy to find the information about a certain model..
 
@@ -23,7 +23,7 @@ Each component model is implemented as a class that inherits from the `BaseCompo
 
 BaseComponent Class
 ^^^^^^^^^^^^^^^^^^^^
-The `BaseComponent` class is the parent class for all components in the PyLaboThap library. 
+The `BaseComponent` class is the parent class for all components in the LaboThApPy library. 
 All components inherit the properties and methods of the `BaseComponent` class.
 
 .. autoclass:: component.base_component.BaseComponent
@@ -167,6 +167,6 @@ This approach is particularly well-suited for standalone component use, where no
    :maxdepth: 2
    :caption: Example of usage:
 
-   ../../../notebooks/semi_empirical_cp_example
+   ../../../notebooks/compressor_model_example
 
 

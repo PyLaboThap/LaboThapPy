@@ -20,82 +20,86 @@ from connector.heat_connector import HeatConnector
 
 class CompressorSE(BaseComponent):
     """
-        Component: Volumetric compressor
+    Component: Volumetric compressor
 
-        Model: The model is based on the thesis of V. Lemort (2008) and is a semi-empirical model.
+    Model: The model is based on the thesis of V. Lemort (2008) and is a semi-empirical model
 
-        **Descritpion**:
+    **Descritpion**:
 
-            This model is used to simulate the performance of a volumetric compressor. 
-            The parameters of the model need to be calibrated with experimental datas to represent the real behavior of the compressor.
+        This model is used to simulate the performance of a volumetric compressor. It has already been used to model scroll and screw compressors.
+        The parameters of the model need to be calibrated with experimental datas to represent the real behavior of the compressor.
 
-        **Assumptions**:
+    **Assumptions**:
 
-            - Steady-state operation.
+        - Steady-state operation.
 
-        **Connectors**:
+    **Connectors**:
 
-            su (MassConnector): Mass connector for the suction side.
+        su (MassConnector): Mass connector for the suction side.
 
-            ex (MassConnector): Mass connector for the exhaust side.
+        ex (MassConnector): Mass connector for the exhaust side.
 
-            W_mec (WorkConnector): Work connector.
+        W_mec (WorkConnector): Work connector.
 
-            Q_amb (HeatConnector): Heat connector for the ambient heat transfer.
+        Q_amb (HeatConnector): Heat connector for the ambient heat transfer.
 
-        **Parameters**:
+    **Parameters**:
 
-            AU_amb: Heat transfer coefficient for the ambient heat transfer. [W/K]
+        AU_amb: Heat transfer coefficient for the ambient heat transfer. [W/K]
 
-            AU_su_n: Nominal heat transfer coefficient for the suction side heat transfer. [W/K]
+        AU_su_n: Nominal heat transfer coefficient for the suction side heat transfer. [W/K]
 
-            AU_ex_n: Nominal heat transfer coefficient for the exhaust side heat transfer. [W/K]
+        AU_ex_n: Nominal heat transfer coefficient for the exhaust side heat transfer. [W/K]
 
-            d_ex: Pressure drop diameter. [m]
+        d_ex: Pressure drop diameter. [m]
 
-            m_dot_n: Nominal mass flow rate. [kg/s]
+        m_dot_n: Nominal mass flow rate. [kg/s]
 
-            A_leak: Leakage area. [m^2]
+        A_leak: Leakage area. [m^2]
 
-            W_dot_loss_0: Constant loss in the compressor. [W]
+        W_dot_loss_0: Constant loss in the compressor. [W]
 
-            alpha: Loss coefficient. [-]
+        alpha: Loss coefficient. [-]
 
-            C_loss: Torque losses. [N.m]
+        C_loss: Torque losses. [N.m]
 
-            rv_in: Inlet volume ratio. [-]
+        rv_in: Inlet volume ratio. [-]
 
-            V_s: Swept volume. [m^3]
+        V_s: Swept volume. [m^3]
 
-        **Inputs**:
+    **Inputs**:
 
-            P_su: Suction side pressure. [Pa]
+        P_su: Suction side pressure. [Pa]
 
-            T_su: Suction side temperature. [K]
+        T_su: Suction side temperature. [K]
 
-            P_ex: Exhaust side pressure. [Pa]
+        P_ex: Exhaust side pressure. [Pa]
 
-            fluid: Suction side fluid. [-]
+        fluid: Suction side fluid. [-]
 
-            N_rot: Rotational speed. [rpm]
+        N_rot: Rotational speed [rpm] or m_dot: Mass flow rate [kg/s]
 
-            T_amb: Ambient temperature. [K]
+        T_amb: Ambient temperature. [K]
 
-        **Ouputs**:
+    **Ouputs**:
 
-            eta_is: Isentropic efficiency. [-]
+        eta_is: Isentropic efficiency. [-]
 
-            h_ex: Exhaust side specific enthalpy. [J/kg]
+        h_ex: Exhaust side specific enthalpy. [J/kg]
 
-            T_ex: Exhaust side temperature. [K]
+        T_ex: Exhaust side temperature. [K]
 
-            W_dot_cp: Compressor power. [W]
+        W_dot_cp: Compressor power. [W]
 
-            m_dot: Mass flow rate. [kg/s]
-            or
-            N_rot: Rotational speed. [rpm]
-            
-            epsilon_v: Volumetric efficiency. [-]
+        m_dot: Mass flow rate [kg/s] or N_rot: Rotational speed [rpm]
+        
+        epsilon_v: Volumetric efficiency. [-]
+
+    **Notes**:
+
+    The parameter 'mode' can be set to 'N_rot' or 'm_dot'. If 'N_rot' is selected, the rotational speed of the compressor is given as an 
+    input and the mass flow rate is calculated. If 'm_dot' is selected, the mass flow rate is given as an input and the rotational speed of 
+    the compressor is calculated.
     """
     def __init__(self):
         super().__init__()
@@ -137,7 +141,6 @@ class CompressorSE(BaseComponent):
     
     def solve(self):
         """Solve the compressor model."""
-
         # Check if the component is calculable and parametrized
         self.check_calculable()
         self.check_parametrized()

@@ -4,8 +4,6 @@ Constant isentropic efficiency compressor model
 Model description
 -----------------
 
-.. autoclass:: component.steady_state.volumetric_machine.compressor.constant_isentropic_efficiency.simulation_model.CompressorCstEff
-
 The constant isentropic efficiency model is a simple model based on the assumption that the isentropic efficiency stays constant.
 
 .. math::
@@ -17,6 +15,8 @@ where :math:`\epsilon_{is}` is the isentropic efficiency, :math:`h_{su}` is the 
 the exhaust outlet.
 
 Based on the isentropic efficiency definition, the specific enthalpy at the exhaust outlet can be calculated and thus also the exhaust temperature.
+
+.. autoclass:: component.compressor.compressor_csteff.CompressorCstEff
 
 References
 ----------

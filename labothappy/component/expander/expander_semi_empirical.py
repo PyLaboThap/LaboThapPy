@@ -19,84 +19,84 @@ from connector.heat_connector import HeatConnector
 
 class ExpanderSE(BaseComponent):
     """
-        Component: Volumetric expander
+    Component: Volumetric expander
 
-        Model: Semi-empirical model.
+    Model: Semi-empirical model.
 
-        Reference: V. Lemort, “Contribution to the Characterization of Scroll Machines in Compressor and Expander Modes,” Dec. 2008.
+    Reference: V. Lemort, “Contribution to the Characterization of Scroll Machines in Compressor and Expander Modes,” Dec. 2008.
 
-        **Descritpion**:
+    **Descritpion**:
 
-            This model is used to simulate the performance of a volumetric expander. 
-            The parameters of the model need to be calibrated with experimental datas to represent the real behavior of the expander.
+        This model is used to simulate the performance of a volumetric expander. This model has been used to characterize both
+        scroll and screw expanders. The parameters of the model need to be calibrated with experimental datas to represent the real behavior of the expander.
 
-        **Assumptions**:
+    **Assumptions**:
 
-            - Steady-state operation.
+        - Steady-state operation.
 
-        **Connectors**:
+    **Connectors**:
 
-            su (MassConnector): Mass connector for the suction side.
+        su (MassConnector): Mass connector for the suction side.
 
-            ex (MassConnector): Mass connector for the exhaust side.
+        ex (MassConnector): Mass connector for the exhaust side.
 
-            W_mec (WorkConnector): Work connector.
+        W_mec (WorkConnector): Work connector.
 
-            Q_amb (HeatConnector): Heat connector for the ambient heat transfer.
+        Q_amb (HeatConnector): Heat connector for the ambient heat transfer.
 
-        **Parameters**:
+    **Parameters**:
 
-            AU_amb: Heat transfer coefficient for the ambient heat transfer. [W/K]
+        AU_amb: Heat transfer coefficient for the ambient heat transfer. [W/K]
 
-            AU_su_n: Nominal heat transfer coefficient for the suction side heat transfer. [W/K]
+        AU_su_n: Nominal heat transfer coefficient for the suction side heat transfer. [W/K]
 
-            AU_ex_n: Nominal heat transfer coefficient for the exhaust side heat transfer. [W/K]
+        AU_ex_n: Nominal heat transfer coefficient for the exhaust side heat transfer. [W/K]
 
-            d_su1: Pressure drop diameter. [m]
+        d_su1: Pressure drop diameter. [m]
 
-            m_dot_n: Nominal mass flow rate. [kg/s]
+        m_dot_n: Nominal mass flow rate. [kg/s]
 
-            A_leak: Leakage area. [m^2]
+        A_leak: Leakage area. [m^2]
 
-            W_dot_loss_0: Constant loss in the compressor. [W]
+        W_dot_loss_0: Constant loss in the compressor. [W]
 
-            alpha: Proportionality rate for mechanical losses. [-]
+        alpha: Proportionality rate for mechanical losses. [-]
 
-            C_loss: Torque losses. [N.m]
+        C_loss: Torque losses. [N.m]
 
-            rv_in: Inlet volume ratio. [-]
+        rv_in: Inlet volume ratio. [-]
 
-            V_s: Swept volume. [m^3]
+        V_s: Swept volume. [m^3]
 
-            mode: Mode of operation ('N_rot' if N_rot is given in the inputs or 'm_dot' if m_dot is given in the inputs).
+        mode: Mode of operation ('N_rot' if N_rot is given in the inputs or 'm_dot' if m_dot is given in the inputs).
 
-        **Inputs**:
+    **Inputs**:
 
-            su_p: Suction side pressure. [Pa]
+        P_su: Suction side pressure. [Pa]
 
-            su_T: Suction side temperature. [K]
+        T_su: Suction side temperature. [K]
 
-            ex_p: Exhaust side pressure. [Pa]
+        P_ex: Exhaust side pressure. [Pa]
 
-            su_fluid: Suction side fluid. [-]
+        fluid: Suction side fluid. [-]
 
-            N_rot: Rotational speed. [rpm]
+        N_rot: Rotational speed. [rpm] or m_dot: Mass flow rate. [kg/s]
 
-            T_amb: Ambient temperature. [K]
+        T_amb: Ambient temperature. [K]
 
-        **Ouputs**:
+    **Ouputs**:
 
-            eta_is: Isentropic efficiency. [-]
+        eta_is: Isentropic efficiency. [-]
 
-            ex_h: Exhaust side specific enthalpy. [J/kg]
+        h_ex: Exhaust side specific enthalpy. [J/kg]
 
-            ex_T: Exhaust side temperature. [K]
+        T_ex: Exhaust side temperature. [K]
 
-            W_dot_exp: Compressor power. [W]
+        W_dot_exp: Compressor power. [W]
 
-            m_dot: Mass flow rate. [kg/s]
-            
-            epsilon_v: Volumetric efficiency. [-]
+        m_dot: Mass flow rate. [kg/s] or N_rot: Rotational speed. [rpm]
+        
+        epsilon_v: Volumetric efficiency. [-]
     """
     def __init__(self):
         super().__init__()

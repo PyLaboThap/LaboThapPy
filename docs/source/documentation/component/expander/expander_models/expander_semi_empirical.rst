@@ -4,7 +4,7 @@ Semi-empirical model of a volumetric expander
 Model description
 -----------------
 
-.. autoclass:: component.steady_state.volumetric_machine.expander.semi_empirical.simulation_model.ExpanderSE
+.. autoclass:: component.expander.expander_semi_empirical.ExpanderSE
 
 References
 ----------

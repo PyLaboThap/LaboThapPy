@@ -1,10 +1,10 @@
 Expander
 ========
-
-The expander models are composed of volumetric machines as well as turbines.
+This section describes the expander models available in LaboThApPy. The term 'expander' includes both turbomachinery and 
+volumetric machines.
 
 .. toctree::
    :maxdepth: 2
 
-   constant_isentropic_efficiency_doc.results
-   semi_empirical_doc.rst
+   expander_models/expander_csteff.rst
+   expander_models/expander_semi_empirical.rst

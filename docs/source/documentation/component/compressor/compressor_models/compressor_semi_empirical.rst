@@ -4,7 +4,7 @@ Semi-empirical model of a volumetric compressor
 Model description
 -----------------
 
-.. autoclass:: component.steady_state.volumetric_machine.compressor.semi_empirical.simulation_model.CompressorSE
+.. autoclass:: component.compressor.compressor_semi_empirical.CompressorSE
 
 References
 ----------

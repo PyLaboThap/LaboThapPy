@@ -2,13 +2,15 @@
 <html class="no-js" lang="en" data-content_root="../">
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
-    <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" />
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="prev" title="Valve" href="../documentation/component/valve/valve_doc.html" />
 
     <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
-        <title>Overview: module code - LaboThApPy Documentation</title>
+        <title>Compressor Model Example - LaboThApPy Documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=354aac6f" />
     <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=173837f2" />
+    <link rel="stylesheet" type="text/css" href="../_static/nbsphinx-code-cells.css?v=2aa19091" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=302659d7" />
     
     
@@ -178,7 +180,7 @@
           <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
         </button>
       </div>
-      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
         <div class="visually-hidden">Toggle table of contents sidebar</div>
         <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
       </label>
@@ -199,29 +201,28 @@
 </form>
 <div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
   <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
-<ul>
+<ul class="current">
 <li class="toctree-l1 has-children"><a class="reference internal" href="../user_guide/installation_and_setup.html">Installation and Setup</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><div class="visually-hidden">Toggle navigation of Installation and Setup</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul class="simple">
 </ul>
 </li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../documentation/documentation_doc.html">LaboThApPy Documentation</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><div class="visually-hidden">Toggle navigation of LaboThApPy Documentation</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l1 current has-children"><a class="reference internal" href="../documentation/documentation_doc.html">LaboThApPy Documentation</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><div class="visually-hidden">Toggle navigation of LaboThApPy Documentation</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul class="current">
 <li class="toctree-l2 has-children"><a class="reference internal" href="../documentation/connector/connector_doc.html">Connector</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><div class="visually-hidden">Toggle navigation of Connector</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l3 has-children"><a class="reference internal" href="../documentation/connector/mass_connector/mass_connector_doc.html">Mass Connector</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" role="switch" type="checkbox"/><label for="toctree-checkbox-4"><div class="visually-hidden">Toggle navigation of Mass Connector</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
-<li class="toctree-l4"><a class="reference internal" href="../notebooks/mass_connector_demo.html">Example of Mass Connector</a></li>
+<li class="toctree-l4"><a class="reference internal" href="mass_connector_demo.html">Example of Mass Connector</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../documentation/connector/heat_connector/heat_connector_doc.html">Heat Connector</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../documentation/connector/work_connector/work_connector_doc.html">Work Connector</a></li>
 </ul>
 </li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../documentation/component/component_doc.html">Component</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><div class="visually-hidden">Toggle navigation of Component</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2 current has-children"><a class="reference internal" href="../documentation/component/component_doc.html">Component</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><div class="visually-hidden">Toggle navigation of Component</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul class="current">
 <li class="toctree-l3 has-children"><a class="reference internal" href="../documentation/component/compressor/compressor_doc.html">Compressor</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" role="switch" type="checkbox"/><label for="toctree-checkbox-6"><div class="visually-hidden">Toggle navigation of Compressor</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l4"><a class="reference internal" href="../documentation/component/compressor/compressor_models/compressor_csteff.html">Constant isentropic efficiency compressor model</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../documentation/component/compressor/compressor_models/compressor_semi_empirical.html">Semi-empirical model of a volumetric compressor</a></li>
 </ul>
 </li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="../documentation/component/expander/expander_doc.html">Expander</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><div class="visually-hidden">Toggle navigation of Expander</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
-<li class="toctree-l4"><a class="reference internal" href="../documentation/component/expander/expander_models/expander_csteff.html">Constant isentropic efficiency expander model</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../documentation/component/expander/expander_models/expander_semi_empirical.html">Semi-empirical model of a volumetric expander</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../documentation/component/expander/semi_empirical_doc.html">Semi-empirical model of a volumetric expander</a></li>
 </ul>
 </li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="../documentation/component/heat_exchanger/heat_exchanger_doc.html">Heat Exchanger</a><input class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" role="switch" type="checkbox"/><label for="toctree-checkbox-8"><div class="visually-hidden">Toggle navigation of Heat Exchanger</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
@@ -231,7 +232,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../documentation/component/pump/pump_doc.html">Pump</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../documentation/component/tank/tank_doc.html">Tank</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../documentation/component/valve/valve_doc.html">Valve</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../notebooks/compressor_model_example.html">Compressor Model Example</a></li>
+<li class="toctree-l3 current current-page"><a class="current reference internal" href="#">Compressor Model Example</a></li>
 </ul>
 </li>
 </ul>
@@ -255,7 +256,13 @@
           <span>Back to top</span>
         </a>
         <div class="content-icon-container">
-          <div class="theme-toggle-container theme-toggle-content">
+          <div class="view-this-page">
+  <a class="muted-link" href="../_sources/notebooks/compressor_model_example.ipynb.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
             <button class="theme-toggle">
               <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
               <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
@@ -264,29 +271,229 @@
               <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
             </button>
           </div>
-          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
             <div class="visually-hidden">Toggle table of contents sidebar</div>
             <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <h1>All modules for which code is available</h1>
-<ul><li><a href="component/base_component.html">component.base_component</a></li>
-<li><a href="component/compressor/compressor_csteff.html">component.compressor.compressor_csteff</a></li>
-<li><a href="component/compressor/compressor_semi_empirical.html">component.compressor.compressor_semi_empirical</a></li>
-<li><a href="component/expander/expander_csteff.html">component.expander.expander_csteff</a></li>
-<li><a href="component/expander/expander_semi_empirical.html">component.expander.expander_semi_empirical</a></li>
-<li><a href="connector/heat_connector.html">connector.heat_connector</a></li>
-<li><a href="connector/mass_connector.html">connector.mass_connector</a></li>
-<li><a href="connector/work_connector.html">connector.work_connector</a></li>
+          <section id="Compressor-Model-Example">
+<h1>Compressor Model Example<a class="headerlink" href="#Compressor-Model-Example" title="Link to this heading">¶</a></h1>
+<p>This example demonstrates how to use the compressor component directly from the library. The compressor is modeled assuming a constant isentropic efficiency.</p>
+<section id="1.-Check-the-Inputs-and-Parameters">
+<h2>1. Check the Inputs and Parameters<a class="headerlink" href="#1.-Check-the-Inputs-and-Parameters" title="Link to this heading">¶</a></h2>
+<p>To identify the required inputs and parameters, use the print_setup method. This will display the names of the component’s connectors, as well as the inputs and parameters needed to define the model.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Import the compressor model with constant isentropic efficiency</span>
+<span class="kn">from</span> <span class="nn">labothappy.component.compressor.compressor_csteff</span> <span class="kn">import</span> <span class="n">CompressorCstEff</span>
+
+<span class="c1"># Create an instance of the compressor</span>
+<span class="n">compressor</span> <span class="o">=</span> <span class="n">CompressorCstEff</span><span class="p">()</span>
+
+<span class="c1"># Display the component’s setup: inputs, outputs, connectors, and parameters</span>
+<span class="n">compressor</span><span class="o">.</span><span class="n">print_setup</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+=== Component Setup ===
+
+Inputs:
+  - P_su: Not set
+  - T_su: Not set
+  - P_ex: Not set
+  - fluid: Not set
+
+Parameters:
+  - eta_is: Not set
+======================
+</pre></div></div>
+</div>
+</section>
+<section id="2.-Fill-in-the-Required-Inputs-and-Parameters">
+<h2>2. Fill in the Required Inputs and Parameters<a class="headerlink" href="#2.-Fill-in-the-Required-Inputs-and-Parameters" title="Link to this heading">¶</a></h2>
+<section id="Option-1:-Fill-Through-the-Connectors">
+<h3>Option 1: Fill Through the Connectors<a class="headerlink" href="#Option-1:-Fill-Through-the-Connectors" title="Link to this heading">¶</a></h3>
+<p>In this option, you will provide the necessary inputs through the connectors. As indicated by the <code class="docutils literal notranslate"><span class="pre">print_setup</span></code> method, the required inputs are:</p>
+<ul class="simple">
+<li><p><strong>Supply Pressure (P_su)</strong></p></li>
+<li><p><strong>Exhaust Pressure (P_ex)</strong></p></li>
+<li><p><strong>Supply Temperature (T_su)</strong></p></li>
+<li><p><strong>Fluid</strong></p></li>
 </ul>
+<p>These inputs are assigned through the following connectors:</p>
+<ul class="simple">
+<li><p><strong>MassConnector ‘su’</strong>: Set the supply temperature (<code class="docutils literal notranslate"><span class="pre">T</span></code>), supply pressure (<code class="docutils literal notranslate"><span class="pre">P</span></code>), and fluid.</p></li>
+<li><p><strong>MassConnector ‘ex’</strong>: Set the supply pressure (<code class="docutils literal notranslate"><span class="pre">P</span></code>).</p></li>
+</ul>
+<p>After filling in the inputs, you can call the <code class="docutils literal notranslate"><span class="pre">print_setup</span></code> method again to verify that all connectors, inputs, and parameters have been correctly assigned.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;Set inputs of the model through the connectors&quot;</span>
+<span class="n">compressor</span><span class="o">.</span><span class="n">su</span><span class="o">.</span><span class="n">set_fluid</span><span class="p">(</span><span class="s1">&#39;R1233ZDE&#39;</span><span class="p">)</span>
+
+<span class="c1"># Set properties for su connector</span>
+<span class="n">compressor</span><span class="o">.</span><span class="n">su</span><span class="o">.</span><span class="n">set_p</span><span class="p">(</span><span class="mf">319296.5575177148</span><span class="p">)</span>
+<span class="n">compressor</span><span class="o">.</span><span class="n">su</span><span class="o">.</span><span class="n">set_T</span><span class="p">(</span><span class="mf">331.033964665788</span><span class="p">)</span>  <span class="c1"># You need to set su.h appropriately</span>
+
+<span class="c1"># Set properties for ex connector</span>
+<span class="n">compressor</span><span class="o">.</span><span class="n">ex</span><span class="o">.</span><span class="n">set_p</span><span class="p">(</span><span class="mf">606240.1433176235</span><span class="p">)</span>
+
+<span class="n">compressor</span><span class="o">.</span><span class="n">print_setup</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+=== Component Setup ===
+
+Inputs:
+  - P_su: 319296.5575177148
+  - T_su: 331.033964665788
+  - P_ex: 606240.1433176235
+  - fluid: R1233ZDE
+
+Parameters:
+  - eta_is: Not set
+======================
+</pre></div></div>
+</div>
+</section>
+<section id="Option-2:-Fill-Through-the-Inputs">
+<h3>Option 2: Fill Through the Inputs<a class="headerlink" href="#Option-2:-Fill-Through-the-Inputs" title="Link to this heading">¶</a></h3>
+<p>In this option, you will provide the necessary inputs through directly through the dictionarry containing all of the inputs with the method ‘set_inputs’.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;Set inputs of the model directly&quot;</span>
+<span class="c1"># Setting inputs</span>
+<span class="n">compressor</span><span class="o">.</span><span class="n">set_inputs</span><span class="p">(</span>
+    <span class="n">P_su</span><span class="o">=</span><span class="mf">319296.5575177148</span><span class="p">,</span>
+    <span class="n">T_su</span><span class="o">=</span><span class="mf">331.033964665788</span><span class="p">,</span>
+    <span class="n">P_ex</span><span class="o">=</span><span class="mf">606240.1433176235</span><span class="p">,</span>
+    <span class="n">fluid</span><span class="o">=</span><span class="s1">&#39;R1233ZDE&#39;</span>  <span class="c1"># Make sure to include fluid information</span>
+<span class="p">)</span>
+<span class="n">compressor</span><span class="o">.</span><span class="n">print_setup</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+=== Component Setup ===
+
+Inputs:
+  - P_su: 319296.5575177148
+  - T_su: 331.033964665788
+  - P_ex: 606240.1433176235
+  - fluid: R1233ZDE
+
+Parameters:
+  - eta_is: Not set
+======================
+</pre></div></div>
+</div>
+</section>
+<section id="Set-Parameters">
+<h3>Set Parameters<a class="headerlink" href="#Set-Parameters" title="Link to this heading">¶</a></h3>
+<p>The parameters of the model are set through the method ‘set_parameters’.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Setting parameters</span>
+<span class="n">compressor</span><span class="o">.</span><span class="n">set_parameters</span><span class="p">(</span>
+    <span class="n">eta_is</span> <span class="o">=</span> <span class="mf">0.8</span>
+<span class="p">)</span>
+<span class="n">compressor</span><span class="o">.</span><span class="n">print_setup</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+=== Component Setup ===
+
+Inputs:
+  - P_su: 319296.5575177148
+  - T_su: 331.033964665788
+  - P_ex: 606240.1433176235
+  - fluid: R1233ZDE
+
+Parameters:
+  - eta_is: 0.8
+======================
+</pre></div></div>
+</div>
+</section>
+</section>
+<section id="3.-Solve-the-Model">
+<h2>3. Solve the Model<a class="headerlink" href="#3.-Solve-the-Model" title="Link to this heading">¶</a></h2>
+<p>Once you have set all the necessary inputs and parameters, you can solve the model by calling the <code class="docutils literal notranslate"><span class="pre">solve</span></code> method. After solving, you can view the results by using the <code class="docutils literal notranslate"><span class="pre">print_results</span></code> method.</p>
+<p>By using these methods, you can easily solve the model and analyze the results.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[18]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Solve the compressor model</span>
+<span class="n">compressor</span><span class="o">.</span><span class="n">solve</span><span class="p">()</span>
+<span class="n">compressor</span><span class="o">.</span><span class="n">print_results</span><span class="p">()</span>
+<br/></pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+=== Compressor Results ===
+Connectors:
+  - su: fluid=R1233ZDE, T=331.033964665788, p=319296.5575177148, h=476278.3066771153
+  - ex: fluid=R1233ZDE, T=354.2932947565178, p=606240.1433176235, h=491635.7887210136
+
+Results:
+  - h_ex: 491635.7887210136
+  - T_ex: 354.2932947565178
+=========================
+</pre></div></div>
+</div>
+</section>
+</section>
+
         </article>
       </div>
       <footer>
         
         <div class="related-pages">
           
-          
+          <a class="prev-page" href="../documentation/component/valve/valve_doc.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Valve</div>
+                
+              </div>
+            </a>
         </div>
         <div class="bottom-of-page">
           <div class="left-details">
@@ -305,8 +512,34 @@
         
       </footer>
     </div>
-    <aside class="toc-drawer no-toc">
+    <aside class="toc-drawer">
       
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Compressor Model Example</a><ul>
+<li><a class="reference internal" href="#1.-Check-the-Inputs-and-Parameters">1. Check the Inputs and Parameters</a></li>
+<li><a class="reference internal" href="#2.-Fill-in-the-Required-Inputs-and-Parameters">2. Fill in the Required Inputs and Parameters</a><ul>
+<li><a class="reference internal" href="#Option-1:-Fill-Through-the-Connectors">Option 1: Fill Through the Connectors</a></li>
+<li><a class="reference internal" href="#Option-2:-Fill-Through-the-Inputs">Option 2: Fill Through the Inputs</a></li>
+<li><a class="reference internal" href="#Set-Parameters">Set Parameters</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#3.-Solve-the-Model">3. Solve the Model</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
       
       
     </aside>
@@ -316,5 +549,7 @@
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=5fa4622c"></script>
     <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     </body>
 </html>

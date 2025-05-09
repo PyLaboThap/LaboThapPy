@@ -212,13 +212,15 @@
 <li class="toctree-l3"><a class="reference internal" href="documentation/connector/work_connector/work_connector_doc.html">Work Connector</a></li>
 </ul>
 </li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="documentation/component/component_doc.html">Components</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><div class="visually-hidden">Toggle navigation of Components</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="documentation/component/component_doc.html">Component</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><div class="visually-hidden">Toggle navigation of Component</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l3 has-children"><a class="reference internal" href="documentation/component/compressor/compressor_doc.html">Compressor</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" role="switch" type="checkbox"/><label for="toctree-checkbox-6"><div class="visually-hidden">Toggle navigation of Compressor</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
-<li class="toctree-l4"><a class="reference internal" href="documentation/component/compressor/semi_empirical_doc.html">Semi-empirical model of a volumetric compressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="documentation/component/compressor/compressor_models/compressor_csteff.html">Constant isentropic efficiency compressor model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="documentation/component/compressor/compressor_models/compressor_semi_empirical.html">Semi-empirical model of a volumetric compressor</a></li>
 </ul>
 </li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="documentation/component/expander/expander_doc.html">Expander</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><div class="visually-hidden">Toggle navigation of Expander</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
-<li class="toctree-l4"><a class="reference internal" href="documentation/component/expander/semi_empirical_doc.html">Semi-empirical model of a volumetric expander</a></li>
+<li class="toctree-l4"><a class="reference internal" href="documentation/component/expander/expander_models/expander_csteff.html">Constant isentropic efficiency expander model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="documentation/component/expander/expander_models/expander_semi_empirical.html">Semi-empirical model of a volumetric expander</a></li>
 </ul>
 </li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="documentation/component/heat_exchanger/heat_exchanger_doc.html">Heat Exchanger</a><input class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" role="switch" type="checkbox"/><label for="toctree-checkbox-8"><div class="visually-hidden">Toggle navigation of Heat Exchanger</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
@@ -228,7 +230,7 @@
 <li class="toctree-l3"><a class="reference internal" href="documentation/component/pump/pump_doc.html">Pump</a></li>
 <li class="toctree-l3"><a class="reference internal" href="documentation/component/tank/tank_doc.html">Tank</a></li>
 <li class="toctree-l3"><a class="reference internal" href="documentation/component/valve/valve_doc.html">Valve</a></li>
-<li class="toctree-l3"><a class="reference internal" href="notebooks/semi_empirical_cp_example.html">Semi-Empirical Compressor Model Example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="notebooks/compressor_model_example.html">Compressor Model Example</a></li>
 </ul>
 </li>
 </ul>
@@ -270,13 +272,41 @@
           
 <section class="genindex-section">
   <h1 id="index">Index</h1>
-  <div class="genindex-jumpbox"><a href="#B"><strong>B</strong></a> | <a href="#H"><strong>H</strong></a> | <a href="#M"><strong>M</strong></a> | <a href="#W"><strong>W</strong></a></div>
+  <div class="genindex-jumpbox"><a href="#B"><strong>B</strong></a> | <a href="#C"><strong>C</strong></a> | <a href="#E"><strong>E</strong></a> | <a href="#H"><strong>H</strong></a> | <a href="#M"><strong>M</strong></a> | <a href="#W"><strong>W</strong></a></div>
 </section>
 <section id="B" class="genindex-section">
   <h2>B</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="documentation/component/component_doc.html#component.base_component.BaseComponent">BaseComponent (class in component.base_component)</a>
+</li>
+    </ul></td>
+  </tr></table>
+</section>
+
+<section id="C" class="genindex-section">
+  <h2>C</h2>
+  <table style="width: 100%" class="indextable genindextable"><tr>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="documentation/component/compressor/compressor_models/compressor_csteff.html#component.compressor.compressor_csteff.CompressorCstEff">CompressorCstEff (class in component.compressor.compressor_csteff)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="documentation/component/compressor/compressor_models/compressor_semi_empirical.html#component.compressor.compressor_semi_empirical.CompressorSE">CompressorSE (class in component.compressor.compressor_semi_empirical)</a>
+</li>
+    </ul></td>
+  </tr></table>
+</section>
+
+<section id="E" class="genindex-section">
+  <h2>E</h2>
+  <table style="width: 100%" class="indextable genindextable"><tr>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="documentation/component/expander/expander_models/expander_csteff.html#component.expander.expander_csteff.ExpanderCstEff">ExpanderCstEff (class in component.expander.expander_csteff)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="documentation/component/expander/expander_models/expander_semi_empirical.html#component.expander.expander_semi_empirical.ExpanderSE">ExpanderSE (class in component.expander.expander_semi_empirical)</a>
 </li>
     </ul></td>
   </tr></table>

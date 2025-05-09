@@ -6,7 +6,7 @@
 <link rel="index" title="Index" href="../../genindex.html" /><link rel="search" title="Search" href="../../search.html" /><link rel="next" title="Compressor" href="compressor/compressor_doc.html" /><link rel="prev" title="Work Connector" href="../connector/work_connector/work_connector_doc.html" />
 
     <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
-        <title>Components - LaboThApPy Documentation</title>
+        <title>Component - LaboThApPy Documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=a746c00c" />
     <link rel="stylesheet" type="text/css" href="../../_static/styles/furo.css?v=354aac6f" />
     <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=173837f2" />
@@ -214,13 +214,15 @@
 <li class="toctree-l3"><a class="reference internal" href="../connector/work_connector/work_connector_doc.html">Work Connector</a></li>
 </ul>
 </li>
-<li class="toctree-l2 current has-children current-page"><a class="current reference internal" href="#">Components</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><div class="visually-hidden">Toggle navigation of Components</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2 current has-children current-page"><a class="current reference internal" href="#">Component</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><div class="visually-hidden">Toggle navigation of Component</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l3 has-children"><a class="reference internal" href="compressor/compressor_doc.html">Compressor</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" role="switch" type="checkbox"/><label for="toctree-checkbox-6"><div class="visually-hidden">Toggle navigation of Compressor</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
-<li class="toctree-l4"><a class="reference internal" href="compressor/semi_empirical_doc.html">Semi-empirical model of a volumetric compressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="compressor/compressor_models/compressor_csteff.html">Constant isentropic efficiency compressor model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="compressor/compressor_models/compressor_semi_empirical.html">Semi-empirical model of a volumetric compressor</a></li>
 </ul>
 </li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="expander/expander_doc.html">Expander</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><div class="visually-hidden">Toggle navigation of Expander</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
-<li class="toctree-l4"><a class="reference internal" href="expander/semi_empirical_doc.html">Semi-empirical model of a volumetric expander</a></li>
+<li class="toctree-l4"><a class="reference internal" href="expander/expander_models/expander_csteff.html">Constant isentropic efficiency expander model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="expander/expander_models/expander_semi_empirical.html">Semi-empirical model of a volumetric expander</a></li>
 </ul>
 </li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="heat_exchanger/heat_exchanger_doc.html">Heat Exchanger</a><input class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" role="switch" type="checkbox"/><label for="toctree-checkbox-8"><div class="visually-hidden">Toggle navigation of Heat Exchanger</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
@@ -230,7 +232,7 @@
 <li class="toctree-l3"><a class="reference internal" href="pump/pump_doc.html">Pump</a></li>
 <li class="toctree-l3"><a class="reference internal" href="tank/tank_doc.html">Tank</a></li>
 <li class="toctree-l3"><a class="reference internal" href="valve/valve_doc.html">Valve</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../notebooks/semi_empirical_cp_example.html">Semi-Empirical Compressor Model Example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/compressor_model_example.html">Compressor Model Example</a></li>
 </ul>
 </li>
 </ul>
@@ -275,9 +277,9 @@
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <section id="components">
-<h1>Components<a class="headerlink" href="#components" title="Link to this heading">¶</a></h1>
-<p>The components are the building blocks of the library. The LaboThapPy library provides a variety of component models that can be used to simulate different thermodynamic cycles by interconnecting the models using connectors.
+          <section id="component">
+<h1>Component<a class="headerlink" href="#component" title="Link to this heading">¶</a></h1>
+<p>The components are the building blocks of the library. The LaboThApPy library provides a variety of component models that can be used to simulate different thermodynamic cycles by interconnecting the models using connectors.
 These models are designed to represent various types of components commonly found in thermodynamic systems, such as compressors, expanders, heat exchangers, pumps, solar collectors, tanks, valves,…
 The documentation for each component model is organized into separate sections, making it easy to find the information about a certain model..</p>
 <p>Each component model is implemented as a class that inherits from the <cite>BaseComponent</cite> class.</p>
@@ -294,7 +296,7 @@ The documentation for each component model is organized into separate sections, 
 </div>
 <section id="basecomponent-class">
 <h2>BaseComponent Class<a class="headerlink" href="#basecomponent-class" title="Link to this heading">¶</a></h2>
-<p>The <cite>BaseComponent</cite> class is the parent class for all components in the PyLaboThap library.
+<p>The <cite>BaseComponent</cite> class is the parent class for all components in the LaboThApPy library.
 All components inherit the properties and methods of the <cite>BaseComponent</cite> class.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="component.base_component.BaseComponent">
@@ -370,11 +372,10 @@ This approach is particularly well-suited for standalone component use, where no
 <div class="toctree-wrapper compound">
 <p class="caption" role="heading"><span class="caption-text">Example of usage:</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../notebooks/semi_empirical_cp_example.html">Semi-Empirical Compressor Model Example</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/semi_empirical_cp_example.html#1.-Check-the-Inputs-and-Parameters">1. Check the Inputs and Parameters</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/semi_empirical_cp_example.html#2.-Fill-in-the-Required-Inputs-and-Parameters">2. Fill in the Required Inputs and Parameters</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/semi_empirical_cp_example.html#id1">2. Fill in the Required Inputs and Parameters</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../notebooks/semi_empirical_cp_example.html#3.-Solve-the-Model">3. Solve the Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/compressor_model_example.html">Compressor Model Example</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/compressor_model_example.html#1.-Check-the-Inputs-and-Parameters">1. Check the Inputs and Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/compressor_model_example.html#2.-Fill-in-the-Required-Inputs-and-Parameters">2. Fill in the Required Inputs and Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../notebooks/compressor_model_example.html#3.-Solve-the-Model">3. Solve the Model</a></li>
 </ul>
 </li>
 </ul>
@@ -438,7 +439,7 @@ This approach is particularly well-suited for standalone component use, where no
         <div class="toc-tree-container">
           <div class="toc-tree">
             <ul>
-<li><a class="reference internal" href="#">Components</a><ul>
+<li><a class="reference internal" href="#">Component</a><ul>
 <li><a class="reference internal" href="#basecomponent-class">BaseComponent Class</a><ul>
 <li><a class="reference internal" href="#component.base_component.BaseComponent"><code class="docutils literal notranslate"><span class="pre">BaseComponent</span></code></a></li>
 </ul>
