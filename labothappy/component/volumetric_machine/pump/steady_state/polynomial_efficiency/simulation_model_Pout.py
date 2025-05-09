@@ -30,7 +30,7 @@ class PumpPolyEff(BaseComponent):
 
             ex (MassConnector): Mass connector for the exhaust side.
 
-            W_pp (WorkConnector): Work connector.
+            W_mec (WorkConnector): Work connector.
 
         **Parameters**:
 
@@ -38,93 +38,42 @@ class PumpPolyEff(BaseComponent):
         
         **Inputs**:
 
-            su_p: Suction side pressure. [Pa]
+            P_su: Suction side pressure. [Pa]
 
-            su_T: Suction side temperature. [K]
-
-            ex_p: Exhaust side pressure. [Pa]
+            T_su: Suction side temperature. [K]
 
             m_dot: Mass flow rate. [kg/s]
 
-            su_fluid: Suction side fluid. [-]
+            fluid: Suction side fluid. [-]
+
+            N_rot: Pump rotational speed. [Hz]
 
         **Ouputs**:
 
-            ex_h: Exhaust side specific enthalpy. [J/kg]
+            h_ex: Exhaust side specific enthalpy. [J/kg]
 
-            ex_T: Exhaust side temperature. [K]
+            T_ex: Exhaust side temperature. [K]
+
+            P_ex: Exhaust side pressure. [Pa]
 
             W_dot_pp: Pump power. [W]
-
-            N_pp: Pump rotational speed. [Hz]
 
     """
     def __init__(self):
         super().__init__()
         self.su = MassConnector()
         self.ex = MassConnector()
-        self.W_pp = WorkConnector()
+        self.W_mec = WorkConnector()
         self.DH_fun = None
 
     def get_required_inputs(self):
-            self.sync_inputs()
-            # Return a list of required inputs
-            return ['su_p', 'su_T', 'N_pp', 'm_dot', 'su_fluid']
-    
-    def sync_inputs(self):
-        """Synchronize the inputs dictionary with the connector states."""
-        if self.su.fluid is not None:
-            self.inputs['su_fluid'] = self.su.fluid
-        if self.su.T is not None:
-            self.inputs['su_T'] = self.su.T
-        if self.su.p is not None:
-            self.inputs['su_p'] = self.su.p
-        if self.su.m_dot is not None:
-            self.inputs['m_dot'] = self.su.m_dot
-        if self.ex.p is not None:
-            self.inputs['ex_p'] = self.ex.p
-
-    def set_inputs(self, **kwargs):
-        """Set inputs directly through a dictionary and update connector properties."""
-        self.inputs.update(kwargs)
-
-        # Update the connectors based on the new inputs
-        if 'su_fluid' in self.inputs:
-            self.su.set_fluid(self.inputs['su_fluid'])
-        if 'su_T' in self.inputs:
-            self.su.set_T(self.inputs['su_T'])
-        if 'su_p' in self.inputs:
-            self.su.set_p(self.inputs['su_p'])
-        if 'ex_p' in self.inputs:
-            self.ex.set_p(self.inputs['ex_p'])
-        if 'm_dot' in self.inputs:
-            self.su.set_m_dot(self.inputs['m_dot'])
+        # Return a list of required inputs
+        return ['P_su', 'T_su', 'N_rot', 'm_dot', 'fluid']
 
 
     def get_required_parameters(self):
-        return [
-        ]
+        return []
     
-    def print_setup(self):
-        print("=== Pump Setup ===")
-       
-        print("\nInputs:")
-        for input in self.get_required_inputs():
-            if input in self.inputs:
-                print(f"  - {input}: {self.inputs[input]}")
-            else:
-                print(f"  - {input}: Not set")
-
-
-        print("\nParameters:")
-        for param in self.get_required_parameters():
-            if param in self.params:
-                print(f"  - {param}: {self.params[param]}")
-            else:
-                print(f"  - {param}: Not set")
-
-        print("======================")
-
     def interpolation_h(self):
         
         n_disc = 20
@@ -255,8 +204,8 @@ class PumpPolyEff(BaseComponent):
         self.ex.set_h(self.h_ex)
         self.ex.set_p(self.p_ex)
 
-        self.W_pp.set_W_dot(self.W_dot_pp)
-        self.W_pp.set_N(self.inputs['N_pp'])
+        self.W_mec.set_W_dot(self.W_dot_pp)
+        self.W_mec.set_N(self.inputs['N_pp'])
 
     def print_results(self):
         print("=== Pump Results ===")
@@ -272,8 +221,8 @@ class PumpPolyEff(BaseComponent):
         print(f"  - ex: fluid={self.ex.fluid}, T={self.ex.T} [K], p={self.ex.p} [Pa], h={self.ex.h} [J/kg], s={self.ex.s} [J/K.kg], m_dot={self.ex.m_dot} [kg/s]")
         print("=========================")
         print("Work connector:")
-        print(f"  - W_dot_pp: {self.W_pp.W_dot} [W]")
-        print(f"  - N_pp: {self.W_pp.N} [RPM]")
+        print(f"  - W_dot_pp: {self.W_mec.W_dot} [W]")
+        print(f"  - N_pp: {self.W_mec.N} [RPM]")
         print("=========================")
 
 
