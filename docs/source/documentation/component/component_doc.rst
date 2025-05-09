@@ -13,7 +13,7 @@ Each component model is implemented as a class that inherits from the `BaseCompo
 
    compressor/compressor_doc
    expander/expander_doc
-   heat_exchanger/ha_heat_exchanger_doc
+   ha_heat_exchanger/ha_heat_exchanger_doc
    heat_exchanger/heat_exchanger_doc
    pump/pump_doc
    solar/solar_doc

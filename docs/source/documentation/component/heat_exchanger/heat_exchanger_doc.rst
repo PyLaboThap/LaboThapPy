@@ -8,5 +8,5 @@ The heat exchanger models are limited to non-humid air applications.
 .. toctree::
    :maxdepth: 1
 
-   charge_sensitive_mb_doc
+   heat_exchanger/charge_sensitive_mb_doc
 
