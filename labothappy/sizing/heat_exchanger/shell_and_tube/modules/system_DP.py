@@ -1110,7 +1110,7 @@ HX_test.set_parameters(
                         Flow_Type = 'Shell&Tube',
                         H_DP_ON = True,
                         C_DP_ON = True,
-                        n_disc = 50
+                        n_disc = 1
                       )
 
 # 1 : 2973.0 - 

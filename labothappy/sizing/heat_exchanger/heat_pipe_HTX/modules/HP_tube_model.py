@@ -13,8 +13,8 @@ import math
 from CoolProp.CoolProp import PropsSI
 from scipy.optimize import fsolve, minimize
 from scipy.interpolate import interp2d, interp1d
-from library.component.sizing.heat_exchanger.heat_pipe_HTX.modules.HP_internal import Delta_P_v, thermal_res_esdu
-from library.component.sizing.heat_exchanger.heat_pipe_HTX.modules.HP_h_coeffs import radiative_coeff, external_flow_inline_bank, pool_boiling, external_flow_staggered_bank, ext_conv_boil #, h_cond_Th66, external_flow_finnedtubebank
+from sizing.heat_exchanger.heat_pipe_HTX.modules.HP_internal import Delta_P_v, thermal_res_esdu
+from sizing.heat_exchanger.heat_pipe_HTX.modules.HP_h_coeffs import radiative_coeff, external_flow_inline_bank, pool_boiling, external_flow_staggered_bank, ext_conv_boil #, h_cond_Th66, external_flow_finnedtubebank
 
 """
 Functions in this library are used for computations related to a single heat pipe tube.  
