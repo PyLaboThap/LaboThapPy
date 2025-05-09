@@ -832,3 +832,206 @@ def boiling_curve(D_out, fluid, T_sat, P_sat):
     h_final = np.concatenate((np.array([0]),h_final),axis = 0)
     
     return h_final, DT
+
+
+def Cheng_sCO2(G, q, T_w, P, h_in, h_out, mu, k, D_in, fluid):
+    """
+    Assumptions : 
+    -------------
+    D_in = 10 mm
+    G = 496.7–1346.2 kg/m2
+    heat flux (qw): 97.4 ~ 400.3 kW/m2
+    Pressure (P): 7.53–23.51 MPa.
+    fluid : CO2
+
+    Froude number (Fr) : 7.58 × 10 5~1834
+    Reynolds number (Re) : 6.18 × 10^4 ~ 5.35 × 10^5
+    
+    Reference :
+    -----------
+    Supercritical carbon dioxide heat transfer in horizontal tube based on the Froude number analysis (2024)
+    
+    Liangyuan Cheng a, Jinliang Xu a,b,*, Wenxuan Cao a, Kaiping Zhou a, Guanglin Liu a,b
+    """
+    
+    # Determine T_plus and T_minus
+    def find_pseudo_crit_T(P):
+        """
+        Assumptions
+        -----------
+        P in [7.5,14] MPa
+        
+        Reference
+        ---------
+        Investigation on the Properties of Supercritical CO2 Fluid and its Heat
+        Transfer Characteristics (2012)
+        
+        Z. Yang & J. Yang
+        """
+        
+        p = P*1e-6 # MPa
+        T_pc = - 31.40 + 12.15*p - 0.6927*p**2 + 0.03160 * p**3 - 0.0007521 * p**4
+        
+        return T_pc + 273.15
+
+    def find_h_cp_L(fluid):
+        """
+        Reference
+        ---------
+        The Latent Heat of Supercritical Fluids (2019)
+        
+        Daniel T. Banuti
+        """
+        
+        P_L = PropsSI('PCRIT', fluid)*0.1
+        
+        if P_L < PropsSI('PTRIPLE', fluid):
+            P_L = PropsSI('PTRIPLE', fluid)*1.05
+        
+        T_L = PropsSI('T', 'P', P_L,'Q',0,fluid)
+        
+        SC = 0.01
+        
+        cp_L = PropsSI('CPMASS', 'P', P_L,'T', T_L-SC,fluid)
+        h_L = PropsSI('H', 'P', P_L,'T', T_L-SC,fluid)
+        
+        h_L_0 = h_L - cp_L*T_L
+        
+        return cp_L, h_L_0
+
+    def T_plus_minus(P, fluid):
+        """
+        Calculates pseudo-boiling T_pc, T_minus, and T_plus for a supercritical fluid,
+        based on Banuti (2015).
+
+        Parameters
+        ----------
+        P : float
+            Pressure in Pa
+        fluid : str
+            Fluid name (e.g., 'CO2')
+
+        Returns
+        -------
+        T_pc : float
+            Pseudo-boiling temperature [K]
+        T_minus : float
+            Lower transition limit [K]
+        T_plus : float
+            Upper transition limit [K]
+        """
+        T_pc = find_pseudo_crit_T(P)
+        cp_pc = PropsSI('CPMASS', 'T', T_pc, 'P', P, fluid)
+        cv_pc = PropsSI('CVMASS', 'T', T_pc, 'P', P, fluid)
+        h_0_pc = PropsSI('H', 'T', T_pc, 'P', P, fluid)
+        MM = PropsSI('M', fluid)
+
+        # Find Liquid Reference properties
+        cp_L, h_L_0 = find_h_cp_L(fluid)
+
+        # Ideal gas cp approximation
+        T_max = PropsSI('TMAX', fluid)
+        cp_IG = PropsSI('CPMASS', 'T', T_max, 'P', P, fluid)
+
+        # Calculate transition bounds
+        T_plus = (h_0_pc - cp_pc * T_pc) / (cp_IG - cp_pc)
+        T_minus = (h_L_0 - h_0_pc + cp_pc * T_pc) / (cp_pc - cp_L)
+        
+        return T_pc, T_minus, T_plus
+
+    # Pseudo-critical temperature and definition of pseudo-boiling region
+    # T_minus is liquid like temperature and T_plus is vapor like T
+    T_pc, T_minus, T_plus = T_plus_minus(P, fluid)
+
+    # Wall Enthalpy and density
+    h_w = PropsSI('H', 'T', T_w, 'P', P, fluid)
+    h_pc = PropsSI('H', 'T', T_pc, 'P', P, fluid)
+
+    rho_w = PropsSI('D', 'T', T_w, 'P', P, fluid)
+
+    # Supercritical Boiling Number (wall conditions)
+    SBO = q/(G*h_pc)
+    SBO_w = q/(G*h_w)
+
+    # Liquid-Like and Vapor-Like Enthalpies
+    h_LL = PropsSI('H', 'T', T_minus, 'P', P, fluid)
+    h_LV = PropsSI('H', 'T', T_plus, 'P', P, fluid)
+    
+    # Pseudo-vapor mass quality
+    x_pb_in = (h_in - h_LL)/(h_LV - h_LL)
+    x_pb_out = (h_out - h_LL)/(h_LV - h_LL)
+    
+    x_ave = 0.5*(x_pb_in + x_pb_out)
+    
+    Re = G*D_in/mu
+    
+    # 1) VL (Vapor Like) and LL (Liquid Like) regimes
+    
+    T_in = PropsSI('T', 'H', h_in, 'P', P, fluid)
+    cp_ave = (h_w - h_in)/(T_w - T_in)
+    
+    Pr_ave = mu*cp_ave/k
+    
+    if x_ave < 0 or x_ave > 1:
+        Nu = 0.019*(Re**0.79)*(Pr_ave**0.51)
+        h_conv = Nu*k/D_in
+        
+        return h_conv
+    
+    # 2) TPL (Two Phase Like) regime
+    else:
+        g = 9.81 # gravtity constant : m/s^2
+        Fr_VL_w = G**2 * x_pb_in/(rho_w**2 *g*D_in)
+        
+        Nu_top = 0.127*(Re**1.065) * (Pr_ave**1.053) * (SBO_w**0.66) * (Fr_VL_w**(-0.012))
+        Nu_bot = 1.512*(Re**0.878) * (Pr_ave**0.685) * (SBO_w**0.69) * (Fr_VL_w**(-0.0213))
+        
+        h_top = Nu_top*k/D_in
+        h_bot = Nu_bot*k/D_in
+                
+        # print(f"Re : {Re}")
+        # print(f"Pr_ave : {Pr_ave}")
+        
+        # print(f"SBO_w : {SBO_w}")
+        # print(f"SBO : {SBO}")
+        
+        # print(f"Fr_VL_w : {Fr_VL_w}")
+        
+        # print(f"Nu_top : {Nu_top}")
+        # print(f"Nu_bot : {Nu_bot}")
+        
+        # print(f"h_top : {h_top}")
+        # print(f"h_bot : {h_bot}")     
+        
+        return (h_top + h_bot)/2
+        
+def Liu_sCO2(G, P, T_w, k, rho, mu, cp, D_in, fluid):
+    """
+    Assumptions 
+    -----------
+    D_in = 4-10.7 [mm]
+    T_in = 25-67 [°C]
+    P_in = 7.5-8.5 [MPa]
+    G = 74-200 [kg/(m^2 * s)]
+    fluid : CO2
+    
+    Reference
+    ---------
+    Experimental study on heat transfer and pressure drop of supercritical CO2 cooled in a large tube (2014)
+    Zhan-Bin Liu, Ya-Ling He*, Yi-Fan Yang, Ji-You Fei
+    """
+    AS = CP.AbstractState("BICUBIC&HEOS", fluid)  
+    AS.update(CP.PT_INPUTS, P, T_w)
+    
+    rho_w = AS.rhomass()
+    cp_w = AS.cpmass()
+    mu_w = AS.viscosity()
+    Pr_w = AS.Prandtl()
+        
+    Re_w = G*D_in/mu_w
+    
+    Nu = 0.01*Re_w**0.9 * Pr_w**0.5 * (rho_w/rho)**0.906 * (cp_w/cp)** (-0.585)
+    
+    h_conv = Nu*k/D_in
+    
+    return h_conv
