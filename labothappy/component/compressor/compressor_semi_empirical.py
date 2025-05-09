@@ -431,7 +431,7 @@ class CompressorSE(BaseComponent):
         self.Q_amb.set_T_hot(self.T_w)
 
     def print_results(self):
-        print("=== Expander Results ===")
+        print("=== Compressor Results ===")
         print(f"  - h_ex: {self.ex.h} [J/kg]")
         print(f"  - T_ex: {self.ex.T} [K]")
         print(f"  - W_dot_cp: {self.W_mec.W_dot} [W]")
@@ -439,9 +439,10 @@ class CompressorSE(BaseComponent):
         print(f"  - m_dot: {self.m_dot} [kg/s]")
         print(f"  - epsilon_v: {self.epsilon_v} [-]")
         print("=========================")
+        return
 
     def print_states_connectors(self):
-        print("=== Expander Results ===")
+        print("=== Compressor Results ===")
         print("Mass connectors:")
         print(f"  - su: fluid={self.su.fluid}, T={self.su.T} [K], p={self.su.p} [Pa], h={self.su.h} [J/kg], s={self.su.s} [J/K.kg], m_dot={self.su.m_dot} [kg/s]")
         print(f"  - ex: fluid={self.ex.fluid}, T={self.ex.T} [K], p={self.ex.p} [Pa], h={self.ex.h} [J/kg], s={self.ex.s} [J/K.kg], m_dot={self.ex.m_dot} [kg/s]")
@@ -454,3 +455,4 @@ class CompressorSE(BaseComponent):
         print(f"  - T_hot: {self.Q_amb.T_hot} [K]")
         print(f"  - T_cold: {self.Q_amb.T_cold} [K]")
         print("=========================")
+        return

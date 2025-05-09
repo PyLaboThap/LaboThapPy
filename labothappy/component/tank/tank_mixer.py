@@ -142,6 +142,8 @@ class Mixer(BaseComponent):
 
     def solve(self):
         
+        
+        
         "1) Compute output"
                 
         pressures = np.zeros(self.n_inlets)
@@ -155,7 +157,10 @@ class Mixer(BaseComponent):
             pressures[i] = connector.p 
             m_dot[i] = connector.m_dot
             fluids.append(connector.fluid)
-            mean_h += connector.h*connector.m_dot
+            try:
+                mean_h += connector.h*connector.m_dot
+            except:
+                mean_h += PropsSI('H', 'T', connector.T, 'P', connector.p, connector.fluid)*connector.m_dot
         
         mean_h = mean_h/(sum(m_dot))
         mean_p = np.mean(pressures)

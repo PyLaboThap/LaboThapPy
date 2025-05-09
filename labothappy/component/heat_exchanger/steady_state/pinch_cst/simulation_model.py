@@ -128,8 +128,8 @@ class HXPinchCst(BaseComponent):
         if P_ev < PropsSI("ptriple", self.su_C.fluid):
             P_ev = PropsSI("ptriple", self.su_C.fluid) + 1
         
-        if P_ev > PropsSI("PCRIT", "CO2"):
-            P_ev = PropsSI("PCRIT", "CO2") - 1000
+        if P_ev > PropsSI("PCRIT", self.su_C.fluid):
+            P_ev = PropsSI("PCRIT", self.su_C.fluid) - 1000
 
         # print(P_ev)
                         

@@ -53,7 +53,7 @@ from central_spacing_comp import find_divisors_between_bounds
 from connector.mass_connector import MassConnector
 from component.base_component import BaseComponent
 
-from component.heat_exchanger.steady_state.moving_boundary.charge_sensitive.simulation_model_AS import HeatExchangerMB
+from component.heat_exchanger.hex_MB_charge_sensitive import HeatExchangerMB
 
 import pandas as pd
 import random
@@ -200,7 +200,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
             "Correlation Loading And Setting"
 
             Corr_H = {"1P" : "Gnielinski", "2P" : "Horizontal_Tube_Internal_Condensation"}
-            Corr_C = {"1P" : "shell_htc_kern", "2P" : "shell_htc_kern"}
+            Corr_C = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
 
             HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation' # 31
 
@@ -220,13 +220,13 @@ class ShellAndTubeSizingOpt(BaseComponent):
 
             HX.set_DP()
             
-            try: 
-                HX.solve()
-                self.Q = HX.Q
-                return HX.Q
-            except:
-                self.Q = 0
-                return 0
+            # try: 
+            HX.solve()
+            self.Q = HX.Q
+            return HX.Q
+            # except:
+            #     self.Q = 0
+            #     return 0
 
     def __init__(self):
         super().__init__()

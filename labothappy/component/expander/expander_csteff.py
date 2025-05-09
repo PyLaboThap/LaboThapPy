@@ -61,7 +61,7 @@ class ExpanderCstEff(BaseComponent):
 
     def get_required_inputs(self):  # Used in check_calculablle to see if all of the required inputs are set
         # Return a list of required inputs
-        return ["P_su", "T_su", "P_ex", "fluid"]
+        return ["P_su", "T_su", "P_ex", "m_dot", "fluid"]
 
     def get_required_parameters(self):
         return ["eta_is"]
@@ -96,7 +96,8 @@ class ExpanderCstEff(BaseComponent):
         except Exception as e:
             # Handle any errors that occur during solving
             self.solved = False
-            print(f"Convergence problem in expander model: {e}")
+            print(f"Solving problem in expander model: {e}")
+            return
 
     def update_connectors(self, h_ex, w_exp, p_ex, W_dot_exp):
         """Update the connectors with the calculated values."""
