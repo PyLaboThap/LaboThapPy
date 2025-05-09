@@ -6,6 +6,8 @@ Created on Wed Nov 29 10:38:08 2023
 """
 
 # Internal imports
+import __init__
+
 from labothappy.component.base_component import BaseComponent
 from labothappy.connector.mass_connector import MassConnector
 from labothappy.connector.work_connector import WorkConnector
