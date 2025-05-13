@@ -5,13 +5,14 @@ import os
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Determine the project root directory (which contains both 'connector' and 'component')
-project_root = os.path.abspath(os.path.join(current_dir, '..', '..', '..'))
+project_root = os.path.abspath(os.path.join(current_dir, '..', '..')) 
+"""# /!\ isn't there a '..' which is too much?"""
 
 # Add the project root to sys.path if it's not already there
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-#%%
+"""All this 1st part can be replaced by import init right? - Titouan"""
 
 from connector.mass_connector import MassConnector
 from connector.work_connector import WorkConnector
@@ -27,12 +28,82 @@ import numpy as np
 import math
 
 class HXPinchCst(BaseComponent):
+    """
+    Component: Heat Exchanger with constant pinch point.
+
+    **Description**:
+        Simulates a pump using head and power performance curves (vs flow and speed).
+        Uses the similarity laws to calculate the pump performance at different speeds.
+
+    **Assumptions**:
+        - Steady-state operation
+        - No pressure drops considered
+        - No loss to the ambient considered.
+
+    **Connectors**:
+        su_H (MassConnector): Mass connector for the hot suction side.
+        su_C (MassConnector): Mass connector for the cold suction side.
+
+        ex_H (MassConnector): Mass connector for the hot exhaust side.
+        ex_C (MassConnector): Mass connector for the cold exhaust side.
+
+        Q_dot (HeatConnector): Heat connector for the heat transfer between the fluids
+
+    **Parameters**:
+
+        Pinch: Pinch point temperature difference [K] or [°C]
+        
+        Delta_T_sh_sc: Superheating or subcooling, depending if the HEX is an evaporator (superheating) or a condenser (subcooling)
+            
+        type_HX: HX type, i.e. evaporator or condenser
+
+    **Inputs**:
+        
+        su_C_fluid: Cold suction side fluid. [-]
+
+        su_C_h: Cold suction side enthalpy. [J/kg]
+
+        su_C_m_dot: Cold suction side mass flow rate. [kg/s]
+
+        su_H_fluid: Hot suction side fluid. [-]
+
+        su_H_T: Hot suction side temperature. [K]
+
+        su_H_cp: Hot suction side specific heat capacity. [J/kg·K]
+
+        su_H_m_dot: Hot suction side mass flow rate. [kg/s]
+
+    **Outputs**:
+
+    
+
+
+    **Attributes**:
+
+        su_C : MassConnector
+            Fluid propreties at the supply of the cold fluid.
+        su_H : MassConnector
+            Fluid propreties at the supply of the hot fluid.        
+        ex_C : MassConnector
+            Fluid propreties at the exhaust of the cold fluid.
+        ex_H : MassConnector
+            Fluid propreties at the exhaust of the hot fluid.
+
+
+    **Methods**:
+
+        get_required_inputs(inputs):
+            Sets the input values for the component.
+    
+
+    
+    """
     def __init__(self):
         super().__init__()
-        self.su_C = MassConnector() # Working fluid supply
-        self.su_H = MassConnector() # Secondary fluid supply
-        self.ex_C = MassConnector()
-        self.ex_H = MassConnector()
+        self.su_C = MassConnector() # Cold fluid supply
+        self.su_H = MassConnector() # Hot fluid supply
+        self.ex_C = MassConnector() # Cold fluid exhaust
+        self.ex_H = MassConnector() # Hot fluid exhaust
 
         self.Q_dot = HeatConnector()
         self.guesses = {}
@@ -128,13 +199,15 @@ class HXPinchCst(BaseComponent):
         if P_ev < PropsSI("ptriple", self.su_C.fluid):
             P_ev = PropsSI("ptriple", self.su_C.fluid) + 1
         
-        if P_ev > PropsSI("PCRIT", "CO2"):
-            P_ev = PropsSI("PCRIT", "CO2") - 1000
-
+        if P_ev > PropsSI("PCRIT", self.su_C.fluid): #PropsSI("PCRIT", "CO2"):
+            """ Only for CO2?? - Titouan"""
+            P_ev = PropsSI("PCRIT", self.su_C.fluid) - 1000 #PropsSI("PCRIT", "CO2"):
+            """ to be verified + why 1000?"""
         # print(P_ev)
                         
         # Get the temperature of the evaporator based on the pressure and quality
         T_sat_ev = PropsSI('T', 'P', P_ev, 'Q', 0.5, self.su_C.fluid)
+        """ Better if mean temperature between T_sat at Q=0 and at Q=1? ? Titouan"""
         self.T_sat_ev = T_sat_ev
         
         "Refrigerant side calculations"
@@ -191,8 +264,6 @@ class HXPinchCst(BaseComponent):
         # Calculate pinch point and residual
         PPTD = min(min(abs(np.array([PP_list]))))
 
-        # PPTD = min(self.T_H_ex - self.su_C.T, self.T_H_x0 - T_sat_ev, self.T_H_x1 - T_sat_ev, self.su_H.T - self.T_C_ex)
-
         self.res = abs(PPTD - self.params['Pinch']) / self.params['Pinch']
         
         # Update the state of the working fluid
@@ -210,6 +281,7 @@ class HXPinchCst(BaseComponent):
         
         # Get the temperature of the condenser based on pressure and quality
         T_sat_cd = PropsSI('T', 'P', P_cd, 'Q', 0.5, self.su_H.fluid)
+        """ Same here, could be (T_x0+Tx_1)/2 ? - Titouan """
         
         "Refrigerant side calculations"
         # Vapor zone
@@ -288,16 +360,8 @@ class HXPinchCst(BaseComponent):
                 """EVAPORATOR MODEL"""
                 root(self.system_evap, x, method='lm', tol=1e-7)
 
-                # print(f"res: {self.res}")
-                # print(f"T_su: {self.su_C.T}")
                 
-                
-                # print(f"DT_1: {self.T_H_ex - self.su_C.T}")
-                # print(f"DT_2: {self.T_H_x0 - self.T_sat_ev}")
-                # print(f"DT_3: {self.T_H_x1 - self.T_sat_ev}")
-                # print(f"DT_4: {self.su_H.T - self.T_C_ex}")
-                
-                """Update connectors after the calculations"""
+                # Update connectors after the calculations
                 self.update_connectors()
 
                 # Mark the model as solved if successful
@@ -311,7 +375,7 @@ class HXPinchCst(BaseComponent):
                 # Handle any errors that occur during solving
                 self.solved = False
                 print(f"Convergence problem in evaporator model: {e}")
-
+            
         elif self.params['type_HX'] == 'condenser':
             P_cd_guess = self.guesses.get('P_sat', PropsSI('P', 'T', 20 + 273.15, 'Q', 0.5, self.su_H.fluid)) # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
             x = [P_cd_guess]
@@ -320,7 +384,7 @@ class HXPinchCst(BaseComponent):
                 """CONDENSER MODEL"""
                 fsolve(self.system_cond, x)
 
-                """Update connectors after the calculations"""
+                # Update connectors after the calculations
                 self.update_connectors()
 
                 # Mark the model as solved if successful
@@ -336,7 +400,7 @@ class HXPinchCst(BaseComponent):
         "Mass Connectors"
 
         if self.params['type_HX'] == 'evaporator':
-
+        # if evaporator
             self.su_C.set_p(self.P_sat)
 
             self.ex_C.set_fluid(self.su_C.fluid)
@@ -352,6 +416,7 @@ class HXPinchCst(BaseComponent):
             self.Q_dot.set_Q_dot(self.Q)
 
         else: 
+        # if condenser
 
             self.su_H.set_p(self.P_sat)
 
