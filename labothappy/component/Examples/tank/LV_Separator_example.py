@@ -20,10 +20,9 @@ LV_Separator = LV_Separator()
 # Inputs
 LV_Separator.set_inputs(
                   su_fluid = 'R22',
-                  T_su=350,
+                  h_su=PropsSI('T', 'P', 100000, 'Q', 0.5, 'R22'),
                   p_su = 100000,
                   m_dot_su = 14,
-                  
                   )
 
 # Params

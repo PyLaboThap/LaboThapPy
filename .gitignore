@@ -12,7 +12,7 @@ __pycache__/
 *.pyd
 
 # Ignore all Jupyter Notebook files
-*.ipynb
+# *.ipynb
 
 # Confidential codes
 c_*.py

@@ -1,3 +1,45 @@
+[project]
+name = "LaboThapPy"
+version = "0.1.0"
+description = "A Python library for LaboThap calculations and simulations"
+authors = [{ name="Your Name", email="you@example.com" }]
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.8"
+dependencies = [
+    "CoolProp>=6.6.0",
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "pandas>=2.2",
+    "pyyaml>=6.0",
+    "plumbum>=1.8",
+    "python-dateutil>=2.8",
+    "pytz>=2024.1",
+    "requests>=2.30",
+    "urllib3>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ipython",
+    "ipywidgets",
+    "jupyterlab",
+    "nbconvert",
+    "nbformat",
+    "notebook",
+    "matplotlib-inline",
+    "debugpy",
+    "psutil",
+]
+docs = [
+    "sphinx",
+    "sphinx-autodoc-typehints",
+    "sphinx-rtd-theme",
+    "nbsphinx",
+    "furo",
+    "myst-parser",
+]
+
 [build-system]
-requires = ["setuptools>=42", "wheel"]
+requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"

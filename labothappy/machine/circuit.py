@@ -843,10 +843,6 @@ class Circuit:
             if self.components[component].model.check_calculable():
                 self.solve_start_components.append(component)
         
-        # print(f"First calculable components: {self.solve_start_components}")
-        
-        # print("First iteration")
-        
         for start_component in self.solve_start_components:
             self.recursive_solve(start_component)
             if self.check_all_component_solved():
@@ -888,12 +884,6 @@ class Circuit:
         # m_dot_su_spli = []
         # m_dot_ex_mix = []
         # P_cd = []        
-
-        h_in_cp = []
-        h_in_gc = []
-        h_in_vv = []
-        h_in_ev = []
-        res_ev = []
         
         while i < n_it_max:
             
@@ -903,8 +893,8 @@ class Circuit:
             # h_in_ev.append(self.components['Evaporator'].model.su_C.p)
             # res_ev.append(self.components['Evaporator'].model.res)
             
-            # P_cd.append(self.components['Pump'].model.su.p)
-            
+            # P_cd.append(self.components['Pump'].model.su.p)    
+ 
             for it_var in self.it_vars:
                 obj_comp, rest = it_var.objective.split(":")
                 port, var = rest.split("-")
@@ -1071,17 +1061,6 @@ class Circuit:
                 return
             
             i = i + 1
-        
-        plt.figure()
-
-        plt.plot(h_in_cp, 'r')
-        plt.plot(h_in_gc, 'g',  marker='o')
-        plt.plot(h_in_vv, 'b')
-        plt.plot(h_in_ev, 'k',  marker='o')                            
-
-        plt.legend(['su_cp', 'su_gc', 'su_vv', 'su_ev'])
-
-        plt.show()
 
         # plt.figure()
         # plt.plot(res_ev, 'r',  marker='o')                            

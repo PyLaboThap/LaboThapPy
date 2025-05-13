@@ -4,7 +4,8 @@ Created on Wed Nov 22 14:39:37 2023
 
 @author: Elise
 """
-from labothappy.component.volumetric_machine.expander.expander_semi_empirical import ExpanderSE
+import __init__
+from component.expander.expander_semi_empirical import ExpanderSE
 
 import numpy as np
 
