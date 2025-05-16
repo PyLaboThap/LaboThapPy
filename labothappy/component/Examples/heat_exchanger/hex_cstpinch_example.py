@@ -76,7 +76,7 @@ EVAP.plot_disc()
 #     'type_HX': 'condenser'
 # })
 
-COND.solve()
-COND.print_results()
-COND.print_states_connectors()
-COND.plot_disc()
+# COND.solve()
+# COND.print_results()
+# COND.print_states_connectors()
+# COND.plot_disc()

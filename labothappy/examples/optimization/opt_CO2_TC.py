@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 "1) Initiate the heat pump cycle"
 
 T_cold_source = 0+273.15
-T_hot_source = 15+273.15
+T_hot_source = 130+273.15
 
 eta_is_cp = 0.7
 eta_gc = 0.9

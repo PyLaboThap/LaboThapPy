@@ -205,7 +205,7 @@ class HXPinchCst(BaseComponent):
 
         # PPTD = min(self.T_H_ex - self.su_C.T, self.T_H_x0 - T_sat_ev, self.T_H_x1 - T_sat_ev, self.su_H.T - self.T_C_ex)
 
-        self.res = (self.PPTD - self.params['Pinch'])**2
+        self.res = self.PPTD - self.params['Pinch']
         
         # Update the state of the working fluid
         self.Q = Q_dot_ev
@@ -294,7 +294,7 @@ class HXPinchCst(BaseComponent):
         PPTD = min(min(abs(np.array([PP_list]))))
         
         # Calculate residual
-        self.res = abs(PPTD - self.params['Pinch']) / self.params['Pinch']
+        self.res = (PPTD - self.params['Pinch'])**2
         
         # Update the state of the working fluid
         self.Q = Q_dot_cd
