@@ -60,8 +60,8 @@ class Mixer(BaseComponent):
         
     **Parameters**: 
         
-        n_inlets (int): Number of inlet streams. Must be set at instantiation.
-
+        n_inlets : Number of inlet streams to be mixed [-]
+        
 
     **Inputs**:
 
@@ -83,12 +83,11 @@ class Mixer(BaseComponent):
         ex_h: Exhaust side specific enthalpy. [J/kg]
             
     """
-    
-    
-    
-    
+
     class geom():
             pass 
+        
+        
 
     def __init__(self, n_inlets=None):
         
@@ -108,7 +107,7 @@ class Mixer(BaseComponent):
                 inlet_num = i + 1
                 setattr(self, f"su_{inlet_num}", MassConnector())
         else:
-            raise ValueError("'Mixer' model requires to set a value for its 'n_inlet' input")
+            raise ValueError("'Mixer' model requires to set a value for its 'n_inlets' input")
         
         "Exhaust"
         self.ex = MassConnector()
@@ -116,41 +115,56 @@ class Mixer(BaseComponent):
                 
 #%%    
 
-    def get_required_inputs(self):
-            self.sync_inputs()
-            # Return a list of required inputs
-            
-            required_inputs = []
-            
-            for i in range(self.n_inlets):
-                inlet_num = i + 1 
-                required_inputs.append(f"su_{inlet_num}_p")
-                required_inputs.append(f"su_{inlet_num}_T")
-                required_inputs.append(f"su_{inlet_num}_m_dot")
-                required_inputs.append(f"su_{inlet_num}_fluid")
-            
-            return required_inputs
+    def get_required_inputs(self): # Used in check_calculablle to see if all of the required inputs are set
     
+        """
+        Required inputs for the Mixer:
+        
+            For each inlet i:
+                - su_i_T or su_i_h : Inlet temperature or specific enthalpy [K or J/kg]
+                - su_i_p           : Inlet pressure [Pa]
+                - su_i_fluid       : Inlet fluid [-]
+                - su_i_m_dot       : Inlet mass flow rate [kg/s]
+        """
+
+        self.sync_inputs()
+        # Return a list of required inputs
+        
+        required_inputs = []
+        
+        for i in range(self.n_inlets):
+            inlet_num = i + 1 
+            required_inputs.append(f"su_{inlet_num}_p")
+            required_inputs.append(f"su_{inlet_num}_T")
+            required_inputs.append(f"su_{inlet_num}_m_dot")
+            required_inputs.append(f"su_{inlet_num}_fluid")
+        
+        return required_inputs
+    
+    
+
     def sync_inputs(self):
         """Synchronize the inputs dictionary with the connector states."""
         
         for i in range(self.n_inlets):
             inlet_num = i + 1 
-            if getattr(self, f"su_{inlet_num}").fluid is not None:
-                self.inputs[f"su_{inlet_num}_fluid"] = getattr(self, f"su_{inlet_num}").fluid
+            
             if getattr(self, f"su_{inlet_num}").T is not None:
                 self.inputs[f"su_{inlet_num}_T"] = getattr(self, f"su_{inlet_num}").T 
-            if getattr(self, f"su_{inlet_num}").h is not None:
+            elif getattr(self, f"su_{inlet_num}").h is not None:
                 self.inputs[f"su_{inlet_num}_h"] = getattr(self, f"su_{inlet_num}").h
             if getattr(self, f"su_{inlet_num}").p is not None:
                 self.inputs[f"su_{inlet_num}_p"] = getattr(self, f"su_{inlet_num}").p
+            if getattr(self, f"su_{inlet_num}").fluid is not None:
+                self.inputs[f"su_{inlet_num}_fluid"] = getattr(self, f"su_{inlet_num}").fluid
             if getattr(self, f"su_{inlet_num}").m_dot is not None:
                 self.inputs[f"su_{inlet_num}_m_dot"] = getattr(self, f"su_{inlet_num}").m_dot
 
     def set_inputs(self, **kwargs):
         """Set inputs directly through a dictionary and update connector properties."""
-        self.inputs.update(kwargs)
-
+        self.inputs.update(kwargs) # This line merges the keyword arguments ('kwargs') passed to the 'set_inputs()' method into the eisting 'self.inputs' dictionary.
+        
+        # Update the connectors based on the new inputs
         for i in range(self.n_inlets):
             inlet_num = i + 1 
             connector = getattr(self, f"su_{inlet_num}")
@@ -159,19 +173,38 @@ class Mixer(BaseComponent):
                 connector.set_fluid(self.inputs[f"su_{inlet_num}_fluid"])
             if f"su_{inlet_num}_T" in self.inputs:
                 connector.set_T(self.inputs[f"su_{inlet_num}_T"])
-            if f"su_{inlet_num}_h" in self.inputs:
-                connector.set_T(self.inputs[f"su_{inlet_num}_h"])
+            elif f"su_{inlet_num}_h" in self.inputs:
+                connector.set_h(self.inputs[f"su_{inlet_num}_h"])
             if f"su_{inlet_num}_p" in self.inputs:
                 connector.set_p(self.inputs[f"su_{inlet_num}_p"])
             if f"su_{inlet_num}_m_dot" in self.inputs:
                 connector.set_m_dot(self.inputs[f"su_{inlet_num}_m_dot"])
 
     def get_required_parameters(self):
-        return []
+        
+        """        
+        General Parameters : 
+            
+            - n_inlets : Number of inlets to the tank [-]
+        
+        Geometry Parameters depend on specific geometry python files.
+        
+        """
+
+        general_parameters = ['n_inlets']
+        
+        return general_parameters 
+
+    
     
     def print_setup(self):
-        print("=== Pump Setup ===")
-       
+        print("=== Tank Mixer Setup ===")
+        print("Connectors:")
+        for i in range(1, self.geom.n_inlet + 1):
+            connector = getattr(self, f"inlet_{i}")
+            print(f"  - inlet_{i}: fluid={connector.fluid}, T={connector.T}, p={connector.p}, m_dot={connector.m_dot}")
+
+
         print("\nInputs:")
         for input in self.get_required_inputs():
             if input in self.inputs:
@@ -188,6 +221,7 @@ class Mixer(BaseComponent):
                 print(f"  - {param}: Not set")
 
         print("======================")
+        
 #%%
 
     def are_pressures_close(self,pressures, tolerance):
@@ -200,7 +234,15 @@ class Mixer(BaseComponent):
 
     def solve(self):
         
-        
+                
+        self.check_calculable()
+        self.check_parametrized()
+                
+        if not self.calculable:
+            print("Component not calculable, check input")
+            
+        if not self.parametrized:
+            print("Component not parametrized, check parameters") 
         
         "1) Compute output"
                 
@@ -215,10 +257,15 @@ class Mixer(BaseComponent):
             pressures[i] = connector.p 
             m_dot[i] = connector.m_dot
             fluids.append(connector.fluid)
-            try:
-                mean_h += connector.h*connector.m_dot
-            except:
-                mean_h += PropsSI('H', 'T', connector.T, 'P', connector.p, connector.fluid)*connector.m_dot
+            
+            if connector.h is not None:
+                mean_h += connector.h * connector.m_dot
+            elif connector.T is not None and connector.p is not None:
+                h = PropsSI('H', 'T', connector.T, 'P', connector.p, connector.fluid)
+                mean_h += h * connector.m_dot
+            else:
+                raise ValueError(f"Missing enthalpy or temperature/pressure for inlet {inlet_num}")
+                
         
         mean_h = mean_h/(sum(m_dot))
         mean_p = np.mean(pressures)
@@ -234,8 +281,8 @@ class Mixer(BaseComponent):
                 self.solved = True
             else:
                 self.solved = False
+                print("Pressure difference between inlets exceeds tolerance.")
                 return
-                # raise ValueError(f"Mixing different pressure flows (difference higher than tolerance = {tolerance} Pa) in 'Mixer'")
         else:
             raise ValueError("Mixing different fluids in 'Mixer'")
 
