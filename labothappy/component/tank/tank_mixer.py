@@ -28,6 +28,64 @@ class Mixer_Geom(object):
             
             
 class Mixer(BaseComponent):
+    """
+    Component: Tank
+
+    Model: Mixer
+
+    Reference: /
+
+    **Description**:
+
+        This model simulates a perfectly mixed tank where multiple inlet streams of the same fluid are combined into a single outlet stream. 
+        It computes the outlet specific enthalpy and mass flow rate based on an energy balance with no heat losses and no accumulation.
+
+
+    **Assumptions**:
+
+        - Steady-state operation.
+        - Perfect mixing (single outlet enthalpy and pressure).
+        - All inlet streams must contain the same working fluid.
+        - All inlet pressures must be within a fixed tolerance (default: 100 Pa).
+        - No heat exchange with the environment (adiabatic mixing).
+        - No phase change during mixing (inherent in the use of enthalpy balance).
+
+
+    **Connectors**:
+
+        su (MassConnector): Mass connector for the suction side ((su_1, su_2, ..., su_n).
+
+        ex (MassConnector): Mass connector for the exhaust side.
+        
+        
+    **Parameters**: 
+        
+        n_inlets (int): Number of inlet streams. Must be set at instantiation.
+
+
+    **Inputs**:
+
+        For each inlet stream `i` from 1 to n_inlets:
+            
+        su_i_p: Suction side pressure. [Pa]
+
+        su_i_T: Suction side temperature. [K]
+        
+        su_i_m_dot: Suction side mass flow flow rate. [kg/s]
+
+        su_fluid: Working fluid [-]
+    
+
+    **Ouputs**:
+
+        ex_p: Outlet pressure [Pa] (mean of inlet pressures)
+
+        ex_h: Exhaust side specific enthalpy. [J/kg]
+            
+    """
+    
+    
+    
     
     class geom():
             pass 
