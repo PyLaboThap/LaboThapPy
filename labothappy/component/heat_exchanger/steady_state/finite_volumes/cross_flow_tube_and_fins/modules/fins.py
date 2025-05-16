@@ -50,7 +50,7 @@ def htc_tube_and_fins_annular(fluid, params, P_in, h_in, m_dot_in):
 
     n_tubes = params['n_tubes']
     Tube_ID = params['Tube_OD'] - 2*params['Tube_t']
-    n_tpr = n_tubes/(params['n_rows']*params['n_passes'])
+    n_tpr = n_tubes/(params['n_rows']*params['Tube_pass'])
     
     HTX_L = params['L']
     HTX_W = params['w']
@@ -63,9 +63,9 @@ def htc_tube_and_fins_annular(fluid, params, P_in, h_in, m_dot_in):
     N_fins = params['Tube_L']*params['Fin_per_m'] - 1                                # Number of Fins
     Fin_spacing = (params['Tube_L'] - N_fins*params['Fin_t'])/(N_fins+1)
 
-    A_out_fin = 2*np.pi*(params['Fin_OD']/2)*params['Fin_t']*N_fins*n_tubes*params['n_passes']
-    A_out_tube = 2*np.pi*(params['Tube_OD']/2)*n_tubes*params['n_passes']*(params['Tube_L'] - N_fins*params['Fin_t'])
-    A_out_plate_fin = 2*np.pi*((params['Fin_OD']/2)**2 - (params['Tube_OD']/2)**2)*N_fins*n_tubes*params['n_passes']
+    A_out_fin = 2*np.pi*(params['Fin_OD']/2)*params['Fin_t']*N_fins*n_tubes*params['Tube_pass']
+    A_out_tube = 2*np.pi*(params['Tube_OD']/2)*n_tubes*params['Tube_pass']*(params['Tube_L'] - N_fins*params['Fin_t'])
+    A_out_plate_fin = 2*np.pi*((params['Fin_OD']/2)**2 - (params['Tube_OD']/2)**2)*N_fins*n_tubes*params['Tube_pass']
     
     A_out_tot = A_out_fin + A_out_tube + A_out_plate_fin
     
@@ -76,14 +76,14 @@ def htc_tube_and_fins_annular(fluid, params, P_in, h_in, m_dot_in):
  
     "Internal Tube Area"
     
-    A_in = np.pi*Tube_ID*params['Tube_L']*n_tubes*params['n_passes']
+    A_in = np.pi*Tube_ID*params['Tube_L']*n_tubes*params['Tube_pass']
     
     "R_cond"
 
     Tube_nom_OD = Tube_ID + (params['Fin_OD']*(N_fins*params['Fin_t']) + params['Tube_OD']*(params['Tube_L']-N_fins*params['Fin_t']))/params['Tube_L']
 
     fact_cond_1 = np.log(Tube_nom_OD/Tube_ID)
-    fact_cond_2 = 2*np.pi*params['k_fin']*params['Tube_L']*n_tubes*params['n_passes']
+    fact_cond_2 = 2*np.pi*params['k_fin']*params['Tube_L']*n_tubes*params['Tube_pass']
     R_cond = fact_cond_1/fact_cond_2  
 
     "Gas velocity - Flow area"
@@ -126,13 +126,13 @@ def htc_tube_and_fins_annular(fluid, params, P_in, h_in, m_dot_in):
     C_q = (1.36 - np.tanh(X))*(1.1/(Psi_f + 8) - 0.014)
 
     "C_z"
-    if params['n_rows']*params['n_passes'] > 8:
+    if params['n_rows']*params['Tube_pass'] > 8:
         C_z = 1
     
     elif sigma_1/sigma_2  > 2:
-        C_z = 3.5*(params['n_rows']*params['n_passes'])**0.03 - 2.72
+        C_z = 3.5*(params['n_rows']*params['Tube_pass'])**0.03 - 2.72
     else:
-        C_z = 3.15*(params['n_rows']*params['n_passes'])**0.05 - 2.5
+        C_z = 3.15*(params['n_rows']*params['Tube_pass'])**0.05 - 2.5
     
     h_c = 1.13*C_z*C_q*(k_g/params['Tube_OD'])*(u_in_air*params['Tube_OD']/nu_g)**n * Pr_g**(0.33)    
 
@@ -203,10 +203,10 @@ def htc_tube_and_fins_square(fluid, params, P_in, T_in, m_dot_in):
     N_fins = params['Tube_L']*params['Fin_per_m'] - 1                                # Number of Fins
     Fin_spacing = (params['Tube_L'] - N_fins*params['Fin_t'])/(N_fins+1)
    
-    A_r = 2*(params['Fin_OD']**2 - 0.785*params['Tube_OD']**2 + 2*params['Fin_OD']*params['Fin_t'])*(params['Tube_L']/Fin_spacing)*params['n_tubes']*params['n_passes']  # 
+    A_r = 2*(params['Fin_OD']**2 - 0.785*params['Tube_OD']**2 + 2*params['Fin_OD']*params['Fin_t'])*(params['Tube_L']/Fin_spacing)*params['n_tubes']*params['Tube_pass']  # 
     
     L_t = params['Tube_L'] - N_fins*params['Fin_t']
-    A_t = np.pi*params['Tube_OD']*(params['Tube_L']*(1 - params['Fin_t']/Fin_spacing)*params['n_tubes']*params['n_passes'] + L_t)
+    A_t = np.pi*params['Tube_OD']*(params['Tube_L']*(1 - params['Fin_t']/Fin_spacing)*params['n_tubes']*params['Tube_pass'] + L_t)
     
     A_tot = A_r + A_t    
     
@@ -222,7 +222,7 @@ def htc_tube_and_fins_square(fluid, params, P_in, T_in, m_dot_in):
     Tube_nom_OD = Tube_ID + (params['Fin_OD']*(N_fins*params['Fin_t']) + params['Tube_OD']*(params['Tube_L']-N_fins*params['Fin_t']))/params['Tube_L']
 
     fact_cond_1 = np.log(Tube_nom_OD/Tube_ID)
-    fact_cond_2 = 2*np.pi*params['k_fin']*params['Tube_L']*n_tubes*params['n_passes']
+    fact_cond_2 = 2*np.pi*params['k_fin']*params['Tube_L']*n_tubes*params['Tube_pass']
     R_cond = fact_cond_1/fact_cond_2  
     
     "Gas velocity - Flow area"
@@ -268,12 +268,12 @@ def htc_tube_and_fins_square(fluid, params, P_in, T_in, m_dot_in):
 
     "C_z"
     
-    if params['n_rows']*params['n_passes'] > 8:
+    if params['n_rows']*params['Tube_pass'] > 8:
         C_z = 1
     elif sigma_1/sigma_2  > 2:
-        C_z = 3.5*(params['n_rows']*params['n_passes'])**0.03 - 2.72
+        C_z = 3.5*(params['n_rows']*params['Tube_pass'])**0.03 - 2.72
     else:
-        C_z = 3.15*(params['n_rows']*params['n_passes'])**0.05 - 2.5
+        C_z = 3.15*(params['n_rows']*params['Tube_pass'])**0.05 - 2.5
     
     h_c = 1.13*C_z*C_q*(k_g/params['Tube_OD'])*(u_in*params['Tube_OD']/nu_g)**n * Pr_g**(0.33)    
 
@@ -397,7 +397,7 @@ def DP_tube_and_fins(fluid, geom, P_in, T_in, m_dot_in):
     
     "Geom data"
 
-    n_tubes = geom.n_tubes*geom.n_passes
+    n_tubes = geom.n_tubes*geom.Tube_pass
     Tube_ID = geom.Tube_OD - 2*geom.Tube_t
     n_tpr = n_tubes/geom.n_rows
     

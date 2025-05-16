@@ -50,7 +50,7 @@ def htc_tube_and_fins_annular(fluid, params, P_in, h_in, m_dot_in):
 
     n_tubes = params['n_tubes']
     Tube_ID = params['Tube_OD'] - 2*params['Tube_t']
-    n_tpr = n_tubes/(params['n_rows']*params['n_passes'])
+    n_tpr = n_tubes/(params['n_rows']*params['Tube_pass'])
     
     HTX_L = params['L']
     HTX_W = params['w']
@@ -63,9 +63,9 @@ def htc_tube_and_fins_annular(fluid, params, P_in, h_in, m_dot_in):
     N_fins = params['Tube_L']*params['Fin_per_m'] - 1                                # Number of Fins
     Fin_spacing = (params['Tube_L'] - N_fins*params['Fin_t'])/(N_fins+1)
 
-    A_out_fin = 2*np.pi*(params['Fin_OD']/2)*params['Fin_t']*N_fins*n_tubes*params['n_passes']
-    A_out_tube = 2*np.pi*(params['Tube_OD']/2)*n_tubes*params['n_passes']*(params['Tube_L'] - N_fins*params['Fin_t'])
-    A_out_plate_fin = 2*np.pi*((params['Fin_OD']/2)**2 - (params['Tube_OD']/2)**2)*N_fins*n_tubes*params['n_passes']
+    A_out_fin = 2*np.pi*(params['Fin_OD']/2)*params['Fin_t']*N_fins*n_tubes*params['Tube_pass']
+    A_out_tube = 2*np.pi*(params['Tube_OD']/2)*n_tubes*params['Tube_pass']*(params['Tube_L'] - N_fins*params['Fin_t'])
+    A_out_plate_fin = 2*np.pi*((params['Fin_OD']/2)**2 - (params['Tube_OD']/2)**2)*N_fins*n_tubes*params['Tube_pass']
     
     A_out_tot = A_out_fin + A_out_tube + A_out_plate_fin
     
@@ -76,14 +76,14 @@ def htc_tube_and_fins_annular(fluid, params, P_in, h_in, m_dot_in):
  
     "Internal Tube Area"
     
-    A_in = np.pi*Tube_ID*params['Tube_L']*n_tubes*params['n_passes']
+    A_in = np.pi*Tube_ID*params['Tube_L']*n_tubes*params['Tube_pass']
     
     "R_cond"
 
     Tube_nom_OD = Tube_ID + (params['Fin_OD']*(N_fins*params['Fin_t']) + params['Tube_OD']*(params['Tube_L']-N_fins*params['Fin_t']))/params['Tube_L']
 
     fact_cond_1 = np.log(Tube_nom_OD/Tube_ID)
-    fact_cond_2 = 2*np.pi*params['k_fin']*params['Tube_L']*n_tubes*params['n_passes']
+    fact_cond_2 = 2*np.pi*params['k_fin']*params['Tube_L']*n_tubes*params['Tube_pass']
     R_cond = fact_cond_1/fact_cond_2  
 
     "Gas velocity - Flow area"
@@ -126,13 +126,13 @@ def htc_tube_and_fins_annular(fluid, params, P_in, h_in, m_dot_in):
     C_q = (1.36 - np.tanh(X))*(1.1/(Psi_f + 8) - 0.014)
 
     "C_z"
-    if params['n_rows']*params['n_passes'] > 8:
+    if params['n_rows']*params['Tube_pass'] > 8:
         C_z = 1
     
     elif sigma_1/sigma_2  > 2:
-        C_z = 3.5*(params['n_rows']*params['n_passes'])**0.03 - 2.72
+        C_z = 3.5*(params['n_rows']*params['Tube_pass'])**0.03 - 2.72
     else:
-        C_z = 3.15*(params['n_rows']*params['n_passes'])**0.05 - 2.5
+        C_z = 3.15*(params['n_rows']*params['Tube_pass'])**0.05 - 2.5
     
     h_c = 1.13*C_z*C_q*(k_g/params['Tube_OD'])*(u_in_air*params['Tube_OD']/nu_g)**n * Pr_g**(0.33)    
         
@@ -203,10 +203,10 @@ def htc_tube_and_fins_square(fluid, params, P_in, h_in, m_dot_in):
     N_fins = params['Tube_L']*params['Fin_per_m'] - 1                                # Number of Fins
     Fin_spacing = (params['Tube_L'] - N_fins*params['Fin_t'])/(N_fins+1)
    
-    A_r = 2*(params['Fin_OD']**2 - 0.785*params['Tube_OD']**2 + 2*params['Fin_OD']*params['Fin_t'])*(params['Tube_L']/Fin_spacing)*params['n_tubes']*params['n_passes']  # 
+    A_r = 2*(params['Fin_OD']**2 - 0.785*params['Tube_OD']**2 + 2*params['Fin_OD']*params['Fin_t'])*(params['Tube_L']/Fin_spacing)*params['n_tubes']*params['Tube_pass']  # 
     
     L_t = params['Tube_L'] - N_fins*params['Fin_t']
-    A_t = np.pi*params['Tube_OD']*(params['Tube_L']*(1 - params['Fin_t']/Fin_spacing)*params['n_tubes']*params['n_passes'] + L_t)
+    A_t = np.pi*params['Tube_OD']*(params['Tube_L']*(1 - params['Fin_t']/Fin_spacing)*params['n_tubes']*params['Tube_pass'] + L_t)
     
     A_tot = A_r + A_t    
     
@@ -222,7 +222,7 @@ def htc_tube_and_fins_square(fluid, params, P_in, h_in, m_dot_in):
     Tube_nom_OD = Tube_ID + (params['Fin_OD']*(N_fins*params['Fin_t']) + params['Tube_OD']*(params['Tube_L']-N_fins*params['Fin_t']))/params['Tube_L']
 
     fact_cond_1 = np.log(Tube_nom_OD/Tube_ID)
-    fact_cond_2 = 2*np.pi*params['k_fin']*params['Tube_L']*n_tubes*params['n_passes']
+    fact_cond_2 = 2*np.pi*params['k_fin']*params['Tube_L']*n_tubes*params['Tube_pass']
     R_cond = fact_cond_1/fact_cond_2  
     
     "Gas velocity - Flow area"
@@ -267,12 +267,12 @@ def htc_tube_and_fins_square(fluid, params, P_in, h_in, m_dot_in):
 
     "C_z"
     
-    if params['n_rows']*params['n_passes'] > 8:
+    if params['n_rows']*params['Tube_pass'] > 8:
         C_z = 1
     elif sigma_1/sigma_2  > 2:
-        C_z = 3.5*(params['n_rows']*params['n_passes'])**0.03 - 2.72
+        C_z = 3.5*(params['n_rows']*params['Tube_pass'])**0.03 - 2.72
     else:
-        C_z = 3.15*(params['n_rows']*params['n_passes'])**0.05 - 2.5
+        C_z = 3.15*(params['n_rows']*params['Tube_pass'])**0.05 - 2.5
     
     h_c = 1.13*C_z*C_q*(k_g/params['Tube_OD'])*(u_in*params['Tube_OD']/nu_g)**n * Pr_g**(0.33)    
 
@@ -362,7 +362,7 @@ def eta_fin_straight_rect(t_fin, L_fin, h_c, k_fin, D_fin, D_tube):
     
     return eta_f, psi_eta
 
-def DP_tube_and_fins(fluid, geom, P_in, T_in, m_dot_in):
+def DP_tube_and_fins(fluid, params, P_in, T_in, m_dot_in):
     """
 
     Parameters
@@ -396,31 +396,31 @@ def DP_tube_and_fins(fluid, geom, P_in, T_in, m_dot_in):
     
     "Geom data"
 
-    n_tubes = geom.n_tubes*geom.n_passes
-    Tube_ID = geom.Tube_OD - 2*geom.Tube_t
-    n_tpr = n_tubes/geom.n_rows
+    n_tubes = params['n_tubes']*params['Tube_pass']
+    Tube_ID = params['Tube_OD'] - 2*params['Tube_t']
+    n_tpr = n_tubes/params['n_rows']
     
-    HTX_L = geom.L
-    HTX_W = geom.w
+    HTX_L = params['L']
+    HTX_W = params['w']
     
-    Fin_L = (geom.Fin_OD - geom.Tube_OD)/2
+    Fin_L = (params['Fin_OD'] - params['Tube_OD'])/2
     
     "Gas velocity - Flow area"
 
     # Fin HT area
-    N_fins = geom.Tube_L*geom.Fin_per_m - 1 # Number of Fins
-    Fin_spacing = (geom.Tube_L - N_fins*geom.Fin_t)/(N_fins+1)
+    N_fins = params['Tube_L']*params['Fin_per_m'] - 1 # Number of Fins
+    Fin_spacing = (params['Tube_L'] - N_fins*params['Fin_t'])/(N_fins+1)
     
     # Fin conventional length
-    D_fin_c = geom.Tube_OD + (2*Fin_L*geom.Fin_t)/Fin_spacing
+    D_fin_c = params['Tube_OD'] + (2*Fin_L*params['Fin_t'])/Fin_spacing
     
-    Tube_diag_pitch = np.sqrt(2)*geom.pitch # Square staggered bank
-    psi_c = (geom.pitch - D_fin_c)/(Tube_diag_pitch - D_fin_c)
+    Tube_diag_pitch = np.sqrt(2)*params['pitch'] # Square staggered bank
+    psi_c = (params['pitch'] - D_fin_c)/(Tube_diag_pitch - D_fin_c)
 
     if psi_c > 2:
-        S_flow = (HTX_L*HTX_W - n_tpr*D_fin_c*geom.Tube_L)*(2/psi_c)
+        S_flow = (HTX_L*HTX_W - n_tpr*D_fin_c*params['Tube_L'])*(2/psi_c)
     else:
-        S_flow = (HTX_L*HTX_W - n_tpr*D_fin_c*geom.Tube_L)
+        S_flow = (HTX_L*HTX_W - n_tpr*D_fin_c*params['Tube_L'])
 
     u_in_air = V_dot_in/S_flow
 
@@ -428,11 +428,11 @@ def DP_tube_and_fins(fluid, geom, P_in, T_in, m_dot_in):
     
     # n and C_r
     
-    S_1 = geom.pitch
-    S_2 = geom.pitch
+    S_1 = params['pitch']
+    S_2 = params['pitch']
     
-    fact_1 = np.pi*(geom.Tube_OD*Fin_spacing + 2*Fin_L*geom.Fin_t + 2*Fin_L*(Fin_L + geom.Tube_OD))
-    fact_2 = geom.pitch*Fin_spacing - (geom.Tube_OD*Fin_spacing + 2*Fin_L*geom.Fin_t)
+    fact_1 = np.pi*(params['Tube_OD']*Fin_spacing + 2*Fin_L*params['Fin_t'] + 2*Fin_L*(Fin_L + params['Tube_OD']))
+    fact_2 = params['pitch']*Fin_spacing - (params['Tube_OD']*Fin_spacing + 2*Fin_L*params['Fin_t'])
     
     A_totF = fact_1/fact_2 # Reduced length of developped surface
         
@@ -441,14 +441,14 @@ def DP_tube_and_fins(fluid, geom, P_in, T_in, m_dot_in):
 
     # C_z
     
-    if geom.n_rows >= 6:
+    if params['n_rows'] >= 6:
         C_z = 1
     else:
-        C_z = np.exp(0.1*(6/geom.n_rows - 1))
+        C_z = np.exp(0.1*(6/params['n_rows'] - 1))
         
     # D_eq
     
-    D_eq = 2*(Fin_spacing*(geom.pitch-geom.Tube_OD) - 2*Fin_L*geom.Fin_t)/(2*Fin_L + Fin_spacing)
+    D_eq = 2*(Fin_spacing*(params['pitch']-params['Tube_OD']) - 2*Fin_L*params['Fin_t'])/(2*Fin_L + Fin_spacing)
 
     # xi_o
     
@@ -457,6 +457,6 @@ def DP_tube_and_fins(fluid, geom, P_in, T_in, m_dot_in):
     "Pressure drop computation"
     
     C_op = 1.1 # Value from the book : correction factor taking account of real operating conditions of the heat-transfer surface
-    DP = C_op*xi_o*geom.n_rows*(rho_g*u_in_air**2)/2
+    DP = C_op*xi_o*params['n_rows']*(rho_g*u_in_air**2)/2
     
     return DP

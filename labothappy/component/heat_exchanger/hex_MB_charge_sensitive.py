@@ -374,7 +374,7 @@ class HeatExchangerMB(BaseComponent):
                                    'B_V_tot', 'Fin_OD', 'Fin_per_m', 'Fin_t', 'Fin_type',
                                    'Finned_tube_flag', 'L', 'T_V_tot', 'Tube_L', 'Tube_OD',
                                    'Tube_cond', 'Tube_t', 'fouling', 'h', 'k_fin',
-                                   'n_passes', 'n_rows', 'n_tubes', 'pitch', 'pitch_ratio', 'tube_arrang',
+                                   'Tube_pass', 'n_rows', 'n_tubes', 'pitch', 'pitch_ratio', 'tube_arrang',
                                    'w','Fin_Side']
                 
         return general_parameters + geometry_parameters
@@ -896,7 +896,7 @@ class HeatExchangerMB(BaseComponent):
             elif self.HTX_Type == 'Shell&Tube':
                 alpha_h, self.Re_h[k], self.Pr_h[k] = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']*self.params['Tube_pass']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
             elif self.HTX_Type == 'Tube&Fins':
-                alpha_h, self.Re_h[k], self.Pr_h[k] = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']*self.params['n_passes']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
+                alpha_h, self.Re_h[k], self.Pr_h[k] = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']*self.params['Tube_pass']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
         elif self.H.Correlation_1phase == "Shell_Bell_Delaware_HTC":
             alpha_h = shell_bell_delaware_htc(self.mdot_h, Th_mean, T_wall_h, p_h_mean, self.H_su.fluid, self.params)
         elif self.H.Correlation_1phase == 'Shell_Kern_HTC':
@@ -929,7 +929,7 @@ class HeatExchangerMB(BaseComponent):
             elif self.HTX_Type == 'Shell&Tube':
                 alpha_c, self.Re_c[k], self.Pr_c[k]  = gnielinski_pipe_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']**self.params['Tube_pass']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
             elif self.HTX_Type == 'Tube&Fins':
-                alpha_c, self.Re_c[k], self.Pr_c[k]  = gnielinski_pipe_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']*self.params['n_passes']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
+                alpha_c, self.Re_c[k], self.Pr_c[k]  = gnielinski_pipe_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']*self.params['Tube_pass']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
         elif self.C.Correlation_1phase == 'Shell_Bell_Delaware_HTC':
             alpha_c = shell_bell_delaware_htc(self.mdot_c, Tc_mean, T_wall_c, p_c_mean, self.C_su.fluid, self.params)
         elif self.C.Correlation_1phase == 'Shell_Kern_HTC':
@@ -962,7 +962,7 @@ class HeatExchangerMB(BaseComponent):
             elif self.HTX_Type == 'Shell&Tube':
                 alpha_h, self.Re_h[k], self.Pr_h[k] = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']*self.params['Tube_pass']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
             elif self.HTX_Type == 'Tube&Fins':
-                alpha_h, self.Re_h[k], self.Pr_h[k] = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']*self.params['n_passes']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
+                alpha_h, self.Re_h[k], self.Pr_h[k] = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']*self.params['Tube_pass']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
         elif self.H.Correlation_TC == 'Liu_sCO2':
             self.AS_H.update(CP.PT_INPUTS, p_h_mean, Th_mean)
             rho_h = self.AS_H.rhomass()
@@ -1003,7 +1003,7 @@ class HeatExchangerMB(BaseComponent):
             elif self.HTX_Type == 'Shell&Tube':
                 alpha_c, self.Re_c[k], self.Pr_c[k]  = gnielinski_pipe_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']**self.params['Tube_pass']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
             elif self.HTX_Type == 'Tube&Fins':
-                alpha_c, self.Re_c[k], self.Pr_c[k]  = gnielinski_pipe_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']*self.params['n_passes']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
+                alpha_c, self.Re_c[k], self.Pr_c[k]  = gnielinski_pipe_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']*self.params['Tube_pass']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
         elif self.C.Correlation_TC == 'Liu_sCO2':
             self.AS_C.update(CP.PT_INPUTS, p_c_mean, Tc_mean)
             rho_c = self.AS_C.rhomass()
@@ -1369,10 +1369,10 @@ class HeatExchangerMB(BaseComponent):
             self.T_ci = self.AS_C.T()
         else:
             try:
-                self.AS_C.update(CP.HQ_INPUTS, 0.5, self.h_ci)
+                self.AS_C.update(CP.HmassQ_INPUTS, self.h_ci, 0.5)
                 self.T_ci = self.AS_C.T()
             except:
-                self.AS_C.update(CP.QP_INPUTS, 0.5, self.p_ci)
+                self.AS_C.update(CP.PQ_INPUTS, self.p_ci, 0.5)
                 self.T_ci = self.AS_C.T()
                 
         if not self.h_incomp_flag:
@@ -1853,7 +1853,7 @@ class HeatExchangerMB(BaseComponent):
                 fact_cond_2 = 2*np.pi*self.params['Tube_cond']*self.params['Tube_L']*self.params['n_tubes']*self.params['n_series']
                 R_cond = fact_cond_1/fact_cond_2                      
                 
-                self.A_in_tubes = self.params['Tube_L']*self.params['n_tubes']*np.pi*((self.params['Tube_OD'] - 2*self.params['Tube_t'])) # *self.geom.n_passes 
+                self.A_in_tubes = self.params['Tube_L']*self.params['n_tubes']*np.pi*((self.params['Tube_OD'] - 2*self.params['Tube_t'])) # *self.geom.Tube_pass 
                 self.A_out_tubes = self.params['A_finned']
                                         
                 R_fouling = 0 # self.geom.fouling / self.A_out_tubes             

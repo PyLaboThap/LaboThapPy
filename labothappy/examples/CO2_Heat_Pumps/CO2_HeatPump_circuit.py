@@ -14,11 +14,12 @@ from connector.mass_connector import MassConnector
 
 from component.heat_exchanger.steady_state.pinch_cst.simulation_model import HXPinchCst
 from component.heat_exchanger.steady_state.cst_efficiency.simulation_model import HXEffCst
-from component.volumetric_machine.compressor.steady_state.constant_isentropic_efficiency.simulation_model import CompressorCstEff 
+from component.heat_exchanger.hex_csteff_disc import HXEffCstDisc
+from component.compressor.compressor_csteff import CompressorCstEff 
 from component.valve.isenthalpic_valve_P_ex import Isenthalpic_Valve_P_ex
-from component.volumetric_machine.expander.steady_state.constant_isentropic_efficiency.simulation_model import ExpanderCstEff
+from component.expander.expander_csteff import ExpanderCstEff
 from component.valve.isenthalpic_valve_x_ex import Isenthalpic_Valve_x_ex
-from component.tank.mixer.simulation_model import Mixer
+from component.tank.tank_mixer import Mixer
 from component.tank.LV_Separator import LV_Separator
 
 def basic_CO2_HP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low, P_high):
@@ -157,13 +158,16 @@ def Exp_CO2_HP(HSource, CSource, eta_cp, eta_exp, eta_gc, PP_ev, SH_ev, P_low, P
     
     return CO2_HP
 
-def IHX_CO2_HP(HSource, CSource, eta_cp, eta_gc, eta_IHX, PP_ev, SH_ev, P_low, P_high):
+def IHX_CO2_HP(HSource, CSource, eta_cp, eta_gc, eta_IHX, PP_ev, SH_ev, P_low, P_high, m_dot):
     CO2_HP = Circuit('CO2')
+    
+    n_disc_HX = 20
+    PP_min_HX = 5
     
     # Create components
     Compressor = CompressorCstEff()
-    GasCooler = HXEffCst()
-    IHX = HXEffCst()
+    GasCooler = HXEffCstDisc()
+    IHX = HXEffCstDisc()
     Valve = Isenthalpic_Valve_P_ex()
     Evaporator = HXPinchCst()
     
@@ -174,13 +178,13 @@ def IHX_CO2_HP(HSource, CSource, eta_cp, eta_gc, eta_IHX, PP_ev, SH_ev, P_low, P
     #%% GASCOOLER PARAMETERS
     
     GasCooler.set_parameters(**{
-        'eta': eta_gc,
+        'eta': eta_gc, 'n_disc' : n_disc_HX, 'Pinch_min' : PP_min_HX
     })
     
     #%% IHX PARAMETERS
     
     IHX.set_parameters(**{
-        'eta': eta_IHX,
+        'eta': eta_IHX, 'n_disc' : n_disc_HX, 'Pinch_min' : PP_min_HX
     })
         
     #%% EVAPORATOR PARAMETERS
@@ -220,10 +224,10 @@ def IHX_CO2_HP(HSource, CSource, eta_cp, eta_gc, eta_IHX, PP_ev, SH_ev, P_low, P
     
     #%% CYCLE GUESSES
     
-    CO2_HP.set_cycle_guess(target='Compressor:su', m_dot = 0.16, SH = 20, p = P_low)
+    CO2_HP.set_cycle_guess(target='Compressor:su', m_dot = m_dot, SH = 20, p = P_low)
     CO2_HP.set_cycle_guess(target='Compressor:ex', p = P_high)
 
-    CO2_HP.set_cycle_guess(target='Valve:su', p = P_high, T = 30+273.15, m_dot = 0.16)    
+    CO2_HP.set_cycle_guess(target='Valve:su', p = P_high, T = 30+273.15, m_dot = m_dot)    
     CO2_HP.set_cycle_guess(target='Valve:ex', p = P_low)
     
     #%% CYCLE RESIDUAL VARIABLES
