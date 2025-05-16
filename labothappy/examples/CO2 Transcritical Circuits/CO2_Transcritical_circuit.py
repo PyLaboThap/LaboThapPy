@@ -23,7 +23,7 @@ from component.turbomachinery.pump.steady_state.constant_efficiency.simulation_m
 # from component.tank.Separator.LV_separator import LV_Separator
 
 def basic_CO2_TC(HSource, CSource, eta_pp, eta_exp, eta_gh, PP_cd, SC_cd, P_low, P_high):
-    CO2_HP = Circuit('CO2')
+    CO2_TC = Circuit('CO2')
     
     # Create components
     Expander = ExpanderCstEff()
@@ -56,41 +56,41 @@ def basic_CO2_TC(HSource, CSource, eta_pp, eta_exp, eta_gh, PP_cd, SC_cd, P_low,
     #%% ADD AND LINK COMPONENTS
     
     # Add components
-    CO2_HP.add_component(Expander, "Expander")
-    CO2_HP.add_component(GasHeater, "GasHeater")
-    CO2_HP.add_component(Pump, "Pump")
-    CO2_HP.add_component(Condenser, "Condenser")
+    CO2_TC.add_component(Expander, "Expander")
+    CO2_TC.add_component(GasHeater, "GasHeater")
+    CO2_TC.add_component(Pump, "Pump")
+    CO2_TC.add_component(Condenser, "Condenser")
             
     # Link components
-    CO2_HP.link_components("Pump", "m-ex", "GasHeater", "m-su_C")
-    CO2_HP.link_components("GasHeater", "m-ex_C", "Expander", "m-su")
-    CO2_HP.link_components("Expander", "m-ex", "Condenser", "m-su_H")
-    CO2_HP.link_components("Condenser", "m-ex_H", "Pump", "m-su")
+    CO2_TC.link_components("Pump", "m-ex", "GasHeater", "m-su_C")
+    CO2_TC.link_components("GasHeater", "m-ex_C", "Expander", "m-su")
+    CO2_TC.link_components("Expander", "m-ex", "Condenser", "m-su_H")
+    CO2_TC.link_components("Condenser", "m-ex_H", "Pump", "m-su")
     
     #%% SOURCES AND SINKS
     
     Gas_heater_source = MassConnector()
-    CO2_HP.add_source("GH_Water", Gas_heater_source, CO2_HP.components["GasHeater"], "m-su_H")
-    CO2_HP.set_source_properties(T=HSource.T, fluid=HSource.fluid, m_dot=HSource.m_dot, target='GH_Water', P = HSource.p)
+    CO2_TC.add_source("GH_Water", Gas_heater_source, CO2_TC.components["GasHeater"], "m-su_H")
+    CO2_TC.set_source_properties(T=HSource.T, fluid=HSource.fluid, m_dot=HSource.m_dot, target='GH_Water', P = HSource.p)
     
     CD_source = MassConnector()
-    CO2_HP.add_source("CD_Water", CD_source, CO2_HP.components["Condenser"], "m-su_C")
-    CO2_HP.set_source_properties(T=CSource.T, fluid=CSource.fluid, m_dot=CSource.m_dot, target='CD_Water', P = CSource.p)
+    CO2_TC.add_source("CD_Water", CD_source, CO2_TC.components["Condenser"], "m-su_C")
+    CO2_TC.set_source_properties(T=CSource.T, fluid=CSource.fluid, m_dot=CSource.m_dot, target='CD_Water', P = CSource.p)
     
     #%% CYCLE GUESSES
     
-    CO2_HP.set_cycle_guess(target='Pump:su', m_dot = 0.08, SC = 5, p = P_low)
-    CO2_HP.set_cycle_guess(target='Pump:ex', p = P_high)
+    CO2_TC.set_cycle_guess(target='Pump:su', m_dot = 0.08, SC = 5, p = P_low)
+    CO2_TC.set_cycle_guess(target='Pump:ex', p = P_high)
         
-    CO2_HP.set_cycle_guess(target='Expander:ex', p = P_low)
+    CO2_TC.set_cycle_guess(target='Expander:ex', p = P_low)
     
     #%% CYCLE RESIDUAL VARIABLES
-    CO2_HP.set_residual_variable(target='Condenser:ex_H', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='GasHeater:ex_C', variable='h', tolerance= 1e-3)
+    CO2_TC.set_residual_variable(target='Condenser:ex_H', variable='h', tolerance= 1e-3)
+    CO2_TC.set_residual_variable(target='GasHeater:ex_C', variable='h', tolerance= 1e-3)
     
-    return CO2_HP
+    return CO2_TC
 
-# def IHX_CO2_HP(HSource, CSource, eta_cp, eta_gc, eta_IHX, PP_ev, SH_ev, P_low, P_high):
+# def REC_CO2_TC(HSource, CSource, eta_cp, eta_gc, eta_IHX, PP_ev, SH_ev, P_low, P_high):
 #     CO2_HP = Circuit('CO2')
     
 #     # Create components

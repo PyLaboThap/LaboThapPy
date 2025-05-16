@@ -276,7 +276,7 @@ class HXPinchCst(BaseComponent):
         
         # Second zone
         self.h_C_x1 = self.h_C_x0 + self.Q_dot_tp/self.su_C.m_dot
-        self.T_C_x1 = PropsSI('T', 'P', self.su_C.p, 'H', self.h_C_x0, self.su_C.fluid)
+        self.T_C_x1 = PropsSI('T', 'P', self.su_C.p, 'H', self.h_C_x1, self.su_C.fluid)
 
         # Third zone
         self.h_C_ex = self.h_C_x1 + self.Q_dot_sh/self.su_C.m_dot
