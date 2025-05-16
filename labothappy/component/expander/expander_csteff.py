@@ -17,22 +17,30 @@ class ExpanderCstEff(BaseComponent):
 
     **Description**:
 
-        This model determines the exhaust specific enthalpy and the exhaust temperature of an expander. This model can be used for on-design models of systems.
+        This component models an expander using a constant isentropic efficiency. 
+        Given the suction conditions (pressure, temperature, fluid) and the exhaust pressure,
+        it calculates the exhaust specific enthalpy and exhaust temperature.
+        This simple model can be used for on-design models of systems.
 
     **Assumptions**:
 
         - Steady-state operation.
         - Isentropic efficiency stays constant for all the conditions.
+        - Negligible heat losses and mechanical losses except those accounted for by efficiency.
+
 
     **Connectors**:
 
         su (MassConnector): Mass connector for the suction side.
 
         ex (MassConnector): Mass connector for the exhaust side.
+        
+        W_exp (WorkConnector): Work connector.
+
 
     **Parameters**:
 
-        eta_is: Isentropic efficiency. [-]
+        eta_is: Isentropic efficiency of the expander (0 < eta_is ≤ 1) [-]
 
     **Inputs**:
 
@@ -51,6 +59,9 @@ class ExpanderCstEff(BaseComponent):
         h_ex: Exhaust side specific enthalpy. [J/kg]
 
         T_ex: Exhaust side temperature. [K]
+        
+        W_dot_exp (float): Mechanical power  of the expander [W]
+
     """
 
     def __init__(self):

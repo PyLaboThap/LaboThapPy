@@ -87,7 +87,6 @@ class Mixer(BaseComponent):
     class geom():
             pass 
         
-        
 
     def __init__(self, n_inlets=None):
         
