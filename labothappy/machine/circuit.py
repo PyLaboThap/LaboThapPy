@@ -548,7 +548,6 @@ class Circuit:
         self.parameters.update(kwargs)
         
     def set_residual_variable(self, target, variable, tolerance):
-        
         res_var = Circuit.Residual_variable(target, variable, tolerance)
         self.res_vars[res_var.name] = res_var
         return
@@ -981,21 +980,6 @@ class Circuit:
                 else:
                     pass
 
-            # print("-------------")    
-            # print("Print guesses")
-            # print("-------------")
-
-            # self.print_guesses()
-    
-            # print("-------------")
-
-            # print("Print residual vars")
-            # print("-------------")
-
-            # self.print_res_vars()
-
-            # print("-------------")
-
             self.reset_solved_marker()
     
             for start_component in self.solve_start_components:
@@ -1023,39 +1007,11 @@ class Circuit:
             for it_var in self.it_vars:    
                 if not it_var.converged:
                     self.converged = False            
-            
-            # m_dot_su_pp.append(self.components['Pump'].model.su.m_dot)
-            # m_dot_ex_pp.append(self.components['Pump'].model.ex.m_dot)
-            # m_dot_su_spli.append(self.components['Spliter'].model.su.m_dot)
-            # m_dot_ex_mix.append(self.components['Mixer'].model.ex.m_dot)
-            # m_dot_ex_cd.append(self.components['Condenser'].model.ex_H.m_dot)
+        
+            if not self.check_all_component_solved():
+                self.converged = False
         
             if self.converged:
-            #     plt.figure()
-                
-            #     plt.plot(m_dot_su_pp, 'r')
-            #     plt.plot(m_dot_ex_pp, 'g',  marker='o')
-            #     plt.plot(m_dot_su_spli, 'b')
-            #     plt.plot(m_dot_ex_mix, 'k',  marker='o')
-            #     plt.plot(m_dot_ex_cd, 'orange',  marker='o')
-                
-            #     plt.legend(['su_pp', 'ex_pp', 'su_spli', 'ex_mix', 'ex_cd'])
-                
-            #     plt.figure()
-            #     plt.plot(P_cd, 'r')
-                
-            #     plt.legend(['P_cd'])
-
-                # plt.figure()
-
-                # plt.plot(h_in_cp, 'r')
-                # plt.plot(h_in_gc, 'g',  marker='o')
-                # plt.plot(h_in_vv, 'b')
-                # plt.plot(h_in_ev, 'k',  marker='o')                            
-
-                # plt.legend(['su_cp', 'su_gc', 'su_vv', 'su_ev'])
-
-                # plt.show()
 
                 print(f"Solver successfully converged in {i+1} iteration(s) !")
                 return

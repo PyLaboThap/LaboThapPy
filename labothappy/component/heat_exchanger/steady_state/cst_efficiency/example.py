@@ -7,24 +7,24 @@ import numpy as np
 "Simple test - Model for recuperators in simple thermodynamic studies "
 
 #Exo ORC M&S
-HTX = HXEffCst()
+HX = HXEffCst()
 
-HTX.set_inputs(
-    su_C_fluid = 'Water',
-    su_C_T = 273.155 + 60,
-    su_C_m_dot = 1,
-    su_C_p = 3e5,
+HX.set_inputs(
+    Csu_fluid = 'Water',
+    Csu_T = 273.155 + 15,
+    Csu_m_dot = 0.1,
+    Csu_p = 5e5,
 
-    su_H_fluid = 'CO2',
-    su_H_T = 273.15 + 160,
-    su_H_m_dot = 0.08,
-    su_H_p = 130*1e5,
+    Hsu_fluid = 'CO2',
+    Hsu_T = 450,
+    Hsu_m_dot = 0.16,
+    Hsu_p = 150*1e5,
 )
 
-HTX.set_parameters(**{
-    'eta': 0.95,
+HX.set_parameters(**{
+    'eta': 0.92,
 })
 
-HTX.solve()
-HTX.print_results()
-HTX.print_states_connectors()
+HX.solve()
+HX.print_results()
+HX.print_states_connectors()

@@ -75,7 +75,8 @@ class CompressorCstEff(BaseComponent):
             h_ex_is = PropsSI('H', 'P', self.ex.p, 'S', self.su.s, self.su.fluid)
             h_ex = self.su.h + (h_ex_is - self.su.h) / self.params['eta_is']
             w = h_ex - self.su.h
-            self.update_connectors(h_ex, w)
+            W_dot = self.su.m_dot*w
+            self.update_connectors(h_ex, w, W_dot)
 
             self.solved = True
         except Exception as e:
@@ -83,10 +84,12 @@ class CompressorCstEff(BaseComponent):
             self.solved = False
             return
     
-    def update_connectors(self, h_ex, w):
+    def update_connectors(self, h_ex, w, W_dot):
         self.ex.set_h(h_ex)
         self.ex.set_fluid(self.su.fluid)
+        self.ex.set_m_dot(self.su.m_dot)
         self.W_mec.set_w(w)
+        self.W_mec.set_W_dot(W_dot)
 
     def print_results(self):
         print("=== Compressor Results ===")
