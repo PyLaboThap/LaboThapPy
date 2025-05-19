@@ -11,6 +11,7 @@ Modification w/r to previous version:
 
 "EXTERNAL IMPORTS"
 
+import __init__
 import CoolProp.CoolProp as CP
 from CoolProp.Plots import PropertyPlot
 import matplotlib.pyplot as plt
@@ -18,7 +19,6 @@ import numpy as np
 import scipy.optimize
 from scipy.interpolate import interp1d
 import copy
-import __init__
 
 "INTERNAL IMPORTS"
 

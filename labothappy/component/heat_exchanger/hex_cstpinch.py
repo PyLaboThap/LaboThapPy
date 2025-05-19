@@ -143,6 +143,8 @@ class HXPinchCst(BaseComponent):
             P_ev = PropsSI("PCRIT", self.su_C.fluid) - 1000
                         
         # Get the temperature of the evaporator based on the pressure and quality
+        # Vapor zone
+        
         T_sat_ev = PropsSI('T', 'P', P_ev, 'Q', 0.5, self.su_C.fluid)
 
         self.T_sat_ev = T_sat_ev
@@ -150,7 +152,12 @@ class HXPinchCst(BaseComponent):
         
         "Refrigerant side calculations"
         # Liquid zone
-        h_C_su = PropsSI('H', 'P', P_ev, 'T', self.su_C.T, self.su_C.fluid)
+        try:
+            h_C_su = PropsSI('H', 'P', P_ev, 'T', self.su_C.T, self.su_C.fluid)
+        except:
+            h_C_su = PropsSI('H', 'P', P_ev, 'Q', 0, self.su_C.fluid)
+            
+        
         h_C_x0 = PropsSI('H', 'P', P_ev, 'Q', 0, self.su_C.fluid)
         
         self.Q_dot_sc = self.su_C.m_dot * (h_C_x0 - h_C_su)
@@ -236,7 +243,7 @@ class HXPinchCst(BaseComponent):
         try:
             h_H_su = PropsSI('H', 'P', P_cd, 'T', self.su_H.T, self.su_H.fluid)
         except:
-            h_H_su = PropsSI('H', 'P', P_cd, 'Q', 0, self.su_H.fluid)
+            h_H_su = PropsSI('H', 'P', P_cd, 'Q', 1, self.su_H.fluid)
             
         self.su_H.h = h_H_su
         

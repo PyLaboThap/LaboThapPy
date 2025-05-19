@@ -5,7 +5,7 @@ Created on Wed Feb  5 14:04:10 2025
 @author: Basile
 """
 
-from examples.CO2_Heat_Pumps.CO2_HeatPump_circuit import basic_CO2_HP, IHX_CO2_HP, Flash_CO2_HP_Series_CP
+from examples.CO2_Transcritical_Circuits.CO2_Transcritical_circuit import basic_CO2_TC, REC_CO2_TC
 from connector.mass_connector import MassConnector
 from CoolProp.CoolProp import PropsSI
 import numpy as np
@@ -16,98 +16,108 @@ import matplotlib.pyplot as plt
 T_cold_source = 0+273.15
 T_hot_source = 130+273.15
 
-eta_is_cp = 0.7
-eta_gc = 0.9
-eta_IHX = 0.3
+eta_is_exp = 0.8
+eta_gh = 0.9
+eta_rec = 0.7
+eta_is_pp = 0.7
 
-PPTD_ev = 5
-SH_ev = 0.1
+m_dot = 0.08
+
+PPTD_cd = 5
+SC_cd = 5
 
 P_high = 140*1e5
 P_sat_T_CSource = PropsSI('P', 'T', T_cold_source,'Q',0.5,'CO2')
 P_crit_CO2 = PropsSI('PCRIT','CO2')
 
-P_low_guess = 0.8*min(P_sat_T_CSource,P_crit_CO2)
+P_low_guess = min(1.3*P_sat_T_CSource,0.8*P_crit_CO2)  
 
 HSource = MassConnector()
-HSource.set_properties(fluid = 'Water', T = T_hot_source, p = 5e5, m_dot = 62.5) # 0.1 # 62.5
+HSource.set_properties(fluid = 'Water', T = T_hot_source, p = 5e5, m_dot = 0.05) # 0.1 # 62.5
 
 CSource = MassConnector()
-CSource.set_properties(fluid = 'R22', T = T_cold_source, p = 5e5, m_dot = 625000) # 1000 # 625000
+CSource.set_properties(fluid = 'R22', T = T_cold_source, p = 5e5, m_dot = 1) # 1000 # 625000
 
-CO2_HP = IHX_CO2_HP(HSource, CSource, eta_is_cp, eta_gc, eta_IHX, PPTD_ev, SH_ev, P_low_guess, P_high, 100) # 0.16 # 100
+# CO2_TC = REC_CO2_TC(HSource, CSource, eta_is_pp, eta_is_exp, eta_gh, eta_rec, PPTD_cd, SC_cd, P_low_guess, P_high, 0.08) # 0.16 # 100
 
-CO2_HP.solve()
+# CO2_TC.solve()
 
-COP = CO2_HP.components['GasCooler'].model.Q_dot.Q_dot/CO2_HP.components['Compressor'].model.W_mec.W_dot
+# eta = CO2_TC.components['Expander'].model.W_exp.W_dot/CO2_TC.components['GasHeater'].model.Q_dot.Q_dot
 
-T_hw_out = CO2_HP.components['GasCooler'].model.ex_C.T
+# T_hw_out = CO2_TC.components['GasHeater'].model.ex_H.T
 
-T_sat_su_cp = PropsSI('T', 'P', CO2_HP.components['Compressor'].model.su.p, 'Q', 0, 'CO2')
-SH_cp = CO2_HP.components['Compressor'].model.su.T - T_sat_su_cp
+# print(f"eta : {eta}")
+# print(f"T_hw_out : {T_hw_out}")
 
-print(f"COP : {COP}")
-print(f"T_hw_out : {T_hw_out}")
-print(f"CP_SH : {SH_cp}")
+"2) Sensitivity Analysis of high pressure"
 
-# "2) Sensitivity Analysis of high pressure"
+P_high_vec = np.linspace(80,200,25)*1e5
+eta_vec = np.zeros(len(P_high_vec))
+W_exp_vec = np.zeros(len(P_high_vec))
+W_pp_vec = np.zeros(len(P_high_vec))
+T_out_hw = np.zeros(len(P_high_vec))
+eta_gh_vec = np.zeros(len(P_high_vec))
+eta_rec_vec = np.zeros(len(P_high_vec))
 
-# P_high_vec = np.linspace(80,200,25)*1e5
-# COP_vec = np.zeros(len(P_high_vec))
-# W_cp_vec = np.zeros(len(P_high_vec))
-# T_out_hw = np.zeros(len(P_high_vec))
-# eta_gc_vec = np.zeros(len(P_high_vec))
-# eta_IHX_vec = np.zeros(len(P_high_vec))
-
-# for i in range(len(P_high_vec)):
-#     CO2_HP = IHX_CO2_HP(HSource, CSource, eta_is_cp, eta_gc, eta_IHX, PPTD_ev, SH_ev, P_low_guess, P_high_vec[i])
+for i in range(len(P_high_vec)):
+    CO2_TC = REC_CO2_TC(HSource, CSource, eta_is_pp, eta_is_exp, eta_gh, eta_rec, PPTD_cd, SC_cd, P_low_guess, P_high_vec[i], m_dot)
+    # CO2_TC = basic_CO2_TC(HSource, CSource, eta_is_pp, eta_is_exp, eta_gh, PPTD_cd, SC_cd, P_low_guess, P_high_vec[i], m_dot)
     
-#     CO2_HP.solve()
+    CO2_TC.solve()
 
-#     Q_dot_gc = CO2_HP.components['GasCooler'].model.Q_dot.Q_dot
-#     Q_dot_ev = CO2_HP.components['Evaporator'].model.Q_dot.Q_dot
-#     W_dot_cp = CO2_HP.components['Compressor'].model.W_mec.W_dot
+    Q_dot_gh = CO2_TC.components['GasHeater'].model.Q_dot.Q_dot
+    Q_dot_cd = CO2_TC.components['Condenser'].model.Q_dot.Q_dot
+    W_dot_pp = CO2_TC.components['Pump'].model.W_pp.W_dot
+    W_dot_exp = CO2_TC.components['Expander'].model.W_exp.W_dot
 
-#     if CO2_HP.converged:
-#         if Q_dot_gc >= 0 and W_dot_cp >= 0 and Q_dot_ev >= 0:
-#             res = Q_dot_gc - W_dot_cp - Q_dot_ev
-#             res = res/Q_dot_gc
+    if CO2_TC.converged:
+        if Q_dot_gh >= 0 and Q_dot_cd >= 0 and W_dot_exp >= 0 and W_dot_pp >= 0:
+            res = Q_dot_gh - Q_dot_cd - W_dot_exp + W_dot_pp
+            res = res/Q_dot_gh
             
-#             if res <= 1e-3:
-#                 COP_vec[i] = Q_dot_gc/W_dot_cp
-#                 W_cp_vec[i] = W_dot_cp
-#                 T_out_hw[i] =  CO2_HP.components['GasCooler'].model.ex_C.T
-#                 eta_gc_vec[i] = CO2_HP.components['GasCooler'].model.params['eta']
-#                 eta_IHX_vec[i] = CO2_HP.components['IHX'].model.params['eta']
+            # if res <= 1e-2:
+            eta_vec[i] = (W_dot_exp-W_dot_pp)/Q_dot_gh
+            W_exp_vec[i] = W_dot_exp
+            W_pp_vec[i] = W_dot_pp
+            T_out_hw[i] = CO2_TC.components['GasHeater'].model.ex_H.T
+            eta_gh_vec[i] = CO2_TC.components['GasHeater'].model.params['eta']
+            eta_rec_vec[i] = CO2_TC.components['Recuperator'].model.params['eta']
 
-# plt.figure()
-# plt.plot(P_high_vec, COP_vec)
-# plt.xlabel("P_cp_ex")
-# plt.ylabel("COP")
-# plt.grid()
-# plt.show()
+plt.figure()
+plt.plot(P_high_vec, eta_vec)
+plt.xlabel("P_high")
+plt.ylabel("eta")
+plt.grid()
+plt.show()
 
-# plt.figure()
-# plt.plot(P_high_vec, W_cp_vec)
-# plt.xlabel("P_cp_ex")
-# plt.ylabel("W_dot_cp")
-# plt.grid()
-# plt.show()
+plt.figure()
+plt.plot(P_high_vec, W_exp_vec)
+plt.xlabel("P_high")
+plt.ylabel("W_dot_exp")
+plt.grid()
+plt.show()
 
-# plt.figure()
-# plt.plot(P_high_vec, T_out_hw)
-# plt.xlabel("P_cp_ex")
-# plt.ylabel("T_out_hw")
-# plt.grid()
-# plt.show()
+plt.figure()
+plt.plot(P_high_vec, W_pp_vec)
+plt.xlabel("P_high")
+plt.ylabel("W_dot_pp")
+plt.grid()
+plt.show()
 
-# plt.figure()
-# plt.plot(P_high_vec, eta_gc_vec, color='r', label='gc')
-# plt.plot(P_high_vec, eta_IHX_vec, color='b', label='IHX')
-# plt.xlabel("P_cp_ex")
-# plt.ylabel("eta_HX")
-# plt.grid()
-# plt.show()
+plt.figure()
+plt.plot(P_high_vec, T_out_hw)
+plt.xlabel("P_high")
+plt.ylabel("T_out_hw")
+plt.grid()
+plt.show()
+
+plt.figure()
+plt.plot(P_high_vec, eta_gh_vec, color='r', label='GH')
+# plt.plot(P_high_vec, eta_rec_vec, color='b', label='Rec')
+plt.xlabel("P_high")
+plt.ylabel("eta_HX")
+plt.grid()
+plt.show()
 
 # "3) Sensitivity Analysis of Heat Sink Temperature"
 

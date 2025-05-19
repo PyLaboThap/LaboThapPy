@@ -22,7 +22,7 @@ from component.turbomachinery.pump.steady_state.constant_efficiency.simulation_m
 # from component.tank.mixer.simulation_model import Mixer
 # from component.tank.Separator.LV_separator import LV_Separator
 
-def basic_CO2_TC(HSource, CSource, eta_pp, eta_exp, eta_gh, PP_cd, SC_cd, P_low, P_high):
+def basic_CO2_TC(HSource, CSource, eta_pp, eta_exp, eta_gh, PP_cd, SC_cd, P_low, P_high, m_dot):
     CO2_TC = Circuit('CO2')
     
     # Create components
@@ -79,7 +79,7 @@ def basic_CO2_TC(HSource, CSource, eta_pp, eta_exp, eta_gh, PP_cd, SC_cd, P_low,
     
     #%% CYCLE GUESSES
     
-    CO2_TC.set_cycle_guess(target='Pump:su', m_dot = 0.08, SC = 5, p = P_low)
+    CO2_TC.set_cycle_guess(target='Pump:su', m_dot = m_dot, SC = 5, p = P_low)
     CO2_TC.set_cycle_guess(target='Pump:ex', p = P_high)
         
     CO2_TC.set_cycle_guess(target='Expander:ex', p = P_low)
@@ -90,7 +90,7 @@ def basic_CO2_TC(HSource, CSource, eta_pp, eta_exp, eta_gh, PP_cd, SC_cd, P_low,
     
     return CO2_TC
 
-def REC_CO2_TC(HSource, CSource, eta_pp, eta_exp, eta_gh, eta_rec, PP_cd, SC_cd, P_low, P_high):
+def REC_CO2_TC(HSource, CSource, eta_pp, eta_exp, eta_gh, eta_rec, PP_cd, SC_cd, P_low, P_high, m_dot):
     CO2_TC = Circuit('CO2')
     
     # Create components
@@ -157,18 +157,20 @@ def REC_CO2_TC(HSource, CSource, eta_pp, eta_exp, eta_gh, eta_rec, PP_cd, SC_cd,
     
     #%% CYCLE GUESSES
     
-    CO2_TC.set_cycle_guess(target='Pump:su', m_dot = 0.08, SC = 5, p = P_low)
+    CO2_TC.set_cycle_guess(target='Pump:su', m_dot = m_dot, SC = 5, p = P_low)
     CO2_TC.set_cycle_guess(target='Pump:ex', p = P_high)
 
-    CO2_TC.set_cycle_guess(target='Expander:su', p = P_high, T = HSource.T, m_dot = 0.08)    
+    CO2_TC.set_cycle_guess(target='Expander:su', p = P_high, T = HSource.T, m_dot = m_dot)    
     CO2_TC.set_cycle_guess(target='Expander:ex', p = P_low)
     
     #%% CYCLE RESIDUAL VARIABLES
     
-    CO2_TC.set_residual_variable(target='Recuperator:su_C', variable='h', tolerance= 1e-3)
-    CO2_TC.set_residual_variable(target='Recuperator:su_H', variable='h', tolerance= 1e-3)
-    CO2_TC.set_residual_variable(target='Recuperator:ex_C', variable='h', tolerance= 1e-3)
-    CO2_TC.set_residual_variable(target='Recuperator:ex_H', variable='h', tolerance= 1e-3)
+    CO2_TC.set_residual_variable(target='Recuperator:su_C', variable='h', tolerance= 1e-5)
+    CO2_TC.set_residual_variable(target='Recuperator:su_C', variable='p', tolerance= 1e-5)
+    CO2_TC.set_residual_variable(target='Recuperator:su_H', variable='h', tolerance= 1e-5)
+    CO2_TC.set_residual_variable(target='Recuperator:su_H', variable='p', tolerance= 1e-5)
+    CO2_TC.set_residual_variable(target='Recuperator:ex_C', variable='h', tolerance= 1e-5)
+    CO2_TC.set_residual_variable(target='Recuperator:ex_H', variable='h', tolerance= 1e-5)
     
     return CO2_TC
 
@@ -176,6 +178,8 @@ if __name__ == "__main__":
 
     T_cold_source = 0+273.15
     T_hot_source = 130+273.15
+
+    m_dot = 0.08
 
     eta_is_pp = 0.7
     eta_is_exp = 0.8
@@ -200,7 +204,7 @@ if __name__ == "__main__":
         CSource = MassConnector()
         CSource.set_properties(fluid = 'R22', T = T_cold_source, p = 5e5, m_dot = 1)
         
-        CO2_TC = basic_CO2_TC(HSource, CSource, eta_is_pp, eta_is_exp, eta_gh, PPTD_cd, SC_cd, P_low_guess, P_high)
+        CO2_TC = basic_CO2_TC(HSource, CSource, eta_is_pp, eta_is_exp, eta_gh, PPTD_cd, SC_cd, P_low_guess, P_high, m_dot)
         
         CO2_TC.solve()
 
@@ -211,27 +215,7 @@ if __name__ == "__main__":
         CSource = MassConnector()
         CSource.set_properties(fluid = 'R22', T = T_cold_source, p = 5e5, m_dot = 1)
         
-        CO2_TC = REC_CO2_TC(HSource, CSource, eta_is_pp, eta_is_exp, eta_gh, eta_rec, PPTD_cd, SC_cd, P_low_guess, P_high)
+        CO2_TC = REC_CO2_TC(HSource, CSource, eta_is_pp, eta_is_exp, eta_gh, eta_rec, PPTD_cd, SC_cd, P_low_guess, P_high, m_dot)
         
         CO2_TC.solve()
         
-# """
-# T_cold_source = -10 + 273.15
-# P_sat_T_CSource = PropsSI('P', 'T', T_cold_source,'Q',0.5,'CO2')
-# P_crit_CO2 = PropsSI('PCRIT','CO2')
-
-# P_low_guess = min(1.2*P_sat_T_CSource,0.99*P_crit_CO2)
-
-# P_high = 160*1e5
-
-# HSource = MassConnector()
-# HSource.set_properties(fluid = 'Water', T = 150 + 273.15, p = 3e5, m_dot = 8)
-
-# CSource = MassConnector()
-# CSource.set_properties(fluid = 'R22', T = T_cold_source, p = 5e5, m_dot = 8)
-
-# CO2_HP = IHX_CO2_HP(HSource, CSource, 0.7, 0.95, 0.8, 3, 3, P_low_guess, P_high)
-    
-# CO2_HP.solve()
-
-# """

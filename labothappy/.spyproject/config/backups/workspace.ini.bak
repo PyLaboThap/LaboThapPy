@@ -4,7 +4,7 @@ save_data_on_exit = True
 save_history = True
 save_non_project_files = False
 project_type = 'empty-project-type'
-recent_files = ['examples\\optimization\\opt_CO2_TC.py']
+recent_files = ['machine\\examples\\orc_circuit.py', 'component\\pump\\pump_similarity_laws.py', 'component\\Examples\\pump\\pump_similarity_law_example.py']
 
 [main]
 version = 0.2.0
