@@ -227,7 +227,7 @@ class CrossFlowTubeAndFinsHTX(BaseComponent):
                 
                 print("ratio",(Pr/Pr_w)**0.11)
                         
-            alpha_t = gnielinski_pipe_htc(mu, Pr, Pr_w, k, G_1t, self.params['Tube_OD'] - self.params['Tube_t'], self.params['Tube_L'])
+            alpha_t = gnielinski_pipe_htc(mu, Pr, Pr_w, k, G_1t, self.params['Tube_OD'] - self.params['Tube_t'], self.params['Tube_L'])[0]
             
         else: # 2 phase case
             if T_b_in <= T_t_in: # Condensation
