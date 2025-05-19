@@ -5,11 +5,14 @@ import os
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Determine the project root directory (which contains both 'connector' and 'component')
-project_root = os.path.abspath(os.path.join(current_dir, '..', '..', '..'))
+project_root = os.path.abspath(os.path.join(current_dir, '..', '..')) 
+"""# /!\ isn't there a '..' which is too much?"""
 
 # Add the project root to sys.path if it's not already there
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
+
+"""All this 1st part can be replaced by import init right? - Titouan"""
 
 #%%
 
@@ -27,6 +30,74 @@ import numpy as np
 import math
 
 class HXPinchCst(BaseComponent):
+    """
+    Component: Heat Exchanger with constant pinch point.
+
+    **Description**:
+        Simulates a pump using head and power performance curves (vs flow and speed).
+        Uses the similarity laws to calculate the pump performance at different speeds.
+
+    **Assumptions**:
+        - Steady-state operation
+        - No pressure drops considered
+        - No loss to the ambient considered.
+
+    **Connectors**:
+        su_H (MassConnector): Mass connector for the hot suction side.
+        su_C (MassConnector): Mass connector for the cold suction side.
+
+        ex_H (MassConnector): Mass connector for the hot exhaust side.
+        ex_C (MassConnector): Mass connector for the cold exhaust side.
+
+        Q_dot (HeatConnector): Heat connector for the heat transfer between the fluids
+
+    **Parameters**:
+
+        Pinch: Pinch point temperature difference [K] or [°C]
+        
+        Delta_T_sh_sc: Superheating or subcooling, depending if the HEX is an evaporator (superheating) or a condenser (subcooling)
+            
+        type_HX: HX type, i.e. evaporator or condenser
+
+    **Inputs**:
+        
+        su_C_fluid: Cold suction side fluid. [-]
+
+        su_C_h: Cold suction side enthalpy. [J/kg]
+
+        su_C_p: Cold suction side pressure. [Pa]
+
+        su_C_m_dot: Cold suction side mass flow rate. [kg/s]
+
+        su_H_fluid: Hot suction side fluid. [-]
+
+        su_H_h: Hot suction side enthalpy. [J/kg]
+
+        su_H_p: Hot suction side pressure. [Pa]
+
+        su_H_m_dot: Hot suction side mass flow rate. [kg/s]
+
+    **Outputs**:
+
+        ex_C_fluid: Cold exhaust side fluid. [-]
+
+        ex_C_h: Cold exhaust side enthalpy. [J/kg]
+
+        ex_C_p: Cold exhaust side pressure. [Pa]
+
+        ex_C_m_dot: Cold exhaust side mass flow rate. [kg/s]
+
+        ex_H_fluid: Hot exhaust side fluid. [-]
+
+        ex_H_h: Hot exhaust side enthalpy. [J/kg]
+
+        ex_H_p: Hot exhaust side pressure. [Pa]
+
+        ex_H_m_dot: Hot exhaust side mass flow rate. [kg/s]
+
+        Q_dot: Heat Exchanger's duty. [W]
+    """
+
     def __init__(self):
         super().__init__()
         self.su_C = MassConnector() # Working fluid supply
@@ -141,12 +212,10 @@ class HXPinchCst(BaseComponent):
         
         if P_ev > PropsSI("PCRIT", self.su_C.fluid):
             P_ev = PropsSI("PCRIT", self.su_C.fluid) - 1000
-                        
         # Get the temperature of the evaporator based on the pressure and quality
         # Vapor zone
         
         T_sat_ev = PropsSI('T', 'P', P_ev, 'Q', 0.5, self.su_C.fluid)
-
         self.T_sat_ev = T_sat_ev
         self.su_C.p = P_ev
         
