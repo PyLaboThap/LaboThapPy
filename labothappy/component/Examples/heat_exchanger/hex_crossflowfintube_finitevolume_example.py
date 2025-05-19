@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from connector.mass_connector import MassConnector
 from CoolProp.CoolProp import PropsSI
 from toolbox.geometries.heat_exchanger.geometry_tube_and_fins_hx import CFTubeAndFinsGeom
-from component.heat_exchanger.steady_state.finite_volumes.cross_flow_tube_and_fins.hex_crossflowfintube_finitevolume import CrossFlowTubeAndFinsHTX
+from component.heat_exchanger.hex_crossflowfintube_finitevolume import CrossFlowTubeAndFinsHTX
 
 "--------- 1) Data ------------------------------------------------------------------------------------------"
 
@@ -42,7 +42,7 @@ ACC.set_parameters(
     A_finned = HX_geom.A_finned, A_flow = HX_geom.A_flow, A_in_tot = HX_geom.A_in_tot, A_out_tot = HX_geom.A_out_tot, A_unfinned = HX_geom.A_unfinned, 
     B_V_tot = HX_geom.B_V_tot, Fin_OD = HX_geom.Fin_OD, Fin_per_m = HX_geom.Fin_per_m, Fin_t = HX_geom.Fin_t, Fin_type = HX_geom.Fin_type,
     Finned_tube_flag = HX_geom.Finned_tube_flag, fouling = HX_geom.fouling, h = HX_geom.h, k_fin = HX_geom.k_fin,
-    L = HX_geom.L, n_passes = HX_geom.n_passes, n_rows = HX_geom.n_rows, n_tubes = HX_geom.n_tubes, pitch = HX_geom.pitch, pitch_ratio = HX_geom.pitch_ratio,
+    L = HX_geom.L, Tube_pass = HX_geom.n_passes, n_rows = HX_geom.n_rows, n_tubes = HX_geom.n_tubes, pitch = HX_geom.pitch, pitch_ratio = HX_geom.pitch_ratio,
     T_V_tot = HX_geom.T_V_tot, tube_arrang = HX_geom.tube_arrang, Tube_cond = HX_geom.Tube_cond, Tube_L = HX_geom.Tube_L, Tube_OD = HX_geom.Tube_OD, 
     Tube_t = HX_geom.Tube_t, w = HX_geom.w, 
  
