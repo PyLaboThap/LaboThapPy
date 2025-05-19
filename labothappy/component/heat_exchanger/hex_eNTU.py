@@ -18,6 +18,8 @@ from CoolProp.CoolProp import PropsSI
 
 
 class HXeNTU(BaseComponent):
+    
+    
     def __init__(self):
         super().__init__()
         self.su_hot = MassConnector()

@@ -2,29 +2,13 @@
 """
 Created on Fri May 10 14:31:24 2024
 
-@author: Basile
+@author: Basile - Marie 
 """
 
 from connector.mass_connector import MassConnector
 from CoolProp.CoolProp import PropsSI
 from component.base_component import BaseComponent
-import numpy as np
-
-
-
-class Mixer_Geom(object):
-    
-    def __init__(self, **kwargs):
-        
-        self.n_inlet = None
-        self.V = None # Volume [m^3]
-
-    def set_parameters(self, name, **kwargs):
-        
-        if name == "DECAGONE_ACC_Mixer":
-            self.V = 2 # [m^3]
-            self.n_inlet = 2 
-            
+import numpy as np         
             
             
 class Mixer(BaseComponent):
@@ -67,26 +51,23 @@ class Mixer(BaseComponent):
 
         For each inlet stream `i` from 1 to n_inlets:
             
-        su_i_p: Suction side pressure. [Pa]
+        p_su_i: Suction side pressure. [Pa]
 
-        su_i_T: Suction side temperature. [K]
+        T_su_i: Suction side temperature. [K]
         
-        su_i_m_dot: Suction side mass flow flow rate. [kg/s]
+        m_dot_su_i: Suction side mass flow flow rate. [kg/s]
 
-        su_fluid: Working fluid [-]
+        fluid: Working fluid [-]
     
 
     **Ouputs**:
 
-        ex_p: Outlet pressure [Pa] (mean of inlet pressures)
+        p_ex: Outlet pressure [Pa] (mean of inlet pressures)
 
-        ex_h: Exhaust side specific enthalpy. [J/kg]
+        h_ex: Exhaust side specific enthalpy. [J/kg]
             
     """
 
-    class geom():
-            pass 
-        
 
     def __init__(self, n_inlets=None):
         
@@ -98,18 +79,17 @@ class Mixer(BaseComponent):
         self.solved = False
         
         "Supply"
-        
-        if n_inlets is not None:
+        if n_inlets is not None: 
             self.n_inlets = n_inlets
             
-            for i in range(n_inlets):
+            for i in range(n_inlets): # Create inlet connectors dynamically based on number of inlets
                 inlet_num = i + 1
                 setattr(self, f"su_{inlet_num}", MassConnector())
         else:
             raise ValueError("'Mixer' model requires to set a value for its 'n_inlets' input")
         
         "Exhaust"
-        self.ex = MassConnector()
+        self.ex = MassConnector() # Create single exhaust connector
 
                 
 #%%    
@@ -120,10 +100,10 @@ class Mixer(BaseComponent):
         Required inputs for the Mixer:
         
             For each inlet i:
-                - su_i_T or su_i_h : Inlet temperature or specific enthalpy [K or J/kg]
-                - su_i_p           : Inlet pressure [Pa]
-                - su_i_fluid       : Inlet fluid [-]
-                - su_i_m_dot       : Inlet mass flow rate [kg/s]
+                - T_su_i or h_su_i : Inlet temperature or specific enthalpy [K or J/kg]
+                - p_su_i          : Inlet pressure [Pa]
+                - fluid_su_i       : Inlet fluid [-]
+                - m_dot_su_i       : Inlet mass flow rate [kg/s]
         """
 
         self.sync_inputs()
@@ -189,10 +169,7 @@ class Mixer(BaseComponent):
         Geometry Parameters depend on specific geometry python files.
         
         """
-
-        general_parameters = ['n_inlets']
-        
-        return general_parameters 
+        return ['n_inlets'] 
 
     
     
@@ -232,7 +209,18 @@ class Mixer(BaseComponent):
         return True
 
     def solve(self):
+        """
+        Solves the mixer by performing an enthalpy balance across inlets.
         
+        Checks for:
+            - Same fluid in all inlets
+            - Pressure consistency across inlets
+        
+        Sets:
+            - Outlet pressure as mean of inlet pressures
+            - Outlet enthalpy as mass-weighted average
+            - Outlet mass flow rate as sum of all inlet flow rates
+        """
                 
         self.check_calculable()
         self.check_parametrized()
@@ -265,7 +253,7 @@ class Mixer(BaseComponent):
             else:
                 raise ValueError(f"Missing enthalpy or temperature/pressure for inlet {inlet_num}")
                 
-        
+        # Final enthalpy and pressure computation
         mean_h = mean_h/(sum(m_dot))
         mean_p = np.mean(pressures)
         
@@ -285,8 +273,6 @@ class Mixer(BaseComponent):
         else:
             raise ValueError("Mixing different fluids in 'Mixer'")
 
-        
-        
         return
     
     
