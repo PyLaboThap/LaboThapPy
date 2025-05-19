@@ -1,4 +1,5 @@
-from labothappy.component.volumetric_machine.compressor.compressor_semi_empirical import CompressorSE
+import __init__
+from component.compressor.compressor_semi_empirical import CompressorSE
 
 "Example of the semi-empirical model compressor component"
 # Inputs: N_rot, T_amb, P_su, h_su, P_ex, fluid 
@@ -43,11 +44,11 @@ compressor.set_parameters(
 "Second case: N_rot known and m_dot unknown"
 #-------------------------------------------------------------------------------------------#
 "Specify N_rot as an input"
-compressor.set_parameters(
-    AU_amb=9.96513290e+00, AU_su_n=1.02359773e+01, AU_ex_n=2.24133147e+00, d_ex=1.82304791e-02, m_dot_n=0.1, 
-    A_leak=3.66336680e-07, W_dot_loss_0=9.05482168e-01, alpha=3.22395090e-03, C_loss=1.11169710e-061, rv_in=1.7,
-    V_s=1.17889079e-04, mode = 'N_rot'
-)
+# compressor.set_parameters(
+#     AU_amb=9.96513290e+00, AU_su_n=1.02359773e+01, AU_ex_n=2.24133147e+00, d_ex=1.82304791e-02, m_dot_n=0.1, 
+#     A_leak=3.66336680e-07, W_dot_loss_0=9.05482168e-01, alpha=3.22395090e-03, C_loss=1.11169710e-061, rv_in=1.7,
+#     V_s=1.17889079e-04, mode = 'N_rot'
+# )
 
 "1. Inputs set through connectors"
 # Set properties for su connector

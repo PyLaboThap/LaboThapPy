@@ -22,17 +22,15 @@ Turb.set_parameters(
     N_turb_rated=1500,
     turb_voltage=400,
     turb_phases=3,
-    eta_max_motor=95,
+    eta_max_motor=0.95,
     W_dot_el_rated=2e6,
-    eta_m=50,
+    eta_m=0.95,
     eta_is_coefs=[0.1] * 10,
     eta_is_coefs_red=[0.1] * 10,
     A_th=0.05,
 )
 
-for i in range(
-    len(p_in)
-):  # Loop for model flowrate verification (verify the input vs the ouput flowrate)
+for i in range(len(p_in)):  # Loop for model flowrate verification (verify the input vs the ouput flowrate)
 
     "Set inputs"
     Turb.set_inputs(

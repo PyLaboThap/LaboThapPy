@@ -150,7 +150,7 @@ class CrossFlowTubeAndFinsHTX(BaseComponent):
                                 'B_V_tot', 'Fin_OD', 'Fin_per_m', 'Fin_t', 'Fin_type',
                                 'Finned_tube_flag', 'L', 'T_V_tot', 'Tube_L', 'Tube_OD',
                                 'Tube_cond', 'Tube_t', 'fouling', 'h', 'k_fin',
-                                'n_passes', 'n_rows', 'n_tubes', 'pitch', 'pitch_ratio', 'tube_arrang',
+                                'Tube_pass', 'n_rows', 'n_tubes', 'pitch', 'pitch_ratio', 'tube_arrang',
                                 'w','Fin_Side']
         
         return general_parameters + geometry_parameters

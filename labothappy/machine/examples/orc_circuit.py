@@ -1,21 +1,22 @@
+import __init__
+
 from machine.circuit import Circuit
 from CoolProp.CoolProp import PropsSI
 
 from connector.mass_connector import MassConnector
 
-from component.heat_exchanger.steady_state.moving_boundary.charge_sensitive.simulation_model_elise_2 import HeatExchangerMB
-from component.heat_exchanger.steady_state.moving_boundary.charge_sensitive.modules.geometry_plate_hx_swep import PlateGeomSWEP
-from labothappy.component.volumetric_machine.expander.steady_state.semi_empirical.expander_semi_empirical import ExpanderSE
-from component.volumetric_machine.pump.steady_state.polynomial_efficiency.simulation_model_Pout import PumpPolyEff
+from component.heat_exchanger.hex_MB_charge_sensitive import HeatExchangerMB
+from toolbox.geometries.heat_exchanger.geometry_plate_hx_swep import PlateGeomSWEP
+from component.expander.expander_semi_empirical import ExpanderSE
+from component.pump.pump_similarity_laws import PumpSimilarityLaws
 from component.tank.spliter.simulation_model import Spliter
-from component.tank.mixer.simulation_model import Mixer
-
+from component.tank.tank_mixer import Mixer
 
 #%% DEFINE MODELS
 
 if __name__ == "__main__":
 
-    case_study = 'Recuperator' # 'Recuperator' or 'Simple'    
+    case_study = 'Simple' # 'Recuperator' or 'Simple'    
 
     if case_study == 'Simple':
         ORC = Circuit('R1233zd(E)')
@@ -29,7 +30,7 @@ if __name__ == "__main__":
         Mixer_expander = Mixer(n_inlets = 3)
         
         Condenser = HeatExchangerMB('Plate')
-        Pump = PumpPolyEff()
+        Pump = PumpSimilarityLaws()
         Evaporator = HeatExchangerMB('Plate')
     
     #%% CONDENSER PARAMETERS
@@ -85,17 +86,17 @@ if __name__ == "__main__":
         N_exp = 6000
         T_amb = 293
     
-        Expander_1.set_parameters(AU_amb=8.33758799e+00, AU_su_n=6.67152053e-01, AU_ex_n=3.21181352e+01, d_su1=6.31789061e-03, m_dot_n=0.1, 
+        Expander_1.set_parameters(AU_amb=8.33758799e+00, AU_su_n=6.67152053e-01, AU_ex_n=3.21181352e+01, d_su1=6.31789061e-03, m_dot_n=0.1, mode = "N_rot",
                     A_leak=1.00000000e-10, W_dot_loss_0=8.19123951e-01, alpha= 7.79756524e-02, C_loss=4.68294054e-01, rv_in=1.7, V_s=0.0000712)
     
         Expander_1.set_inputs(N_rot=N_exp, T_amb=T_amb)
     
-        Expander_2.set_parameters(AU_amb=8.33758799e+00, AU_su_n=6.67152053e-01, AU_ex_n=3.21181352e+01, d_su1=6.31789061e-03, m_dot_n=0.1, 
+        Expander_2.set_parameters(AU_amb=8.33758799e+00, AU_su_n=6.67152053e-01, AU_ex_n=3.21181352e+01, d_su1=6.31789061e-03, m_dot_n=0.1, mode = "N_rot",
                     A_leak=1.00000000e-10, W_dot_loss_0=8.19123951e-01, alpha= 7.79756524e-02, C_loss=4.68294054e-01, rv_in=1.7, V_s=0.0000712)
     
         Expander_2.set_inputs(N_rot=N_exp, T_amb=T_amb)
         
-        Expander_3.set_parameters(AU_amb=8.33758799e+00, AU_su_n=6.67152053e-01, AU_ex_n=3.21181352e+01, d_su1=6.31789061e-03, m_dot_n=0.1, 
+        Expander_3.set_parameters(AU_amb=8.33758799e+00, AU_su_n=6.67152053e-01, AU_ex_n=3.21181352e+01, d_su1=6.31789061e-03, m_dot_n=0.1, mode = "N_rot",
                     A_leak=1.00000000e-10, W_dot_loss_0=8.19123951e-01, alpha= 7.79756524e-02, C_loss=4.68294054e-01, rv_in=1.7, V_s=0.0000712)
     
         Expander_3.set_inputs(N_rot=N_exp, T_amb=T_amb)
@@ -185,7 +186,7 @@ if __name__ == "__main__":
         
         Condenser = HeatExchangerMB('Plate')
         Recuperator = HeatExchangerMB('Plate')
-        Pump = PumpPolyEff()
+        Pump = PumpSimilarityLaws()
         Evaporator = HeatExchangerMB('Plate')
     
     #%% CONDENSER PARAMETERS

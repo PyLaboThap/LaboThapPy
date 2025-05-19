@@ -1,10 +1,11 @@
 Compressor
 ========
 
-The compressor models are composed of volumetric machines as well as turbines.
+This section describes the compressor models available in LaboThApPy. The term 'compressor' includes both turbomachinery and 
+volumetric machines.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
-   constant_isentropic_efficiency_doc.results
-   semi_empirical_doc.rst
+   compressor_models/compressor_csteff.rst
+   compressor_models/compressor_semi_empirical.rst

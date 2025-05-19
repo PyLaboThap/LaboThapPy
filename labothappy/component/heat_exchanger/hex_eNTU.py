@@ -6,7 +6,6 @@ Created on Tue Jul 30 14:32:39 2024
 """
 
 from component.base_component import BaseComponent
-# from component.heat_exchanger.steady_state.epsilon_NTU.modules.pipe_HTC import Gnielinski_Pipe_HTC
 
 from correlations.convection.pipe_htc import gnielinski_pipe_htc 
 from toolbox.geometries.heat_exchanger.e_NTU import e_NTU
@@ -16,9 +15,7 @@ from connector.work_connector import WorkConnector
 from connector.heat_connector import HeatConnector
 
 from CoolProp.CoolProp import PropsSI
-from scipy.optimize import fsolve
-import numpy as np
-import time
+
 
 class HXeNTU(BaseComponent):
     def __init__(self):
@@ -112,10 +109,6 @@ class HXeNTU(BaseComponent):
 
         print("======================")
 
-#%%
-    
-
-    
     def solve(self):
         self.check_calculable()
         self.check_parametrized()
@@ -146,8 +139,8 @@ class HXeNTU(BaseComponent):
             G_c = self.su_cold.m_dot/self.params['A_canal_c']
             
                 
-            h_h = gnielinski_pipe_htc(mu_h, Pr_h, Pr_h, k_h, G_h, self.params['D_h'], self.params['L_HTX'])
-            h_c = gnielinski_pipe_htc(mu_c, Pr_c, Pr_c, k_c, G_c, self.params['D_h'], self.params['L_HTX'])
+            h_h = gnielinski_pipe_htc(mu_h, Pr_h, Pr_h, k_h, G_h, self.params['D_h'], self.params['L_HTX'])[0]
+            h_c = gnielinski_pipe_htc(mu_c, Pr_c, Pr_c, k_c, G_c, self.params['D_h'], self.params['L_HTX'])[0]
                         
             AU = (1/(self.params['A_htx']*h_h) + 1/(self.params['A_htx']*h_c) + self.params['t_plate']/(self.params['k_plate']*self.params['A_htx']) + self.params['fouling']/self.params['A_htx'])**(-1)         
 

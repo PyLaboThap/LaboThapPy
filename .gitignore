@@ -17,3 +17,7 @@ __pycache__/
 # Confidential codes
 c_*.py
 geometry*.py
+
+# Ignore Spyder Workspaces
+*.bak
+*.spyproject
