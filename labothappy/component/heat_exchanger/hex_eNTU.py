@@ -19,6 +19,76 @@ from CoolProp.CoolProp import PropsSI
 
 class HXeNTU(BaseComponent):
     
+    """
+    Component: Heat Exchanger
+
+    Model: ε-NTU (Effectiveness - Number of Transfer Units) method.
+
+    **Description**:
+
+        This component models a heat exchanger using the ε-NTU method, a widely used approach for estimating heat transfer performance 
+        in steady-state conditions when outlet temperatures are not known a priori. It calculates heat transfer based on fluid properties, 
+        flow configuration, and geometry using thermal resistances and heat transfer correlations.
+
+        The model is applicable to various geometries (e.g., pipe-type, plate-type) and requires fluid and geometric properties. 
+        The thermal effectiveness is computed via an external ε-NTU correlation, which supports multiple flow configurations 
+        (e.g., CounterFlow, ParallelFlow, CrossFlow).
+
+    **Assumptions**:
+
+        - Steady-state operation.
+        - No heat loss to the environment.
+        - No pressure drop considered (isenthalpic mixing assumed).
+        - Thermophysical properties are evaluated at average temperatures.
+        - No phase change within the exchanger.
+
+    **Connectors**:
+
+        su_hot (MassConnector): Hot fluid inlet connector.
+        su_cold (MassConnector): Cold fluid inlet connector.
+        ex_hot (MassConnector): Hot fluid outlet connector.
+        ex_cold (MassConnector): Cold fluid outlet connector.
+        Q_dot (HeatConnector): Connector for total heat transfer rate.
+
+    **Parameters**:
+            
+        Flow_Type : Flow configuration of the fluid ('CounterFlow', 'CrossFlow', 'Shell&Tube', 'ParallelFlow') [-]
+        A_htx: Total heat exchange area [m²]
+        L_HTX: Length of the heat exchanger [m]
+        V_HTX: Volume of the heat exchanger [m³]
+        A_canal_H: Cross-sectional area of hot fluid channels [m²]
+        A_canal_C: Cross-sectional area of cold fluid channels [m²]
+        D_h: Hydraulic diameter [m]
+        k_plate: Thermal conductivity of the separating plate [W/m.K]
+        t_plate: Thickness of the separating plate [m]
+        n_plates: Number of plates [-]
+        co_pitch: Plate corrugation pitch [m]
+        chevron_angle: Plate chevron angle [degrees]
+        fouling: Fouling resistance [m².K/W]
+
+    **Inputs**:
+
+        T_su_H: Hot fluid inlet temperature [K]
+        p_su_H: Hot fluid inlet pressure [Pa]
+        h_su_H: Hot fluid inlet enthalpy [J/kg]
+        fluid_su_H: Hot fluid identifier [-]
+        m_dot_su_H: Hot fluid mass flow rate [kg/s]
+
+        T_su_C: Cold fluid inlet temperature [K]
+        p_su_C: Cold fluid inlet pressure [Pa]
+        h_su_C: Cold fluid inlet enthalpy [J/kg]
+        fluid_su_C: Cold fluid identifier [-]
+        m_dot_su_C: Cold fluid mass flow rate [kg/s]
+
+    **Outputs**:
+
+        h_ex_H: Hot fluid outlet enthalpy [J/kg]
+        p_ex_H: Hot fluid outlet pressure [Pa]
+        h_ex_C: Cold fluid outlet enthalpy [J/kg]
+        p_ex_C: Cold fluid outlet pressure [Pa]
+        Q_dot: Heat transfer rate [W]
+"""
+    
     
     def __init__(self):
         super().__init__()
@@ -83,6 +153,7 @@ class HXeNTU(BaseComponent):
         return ['Hsu_p', 'Hsu_T', 'Hsu_m_dot', 'Hsu_fluid', 'Csu_p', 'Csu_T', 'Csu_m_dot', 'Csu_fluid']
 
     def get_required_parameters(self):
+        """ Returns the list of required parameters to describe the geometry and physical configuration """
         return ['A_htx', 'L_HTX', 'V_HTX', 'Flow_Type',
                 'A_canal_h', 'A_canal_c', 'D_h',
                 'k_plate', 't_plate', 'n_plates',
@@ -124,41 +195,43 @@ class HXeNTU(BaseComponent):
             cp_h = PropsSI('C', 'H', self.su_hot.h, 'P', self.su_hot.p, self.su_hot.fluid)
             cp_c = PropsSI('C', 'H', self.su_cold.h, 'P', self.su_cold.p, self.su_cold.fluid)
             
-            C_h = cp_h*self.su_hot.m_dot
+            C_h = cp_h*self.su_hot.m_dot #Heat capacity rate
             C_c = cp_c*self.su_cold.m_dot
             
             C_min = min(C_h, C_c)
             C_max = max(C_h, C_c)
-            C_r = C_min/C_max
+            C_r = C_min/C_max # Heat capacity ratio
                         
             # Calcul de NTU
             T_w = (self.su_hot.T + self.su_cold.T)/2
             
+            # --- Heat transfer coefficient estimation using Gnielinski correlation ---
             mu_h, Pr_h, k_h = PropsSI(('V','PRANDTL','L'), 'H', self.su_hot.h, 'P', self.su_hot.p, self.su_hot.fluid)
             mu_c, Pr_c, k_c = PropsSI(('V','PRANDTL','L'), 'H', self.su_cold.h, 'P', self.su_cold.p, self.su_cold.fluid)
             
             G_h = self.su_hot.m_dot/self.params['A_canal_h']
             G_c = self.su_cold.m_dot/self.params['A_canal_c']
             
-                
-            h_h = gnielinski_pipe_htc(mu_h, Pr_h, Pr_h, k_h, G_h, self.params['D_h'], self.params['L_HTX'])
-            h_c = gnielinski_pipe_htc(mu_c, Pr_c, Pr_c, k_c, G_c, self.params['D_h'], self.params['L_HTX'])
-                        
+            
+            h_h = gnielinski_pipe_htc(mu_h, Pr_h, Pr_h, k_h, G_h, self.params['D_h'], self.params['L_HTX'])[0]
+            h_c = gnielinski_pipe_htc(mu_c, Pr_c, Pr_c, k_c, G_c, self.params['D_h'], self.params['L_HTX'])[0]
+
+            # --- Global heat transfer coefficient (AU)  ---
             AU = (1/(self.params['A_htx']*h_h) + 1/(self.params['A_htx']*h_c) + self.params['t_plate']/(self.params['k_plate']*self.params['A_htx']) + self.params['fouling']/self.params['A_htx'])**(-1)         
 
             NTU = AU/C_min
                         
-            # epsilon NTU 
-            
+            # --- Calculate effectiveness from NTU correlation ---
             eps = e_NTU(NTU, C_r, self.params)
 
                         
-            # Calcul de Q
+            # --- Estimate maximum heat transfer Q(ideal case with infinite area) ---
             h_c_Th = PropsSI('H','T',self.su_hot.T,'P',self.su_cold.p,self.su_cold.fluid)
             h_h_Tc = PropsSI('H','T',self.su_cold.T,'P',self.su_hot.p,self.su_hot.fluid)
             
             DH_pc_c = PropsSI('H','Q',1,'P',self.su_cold.p,self.su_cold.fluid) - PropsSI('H','Q',0,'P',self.su_cold.p,self.su_cold.fluid)
 
+            # Special case for incompressibles
             if "INCOMP" not in self.su_hot.fluid:
                 DH_pc_h = PropsSI('H','Q',1,'P',self.su_hot.p,self.su_hot.fluid) - PropsSI('H','Q',0,'P',self.su_hot.p,self.su_hot.fluid)
             else:
@@ -169,9 +242,9 @@ class HXeNTU(BaseComponent):
                         
             Qmax = min(Qmax_c, Qmax_h)
             
-            Q = eps*Qmax
+            Q = eps*Qmax  # Actual heat exchanged
 
-            # Exhaust conditions 
+            # --- Set exhaust states (new enthalpies) and link to connectors ---
             self.ex_hot.set_properties(H = self.su_hot.h - Q/self.su_hot.m_dot, fluid = self.su_hot.fluid, m_dot = self.su_hot.m_dot, P = self.su_hot.p)
             self.ex_cold.set_properties(H = self.su_cold.h + Q/self.su_cold.m_dot, fluid = self.su_cold.fluid, m_dot = self.su_cold.m_dot, P = self.su_cold.p)
 
