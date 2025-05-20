@@ -34,15 +34,19 @@ class HXPinchCst(BaseComponent):
     Component: Heat Exchanger with constant pinch point.
 
     **Description**:
-        Simulates a pump using head and power performance curves (vs flow and speed).
-        Uses the similarity laws to calculate the pump performance at different speeds.
+    
+        Simulates a Heat Exchanger with a constant pinch point.
+        The Pinch Point is understood as being the location on the heat exchanger length where
+        the temperature difference between the hot and the cold fluid is minimal.
 
     **Assumptions**:
+
         - Steady-state operation
         - No pressure drops considered
         - No loss to the ambient considered.
 
     **Connectors**:
+
         su_H (MassConnector): Mass connector for the hot suction side.
         su_C (MassConnector): Mass connector for the cold suction side.
 
@@ -79,23 +83,15 @@ class HXPinchCst(BaseComponent):
 
     **Outputs**:
 
-        ex_C_fluid: Cold exhaust side fluid. [-]
-
         ex_C_h: Cold exhaust side enthalpy. [J/kg]
 
         ex_C_p: Cold exhaust side pressure. [Pa]
-
-        ex_C_m_dot: Cold exhaust side mass flow rate. [kg/s]
-
-        ex_H_fluid: Hot exhaust side fluid. [-]
 
         ex_H_h: Hot exhaust side enthalpy. [J/kg]
 
         ex_H_p: Hot exhaust side pressure. [Pa]
 
-        ex_H_m_dot: Hot exhaust side mass flow rate. [kg/s]
-
-        Q_dot: Heat Exchanger's duty. [W]
+        Q_dot: Heat Exchanger's heat duty. [W]
     """
 
     def __init__(self):
