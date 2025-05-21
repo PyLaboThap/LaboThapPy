@@ -101,6 +101,7 @@ class BaseComponent:
                 self.Q_amb.set_T_cold(self.inputs['T_amb'])
         except:
             pass
+        return
 
     def sync_inputs(self):
         """Synchronize the inputs dictionary with the connector states."""
@@ -132,6 +133,7 @@ class BaseComponent:
                 self.inputs['T_amb'] = self.Q_amb.T_cold
         except:
             pass
+        return
 
     def print_setup(self):
         self.sync_inputs()

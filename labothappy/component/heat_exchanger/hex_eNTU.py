@@ -8,7 +8,7 @@ Created on Tue Jul 30 14:32:39 2024
 from component.base_component import BaseComponent
 
 from correlations.convection.pipe_htc import gnielinski_pipe_htc 
-from toolbox.geometries.heat_exchanger.e_NTU import e_NTU
+from correlations.heat_exchanger.e_NTU import e_NTU
 
 from connector.mass_connector import MassConnector
 from connector.work_connector import WorkConnector
