@@ -15,11 +15,11 @@ from connector.mass_connector import MassConnector
 from connector.heat_connector import HeatConnector
 
 # HTC correlations
-from component.heat_exchanger.steady_state.finite_volumes.cross_flow_tube_and_fins.modules.fins import htc_tube_and_fins
-from component.heat_exchanger.steady_state.finite_volumes.cross_flow_tube_and_fins.modules.pipe_HTC import Gnielinski_Pipe_HTC
+from correlations.convection.fins import htc_tube_and_fins
+from correlations.convection.pipe_htc import gnielinski_pipe_htc
 
 # Phase related import
-from component.heat_exchanger.steady_state.finite_volumes.cross_flow_tube_and_fins.modules.void_fraction import void_fraction
+from correlations.properties.void_fraction import void_fraction
 
 # Component base frame
 from component.base_component import BaseComponent
@@ -50,6 +50,7 @@ class CrossFlowTubeAndFinsHTX(BaseComponent):
         self.ex_C = MassConnector() # Mass_connector
         
         self.Q_dot = HeatConnector()
+        self.debug = 0
 
     #%%    
     
@@ -180,14 +181,21 @@ class CrossFlowTubeAndFinsHTX(BaseComponent):
         print("======================")
 
 #%%
-    def compute_cell(self, T_b_in, p_b_in, h_b_in, m_dot_b_in_all, T_t_in, p_t_in, h_t_in, m_dot_1_tube_in,j):    
-        
-        if j <= 1:
-            debug = 0
-        else:
-            debug = 0
+    def set_debug(self):
+        self.debug = 1
+        return
 
-        if debug:
+    def compute_cell(self, T_b_in, p_b_in, h_b_in, m_dot_b_in_all, T_t_in, p_t_in, h_t_in, m_dot_1_tube_in,j):    
+              
+        """
+        T_b_in, p_b_in, h_b_in: Inlet state of the bundle side (fin side).
+        T_t_in, p_t_in, h_t_in: Inlet state of the tube side.
+        m_dot_b_in_all: Total bundle-side mass flow.
+        m_dot_1_tube_in: Flow rate in one tube.
+        j: index for discretization segment.
+        """
+
+        if self.debug:
             print("-----------------")
             print("h_b_in",h_b_in)
             print("h_t_in",h_t_in)
@@ -213,13 +221,13 @@ class CrossFlowTubeAndFinsHTX(BaseComponent):
             A_in_one_tube = (np.pi/4)*(self.params['Tube_OD'] - 2*self.params['Tube_t'])**2
             G_1t = m_dot_1_tube_in/A_in_one_tube
 
-            if debug:
+            if self.debug:
                 print("Pr",Pr)
                 print("Pr_w",Pr_w)
                 
                 print("ratio",(Pr/Pr_w)**0.11)
                         
-            alpha_t = Gnielinski_Pipe_HTC(mu, Pr, Pr_w, k, G_1t, self.params['Tube_OD'] - self.params['Tube_t'], self.params['Tube_L'])
+            alpha_t = gnielinski_pipe_htc(mu, Pr, Pr_w, k, G_1t, self.params['Tube_OD'] - self.params['Tube_t'], self.params['Tube_L'])[0]
             
         else: # 2 phase case
             if T_b_in <= T_t_in: # Condensation
@@ -232,7 +240,7 @@ class CrossFlowTubeAndFinsHTX(BaseComponent):
         
         AU = 1/(1/(alpha_t*A_in_1_tube) + 1/(alpha_b*A_out_1_tube))
         
-        if debug == 1:
+        if self.debug == 1:
             
             print("alpha_b",alpha_b)
             print("alpha_t",alpha_t)
@@ -277,7 +285,7 @@ class CrossFlowTubeAndFinsHTX(BaseComponent):
 
         Q_dot_1_row = Q_dot_1_tube*(self.params['n_tubes']/self.params['n_rows'])
 
-        if debug == 1:
+        if self.debug == 1:
             
             print("AU", AU)
             print("C_r", C_r)
@@ -298,7 +306,7 @@ class CrossFlowTubeAndFinsHTX(BaseComponent):
         T_b_out = PropsSI('T','H',h_b_out,'P',p_b_out,self.B_su.fluid)
         T_t_out = PropsSI('T','H',h_t_out,'P',p_t_out,self.T_su.fluid)
 
-        if debug == 1:
+        if self.debug == 1:
             
             print("-----------------")
 
@@ -458,4 +466,7 @@ class CrossFlowTubeAndFinsHTX(BaseComponent):
             self.T_ex.set_p(p_out_tube)
                         
             self.solved = True
+            
+            self.print_setup()
+            
         return
