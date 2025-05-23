@@ -82,7 +82,7 @@ class ExpanderCstEff(BaseComponent):
 
             # Calculate the outlet enthalpy based on isentropic efficiency
             h_ex_is = PropsSI("H", "P", self.ex.p, "S", self.su.s, self.su.fluid)
-            h_ex = self.su.h - (self.su.h - h_ex_is) / self.params["eta_is"]
+            h_ex = self.su.h - (self.su.h - h_ex_is) * self.params["eta_is"]
             w_exp = self.su.h - h_ex
             self.ex.set_m_dot(self.su.m_dot)
             W_dot_exp = self.su.m_dot * w_exp

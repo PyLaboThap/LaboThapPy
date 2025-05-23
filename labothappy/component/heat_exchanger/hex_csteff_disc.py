@@ -37,6 +37,11 @@ class HXEffCstDisc(BaseComponent):
         self.Q_dot = HeatConnector()
         self.guesses = {}
         self.DT_pinch = -1
+        
+        self.h_hot = None
+        self.h_cold = None
+        self.T_hot = None
+        self.T_cold = None
 
     def get_required_inputs(self): # Used in check_calculablle to see if all of the required inputs are set
         self.sync_inputs()
@@ -149,11 +154,11 @@ class HXEffCstDisc(BaseComponent):
         # print("------------------------------------------------")
         
         self.Q_dot_max = min(Q_dot_maxh,Q_dot_maxc)
-                    
+        
         "Heat Transfer Rate"
-        self.Q = self.params['eta']*self.Q_dot_max    
+        self.Q = self.params['eta']*self.Q_dot_max
         Q_dot_seg = self.Q / self.params['n_disc']
-    
+        
         # Set inlet enthalpies
         self.h_hot[0] = self.su_H.h
         self.T_hot[0] = self.su_H.T
@@ -162,12 +167,12 @@ class HXEffCstDisc(BaseComponent):
         self.h_cold[0] = h_cold_out
         
         self.T_cold[0] = PropsSI('T', 'H', h_cold_out, 'P', self.su_C.p, self.su_C.fluid)
-    
+        
         for i in range(self.params['n_disc']):
             # Hot side: forward direction
             self.h_hot[i+1] = self.h_hot[i] - Q_dot_seg / self.su_H.m_dot
             self.T_hot[i+1] = PropsSI('T', 'H', self.h_hot[i+1], 'P', self.su_H.p, self.su_H.fluid)
-    
+            
             # Cold side: reverse direction
             self.h_cold[i+1] = self.h_cold[i] - Q_dot_seg / self.su_C.m_dot
             self.T_cold[i+1] = PropsSI('T', 'H', self.h_cold[i+1], 'P', self.su_C.p, self.su_C.fluid)
@@ -196,11 +201,12 @@ class HXEffCstDisc(BaseComponent):
             print("HTX IS NOT PARAMETRIZED")
             return
 
-        # Allocate arrays
-        self.h_hot = np.zeros(self.params['n_disc']+1)
-        self.h_cold = np.zeros(self.params['n_disc']+1)
-        self.T_hot = np.zeros(self.params['n_disc']+1)
-        self.T_cold = np.zeros(self.params['n_disc']+1)
+        if self.T_hot is None:
+            # Allocate arrays
+            self.h_hot = np.zeros(self.params['n_disc']+1)
+            self.h_cold = np.zeros(self.params['n_disc']+1)
+            self.T_hot = np.zeros(self.params['n_disc']+1)
+            self.T_cold = np.zeros(self.params['n_disc']+1)
 
         self.DT_pinch = -1 
 
@@ -237,6 +243,8 @@ class HXEffCstDisc(BaseComponent):
 
         "Heat conector"
         self.Q_dot.set_Q_dot(self.Q)
+
+        return
 
     def print_results(self):
         print("=== Heat Exchanger Results ===")

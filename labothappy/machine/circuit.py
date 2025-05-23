@@ -170,7 +170,7 @@ class Circuit:
             return self.value
 
     class Iteration_variable():
-        def __init__(self, target, variable, objective, objective_value, tol, rel, damping_factor):
+        def __init__(self, target, variable, objective, objective_value, tol, rel, damping_factor, cycle):
             self.target = target 
             self.variable = variable
             self.objective = objective
@@ -178,11 +178,15 @@ class Circuit:
             self.tol = tol
             self.converged = False
             self.damping_factor = damping_factor
+            self.cycle = cycle
             
             if rel == 1 or rel == -1:
                 self.rel = rel
             else:
                 raise ValueError("'rel' value for 'Iteration_variable' class shall be either 1 or -1.")
+            
+        def find_backward_path(self):
+            return
             
         def check(self, target_value, objective_connector, var):
             if abs((target_value - self.objective_value)/self.objective_value) < self.tol:
@@ -238,7 +242,7 @@ class Circuit:
         component1 = self.get_component(component1_name)
         component2 = self.get_component(component2_name)
         component1.link(output_connector, component2, input_connector)
-
+        
 #%% Source related methods
 
     def add_source(self, name, connector, next_comp, next_comp_input_port):
@@ -501,7 +505,7 @@ class Circuit:
 
         return
 
-    def set_iteration_variable(self, tol = 1e-2, target = None, variable = None, objective = None, rel = 1, damping_factor = 0.5):
+    def set_iteration_variable(self, tol = 1e-2, target = None, variable = None, objective = None, rel = 1, damping_factor = 0.5, cycle = None):
         """
         Parameters
         ----------
@@ -520,10 +524,14 @@ class Circuit:
         """
         
         if objective in self.fixed_properties:
-            it_var = Circuit.Iteration_variable(target, variable, objective, self.fixed_properties[objective].value, tol, rel, damping_factor)
+            it_var = Circuit.Iteration_variable(target, variable, objective, self.fixed_properties[objective].value, tol, rel, damping_factor, self)
             self.it_vars.append(it_var) 
         else:
-            raise ValueError(f"{objective} not part of the fixed_properties. Cannot be defined as an objective")
+            if "Link" in objective:
+                it_var = Circuit.Iteration_variable(target, variable, objective, None, tol, rel, damping_factor, self)
+                self.it_vars.append(it_var) 
+            else:
+                raise ValueError(f"{objective} not part of the fixed_properties. Cannot be defined as an non-linking objective.")
         
         return
 
@@ -787,20 +795,11 @@ class Circuit:
         return
 
     def recursive_solve(self, component_name):
-        # print(f"Recursive Solve : {component_name}")
                 
         component = self.get_component(component_name)
         component_model = component.model
 
-        # if component_name == "Evaporator":
-        #     print(component_model.su_C.T)
-        #     print(component_model.su_C.h)
-        #     print(component_model.su_C.p)
-        #     print(component_model.su_C.m_dot)
-
-        # if component_name == self.solve_start_component:
         if component_model.solved:
-            # print("Back to a solved component.")
             return
 
         component_model.check_calculable()
@@ -809,22 +808,10 @@ class Circuit:
         if component_model.parametrized:
             if component_model.calculable:        
                 component_model.solve()
-                # print(f"Component '{component_name}' solved.")
             else:
-                # print(f"Component '{component_name}' not calculable.")
                 return
         else:
             raise ValueError(f"Component '{component_name}' not parametrized.")
-        
-        if component_name == 'Mixer':
-            print(f"su_1 m_dot : {component_model.su_1.m_dot}")
-            print(f"su_2 m_dot : {component_model.su_2.m_dot}")
-
-            print(f"----------------------")
-            print(f"ex m_dot : {component_model.ex.m_dot}")
-
-            print(f"----------------------------------------------")
-
         
         for output_port in component.next:
             next_comp_name = component.next[output_port].name
@@ -873,31 +860,48 @@ class Circuit:
         while i < n_it_max:
  
             for it_var in self.it_vars:
-                obj_comp, rest = it_var.objective.split(":")
-                port, var = rest.split("-")
                 
-                if var == "SC":
-                    connector = getattr(self.components[obj_comp].model, port)
-                    T_sat = PropsSI('T', 'P', connector.p, 'Q', 0.5, connector.fluid)
+                if "Link" in it_var.objective:                    
+                    _, obj_comp_name, port_var = it_var.objective.split(":")
+                    port_name, variable = port_var.split("-")
                     
-                    if connector.T <= T_sat:
-                        SC = T_sat - connector.T               
-                        desired_value = it_var.check(SC, connector, var)
+                    connector_obj = getattr(self.components[obj_comp_name].model, port_name)
+                    value_obj = getattr(connector_obj, variable)
+                    
+                    for target in it_var.target:
+                        kwargs_dict = {'target': target,
+                                        it_var.variable : value_obj}
                         
-                        if desired_value == None:
-                            delta = 0
-                        else:
-                            target_comp, port = it_var.target[0].split(":")
-                            target_connector = getattr(self.components[target_comp].model, port)
-                            target_current_value = getattr(target_connector, it_var.variable)
-                            
-                            new_target_value = (desired_value - target_current_value)*it_var.damping_factor + target_current_value
-                            
-                            for target in it_var.target:
-                                kwargs_dict = {'target': target,
-                                                it_var.variable : new_target_value}
+                        self.set_cycle_guess(**kwargs_dict)
                         
-                                self.set_cycle_guess(**kwargs_dict)
+                    it_var.converged = True
+
+                else:
+                    obj_comp, rest = it_var.objective.split(":")
+                    port, var = rest.split("-")
+                    
+                    if var == "SC":
+                        connector = getattr(self.components[obj_comp].model, port)
+                        T_sat = PropsSI('T', 'P', connector.p, 'Q', 0.5, connector.fluid)
+                        
+                        if connector.T <= T_sat:
+                            SC = T_sat - connector.T               
+                            desired_value = it_var.check(SC, connector, var)
+                            
+                            if desired_value == None:
+                                delta = 0
+                            else:
+                                target_comp, port = it_var.target[0].split(":")
+                                target_connector = getattr(self.components[target_comp].model, port)
+                                target_current_value = getattr(target_connector, it_var.variable)
+                                
+                                new_target_value = (desired_value - target_current_value)*it_var.damping_factor + target_current_value
+                                
+                                for target in it_var.target:
+                                    kwargs_dict = {'target': target,
+                                                    it_var.variable : new_target_value}
+                            
+                                    self.set_cycle_guess(**kwargs_dict)
                             
 
             for guess in self.guesses:

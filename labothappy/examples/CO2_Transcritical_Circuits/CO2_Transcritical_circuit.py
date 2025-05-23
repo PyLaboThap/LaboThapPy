@@ -139,7 +139,7 @@ def REC_CO2_TC(HSource, CSource, eta_pp, eta_exp, eta_gh, eta_rec, PP_cd, SC_cd,
             
     # Link components
     CO2_TC.link_components("Pump", "m-ex", "Recuperator", "m-su_C")
-    CO2_TC.link_components("Recuperator", "m-ex_C", "GasHeater", "m-su_C")    
+    CO2_TC.link_components("Recuperator", "m-ex_C", "GasHeater", "m-su_C")
     CO2_TC.link_components("GasHeater", "m-ex_C", "Expander", "m-su")
     CO2_TC.link_components("Expander", "m-ex", "Recuperator", "m-su_H")
     CO2_TC.link_components("Recuperator", "m-ex_H", "Condenser", "m-su_H")
@@ -163,14 +163,20 @@ def REC_CO2_TC(HSource, CSource, eta_pp, eta_exp, eta_gh, eta_rec, PP_cd, SC_cd,
     CO2_TC.set_cycle_guess(target='Expander:su', p = P_high, T = HSource.T, m_dot = m_dot)    
     CO2_TC.set_cycle_guess(target='Expander:ex', p = P_low)
     
+    #%% ITERATION VARIABLES
+    
+    CO2_TC.set_iteration_variable(target=['Expander:ex'], variable='p', objective = 'Link:Condenser:su_H-p', tol = 1e-2, rel = 1, damping_factor = 0.2, cycle = CO2_TC)
+    
     #%% CYCLE RESIDUAL VARIABLES
     
-    CO2_TC.set_residual_variable(target='Recuperator:su_C', variable='h', tolerance= 1e-5)
-    CO2_TC.set_residual_variable(target='Recuperator:su_C', variable='p', tolerance= 1e-5)
-    CO2_TC.set_residual_variable(target='Recuperator:su_H', variable='h', tolerance= 1e-5)
-    CO2_TC.set_residual_variable(target='Recuperator:su_H', variable='p', tolerance= 1e-5)
-    CO2_TC.set_residual_variable(target='Recuperator:ex_C', variable='h', tolerance= 1e-5)
-    CO2_TC.set_residual_variable(target='Recuperator:ex_H', variable='h', tolerance= 1e-5)
+    # CO2_TC.set_residual_variable(target='Recuperator:su_C', variable='h', tolerance= 1e-5)
+    # CO2_TC.set_residual_variable(target='Recuperator:su_C', variable='p', tolerance= 1e-5)
+    # CO2_TC.set_residual_variable(target='Recuperator:su_H', variable='h', tolerance= 1e-5)
+    # CO2_TC.set_residual_variable(target='Recuperator:su_H', variable='p', tolerance= 1e-5)
+    CO2_TC.set_residual_variable(target='Expander:ex', variable='h', tolerance= 1e-5)
+    CO2_TC.set_residual_variable(target='Expander:ex', variable='h', tolerance= 1e-5)
+    # CO2_TC.set_residual_variable(target='Recuperator:ex_C', variable='p', tolerance= 1e-5)
+    # CO2_TC.set_residual_variable(target='Recuperator:ex_H', variable='p', tolerance= 1e-5)
     
     return CO2_TC
 
