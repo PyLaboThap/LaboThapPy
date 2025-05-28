@@ -1,3 +1,6 @@
+import __init__
+
+"""
 import sys
 import os
 
@@ -6,13 +9,11 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Determine the project root directory (which contains both 'connector' and 'component')
 project_root = os.path.abspath(os.path.join(current_dir, '..', '..')) 
-"""# /!\ isn't there a '..' which is too much?"""
 
 # Add the project root to sys.path if it's not already there
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-
-"""All this 1st part can be replaced by import init right? - Titouan"""
+"""
 
 #%%
 
@@ -22,7 +23,6 @@ from connector.heat_connector import HeatConnector
 
 from component.base_component import BaseComponent
 
-# from component.heat_exchanger.moving_boundary.simple_model.modules.U import U_Gnielinski_calibrated, U_DittusBoelter, U_Cooper_calibrater, U_Thonon
 
 from CoolProp.CoolProp import PropsSI
 from scipy.optimize import fsolve, root, minimize
@@ -396,16 +396,6 @@ class HXPinchCst(BaseComponent):
             try:
                 """EVAPORATOR MODEL"""
                 root(self.system_evap, x, method = 'lm', tol=1e-7)
-                # minimize(self.system_evap, x)
-            
-                # print(f"res: {self.res}")
-                # print(f"T_su: {self.su_C.T}")
-                
-                
-                # print(f"DT_1: {self.T_H_ex - self.su_C.T}")
-                # print(f"DT_2: {self.T_H_x0 - self.T_sat_ev}")
-                # print(f"DT_3: {self.T_H_x1 - self.T_sat_ev}")
-                # print(f"DT_4: {self.su_H.T - self.T_C_ex}")
                 
                 """Update connectors after the calculations"""
                 self.update_connectors()
