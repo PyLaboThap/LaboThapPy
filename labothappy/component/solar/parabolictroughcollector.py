@@ -11,7 +11,8 @@ Rémi Dickes, Vincent Lemort and Sylvain Quoilin
 
 """
 
-import component.solar.parabolic_trough.parabolictroughcollector as parabolictroughcollector
+import __init__
+#import component.solar.parabolictroughcollector as parabolictroughcollector
 from CoolProp.CoolProp import PropsSI
 import numpy as np
 from geometries.solar.parabolictrough_geometry import PT_Collector_Geom
@@ -153,7 +154,6 @@ class PT_collector(BaseComponent):
 
             return Q_dot_abs
 
-#%%
 
     def solve(self):
         self.check_calculable()

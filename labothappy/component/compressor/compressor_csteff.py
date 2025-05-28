@@ -1,3 +1,5 @@
+import __init__
+
 from component.base_component import BaseComponent
 from connector.mass_connector import MassConnector
 from connector.work_connector import WorkConnector
@@ -40,6 +42,8 @@ class CompressorCstEff(BaseComponent):
         P_ex: Exhaust side pressure. [Pa]
 
         fluid: Working fluid. [-]
+
+        m_dot: Mass flow rate of working fluid. [kg/s]
 
     **Ouputs**:
 
