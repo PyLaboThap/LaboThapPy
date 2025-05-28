@@ -8,6 +8,7 @@ import __init__
 
 # External Toolbox 
 import numpy as np
+from scipy.optimize import fsolve
 from CoolProp.CoolProp import PropsSI
 
 # Connectors
@@ -15,8 +16,15 @@ from connector.mass_connector import MassConnector
 from connector.heat_connector import HeatConnector
 
 # HTC correlations
-from correlations.convection.fins import htc_tube_and_fins
+from correlations.convection.fins_htc import htc_tube_and_fins
 from correlations.convection.pipe_htc import gnielinski_pipe_htc
+from correlations.convection.pipe_htc import horizontal_tube_internal_condensation
+from correlations.convection.pipe_htc import horizontal_flow_boiling
+
+#Pressure drop correlations
+from correlations.pressure_drop.fins_DP import DP_tube_and_fins
+from correlations.pressure_drop.pipe_DP import gnielinski_pipe_DP, Muller_Steinhagen_Heck_DP
+
 
 # Phase related import
 from correlations.properties.void_fraction import void_fraction
@@ -212,28 +220,51 @@ class CrossFlowTubeAndFinsHTX(BaseComponent):
         # Tube Bank
         self.alpha_matrix = np.zeros([2*self.params['n_rows'] + 1, self.params['n_disc'] + 1])
         alpha_b = htc_tube_and_fins(self.B_su.fluid, self.params, p_b_in, h_b_in, m_dot_b_in_all, self.params['Fin_type'])[0]
-                
-        if PropsSI('Q', 'H', h_t_in, 'P', p_t_in, self.T_su.fluid) < 0: # 1 phase case
+        
+        A_in_one_tube = (np.pi/4)*(self.params['Tube_OD'] - 2*self.params['Tube_t'])**2
+        P_in_one_tube = (np.pi)*(self.params['Tube_OD'] - 2*self.params['Tube_t'])
+        D_h_one_tube=4*A_in_one_tube/P_in_one_tube
+        G_1t = m_dot_1_tube_in/A_in_one_tube
+        x = PropsSI('Q', 'H', h_t_in, 'P', p_t_in, self.T_su.fluid)
+        
+        if x < 0: # 1 phase case
             # Tube
-            (mu, Pr, k) = PropsSI(('V','PRANDTL','L'),'H',h_t_in,'P',p_t_in,self.T_su.fluid)
-            Pr_w = PropsSI('PRANDTL','T',T_wall,'P',p_t_in,self.T_su.fluid)
+            (mu, Pr, k, rho) = PropsSI(('V','PRANDTL','L', 'D'),'H',h_t_in,'P',p_t_in,self.T_su.fluid)
+            Pr_w = PropsSI('PRANDTL','T',T_wall,'P',p_t_in,self.T_su.fluid)     
             
-            A_in_one_tube = (np.pi/4)*(self.params['Tube_OD'] - 2*self.params['Tube_t'])**2
-            G_1t = m_dot_1_tube_in/A_in_one_tube
-
             if self.debug:
                 print("Pr",Pr)
                 print("Pr_w",Pr_w)
-                
                 print("ratio",(Pr/Pr_w)**0.11)
                         
-            alpha_t = gnielinski_pipe_htc(mu, Pr, Pr_w, k, G_1t, self.params['Tube_OD'] - self.params['Tube_t'], self.params['Tube_L'])[0]
+            alpha_t = gnielinski_pipe_htc(mu, Pr, Pr_w, k, G_1t, self.params['Tube_OD'] - self.params['Tube_t'], self.params['Tube_L']/self.params['n_disc'])[0]
+            DP_t = gnielinski_pipe_DP(mu, rho, G_1t, D_h_one_tube, self.params['Tube_L']/self.params['n_disc'])
             
-        else: # 2 phase case
-            if T_b_in <= T_t_in: # Condensation
-                alpha_t = 200000
+        else: # 2 phase flow
+            P_sat = PropsSI('P', 'T', T_t_in, 'Q', 0, self.T_su.fluid)  # Pressure at saturated liquid
+            DP_t = Muller_Steinhagen_Heck_DP(self.T_su.fluid, G_1t, P_sat, x, self.params['Tube_L']/self.params['n_disc'], D_h_one_tube)           
+            if T_wall <= T_t_in: # Condensation
+                alpha_t = horizontal_tube_internal_condensation(self.T_su.fluid,self.T_su.m_dot,P_sat,h_t_in,T_wall,self.params['Tube_OD'] - self.params['Tube_t'])
             else: # Evaporation
-                alpha_t = -100
+                x_t = PropsSI('Q','P',p_t_in,'H',h_t_in,self.T_su.fluid)
+                def equation(q):
+                    alpha_t = horizontal_flow_boiling(self.T_su.fluid, G_1t, P_sat, x_t, self.params['Tube_OD'] - self.params['Tube_t'], q)
+                    AU = 1 / (1 / (alpha_t * A_in_one_tube) + 1 / (alpha_b * self.params['A_out_tot']/(self.params['n_tubes']*self.params['n_disc'])))
+                    C_b = m_dot_b_in_all*PropsSI('C','P',p_b_in,'H',h_b_in,self.B_su.fluid)
+                    C_t = 20000
+                    C_min = min(C_b, C_t)
+                    C_max = max(C_b, C_t)
+                    NTU = max(0, AU / C_min)
+                    eps = 1 - np.exp((1 / (C_min/C_max)) * NTU**0.22 * (np.exp(-(C_min/C_max) * NTU**0.78) - 1))
+                    Q_dot_max = C_min * abs(T_b_in - T_t_in)
+                    Q_dot_1_tube = Q_dot_max * eps
+                    return q - Q_dot_1_tube / (self.params['A_in_tot']/(self.params['n_tubes']*self.params['n_disc']))
+
+                q_initial_guess = 1.0
+                q_solution = fsolve(equation, q_initial_guess)[0]
+
+                # Use q_solution in place of q
+                alpha_t = horizontal_flow_boiling(self.T_su.fluid, G_1t, P_sat, x_t, self.params['Tube_OD'] - self.params['Tube_t'], q_solution)
                 
         A_out_1_tube = self.params['A_out_tot']/(self.params['n_tubes']*self.params['n_disc']) # self.geom.A_finned/(self.geom.n_tubes*self.n_disc)
         A_in_1_tube = self.params['A_in_tot']/(self.params['n_tubes']*self.params['n_disc']) # self.geom.A_unfinned/(self.geom.n_tubes*self.n_disc)
@@ -297,11 +328,16 @@ class CrossFlowTubeAndFinsHTX(BaseComponent):
         
         "3) Outlet Conditions"
         
-        h_b_out = (h_b_in*m_dot_b_in + Q_dot_1_tube)/m_dot_b_in
-        h_t_out = (h_t_in*m_dot_t_in - Q_dot_1_tube)/m_dot_t_in
-
-        p_b_out = p_b_in
-        p_t_out = p_t_in
+        if T_b_in < T_t_in: 
+            h_b_out = (h_b_in*m_dot_b_in + Q_dot_1_tube)/m_dot_b_in
+            h_t_out = (h_t_in*m_dot_t_in - Q_dot_1_tube)/m_dot_t_in
+        else:
+            h_t_out = (h_t_in*m_dot_t_in + Q_dot_1_tube)/m_dot_t_in
+            h_b_out = (h_b_in*m_dot_b_in - Q_dot_1_tube)/m_dot_b_in  
+        
+        DP_b = DP_tube_and_fins(self.B_su.fluid, self.params, p_b_in, T_b_in, m_dot_b_in)
+        p_b_out = p_b_in-DP_b
+        p_t_out = p_t_in-DP_t
 
         T_b_out = PropsSI('T','H',h_b_out,'P',p_b_out,self.B_su.fluid)
         T_t_out = PropsSI('T','H',h_t_out,'P',p_t_out,self.T_su.fluid)
@@ -331,12 +367,16 @@ class CrossFlowTubeAndFinsHTX(BaseComponent):
         
         "Compute Density"
         
-        if np.mod(i,2) == 0: 
+        if np.mod(i,2) == 0: #calculate the remainder of dividing i by 2 (to determine whether i is a odd or even number)
+        # Air-side (even index): use total volume of bundle side (B_V_tot)
             Volume = self.params['B_V_tot']/(self.params['n_disc']*(self.params['n_rows']+1))
+        #Use the total volume of the air-side divided among rows and discretization steps    
         else:
+         # Tube-side (odd index): compute based on number of tubes and tube geometry
             N_tpr = self.params['n_tubes']/self.params['n_rows']
             Tube_vol = self.params['Tube_L']*np.pi*((self.params['Tube_OD']-self.params['Tube_t'])/2)**2
             Volume = N_tpr*Tube_vol/self.params['n_disc']          
+        #Compute tube volume per segment per tube row
         
         for j in range(len(H_vec)):
             x_vec[j] = PropsSI('Q', 'H',H_vec[j],'P',P_vec[j],fluid)
@@ -398,7 +438,7 @@ class CrossFlowTubeAndFinsHTX(BaseComponent):
                     self.T_matrix[i,0] = self.T_su.T
                     self.P_matrix[i,0] = self.T_su.p
                     self.H_matrix[i,0] = self.T_su.h
-
+                    
             "------- 3) Compute Heat transfer over rows ------------------------"
             
             i = 0
@@ -433,6 +473,7 @@ class CrossFlowTubeAndFinsHTX(BaseComponent):
             
             h_out_mean_bundle = self.H_matrix[-1,:].mean()
             p_out_mean_bundle = self.P_matrix[-1,:].mean()
+            T_out_mean_bundle = self.T_matrix[-1,:].mean()
             
             if self.params['Fin_Side'] == 'C':
                 self.B_ex = self.ex_C
@@ -448,25 +489,31 @@ class CrossFlowTubeAndFinsHTX(BaseComponent):
             
             self.B_ex.set_h(h_out_mean_bundle)
             self.B_ex.set_p(p_out_mean_bundle)
+           
             
             "4.3) Outlet Conditions - Tube Side"
 
-            h_out_mean_tube = 0
             p_out_tube = self.P_matrix[1,-1]
+            #This assumes the pressure at the outlet of the first tube row represents the overall tube-side outlet pressure
+            
+            h_out_mean_tube = 0
             
             for i in range(len(self.H_matrix[:,0])-1):
                 if np.mod(i,2) == 1:
                     h_out_mean_tube = h_out_mean_tube + self.H_matrix[i,-1]
+                    
             h_out_mean_tube = h_out_mean_tube / self.params['n_rows']
+            #By assuming an homogeneous repartition of the total flow rate over the tubes
             
+                      
             self.T_ex.set_fluid(self.T_su.fluid)
             self.T_ex.set_m_dot(self.T_su.m_dot)
             
             self.T_ex.set_h(h_out_mean_tube)
             self.T_ex.set_p(p_out_tube)
-                        
+            T_out_mean_tube=self.T_ex.T
+                       
             self.solved = True
             
-            self.print_setup()
             
         return
