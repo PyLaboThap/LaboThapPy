@@ -12,7 +12,7 @@ import warnings
 
 class MassConnector:
     """
-    A class to handle and calculate fluid properties based on given state variables.
+    MassConnector is a class that handle and calculate fluid properties based on given state variables.
 
     **Attributes**:
     
@@ -56,9 +56,6 @@ class MassConnector:
 
         calculate_properties(self):
             Calculates fluid properties using CoolProp based on known variables.
-
-        is_two_phase_PT(self):
-            Determines if the current state is in the two-phase region based on temperature and pressure.
 
         set_properties(self, kwargs):
             Sets various properties of the fluid. Accepts named arguments for 'fluid', 'm_dot', 'V_dot', 'T', 'P', 'H', 'S', 'D', 'x', and 'cp'.
@@ -190,15 +187,6 @@ class MassConnector:
                 except:
                     warnings.warn("Error: This pair of inputs is not yet supported.")
     
-    def is_two_phase_PT(self):
-        if 'T' in [var[0] for var in self.variables_input] and 'P' in [var[0] for var in self.variables_input]:
-            T = self.T if self.T else [var[1] for var in self.variables_input if var[0] == 'T'][0]
-            p = self.p if self.p else [var[1] for var in self.variables_input if var[0] == 'P'][0]
-            
-            T_sat = PropsSI('T', 'P', p, 'Q', 0.5, self.fluid)
-            return T <= T_sat
-        return False
-
     def set_properties(self, **kwargs):
         for key, value in kwargs.items():
             if key.lower() == 'fluid':

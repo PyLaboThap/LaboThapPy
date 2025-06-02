@@ -1,0 +1,8 @@
+.side-by-side {
+    display: flex;
+    justify-content: space-between;
+}
+
+.side-by-side img {
+    width: 48%;
+}

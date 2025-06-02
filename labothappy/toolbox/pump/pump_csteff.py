@@ -133,6 +133,7 @@ class PumpCstEff(BaseComponent):
         self.check_parametrized()
 
         if not (self.calculable and self.parametrized):
+            print("Pump model is either not calculable or not parametrized.")
             self.solved = False
             return
 

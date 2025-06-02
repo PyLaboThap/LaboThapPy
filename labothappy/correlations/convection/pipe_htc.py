@@ -8,9 +8,11 @@ import numpy as np
 import warnings
 from CoolProp.CoolProp import PropsSI
 from scipy.optimize import fsolve
+import CoolProp.CoolProp as CP
 
 #%%
-def gnielinski_pipe_htc(mu, Pr, Pr_w, k, G, Dh, L):
+
+def gnielinski_pipe_htc(mu, Pr, mu_w, k, G, Dh, L):
     """
     Inputs
     ------
@@ -34,40 +36,44 @@ def gnielinski_pipe_htc(mu, Pr, Pr_w, k, G, Dh, L):
     regression model: An experimental study of absorption refrigeration system
     
     Syed Muhammad Ammar, Chan Woo Park
+    
+    Heat Exchanger design based on economic optiisation
+    Caputo et al.
     """
     #-------------------------------------------------------------------------
-    def gnielinski_laminar(Re, Pr, Dh, L):
-        Nu_1 = 4.364
-        Nu_2 = 1.953*(Re*Pr*Dh/L)**(1/3)
-        Nu = (Nu_1**3 + 0.6**3 + (Nu_2 - 0.6)**3)**(1/3)
+    def Stephan_Preusser(Re, Pr, Dh, L):
+        Nu_1 = 0.0677*(Re*Pr*(Dh/L)**1.33)
+        Nu_2 = 1 + 0.1*Pr*(Re*Dh/L)**(0.3)
+        Nu = 3.657 + Nu_1/Nu_2
         return Nu
-    def gnielinski_turbulent(Re, Pr):
-        f = (1.8*log10(Re) - 1.5)**(-2)
-        Nu = (((f/8)*(Re-1000)*Pr) / (1+12.7*(f/8)**(1/2) * (Pr**(2/3)-1)) )*(1 + (Dh/L)**(2/3))*(Pr/Pr_w)**(0.11)
+    def gnielinski_transition(Re, Pr):
+        f = (1.82*np.log10(Re) - 1.64)**(-2) # (1.8*log10(Re) - 1.5)**(-2)
+        Nu = (((f/8)*(Re-1000)*Pr) / (1+12.7*(f/8)**(1/2) * (Pr**(2/3)-1)) )*(1 + (Dh/L)**(2/3)) #*(Pr/Pr_w)**(0.11)
+        return Nu
+    def sieder_tate(Re, Pr):
+        Nu = 0.027*Re**0.8*Pr**(1/3)*(mu/mu_w)**0.14
         return Nu
     #-------------------------------------------------------------------------
     Re_min = 0
     Re_max = 1e06
     Re = G*Dh/mu
+
     #-------------------------------------------------------------------------
-    if Re > 1e4: #fully turbulent
+    if Re > 10000: #fully turbulent
         Pr_min = 0.1
         Pr_max = 1000
-        Nu = gnielinski_turbulent(Re, Pr)
-    elif Re < 2300: #fully laminar
+        Nu = sieder_tate(Re, Pr)
+    if Re < 2300: #fully laminar
         Pr_min = 0.6
         Pr_max = inf
-        Nu = gnielinski_laminar(Re, Pr, Dh, L)
-    else: #transition zone
+        Nu = Stephan_Preusser(Re, Pr, Dh, L)
+    else: #transition zone    
         Pr_min = 0.1
         Pr_max = 1000
-        gamma = (Re - 2300)/(1e4 - 2300)
-        Nu_lam2300 = gnielinski_laminar(2300, Pr, Dh, L)
-        Nu_turb10000 = gnielinski_turbulent(1e4, Pr)
-        Nu = (1-gamma)*Nu_lam2300 + gamma*Nu_turb10000
-    #-------------------------------------------------------------------------
+        Nu = gnielinski_transition(Re, Pr)
+        #-------------------------------------------------------------------------
     hConv = Nu*k/Dh
-    
+        
     #-------------------------------------------------------------------------
     if Re >= Re_max or Re <=Re_min:
         # warnings.warn('Gnielinski singe-phase: Out of validity range --> Re = ', Re, ' is out of [', Re_min, ' - ', Re_max, '] !!!')
@@ -76,9 +82,9 @@ def gnielinski_pipe_htc(mu, Pr, Pr_w, k, G, Dh, L):
         # warnings.warn('Gnielinski singe-phase: Out of validity range --> Re = ', Pr, ' is out of [', Pr_min, ' - ', Pr_max, '] !!!')
         warnings.warn('Gnielinski singe-phase: Prandtl Out of validity range  !!!')
     #-------------------------------------------------------------------------
-    return hConv
+    return hConv, Re, Pr
 
-def pipe_internal_DP(mu, rho, m_dot, params):
+def dittus_boetler_heating(mu, Pr, k, G, Dh):
     """
     Inputs
     ------
@@ -93,31 +99,56 @@ def pipe_internal_DP(mu, rho, m_dot, params):
     Outputs
     -------
     
-    DP : Pipe pressure drop [Pa]
+    h : Convection [W/(m^2 * K)]
     
     Reference
     ---------
-    ?
+    Incropera's Foundation of heat transfer
     """
-    
-    A_in_1_tube = np.pi*(params["Tube_OD"] - 2*params["Tube_t"])**2 / 4
-    A_in_tubes = A_in_1_tube*params["n_tubes"]
-
-    G = m_dot/A_in_tubes
 
     # Reynolds number
-    Re = G*(params["Tube_OD"] - 2*params["Tube_t"])/mu
+    Re = G*Dh/mu
     
-    # Flow speed
-    u = G/rho
+    # Nusselt number
+    Nu = 0.023*Re**0.8 * Pr**(0.4)
     
-    # Friction coefficient
-    f = (1.8*log10(Re) - 1.5)**(-2)
+    # HTC 
+    h = Nu*k/Dh
     
-    # Pressure drop (Np : number of passes)
-    DP = (4*f*params["Tube_L"]*params["Tube_pass"]/params["Tube_OD"] + 4*params["Tube_pass"])*rho*(u**2)/2
+    return h
+
+def dittus_boetler_cooling(mu, Pr, k, G, Dh):
+    """
+    Inputs
+    ------
     
-    return DP
+    mu   : Dynamic Viscosity [Pa*s]
+    Np   : Number of tube passes [-]
+    rho  : Density [kg/m^3]
+    G    : Flow rate per cross section area [kg/(m^2 * s)]
+    Dh   : Hydraulic diameter [m]
+    L    : Flow length [m]
+    
+    Outputs
+    -------
+    
+    h : Convection [W/(m^2 * K)]
+    
+    Reference
+    ---------
+    Incropera's Foundation of heat transfer
+    """
+
+    # Reynolds number
+    Re = G*Dh/mu
+    
+    # Nusselt number
+    Nu = 0.023*Re**0.8 * Pr**(0.3)
+    
+    # HTC 
+    h = Nu*k/Dh
+    
+    return h
 
 def horizontal_tube_internal_condensation(fluid,m_dot,P_sat,h_in,T_w,D_in):
     """
@@ -163,7 +194,7 @@ def horizontal_tube_internal_condensation(fluid,m_dot,P_sat,h_in,T_w,D_in):
     k_l = PropsSI('L','Q',0,'P',P_sat,fluid)
     rho_l = PropsSI('D','Q',0,'P',P_sat,fluid)
     cp_l = PropsSI('C','Q',0,'P',P_sat,fluid)
-    Pr_l = PropsSI('PRANDTL', 'Q',0,'P',P_sat,fluid)
+    Pr_l = PropsSI('PRANDTL','Q',0,'P',P_sat,fluid)
 
     if Re_v <= 35000: # Low speed vapor flow
         # Dobson and Chato
@@ -184,7 +215,7 @@ def horizontal_tube_internal_condensation(fluid,m_dot,P_sat,h_in,T_w,D_in):
         
     return h
 
-def horizontal_tube_internal_boiling(fluid,Q_act,A,m_dot,P_sat,h_in,T_w,D_in,L):
+def steiner_taborek_internal_boiling(fluid,Q_act,A,m_dot,P_sat,h_in,T_w,D_in,L):
     """
     Inputs
     ------
@@ -294,6 +325,344 @@ def horizontal_tube_internal_boiling(fluid,Q_act,A,m_dot,P_sat,h_in,T_w,D_in,L):
         h_tp = ((h_nb_o*F_nb)**3 + (h_L*F_tp)**3)**(1/3)
 
     return h_tp
+
+def horizontal_flow_boiling(fluid, G, P_sat, x, D_in, q):
+    """
+    Inputs
+    ------
+    
+    fluid : fluid name [-]
+    G     : Flowrate per area unit [kg/(m**2 * s)]
+    P_sat : Saturation pressure [Pa]
+    x     : Vapor mass fraction [-]
+    D_in  : Pipe internal diameter [m]
+    q     : Heat flux [W/(m**2 * K)]
+
+    Outputs
+    -------
+    
+    alpha : Evaporation heat transfer coefficient [W/(m^2 * K)]
+    
+    Reference
+    ---------
+    VDI Heat Atlas 2010 
+    """
+    
+    if fluid == 'Helium' or fluid == "He":
+        q_0 = 1000
+    elif fluid == 'H2' or fluid == 'N2' or fluid == 'Neon' or fluid == 'Air' or fluid == 'O2' or fluid == 'Ar':
+        q_0 = 10000
+    elif fluid == 'Hydrogen' or fluid == 'Nitrogen' or fluid == 'Neon' or fluid == 'Air' or fluid == 'Oxygen' or fluid == 'Argon':
+        q_0 = 10000
+    elif fluid == 'H2O' or fluid == 'NH3' or fluid == 'CO2' or fluid == 'SF6':
+        q_0 = 150000
+    elif fluid == 'Water' or fluid == 'Ammonia':
+        q_0 = 150000
+    else:
+        q_0 = 20000
+    
+    a_0_dict = {
+        # Substances with their corresponding formulas
+        "Methane": 8060, "CH4": 8060,
+        "Ethane": 5210, "C2H6": 5210,
+        "Propane": 4000, "C3H8": 4000,
+        "n-Butane": 3300, "C4H10": 3300,
+        "n-Pentane": 3070, "C5H12": 3070,
+        "Cyclopentane": 3070,
+        "Isopentane": 2940,
+        "n-Hexane": 2840, "C6H14": 2840,
+        "n-Heptane": 2420, "C7H16": 2420,
+        "Cyclohexane": 2420, "C6H12": 2420,
+        "Benzene": 2730, "C6H6": 2730,
+        "Toluene": 2910, "C7H8": 2910,
+        "Diphenyl": 2030, "C12H10": 2030,
+        "Methanol": 2770, "CH4O": 2770,
+        "Ethanol": 3690, "C2H6O": 3690,
+        "n-Propanol": 3170, "C3H8O": 3170,
+        "Isopropanol": 2920, "C3H8O": 2920,
+        "n-Butanol": 2750, "C4H10O": 2750,
+        "Isobutanol": 2940, "C4H10O": 2940,
+        "Acetone": 3270, "C3H6O": 3270,
+        "R11": 2690, "CCl3F": 2690,
+        "R12": 3290, "CCl2F2": 3290,
+        "R13": 3910, "CClF3": 3910,
+        "CBrF3": 3380,
+        "R22": 3930, "CHClF2": 3930,
+        "R23": 4870, "CHF3": 4870,
+        "R113": 2180, "C2Cl3F3": 2180,
+        "R114": 2460, "C2Cl2F4": 2460,
+        "R115": 2890, "C2ClF5": 2890,
+        "R123": 2600, "C2H2Cl2F3": 2600,
+        "R134a": 3500, "C2H2F4": 3500,
+        "R152a": 4000, "C2H4F2": 4000,
+        "R226": 3700, "C3HClF6": 3700,
+        "R227": 3800, "C3HF7": 3800,
+        "RC318": 2710, "C4F8": 2710,
+        "R502": 2900, "CHClF2" : 2900, "C2F5Cl": 2900,
+        "Chloromethane": 4790, "CH3Cl": 4790,
+        "Tetrachloromethane": 2320, "CCl4": 2320,
+        "Tetrafluoromethane": 4500, "CF4": 4500,
+        "Helium": 1990, "He": 1990,
+        "Hydrogen": 12220, "H2": 12220,
+        "Neon": 8920, "Ne": 8920,
+        "Nitrogen": 4380, "N2": 4380,
+        "Argon": 3870, "Ar": 3870,
+        "Oxygen": 4120, "O2": 4120,
+    } # W/(m**2 * K)
+    
+    a_0 = a_0_dict[fluid]
+        
+    AS = CP.AbstractState("BICUBIC&HEOS", fluid)
+
+    P_crit = AS.p_critical()    
+    P_01 = 0.1*P_crit
+
+    # Clamp x early
+    x = min(max(x, 0), 1)
+    
+    # Liquid state
+    AS.update(CP.PQ_INPUTS, P_01, 0)
+    MM_fluid = AS.molar_mass()
+    rho_l_01 = AS.rhomass()
+    h_l_01 = AS.hmass()
+    
+    # Vapor state
+    AS.update(CP.PQ_INPUTS, P_01, 1)
+    h_v_01 = AS.hmass()
+    rho_v_01 = AS.rhomass()
+    
+    if fluid == 'R134a':
+        sigma_01 = 0.010449499360652493
+    else:
+        sigma_01 = PropsSI('I', 'P', P_01, 'Q', 0.5, fluid)
+    
+    # n exponent
+    P_star = P_sat/P_crit
+    n = 0.9 - 0.36*P_star**0.13
+    
+    # Factor depending on the fluid molar mass
+    MM_H2 = 0.00201588 # H2 Molar mass
+    C_F = 0.789*(MM_fluid/MM_H2)**0.11
+    
+    # F_p : Contribution of pressure
+    F_p = 2.692*P_star**0.43 + (1.65*P_star**6.5 / (1-P_star**4.4))
+    
+    # F_d : Contribution of tube diameter
+    F_d = (1e-2/D_in)**0.5
+
+    # F_W : Contribution of tube wall roughness    
+    Ra = 2.3*1e-6 # between 1.6 and 6.3 *1e-6 for carbon steel pipes
+    Ra_o = 1e-6
+    F_W = (Ra/Ra_o)**0.133
+    
+    # F_G : Contribution of mass flowrate
+    G_0 = 100 # kg/(m**2 * s)
+    F_G = (G/G_0)**0.25
+    
+    # F_x : Contribution of vapor quality
+    g = 9.81 # m/s**2
+    Dh_evap_01 = h_v_01 - h_l_01 # Evaporation specific heat
+    
+    q_cr_01 = 0.13*Dh_evap_01*rho_v_01**0.5 * (sigma_01*g*(rho_l_01-rho_v_01))**0.25
+    q_cr_PB = 2.79*q_cr_01*P_star**0.4*(1-P_star)
+    F_x = 1 - P_star**0.1 * (q/q_cr_PB)**0.3 * x
+    
+    # Heat transfer coefficient
+    alpha = a_0*C_F*(q/q_0)**n * F_p * F_d * F_W * F_G * F_x # W/(m*2 * K)
+    
+    # print(f"a_0 : {a_0}")
+    # print(f"C_F : {C_F}")
+    # print(f"q : {q}")
+    # print(f"q_0 : {q_0}")
+    # print(f"n : {n}")
+    # print(f"F_p : {F_p}")
+    # print(f"F_d : {F_d}")
+    # print(f"F_W : {F_W}")
+    # print(f"F_G : {F_G}")
+    # print(f"F_x : {F_x}")
+    # print("-----------------")
+    
+    return alpha
+
+# def flow_boiling_gungor_winterton(fluid, G, P_sat, x, D_in, q, mu_l, Pr_l, k_l):
+#     """
+#     Inputs
+#     ------
+    
+#     fluid : fluid name [-]
+#     G     : Flowrate per area unit [kg/(m**2 * s)]
+#     P_sat : Saturation pressure [Pa]
+#     x     : Vapor mass fraction [-]
+#     D_in  : Pipe internal diameter [m]
+#     q     : Heat flux [W/(m**2 * K)]
+
+#     Outputs
+#     -------
+    
+#     h_tp : Evaporation heat transfer coeffieicnt [W/(m^2 * K)]
+    
+#     Reference
+#     ---------
+    
+#     """
+    
+#     # Pipe roughness    
+#     h_f = dittus_boetler_heating(mu_l, Pr_l, k_l, G, D_in)
+#     h_lv = PropsSI('H', 'P', P_sat, 'Q', 1, fluid) - PropsSI('H', 'P', P_sat, 'Q', 0, fluid)
+    
+#     rho_v, mu_v = PropsSI(('D','V'), 'P', P_sat, 'Q', 1, fluid)
+#     rho_l, mu_l = PropsSI(('D','V'), 'P', P_sat, 'Q', 0, fluid)
+
+#     mu_tp = PropsSI('V', 'P', P_sat, 'Q', x, fluid)
+
+    
+#     P_crit = PropsSI('PCRIT', fluid)
+#     MM = PropsSI('M', fluid)
+    
+#     # Froude Number
+#     g = 9.81 # m/s^2
+#     v_l = G/rho_l
+#     Fr = (v_l/(g*D_in)**0.5)
+    
+#     # print(Fr)
+    
+#     # Reduced pressure
+#     P_r = P_sat/P_crit
+    
+#     # Lockhart-Martinelli parameter
+#     X_tt = ((1-x)/x)**0.9 * (rho_v/rho_l)**0.5 * (mu_l/mu_v)**0.1
+    
+#     # Boiling number
+#     Bo = q/(G*h_lv)
+        
+#     if Fr <= 0.05:
+#         E_2 = Fr**(0.1 - 2*Fr)
+#         S_2 = Fr**0.5
+#     else:
+#         E_2 = 1
+#         S_2 = 1
+        
+#     # Convection enhancement factor
+#     E = E_2*(1 + 24000*Bo**1.16 + 1.23 * (1/X_tt)**0.86)
+    
+#     # Boiling suppression factor
+#     A_in = (np.pi/4)*D_in**2
+#     P_wet = np.pi*D_in
+#     D_e = 4*A_in/P_wet
+    
+#     # Re_l = G*(1-x)*D_e/mu_l
+#     # S = S_2*((1 + 0.00000253 * Re_l**1.17)**(-1))
+
+#     Re_tp = G*D_e/mu_tp
+#     S = S_2*((1 + 0.00000253 * Re_tp**1.17)**(-1))
+    
+#     # Nucleate Bpiling : Cooper Correlation
+#     h_nb = 55*P_r**(0.12)  * (-np.log10(P_r))**(-0.55) * (MM*1e3)**(-0.5) * q**0.67 # - 0.2*np.log(Ra)
+    
+#     h_tp = E*h_f + S*h_nb
+    
+#     # print(f"E : {E}")
+#     # print(f"h_f : {h_f}")
+#     # print(f"S : {S}")
+#     # print(f"h_nb : {h_nb}")
+    
+#     return h_tp
+
+def flow_boiling_gungor_winterton(fluid, G, P_sat, x, D_in, q, mu_l, Pr_l, k_l):
+    """
+    Inputs
+    ------
+    
+    fluid : fluid name [-]
+    G     : Flowrate per area unit [kg/(m**2 * s)]
+    P_sat : Saturation pressure [Pa]
+    x     : Vapor mass fraction [-]
+    D_in  : Pipe internal diameter [m]
+    q     : Heat flux [W/(m**2 * K)]
+
+    Outputs
+    -------
+    
+    h_tp : Evaporation heat transfer coeffieicnt [W/(m^2 * K)]
+    
+    Reference
+    ---------
+    
+    """
+    
+    AS = CP.AbstractState("BICUBIC&HEOS", fluid)
+    
+    AS.update(CP.PQ_INPUTS, P_sat, 1)
+    
+    h_v = AS.hmass()
+    rho_v = AS.rhomass()
+    mu_v = AS.viscosity()
+
+    AS.update(CP.PQ_INPUTS, P_sat, 0)
+
+    h_l = AS.hmass()
+    rho_l = AS.rhomass()
+    mu_l = AS.viscosity()
+    
+    AS.update(CP.PQ_INPUTS, P_sat, x)    
+    
+    mu_tp = AS.viscosity()
+    P_crit = AS.p_critical()
+    MM = AS.molar_mass()
+
+    # Pipe roughness    
+    h_f = dittus_boetler_heating(mu_l, Pr_l, k_l, G, D_in)
+    h_lv = h_v - h_l
+    
+    # Froude Number
+    g = 9.81 # m/s^2
+    v_l = G/rho_l
+    Fr = (v_l/(g*D_in)**0.5)
+    
+    # print(Fr)
+    
+    # Reduced pressure
+    P_r = P_sat/P_crit
+    
+    # Lockhart-Martinelli parameter
+    X_tt = ((1-x)/x)**0.9 * (rho_v/rho_l)**0.5 * (mu_l/mu_v)**0.1
+    
+    # Boiling number
+    Bo = q/(G*h_lv)
+        
+    if Fr <= 0.05:
+        E_2 = Fr**(0.1 - 2*Fr)
+        S_2 = Fr**0.5
+    else:
+        E_2 = 1
+        S_2 = 1
+        
+    # Convection enhancement factor
+    E = E_2*(1 + 24000*Bo**1.16 + 1.23 * (1/X_tt)**0.86)
+    
+    # Boiling suppression factor
+    A_in = (np.pi/4)*D_in**2
+    P_wet = np.pi*D_in
+    D_e = 4*A_in/P_wet
+    
+    # Re_l = G*(1-x)*D_e/mu_l
+    # S = S_2*((1 + 0.00000253 * Re_l**1.17)**(-1))
+
+    Re_tp = G*D_e/mu_tp
+    S = S_2*((1 + 0.00000115*E**2 * Re_tp**1.17)**(-1))
+    
+    # Nucleate Bpiling : Cooper Correlation
+    h_nb = 55*P_r**(0.12)  * (-np.log10(P_r))**(-0.55) * (MM*1e3)**(-0.5) * q**0.67 # - 0.2*np.log(Ra)
+    
+    h_tp = E*h_f + S*h_nb
+    
+    # print(f"E : {E}")
+    # print(f"h_f : {h_f}")
+    # print(f"S : {S}")
+    # print(f"h_nb : {h_nb}")
+    
+    return h_tp
+
 
 def pool_boiling(fluid, T_sat, T_tube):
     """
@@ -463,3 +832,206 @@ def boiling_curve(D_out, fluid, T_sat, P_sat):
     h_final = np.concatenate((np.array([0]),h_final),axis = 0)
     
     return h_final, DT
+
+
+def Cheng_sCO2(G, q, T_w, P, h_in, h_out, mu, k, D_in, fluid):
+    """
+    Assumptions : 
+    -------------
+    D_in = 10 mm
+    G = 496.7–1346.2 kg/m2
+    heat flux (qw): 97.4 ~ 400.3 kW/m2
+    Pressure (P): 7.53–23.51 MPa.
+    fluid : CO2
+
+    Froude number (Fr) : 7.58 × 10 5~1834
+    Reynolds number (Re) : 6.18 × 10^4 ~ 5.35 × 10^5
+    
+    Reference :
+    -----------
+    Supercritical carbon dioxide heat transfer in horizontal tube based on the Froude number analysis (2024)
+    
+    Liangyuan Cheng a, Jinliang Xu a,b,*, Wenxuan Cao a, Kaiping Zhou a, Guanglin Liu a,b
+    """
+    
+    # Determine T_plus and T_minus
+    def find_pseudo_crit_T(P):
+        """
+        Assumptions
+        -----------
+        P in [7.5,14] MPa
+        
+        Reference
+        ---------
+        Investigation on the Properties of Supercritical CO2 Fluid and its Heat
+        Transfer Characteristics (2012)
+        
+        Z. Yang & J. Yang
+        """
+        
+        p = P*1e-6 # MPa
+        T_pc = - 31.40 + 12.15*p - 0.6927*p**2 + 0.03160 * p**3 - 0.0007521 * p**4
+        
+        return T_pc + 273.15
+
+    def find_h_cp_L(fluid):
+        """
+        Reference
+        ---------
+        The Latent Heat of Supercritical Fluids (2019)
+        
+        Daniel T. Banuti
+        """
+        
+        P_L = PropsSI('PCRIT', fluid)*0.1
+        
+        if P_L < PropsSI('PTRIPLE', fluid):
+            P_L = PropsSI('PTRIPLE', fluid)*1.05
+        
+        T_L = PropsSI('T', 'P', P_L,'Q',0,fluid)
+        
+        SC = 0.01
+        
+        cp_L = PropsSI('CPMASS', 'P', P_L,'T', T_L-SC,fluid)
+        h_L = PropsSI('H', 'P', P_L,'T', T_L-SC,fluid)
+        
+        h_L_0 = h_L - cp_L*T_L
+        
+        return cp_L, h_L_0
+
+    def T_plus_minus(P, fluid):
+        """
+        Calculates pseudo-boiling T_pc, T_minus, and T_plus for a supercritical fluid,
+        based on Banuti (2015).
+
+        Parameters
+        ----------
+        P : float
+            Pressure in Pa
+        fluid : str
+            Fluid name (e.g., 'CO2')
+
+        Returns
+        -------
+        T_pc : float
+            Pseudo-boiling temperature [K]
+        T_minus : float
+            Lower transition limit [K]
+        T_plus : float
+            Upper transition limit [K]
+        """
+        T_pc = find_pseudo_crit_T(P)
+        cp_pc = PropsSI('CPMASS', 'T', T_pc, 'P', P, fluid)
+        cv_pc = PropsSI('CVMASS', 'T', T_pc, 'P', P, fluid)
+        h_0_pc = PropsSI('H', 'T', T_pc, 'P', P, fluid)
+        MM = PropsSI('M', fluid)
+
+        # Find Liquid Reference properties
+        cp_L, h_L_0 = find_h_cp_L(fluid)
+
+        # Ideal gas cp approximation
+        T_max = PropsSI('TMAX', fluid)
+        cp_IG = PropsSI('CPMASS', 'T', T_max, 'P', P, fluid)
+
+        # Calculate transition bounds
+        T_plus = (h_0_pc - cp_pc * T_pc) / (cp_IG - cp_pc)
+        T_minus = (h_L_0 - h_0_pc + cp_pc * T_pc) / (cp_pc - cp_L)
+        
+        return T_pc, T_minus, T_plus
+
+    # Pseudo-critical temperature and definition of pseudo-boiling region
+    # T_minus is liquid like temperature and T_plus is vapor like T
+    T_pc, T_minus, T_plus = T_plus_minus(P, fluid)
+
+    # Wall Enthalpy and density
+    h_w = PropsSI('H', 'T', T_w, 'P', P, fluid)
+    h_pc = PropsSI('H', 'T', T_pc, 'P', P, fluid)
+
+    rho_w = PropsSI('D', 'T', T_w, 'P', P, fluid)
+
+    # Supercritical Boiling Number (wall conditions)
+    SBO = q/(G*h_pc)
+    SBO_w = q/(G*h_w)
+
+    # Liquid-Like and Vapor-Like Enthalpies
+    h_LL = PropsSI('H', 'T', T_minus, 'P', P, fluid)
+    h_LV = PropsSI('H', 'T', T_plus, 'P', P, fluid)
+    
+    # Pseudo-vapor mass quality
+    x_pb_in = (h_in - h_LL)/(h_LV - h_LL)
+    x_pb_out = (h_out - h_LL)/(h_LV - h_LL)
+    
+    x_ave = 0.5*(x_pb_in + x_pb_out)
+    
+    Re = G*D_in/mu
+    
+    # 1) VL (Vapor Like) and LL (Liquid Like) regimes
+    
+    T_in = PropsSI('T', 'H', h_in, 'P', P, fluid)
+    cp_ave = (h_w - h_in)/(T_w - T_in)
+    
+    Pr_ave = mu*cp_ave/k
+    
+    if x_ave < 0 or x_ave > 1:
+        Nu = 0.019*(Re**0.79)*(Pr_ave**0.51)
+        h_conv = Nu*k/D_in
+        
+        return h_conv
+    
+    # 2) TPL (Two Phase Like) regime
+    else:
+        g = 9.81 # gravtity constant : m/s^2
+        Fr_VL_w = G**2 * x_pb_in/(rho_w**2 *g*D_in)
+        
+        Nu_top = 0.127*(Re**1.065) * (Pr_ave**1.053) * (SBO_w**0.66) * (Fr_VL_w**(-0.012))
+        Nu_bot = 1.512*(Re**0.878) * (Pr_ave**0.685) * (SBO_w**0.69) * (Fr_VL_w**(-0.0213))
+        
+        h_top = Nu_top*k/D_in
+        h_bot = Nu_bot*k/D_in
+                
+        # print(f"Re : {Re}")
+        # print(f"Pr_ave : {Pr_ave}")
+        
+        # print(f"SBO_w : {SBO_w}")
+        # print(f"SBO : {SBO}")
+        
+        # print(f"Fr_VL_w : {Fr_VL_w}")
+        
+        # print(f"Nu_top : {Nu_top}")
+        # print(f"Nu_bot : {Nu_bot}")
+        
+        # print(f"h_top : {h_top}")
+        # print(f"h_bot : {h_bot}")     
+        
+        return (h_top + h_bot)/2
+        
+def Liu_sCO2(G, P, T_w, k, rho, mu, cp, D_in, fluid):
+    """
+    Assumptions 
+    -----------
+    D_in = 4-10.7 [mm]
+    T_in = 25-67 [°C]
+    P_in = 7.5-8.5 [MPa]
+    G = 74-200 [kg/(m^2 * s)]
+    fluid : CO2
+    
+    Reference
+    ---------
+    Experimental study on heat transfer and pressure drop of supercritical CO2 cooled in a large tube (2014)
+    Zhan-Bin Liu, Ya-Ling He*, Yi-Fan Yang, Ji-You Fei
+    """
+    AS = CP.AbstractState("BICUBIC&HEOS", fluid)  
+    AS.update(CP.PT_INPUTS, P, T_w)
+    
+    rho_w = AS.rhomass()
+    cp_w = AS.cpmass()
+    mu_w = AS.viscosity()
+    Pr_w = AS.Prandtl()
+        
+    Re_w = G*D_in/mu_w
+    
+    Nu = 0.01*Re_w**0.9 * Pr_w**0.5 * (rho_w/rho)**0.906 * (cp_w/cp)** (-0.585)
+    
+    h_conv = Nu*k/D_in
+    
+    return h_conv
