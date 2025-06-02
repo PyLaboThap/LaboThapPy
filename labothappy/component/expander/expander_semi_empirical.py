@@ -6,9 +6,9 @@ Created on Tue Jul 30 2024
 """
 
 "External modules"
-from CoolProp.CoolProp import AbstractState
+from CoolProp.CoolProp import AbstractState, PropsSI
 import CoolProp.CoolProp as CoolProp
-from scipy.optimize import fsolve
+from scipy.optimize import fsolve, root
 import numpy as np
 
 "Internal modules"
@@ -106,13 +106,20 @@ class ExpanderSE(BaseComponent):
         self.Q_amb = HeatConnector() # Heat connector to the ambient
 
     def get_required_inputs(self):
+        
         # Define the required inputs for the component
         # If the mode is 'N_rot', the rotational speed of the expander is required while the mass flow rate is calculated
-        if self.params['mode'] == 'N_rot':
+        if self.params['mode'] == 'P_N':
             return ['P_su', 'h_su', 'P_ex', 'N_rot', 'T_amb', 'fluid']
+        
         # If the mode is 'm_dot', the mass flow rate is required while the rotational speed of the expander is calculated
-        elif self.params['mode'] == 'm_dot':
+        elif self.params['mode'] == 'P_M':
             return ['P_su', 'h_su', 'P_ex', 'm_dot', 'T_amb', 'fluid']
+
+        elif self.params['mode'] == 'M_N':
+            return ['P_su', 'h_su', 'N_rot', 'm_dot', 'T_amb', 'fluid']
+        
+        return
     
     def get_required_parameters(self):
         default_values = {
@@ -155,15 +162,17 @@ class ExpanderSE(BaseComponent):
         # Check if the fluid is in the two-phase region at the suction side
         self.AS.update(CoolProp.PQ_INPUTS, self.su.p, 1)  
         T_sat_su = self.AS.T()
-        if self.su.T<T_sat_su:
+        
+        if self.su.T < T_sat_su:
             print('----Warning the expander inlet stream is not in vapor phase---')
 
         ff_guess = [0.7, 1.2, 0.8, 1.3, 0.4, 1.7] # Guesses for the filling factor (ff)
+        rp_guess = [2.5, 3, 2, 3.5, 1.5, 4]
         x_T_guess = [0.7, 0.95, 0.8, 0.9] # Guesses for the temperature ratio (x_T)
         stop = 0 # Stop flag
         j = 0 # Index for the temperature ratio
 
-        if self.params['mode'] == 'N_rot': # The rotational speed is given as an input
+        if self.params['mode'] == 'P_N': # The rotational speed and th outlet pressure are given as inputs
             try: 
                 # Loop to permit multiple attempts to solve the implicit calculation 
                 # Loop stops when the residuals are below the threshold
@@ -179,7 +188,7 @@ class ExpanderSE(BaseComponent):
                         x = [m_dot_guess, T_w_guess]
                         #--------------------------------------------------------------------------
                         try:
-                            fsolve(self.System, x, args=args) # Solve the system of equations
+                            fsolve(self.system, x, args=args) # Solve the system of equations
                             res_norm = np.linalg.norm(self.res) # Calculate the norm of the residuals
                         except:
                             res_norm = 1
@@ -191,7 +200,7 @@ class ExpanderSE(BaseComponent):
                 print(f"ExpanderSE could not be solved. Error: {e}")
                 self.solved = False # Unable to solve the component
         
-        if self.params['mode'] == 'm_dot': # The mass flow rate is given as an input
+        if self.params['mode'] == 'P_M': # The mass flow rate and the outlet pressure are given as inputs
             try:  
                 while not stop and j < len(x_T_guess):
                     T_w_guess = x_T_guess[j] * self.su.T + (1 - x_T_guess[j]) * self.inputs['T_amb'] # Guess for the wall temperature
@@ -212,6 +221,35 @@ class ExpanderSE(BaseComponent):
                 print(f"ExpanderSE could not be solved. Error: {e}")
                 self.solved = False # Unable to solve the component
     
+        if self.params['mode'] == 'M_N': # The rotational speed and the flowrate are given as inputs
+            try: 
+                # Loop to permit multiple attempts to solve the implicit calculation 
+                # Loop stops when the residuals are below the threshold
+                while not stop and j < len(x_T_guess):
+                    k = 0 # Index for the filling factor
+                    while not stop and k < len(rp_guess):
+                        # Loop to permit multiple attempts to solve the implicit calculation 
+                        self.AS.update(CoolProp.PT_INPUTS, self.inputs['P_su'], self.su.T)
+                        T_w_guess = x_T_guess[j] * self.su.T + (1 - x_T_guess[j]) * self.inputs['T_amb'] # Guess for the wall temperature
+                        P_ex_guess = self.inputs['P_su']/rp_guess[k]
+                        #---------------------------------------------------------------------
+                        args = ()
+                        x = [P_ex_guess, T_w_guess]
+                        #--------------------------------------------------------------------------
+                        # try:
+                        fsolve(self.system, x, args=args) # Solve the system of equations
+                        res_norm = np.linalg.norm(self.res) # Calculate the norm of the residuals
+                        # except:
+                            # res_norm = 1
+                        if res_norm < 1e-4:
+                            stop = 1 # Stop the loop if the norm of the residuals are below the threshold
+                        k += 1
+                    j += 1
+                    
+            except Exception as e:
+                print(f"ExpanderSE could not be solved. Error: {e}")
+                self.solved = False # Unable to solve the component
+    
         self.convergence = stop
 
         if self.convergence: # If the component is solved
@@ -222,15 +260,22 @@ class ExpanderSE(BaseComponent):
     def system(self, x):
         """System of equations to solve the expander model."""
 
-        if self.params['mode'] == 'N_rot': # The rotational speed is given as an input
+        if self.params['mode'] == 'P_N': # The rotational speed is given as an input
             self.m_dot, self.T_w = x # Values on which the system iterates
             self.N_rot = self.inputs['N_rot']
             # Boundary on the mass flow rate guess
             self.m_dot = max(self.m_dot, 1e-5)
-        elif self.params['mode'] == 'm_dot': # The mass flow rate is given as an input
+        elif self.params['mode'] == 'P_M': # The mass flow rate is given as an input
             self.m_dot = self.inputs['m_dot']
             self.T_w = x[0] # Values on which the system iterates
- 
+        elif self.params['mode'] == 'M_N': # The mass flow rate is given as an input
+            self.m_dot = self.inputs['m_dot']
+            self.N_rot = self.inputs['N_rot']
+            self.ex.p, self.T_w = x # Values on which the system iterates        
+    
+            self.ex.p = max(self.ex.p, self.su.p/10)
+            self.ex.p = min(self.ex.p, self.su.p)
+
         #------------------------------------------------------------------------------------------------
         "1. Supply conditions: su"
         T_su = self.su.T
@@ -247,7 +292,7 @@ class ExpanderSE(BaseComponent):
         
         #------------------------------------------------------------------------------------------------
         "2. Supply pressure drop: su->su1"
-        h_su1 = h_su #Isenthalpic valve
+        h_su1 = h_su # Isenthalpic valve
 
         if self.params['d_su1'] == 0: # No pressure drop
             P_su1 = P_su
@@ -267,12 +312,12 @@ class ExpanderSE(BaseComponent):
 
         #------------------------------------------------------------------------------------------------
         "3. Cooling at the entrance: su1->su2"  
-        try:
-            self.AS.update(CoolProp.HmassP_INPUTS, h_su1, P_su1)
-            cp_su1 = self.AS.cpmass()
-        except:
-            self.AS.update(CoolProp.PQ_INPUTS, P_su1, 0)
-            cp_su1 = self.AS.cpmass()
+        # try:
+        self.AS.update(CoolProp.HmassP_INPUTS, h_su1, P_su1)
+        cp_su1 = self.AS.cpmass()
+        # except:
+            # self.AS.update(CoolProp.PQ_INPUTS, P_su1, 0)
+            # cp_su1 = self.AS.cpmass()
         
         if self.params['AU_su_n'] == 0: # No heat transfer
             h_su2 = h_su1
@@ -299,6 +344,7 @@ class ExpanderSE(BaseComponent):
         except:
             self.AS.update(CoolProp.PQ_INPUTS, P_su1, 0)
             cv_su1 = self.AS.cvmass()
+            
         gamma = max(1e-2, cp_su1/cv_su1)
         P_crit = P_su2*(2/(gamma+1))**(gamma/(gamma-1))
         P_thr_leak = max(P_ex, P_crit)
@@ -308,12 +354,15 @@ class ExpanderSE(BaseComponent):
         C_thr_leak = np.sqrt(2*(h_su2-h_thr_leak))
         m_dot_leak = self.params['A_leak']*C_thr_leak*rho_thr_leak
 
-        if self.params['mode'] == 'N_rot': 
+        if self.params['mode'] == 'P_N': 
             m_dot_in = (self.N_rot/60)*self.params['V_s']*rho_su2
             m_dot_leak_bis = self.m_dot-m_dot_in # residual on the leakage flow rate to get the right mass flow rate
-        elif self.params['mode'] == 'm_dot':
+        elif self.params['mode'] == 'P_M':
             m_dot_in = self.m_dot-m_dot_leak
             self.N_rot = (m_dot_in/(self.params['V_s']*rho_su2))*60 # rotational speed calculation
+        elif self.params['mode'] == 'M_N': 
+            m_dot_in = (self.N_rot/60)*self.params['V_s']*rho_su2
+            m_dot_leak_bis = self.m_dot-m_dot_in # residual on the leakage flow rate to get the right mass flow rate
         
         #------------------------------------------------------------------------------------------------
         "5. Internal expansion"
@@ -382,11 +431,15 @@ class ExpanderSE(BaseComponent):
         #------------------------------------------------------------------------------------------------
         "10. Residuals"
         self.res_E = abs((Q_dot_su + W_dot_loss - Q_dot_ex - self.Q_dot_amb)/(Q_dot_su + W_dot_loss))
-        if self.params['mode'] == 'N_rot':
+        if self.params['mode'] == 'P_N':
             self.res_m_leak = abs((m_dot_leak_bis-m_dot_leak)/m_dot_leak)
             self.res = [self.res_E, self.res_m_leak]
-        elif self.params['mode'] == 'm_dot':
+        elif self.params['mode'] == 'P_M':
             self.res = [self.res_E]
+        elif self.params['mode'] == 'M_N':
+            self.res_m_leak = abs((m_dot_leak_bis-m_dot_leak)/m_dot_leak)
+            self.res = [self.res_E, self.res_m_leak]
+            
         return self.res
 
     def update_connectors(self):
@@ -396,6 +449,8 @@ class ExpanderSE(BaseComponent):
         self.ex.set_fluid(self.su.fluid)
         self.ex.set_m_dot(self.m_dot)
         self.ex.set_h(self.h_ex)
+        self.ex.set_T(PropsSI('T', 'P', self.ex.p, 'H', self.ex.h, self.ex.fluid))
+        self.ex.set_p(self.ex.p)
 
         self.W_mec.set_W_dot(self.W_dot_exp)
         self.W_mec.set_N(self.N_rot)

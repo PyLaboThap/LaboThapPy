@@ -20,6 +20,7 @@ from scipy.optimize import root_scalar
 GRAVITY = 9.81  # m/s², Gravitational acceleration constant
 
 class PumpSimilarityLaws(BaseComponent):
+    
     """
     Component: Pump with a characteristic curve associated
     
@@ -241,6 +242,7 @@ class PumpSimilarityLaws(BaseComponent):
 
         # ---- Head vs Flow Plot ----
         plt.subplot(1, 2, 1)
+        
         for speed in speeds_to_plot:
             factor = speed / self.params['speed_ref']
             scaled_flows = base_flows * factor
@@ -262,6 +264,7 @@ class PumpSimilarityLaws(BaseComponent):
                 for flow in base_flows
             ]
             plt.plot(scaled_flows, powers, label=f"{speed} RPM")
+            
         plt.title("Power vs Flow Rate (density-corrected)")
         plt.xlabel("Flow Rate [m³/h]")
         plt.ylabel("Power [W]")

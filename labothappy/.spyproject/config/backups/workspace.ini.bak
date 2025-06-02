@@ -4,7 +4,8 @@ save_data_on_exit = True
 save_history = True
 save_non_project_files = False
 project_type = 'empty-project-type'
-recent_files = ['component\\heat_exchanger\\hex_eNTU.py', 'component\\heat_exchanger\\hex_MB_charge_sensitive.py', 'component\\expander\\expander_semi_empirical.py', 'component\\Examples\\heat_exchanger\\hex_eNTU_example.py', 'correlations\\convection\\pipe_htc.py', 'correlations\\convection\\plate_htc.py']
+
+recent_files = ['machine\\examples\\orc_circuit.py', 'component\\Examples\\pump\\pump_similarity_law_example.py', 'component\\pump\\pump_similarity_laws.py', 'component\\base_component.py', 'toolbox\\geometries\\scroll_compressor\\geometry_scroll_hannon.py', 'component\\heat_exchanger\\steady_state\\finite_volumes\\cross_flow_tube_and_fins\\simulation_model.py']
 
 [main]
 version = 0.2.0

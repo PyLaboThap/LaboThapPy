@@ -12,7 +12,7 @@ from CoolProp.CoolProp import PropsSI
 
 from connector.mass_connector import MassConnector
 
-from component.heat_exchanger.steady_state.pinch_cst.simulation_model import HXPinchCst
+from component.heat_exchanger.hex_cstpinch import HXPinchCst
 from component.heat_exchanger.steady_state.cst_efficiency.simulation_model import HXEffCst
 from component.heat_exchanger.hex_csteff_disc import HXEffCstDisc
 from component.compressor.compressor_csteff import CompressorCstEff 
@@ -82,8 +82,14 @@ def basic_CO2_HP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low, P_high):
     CO2_HP.set_cycle_guess(target='Valve:ex', p = P_low)
     
     #%% CYCLE RESIDUAL VARIABLES
+    CO2_HP.set_residual_variable(target='Valve:ex', variable='h', tolerance= 1e-3)
+    CO2_HP.set_residual_variable(target='Valve:ex', variable='p', tolerance= 1e-3)
+
     CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='h', tolerance= 1e-3)
     CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='p', tolerance= 1e-3)
+
+    CO2_HP.set_residual_variable(target='Compressor:ex', variable='h', tolerance= 1e-3)
+    CO2_HP.set_residual_variable(target='Compressor:ex', variable='p', tolerance= 1e-3)
 
     CO2_HP.set_residual_variable(target='GasCooler:ex_H', variable='h', tolerance= 1e-3)
     CO2_HP.set_residual_variable(target='GasCooler:ex_H', variable='p', tolerance= 1e-3)
@@ -161,7 +167,7 @@ def Exp_CO2_HP(HSource, CSource, eta_cp, eta_exp, eta_gc, PP_ev, SH_ev, P_low, P
 def IHX_CO2_HP(HSource, CSource, eta_cp, eta_gc, eta_IHX, PP_ev, SH_ev, P_low, P_high, m_dot):
     CO2_HP = Circuit('CO2')
     
-    n_disc_HX = 20
+    n_disc_HX = 50
     PP_min_HX = 5
     
     # Create components
@@ -231,10 +237,17 @@ def IHX_CO2_HP(HSource, CSource, eta_cp, eta_gc, eta_IHX, PP_ev, SH_ev, P_low, P
     CO2_HP.set_cycle_guess(target='Valve:ex', p = P_low)
     
     #%% CYCLE RESIDUAL VARIABLES
-    CO2_HP.set_residual_variable(target='IHX:su_C', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='IHX:su_H', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='IHX:ex_C', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='IHX:ex_H', variable='h', tolerance= 1e-3)
+    CO2_HP.set_residual_variable(target='Valve:ex', variable='h', tolerance= 1e-3)
+    CO2_HP.set_residual_variable(target='Valve:ex', variable='p', tolerance= 1e-3)
+
+    CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='h', tolerance= 1e-3)
+    CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='p', tolerance= 1e-3)
+
+    CO2_HP.set_residual_variable(target='Compressor:ex', variable='h', tolerance= 1e-3)
+    CO2_HP.set_residual_variable(target='Compressor:ex', variable='p', tolerance= 1e-3)
+
+    CO2_HP.set_residual_variable(target='GasCooler:ex_H', variable='h', tolerance= 1e-3)
+    CO2_HP.set_residual_variable(target='GasCooler:ex_H', variable='p', tolerance= 1e-3)
     
     return CO2_HP
 
@@ -457,22 +470,7 @@ if __name__ == "__main__":
     p_low = 3e5
     m_dot_low = 2
 
-    if study_case == "Flash":
-        P_mid = 70*1e5
-        
-        HSource = MassConnector()
-        HSource.set_properties(fluid = fluid_high, T = T_high, p = p_high, m_dot = m_dot_high)
-        
-        CSource = MassConnector()
-        CSource.set_properties(fluid = fluid_low, T = T_low, p = p_low, m_dot = m_dot_low)
-        
-        CO2_HP = Flash_CO2_HP(HSource, CSource, eta_compressor, eta_GC, DT_pp_ev, SH_ev, P_low_guess, P_mid, P_high)
-        
-        CO2_HP.solve()
-
-        COP = CO2_HP.components["GasCooler"].model.Q_dot.Q_dot/(CO2_HP.components["Compressor_1"].model.W_dot.W_dot + CO2_HP.components["Compressor_2"].model.W_dot.W_dot)
-
-    elif study_case == "IHX":
+    if study_case == "IHX":
 
         eta_IHX = 0.8
 
