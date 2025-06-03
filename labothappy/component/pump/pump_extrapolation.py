@@ -204,6 +204,9 @@ class PumpExtrapolationModel(BaseComponent):
 
         Returns:
             eta_el (float): Estimated electrical efficiency (fraction)
+            
+        References:
+            Kostas
         """
         coefs_20p = [
             78.74503721229180,
