@@ -27,6 +27,76 @@ import numpy as np
 import math
 
 class HXEffCstDisc(BaseComponent):
+    """
+    Component: Counterflow Heat Exchanger with Constant Effectiveness (HXEffCstDisc)
+    
+    Model: Discretized Counterflow Heat Exchanger with Fixed Effectiveness and Pinch Check
+    
+    **Description**:
+    
+        This model simulates a counterflow heat exchanger with constant effectiveness, discretized into segments along the flow direction. The model uses energy balances and basic thermodynamics (via CoolProp) to determine outlet conditions for both hot and cold streams. It iteratively adjusts the effectiveness to satisfy a minimum pinch point temperature difference (Pinch_min). The model is suitable for on-design, steady-state simulations of heat exchangers where detailed flow dynamics are simplified.
+    
+    **Assumptions**:
+    
+        - Steady-state operation.
+        - Constant effectiveness per iteration, adjusted to meet Pinch_min.
+        - Uniform discretization of the heat exchanger along its length.
+        - Uniform mass flow rates at inlets and outlets.
+        - Fluid properties are obtained via CoolProp.
+    
+    **Connectors**:
+    
+        su_C (MassConnector): Mass connector for the cold-side supply.
+        su_H (MassConnector): Mass connector for the hot-side supply.
+        ex_C (MassConnector): Mass connector for the cold-side exhaust.
+        ex_H (MassConnector): Mass connector for the hot-side exhaust.
+        Q_dot (HeatConnector): Heat transfer connector for the total exchanged heat.
+    
+    **Parameters**:
+    
+        eta (float): Initial effectiveness of the heat exchanger [-].
+        
+        n_disc (int): Number of discretization segments along the exchanger length.
+        
+        Pinch_min (float): Minimum allowable pinch temperature difference [K].
+    
+    **Inputs**:
+    
+        su_H_fluid (str): Hot-side fluid.
+        
+        su_H_h (float): Hot-side inlet specific enthalpy [J/kg].
+        
+        su_H_p (float): Hot-side inlet pressure [Pa].
+        
+        su_H_m_dot (float): Hot-side mass flow rate [kg/s].
+    
+        su_C_fluid (str): Cold-side fluid.
+        
+        su_C_h (float): Cold-side inlet specific enthalpy [J/kg].
+        
+        su_C_p (float): Cold-side inlet pressure [Pa].
+        
+        su_C__m_dot (float): Cold-side mass flow rate [kg/s].
+    
+    **Outputs**:
+    
+        ex_C_h: Cold-Side Exhaust specific enthalpy at outlet [J/kg].
+        
+        ex_C_p: Cold-Side Exhaust pressure at outlet [Pa].
+                    
+        ex_C_h: Hot-Side specific enthalpy at outlet [J/kg].
+        
+        ex_C_p: Hot-Side pressure at outlet [Pa].
+        
+        Q_dot: Total heat transfer rate across the exchanger [W].
+        
+        DT_pinch: Minimum temperature difference between hot and cold streams across all segments [K].
+        
+        h_hot, h_cold: Arrays of enthalpies across discretization points [J/kg].
+        T_hot, T_cold: Arrays of temperatures across discretization points [K].
+    
+    """
+    
     def __init__(self):
         super().__init__()
         self.su_C = MassConnector() # Working fluid supply

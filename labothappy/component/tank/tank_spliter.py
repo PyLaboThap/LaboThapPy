@@ -25,8 +25,49 @@ import numpy as np
 
 class Spliter(BaseComponent):
     
-    class geom():
-            pass 
+    """
+    Component: Spliter
+    
+    Model: Mass Flow Splitting Model
+    
+    **Description**:
+    
+        The `Spliter` component divides an incoming mass flow into multiple outlet streams based on specified mass flow fractions. It assumes no change in fluid properties (pressure, temperature, enthalpy) across the splitter. The model is useful for distributing mass flows in a system model where the thermodynamic state remains unchanged.
+    
+    **Assumptions**:
+    
+        - Steady-state operation.
+        - No heat or work interactions (adiabatic, no shaft work).
+        - Ideal splitting with no pressure or temperature drops.
+        - The sum of the outlet flow fractions must equal 1 (within a small numerical tolerance).
+    
+    **Connectors**:
+    
+        su (MassConnector): Mass connector for the inlet supply stream.
+        ex_1, ex_2, ..., ex_n (MassConnector): Mass connectors for each outlet stream, created based on the number of elements in `outlet_repartition`.
+    
+    **Parameters**:
+    
+        outlet_repartition (list of float): Fractions of the total inlet mass flow allocated to each outlet. Must sum to 1 within a small tolerance.
+    
+    **Inputs**:
+    
+        su_fluid (str): Inlet fluid.
+        su_T (float): Inlet temperature [K].
+        su_h (float): Inlet specific enthalpy [J/kg].
+        su_p (float): Inlet pressure [Pa].
+        su_m_dot (float): Inlet mass flow rate [kg/s].
+    
+    **Outputs**:
+    
+        For each outlet connector (ex_1, ex_2, ..., ex_n):
+            - fluid: Same as inlet fluid.
+            - p: Same as inlet pressure [Pa].
+            - h: Same as inlet enthalpy [J/kg].
+            - m_dot: Mass flow rate for the outlet, computed as `su_m_dot * outlet_repartition[i]` [kg/s].
+    
+    """
+
 
     def __init__(self, geom=None, outlet_repartition=None):
         

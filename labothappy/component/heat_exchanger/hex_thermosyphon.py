@@ -14,14 +14,99 @@ from connector.heat_connector import HeatConnector
 
 from toolbox.nozzle.airflow import nozzle
 from correlations.heat_pipe.HP_h_coeffs import fg_radiative_htc_corr, radiative_htc_fg, external_flow_inline_bank, pool_boiling, external_flow_staggered_bank, ext_conv_boil #, h_cond_Th66, external_flow_finnedtubebank
-# from component.heat_exchanger.steady_state.heat_pipe_based.modules.HP_tube_model import thermosyphon_model
+
 from component.base_component import BaseComponent
 
-# from labothappy.component.heat_exchanger.steady_state.heat_pipe_based.modules.HP_internal import Delta_P_v, thermal_res_esdu
-#from labothappy.component.heat_exchanger.steady_state.heat_pipe_based.modules.HP_h_coeffs import radiative_htc_fg, external_flow_inline_bank, pool_boiling, external_flow_staggered_bank, ext_conv_boil #, h_cond_Th66, external_flow_finnedtubebank
-
-
 class HP_HTX(BaseComponent):
+    """
+    Component: Heat Pipe Heat Exchanger (HP_HTX)
+    
+    Model: Thermosyphon-Based Heat Pipe Heat Exchanger with Detailed Thermal and Fluid Dynamics
+    
+    **Description**:
+    
+        This model simulates a heat pipe-based heat exchanger (HP_HTX) that uses thermosyphon principles for efficient heat transfer between two fluids. It integrates detailed thermal resistances, flow dynamics, and operating limit calculations, including entrainment, boiling, sonic, dryout, and vapor pressure limits. The model accounts for complex thermal interactions, pressure drops, phase changes, and geometrical configurations.
+    
+    **Assumptions**:
+    
+        - Steady-state operation.
+        - Uniform flow distribution across tube banks.
+        - Neglects transient effects and startup behavior.
+        - Fluid properties are retrieved from CoolProp.
+        - Correlations for external and internal heat transfer coefficients are used (e.g., ESDU, radiative, convective, pool boiling).
+        - Operating limits are checked based on established methods (e.g., ESDU guidelines).
+    
+    **Connectors**:
+    
+        su_C (MassConnector): Mass connector for the cold-side working fluid (e.g., oil or secondary fluid).
+        su_H (MassConnector): Mass connector for the hot-side fluid (e.g., flue gas).
+        ex_C (MassConnector): Mass connector for the cold-side exhaust.
+        ex_H (MassConnector): Mass connector for the hot-side exhaust.
+        Q_dot (HeatConnector): Heat transfer connector for the total exchanged heat.
+    
+    **Parameters**:
+    
+        p_CO2 (float): Partial pressure of CO₂ in the flue gas.
+        p_H2O (float): Partial pressure of H₂O in the flue gas.
+        beta (float): Inclination angle of the thermosyphon [rad].
+        D_o (float): Outer diameter of the thermosyphon tube [m].
+        t (float): Tube wall thickness [m].
+        F_r (float): Filling ratio of the thermosyphon [-].
+        k_pipe (float): Thermal conductivity of the pipe material [W/(m·K)].
+        geo (str): Geometry of the thermosyphon ('circular' or 'annular').
+        H_core, L_core, W_core (float): Geometric dimensions of the core [m].
+        coef_evap (float): Fraction of core height allocated to the evaporator.
+        foul (float): Fouling factor for external surfaces [-].
+        arrang (str): Tube arrangement ('Inline' or 'Staggered').
+        pitch_T, pitch_L (float): Transverse and longitudinal tube pitch ratios [-].
+        D_chimney (float): Chimney diameter for flue gas outlet [m].
+        Bank_side (str): Bank side configuration (optional/advanced).
+    
+    **Inputs**:
+
+        su_H_p: Hot suction side pressure. [Pa]
+
+        su_H_h: Hot suction side enthalpy. [J/kg]
+
+        su_H_fluid: Hot suction side fluid. [-]
+
+        su_H_m_dot: Hot suction side mass flowrate. [kg/s]
+
+        su_C_p: Cold suction side pressure. [Pa]
+
+        su_C_h: Cold suction side enthalpy. [J/kg]
+
+        su_C_fluid: Cold suction side fluid. [-]
+
+        su_C_m_dot: Cold suction side mass flowrate. [kg/s]
+
+    **Ouputs**:
+
+        ex_H_h: Hot exhaust side specific enthalpy. [J/kg]
+
+        ex_H_p: Hot exhaust side pressure. [Pa]
+
+        ex_C_h: Cold exhaust side specific enthalpy. [J/kg]
+
+        ex_C_p: Cold exhaust side pressure. [Pa]
+    
+        Q_dot: Total heat transfer rate across the exchanger [W].
+        
+        Operating limits: Entrainment limit, boiling limit, sonic limit, dryout limit, vapor pressure limit [W].
+        
+        Thermal resistances (R_e_o, R_c_o, R_tube_tot) [K/W].
+        
+        Intermediate states: Temperatures, pressures, mass flow rates, velocities, and heat transfer rates across discretization segments.
+    
+    **References**:
+    
+        - ESDU. Heat Pipes - Performance of Two-Phase Closed Thermosyphons. Engineering Sciences Data Unit; 1981.
+        - MacGregor, R.W., Kew, P.A., Reay, D.A. (2005). Investigation of Low Global Warming Potential Working Fluids for a Closed Two-Phase Thermosyphon.
+        - Custom correlations for radiative and convective heat transfer, based on external flow arrangements and pool boiling.
+    
+    """
+
+
     def __init__(self):
         super().__init__()
         self.su_C = MassConnector() # Working fluid supply

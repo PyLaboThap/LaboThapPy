@@ -46,64 +46,50 @@ class LV_Separator(BaseComponent):
 
         **Descritpion**:
 
-                !!! Description of the model 
-                    - Method of modeling: This code defines an LV Separator that takes an input stream and splits it into liquid and vapor components based on quality (x) and temperature.
-                    - Use of the model: The model can used in thermodynamic cycle
-                    - Specific outputs: mass flow rate in both liquid and vapor state and exhaust conditions for both lines 
-                    - Pressure drop not modeled
-                    - Geometry not required
-                    - Rating of the models level of complexity, precision, robustness, adaptability : simple
+            - Method of modeling: This code defines an LV Separator that takes an input stream and splits it into liquid and vapor components based on quality (x) and temperature.
+            - Use of the model: The model can used in thermodynamic cycle
+            - Specific outputs: mass flow rate in both liquid and vapor state and exhaust conditions for both lines 
+            - Pressure drop not modeled
+            - Geometry not required
+            - Rating of the models level of complexity, precision, robustness, adaptability : simple
                     
         **Assumptions**:
 
-                !!! Assumptions linked to the model
-                    - No work, no heat losses
+            - No work, no heat losses
                     
         **Connectors**:
             su (MassConnector): Mass connector for the supply conditions
             ex_v (MassConnector): Mass connector for the vapor line
-            ex_v (MassConnector): Mass connector forthe liquid lines
+            ex_l (MassConnector): Mass connector for the liquid line
 
-                !!! These connectors shall be present in the class __init__() method with the same nam  
-                !!! The exhausts are divided in both liquid and vapor ones   
+
 
         **Parameters**:
             
-                !!! No parameters are expected
-
+            No parameters are expected
 
         **Inputs**:    
-                 - su_x          : Supply quality [-]
-                 - su_T or su_h  : Supply temperature or enthalpy [K] or [J/kg]
-                 - su_p          : Supply pressure [Pa]
-                 - su_fluid      : Supply fluid [string]
-                 - su_m_dot      : Supply flow rate [kg/s]
-                
             
-
-        **Ouputs**:
-                Vapor line
-                - ex_v_Q       : Exhaust quality at the vapor line [-]
-                - ex_v_T       : Exhaust temperature at the vapor line [K]
-                - ex_v_h       : Exhaust enthalpy at the vapor line [J/kg]
-                - ex_v_p       : Exhaust pressure at the vapor line [Pa]
-                - ex_v_fluid   : Exhaust fluid at the vapor line [string]
-                - ex_v_m_dot   : Exhaust flow rate at the vapor line [kg/s]
+            - su_x          : Supply quality [-]
+            - su_T or su_h  : Supply temperature or enthalpy [K] or [J/kg]
+            - su_p          : Supply pressure [Pa]
+            - su_fluid      : Supply fluid [string]
+            - su_m_dot      : Supply flow rate [kg/s]
                 
-                Vapor line
-                - ex_l_Q       : Exhaust quality at the liquid line [-]
-                - ex_l_T       : Exhaust temperature at the liquid line [K]
-                - ex_l_h       : Exhaust enthalpy at the liquid line [J/kg]
-                - ex_l_p       : Exhaust pressure at the liquid line [Pa]
-                - ex_l_fluid   : Exhaust fluid at the liquid line [string]
-                - ex_l_m_dot   : Exhaust flow rate at the liquid line [kg/s]
+        **Ouputs**:
+            
+            Vapor line
+            - ex_v_h       : Exhaust enthalpy at the vapor line [J/kg]
+            - ex_v_p       : Exhaust pressure at the vapor line [Pa]
+            - ex_v_fluid   : Exhaust fluid at the vapor line [string]
+            - ex_v_m_dot   : Exhaust flow rate at the vapor line [kg/s]
+            
+            Vapor line
+            - ex_l_h       : Exhaust enthalpy at the liquid line [J/kg]
+            - ex_l_p       : Exhaust pressure at the liquid line [Pa]
+            - ex_l_fluid   : Exhaust fluid at the liquid line [string]
+            - ex_l_m_dot   : Exhaust flow rate at the liquid line [kg/s]
     
-    """
-
-#%% SUBCLASSES 
-
-    """
-    !!! If subclasses are needed, prefered for the model, define them here and 
     """
     
 #%% INIT METHODD: # !!! WRITE A SHORT DOCSTRING 

@@ -4,7 +4,7 @@ save_data_on_exit = True
 save_history = True
 save_non_project_files = False
 project_type = 'empty-project-type'
-recent_files = ['component\\Examples\\heat_exchanger\\hex_crossflowfintube_finitevolume_example.py']
+recent_files = ['component\\Examples\\heat_exchanger\\hex_csteff_example.py', 'component\\heat_exchanger\\hex_csteff.py']
 
 [main]
 version = 0.2.0

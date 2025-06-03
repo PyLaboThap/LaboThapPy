@@ -30,7 +30,7 @@ from correlations.convection.plate_htc import han_BPHEX_DP, water_plate_HTC, mar
 from correlations.convection.pipe_htc import gnielinski_pipe_htc, boiling_curve, horizontal_tube_internal_condensation, horizontal_flow_boiling, flow_boiling_gungor_winterton, Liu_sCO2, Cheng_sCO2
 from correlations.convection.shell_and_tube_htc import shell_bell_delaware_htc, shell_htc_kern
 from correlations.convection.tube_bank_htc import ext_tube_film_condens
-from correlations.convection.fins import htc_tube_and_fins
+from correlations.convection.fins_htc import htc_tube_and_fins
 
 # DP Correlations 
 from correlations.pressure_drop.shell_and_tube_DP import shell_DP_kern, shell_DP_donohue, shell_bell_delaware_DP

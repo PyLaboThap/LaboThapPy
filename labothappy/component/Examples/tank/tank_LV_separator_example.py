@@ -10,8 +10,7 @@ import __init__
 import numpy as np
 from CoolProp.CoolProp import PropsSI
 
-# from labothappy.connector.mass_connector import MassConnector
-from component.tank.LV_Separator import LV_Separator
+from component.tank.tank_LV_separator import LV_Separator
 
 "-----------------------------------------------------------  TEST   ----------------------------------------------------------------"
 
@@ -20,7 +19,7 @@ LV_Separator = LV_Separator()
 # Inputs
 LV_Separator.set_inputs(
                   su_fluid = 'R22',
-                  h_su=PropsSI('T', 'P', 100000, 'Q', 0.5, 'R22'),
+                  x_su = 0.5,
                   p_su = 100000,
                   m_dot_su = 14,
                   )

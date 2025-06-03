@@ -14,7 +14,7 @@ project_root = os.path.abspath(os.path.join(current_dir, "..", ".."))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from toolbox.spliter.spliter import Spliter
+from component.tank.tank_spliter import Spliter
 
 # 1) Data ------------------------------------------------------------------------------------------
 

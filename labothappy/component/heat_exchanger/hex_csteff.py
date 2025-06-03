@@ -1,17 +1,6 @@
-import sys
-import os
-
-# Get the absolute path of the directory that contains the script (simulation_model.py)
-current_dir = os.path.dirname(os.path.abspath(__file__))
-
-# Determine the project root directory (which contains both 'connector' and 'component')
-project_root = os.path.abspath(os.path.join(current_dir, '..', '..', '..'))
-
-# Add the project root to sys.path if it's not already there
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
 #%%
+
+import __init__
 
 from connector.mass_connector import MassConnector
 from connector.work_connector import WorkConnector
@@ -27,6 +16,71 @@ import numpy as np
 import math
 
 class HXEffCst(BaseComponent):
+    """
+    Component: Counterflow Heat Exchanger with Constant Effectiveness (HXEffCst)
+    
+    Model: Simplified Heat Exchanger Model with Constant Effectiveness
+    
+    **Description**:
+    
+        This model simulates a counterflow heat exchanger with a fixed effectiveness (η). It estimates the maximum possible heat transfer based on inlet conditions and applies the given effectiveness to compute the actual heat transfer rate. The model assumes a simplified configuration without discretization or detailed internal states. It is suitable for quick, steady-state evaluations in system-level models.
+    
+    **Assumptions**:
+    
+        - Steady-state operation.
+        - Constant effectiveness (η) is applied across the entire heat exchanger.
+        - No phase change or pressure drop effects are modeled.
+        - Uniform flow distribution on both hot and cold sides.
+        - Fluid properties are retrieved from CoolProp.
+    
+    **Connectors**:
+    
+        su_C (MassConnector): Mass connector for the cold-side supply.
+        
+        su_H (MassConnector): Mass connector for the hot-side supply.
+        
+        ex_C (MassConnector): Mass connector for the cold-side exhaust.
+        
+        ex_H (MassConnector): Mass connector for the hot-side exhaust.
+        
+        Q_dot (HeatConnector): Heat transfer connector representing the total exchanged heat.
+    
+    **Parameters**:
+    
+        eta (float): Effectiveness of the heat exchanger [-].
+    
+    **Inputs**:
+    
+        su_H_fluid (str): Hot-side fluid.
+        
+        su_H_h (float): Hot-side inlet specific enthalpy [J/kg].
+        
+        su_H_p (float): Hot-side inlet pressure [Pa].
+        
+        su_H_m_dot (float): Hot-side mass flow rate [kg/s].
+    
+        su_C_fluid (str): Cold-side fluid.
+        
+        su_C_h (float): Cold-side inlet specific enthalpy [J/kg].
+        
+        su_C_p (float): Cold-side inlet pressure [Pa].
+        
+        su_C_m_dot (float): Cold-side mass flow rate [kg/s].
+    
+    **Outputs**:
+    
+        ex_C_h: Cold-Side Exhaust specific enthalpy at outlet [J/kg].
+        
+        ex_C_p: Cold-Side Exhaust pressure at outlet [Pa].
+                    
+        ex_C_h: Hot-Side specific enthalpy at outlet [J/kg].
+        
+        ex_C_p: Hot-Side pressure at outlet [Pa].
+        
+        Q_dot: Total heat transfer rate across the exchanger [W].
+
+    """
+
     def __init__(self):
         super().__init__()
         self.su_C = MassConnector() # Working fluid supply
@@ -174,13 +228,11 @@ class HXEffCst(BaseComponent):
         self.ex_C.set_m_dot(self.su_C.m_dot)
         self.ex_C.set_h(self.su_C.h + Q_dot/self.su_C.m_dot)
         self.ex_C.set_p(self.su_C.p)
-        self.ex_C.set_T(PropsSI("T", "H", self.ex_C.h, "P", self.ex_C.p, self.su_C.fluid))
 
         self.ex_H.set_fluid(self.su_H.fluid)
         self.ex_H.set_m_dot(self.su_H.m_dot)
         self.ex_H.set_h(self.su_H.h - Q_dot/self.su_H.m_dot)
         self.ex_H.set_p(self.su_H.p)
-        self.ex_H.set_T(PropsSI("T", "H", self.ex_H.h, "P", self.ex_H.p, self.su_H.fluid))
 
         "Heat conector"
         self.Q_dot.set_Q_dot(Q_dot)
