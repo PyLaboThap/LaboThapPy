@@ -1,15 +1,8 @@
 from component.base_component import BaseComponent
 from connector.mass_connector import MassConnector
-from connector.work_connector import WorkConnector
-from connector.heat_connector import HeatConnector
 
-from CoolProp.CoolProp import PropsSI
 
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-import os
-
-class Isenthalpic_Valve_P_ex(BaseComponent):
+class IsenthalpicValve_P_ex(BaseComponent):
     """
     Component: Valve
 
@@ -31,19 +24,19 @@ class Isenthalpic_Valve_P_ex(BaseComponent):
 
     **Inputs**:
 
-        su_p: Suction side pressure. [Pa]
+        P_su: Suction side pressure. [Pa]
 
-        su_T: Suction side temperature. [K]
+        T_su: Suction side temperature. [K]
 
-        ex_p: Exhaust side pressure. [Pa]
+        P_ex: Exhaust side pressure. [Pa]
 
-        su_fluid: Suction side fluid. [-]
+        fluid: Suction side fluid. [-]
 
     **Ouputs**:
 
-        ex_h: Exhaust side specific enthalpy. [J/kg] 
+        h_ex: Exhaust side specific enthalpy. [J/kg] 
 
-        ex_T: Exhaust side temperature. [K]
+        T_ex: Exhaust side temperature. [K]
     """
 
     def __init__(self):
@@ -52,66 +45,19 @@ class Isenthalpic_Valve_P_ex(BaseComponent):
         self.ex = MassConnector() # Mass_connector for the exhaust side
 
     def get_required_inputs(self):
-            self.sync_inputs()
             # Return a list of required inputs
-            return ['su_p', 'su_T', 'ex_p', 'su_fluid']
-    
-    def sync_inputs(self):
-        """Synchronize the inputs dictionary with the connector states."""
-        if self.su.fluid is not None:
-            self.inputs['su_fluid'] = self.su.fluid
-        if self.su.T is not None:
-            self.inputs['su_T'] = self.su.T
-        if self.su.p is not None:
-            self.inputs['su_p'] = self.su.p
-        if self.ex.p is not None:
-            self.inputs['ex_p'] = self.ex.p
-
-    def set_inputs(self, **kwargs):
-        """Set inputs directly through a dictionary and update connector properties."""
-        self.inputs.update(kwargs)
-
-        # Update the connectors based on the new inputs
-        if 'su_fluid' in self.inputs:
-            self.su.set_fluid(self.inputs['su_fluid'])
-        if 'su_T' in self.inputs:
-            self.su.set_T(self.inputs['su_T'])
-        if 'su_p' in self.inputs:
-            self.su.set_p(self.inputs['su_p'])
-        if 'ex_p' in self.inputs:
-            self.ex.set_p(self.inputs['ex_p'])
+            return ['P_su', 'T_su', 'P_ex', 'fluid']
 
     def get_required_parameters(self):
         return []
-    
-    def print_setup(self):
-        print("=== Compressor Setup ===")
-        print("Connectors:")
-        print(f"  - su: fluid={self.su.fluid}, T={self.su.T}, p={self.su.p}, m_dot={self.su.m_dot}")
-        print(f"  - ex: fluid={self.ex.fluid}, T={self.ex.T}, p={self.ex.p}, m_dot={self.ex.m_dot}")
-
-
-        print("\nInputs:")
-        for input in self.get_required_inputs():
-            if input in self.inputs:
-                print(f"  - {input}: {self.inputs[input]}")
-            else:
-                print(f"  - {input}: Not set")
-
-
-        print("\nParameters:")
-        for param in self.get_required_parameters():
-            if param in self.params:
-                print(f"  - {param}: {self.params[param]}")
-            else:
-                print(f"  - {param}: Not set")
-
-        print("======================")
 
     def solve(self):
+        self.check_calculable()
+        self.check_parametrized()
+
         if not (self.calculable and self.parametrized):
             self.solved = False
-            print("CompressorCstEff could not be solved. It is not calculable and/or not parametrized")
+            print("IsenthalpicValve_P_ex could not be solved. It is not calculable and/or not parametrized")
             return
         try:
             
@@ -126,6 +72,7 @@ class Isenthalpic_Valve_P_ex(BaseComponent):
     
     def update_connectors(self, h_ex):
         self.ex.set_h(h_ex)
+        self.ex.set_fluid(self.su.fluid)
         self.ex.set_m_dot(self.su.m_dot)
 
     def print_results(self):

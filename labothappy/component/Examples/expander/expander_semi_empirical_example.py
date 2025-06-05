@@ -4,8 +4,8 @@ Created on Wed Nov 22 14:39:37 2023
 
 @author: Elise
 """
-import __init__
-from component.expander.expander_semi_empirical import ExpanderSE
+# import __init__
+from labothappy.component.expander.expander_semi_empirical import ExpanderSE
 
 import numpy as np
 

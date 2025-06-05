@@ -1,6 +1,6 @@
 import __init__ 
 
-from component.pump.pump_similarity_laws import PumpSimilarityLaws    
+from labothappy.component.pump.pump_similarity_laws import PumpSimilarityLaws    
 
 # Example characteristic curves and parameters
 curves_head = [(0, 66), (0.5, 56), (1, 46), (1.5, 36), (2, 26), (3, 6), (3.3, 0)]
@@ -29,7 +29,7 @@ model.set_inputs(
 )
 
 # # Solve the system
-# model.solve()
+model.solve()
 
 # # Plot the characteristic curves for the given speeds and flow range
-# model.plot_characteristic_curves(speeds_to_plot=[1450, 1750, 2900, 3500], flow_range=(0, 3.3), n_points=50)
+model.plot_characteristic_curves(speeds_to_plot=[1450, 1750, 2900, 3500], flow_range=(0, 3.3), n_points=50)

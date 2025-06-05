@@ -1,31 +1,5 @@
-"""
-Created on Aug 03 21:31:37 2023
 
-@author: 
-"""
-import os
-import sys
-
-def find_project_root(starting_dir):
-    markers = ['connector', 'component']
-    current_dir = starting_dir
-    while True:
-        if all(os.path.isdir(os.path.join(current_dir, marker)) for marker in markers):
-            return current_dir
-        parent_dir = os.path.abspath(os.path.join(current_dir, os.pardir))
-        if parent_dir == current_dir:
-            return None
-        current_dir = parent_dir
-
-current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = find_project_root(current_dir)
-
-if project_root and project_root not in sys.path:
-    sys.path.insert(0, project_root)
-    
-###########################
-
-from toolbox.pump.pump_csteff import PumpCstEff
+from labothappy.component.pump.pump_csteff import PumpCstEff
 import numpy as np
 
 # Example usage

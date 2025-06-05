@@ -5,8 +5,8 @@ Created on Aug 03 21:31:37 2023
 @author: Elise
 """
 
-import __init__
-from component.expander.expander_csteff import ExpanderCstEff
+# import __init__
+from labothappy.component.expander.expander_csteff import ExpanderCstEff
 
 import numpy as np
 
