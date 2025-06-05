@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import __init__
-from component.turbomachinery.turbine_polyneff import Turb_polyn_eff
+from labothappy.component.expander.turbine_polyneff import Turb_polyn_eff
 
 p_in = np.array([10, 15, 20, 25, 30, 35])  # 0.8
 T_in = np.array([173, 195.6, 213.1, 227.6, 240, 250.8])

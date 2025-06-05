@@ -4,10 +4,8 @@ Created on Aug 03 21:31:37 2023
 @author: Elise
 """
 
-import __init__
-from component.compressor.compressor_csteff import CompressorCstEff
-
-import numpy as np
+# import __init__
+from labothappy.component.compressor.compressor_csteff import CompressorCstEff
 
 # Example usage
 CP = CompressorCstEff()

@@ -89,6 +89,12 @@ class BaseComponent:
         try:
             if 'P_ex' in self.inputs:
                 self.ex.set_p(self.inputs['P_ex'])
+            if 'T_ex' in self.inputs:
+                self.ex.set_T(self.inputs['T_ex'])
+            if 'h_ex' in self.inputs:
+                self.ex.set_h(self.inputs['h_ex'])
+            if 'x_ex' in self.inputs:
+                self.ex.set_x(self.inputs['x_ex'])
         except:
             pass
         try:
