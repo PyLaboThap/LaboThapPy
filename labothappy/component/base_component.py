@@ -33,6 +33,9 @@ class BaseComponent:
 
         set_inputs(inputs):
             Sets the input values for the component.
+
+        sync_inputs():
+            Synchronizes the inputs dictionary with the current state of the component's connectors.
             
         set_parameters(parameters):
             Sets the parameter values for the component and checks if it is fully parametrized.
@@ -165,17 +168,53 @@ class BaseComponent:
 
     def sync_inputs(self):
         """Synchronize the inputs dictionary with the connector states."""
-        # Define mappings from input keys to attribute access paths
+
+        # Lazy getters: only access if the connector exists
         attribute_map = {
-            'fluid':   lambda: self.su.fluid,
-            'T_su':    lambda: self.su.T,
-            'h_su':    lambda: self.su.h,
-            'P_su':    lambda: self.su.p,
-            'm_dot':   lambda: self.su.m_dot,
-            'P_ex':    lambda: self.ex.p,
-            'N_rot':   lambda: self.W_mec.N,
-            'T_amb':   lambda: self.Q_amb.T_cold,
+            # su connectors
+            'fluid':     lambda: self.su.fluid if hasattr(self, 'su') else None,
+            'T_su':      lambda: self.su.T if hasattr(self, 'su') else None,
+            'h_su':      lambda: self.su.h if hasattr(self, 'su') else None,
+            'P_su':      lambda: self.su.p if hasattr(self, 'su') else None,
+            'm_dot':     lambda: self.su.m_dot if hasattr(self, 'su') else None,
+
+            # su_H connector
+            'fluid_H':   lambda: self.su_H.fluid if hasattr(self, 'su_H') else None,
+            'T_su_H':    lambda: self.su_H.T if hasattr(self, 'su_H') else None,
+            'h_su_H':    lambda: self.su_H.h if hasattr(self, 'su_H') else None,
+            'P_su_H':    lambda: self.su_H.p if hasattr(self, 'su_H') else None,
+            'm_dot_H':   lambda: self.su_H.m_dot if hasattr(self, 'su_H') else None,
+
+            # su_C connector
+            'fluid_C':   lambda: self.su_C.fluid if hasattr(self, 'su_C') else None,
+            'T_su_C':    lambda: self.su_C.T if hasattr(self, 'su_C') else None,
+            'h_su_C':    lambda: self.su_C.h if hasattr(self, 'su_C') else None,
+            'P_su_C':    lambda: self.su_C.p if hasattr(self, 'su_C') else None,
+            'm_dot_C':   lambda: self.su_C.m_dot if hasattr(self, 'su_C') else None,
+
+            # ex connector
+            'P_ex':      lambda: self.ex.p if hasattr(self, 'ex') else None,
+            'T_ex':      lambda: self.ex.T if hasattr(self, 'ex') else None,
+            'h_ex':      lambda: self.ex.h if hasattr(self, 'ex') else None,
+
+            # ex_C connector
+            'P_ex_C':    lambda: self.ex_C.p if hasattr(self, 'ex_C') else None,
+            'T_ex_C':    lambda: self.ex_C.T if hasattr(self, 'ex_C') else None,
+            'h_ex_C':    lambda: self.ex_C.h if hasattr(self, 'ex_C') else None,
+
+            # ex_H connector
+            'P_ex_H':    lambda: self.ex_H.p if hasattr(self, 'ex_H') else None,
+            'T_ex_H':    lambda: self.ex_H.T if hasattr(self, 'ex_H') else None,
+            'h_ex_H':    lambda: self.ex_H.h if hasattr(self, 'ex_H') else None,
+
+            # W connector
+            'N_rot':     lambda: self.W.N if hasattr(self, 'W') else None,
+
+            # Q_amb connector
+            'T_amb':     lambda: self.Q_amb.T_cold if hasattr(self, 'Q_amb') else None,
         }
+
+        self.inputs = getattr(self, 'inputs', {})
 
         for key, getter in attribute_map.items():
             try:
@@ -183,9 +222,10 @@ class BaseComponent:
                 if value is not None:
                     self.inputs[key] = value
             except Exception:
-                pass  # Replace with logging if needed
+                pass  # Optional: add logging for debugging
 
         return
+
 
     def print_setup(self):
         self.sync_inputs()
