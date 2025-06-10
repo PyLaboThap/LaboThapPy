@@ -1,415 +1,517 @@
+#!/usr/bin/python3
 
+# --- loading libraries 
+
+from connector.mass_connector import MassConnector
 from CoolProp.CoolProp import PropsSI
-import numpy as np
-from scipy.optimize import minimize, fsolve
+from scipy.optimize import fsolve, minimize
+
+import CoolProp.CoolProp as CP
 import matplotlib.pyplot as plt
-from scipy.interpolate import interp1d
+import numpy as np
+import pandas as pd
 
-class axial_turbine_mean_line_design(object):
+import warnings
+warnings.filterwarnings("ignore")
 
-    def __init__(self):
+class AxialTurbineMeanLineDesign(object):
 
-        self.fluid = None
-        self.m_dot = 0
-
-        self.n_stage = 0
-        self.W_dot_stage = [0]
-
-        self.W_dot_req = 0
-        self.p_end = 0
-        self.Rp_tot = 0
-        self.Rp_stage = 0
-
-        self.R = [0]
-        self.psi = [0]
-        self.phi = [0]
-        self.eta_s_tt = [0]
-
-        self.omega = 0
-        self.r = [0]
-        self.AR = [0]
-        self.h = [0]
-        self.Re = 0
-
-        self.v_m = [0]
-        self.u = [0]
-
-        self.v = {  '1': [0],
-                    '2': [0],
-                    '3': [0]}
+    def __init__(self, fluid):
+        # Inputs
+        self.inputs = {}
         
-        self.w = {'1': [0],
-                  '2': [0],
-                  '3': [0]}
+        # Params
+        self.params = {}  
 
-        self.alpha = {'1': [0],
-                      '2': [0],
-                      '3': [0]}
+        # Abstract State 
+        self.fluid = fluid
+        self.AS = CP.AbstractState('HEOS', fluid)
         
-        self.beta = {'1': [0],
-                     '2': [0],
-                     '3': [0]}
+        # Blade Dictionnary
+        self.stages = []
 
-        self.p_tot = {'1': [0],
-                     '2': [0],
-                     '3': [0]}
+        # Velocity Triangle Data
+        self.Vel_Tri = {}
         
-        self.T_tot = {'1': [0],
-                     '2': [0],
-                     '3': [0]}
+        # Blade Row Efficiency
+        self.eta_blade_row = None
+
+    # ---------------- Stage Sub Class ----------------------------------------------------------------------
+    
+    class stage(object):
         
-        self.h_tot = {'1': [0],
-                     '2': [0],
-                     '3': [0]}
+        def __init__(self, fluid):
+            self.total_states = pd.DataFrame(columns=['H','S','P','D','A','V'], index = [1,2,3])
+            self.static_states = pd.DataFrame(columns=['H','S','P','D','A','V'], index = [1,2,3])
+            self.AS = CP.AbstractState('HEOS', fluid)
+            
+        def update_total_AS(self, CP_INPUTS, input_1, input_2, position):
+            self.AS.update(CP_INPUTS, input_1, input_2)
+            
+            self.total_states['H'][position] = self.AS.hmass()            
+            self.total_states['S'][position] = self.AS.smass()            
+            self.total_states['P'][position] = self.AS.p()            
+            self.total_states['D'][position] = self.AS.rhomass()            
+            self.total_states['A'][position] = self.AS.speed_sound()            
+            self.total_states['V'][position] = self.AS.viscosity()            
+            
+            return
         
-        self.s =    {'1': [0],
-                     '2': [0],
-                     '3': [0]}      
+        def update_static_AS(self, CP_INPUTS, input_1, input_2, position):
+            self.AS.update(CP_INPUTS, input_1, input_2)
+            
+            self.static_states['H'][position] = self.AS.hmass()            
+            self.static_states['S'][position] = self.AS.smass()            
+            self.static_states['P'][position] = self.AS.p()            
+            self.static_states['D'][position] = self.AS.rhomass()            
+            self.static_states['A'][position] = self.AS.speed_sound()            
+            self.static_states['V'][position] = self.AS.viscosity()            
 
-    def soderberg_loss_coef(self, alpha, h, Re, c_a = 0.05):
+            return
 
-        deflection = np.linspace(0,140,15)
+    # ---------------- Data Handling ----------------------------------------------------------------------
+    
+    def set_inputs(self, **parameters):
+        for key, value in parameters.items():
+            self.inputs[key] = value
+            
+    def set_parameters(self, **parameters):
+            for key, value in parameters.items():
+                self.params[key] = value
+    
+    # ---------------- Result Plot Methods ----------------------------------------------------------------
 
-        loss_coef = np.array([
-            0.043, 0.045, 0.048, 0.051, 0.055, 0.059, 0.065, 0.071, 0.0795, 0.0892,
-            0.101, 0.116, 0.135, 0.155, 0.18
-           ])
+    def plot_geometry(self, fontsize = 16, ticksize = 12):
         
-        f_coef = interp1d(deflection, loss_coef)
+        r_m_line = np.ones(len(self.r_tip))*self.r_m
         
-        coef = f_coef(abs(alpha)*180/np.pi)
-        coef_2 = (1+coef)*(0.975+0.075*(c_a/h)) - 1
-        coef_3 = coef_2*((10**5)/Re)**(1/4)
+        x = np.linspace(0,len(self.r_tip)-1, len(self.r_tip))
         
-        return coef_3
-
-    def angle_velocity_triangles_axial(self, R, psi, phi, alpha_1, blade_type):
-        # Axial in/out flow
-        # alpha_1 in rad
+        labels = []
+        i = 1
         
-        # Inlet relative angle
-        beta_1 = alpha_1 + np.atan(1/phi)
-
-        # Outlet relative angle
-        beta_2 = np.atan((1-2*R)/phi) - alpha_1
-
-        # Outlet absolute angle
-        if blade_type == 'Stator':
-            alpha_2 = alpha_1 - np.atan(psi/phi)
-        elif blade_type == 'Rotor':
-            alpha_2 = alpha_1 + np.atan(psi/phi)
-        else:
-            print("'blade_type' shall be either 'Stator' or 'Rotor'")
-
-        return beta_1, beta_2, alpha_2
-
-    def axial_turbine_first_stage_opt(self, local = False):
-        # Axial in/out flow considered
-        self.n_stage = 1
-
-        h0 = PropsSI('H','T', self.T_tot['1'][0],'P', self.p_tot['1'][0], self.fluid) # J/kg
-        self.s['1'][0] = PropsSI('S','T', self.T_tot['1'][0],'P', self.p_tot['1'][0], self.fluid) # J/K
-        self.h_tot['1'][0] = h0 # J/kg
-
-        # ---- 1 -> 2 Stator blade --------------------------
-        self.h_tot['2'][0] = self.h_tot['1'][0]
-        self.p_tot['2'][0] = self.p_tot['1'][0]
-        self.T_tot['2'][0] = self.T_tot['1'][0]
-        self.s['2'][0] = self.s['1'][0]
-
-        # Speed of sound 
-        a_2 = PropsSI('A','H', self.h_tot['2'][0],'S', self.s['2'][0], self.fluid) # J/kg
-
-        # Rotor inlet absolute speed
-        self.v['2'][0] = self.M_secu*a_2
-
-        # Speed triangles
-        beta_1, beta_2, alpha_2 = self.angle_velocity_triangles_axial(self.R, self.psi, self.phi, self.alpha['1'][0], 'Stator') # abs & rel angles
-
-        self.beta['1'][0] = beta_1
-        self.beta['2'][0] = beta_2
-        self.alpha['2'][0] = alpha_2
-
-        alpha_2, beta_3, alpha_3 = self.angle_velocity_triangles_axial(self.R, self.psi, self.phi, self.alpha['2'][0], 'Rotor') # abs & rel angles
-
-        self.beta['2'][0] = beta_2
-        self.beta['3'][0] = beta_3
-        self.alpha['3'][0] = alpha_3
-
-        print(self.alpha['2'][0])
-
-        self.v_m[0] = self.v['2'][0]*np.cos(self.alpha['2'][0]) # meridional speed
-        self.w['2'][0] = self.v_m[0]/np.cos(self.beta['2'][0]) # relative speed
-
-        self.v['1'][0] = self.v_m[0]/np.cos(self.alpha['1'][0]) # axial inlet flow : meridional speed is conserved accros the turbine
-
-        w_u2 = np.sqrt(self.w['2'][0]**2 - self.v_m[0]**2) # relative speed projection in rotor speed direction
-        v_u2 = np.sqrt(self.v['2'][0]**2 - self.v_m[0]**2) # absolute speed projection in rotor speed direction
-
-        self.u[0] = v_u2 - w_u2 # rotor speed
-
-        # ---- 2 -> 3 Rotor blade --------------------------
-        self.v['3'][0] = self.v_m[0]/np.cos(self.alpha['3'][0])
-        self.w['3'][0] = self.v_m[0]/np.cos(self.beta['3'][0])
-
-        # Work production
-        Dh_tot = self.psi*self.u[0]**2
-
-        self.W_dot_stage[0] = Dh_tot*self.m_dot
-
-        self.h_tot['3'][0] = self.h_tot['2'][0] - Dh_tot
-
-        # ---- Computation of rotor radius and rotation speed --------------------------
-        h1 = self.h_tot['1'][0] - self.v['1'][0]**2 /2
-        h2 = self.h_tot['2'][0] - self.v['2'][0]**2 /2
-        h3 = self.h_tot['3'][0] - self.v['3'][0]**2 /2
-
-        # Static density and viscosity
-        rho2 = PropsSI('D', 'H', h2, 'S', self.s['2'], self.fluid)
-        mu2 = PropsSI('V', 'H', h2, 'S', self.s['2'], self.fluid)
-
-        # Rotor blade cord
-        Q = self.m_dot/rho2
-        A = Q/self.v_m[0]
-        c = (self.Re*mu2)/(rho2*self.v_m[0])
-
-        # Rotor blade height
-        self.h[0] = c*self.AR[0]
+        while len(labels) < len(x):
+            labels.append("S" + str(i))
+            labels.append("R" + str(i))
+            i += 1
         
-        # Rotor radius
-        self.r[0] = A/(2*np.pi*self.h[0])
+        plt.figure()
+        plt.plot(self.r_tip)
+        plt.plot(self.r_hub)
+        plt.plot(r_m_line)
+                
+        plt.axis([-0.5, len(self.r_tip)-0.5, 0, max(self.r_tip)*1.2])
+        plt.legend(["$r_{tip}$", "$r_{hub}$", "$r_{m}$"])
+        plt.xticks(ticks=x, labels=labels, size=ticksize)
+        plt.grid()
+        plt.ylabel("Length or radius [m]", fontsize= fontsize)
+        plt.show()
 
-        # Hub diameter
-        self.r_h = self.r[0] - self.h[0]
+    def plot_n_blade(self, fontsize = 16, ticksize = 12):
+        n_blade_plot = self.n_blade.flatten()
 
-        loss_coef = self.soderberg_loss_coef(self.alpha['2'][0], self.h[0], self.Re)
-
-        #self.eta_s_tt[0] = 1 - loss_coef
-
-        h3s = h1 + (h3 - h1)/self.eta_s_tt[0]
-        h3s_tot = self.h_tot['1'][0] + (self.h_tot['3'][0] - self.h_tot['1'][0])/self.eta_s_tt[0]
-
-        self.p_tot['3'][0] = PropsSI('P','H', h3s_tot,'S', self.s['2'][0], self.fluid)
-
-        self.s['3'][0] = PropsSI('S', 'H', self.h_tot['3'][0], 'P', self.p_tot['3'][0], self.fluid)
-        self.T_tot['3'][0] = PropsSI('T', 'H', self.h_tot['3'][0], 'P', self.p_tot['3'][0], self.fluid)
-
-        # Rotation speed
-        self.omega = self.u[0]/self.r[0]
-        self.Rp_stage = self.p_tot['1'][0]/self.p_tot['3'][0]
-
-        return self.W_dot_stage[0], self.Rp_stage
-
-    def add_axial_turbine_stage(self, stage):
-        # Axial in/out flow considered
-
-        self.h_tot['1'].append(self.h_tot['3'][stage-1])  # J/kg
-        self.T_tot['1'].append(self.T_tot['3'][stage-1])  # J/kg
-        self.p_tot['1'].append(self.p_tot['3'][stage-1])  # J/kg
-        self.s['1'].append(self.s['3'][stage-1]) # J/K
-
+        x = np.linspace(0,len(n_blade_plot)-1, len(n_blade_plot))
         
+        labels = []
+        i = 1
+        
+        while len(labels) < len(x):
+            labels.append("S" + str(i))
+            labels.append("R" + str(i))
+            i += 1
+
+        for i in range(len(n_blade_plot)*2):
+              if np.mod(i,4) == 1 or np.mod(i,4) == 2: # Stator
+                    n_blade_plot = np.insert(n_blade_plot,i,None)      
+
+        n_blade_plot = n_blade_plot.reshape(int(len(n_blade_plot)/2),2)
+
+        plt.figure()
+        plt.plot(n_blade_plot[:, 0], 'o', label="Stator Blades")  # Plot first column with label
+        plt.plot(n_blade_plot[:, 1], 'o', label="Rotor Blades")  # Plot second column with label
+        plt.axis([-0.5, len(self.r_tip)-0.5, 0, max(n_blade_plot.flatten())*1.2])
+        plt.xticks(ticks=x, labels=labels, size=ticksize)
+        plt.legend()
+        plt.grid()
+        plt.ylabel("Blade number [-]", fontsize= fontsize)
+        plt.show()
+
+    def plot_radius_verif(self, fontsize = 16, ticksize = 12):
+        
+        x = np.linspace(0,len(self.r_ratio2)-1, len(self.r_ratio2))
+        
+        labels = []
+        i = 1
+        
+        while len(labels) < len(x):
+            labels.append("S" + str(i))
+            labels.append("R" + str(i))
+            i += 1
+            
+        plt.figure()
+        plt.plot(self.r_ratio2)
+        plt.axis([-0.5, len(self.r_ratio2)-0.5, 0, max(self.r_ratio2)*1.2])
+        plt.xticks(ticks=x, labels=labels, size=ticksize)
+        plt.grid()
+        plt.ylabel("$\\left[ r_{ext}/r_{hub} \\right]^2$ [-]", fontsize= fontsize)
+        plt.show()
+
+        plt.figure()
+        plt.plot(self.r_hub_tip)
+        plt.axis([-0.5, len(self.r_hub_tip)-0.5, 0, 1])
+        plt.xticks(ticks=x, labels=labels, size=ticksize)
+        plt.grid()
+        plt.ylabel("$\\left[ r_{hub}/r_{tip} \\right]$ [-]", fontsize= fontsize)
+        plt.show()
+
+    def plot_Mollier(self, fontsize = 16, ticksize = 12):
+        # Thermo Prop
+        x = np.linspace(0,len(self.r_tip)-1, len(self.r_tip))
+        
+        labels = []
+        i = 1
+        
+        while len(labels) < len(x):
+            labels.append("S" + str(i))
+            labels.append("R" + str(i))
+            i += 1
+        
+        x2 = np.linspace(0,len(self.r_tip), len(self.r_tip)+1)
+        labels2 = ['0'] + labels
+        
+        p = [self.stages[0].static_states['P'][1]]
+        s = [self.stages[0].static_states['S'][1]]
+        h = [self.stages[0].static_states['H'][1]]
+        
+        for i in range(self.nStages):
+            p.append(self.stages[i].static_states['P'][2])
+            p.append(self.stages[i].static_states['P'][3])
+        
+            s.append(self.stages[i].static_states['S'][2])
+            s.append(self.stages[i].static_states['S'][3])
+            
+            h.append(self.stages[i].static_states['H'][2])
+            h.append(self.stages[i].static_states['H'][3])
+        
+        plt.figure()
+        plt.plot(np.array(p)*1e-3)
+        plt.axis([-0.5, len(self.r_tip)+0.5, 0, max(np.array(p)*1e-3)*1.2])
+        plt.xticks(ticks=x2, labels=labels2, size=ticksize)
+        plt.grid()
+        plt.ylabel("Oulet Pressure [kPa]", fontsize= fontsize)
+        plt.show()
+        
+        plt.figure()
+        plt.plot(s, h)
+        plt.plot([s[0], s[0]], [h[0], h[-1]])
+        
+        # Define entropy range (in J/(kg·K))
+        entropy_range = np.linspace(s[0], s[-1], 100)  # Adjust range for your fluid
+        
+        for P in p:
+            enthalpy = [PropsSI('H', 'S', s, 'P', P, self.fluid) for s in entropy_range]  # Enthalpy in kJ/kg
+            entropy = entropy_range  # Entropy in kJ/(kg·K)
+            plt.plot(entropy, enthalpy, color = 'grey', alpha=0.3, label=f'P = {P/1e5} bar')
+        
+        plt.ylabel("$Enthalpy$ [J/kg]", fontsize= fontsize)
+        plt.xlabel("$Entropy$ [J/(kg x K)]", fontsize= fontsize)
+        plt.legend(["real", "isentropic"])
+        plt.show()
 
 
-        # ---- 1 -> 2 Stator blade --------------------------
-        self.h_tot['2'].append(self.h_tot['1'][stage])
-        self.s['2'].append(self.s['1'][stage])
+    # ---------------- Flow Computations ------------------------------------------------------------------
 
-        # Speed of sound 
-        a_2 = PropsSI('A','H', self.h_tot['2'][stage],'S', self.s['2'][stage], self.fluid) # J/kg
+    def computeVelTriangle(self):
 
-        # Rotor inlet absolute speed 
-        self.v['2'].append(self.M_secu*a_2)
+        # Velocities over u
+        self.Vel_Tri['vu2OverU'] = (2*(1-self.inputs['R']) + self.inputs['psi'])/2
+        self.Vel_Tri['vu3OverU'] = (2*(1-self.inputs['R']) - self.inputs['psi'])/2
+        self.Vel_Tri['vmOverU']  = self.inputs['phi']
+        
+        self.Vel_Tri['wu2OverU']  = self.Vel_Tri['vu2OverU'] - 1
+        self.Vel_Tri['wu3OverU']  = self.Vel_Tri['vu3OverU'] - 1
 
-        # Speed triangles
-        self.alpha['1'].append(self.alpha['3'][stage-1])
+        self.Vel_Tri['v2OverU']  = np.sqrt(self.Vel_Tri['vu2OverU']*self.Vel_Tri['vu2OverU']+self.Vel_Tri['vmOverU']*self.Vel_Tri['vmOverU'])
+        self.Vel_Tri['w2OverU']  = np.sqrt(self.Vel_Tri['wu2OverU']*self.Vel_Tri['wu2OverU']+self.Vel_Tri['vmOverU']*self.Vel_Tri['vmOverU'])
+        self.Vel_Tri['v3OverU']  = np.sqrt(self.Vel_Tri['vu3OverU']*self.Vel_Tri['vu3OverU']+self.Vel_Tri['vmOverU']*self.Vel_Tri['vmOverU'])
+        self.Vel_Tri['w3OverU']  = np.sqrt(self.Vel_Tri['wu3OverU']*self.Vel_Tri['wu3OverU']+self.Vel_Tri['vmOverU']*self.Vel_Tri['vmOverU'])
 
-        beta_1, beta_2, alpha_2 = self.angle_velocity_triangles_axial(self.R, self.psi, self.phi, self.alpha['1'][stage], 'Stator') # abs & rel angles
+        # Angles in radians
+        self.Vel_Tri['alpha1'] = self.Vel_Tri['alpha3'] = np.arctan(self.Vel_Tri['vu3OverU']/self.Vel_Tri['vmOverU'])
+        self.Vel_Tri['alpha2'] = np.arctan(self.Vel_Tri['vu2OverU']/self.Vel_Tri['vmOverU'])
 
-        self.beta['1'].append(beta_1)
-        self.beta['2'].append(beta_2)
-        self.alpha['2'].append(alpha_2)
-
-        beta_2, beta_3, alpha_3 = self.angle_velocity_triangles_axial(self.R, self.psi, self.phi, alpha_2, 'Rotor') # abs & rel angles
-
-        self.beta['2'].append(beta_2)
-        self.beta['3'].append(beta_3)
-        self.alpha['3'].append(alpha_3)
-
-        self.v_m.append(self.v['2'][stage]*np.cos(alpha_2)) # meridional speed
-        self.w['2'].append(self.v_m[stage]/np.cos(beta_2)) # relative speed
-
-        self.v['1'].append(self.v_m[stage]/np.cos(self.alpha['1'][stage])) # axial inlet flow : meridional speed is conserved accros the turbine
-
-        w_u2 = np.sqrt(self.w['2'][stage]**2 - self.v_m[stage]**2) # relative speed projection in rotor speed direction
-        v_u2 = np.sqrt(self.v['2'][stage]**2 - self.v_m[stage]**2) # absolute speed projection in rotor speed direction
-
-        self.u.append(v_u2 - w_u2) # rotor speed
-
-        # ---- 2 -> 3 Rotor blade --------------------------
-        self.v['3'].append(self.v_m[stage]/np.cos(alpha_3))
-        self.w['3'].append(self.v_m[stage]/np.cos(beta_3))
-
-        # Work production
-        Dh_tot = self.psi*self.u[stage]**2
-        self.W_dot_stage.append(Dh_tot*self.m_dot)
-
-        self.h_tot['3'].append(self.h_tot['2'][stage] - Dh_tot)
-
-        # ---- Computation of rotor radius and rotation speed --------------------------
-        self.p_tot['3'].append(self.p_tot['1'][stage]/self.Rp_stage)
-        self.T_tot['3'].append(PropsSI('T', 'H', self.h_tot['3'][stage], 'P', self.p_tot['3'][stage], self.fluid))
-        self.s['3'].append(PropsSI('S', 'H', self.h_tot['3'][stage], 'P', self.p_tot['3'][stage], self.fluid))
-
-        h3s_tot = PropsSI('H', 'S', self.s['2'][stage], 'P',  self.p_tot['3'][stage], self.fluid)
-
-        self.eta_s_tt.append((self.h_tot['2'][stage] - self.h_tot['3'][stage])/(self.h_tot['2'][stage] - h3s_tot))
-
-        self.r.append(self.u[stage]/self.omega)
-
-        # ---- Blade height and aspect ratio --------------------------
-        self.h.append(self.r[stage] - self.r_h)
-
-        loss_coef = self.soderberg_loss_coef(self.alpha['2'][stage], self.h[stage], self.Re)
-
-        # Static density and viscosity
-        h3 = self.h_tot['3'][stage] - self.v['3'][stage]**2
-        rho3 = PropsSI('D', 'H', h3, 'S', self.s['3'][stage], self.fluid)
-        mu3 = PropsSI('V', 'H', h3, 'S', self.s['3'][stage], self.fluid)
-
-        # Rotor blade cord
-        c = (self.Re*mu3)/(rho3*self.v_m[stage])
-
-        self.AR.append(self.h[stage]/c)
-
-        A = np.pi*self.r[stage]*self.h[stage]
-        print(A*self.v_m[stage]*rho3)
-
+        self.Vel_Tri['beta1'] = self.Vel_Tri['beta3'] = np.arctan(self.Vel_Tri['wu3OverU']/self.Vel_Tri['vmOverU'])
+        self.Vel_Tri['beta2'] = np.arctan(self.Vel_Tri['wu2OverU']/self.Vel_Tri['vmOverU'])
+        
         return 
+    
+    def computeBladeRow(self,stage,row_type):
+        if row_type == 'S': # Stator
+            hin = stage.static_states['H'][1]
+            h0in = hin + (self.Vel_Tri['vu1']**2 + self.Vel_Tri['vm']**2)/2  
 
-    def design(self, inputs, params):
-
-        # Load inputs and parameters
-
-        self.fluid = inputs['fluid']
-        self.m_dot = inputs['m_dot']
-        self.W_dot_req = inputs['W_dot']
-
-        self.v['1'][0] = inputs['v0']
-        self.T_tot['1'][0] = inputs['T0']
-        self.p_tot['1'][0] = inputs['p0']
-        self.alpha['1'][0]  = params['alpha_1']
-
-        self.AR[0] = params['AR']
-
-        self.R = params['R']
-        self.psi = params['psi']
-        self.phi = params['phi']
-        self.eta_s_tt[0] = params['eta_s_tt']
-
-        self.Rp_tot = inputs['p0']/inputs['p_end']
-        self.M_secu = params['M_secu']
-        self.Re = params['Re']
-
-        def W_dot_res(vars):
-            eta_s_tt_1, phi = vars
-            self.eta_s_tt[0] = eta_s_tt_1
-            self.phi = phi
-
-            W_dot_stage, Rp_stage = self.axial_turbine_first_stage_opt()
-            self.n_stage = np.log(self.Rp_tot)/np.log(Rp_stage)
-
-            n_stage_round = round(self.n_stage,0)
-            return abs(n_stage_round-self.n_stage)
-
-        bounds = [(0.3, 0.8),
-                  (0.4, 0.6)]     # y bounds
-
-        result = minimize(W_dot_res, x0=[self.eta_s_tt[0], self.phi], bounds=bounds, method='SLSQP')
+            stage.update_total_AS(CP.HmassSmass_INPUTS, h0in, stage.static_states['S'][1], 1)            
+            
+            hout = h0in - (self.Vel_Tri['vu2']**2 + self.Vel_Tri['vm']**2)/2            
+            hout_s = hin - (hin-hout)/self.eta_blade_row
+            
+            self.AS.update(CP.HmassSmass_INPUTS, hout_s, stage.total_states['S'][1])
+            pout = self.AS.p()
+            
+            stage.update_static_AS(CP.HmassP_INPUTS, hout, pout, 2)            
+                        
+        else: # Rotor
+            hin = stage.static_states['H'][2]
+            h0in = hin + (self.Vel_Tri['wu2']**2 + self.Vel_Tri['vm']**2)/2  
+            
+            stage.update_total_AS(CP.HmassSmass_INPUTS, h0in, stage.static_states['S'][2], 2)            
+            
+            hout = h0in - (self.Vel_Tri['wu3']**2 + self.Vel_Tri['vm']**2)/2            
+            hout_s = hin - (hin-hout)/self.eta_blade_row
+            
+            self.AS.update(CP.HmassSmass_INPUTS, hout_s, stage.total_states['S'][2])
+            pout = self.AS.p()
+            
+            stage.update_static_AS(CP.HmassP_INPUTS, hout, pout, 3)        
         
-        self.n_stage = int(round(self.n_stage,0))
-
-        for i in range(self.n_stage-1):
-            self.add_axial_turbine_stage(i+1)
-
-        self.W_dot_tot = sum(self.W_dot_stage)
+        return
+            
+    def computeRepeatingStages(self):
         
-        h_tot_s_out = PropsSI('H','S', self.s['1'][0], 'P', self.p_tot['3'][-1],self.fluid)
-        h_tot_in = self.h_tot['1'][0]
-        h_tot_out = self.h_tot['3'][-1]
+        for i in range(int(self.nStages)):
+            if i == 0:
+                self.computeBladeRow(self.stages[i], 'S')
+                self.computeBladeRow(self.stages[i], 'R')
+            else:
+                self.stages[i].static_states.loc[1] = self.stages[i-1].static_states.loc[3]
+                
+                self.computeBladeRow(self.stages[i], 'S')
+                self.computeBladeRow(self.stages[i], 'R')
+            
+        return
+    
+    # ---------------- Main Method ------------------------------------------------------------------------
+    
+    def design(self):
         
-        self.eta_s_t = (self.h_tot['1'][0]-self.h_tot['3'][-1])/(self.h_tot['1'][0]-h_tot_s_out)
+        # First Stator Instanciation
+        self.stages.append(self.stage(self.fluid))
+        self.stages[0].update_total_AS(CP.PT_INPUTS, self.inputs['p0_su'], self.inputs['T0_su'], 1)
+        
+        "------------- 1) Isentropic Expansion Calculation -----------------------------------------------" 
+        s_in = self.stages[0].total_states['S'][1]
+        self.AS.update(CP.PSmass_INPUTS, self.inputs['p_ex'], s_in)
+        
+        h_is_ex = self.AS.hmass()
+        Dh0s = self.stages[0].total_states['H'][1] - h_is_ex
+        
+        Dh0 = self.inputs['W_dot_req']/self.inputs['mdot']
+        
+        self.eta_is = Dh0/Dh0s
+        
+        "------------- 2) Velocity Triangle Computation (+ Solodity) -------------------------------------" 
+        self.computeVelTriangle()
+        
+        self.solidityStator = 2*np.cos(self.Vel_Tri['alpha2'])/np.cos(self.Vel_Tri['alpha1'])*np.sin(abs(self.Vel_Tri['alpha2']-self.Vel_Tri['alpha1']))/self.params['Zweifel']
+        self.solidityRotor  = 2*np.cos(self.Vel_Tri['beta3'])/np.cos(self.Vel_Tri['beta2'])*np.sin(abs(self.Vel_Tri['beta3']-self.Vel_Tri['beta2']))/self.params['Zweifel']
+        
+        "------------- 3) Guess u from vMax (subsonic flow)  ---------------------------------------------" 
+        
+        vMax = self.AS.speed_sound() * self.inputs['Mmax']
+        
+        # Assume u based on the maximum speed
+        self.Vel_Tri['u'] = vMax / max([self.Vel_Tri['v2OverU'],self.Vel_Tri['w3OverU']])
+        
+        "------------- 4) Compute number of stage + recompute u  -----------------------------------------" 
+        
+        # Compute required number of stages based on assumed u
+        Dh0Stage = self.inputs['psi'] * self.Vel_Tri['u']**2
+        self.nStages = int(round(Dh0/Dh0Stage))
+        
+        for i in range(self.nStages-1):
+            self.stages.append(self.stage(self.fluid))
+        
+        # Recompute u based on the number of stages to satisfy the work. As r_m is constant, u is contant accross stages
+        Dh0Stage = Dh0/self.nStages
+        self.Vel_Tri['u'] = np.sqrt(Dh0Stage/self.inputs['psi'])
+
+        "------------- 5) Compute complete velocity triangles and exit losses ----------------------------" 
+
+        # Compute velocity triangle with the value of u
+        self.Vel_Tri['vm'] = self.Vel_Tri['vmOverU'] * self.Vel_Tri['u']
+        self.Vel_Tri['vu2'] = self.Vel_Tri['vu2OverU'] * self.Vel_Tri['u']
+        self.Vel_Tri['vu3'] = self.Vel_Tri['vu3OverU'] * self.Vel_Tri['u']
+        self.Vel_Tri['wu2'] = self.Vel_Tri['wu2OverU'] * self.Vel_Tri['u']
+        self.Vel_Tri['wu3'] = self.Vel_Tri['wu3OverU'] * self.Vel_Tri['u']
+        self.Vel_Tri['vu1'] = self.Vel_Tri['vu3']
+
+        self.exit_loss = (self.Vel_Tri['vm']**2+self.Vel_Tri['vu3']**2)/2
+
+        "------------- 6) Find eta_blade_row by iterating on the repeating stages ------------------------" 
+
+        h_in = self.stages[0].total_states['H'][1] - (self.Vel_Tri['vm']**2)/2
+        self.stages[0].update_static_AS(CP.HmassSmass_INPUTS, h_in, s_in, 1)
+
+        def find_eta_blade(x):
+            self.eta_blade_row = x[0]
+            self.computeRepeatingStages()
+    
+            pn_comp = self.stages[-1].static_states['P'][3]
+
+
+            return (self.inputs["p_ex"] - pn_comp)**2
+
+        sol = minimize(find_eta_blade, 1, bounds=[(self.eta_is, 1)], tol = 1e-4)
+        
+        "------------- 7) Iterate on r_m to satisfy hub to tip ratio -------------------------------------" 
+        cord_min = np.zeros([self.nStages,2])
+        self.h_blade = np.zeros([self.nStages,2])
+
+        self.A_flow = np.zeros([self.nStages,2])
+        
+        self.pitch = np.zeros([self.nStages,2])
+        self.n_blade = np.zeros([self.nStages,2])
+
+        def find_r_m(x):
+            self.r_m = x[0]
+    
+            self.r_tip = []
+            self.r_hub = []
+            self.r_hub_tip = []
+            self.r_ratio2 = []
+    
+            for i in range(self.nStages):
+                self.A_flow[i][0] = self.inputs['mdot']/(self.stages[i].static_states['D'][2]*self.Vel_Tri['vm'])
+                self.A_flow[i][1] = self.inputs['mdot']/(self.stages[i].static_states['D'][3]*self.Vel_Tri['vm'])
+    
+                # Determine minimum chord to satisfy minimum Reynolds
+                # by using velocity, density and viscosity at the blade outlet
+    
+                self.h_blade[i][0] = self.A_flow[i][0]/(4*np.pi*self.r_m)
+                self.h_blade[i][1] = self.A_flow[i][1]/(4*np.pi*self.r_m)
+    
+                cord_min[i][0] = (self.params['Re_min']*self.stages[i].static_states['V'][2])/(self.stages[i].static_states['D'][2]*self.Vel_Tri['vm'])
+                cord_min[i][1] = (self.params['Re_min']*self.stages[i].static_states['V'][3])/(self.stages[i].static_states['D'][3]*self.Vel_Tri['vm'])
+    
+                self.AR_max = min(self.h_blade.flatten()/cord_min.flatten()) 
+            
+                self.r_tip.append(self.r_m + self.h_blade[i][0]/2)
+                self.r_hub.append(self.r_m - self.h_blade[i][0]/2)
+                self.r_hub_tip.append(self.r_hub[-1]/self.r_tip[-1])
+                self.r_ratio2.append((self.r_tip[-1]/self.r_hub[-1])**2)
+            
+                self.r_tip.append(self.r_m + self.h_blade[i][1]/2)
+                self.r_hub.append(self.r_m - self.h_blade[i][1]/2)
+                self.r_hub_tip.append(self.r_hub[-1]/self.r_tip[-1])
+                self.r_ratio2.append((self.r_tip[-1]/self.r_hub[-1])**2)
+
+            if self.r_hub_tip[-1] > 0: # Penalty to prevent converging to values not satisfying conditions on r_hub_tip
+                penalty_1 = max(self.r_hub_tip[0] - self.params['r_hub_tip_max'],0)*1000
+                penalty_2 = max(self.params['r_hub_tip_min'] - self.r_hub_tip[-1],0)*1000
+                
+                return self.r_m + penalty_1 + penalty_2
+            
+            else: # A very high penalty prevents converging to r_m values very close to 0,  
+                return self.r_m + 100000
+
+        sol = minimize(find_r_m, bounds=[(0, 10)], x0=0.2, tol = 1e-4)        
+
+        self.AR = np.linspace(self.params['AR_min'],self.AR_max,self.nStages*2).reshape(self.nStages,2)
+        self.cord = self.h_blade/self.AR
+
+        "------------- 8) Compute rotation speed and number of blades per stage ---------------------------" 
+
+        self.omega_rads = self.Vel_Tri['u']/self.r_m # rad/s
+        self.omega_RPM = self.omega_rads*60/(2*np.pi) 
+
+        for i in range(self.nStages):
+              self.pitch[i][0] = self.solidityStator*self.cord[i][0]
+              self.pitch[i][1] = self.solidityRotor*self.cord[i][1]
+
+              self.n_blade[i][0] = round(2*np.pi*self.r_m/self.pitch[i][0])
+              self.n_blade[i][1] = round(2*np.pi*self.r_m/self.pitch[i][1])
+
+        "------------- 9) Print Main Results -------------------------------------------------------------" 
+        
+        print(f"Turbine mean diameter: {self.r_m} [m]")
+        print(f"Turbine rotation speed: {self.omega_RPM} [RPM]")
+        print(f"Turbine number of stage : {self.nStages} [-]")
+        print(f"Turbine static-to-static blade efficiency : {self.eta_blade_row} [-]")
 
         return
 
-first_stage_params = {  'M_secu'  :     0.8,
-                        'R'       :     0.5, # Degree of reaction 
-                        'psi'     :       1, # Work coefficient
-                        'phi'     :     0.5, # Flow coefficient
-                        'Re'      :   1*1e6, # Required Reynolds number at blade outlet for turbulent flow
-                        'AR'      :       3, # Blade aspect ratio 
-                        'eta_s_tt':     0.8, # Stage static-to-static isentropic efficiency
-                        'alpha_1' :       0  # Stator inlet angle [rad]
-                    }
+Turb = AxialTurbineMeanLineDesign('Cyclopentane')
 
-# ---- Cycle inputs --------------------------
+# Cuerva Case
 
-first_stage_inputs = {'fluid':'Cyclopentane',
-          'm_dot':         34.51, # kg/s
-          'W_dot':      2506*1e3, # W
-          'v0'   :             0, # m/s^2
-          'T0'   :    273.15+131, # K
-          'p0'   :     767.8*1e3, # Pa
-          'p_end'   :        82*1e3 # Pa
-          }
+Turb.set_inputs(
+    mdot = 46.18, # kg/s
+    W_dot_req = 4257000, # W
+    p0_su = 1230000, # Pa
+    T0_su = 273.15 + 158, # K
+    p_ex = 78300, # Pa
+    psi = 1, # [-]
+    phi = 0.6, # [-]
+    R = 0.5, # [-]
+    Mmax = 0.8 # [-]
+    )
 
-Sehrene_turbine = axial_turbine_mean_line_design()
-Sehrene_turbine.design(first_stage_inputs, first_stage_params)
+Turb.set_parameters(
+    Zweifel = 0.8, # [-]
+    Re_min = 5e5, # [-]
+    AR_min = 1, # [-]
+    r_hub_tip_max = 0.95, # [-]
+    r_hub_tip_min = 0.6, # [-]
+    )
 
-print("Design Results:")
-print("-------------------------")
-print(f"Turbine imposed pressure ratio: {Sehrene_turbine.Rp_tot} [-]")
-print(f"Turbine number of stages: {Sehrene_turbine.n_stage} [-]")
-print(f"Turbine stage pressure ratio: {Sehrene_turbine.Rp_stage} [-]")
-print("-------------------------")
-print(f"Turbine required power: {Sehrene_turbine.W_dot_req*1e-3} [kW]")
-print(f"Turbine total power: {round(Sehrene_turbine.W_dot_tot*1e-3,1)} [kW]")
-print("-------------------------")
-print(f"Turbine required isentropic efficiency: {0.8} [-]")
-print(f"Turbine design isentropic efficiency: {round(Sehrene_turbine.eta_s_t,2)} [-]")
-print("-------------------------")
-print(f"Turbine rotating speed: {Sehrene_turbine.omega*60/(2*np.pi)} [RPM]")
-print(f"Maximum Mach number imposed between stator and rotors: {Sehrene_turbine.M_secu} [-]")
-print("-------------------------")
+# Torrecid Case
 
-stages_vec = np.linspace(1,Sehrene_turbine.n_stage, Sehrene_turbine.n_stage)
+# Turb.set_inputs(
+#     mdot = 3.581, # kg/s
+#     W_dot_req = 409200, # W
+#     p0_su = 3190000, # Pa
+#     T0_su = 273.15 + 220, # K
+#     p_ex = 73630, # Pa
+#     psi = 1, # [-]
+#     phi = 0.6, # [-]
+#     R = 0.5, # [-]
+#     Mmax = 0.8 # [-]
+#     )
 
-fontsize = 16
+# Turb.set_parameters(
+#     Zweifel = 0.8, # [-]
+#     Re_min = 5e5, # [-]
+#     AR_min = 1, # [-]
+#     r_hub_tip_max = 0.95, # [-]
+#     r_hub_tip_min = 0.6, # [-]
+#     )
 
-plt.figure()
-plt.plot(stages_vec, Sehrene_turbine.r)
-plt.ylabel("Rotor Radius [m]", fontsize = fontsize)
-plt.axis([0.8,4.2, 0.14,0.24])
-plt.grid()
-plt.show()
 
-plt.figure()
-plt.plot(stages_vec, np.array(Sehrene_turbine.W_dot_stage)*1e-3)
-plt.ylabel("Stage Work [kW]", fontsize = fontsize)
-plt.axis([0.8,4.2, 600, 750])
-plt.grid()
-plt.show()
+# Zorlu Case
 
-plt.figure()
-plt.plot(stages_vec, np.array(Sehrene_turbine.h)*1e3)
-plt.ylabel("Blade height [mm]", fontsize = fontsize)
-plt.axis([0.8,4.2, 20, 60])
-plt.grid()
-plt.show()
+# Turb.set_inputs(
+#     mdot = 34.51, # kg/s
+#     W_dot_req = 2506000, # W
+#     p0_su = 767800, # Pa
+#     T0_su = 273.15 + 131, # K
+#     p_ex = 82000, # Pa
+#     psi = 1, # [-]
+#     phi = 0.6, # [-]
+#     R = 0.5, # [-]
+#     Mmax = 0.8 # [-]
+#     )
 
-plt.figure()
-plt.plot(stages_vec, np.array(Sehrene_turbine.AR))
-plt.ylabel("Blade Aspect Ratio [-]", fontsize = fontsize)
-plt.axis([0.8,4.2, 0, 4])
-plt.grid()
-plt.show()
+# Turb.set_parameters(
+#     Zweifel = 0.8, # [-]
+#     Re_min = 5e5, # [-]
+#     AR_min = 1, # [-]
+#     r_hub_tip_max = 0.95, # [-]
+#     r_hub_tip_min = 0.6, # [-]
+#     )
+
+Turb.design()
+
+Turb.plot_geometry()
+Turb.plot_n_blade()
+Turb.plot_radius_verif()
+Turb.plot_Mollier()
