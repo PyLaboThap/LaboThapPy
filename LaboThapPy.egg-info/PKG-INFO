@@ -1,20 +1,53 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: LaboThapPy
 Version: 0.1.0
-Summary: Open-source Python library for the modelling and simulation of thermodynamic systems
+Summary: A Python library for LaboThap calculations and simulations
 Home-page: https://github.com/PyLaboThap/LaboThapPy
-Author: Elise Neven, Basile Chaudoir
+Author: Elise Neven
+Author-email: Your Name <you@example.com>
+License: MIT
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: CoolProp>=6.6.0
+Requires-Dist: numpy>=1.24
+Requires-Dist: scipy>=1.10
+Requires-Dist: pandas>=2.2
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: plumbum>=1.8
+Requires-Dist: python-dateutil>=2.8
+Requires-Dist: pytz>=2024.1
+Requires-Dist: requests>=2.30
+Requires-Dist: urllib3>=2.0
+Provides-Extra: dev
+Requires-Dist: ipython; extra == "dev"
+Requires-Dist: ipywidgets; extra == "dev"
+Requires-Dist: jupyterlab; extra == "dev"
+Requires-Dist: nbconvert; extra == "dev"
+Requires-Dist: nbformat; extra == "dev"
+Requires-Dist: notebook; extra == "dev"
+Requires-Dist: matplotlib-inline; extra == "dev"
+Requires-Dist: debugpy; extra == "dev"
+Requires-Dist: psutil; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinx-autodoc-typehints; extra == "docs"
+Requires-Dist: sphinx-rtd-theme; extra == "docs"
+Requires-Dist: nbsphinx; extra == "docs"
+Requires-Dist: furo; extra == "docs"
+Requires-Dist: myst-parser; extra == "docs"
+Dynamic: author
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
 
 # LaboThapPy: A Thermodynamic Modelling Library
 
-**LaboThapPy** is an open-source Python library that consolidates a wide range of thermodynamic models developed over years of research at the University of LiÃ¨ge. Its primary purpose is to provide a standardized framework for detailed thermodynamic system and component modeling.
+**LaboThapPy** is an open-source Python library that consolidates a wide range of thermodynamic models developed over years of research at the University of Liège. Its primary purpose is to provide a standardized framework for detailed thermodynamic system and component modeling.
 
 ## Why LaboThapPy?
 
-At the University of LiÃ¨ge's Thermodynamic Laboratory, we noticed a recurring issue:  
+At the University of Liège's Thermodynamic Laboratory, we noticed a recurring issue:  
 - Identical or similar models were being recreated across different software and codes.  
 - Some models were lost when researchers left.  
 
@@ -25,8 +58,8 @@ At the University of LiÃ¨ge's Thermodynamic Laboratory, we noticed a recurring
 ## Authors
 
 This library was initially developed by:  
-- **Elise Neven** (University of LiÃ¨ge) â€“ [elise.neven@uliege.be](mailto:elise.neven@uliege.be)  
-- **Basile Chaudoir** (University of LiÃ¨ge) â€“ [Basile.Chaudoir@uliege.be](mailto:Basile.Chaudoir@uliege.be)  
+- **Elise Neven** (University of Liège) – [elise.neven@uliege.be](mailto:elise.neven@uliege.be)  
+- **Basile Chaudoir** (University of Liège) – [Basile.Chaudoir@uliege.be](mailto:Basile.Chaudoir@uliege.be)  
 
 ## Documentation
 

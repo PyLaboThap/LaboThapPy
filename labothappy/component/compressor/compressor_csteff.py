@@ -1,3 +1,5 @@
+import __init__
+
 from component.base_component import BaseComponent
 from connector.mass_connector import MassConnector
 from connector.work_connector import WorkConnector
@@ -41,6 +43,8 @@ class CompressorCstEff(BaseComponent):
 
         fluid: Working fluid. [-]
 
+        m_dot: Mass flow rate of working fluid. [kg/s]
+
     **Ouputs**:
 
         h_ex: Exhaust side specific enthalpy. [J/kg] 
@@ -52,7 +56,7 @@ class CompressorCstEff(BaseComponent):
         super().__init__()
         self.su = MassConnector() # Mass_connector for the suction side
         self.ex = MassConnector() # Mass_connector for the exhaust side
-        self.W_mec = WorkConnector()
+        self.W = WorkConnector()
 
     def get_required_inputs(self):
         # Return a list of required inputs
@@ -67,10 +71,6 @@ class CompressorCstEff(BaseComponent):
         self.check_calculable()
         self.check_parametrized()
 
-        if not (self.calculable and self.parametrized):
-            self.solved = False
-            print("CompressorCstEff could not be solved. It is not calculable and/or not parametrized")
-            return
         try:
             h_ex_is = PropsSI('H', 'P', self.ex.p, 'S', self.su.s, self.su.fluid)
             h_ex = self.su.h + (h_ex_is - self.su.h) / self.params['eta_is']
@@ -88,8 +88,8 @@ class CompressorCstEff(BaseComponent):
         self.ex.set_h(h_ex)
         self.ex.set_fluid(self.su.fluid)
         self.ex.set_m_dot(self.su.m_dot)
-        self.W_mec.set_w(w)
-        self.W_mec.set_W_dot(W_dot)
+        self.W.set_w(w)
+        self.W.set_W_dot(W_dot)
 
     def print_results(self):
         print("=== Compressor Results ===")

@@ -341,7 +341,7 @@ def horizontal_flow_boiling(fluid, G, P_sat, x, D_in, q):
     Outputs
     -------
     
-    alpha : Evaporation heat transfer coeffieicnt [W/(m^2 * K)]
+    alpha : Evaporation heat transfer coefficient [W/(m^2 * K)]
     
     Reference
     ---------

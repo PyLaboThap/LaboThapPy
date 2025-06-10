@@ -31,98 +31,6 @@ start_time = time.time()
 
 HX = HeatExchangerMB('Shell&Tube')
 
-# # "Setting inputs"
-# # -------------------------------------------------------------------------------------------------------------
-# DECAGONE Evaporator case
-# HX.set_inputs(
-#     # First fluid
-#     Hsu_fluid = 'INCOMP::T66',
-#     Hsu_T = 310 + 273.15, # K
-#     Hsu_p = 3.25*1e5, # Pa
-#     Hsu_m_dot = 19.42, # kg/s
-
-#     # Second fluid
-#     Csu_fluid = 'Cyclopentane',
-#     Csu_T = 95.1 + 273.15, # 95.1 + 273.15, # K
-#     Csu_p = 31.5*1e5, # 31.5*1e5, # Pa
-#     Csu_m_dot = 13.84, # 13.84, # kg/s  # Make sure to include fluid informastion
-# )
-
-# "Geometry Loading"
-
-# HX_geom = ShellAndTubeGeom()
-# HX_geom.set_parameters("DECAGONE_EVAP_Equ") 
-
-# "Correlation Loading"
-
-# Corr_H = {"1P" : "Shell_Bell_Delaware_HTC", "2P" : "Shell_Bell_Delaware_HTC"}
-# # Corr_H = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
-# Corr_C = {"1P" : "Gnielinski", "2P" : "Flow_boiling"}
-
-# -------------------------------------------------------------------------------------------------------------
-
-# # Kakac Condenser HTX case
-# HX.set_inputs(
-#     # First fluid
-#     Hsu_fluid = 'R22',
-#     Hsu_T = 37.1 + 273.15, # K
-#     Hsu_p = PropsSI("P","T",37 + 273.15,"Q",0,"R22"), # Pa
-#     Hsu_m_dot = 0.737, # kg/s
-
-#     # Second fluid
-#     Csu_fluid = 'Water',
-#     Csu_T = 18 + 273.15, # K
-#     Csu_p = 4*1e5, # Pa
-#     Csu_m_dot = 1.36, # kg/s  # Make sure to include fluid information
-# )
-
-# "Geometry Loading"
-
-# params = {'n_series': 1,
-#           'foul_t': 0.000176,
-#           'foul_s': 0.000176,
-#           'tube_cond': 50,
-#           'Overdesign': 0,
-#           'Shell_Side': 'H',
-#           'Flow_Type': 'Shell&Tube',
-#           'H_DP_ON': True,
-#           'C_DP_ON': True,
-#           'n_disc': 50,
-#           'A_eff': 548.8559657840013,
-#           'S_V_tot': 3.081237509643974,
-#           'Shell_ID': 0.5,
-#           'T_V_tot': 2.1307042370289317,
-#           'Tube_L': 4,
-#           'Tube_OD': 0.0254,
-#           'Tube_t': 0.00211,
-#           'central_spacing': 1.106,
-#           'Tube_pass': 2,
-#           'cross_passes': 10,
-#           'n_tubes': 100,
-#           'pitch_ratio': 2,
-#           'tube_layout': 45,
-#           'Baffle_cut': 25}
-
-# HX.set_parameters(
-#     A_eff = params['A_eff'], Baffle_cut = params['Baffle_cut'], S_V_tot = params['S_V_tot'],
-#     Shell_ID = params['Shell_ID'], T_V_tot = params['T_V_tot'], Tube_L = params['Tube_L'], 
-#     Tube_OD = params['Tube_OD'], Tube_pass = params['Tube_pass'], Tube_t = params['Tube_t'],
-#     central_spacing = params['central_spacing'], cross_passes = params['cross_passes'], foul_s = params['foul_s'],
-#     foul_t = params['foul_t'], n_series = params['n_series'], n_tubes = params['n_tubes'], 
-#     pitch_ratio = params['pitch_ratio'], tube_cond = params['tube_cond'], tube_layout = params['tube_layout'],
-
-#     Shell_Side = params['Shell_Side'],
-
-#     Flow_Type = params['Flow_Type'], H_DP_ON = params['H_DP_ON'], C_DP_ON = params['C_DP_ON'], n_disc = params['n_disc'])
-
-# # "Correlation Loading"
-
-# Corr_C = {"1P" : "Gnielinski", "2P" : "Flow_boiling"}
-# Corr_H = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
-
-# Corr_H_DP = "Shell_Kern_DP"
-# Corr_C_DP = "Choi_DP"
-
 # -------------------------------------------------------------------------------------------------------------
 
 # Methanol Sensible HT Case
@@ -362,12 +270,6 @@ Corr_C_DP = "Muller_Steinhagen_Heck_DP"
 #          'n_disc': 1,
 #          'DP_type': 'Correlation',
 #          'Overdesign': 0}
-
-# # 80884862
-# # 70885374
-
-# # 79581510
-# # 64066433
 
 # HX.set_parameters(
 #     A_eff = params['A_eff'], Baffle_cut = params['Baffle_cut'], S_V_tot = params['S_V_tot'],

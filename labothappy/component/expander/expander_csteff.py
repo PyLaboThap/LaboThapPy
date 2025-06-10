@@ -17,22 +17,30 @@ class ExpanderCstEff(BaseComponent):
 
     **Description**:
 
-        This model determines the exhaust specific enthalpy and the exhaust temperature of an expander. This model can be used for on-design models of systems.
+        This component models an expander using a constant isentropic efficiency. 
+        Given the suction conditions (pressure, temperature, fluid) and the exhaust pressure,
+        it calculates the exhaust specific enthalpy and exhaust temperature.
+        This simple model can be used for on-design models of systems.
 
     **Assumptions**:
 
         - Steady-state operation.
         - Isentropic efficiency stays constant for all the conditions.
+        - Negligible heat losses and mechanical losses except those accounted for by efficiency.
+
 
     **Connectors**:
 
         su (MassConnector): Mass connector for the suction side.
 
         ex (MassConnector): Mass connector for the exhaust side.
+        
+        W_exp (WorkConnector): Work connector.
+
 
     **Parameters**:
 
-        eta_is: Isentropic efficiency. [-]
+        eta_is: Isentropic efficiency of the expander (0 < eta_is ≤ 1) [-]
 
     **Inputs**:
 
@@ -51,12 +59,19 @@ class ExpanderCstEff(BaseComponent):
         h_ex: Exhaust side specific enthalpy. [J/kg]
 
         T_ex: Exhaust side temperature. [K]
+        
+        W_dot_exp (float): Mechanical power  of the expander [W]
+
     """
 
     def __init__(self):
         super().__init__()
+        
+        # Define mass flow connectors for suction and exhaust
         self.su = MassConnector()
-        self.ex = MassConnector()  # Mass_connector
+        self.ex = MassConnector()  
+        
+        # Define work connector for mechanical work output
         self.W_exp = WorkConnector()
 
     def get_required_inputs(self):  # Used in check_calculablle to see if all of the required inputs are set
@@ -64,6 +79,7 @@ class ExpanderCstEff(BaseComponent):
         return ["P_su", "T_su", "P_ex", "m_dot", "fluid"]
 
     def get_required_parameters(self):
+        # Return a list of model parameters required for solving
         return ["eta_is"]
 
     def solve(self):
@@ -79,13 +95,15 @@ class ExpanderCstEff(BaseComponent):
             return
         try:
             """EXPANDER MODEL"""
-
             # Calculate the outlet enthalpy based on isentropic efficiency
-            h_ex_is = PropsSI("H", "P", self.ex.p, "S", self.su.s, self.su.fluid)
-            h_ex = self.su.h - (self.su.h - h_ex_is) * self.params["eta_is"]
-            w_exp = self.su.h - h_ex
+            
+            h_ex_is = PropsSI("H", "P", self.ex.p, "S", self.su.s, self.su.fluid) #Isentropic outlet enthalpy at exhaust pressure and suction entropy
+            h_ex = self.su.h - (self.su.h - h_ex_is) / self.params["eta_is"]
+            w_exp = self.su.h - h_ex #Specific work 
+            
+            # Set exhaust mass flow rate equal to suction (mass conserved)
             self.ex.set_m_dot(self.su.m_dot)
-            W_dot_exp = self.su.m_dot * w_exp
+            W_dot_exp = self.su.m_dot * w_exp #Mechanical power output
 
             # Update connectors after the calculations
             self.update_connectors(h_ex, w_exp, self.ex.p, W_dot_exp)
@@ -128,27 +146,3 @@ class ExpanderCstEff(BaseComponent):
         print(f"  - W_dot_exp: {self.W_exp.W_dot} [W]")
         print("=========================")
 
-
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
