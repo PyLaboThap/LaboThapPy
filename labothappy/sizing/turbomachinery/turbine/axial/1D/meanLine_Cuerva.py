@@ -49,6 +49,7 @@ minAspectRatio = 1          # minimum ratio blade height / blade chord
 
 # --- compute velocity triangle shape in function of stage coefficients --------
 # --- velocity components related to the blade speed u -------------------------
+
 def computeVelTriangle(psi,phi,R):
 # ------------------------------------------------------------------------------
 
