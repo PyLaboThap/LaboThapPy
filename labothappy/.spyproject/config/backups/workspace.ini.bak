@@ -4,7 +4,7 @@ save_data_on_exit = True
 save_history = True
 save_non_project_files = False
 project_type = 'empty-project-type'
-recent_files = ['sizing\\turbomachinery\\turbine\\axial\\1D\\meanLine_Cuerva_OOP.py', 'component\\base_component.py', 'sizing\\turbomachinery\\turbine\\axial\\1D\\meanLine_Cuerva.py']
+recent_files = ['sizing\\turbomachinery\\turbine\\axial\\1D\\mean_line_axial_turbine_eta_row_design.py', 'sizing\\turbomachinery\\pump\\radial\\0D\\pump_0D_design.py']
 
 [main]
 version = 0.2.0
