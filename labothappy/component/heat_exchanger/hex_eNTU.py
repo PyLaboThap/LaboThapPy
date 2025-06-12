@@ -150,7 +150,7 @@ class HXeNTU(BaseComponent):
             if 'Csu_m_dot' in self.inputs:
                 self.su_cold.set_m_dot(self.inputs['Csu_m_dot'])
 
-        return ['Hsu_p', 'Hsu_T', 'Hsu_m_dot', 'Hsu_fluid', 'Csu_p', 'Csu_T', 'Csu_m_dot', 'Csu_fluid']
+        return ['p_su_H', 'T_su_H', 'm_dot_H', 'fluid_H', 'p_su_C', 'T_su_C', 'm_dot_C', 'fluid_C']
 
     def get_required_parameters(self):
         """ Returns the list of required parameters to describe the geometry and physical configuration """
