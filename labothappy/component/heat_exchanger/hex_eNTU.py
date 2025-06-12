@@ -105,52 +105,52 @@ class HXeNTU(BaseComponent):
         if self.inputs == {}:
             # Hot Fluid
             if self.su_hot.T is not None:
-                self.inputs['Hsu_T'] = self.su_hot.T
+                self.inputs['T_su_H'] = self.su_hot.T
             elif self.su_hot.h is not None:
-                self.inputs['Hsu_h'] = self.su_hot.h
+                self.inputs['h_su_H'] = self.su_hot.h
             if self.su_hot.p is not None:
-                self.inputs['Hsu_p'] = self.su_hot.p
+                self.inputs['p_su_H'] = self.su_hot.p
             if self.su_hot.fluid is not None:
-                self.inputs['Hsu_fluid'] = self.su_hot.fluid
+                self.inputs['fluid_H'] = self.su_hot.fluid
             if self.su_hot.m_dot is not None:
-                self.inputs['Hsu_m_dot'] = self.su_hot.m_dot
+                self.inputs['m_dot_su_H'] = self.su_hot.m_dot
                 
             # Cold Fluid                
             if self.su_cold.T is not None:
-                self.inputs['Csu_T'] = self.su_cold.T
+                self.inputs['T_su_C'] = self.su_cold.T
             elif self.su_cold.h is not None:
-                self.inputs['Csu_h'] = self.su_cold.h
+                self.inputs['h_su_C'] = self.su_cold.h
             if self.su_cold.p is not None:
-                self.inputs['Csu_p'] = self.su_cold.p
+                self.inputs['p_su_C'] = self.su_cold.p
             if self.su_cold.fluid is not None:
-                self.inputs['Csu_fluid'] = self.su_cold.fluid
+                self.inputs['fluid_C'] = self.su_cold.fluid
             if self.su_cold.m_dot is not None:
-                self.inputs['Csu_m_dot'] = self.su_cold.m_dot
+                self.inputs['m_dot_su_C'] = self.su_cold.m_dot
                 
         if self.inputs != {}:
             # Hot Fluid
-            self.su_hot.set_fluid(self.inputs['Hsu_fluid'])
-            if 'Hsu_T' in self.inputs:
-                self.su_hot.set_T(self.inputs['Hsu_T'])
-            elif 'Hsu_h' in self.inputs:
-                self.su_hot.set_h(self.inputs['Hsu_h'])
-            if 'Hsu_p' in self.inputs:
-                self.su_hot.set_p(self.inputs['Hsu_p'])
-            if 'Hsu_m_dot' in self.inputs:
-                self.su_hot.set_m_dot(self.inputs['Hsu_m_dot'])
+            self.su_hot.set_fluid(self.inputs['fluid_H'])
+            if 'T_su_H' in self.inputs:
+                self.su_hot.set_T(self.inputs['T_su_H'])
+            elif 'h_su_H' in self.inputs:
+                self.su_hot.set_h(self.inputs['h_su_H'])
+            if 'p_su_H' in self.inputs:
+                self.su_hot.set_p(self.inputs['p_su_H'])
+            if 'm_dot_su_H' in self.inputs:
+                self.su_hot.set_m_dot(self.inputs['m_dot_su_H'])
 
             # Cold Fluid
-            self.su_cold.set_fluid(self.inputs['Csu_fluid'])
-            if 'Csu_T' in self.inputs:
-                self.su_cold.set_T(self.inputs['Csu_T'])
-            elif 'Csu_h' in self.inputs:
-                self.su_cold.set_h(self.inputs['Csu_h'])
-            if 'Csu_p' in self.inputs:
-                self.su_cold.set_p(self.inputs['Csu_p'])
-            if 'Csu_m_dot' in self.inputs:
-                self.su_cold.set_m_dot(self.inputs['Csu_m_dot'])
+            self.su_cold.set_fluid(self.inputs['fluid_C'])
+            if 'T_su_C' in self.inputs:
+                self.su_cold.set_T(self.inputs['T_su_C'])
+            elif 'h_su_C' in self.inputs:
+                self.su_cold.set_h(self.inputs['h_su_C'])
+            if 'p_su_C' in self.inputs:
+                self.su_cold.set_p(self.inputs['p_su_C'])
+            if 'm_dot_su_C' in self.inputs:
+                self.su_cold.set_m_dot(self.inputs['m_dot_su_C'])
 
-        return ['p_su_H', 'T_su_H', 'm_dot_H', 'fluid_H', 'p_su_C', 'T_su_C', 'm_dot_C', 'fluid_C']
+        return ['p_su_H', 'T_su_H', 'm_dot_su_H', 'fluid_H', 'p_su_C', 'T_su_C', 'm_dot_su_C', 'fluid_C']
 
     def get_required_parameters(self):
         """ Returns the list of required parameters to describe the geometry and physical configuration """
@@ -272,4 +272,3 @@ class HXeNTU(BaseComponent):
 
         else:
             print("Heat Exchanger component is not defined. Ensure it is solved first.")
-
