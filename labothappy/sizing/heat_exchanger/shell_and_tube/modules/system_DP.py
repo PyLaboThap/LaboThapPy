@@ -978,35 +978,66 @@ Thermodynamical parameters : Inlet and Outlet Design States
 # 50 : 38034.52
 
 
+# # ------------------------------------------------------------
+
+# su_S = MassConnector()
+# su_S.set_properties(T = 273.15 + 20, # K
+#                     P = 5*1e5, # 5*1e5, # Pa
+#                     m_dot = 47.82, # kg/s
+#                     fluid = 'Water'
+#                     )
+
+# ex_S = MassConnector()
+# ex_S.set_properties(T = 273.15 + 80, # K
+#                     P = 5*1e5, # 4.5*1e5, # Pa
+#                     m_dot = 47.82, # kg/s
+#                     fluid = 'Water'
+#                     )
+
+# su_T = MassConnector()
+# su_T.set_properties(T = 273.15 + 100, # K
+#                     P = 100*1e5, # 51.75*1e3, # Pa
+#                     m_dot = 100, # kg/s
+#                     fluid = 'CO2'
+#                     )
+
+# ex_T = MassConnector()
+# ex_T.set_properties(T = 273.15 + 50, # K
+#                     P = 99*1e5, # Pa
+#                     m_dot = 100, # kg/s
+#                     fluid = 'CO2'
+#                     )
+
 # ------------------------------------------------------------
 
 su_S = MassConnector()
-su_S.set_properties(T = 273.15 + 20, # K
-                    P = 5*1e5, # 5*1e5, # Pa
-                    m_dot = 47.82, # kg/s
+su_S.set_properties(T = 273.15 + 24, # K
+                    P = 4.2*1e5, # 5*1e5, # Pa
+                    m_dot = 900, # kg/s
                     fluid = 'Water'
                     )
 
 ex_S = MassConnector()
-ex_S.set_properties(T = 273.15 + 80, # K
-                    P = 5*1e5, # 4.5*1e5, # Pa
-                    m_dot = 47.82, # kg/s
+ex_S.set_properties(T = 273.15 + 27.74, # K
+                    P = 4*1e5, # 4.5*1e5, # Pa
+                    m_dot = 900, # kg/s
                     fluid = 'Water'
                     )
 
 su_T = MassConnector()
-su_T.set_properties(T = 273.15 + 100, # K
-                    P = 100*1e5, # 51.75*1e3, # Pa
-                    m_dot = 100, # kg/s
-                    fluid = 'CO2'
+su_T.set_properties(T = 273.15 + 40, # K
+                    P = 0.72*1e5, # 51.75*1e3, # Pa
+                    m_dot = 34.51, # kg/s
+                    fluid = 'Cyclopentane'
                     )
 
 ex_T = MassConnector()
 ex_T.set_properties(T = 273.15 + 50, # K
-                    P = 99*1e5, # Pa
-                    m_dot = 100, # kg/s
-                    fluid = 'CO2'
+                    P = 0.72*1e5, # Pa
+                    m_dot = 34.51, # kg/s
+                    fluid = 'Cyclopentane'
                     )
+
 
 # ------------------------------------------------------------
 
@@ -1089,7 +1120,7 @@ HX_test.set_bounds(bounds)
 
 # HX_test.set_constraints(Q_dot = 4.34*1e6, DP_h = 13.2*1e3, DP_c = 4.3*1e3)
 # HX_test.set_constraints(Q_dot = 0.313*1e6, DP_h = 8.2*1e3, DP_c = 21.7*1e3)
-HX_test.set_constraints(Q_dot = 12*1e6, DP_h = 6*1e3, DP_c = 10*1e3)
+HX_test.set_constraints(Q_dot = 14.05*1e6, DP_h = 12*1e3, DP_c = 25*1e3)
 # HX_test.set_constraints(Q_dot = 298.84*1e6/4, DP_h = 200*1e3, DP_c = 200*1e3)
 
 """

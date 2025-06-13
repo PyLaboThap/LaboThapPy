@@ -16,7 +16,7 @@ Modification w/r to previous version:
 import __init__
 
 from component.heat_exchanger.hex_MB_charge_sensitive import HeatExchangerMB
-from toolbox.geometries.heat_exchanger.geometry_shell_and_tube_hx import ShellAndTubeGeom
+# from toolbox.geometries.heat_exchanger.geometry_shell_and_tube_hx import ShellAndTubeGeom
 from CoolProp.CoolProp import PropsSI    
 
 
@@ -103,16 +103,16 @@ HX = HeatExchangerMB('Shell&Tube')
 
 HX.set_inputs(
               # Hot Fluid
-              Hsu_T = 273.15 + 26, # K
-              Hsu_p = 10*1e5, # 51.75*1e3, # Pa
-              Hsu_m_dot = 5.35, # kg/s
-              Hsu_fluid = 'Water',
+              T_su_H = 273.15 + 26, # K
+              P_su_H = 10*1e5, # 51.75*1e3, # Pa
+              m_dot_H = 5.35, # kg/s
+              fluid_H = 'Water',
               
               # Cold Fluid
-              Csu_h = PropsSI('H','T', 273.15+7,'Q',0,'R134a')+1, # K
-              Csu_p = PropsSI('P','T', 273.15+7,'Q',0,'R134a'), # 51.75*1e3, # Pa
-              Csu_m_dot = 1.62, # kg/s
-              Csu_fluid = 'R134a'
+              h_su_C = PropsSI('H','T', 273.15+7,'Q',0,'R134a')+1, # K
+              P_su_C = PropsSI('P','T', 273.15+7,'Q',0,'R134a'), # 51.75*1e3, # Pa
+              m_dot_C = 1.62, # kg/s
+              fluid_C = 'R134a'
               )
 
 "Geometry Loading"
