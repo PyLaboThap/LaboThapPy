@@ -1,0 +1,14 @@
+LaboThApPy software has been developped by:
+===========================================
+
+Chaudoir	Basile	(Université de Liège, ULiège)
+Neven	Elise	(Université de Liège, ULiège)
+Alanis	Zeoli	(Université de Liège, ULiège)
+Titouan	Janod	(Université de Liège, ULiège)
+Samuel	Gendebien	(Université de Liège, ULiège)
+Marie	Peeters	(Université de Liège, ULiège)
+Andres	Hernandes	(Université de Liège, ULiège)
+Hauglustaine	Mattéo	(Université catholique de Louvain, UCLouvain & Université de Mons, UMONS)
+
+
+The authors are indebted to Pr. Vincent Lemort, Pr. Francesco Contino, and Pr. Ward De Paepe for their guidance.
