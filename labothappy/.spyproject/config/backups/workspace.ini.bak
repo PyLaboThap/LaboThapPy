@@ -4,7 +4,7 @@ save_data_on_exit = True
 save_history = True
 save_non_project_files = False
 project_type = 'empty-project-type'
-recent_files = ['sizing\\turbomachinery\\turbine\\axial\\1D\\mean_line_axial_turbine_loss_model_design_new.py', 'sizing\\turbomachinery\\turbine\\axial\\1D\\mean_line_axial_turbine_loss_model_design.py', 'sizing\\turbomachinery\\turbine\\axial\\1D\\mean_line_axial_turbine_eta_row_design.py', 'sizing\\heat_exchanger\\shell_and_tube\\modules\\system_DP.py']
+recent_files = ['sizing\\heat_exchanger\\shell_and_tube\\modules\\system_DP.py', 'component\\heat_exchanger\\hex_MB_charge_sensitive.py']
 
 [main]
 version = 0.2.0
