@@ -113,8 +113,8 @@ class AxialCPMLLossCorrDesign(object):
         i = 1
         
         while len(labels) < len(x):
-            labels.append("S" + str(i))
             labels.append("R" + str(i))
+            labels.append("S" + str(i))
             i += 1
         
         plt.figure()
@@ -138,9 +138,9 @@ class AxialCPMLLossCorrDesign(object):
         i = 1
         
         while len(labels) < len(x):
-            labels.append("S" + str(i))
             labels.append("R" + str(i))
-            i += 1     
+            labels.append("S" + str(i))
+            i += 1    
 
         plt.figure()
         plt.plot(x[::2], n_blade_plot[::2], 'o', label="Stator Blades")  # even indices
@@ -160,8 +160,8 @@ class AxialCPMLLossCorrDesign(object):
         i = 1
         
         while len(labels) < len(x):
-            labels.append("S" + str(i))
             labels.append("R" + str(i))
+            labels.append("S" + str(i))
             i += 1
             
         plt.figure()
@@ -188,8 +188,8 @@ class AxialCPMLLossCorrDesign(object):
         i = 1
         
         while len(labels) < len(x):
-            labels.append("S" + str(i))
             labels.append("R" + str(i))
+            labels.append("S" + str(i))
             i += 1
         
         x2 = np.linspace(0,len(self.r_tip), len(self.r_tip)+1)
@@ -233,144 +233,6 @@ class AxialCPMLLossCorrDesign(object):
         plt.xlabel("$Entropy$ [J/(kg x K)]", fontsize= fontsize)
         plt.legend(["real", "isentropic"])
         plt.show()
-
-    # ---------------- Loss Models ------------------------------------------------------------------------
-
-    def stator_blade_row_system(self, x, stage):
-        # 1) Guess outlet state
-        [h_static_out, p_static_out] = x
-        
-        stage.update_static_AS(CP.HmassP_INPUTS, h_static_out, p_static_out, 2)
-        
-        # 2) Compute total inlet state
-        hin = stage.static_states['H'][1]
-        h0in = hin + (self.Vel_Tri['vu1']**2 + self.Vel_Tri['vm']**2)/2  
-        
-        stage.update_total_AS(CP.HmassSmass_INPUTS, h0in, stage.static_states['S'][1], 1)            
-        
-        # 3) Compute A_flow and h_blade based on r_m guess
-        stage.A_flow_S = self.inputs['mdot']/(stage.static_states['D'][2]*self.Vel_Tri['vm'])
-        stage.h_blade_S = stage.A_flow_S/(4*np.pi*self.r_m)
-
-        # 4) If first stage : Compute max AR allowed in the turbine to estimate good AR for all stages
-        
-        if stage == self.stages[0]:
-            chord_min = (self.params['Re_min']*stage.static_states['V'][2])/(stage.static_states['D'][2]*self.Vel_Tri['vm'])
-            self.AR_max = stage.h_blade_S/chord_min
-            
-            self.AR = np.linspace(self.params['AR_min'],self.AR_max,self.nStages*2)
-
-            c = 0
-            
-            for i in range(len(self.AR)):
-                if np.mod(i,2): # Rotor
-                
-                    self.stages[c].AR_R = self.AR[i]
-                    c = c+1
-                else: # Stator
-                    self.stages[c].AR_S = self.AR[i]
-        
-        # 5) Compute cord based on h_blade and AR
-        stage.chord_S = stage.h_blade_S/stage.AR_S
-        
-        # 6) Estimate pressure losses 
-        # 6.1) Balje-Binsley
-        H_TE = 1.4 + 300/self.params['Re_min']**0.5 # Trailing-edge boundary layer shape factor : Aungier's Correlation for fully turbulent flow
-        t_TE = stage.chord_S*0.03 # Tailing-edge blade thickness design estimate 
-        theta = 0.036*stage.chord_S/self.params['Re_min']**0.2 # Boundary layer momentum thickness : c
-        t_blade = 0.12*stage.chord_S # Blade thickness estimate : Assumption for NACA 0012 airfoil
-        lambda_2_rad = (self.Vel_Tri['beta2']+self.Vel_Tri['beta1'])/2
-        
-        A = 1-(1+H_TE)*theta-t_TE/t_blade
-        B = 1-H_TE*theta-t_TE/t_blade
-        
-        num_Yp = (np.cos(lambda_2_rad)**2 * A**2) / B**2 + (np.sin(lambda_2_rad)**2) * B**2
-        den_Yp = 1 + 2 * (np.sin(lambda_2_rad)**2) * lambda_2_rad * (B**2 - A)
-        Yp = 1- num_Yp/den_Yp
-
-        # Secondary loss : Kacker-Okaapu
-        Z = self.solidityStator*(self.Vel_Tri['beta1']-self.Vel_Tri['beta2'])/np.cos(self.Vel_Tri['beta2']) # Loading Factor
-        Ys = abs(0.0334*1/self.params['AR_min']*(np.cos(self.Vel_Tri['alpha2'])/np.cos(self.Vel_Tri['beta1']))*Z)
-
-        # Pressure loss 
-        DP_loss = (Yp+Ys)*(self.Vel_Tri['vm']**2 + self.Vel_Tri['vu2']**2)*stage.static_states['D'][2]/2
-        p0_out = stage.total_states['P'][1]-DP_loss
-        
-        # Computation of static outlet pressure
-        stage.update_total_AS(CP.HmassP_INPUTS, h0in, p0_out, 2)
-        sout = stage.total_states['S'][2]
-        
-        hout = h0in-(self.Vel_Tri['vu2']**2 + self.Vel_Tri['vm']**2)/2
-        stage.update_static_AS(CP.HmassSmass_INPUTS, hout, sout, 2)
-        
-        pout_calc = stage.static_states['P'][2]
-
-        # Isentropic efficiency of the blade
-        self.AS.update(CP.PSmass_INPUTS, pout_calc, stage.static_states['S'][1])
-        hout_s = self.AS.hmass()
-
-        stage.eta_is_S = (stage.static_states['H'][1]-stage.static_states['H'][2])/(stage.static_states['H'][1]-hout_s)
-
-        return (p_static_out - pout_calc)**2 + (h_static_out - hout)**2
-
-    def rotor_blade_row_system(self, x, stage):
-        # 1) Guess outlet state
-        [h_static_out, p_static_out] = x
-        
-        stage.update_static_AS(CP.HmassP_INPUTS, h_static_out, p_static_out, 3)
-        
-        # 2) Compute total inlet state
-        hin = stage.static_states['H'][2]
-        h0in = hin + (self.Vel_Tri['wu2']**2 + self.Vel_Tri['vm']**2)/2  
-        
-        stage.update_total_AS(CP.HmassSmass_INPUTS, h0in, stage.static_states['S'][2], 2)            
-        
-        # 3) Compute A_flow and h_blade based on r_m guess
-        stage.A_flow_R = self.inputs['mdot']/(stage.static_states['D'][3]*self.Vel_Tri['vm'])
-        stage.h_blade_R = stage.A_flow_R/(4*np.pi*self.r_m)
-        
-        # 4) Compute cord based on h_blade and AR
-        stage.chord_R = stage.h_blade_R/stage.AR_R
-        
-        # 5) Estimate pressure losses 
-        # 5.1) Balje-Binsley : Profile pressure losses         
-        H_TE = 1.4 + 300/self.params['Re_min']**0.5 # Trailing-edge boundary layer shape factor : Aungier's Correlation for fully turbulent flow
-        t_TE = stage.chord_R*0.03 #  Tailing-edge blade thickness design estimate 
-        theta = 0.036*stage.chord_R/self.params['Re_min']**0.2 # Boundary layer momentum thickness : Empirical equation for turbulent plate
-        t_blade = 0.12*stage.chord_R # Blade thickness estimate : Assumption for NACA 0012 airfoil
-        lambda_2_rad = abs((self.Vel_Tri['beta3']+self.Vel_Tri['beta2'])/2)
-        
-        A = 1-(1+H_TE)*theta-t_TE/t_blade
-        B = 1-H_TE*theta-t_TE/t_blade
-        
-        num_Yp = (np.cos(lambda_2_rad)**2 * A**2) / B**2 + (np.sin(lambda_2_rad)**2) * B**2
-        den_Yp = 1 + 2 * (np.sin(lambda_2_rad)**2) * lambda_2_rad * (B**2 - A)
-        Yp = abs(1- num_Yp/den_Yp)
-
-        # 5.2) Kacker-Okaapu : Secondary pressure losses
-        Z = self.solidityStator*(self.Vel_Tri['beta2']-self.Vel_Tri['beta3'])/np.cos(self.Vel_Tri['beta3']) # Loading Factor
-        Ys = abs(0.0334*1/self.params['AR_min']*(np.cos(self.Vel_Tri['alpha3'])/np.cos(self.Vel_Tri['beta2']))*Z)
-
-        # Pressure loss 
-        DP_loss = (Yp+Ys)*(self.Vel_Tri['vm']**2 + self.Vel_Tri['wu3']**2)*stage.static_states['D'][3]/2
-        p0_out = stage.total_states['P'][2]-DP_loss
-        
-        # Computation of static outlet pressure
-        stage.update_total_AS(CP.HmassP_INPUTS, h0in, p0_out, 3)
-        sout = stage.total_states['S'][3]
-        
-        hout = h0in-(self.Vel_Tri['wu3']**2 + self.Vel_Tri['vm']**2)/2
-        stage.update_static_AS(CP.HmassSmass_INPUTS, hout, sout, 3)
-        
-        pout_calc = stage.static_states['P'][3]
-
-        # Isentropic efficiency of the blade
-        self.AS.update(CP.PSmass_INPUTS, pout_calc, stage.static_states['S'][2])
-        hout_s = self.AS.hmass()
-
-        stage.eta_is_R = (stage.static_states['H'][2]-stage.static_states['H'][3])/(stage.static_states['H'][2]-hout_s)
-
-        return (p_static_out - pout_calc)**2 + (h_static_out - hout)**2
 
     # ---------------- Flow Computations ------------------------------------------------------------------
 
@@ -419,16 +281,21 @@ class AxialCPMLLossCorrDesign(object):
             self.n_blade.append(stage.n_blade_S)
             
             # 5) Estimate pressure losses 
-            # 5.1) Aungier : Profile pressure losses         
-            D_e = 1.30*(stage.h_blade_S*2 * stage.pitch_S)**0.625 / (stage.h_blade_S*2 + stage.pitch_S)**0.25 # Equivalent diameter : Huebscher
-            
+            # 5.1) Aungier : Profile pressure losses                     
             v_2 = np.sqrt(self.Vel_Tri["vm"]**2 + self.Vel_Tri["vu2"]**2)
             v_3 = np.sqrt(self.Vel_Tri["vm"]**2 + self.Vel_Tri["vu3"]**2)
+            
+            a = 0.0117 # NACA blade - 0.007 : C.4 circular-arc blade
+            
+            alpha = 0
+            alpha_star = 0
+            
+            D_e = (np.cos(self.Vel_Tri['alpha3'])/np.cos(self.Vel_Tri['alpha2']))*(1.12+a*(alpha - alpha_star)+0.61*np.cos(self.Vel_Tri['alpha2'])**2 / self.solidityStator * (np.tan(self.Vel_Tri['alpha2'])-np.tan(self.Vel_Tri['alpha3'])))
             
             P_cst = np.cos(self.Vel_Tri["alpha3"])/2 * self.solidityStator * (v_2/v_3)**2 # Profile Constant
             
             Yp = 0.004*(1+3.1*(D_e - 1)**2 + 0.4*(D_e-1)**8)/P_cst
-    
+        
             # 5.2) Cohen : Endwall losses
             EW_Cst = np.cos((self.Vel_Tri["alpha2"]+self.Vel_Tri["alpha3"])/2)**3 / np.cos(self.Vel_Tri["alpha2"])**2  # Endwall Constant
     
@@ -490,16 +357,22 @@ class AxialCPMLLossCorrDesign(object):
             self.n_blade.append(stage.n_blade_R)
             
             # 5) Estimate pressure losses 
-            # 5.1) Aungier : Profile pressure losses         
-            D_e = 1.30*(stage.h_blade_R*2 * stage.pitch_R)**0.625 / (stage.h_blade_R*2 + stage.pitch_R)**0.25 # Equivalent diameter : Huebscher
-            
+            # 5.1) Aungier : Profile pressure losses                     
             w_1 = np.sqrt(self.Vel_Tri["vm"]**2 + self.Vel_Tri["wu1"]**2)
             w_2 = np.sqrt(self.Vel_Tri["vm"]**2 + self.Vel_Tri["wu2"]**2)
+            
+            a = 0.0117 # NACA blade - 0.007 : C.4 circular-arc blade
+            
+            alpha = 0
+            alpha_star = 0
+            
+            D_e = (np.cos(self.Vel_Tri['beta2'])/np.cos(self.Vel_Tri['beta1']))*(1.12+a*(alpha - alpha_star)+0.61*np.cos(self.Vel_Tri['beta1'])**2 / self.solidityRotor * (np.tan(self.Vel_Tri['beta1'])-np.tan(self.Vel_Tri['beta2'])))
             
             P_cst = np.cos(self.Vel_Tri["beta2"])/2 * self.solidityRotor * (w_1/w_2)**2 # Profile Constant
             
             Yp = 0.004*(1+3.1*(D_e - 1)**2 + 0.4*(D_e-1)**8)/P_cst
-    
+        
+        
             # 5.2) Cohen : Endwall losses
             EW_Cst = np.cos((self.Vel_Tri["beta1"]+self.Vel_Tri["beta2"])/2)**3 / np.cos(self.Vel_Tri["beta1"])**2  # Endwall Constant
     
@@ -508,7 +381,7 @@ class AxialCPMLLossCorrDesign(object):
             # Pressure loss 
             DP_loss = (Yp+Yew)*(self.Vel_Tri['vm']**2 + self.Vel_Tri['wu1']**2)*stage.static_states['D'][1]/2
             p0_out = stage.total_states['P'][1]-DP_loss
-            
+                        
             # Computation of static outlet pressure
             stage.update_total_AS(CP.HmassP_INPUTS, h0in, p0_out, 2)
             sout = stage.total_states['S'][2]
@@ -538,13 +411,13 @@ class AxialCPMLLossCorrDesign(object):
                 self.computeBladeRow(self.stages[i], 'R')                
                 self.computeBladeRow(self.stages[i], 'S')
             
-            self.r_tip.append(self.r_m + self.stages[i].h_blade_S/2)
-            self.r_hub.append(self.r_m - self.stages[i].h_blade_S/2)
-            self.r_hub_tip.append(self.r_hub[-1]/self.r_tip[-1])
-            self.r_ratio2.append((self.r_tip[-1]/self.r_hub[-1])**2)
-        
             self.r_tip.append(self.r_m + self.stages[i].h_blade_R/2)
             self.r_hub.append(self.r_m - self.stages[i].h_blade_R/2)
+            self.r_hub_tip.append(self.r_hub[-1]/self.r_tip[-1])
+            self.r_ratio2.append((self.r_tip[-1]/self.r_hub[-1])**2)
+            
+            self.r_tip.append(self.r_m + self.stages[i].h_blade_S/2)
+            self.r_hub.append(self.r_m - self.stages[i].h_blade_S/2)
             self.r_hub_tip.append(self.r_hub[-1]/self.r_tip[-1])
             self.r_ratio2.append((self.r_tip[-1]/self.r_hub[-1])**2)
             
@@ -633,56 +506,32 @@ class AxialCPMLLossCorrDesign(object):
             else: # A very high penalty prevents converging to r_m values very close to 0,  
                 return self.r_m + 100
         
-        # # sol = minimize(find_r_m, bounds=[(0.01, 10)], x0=0.1, tol = 1e-2)        
         sol = differential_evolution(find_r_m, bounds = self.params['r_m_bounds'], popsize = 5, strategy='best1bin', tol=1e-3, maxiter=100)        
         
-        # # sol = differential_evolution(find_r_m,
-        # #             bounds= self.params['r_m_bounds'],        # replace with your bounds
-        # #             strategy='best1bin',    # fast, exploitative
-        # #             popsize=8,              # smaller population
-        # #             mutation=0.5,           # smaller step sizes
-        # #             recombination=0.9,      # aggressive crossover
-        # #             tol=1e-3,               # looser tolerance
-        # #             maxiter=100,            # early stopping
-        # #             workers=-1              # parallel execution
-        # #         )
+        "------------- 7) Compute rotation speed and number of blades per stage ---------------------------" 
+
+        self.omega_rads = self.Vel_Tri['u']/self.r_m # rad/s
+        self.omega_RPM = self.omega_rads*60/(2*np.pi) 
+
+        "------------- 8) Compute main outputs -------------------------------------------------------------" 
         
-        # "------------- 7) Compute rotation speed and number of blades per stage ---------------------------" 
-
-        # self.omega_rads = self.Vel_Tri['u']/self.r_m # rad/s
-        # self.omega_RPM = self.omega_rads*60/(2*np.pi) 
-
-        # self.n_blade = []
-
-        # for stage in self.stages:
-        #       stage.pitch_S = self.solidityStator*stage.chord_S
-        #       stage.pitch_R = self.solidityRotor*stage.chord_R
-
-        #       stage.n_blade_S = round(2*np.pi*self.r_m/stage.pitch_S)
-        #       self.n_blade.append(stage.n_blade_S)
-
-        #       stage.n_blade_R = round(2*np.pi*self.r_m/stage.pitch_R)
-        #       self.n_blade.append(stage.n_blade_R)
-
-        # "------------- 8) Compute main outputs -------------------------------------------------------------" 
+        hin = self.stages[0].total_states['H'][1]
+        hout = self.stages[-1].static_states['H'][3]
         
-        # hin = self.stages[0].total_states['H'][1]
-        # hout = self.stages[-1].static_states['H'][3]
-        
-        # self.AS.update(CP.PSmass_INPUTS, self.stages[-1].static_states['P'][3], self.stages[0].static_states['S'][1])
+        self.AS.update(CP.PSmass_INPUTS, self.stages[-1].static_states['P'][3], self.stages[0].static_states['S'][1])
 
-        # hout_s = self.AS.hmass()
+        hout_s = self.AS.hmass()
         
-        # self.W_dot = self.inputs['mdot']*(hin-hout)
+        self.W_dot = self.inputs['mdot']*(hin-hout)
                 
-        # self.eta_is = (hin - hout)/(hin - hout_s)
+        self.eta_is = (hout_s - hin)/(hout - hin)
 
-        # "------------- 9) Print Main Results -------------------------------------------------------------" 
+        "------------- 9) Print Main Results -------------------------------------------------------------" 
         
-        # print(f"Turbine mean diameter: {self.r_m} [m]")
-        # print(f"Turbine rotation speed: {self.omega_RPM} [RPM]")
-        # print(f"Turbine number of stage : {self.nStages} [-]")
-        # print(f"Turbine total-to-static efficiency : {self.eta_is} [-]")
+        print(f"Compressor mean diameter: {self.r_m} [m]")
+        print(f"Compressor rotation speed: {self.omega_RPM} [RPM]")
+        print(f"Compressor number of stage : {self.nStages} [-]")
+        print(f"Compressor total-to-static efficiency : {self.eta_is} [-]")
 
         return
 
@@ -690,37 +539,15 @@ Comp = AxialCPMLLossCorrDesign('Cyclopentane')
 
 # Cuerva Case
 
-# Comp.set_inputs(
-#     mdot = 53.52, # kg/s
-#     W_dot_req = 3150*1e3, # W
-#     p0_su = 1009*1e3, # Pa
-#     T0_su = 273.15 + 182.3, # K
-#     p_ex = 2493*1e3, # Pa
-#     psi = 1, # [-] # 0.25
-#     phi = 0.35, # [-]
-#     R = 0.5, # [-] # 0.875
-#     Mmax = 0.8 # [-]
-#     )
-
-# Comp.set_parameters(
-#     Zweifel = 0.8, # [-]
-#     Re_min = 5e5, # [-]
-#     AR_min = 1, # [-]
-#     r_hub_tip_max = 0.95, # [-]
-#     r_hub_tip_min = 0.6, # [-]
-#     )
-
-# Zorlu Case
-
 Comp.set_inputs(
-    mdot = 19.24, # kg/s
-    W_dot_req = 1187*1e3, # W
-    p0_su = 468.4*1e3, # Pa
-    T0_su = 273.15 + 138.3, # K
-    p_ex = 1149*1e3, # Pa
-    psi = 1, # [-]
+    mdot = 53.52, # kg/s
+    W_dot_req = 3150*1e3, # W
+    p0_su = 1009*1e3, # Pa
+    T0_su = 273.15 + 182.3, # K
+    p_ex = 2493*1e3, # Pa
+    psi = 0.25, # [-] # 0.25
     phi = 0.35, # [-]
-    R = 0.5, # [-]
+    R = 0.875, # [-] # 0.875
     Mmax = 0.8 # [-]
     )
 
@@ -732,6 +559,29 @@ Comp.set_parameters(
     r_hub_tip_min = 0.6, # [-]
     r_m_bounds = [(0.05,0.2)]
     )
+
+# Zorlu Case
+
+# Comp.set_inputs(
+#     mdot = 19.24, # kg/s
+#     W_dot_req = 1187*1e3, # W
+#     p0_su = 468.4*1e3, # Pa
+#     T0_su = 273.15 + 138.3, # K
+#     p_ex = 1149*1e3, # Pa
+#     psi = 0.25, # [-]
+#     phi = 0.35, # [-]
+#     R = 0.875, # [-]
+#     Mmax = 0.8 # [-]
+#     )
+
+# Comp.set_parameters(
+#     Zweifel = 0.8, # [-]
+#     Re_min = 5e5, # [-]
+#     AR_min = 1, # [-]
+#     r_hub_tip_max = 0.95, # [-]
+#     r_hub_tip_min = 0.6, # [-]
+#     r_m_bounds = [(0.05,0.2)]
+#     )
 
 Comp.design()
 
