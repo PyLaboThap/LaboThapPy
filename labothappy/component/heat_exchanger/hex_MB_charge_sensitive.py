@@ -9,9 +9,14 @@ Modification w/r to previous version:
     - Implemenation of the code in the LaboThap Python Library
 """
 
+
 "EXTERNAL IMPORTS"
 
-import __init__
+import sys
+import os
+    
+import correlations
+
 import CoolProp.CoolProp as CP
 from CoolProp.Plots import PropertyPlot
 import matplotlib.pyplot as plt
@@ -1257,6 +1262,7 @@ class HeatExchangerMB(BaseComponent):
             print("Component not parametrized, check parameters")            
             
         "1) Main Input variables"
+        
         self.H_su = self.su_H
         self.C_su = self.su_C
             
@@ -1394,6 +1400,7 @@ class HeatExchangerMB(BaseComponent):
         
         
         "5) Calculate maximum and actual heat rates"
+                
         if (self.T_hi - self.T_ci) > 1e-2  and self.mdot_h  > 0 and self.mdot_c > 0: # Check that the operating conditions allow for heat transfer
             "5.1) Compute the external pinching & update cell boundaries"
             Qmax_ext = self.external_pinching() # Call to external-pinching procedure
@@ -1516,6 +1523,7 @@ class HeatExchangerMB(BaseComponent):
             
         else: # Just a flag if the heat exchanger is not solved
             self.Q = 1
+            raise Exception("Hot and cold temperatures seem to be reversed or a flow rate is negative.")
  
     def objective_function(self, Q):
         "1) Initialize cell boundaries and results vectors"
@@ -1853,7 +1861,7 @@ class HeatExchangerMB(BaseComponent):
                         
         if debug:
             print(Q, 1-sum(w))
-            
+                        
         return 1-sum(w)
 
 #%% 
