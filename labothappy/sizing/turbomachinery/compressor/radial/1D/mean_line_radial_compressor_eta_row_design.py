@@ -14,7 +14,7 @@ import pandas as pd
 import warnings
 warnings.filterwarnings("ignore")
 
-class AxialTurbineMeanLineDesign(object):
+class AxialCPMLEtaDesign(object):
 
     def __init__(self, fluid):
         # Inputs
@@ -41,8 +41,8 @@ class AxialTurbineMeanLineDesign(object):
     class stage(object):
         
         def __init__(self, fluid):
-            self.total_states = pd.DataFrame(columns=['H','S','P','D','A','V'], index = [1,2,3])
-            self.static_states = pd.DataFrame(columns=['H','S','P','D','A','V'], index = [1,2,3])
+            self.total_states = pd.DataFrame(columns=['H','S','P','D','A','V','T'], index = [1,2,3])
+            self.static_states = pd.DataFrame(columns=['H','S','P','D','A','V','T'], index = [1,2,3])
             self.AS = CP.AbstractState('HEOS', fluid)
             
         def update_total_AS(self, CP_INPUTS, input_1, input_2, position):
@@ -54,6 +54,7 @@ class AxialTurbineMeanLineDesign(object):
             self.total_states['D'][position] = self.AS.rhomass()            
             self.total_states['A'][position] = self.AS.speed_sound()            
             self.total_states['V'][position] = self.AS.viscosity()            
+            self.total_states['T'][position] = self.AS.T()           
             
             return
         
@@ -66,6 +67,7 @@ class AxialTurbineMeanLineDesign(object):
             self.static_states['D'][position] = self.AS.rhomass()            
             self.static_states['A'][position] = self.AS.speed_sound()            
             self.static_states['V'][position] = self.AS.viscosity()            
+            self.static_states['T'][position] = self.AS.T()            
 
             return
 
@@ -247,32 +249,32 @@ class AxialTurbineMeanLineDesign(object):
     
     def computeBladeRow(self,stage,row_type):
         if row_type == 'S': # Stator
-            hin = stage.static_states['H'][1]
-            h0in = hin + (self.Vel_Tri['vu1']**2 + self.Vel_Tri['vm']**2)/2  
-
-            stage.update_total_AS(CP.HmassSmass_INPUTS, h0in, stage.static_states['S'][1], 1)            
-            
-            hout = h0in - (self.Vel_Tri['vu2']**2 + self.Vel_Tri['vm']**2)/2            
-            hout_s = hin - (hin-hout)/self.eta_blade_row
-            
-            self.AS.update(CP.HmassSmass_INPUTS, hout_s, stage.total_states['S'][1])
-            pout = self.AS.p()
-            
-            stage.update_static_AS(CP.HmassP_INPUTS, hout, pout, 2)            
-                        
-        else: # Rotor
             hin = stage.static_states['H'][2]
-            h0in = hin + (self.Vel_Tri['wu2']**2 + self.Vel_Tri['vm']**2)/2  
-            
+            h0in = hin + (self.Vel_Tri['vu2']**2 + self.Vel_Tri['vm']**2)/2  
+
             stage.update_total_AS(CP.HmassSmass_INPUTS, h0in, stage.static_states['S'][2], 2)            
             
-            hout = h0in - (self.Vel_Tri['wu3']**2 + self.Vel_Tri['vm']**2)/2            
-            hout_s = hin - (hin-hout)/self.eta_blade_row
+            hout = h0in - (self.Vel_Tri['vu3']**2 + self.Vel_Tri['vm']**2)/2            
+            hout_s = hin + (hout-hin)*self.eta_blade_row
             
             self.AS.update(CP.HmassSmass_INPUTS, hout_s, stage.total_states['S'][2])
             pout = self.AS.p()
             
-            stage.update_static_AS(CP.HmassP_INPUTS, hout, pout, 3)        
+            stage.update_static_AS(CP.HmassP_INPUTS, hout, pout, 3)            
+                        
+        else: # Rotor
+            hin = stage.static_states['H'][1]
+            h0in = hin + (self.Vel_Tri['wu1']**2 + self.Vel_Tri['vm']**2)/2  
+                        
+            stage.update_total_AS(CP.HmassSmass_INPUTS, h0in, stage.static_states['S'][1], 1)            
+            
+            hout = h0in - (self.Vel_Tri['wu2']**2 + self.Vel_Tri['vm']**2)/2            
+            hout_s = hin + (hout-hin)*self.eta_blade_row
+            
+            self.AS.update(CP.HmassSmass_INPUTS, hout_s, stage.total_states['S'][1])
+            pout = self.AS.p()
+            
+            stage.update_static_AS(CP.HmassP_INPUTS, hout, pout, 2)        
         
         return
             
@@ -280,13 +282,13 @@ class AxialTurbineMeanLineDesign(object):
         
         for i in range(int(self.nStages)):
             if i == 0:
-                self.computeBladeRow(self.stages[i], 'S')
                 self.computeBladeRow(self.stages[i], 'R')
+                self.computeBladeRow(self.stages[i], 'S')
             else:
                 self.stages[i].static_states.loc[1] = self.stages[i-1].static_states.loc[3]
                 
-                self.computeBladeRow(self.stages[i], 'S')
                 self.computeBladeRow(self.stages[i], 'R')
+                self.computeBladeRow(self.stages[i], 'S')
             
         return
     
@@ -303,19 +305,19 @@ class AxialTurbineMeanLineDesign(object):
         self.AS.update(CP.PSmass_INPUTS, self.inputs['p_ex'], s_in)
         
         h_is_ex = self.AS.hmass()
-        Dh0s = self.stages[0].total_states['H'][1] - h_is_ex
+        Dh0s = h_is_ex - self.stages[0].total_states['H'][1]
         
         Dh0 = self.inputs['W_dot_req']/self.inputs['mdot']
         
-        self.eta_is = Dh0/Dh0s
+        self.eta_is = Dh0s/Dh0
         
-        "------------- 2) Velocity Triangle Computation (+ Solodity) -------------------------------------" 
+        # "------------- 2) Velocity Triangle Computation (+ Solodity) -------------------------------------" 
         self.computeVelTriangle()
         
         self.solidityStator = 2*np.cos(self.Vel_Tri['alpha2'])/np.cos(self.Vel_Tri['alpha1'])*np.sin(abs(self.Vel_Tri['alpha2']-self.Vel_Tri['alpha1']))/self.params['Zweifel']
         self.solidityRotor  = 2*np.cos(self.Vel_Tri['beta3'])/np.cos(self.Vel_Tri['beta2'])*np.sin(abs(self.Vel_Tri['beta3']-self.Vel_Tri['beta2']))/self.params['Zweifel']
         
-        "------------- 3) Guess u from vMax (subsonic flow)  ---------------------------------------------" 
+        # "------------- 3) Guess u from vMax (subsonic flow)  ---------------------------------------------" 
         
         vMax = self.AS.speed_sound() * self.inputs['Mmax']
         
@@ -344,6 +346,7 @@ class AxialTurbineMeanLineDesign(object):
         self.Vel_Tri['wu2'] = self.Vel_Tri['wu2OverU'] * self.Vel_Tri['u']
         self.Vel_Tri['wu3'] = self.Vel_Tri['wu3OverU'] * self.Vel_Tri['u']
         self.Vel_Tri['vu1'] = self.Vel_Tri['vu3']
+        self.Vel_Tri['wu1'] = self.Vel_Tri['wu3']
 
         self.exit_loss = (self.Vel_Tri['vm']**2+self.Vel_Tri['vu3']**2)/2
 
@@ -364,9 +367,8 @@ class AxialTurbineMeanLineDesign(object):
         sol = minimize(find_eta_blade, 1, bounds=[(self.eta_is, 1)], tol = 1e-4)
         
         "------------- 7) Iterate on r_m to satisfy hub to tip ratio -------------------------------------" 
-        self.cord = np.zeros([self.nStages,2])
+        cord_min = np.zeros([self.nStages,2])
         self.h_blade = np.zeros([self.nStages,2])
-        self.AR = np.zeros([self.nStages,2])
 
         self.A_flow = np.zeros([self.nStages,2])
         
@@ -391,11 +393,10 @@ class AxialTurbineMeanLineDesign(object):
                 self.h_blade[i][0] = self.A_flow[i][0]/(4*np.pi*self.r_m)
                 self.h_blade[i][1] = self.A_flow[i][1]/(4*np.pi*self.r_m)
     
-                self.cord[i][0] = (self.params['Re_min']*self.stages[i].static_states['V'][2])/(self.stages[i].static_states['D'][2]*self.Vel_Tri['vm'])
-                self.cord[i][1] = (self.params['Re_min']*self.stages[i].static_states['V'][3])/(self.stages[i].static_states['D'][3]*self.Vel_Tri['vm'])
+                cord_min[i][0] = (self.params['Re_min']*self.stages[i].static_states['V'][2])/(self.stages[i].static_states['D'][2]*self.Vel_Tri['vm'])
+                cord_min[i][1] = (self.params['Re_min']*self.stages[i].static_states['V'][3])/(self.stages[i].static_states['D'][3]*self.Vel_Tri['vm'])
         
-                self.AR[i][0] = self.h_blade[i][0]/self.cord[i][0]
-                self.AR[i][1] = self.h_blade[i][1]/self.cord[i][1]
+                self.AR_max = min(self.h_blade.flatten()/cord_min.flatten()) 
             
                 self.r_tip.append(self.r_m + self.h_blade[i][0]/2)
                 self.r_hub.append(self.r_m - self.h_blade[i][0]/2)
@@ -408,8 +409,8 @@ class AxialTurbineMeanLineDesign(object):
                 self.r_ratio2.append((self.r_tip[-1]/self.r_hub[-1])**2)
 
             if self.r_hub_tip[-1] > 0: # Penalty to prevent converging to values not satisfying conditions on r_hub_tip
-                penalty_1 = max(self.r_hub_tip[0] - self.params['r_hub_tip_max'],0)*1000
-                penalty_2 = max(self.params['r_hub_tip_min'] - self.r_hub_tip[-1],0)*1000
+                penalty_1 = max(self.r_hub_tip[-1] - self.params['r_hub_tip_max'],0)*1000
+                penalty_2 = max(self.params['r_hub_tip_min'] - self.r_hub_tip[0],0)*1000
                 
                 return self.r_m + penalty_1 + penalty_2
             
@@ -417,6 +418,9 @@ class AxialTurbineMeanLineDesign(object):
                 return self.r_m + 100000
 
         sol = minimize(find_r_m, bounds=[(0, 10)], x0=0.2, tol = 1e-4)        
+
+        self.AR = np.linspace(self.AR_max, self.params['AR_min'],self.nStages*2).reshape(self.nStages,2)
+        self.cord = self.h_blade/self.AR
 
         "------------- 8) Compute rotation speed and number of blades per stage ---------------------------" 
 
@@ -432,30 +436,52 @@ class AxialTurbineMeanLineDesign(object):
 
         "------------- 9) Print Main Results -------------------------------------------------------------" 
         
-        print(f"Turbine mean radius: {self.r_m} [m]")
-        print(f"Turbine rotation speed: {self.omega_RPM} [RPM]")
-        print(f"Turbine number of stage : {self.nStages} [-]")
-        print(f"Turbine static-to-static blade efficiency : {self.eta_blade_row} [-]")
+        print(f"Compressor mean diameter: {self.r_m} [m]")
+        print(f"Compressor rotation speed: {self.omega_RPM} [RPM]")
+        print(f"Compressor number of stage : {self.nStages} [-]")
+        print(f"Compressor static-to-static blade efficiency : {self.eta_blade_row} [-]")
 
         return
 
-Turb = AxialTurbineMeanLineDesign('Cyclopentane')
+Comp = AxialCPMLEtaDesign('Cyclopentane')
 
 # Cuerva Case
 
-Turb.set_inputs(
-    mdot = 46.18, # kg/s
-    W_dot_req = 4257000, # W
-    p0_su = 1230000, # Pa
-    T0_su = 273.15 + 158, # K
-    p_ex = 78300, # Pa
+# Comp.set_inputs(
+#     mdot = 53.52, # kg/s
+#     W_dot_req = 3150*1e3, # W
+#     p0_su = 1009*1e3, # Pa
+#     T0_su = 273.15 + 182.3, # K
+#     p_ex = 2493*1e3, # Pa
+#     psi = 1, # [-] # 0.25
+#     phi = 0.35, # [-]
+#     R = 0.5, # [-] # 0.875
+#     Mmax = 0.8 # [-]
+#     )
+
+# Comp.set_parameters(
+#     Zweifel = 0.8, # [-]
+#     Re_min = 5e5, # [-]
+#     AR_min = 1, # [-]
+#     r_hub_tip_max = 0.95, # [-]
+#     r_hub_tip_min = 0.6, # [-]
+#     )
+
+# Zorlu Case
+
+Comp.set_inputs(
+    mdot = 19.24, # kg/s
+    W_dot_req = 1187*1e3, # W
+    p0_su = 468.4*1e3, # Pa
+    T0_su = 273.15 + 138.3, # K
+    p_ex = 1149*1e3, # Pa
     psi = 1, # [-]
-    phi = 0.6, # [-]
+    phi = 0.35, # [-]
     R = 0.5, # [-]
     Mmax = 0.8 # [-]
     )
 
-Turb.set_parameters(
+Comp.set_parameters(
     Zweifel = 0.8, # [-]
     Re_min = 5e5, # [-]
     AR_min = 1, # [-]
@@ -463,54 +489,13 @@ Turb.set_parameters(
     r_hub_tip_min = 0.6, # [-]
     )
 
-# Torrecid Case
+Comp.design()
 
-# Turb.set_inputs(
-#     mdot = 3.581, # kg/s
-#     W_dot_req = 409200, # W
-#     p0_su = 3190000, # Pa
-#     T0_su = 273.15 + 220, # K
-#     p_ex = 73630, # Pa
-#     psi = 1, # [-]
-#     phi = 0.6, # [-]
-#     R = 0.5, # [-]
-#     Mmax = 0.8 # [-]
-#     )
+Comp.plot_geometry()
+Comp.plot_n_blade()
+Comp.plot_radius_verif()
+Comp.plot_Mollier()
 
-# Turb.set_parameters(
-#     Zweifel = 0.8, # [-]
-#     Re_min = 5e5, # [-]
-#     AR_min = 1, # [-]
-#     r_hub_tip_max = 0.95, # [-]
-#     r_hub_tip_min = 0.6, # [-]
-#     )
+# Flexibilité : vitesse  + basse
+# Rajouter une rangée statorique à la fin : écoulement axial à la sortie
 
-
-# Zorlu Case
-
-# Turb.set_inputs(
-#     mdot = 34.51, # kg/s
-#     W_dot_req = 2506000, # W
-#     p0_su = 767800, # Pa
-#     T0_su = 273.15 + 131, # K
-#     p_ex = 82000, # Pa
-#     psi = 1, # [-]
-#     phi = 0.6, # [-]
-#     R = 0.5, # [-]
-#     Mmax = 0.8 # [-]
-#     )
-
-# Turb.set_parameters(
-#     Zweifel = 0.8, # [-]
-#     Re_min = 5e5, # [-]
-#     AR_min = 1, # [-]
-#     r_hub_tip_max = 0.95, # [-]
-#     r_hub_tip_min = 0.6, # [-]
-#     )
-
-Turb.design()
-
-Turb.plot_geometry()
-Turb.plot_n_blade()
-Turb.plot_radius_verif()
-Turb.plot_Mollier()

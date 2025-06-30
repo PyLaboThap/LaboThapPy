@@ -57,7 +57,7 @@ class AxialTurbineMeanLineDesign(object):
     
     class stage(object):
         
-        def __init__(self, fluid):
+        def __init__(self, fluid, n_disc):
             self.total_states = pd.DataFrame(columns=['H','S','P','D','A','V'], index = [1,2,3])
             self.static_states = pd.DataFrame(columns=['H','S','P','D','A','V'], index = [1,2,3])
             self.AS = CP.AbstractState('HEOS', fluid)
@@ -74,9 +74,17 @@ class AxialTurbineMeanLineDesign(object):
             self.chord_S = None
             self.chord_R = None
             
-            self.stage = None
             self.AR = None
             
+            self.disc_Vel_Tri_S = {}
+            self.disc_Vel_Tri_R = {}
+            
+            Vel_Tri_args = ['u', 'psi', 'phi', 'R', 'r', 'vu2', 'vm', 'v2', 'wu2', 'w2', 'alpha1', 'alpha2', 'beta1', 'beta2']
+            
+            for arg in Vel_Tri_args:
+                self.disc_Vel_Tri_S[arg] = np.zeros(n_disc)
+                self.disc_Vel_Tri_R[arg] = np.zeros(n_disc)
+
         def update_total_AS(self, CP_INPUTS, input_1, input_2, position):
             self.AS.update(CP_INPUTS, input_1, input_2)
             
@@ -254,9 +262,121 @@ class AxialTurbineMeanLineDesign(object):
         plt.legend(["real", "isentropic"])
         plt.show()
 
+    # ---------------- Speed Profile ------------------------------------------------------------------------
+
+    def compute_speed_profile(self, stage, blade_row_type):
+        
+        a = self.Vel_Tri['u']*(1-self.R)
+        
+        if blade_row_type == 'R':
+
+            for i in range(self.params['n_disc']):
+                r_h = self.r_m - stage.h_blade_R/2
+                stage.disc_Vel_Tri_R['r'][i] = r = (self.r_m - stage.h_blade_R/2) + i*stage.h_blade_R/self.params['n_disc']
+                
+                stage.disc_Vel_Tri_R['u'][i] = r*self.Vel_Tri['u']/self.r_m
+                
+                stage.disc_Vel_Tri_R['psi'][i] = self.r_m**2 *self.psi/ r**2
+                stage.disc_Vel_Tri_R['R'][i] = 1-a/stage.disc_Vel_Tri_R['u'][i]
+                stage.disc_Vel_Tri_R['phi'][i] = 1-a/stage.disc_Vel_Tri_R['u'][i]
+                
+                fact_1 = 2*(1-stage.disc_Vel_Tri_S['R'][0])**2 * (np.log(r/r_h) + stage.disc_Vel_Tri_S['psi'][i]/(2*(1-stage.disc_Vel_Tri_S['R'][0]))*(r/r_h)*(r/r_h - 1))
+                
+                if i == 0:
+                    stage.disc_Vel_Tri_R['phi'][i] = np.sqrt((self.phi*self.r_m/r_h)**2 + fact_1)
+                else:
+                    stage.disc_Vel_Tri_R['phi'][i] = (r_h/r)*np.sqrt(stage.disc_Vel_Tri_R['phi'][0]**2 - fact_1)
+        else:
+            
+            for i in range(self.params['n_disc']):
+                r_h = self.r_m - stage.h_blade_S/2
+                stage.disc_Vel_Tri_S['r'][i] = r = r_h + i*stage.h_blade_S/self.params['n_disc']
+                
+                stage.disc_Vel_Tri_S['u'][i] = r*self.Vel_Tri['u']/self.r_m
+                
+                stage.disc_Vel_Tri_S['psi'][i] = self.r_m**2 *self.psi / r**2
+                stage.disc_Vel_Tri_S['R'][i] = 1-a/stage.disc_Vel_Tri_S['u'][i]
+
+                fact_1 = 2*(1-stage.disc_Vel_Tri_S['R'][0])**2 * (np.log(r/r_h) + stage.disc_Vel_Tri_S['psi'][i]/(2*(1-stage.disc_Vel_Tri_S['R'][0]))*(r/r_h)*(r/r_h - 1))
+                
+                if i == 0:
+                    stage.disc_Vel_Tri_S['phi'][i] = np.sqrt((self.phi*self.r_m/r_h)**2 + fact_1)
+                else:
+                    stage.disc_Vel_Tri_S['phi'][i] = (r_h/r)*np.sqrt(stage.disc_Vel_Tri_S['phi'][0]**2 - fact_1)
+                    
+        return
+
+    def computeStageVelTriangle(self, stage_index, blade_row_type):
+        
+        if blade_row_type == 'R':
+            
+            for i in range(self.params['n_disc']):
+            
+                Vel_Tri = self.stages[stage_index].disc_Vel_Tri_R
+                
+                u = Vel_Tri['u'][i]
+                R = Vel_Tri['R'][i]
+                psi = Vel_Tri['psi'][i]
+                phi = Vel_Tri['phi'][i]
+        
+                # Absolute velocities 
+                Vel_Tri['vu2'][i] = vu2 = u*(2*(1-R) - psi)/2
+                Vel_Tri['vm'][i]  = vm  = u*phi
+                Vel_Tri['v2'][i]  = v2  = np.sqrt(vu2**2+vm**2)
+    
+                # Relative velocities 
+                Vel_Tri['wu2'][i] = wu2 = vu2 - u
+                Vel_Tri['w2'][i]  = np.sqrt(wu2**2+vm**2)
+    
+                # Angles in radians
+                Vel_Tri['alpha1'][i] = self.stages[stage_index].disc_Vel_Tri_S['alpha2'][i]
+                Vel_Tri['alpha2'][i] = np.arctan(vu2/vm)
+        
+                Vel_Tri['beta1'][i] = self.stages[stage_index].disc_Vel_Tri_S['beta2'][i]
+                Vel_Tri['beta2'][i] = np.arctan(wu2/vm)
+        
+        else:
+            
+            for i in range(self.params['n_disc']):
+          
+                Vel_Tri = self.stages[stage_index].disc_Vel_Tri_S
+                
+                u = Vel_Tri['u'][i]
+                R = Vel_Tri['R'][i]
+                psi = Vel_Tri['psi'][i]
+                phi = Vel_Tri['phi'][i]
+        
+                # Absolute velocities 
+                Vel_Tri['vu2'][i] = vu2 = u*(2*(1-R) + psi)/2
+                Vel_Tri['vm'][i]  = vm  = u*phi
+                Vel_Tri['v2'][i]  = v2  = np.sqrt(vu2**2+vm**2)
+    
+                # Relative velocities 
+                Vel_Tri['wu2'][i] = wu2 = vu2 - u
+                Vel_Tri['w2'][i]  = np.sqrt(wu2**2+vm**2)
+    
+                # Angles in radians
+                if stage_index == 0:   
+                    Vel_Tri['alpha1'][i] = self.Vel_Tri['alpha1']
+                    Vel_Tri['alpha2'][i] = np.arctan(vu2/vm)
+            
+                    Vel_Tri['beta1'][i] = self.Vel_Tri['beta1']
+                    Vel_Tri['beta2'][i] = np.arctan(wu2/vm)                
+                else:
+                    Vel_Tri['alpha1'][i] = self.stages[stage_index-1].disc_Vel_Tri_R['alpha2'][i]
+                    Vel_Tri['alpha2'][i] = np.arctan(vu2/vm)
+            
+                    Vel_Tri['beta1'][i] = self.stages[stage_index-1].disc_Vel_Tri_R['beta2'][i]
+                    Vel_Tri['beta2'][i] = np.arctan(wu2/vm)
+            
+        return 
+
     # ---------------- Loss Models ------------------------------------------------------------------------
 
-    def stator_blade_row_system(self, x, stage):
+    def stator_blade_row_system(self, x, stage_index):
+        
+        stage = self.stages[stage_index]
+        
         # 1) Guess outlet state
         [h_static_out, p_static_out] = x
         
@@ -280,6 +400,11 @@ class AxialTurbineMeanLineDesign(object):
                 
         stage.chord_S = (self.params['Re_min']*stage.static_states['V'][2])/(stage.static_states['D'][2]*self.Vel_Tri['vm'])            
         stage.AR_S = stage.h_blade_S/stage.chord_S
+        
+        # 5) Speed profiles
+        
+        self.compute_speed_profile(stage, 'S')
+        self.computeStageVelTriangle(stage_index, 'S')
         
         # 5) Estimate pressure losses 
         # 5.1) Balje-Binsley
@@ -321,7 +446,10 @@ class AxialTurbineMeanLineDesign(object):
 
         return (p_static_out - pout_calc)**2 + (h_static_out - hout)**2
 
-    def rotor_blade_row_system(self, x, stage):
+    def rotor_blade_row_system(self, x, stage_index):
+        
+        stage = self.stages[stage_index]
+
         # 1) Guess outlet state
         [h_static_out, p_static_out] = x
         
@@ -345,6 +473,13 @@ class AxialTurbineMeanLineDesign(object):
         stage.chord_R = (self.params['Re_min']*stage.static_states['V'][3])/(stage.static_states['D'][3]*self.Vel_Tri['vm'])            
         stage.AR_R = stage.h_blade_R/stage.chord_R
         
+        # 5) Speed profiles
+        
+        # 5) Speed profiles
+        
+        self.compute_speed_profile(stage, 'R')
+        self.computeStageVelTriangle(stage_index, 'R')
+                
         # 5) Estimate pressure losses 
         # 5.1) Balje-Binsley : Profile pressure losses         
         H_TE = 1.4 + 300/self.params['Re_min']**0.5 # Trailing-edge boundary layer shape factor : Aungier's Correlation for fully turbulent flow
@@ -412,8 +547,16 @@ class AxialTurbineMeanLineDesign(object):
         stage.chord_S = (self.params['Re_min']*stage.static_states['V'][2])/(stage.static_states['D'][2]*self.Vel_Tri_Last_Stage['vm'])            
         stage.AR_S = stage.h_blade_S/stage.chord_S
         
+        # 5) Compute discretized velocity profiles
+
+        self.compute_speed_profile(stage, 'S')
+        self.computeStageVelTriangle(-1, 'S')
+
         # 5) Estimate pressure losses 
-        # 5.1) Aungier : Profile pressure losses                     
+        # 5.1) Aungier : Profile pressure losses           
+
+
+          
         v_1 = np.sqrt(self.Vel_Tri_Last_Stage["vm"]**2 + self.Vel_Tri_Last_Stage["vu1"]**2)
         v_2 = np.sqrt(self.Vel_Tri_Last_Stage["vm"]**2 + self.Vel_Tri_Last_Stage["vu2"]**2)
         
@@ -506,33 +649,35 @@ class AxialTurbineMeanLineDesign(object):
         
         return 
     
-    def computeBladeRow(self,stage,row_type):
+    def computeBladeRow(self,stage_index,row_type):
+        stage = self.stages[stage_index]
+        
         if row_type == 'S': # Stator
             
             RP_1_row = (self.inputs['p0_su']/self.inputs['p_ex'])**(1/(2*self.nStages))
             h_out_guess = stage.static_states['H'][1] - self.Dh0Stage/2
             pout_guess = stage.static_states['P'][1]/RP_1_row
-            sol = minimize(self.stator_blade_row_system, x0=(h_out_guess,pout_guess), args=(stage), bounds=[(stage.static_states['H'][1]-2*self.Dh0Stage, stage.static_states['H'][1]), (self.inputs['p_ex']*0.8, stage.static_states['P'][1])])         
+            sol = minimize(self.stator_blade_row_system, x0=(h_out_guess,pout_guess), args=(stage_index), bounds=[(stage.static_states['H'][1]-2*self.Dh0Stage, stage.static_states['H'][1]), (self.inputs['p_ex']*0.8, stage.static_states['P'][1])])         
                         
         else: # Rotor
 
             RP_1_row = (self.inputs['p0_su']/self.inputs['p_ex'])**(1/(2*self.nStages))
             h_out_guess = stage.static_states['H'][2] - self.Dh0Stage/2
             pout_guess = stage.static_states['P'][2]/RP_1_row
-            sol = minimize(self.rotor_blade_row_system, x0=(h_out_guess,pout_guess), args=(stage), bounds=[(stage.static_states['H'][1]-2*self.Dh0Stage, stage.static_states['H'][1]), (self.inputs['p_ex']*0.8, stage.static_states['P'][1])])    
+            sol = minimize(self.rotor_blade_row_system, x0=(h_out_guess,pout_guess), args=(stage_index), bounds=[(stage.static_states['H'][1]-2*self.Dh0Stage, stage.static_states['H'][1]), (self.inputs['p_ex']*0.8, stage.static_states['P'][1])])    
         return
             
     def computeRepeatingStages(self):
         
         for i in range(int(self.nStages)):
             if i == 0:
-                self.computeBladeRow(self.stages[i], 'S')
-                self.computeBladeRow(self.stages[i], 'R')
+                self.computeBladeRow(i, 'S')
+                self.computeBladeRow(i, 'R')
             else:
                 self.stages[i].static_states.loc[1] = self.stages[i-1].static_states.loc[3]
                 
-                self.computeBladeRow(self.stages[i], 'S')
-                self.computeBladeRow(self.stages[i], 'R')
+                self.computeBladeRow(i, 'S')
+                self.computeBladeRow(i, 'R')
             
             self.r_tip.append(self.r_m + self.stages[i].h_blade_S/2)
             self.r_hub.append(self.r_m - self.stages[i].h_blade_S/2)
@@ -548,6 +693,8 @@ class AxialTurbineMeanLineDesign(object):
     
     def computeLastStage(self):
         self.stages[-1].static_states.loc[1] = self.stages[-2].static_states.loc[3]
+                
+        stage = self.stages[-1]
         
         h_out_guess = self.stages[-2].total_states['H'][3]
         pout_guess = self.stages[-2].total_states['P'][3]
@@ -556,23 +703,21 @@ class AxialTurbineMeanLineDesign(object):
         return
     
     def design_system(self, x):
-        try:
+        # try:
             self.reset()
             
             self.psi = x[0]
             self.phi = x[1]
             self.R = x[2]
             self.r_m = x[3]
-            
-            # print(f"pos : [{self.psi, self.phi, self.R, self.r_m}]")
-            
+                                    
             self.r_tip = []
             self.r_hub = []
             self.r_hub_tip = []
             self.r_ratio2 = []
             
             # First Stator Instanciation
-            self.stages.append(self.stage(self.fluid))
+            self.stages.append(self.stage(self.fluid, self.params['n_disc']))
             self.stages[0].update_total_AS(CP.PT_INPUTS, self.inputs['p0_su'], self.inputs['T0_su'], 1)
             
             "------------- 1) Isentropic Expansion Calculation -----------------------------------------------" 
@@ -606,11 +751,29 @@ class AxialTurbineMeanLineDesign(object):
             self.nStages = int(round(Dh0/Dh0Stage))
             
             for i in range(self.nStages-1):
-                self.stages.append(self.stage(self.fluid))
+                self.stages.append(self.stage(self.fluid, self.params['n_disc']))
             
             # Recompute u based on the number of stages to satisfy the work. As r_m is constant, u is contant accross stages
             self.Dh0Stage = Dh0/self.nStages
             self.Vel_Tri['u'] = np.sqrt(self.Dh0Stage/self.psi)
+    
+            self.omega_rads = self.Vel_Tri['u']/self.r_m # rad/s
+    
+            for stage in self.stages:
+                stage.disc_Vel_Tri_S['u'] = np.zeros(self.params['n_disc'])
+                stage.disc_Vel_Tri_R['u'] = np.zeros(self.params['n_disc'])
+
+                stage.disc_Vel_Tri_S['psi'] = np.zeros(self.params['n_disc'])
+                stage.disc_Vel_Tri_R['psi'] = np.zeros(self.params['n_disc'])
+                
+                stage.disc_Vel_Tri_S['phi'] = np.zeros(self.params['n_disc'])
+                stage.disc_Vel_Tri_R['phi'] = np.zeros(self.params['n_disc'])
+                
+                stage.disc_Vel_Tri_S['R'] = np.zeros(self.params['n_disc'])
+                stage.disc_Vel_Tri_R['R'] = np.zeros(self.params['n_disc'])
+
+                stage.disc_Vel_Tri_S['r'] = np.zeros(self.params['n_disc'])
+                stage.disc_Vel_Tri_R['r'] = np.zeros(self.params['n_disc'])
     
             "------------- 5) Compute complete velocity triangles and exit losses ----------------------------" 
     
@@ -634,7 +797,6 @@ class AxialTurbineMeanLineDesign(object):
             
             "------------- 7) Compute rotation speed and number of blades per stage ---------------------------" 
     
-            self.omega_rads = self.Vel_Tri['u']/self.r_m # rad/s
             self.omega_RPM = self.omega_rads*60/(2*np.pi) 
     
             self.n_blade = []
@@ -651,7 +813,7 @@ class AxialTurbineMeanLineDesign(object):
     
             "------------- 8) Add last redirecting stator stage -------------------------------------------------------------" 
     
-            self.stages.append(self.stage(self.fluid))
+            self.stages.append(self.stage(self.fluid, self.params['n_disc']))
             
             self.computeVelTriangleLastStage()
             
@@ -671,15 +833,17 @@ class AxialTurbineMeanLineDesign(object):
             self.eta_is = (hin - hout)/(hin - hout_s)
     
     
-            penalty_1 = max(self.r_hub_tip[0] - self.params['r_hub_tip_max'],0)*100
-            penalty_2 = max(self.params['r_hub_tip_min'] - self.r_hub_tip[-1],0)*100
-            
+            penalty_1 = max(self.r_hub_tip[0] - self.params['r_hub_tip_max'],0)*1000
+            penalty_2 = max(self.params['r_hub_tip_min'] - self.r_hub_tip[-1],0)*1000
+                        
             if abs((self.inputs["p_ex"] - self.stages[-1].static_states['P'][2])/self.inputs["p_ex"]) >= 5e-2:
                 penalty_3 = abs(self.inputs["p_ex"] - self.stages[-1].static_states['P'][2])/10
                 self.Pressure_Deviation = self.inputs["p_ex"] - self.stages[-1].static_states['P'][2]
             else:
                 penalty_3 = 0
                 self.Pressure_Deviation = self.inputs["p_ex"] - self.stages[-1].static_states['P'][2]
+    
+            print(f"penalty_1, 2, 3 : {penalty_1, penalty_2, penalty_3}")
     
             penalty = penalty_1 + penalty_2 + penalty_3
     
@@ -696,36 +860,10 @@ class AxialTurbineMeanLineDesign(object):
             # print(obj)
             return obj
 
-        except:
-            print("FAIL")
-            return 10000
+        # except:
+        #     print("FAIL")
+        #     return 10000
 
-    # def design(self):
-    #     bounds = (np.array([
-    #         self.params['psi_bounds'][0],
-    #         self.params['phi_bounds'][0],
-    #         self.params['R_bounds'][0],
-    #         self.params['r_m_bounds'][0],
-    #     ]),
-    #     np.array([
-    #         self.params['psi_bounds'][1],
-    #         self.params['phi_bounds'][1],
-    #         self.params['R_bounds'][1],
-    #         self.params['r_m_bounds'][1],
-    #     ]))
-    
-    #     # Wrap your function to return a scalar
-    #     def objective_wrapper(x):
-    #         return np.array([self.design_system(xi) for xi in x])
-    
-    #     optimizer = ps.single.GlobalBestPSO(
-    #         n_particles=10,
-    #         dimensions=4,
-    #         options={'c1': 1.5, 'c2': 2.0, 'w': 0.7},
-    #         bounds=bounds
-    #     )
-    
-    #     cost, pos = optimizer.optimize(objective_wrapper, iters=30, verbose=True)
 
     def design(self):
         bounds = (np.array([
@@ -758,7 +896,7 @@ class AxialTurbineMeanLineDesign(object):
         # Custom stopping logic
         patience = 5
         tol = 1e-3
-        max_iter = 50
+        max_iter = 5
         no_improve_counter = 0
         best_cost = np.inf
     
@@ -780,6 +918,10 @@ class AxialTurbineMeanLineDesign(object):
                 print("Stopping early due to stagnation.")
                 break
              
+        best_pos = optimizer.swarm.best_pos
+             
+        self.design_system(best_pos)
+        
         "------------- Print Main Results -------------------------------------------------------------" 
         
         print(f"Parameters : {self.psi, self.phi, self.R}")
@@ -816,7 +958,8 @@ if case_study == 'Cuerva':
         r_m_bounds = [0.2,0.4], # [m]
         psi_bounds = [0.9,1.4], # [-]
         phi_bounds = [0.4,0.6], # [-] 
-        R_bounds = [0.49,0.51] # [-]
+        R_bounds = [0.49,0.51], # [-]
+        n_disc = 5
         )
 
 elif case_study == 'Zorlu':

@@ -15,7 +15,7 @@ from connector.mass_connector import MassConnector
 from component.heat_exchanger.hex_cstpinch import HXPinchCst
 from component.heat_exchanger.hex_csteff_disc import HXEffCstDisc
 from component.expander.expander_csteff import ExpanderCstEff 
-from component.turbomachinery.pump.steady_state.constant_efficiency.simulation_model import PumpCstEff 
+from component.pump.pump_csteff import PumpCstEff 
 
 # from component.valve.isenthalpic_valve_P_ex import Isenthalpic_Valve_P_ex
 # from component.valve.isenthalpic_valve_x_ex import Isenthalpic_Valve_x_ex

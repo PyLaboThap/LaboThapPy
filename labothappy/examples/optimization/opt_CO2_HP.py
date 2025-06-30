@@ -13,19 +13,19 @@ import matplotlib.pyplot as plt
 
 "1) Initiate the heat pump cycle"
 
-T_cold_source = 15+273.15
+T_cold_source = 0.1+273.15
 T_hot_source = 15+273.15
 
 eta_is_cp = 0.7
-eta_gc = 0.95
+eta_gc = 0.9
 eta_IHX = 0.7
 
-m_dot = 100
+m_dot = 0.04
 
 PPTD_ev = 5
 SH_ev = 0.1
 
-P_high = 160*1e5
+P_high = 110*1e5
 P_sat_T_CSource = PropsSI('P', 'T', T_cold_source, 'Q', 0.5, 'CO2')
 P_crit_CO2 = PropsSI('PCRIT', 'CO2')
 
@@ -33,17 +33,17 @@ P_low_guess = 0.8*min(P_sat_T_CSource, P_crit_CO2)
 
 HSource = MassConnector()
 HSource.set_properties(fluid='Water', T=T_hot_source,
-                       p=5e5, m_dot=55)  # 0.1 # 62.5
+                       p=5e5, m_dot=0.625*m_dot)  # 0.1 # 62.5
 
 CSource = MassConnector()
 CSource.set_properties(fluid='Water', T=T_cold_source,
-                       p=5e5, m_dot=65000)  # 1000 # 625000
+                       p=5e5, m_dot=1000*m_dot)  # 1000 # 625000
 
 CO2_HP = IHX_CO2_HP(HSource, CSource, eta_is_cp, eta_gc, eta_IHX, PPTD_ev, SH_ev, P_low_guess, P_high, m_dot) # 0.16 # 100
 
 CO2_HP.solve()
 
-COP = CO2_HP.components['GasCooler'].model.Q_dot.Q_dot/CO2_HP.components['Compressor'].model.W_mec.W_dot
+COP = CO2_HP.components['GasCooler'].model.Q_dot.Q_dot/CO2_HP.components['Compressor'].model.W.W_dot
 
 T_hw_out = CO2_HP.components['GasCooler'].model.ex_C.T
 

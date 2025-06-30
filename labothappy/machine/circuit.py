@@ -698,6 +698,8 @@ class Circuit:
 
     def get_T_s_p(self, component_name, T, s, p, start_flag):
         
+        print(component_name)
+        
         if start_flag == 0:
             if component_name == self.solve_start_components[0]:
                 return T, s, p
@@ -712,10 +714,11 @@ class Circuit:
             if connector_type == 'm':
                 connector = getattr(self.components[component_name].model, input_port_name, None)
             
-            if connector.fluid == self.fluid:
-                T.append(connector.T)
-                s.append(connector.s)                    
-                p.append(connector.p)                    
+                if connector.fluid == self.fluid:
+                    T.append(connector.T)
+                    s.append(connector.s)                    
+                    p.append(connector.p)                    
+        
         
         for output_port in component.next:
             
@@ -732,7 +735,9 @@ class Circuit:
                     next_comp_name = self.components[component_name].next[output_port].name
                     
                     self.get_T_s_p(next_comp_name, T, s, p, 0)
+         
                 
+                  
         return T, s, p
 
     def Ts_plot(self):

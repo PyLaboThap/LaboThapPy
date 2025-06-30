@@ -117,13 +117,6 @@ class CompressorCstEff(BaseComponent):
         print("=========================")
 
 
-    self.AS.update(CP.PT_INPUTS, self.su.p, self.su.T)
-
-    h_su = self.AS.hmass()
-    mu_su = self.AS.viscosity()
-    k_su = self.AS.conductiviry()
-    rho_su = self.AS.rhomass()
-
 
 
 

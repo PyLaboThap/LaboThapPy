@@ -13,14 +13,13 @@ from CoolProp.CoolProp import PropsSI
 from connector.mass_connector import MassConnector
 
 from component.heat_exchanger.hex_cstpinch import HXPinchCst
-from component.heat_exchanger.steady_state.cst_efficiency.simulation_model import HXEffCst
+from component.heat_exchanger.hex_csteff import HXEffCst
 from component.heat_exchanger.hex_csteff_disc import HXEffCstDisc
 from component.compressor.compressor_csteff import CompressorCstEff 
-from component.valve.isenthalpic_valve_P_ex import Isenthalpic_Valve_P_ex
+from component.valve.isenthalpic_valve_P_ex import IsenthalpicValve_P_ex
 from component.expander.expander_csteff import ExpanderCstEff
-from component.valve.isenthalpic_valve_x_ex import Isenthalpic_Valve_x_ex
 from component.tank.tank_mixer import Mixer
-from component.tank.LV_Separator import LV_Separator
+from component.tank.tank_LV_separator import LV_Separator
 
 def basic_CO2_HP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low, P_high):
     
@@ -29,7 +28,7 @@ def basic_CO2_HP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low, P_high):
     # Create components
     Compressor = CompressorCstEff()
     GasCooler = HXEffCst()
-    Valve = Isenthalpic_Valve_P_ex()
+    Valve = IsenthalpicValve_P_ex()
     Evaporator = HXPinchCst()
     
     #%% COMPRESSOR PARAMETERS
@@ -174,7 +173,7 @@ def IHX_CO2_HP(HSource, CSource, eta_cp, eta_gc, eta_IHX, PP_ev, SH_ev, P_low, P
     Compressor = CompressorCstEff()
     GasCooler = HXEffCstDisc()
     IHX = HXEffCstDisc()
-    Valve = Isenthalpic_Valve_P_ex()
+    Valve = IsenthalpicValve_P_ex()
     Evaporator = HXPinchCst()
     
     #%% COMPRESSOR PARAMETERS
@@ -258,8 +257,8 @@ def Flash_CO2_HP_Parallel_CP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_l
     Compressor_1 = CompressorCstEff()
     Compressor_2 = CompressorCstEff()
     GasCooler = HXEffCst()
-    Valve_1 = Isenthalpic_Valve_P_ex()
-    Valve_2 = Isenthalpic_Valve_P_ex()
+    Valve_1 = IsenthalpicValve_P_ex()
+    Valve_2 = IsenthalpicValve_P_ex()
     Evaporator = HXPinchCst()
     Mixer_cp = Mixer(n_inlets = 2)
     Separator = LV_Separator()
@@ -353,8 +352,8 @@ def Flash_CO2_HP_Series_CP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low
     Compressor_1 = CompressorCstEff()
     Compressor_2 = CompressorCstEff()
     GasCooler = HXEffCst()
-    Valve_1 = Isenthalpic_Valve_P_ex()
-    Valve_2 = Isenthalpic_Valve_P_ex()
+    Valve_1 = IsenthalpicValve_P_ex()
+    Valve_2 = IsenthalpicValve_P_ex()
     Evaporator = HXPinchCst()
     Mixer_cp = Mixer(n_inlets = 2)
     Separator = LV_Separator()
@@ -513,7 +512,7 @@ if __name__ == "__main__":
     
         COP = CO2_HP.components["GasCooler"].model.Q_dot.Q_dot/(CO2_HP.components["Compressor"].model.W_dot.W_dot - CO2_HP.components["Expander"].model.W_exp.W_dot)
     
-    print(f"COP : {COP}")
+    # print(f"COP : {COP}")
 
 # """
 # T_cold_source = -10 + 273.15
