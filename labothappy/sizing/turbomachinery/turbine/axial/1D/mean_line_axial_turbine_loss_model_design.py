@@ -298,7 +298,7 @@ class AxialTurbineMeanLineDesign(object):
 
         # Secondary loss : Kacker-Okaapu
         Z = self.solidityStator*(self.Vel_Tri['beta1']-self.Vel_Tri['beta2'])/np.cos(self.Vel_Tri['beta2']) # Loading Factor
-        Ys = abs(0.0334*1/self.params['AR_min']*(np.cos(self.Vel_Tri['alpha2'])/np.cos(self.Vel_Tri['beta1']))*Z)
+        Ys = abs(0.0334*1/stage.AR_S*(np.cos(self.Vel_Tri['alpha2'])/np.cos(self.Vel_Tri['beta1']))*Z)
 
         # Pressure loss 
         DP_loss = (Yp+Ys)*(self.Vel_Tri['vm']**2 + self.Vel_Tri['vu2']**2)*stage.static_states['D'][2]/2
@@ -361,8 +361,8 @@ class AxialTurbineMeanLineDesign(object):
         Yp = abs(1- num_Yp/den_Yp)
 
         # 5.2) Kacker-Okaapu : Secondary pressure losses
-        Z = self.solidityStator*(self.Vel_Tri['beta2']-self.Vel_Tri['beta3'])/np.cos(self.Vel_Tri['beta3']) # Loading Factor
-        Ys = abs(0.0334*1/self.params['AR_min']*(np.cos(self.Vel_Tri['alpha3'])/np.cos(self.Vel_Tri['beta2']))*Z)
+        Z = self.solidityRotor*(self.Vel_Tri['beta2']-self.Vel_Tri['beta3'])/np.cos(self.Vel_Tri['beta3']) # Loading Factor
+        Ys = abs(0.0334*1/stage.AR_R*(np.cos(self.Vel_Tri['alpha3'])/np.cos(self.Vel_Tri['beta2']))*Z)
 
         # Pressure loss 
         DP_loss = (Yp+Ys)*(self.Vel_Tri['vm']**2 + self.Vel_Tri['wu3']**2)*stage.static_states['D'][3]/2
@@ -758,7 +758,7 @@ class AxialTurbineMeanLineDesign(object):
         # Custom stopping logic
         patience = 5
         tol = 1e-3
-        max_iter = 50
+        max_iter = 20
         no_improve_counter = 0
         best_cost = np.inf
     
@@ -780,6 +780,10 @@ class AxialTurbineMeanLineDesign(object):
                 print("Stopping early due to stagnation.")
                 break
              
+        best_pos = optimizer.swarm.best_pos
+             
+        self.design_system(best_pos)
+             
         "------------- Print Main Results -------------------------------------------------------------" 
         
         print(f"Parameters : {self.psi, self.phi, self.R}")
@@ -794,7 +798,7 @@ class AxialTurbineMeanLineDesign(object):
 
 Turb = AxialTurbineMeanLineDesign('Cyclopentane')
 
-case_study = "Cuerva"
+case_study = "Zorlu"
 
 if case_study == 'Cuerva':
     
