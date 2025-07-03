@@ -42,7 +42,7 @@ class LV_Separator(BaseComponent):
         Component: Tank
 
         Model:  Classical way to model a LV separator 
-        Reference: ???
+        Reference: /
 
         **Descritpion**:
 
@@ -108,61 +108,27 @@ class LV_Separator(BaseComponent):
         self.su = MassConnector()
         self.ex_l = MassConnector()
         self.ex_v = MassConnector () 
-                
+            
 
 #%% INPUTS AND PARAMETERS HANDLING METHODS
-    
+
     def get_required_inputs(self): # Used in check_calculable (in BaseComponent) to see if all of the required inputs are set
         """
         Supply required inputs : 
-            - su_x          : Supply quality [-]
-            - su_T          : Supply temperature [K]
-            - su_h          : Supply enthalpy [J/kg]
-            - su_p          : Supply pressure [Pa]
-            - su_fluid      : Supply fluid [string]
-            - su_m_dot      : Supply flow rate [kg/s]
+            - x_su          : Supply quality [-]
+            - T_su          : Supply temperature [K]
+            - h_su          : Supply enthalpy [J/kg]
+            - P_su          : Supply pressure [Pa]
+            - fluid         : Supply fluid [string]
+            - m_dot         : Supply flow rate [kg/s]
             
         """
         self.sync_inputs()
 
         # The inputs should be defined in order to define the state of the fluid (i.e x_su should be defined at saturation)
-        return['x_su', 'T_su', 'h_su', 'p_su', 'm_dot_su', 'su_fluid'] 
+        return['x_su', 'T_su', 'h_su', 'P_su', 'm_dot', 'fluid'] 
     
-    def sync_inputs(self): # Makes the link between inputs and MassConnector() in object supply and exhaust attributes
-        """Synchronize the inputs dictionary with the connector states."""
-        
-        if self.su.x is not None:
-            self.inputs['x_su'] = self.su.x
-        if self.su.T is not None:
-            self.inputs['T_su'] = self.su.T
-        if self.su.h is not None:
-            self.inputs['h_su'] = self.su.h
-        if self.su.p is not None:
-            self.inputs['p_su'] = self.su.p
-        if self.su.fluid is not None:
-            self.inputs['su_fluid'] = self.su.fluid
-        if self.su.m_dot is not None:
-            self.inputs['m_dot_su'] = self.su.m_dot
-
-
-    def set_inputs(self, **kwargs):
-        """Set inputs directly through a dictionary and update connector properties."""
-        self.inputs.update(kwargs) # This line merges the keyword arguments ('kwargs') passed to the 'set_inputs()' method into the existing 'self.inputs' dictionary.
-
-        # Update the connectors based on the new inputs
-        self.su.set_fluid(self.inputs['su_fluid'])
-        if 'x_su' in self.inputs:
-            self.su.set_x(self.inputs['x_su'])
-        if 'T_su' in self.inputs:
-            self.su.set_T(self.inputs['T_su'])
-        if 'h_su' in self.inputs:
-            self.su.set_h(self.inputs['h_su'])
-        if 'p_su' in self.inputs:
-            self.su.set_p(self.inputs['p_su'])
-        if 'm_dot_su' in self.inputs:
-            self.su.set_m_dot(self.inputs['m_dot_su'])
-
-
+   
     def get_required_parameters(self): # Used in check_parametrized (in BaseComponent) to see if all of the required parameters are set
         """
         No required parameters for the model 
@@ -226,15 +192,18 @@ class LV_Separator(BaseComponent):
             print("Component not parametrized, check parameters")      
             return
     
+        self.AS=CP.AbstractState('HEOS', self.su.fluid) 
+        
         # Extract input properties
         fluid = self.su.fluid
         x_su = self.su.x  # Quality (0 = liquid, 1 = vapor)
-        p_su = self.su.p
+        P_su = self.su.p
         T_su = self.su.T
         m_dot_su = self.su.m_dot
     
         # Get saturation temperature at supply pressure
-        T_sat = CP.PropsSI('T', 'P', p_su, 'Q', 0.5, fluid)
+        self.AS.update(CP.PQ_INPUTS,P_su, 0.5)
+        T_sat =self.AS.T ()
     
         if 0 <= x_su <= 1:  # Two-phase mixture
             m_dot_l = (1 - x_su) * m_dot_su
@@ -250,21 +219,19 @@ class LV_Separator(BaseComponent):
                 # Set exhaust enthalpy
         x_ex_v=1
         T_ex_v=T_su
-        h_ex_v = CP.PropsSI('H', 'P', p_su, 'Q', 1, fluid)
-        p_ex_v=p_su
+        self.AS.update(CP.PQ_INPUTS, P_su, x_ex_v)
+        h_ex_v = self.AS.hmass ()
+        P_ex_v=P_su
         
         x_ex_l=0
-        h_ex_l = CP.PropsSI('H', 'P', p_su, 'Q', 0, fluid)
+        self.AS.update(CP.PQ_INPUTS, P_su, x_ex_l)
+        h_ex_l = self.AS.hmass ()
         T_ex_l=T_su
-        p_ex_l=p_su
+        P_ex_l=P_su
         
-        # if abs((m_dot_l + m_dot_v) - self.su.m_dot) < 1e-2:
-        #     print("OK m_dot")
-        # else: 
-        #     print("Not OK m_dot")
-        
+                
         # Update mass connectors
-        self.update_connectors(x_ex_l, T_ex_l, h_ex_l, p_ex_l, m_dot_l, x_ex_v, T_ex_v, h_ex_v, p_ex_v, m_dot_v)
+        self.update_connectors(x_ex_l, T_ex_l, h_ex_l, P_ex_l, m_dot_l, x_ex_v, T_ex_v, h_ex_v, P_ex_v, m_dot_v)
         self.solved = True  # Mark as solved
         
 #%% PRINT THE RESULTS 

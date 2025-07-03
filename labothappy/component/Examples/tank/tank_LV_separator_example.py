@@ -5,7 +5,7 @@ Created on Tue Dec 19 14:43:39 2023
 @author: Samuel Gendebien
 """
 
-import __init__
+# import __init__
 
 import numpy as np
 from CoolProp.CoolProp import PropsSI
@@ -18,10 +18,10 @@ LV_Separator = LV_Separator()
 
 # Inputs
 LV_Separator.set_inputs(
-                  su_fluid = 'R22',
+                  fluid = 'R22',
                   x_su = 0.5,
-                  p_su = 100000,
-                  m_dot_su = 14,
+                  P_su = 100000,
+                  m_dot = 14,
                   )
 
 # Params
