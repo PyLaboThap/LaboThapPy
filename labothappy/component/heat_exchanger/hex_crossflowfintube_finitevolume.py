@@ -2,14 +2,14 @@
 """
 Created on Wed May  8 09:38:42 2024
 
-@author: Basile
+@author: Basile & Sam
 """
 import __init__
 
 # External Toolbox 
 import numpy as np
 from scipy.optimize import fsolve
-from CoolProp.CoolProp import PropsSI
+import CoolProp.CoolProp as CP
 
 # Connectors
 from connector.mass_connector import MassConnector
@@ -104,31 +104,31 @@ class CrossFlowTubeAndFinsHTX(BaseComponent):
     
     **Inputs**:
     
-        su_H_fluid (str): Hot-side fluid.
+        fluid_H (str): Hot-side fluid.
         
-        su_H_h (float): Hot-side inlet specific enthalpy [J/kg].
+        h_su_H (float): Hot-side inlet specific enthalpy [J/kg].
         
-        su_H_p (float): Hot-side inlet pressure [Pa].
+        P_su_H (float): Hot-side inlet pressure [Pa].
         
-        su_H_m_dot (float): Hot-side mass flow rate [kg/s].
+        m_dot_H (float): Hot-side mass flow rate [kg/s].
     
-        su_C_fluid (str): Cold-side fluid.
+        fluid_C (str): Cold-side fluid.
         
-        su_C_h (float): Cold-side inlet specific enthalpy [J/kg].
+        h_su_C (float): Cold-side inlet specific enthalpy [J/kg].
         
-        su_C_p (float): Cold-side inlet pressure [Pa].
+        P_su_C (float): Cold-side inlet pressure [Pa].
         
-        su_C_m_dot (float): Cold-side mass flow rate [kg/s].
+        m_dot_C (float): Cold-side mass flow rate [kg/s].
     
     **Outputs**:
 
-        ex_C_h: Cold exhaust side enthalpy. [J/kg]
+        h_ex_C: Cold exhaust side enthalpy. [J/kg]
 
-        ex_C_p: Cold exhaust side pressure. [Pa]
+        P_ex_C: Cold exhaust side pressure. [Pa]
 
-        ex_H_h: Hot exhaust side enthalpy. [J/kg]
+        h_ex_H: Hot exhaust side enthalpy. [J/kg]
 
-        ex_H_p: Hot exhaust side pressure. [Pa]
+        P_ex_H: Hot exhaust side pressure. [Pa]
 
         Q_dot: Heat Exchanger's heat duty. [W]
         
@@ -168,81 +168,26 @@ class CrossFlowTubeAndFinsHTX(BaseComponent):
 
     #%%    
     
-    def get_required_inputs(self): # Used in check_calculablle to see if all of the required inputs are set
+    def get_required_inputs(self): # Used in check_calculable to see if all of the required inputs are set
         """
-        Hot side required inputs : 
+        Hot side required inputs :
             
-            - Hsu_T or Hsu_h : Hot supply temperature or enthalpy
-            - Hsu_p          : Hot supply pressure
-            - Hsu_fluid      : Hot supply fluid
-            - Hsu_m_dot      : Hot supply flow rate
+            - T_su_H or h_su_H : Hot supply temperature or enthalpy
+            - P_su_H          : Hot supply pressure
+            - Fluid_H     : Hot supply fluid
+            - m_dot_H      : Hot supply flow rate
             
         Cold side required inputs : 
             
-            - Csu_T or Hsu_h : Cold supply temperature or enthalpy
-            - Csu_p          : Cold supply pressure
-            - Csu_fluid      : Cold supply fluid
-            - Csu_m_dot      : Cold supply flow rate
+            - T_su_C or h_su_C  : Cold supply temperature or enthalpy
+            - P_su_C          : Cold supply pressure
+            - Fluid_C      : Cold supply fluid
+            - m_dot_C      : Cold supply flow rate
         """
         self.sync_inputs()
         # Return a list of required inputs
-        return['Hsu_p', 'Hsu_T', 'Hsu_m_dot', 'Hsu_fluid', 'Csu_p', 'Csu_T', 'Csu_m_dot', 'Csu_fluid']
+        return['P_su_H', 'T_su_H', 'm_dot_H', 'fluid_H', 'P_su_C', 'T_su_C', 'm_dot_C', 'fluid_C']
     
-    def sync_inputs(self):
-        """Synchronize the inputs dictionary with the connector states."""
-        # Hot Fluid
-        if self.su_H.T is not None:
-            self.inputs['Hsu_T'] = self.su_H.T
-        elif self.su_H.h is not None:
-            self.inputs['Hsu_h'] = self.su_H.h
-        if self.su_H.p is not None:
-            self.inputs['Hsu_p'] = self.su_H.p
-        if self.su_H.fluid is not None:
-            self.inputs['Hsu_fluid'] = self.su_H.fluid
-        if self.su_H.m_dot is not None:
-            self.inputs['Hsu_m_dot'] = self.su_H.m_dot
-            
-        # Cold Fluid                
-        if self.su_C.T is not None:
-            self.inputs['Csu_T'] = self.su_C.T
-        elif self.su_C.h is not None:
-            self.inputs['Csu_h'] = self.su_C.h
-        if self.su_C.p is not None:
-            self.inputs['Csu_p'] = self.su_C.p
-        if self.su_C.fluid is not None:
-            self.inputs['Csu_fluid'] = self.su_C.fluid
-        if self.su_C.m_dot is not None:
-            self.inputs['Csu_m_dot'] = self.su_C.m_dot
-
-    def set_inputs(self, **kwargs):
-        """Set inputs directly through a dictionary and update connector properties."""
-        self.inputs.update(kwargs) # This line merges the keyword arguments ('kwargs') passed to the 'set_inputs()' method into the eisting 'self.inputs' dictionary.
-
-        # Update the connectors based on the new inputs
-        # Hot Fluid
-        self.su_H.set_fluid(self.inputs['Hsu_fluid'])
-        if 'Hsu_T' in self.inputs:
-            self.su_H.set_T(self.inputs['Hsu_T'])
-        elif 'Hsu_h' in self.inputs:
-            self.su_H.set_h(self.inputs['Hsu_h'])
-        if 'Hsu_p' in self.inputs:
-            self.su_H.set_p(self.inputs['Hsu_p'])
-        if 'Hsu_m_dot' in self.inputs:
-            self.su_H.set_m_dot(self.inputs['Hsu_m_dot'])
-
-        # Cold Fluid
-        self.su_C.set_fluid(self.inputs['Csu_fluid'])
-        if 'Csu_T' in self.inputs:
-            self.su_C.set_T(self.inputs['Csu_T'])
-        elif 'Csu_h' in self.inputs:
-            self.su_C.set_h(self.inputs['Csu_h'])
-        if 'Csu_p' in self.inputs:
-            self.su_C.set_p(self.inputs['Csu_p'])
-        if 'Csu_m_dot' in self.inputs:
-            self.su_C.set_m_dot(self.inputs['Csu_m_dot'])
-
-        return['fluid_wf', 'su_wf_h', 'su_wf_m_dot', 'fluid_sf', 'su_sf_T', 'su_sf_cp', 'su_sf_m_dot']
-
 #%%
 
     def get_required_parameters(self):
@@ -359,26 +304,39 @@ class CrossFlowTubeAndFinsHTX(BaseComponent):
             print("T_b_in",T_b_in)
             print("T_t_in",T_t_in)
             print("-----")
-            
+        
         "1) Heat Transfer Coefficients"
-
+    
         T_wall = (T_b_in + T_t_in)/2
-                
+    
+        # Initialize AbstractStates
+        AS_b = CP.AbstractState("HEOS", self.B_su.fluid)
+        AS_b.update(CP.HmassP_INPUTS, h_b_in, p_b_in)
+    
+        AS_t = CP.AbstractState("HEOS", self.T_su.fluid)
+        AS_t.update(CP.HmassP_INPUTS, h_t_in, p_t_in)
+        
         # Tube Bank
         self.alpha_matrix = np.zeros([2*self.params['n_rows'] + 1, self.params['n_disc'] + 1])
         alpha_b = htc_tube_and_fins(self.B_su.fluid, self.params, p_b_in, h_b_in, m_dot_b_in_all, self.params['Fin_type'])[0]
         
         A_in_one_tube = (np.pi/4)*(self.params['Tube_OD'] - 2*self.params['Tube_t'])**2
         P_in_one_tube = (np.pi)*(self.params['Tube_OD'] - 2*self.params['Tube_t'])
-        D_h_one_tube=4*A_in_one_tube/P_in_one_tube
+        D_h_one_tube = 4*A_in_one_tube/P_in_one_tube
         G_1t = m_dot_1_tube_in/A_in_one_tube
-        x = PropsSI('Q', 'H', h_t_in, 'P', p_t_in, self.T_su.fluid)
+    
+        x = AS_t.Q()
         
         if x < 0: # 1 phase case
             # Tube
-            (mu, Pr, k, rho) = PropsSI(('V','PRANDTL','L', 'D'),'H',h_t_in,'P',p_t_in,self.T_su.fluid)
-            Pr_w = PropsSI('PRANDTL','T',T_wall,'P',p_t_in,self.T_su.fluid)     
-            
+            mu = AS_t.viscosity()
+            Pr = AS_t.Prandtl()
+            k = AS_t.conductivity()
+            rho = AS_t.rhomass()
+    
+            AS_t.update(CP.PT_INPUTS, p_t_in, T_wall)
+            Pr_w = AS_t.Prandtl()     
+    
             if self.debug:
                 print("Pr",Pr)
                 print("Pr_w",Pr_w)
@@ -388,16 +346,17 @@ class CrossFlowTubeAndFinsHTX(BaseComponent):
             DP_t = gnielinski_pipe_DP(mu, rho, G_1t, D_h_one_tube, self.params['Tube_L']/self.params['n_disc'])
             
         else: # 2 phase flow
-            P_sat = PropsSI('P', 'T', T_t_in, 'Q', 0, self.T_su.fluid)  # Pressure at saturated liquid
+            AS_t.update(CP.PQ_INPUTS, p_t_in, 0)
+            P_sat = p_t_in
             DP_t = Muller_Steinhagen_Heck_DP(self.T_su.fluid, G_1t, P_sat, x, self.params['Tube_L']/self.params['n_disc'], D_h_one_tube)           
             if T_wall <= T_t_in: # Condensation
                 alpha_t = horizontal_tube_internal_condensation(self.T_su.fluid,self.T_su.m_dot,P_sat,h_t_in,T_wall,self.params['Tube_OD'] - self.params['Tube_t'])
             else: # Evaporation
-                x_t = PropsSI('Q','P',p_t_in,'H',h_t_in,self.T_su.fluid)
+                x_t = x
                 def equation(q):
-                    alpha_t = horizontal_flow_boiling(self.T_su.fluid, G_1t, P_sat, x_t, self.params['Tube_OD'] - self.params['Tube_t'], q)
-                    AU = 1 / (1 / (alpha_t * A_in_one_tube) + 1 / (alpha_b * self.params['A_finned']/(self.params['n_tubes']*self.params['n_disc'])))
-                    C_b = m_dot_b_in_all*PropsSI('C','P',p_b_in,'H',h_b_in,self.B_su.fluid)
+                    alpha_t_local = horizontal_flow_boiling(self.T_su.fluid, G_1t, P_sat, x_t, self.params['Tube_OD'] - self.params['Tube_t'], q)
+                    AU = 1 / (1 / (alpha_t_local * A_in_one_tube) + 1 / (alpha_b * self.params['A_finned']/(self.params['n_tubes']*self.params['n_disc'])))
+                    C_b = m_dot_b_in_all * AS_b.cpmass()
                     C_t = 20000
                     C_min = min(C_b, C_t)
                     C_max = max(C_b, C_t)
@@ -406,20 +365,18 @@ class CrossFlowTubeAndFinsHTX(BaseComponent):
                     Q_dot_max = C_min * abs(T_b_in - T_t_in)
                     Q_dot_1_tube = Q_dot_max * eps
                     return q - Q_dot_1_tube / (self.params['A_in_tot']/(self.params['n_tubes']*self.params['n_disc']))
-
-                q_initial_guess = 1.0
-                q_solution = fsolve(equation, q_initial_guess)[0]
-
+    
+                q_solution = fsolve(equation, 1.0)[0]
+    
                 # Use q_solution in place of q
                 alpha_t = horizontal_flow_boiling(self.T_su.fluid, G_1t, P_sat, x_t, self.params['Tube_OD'] - self.params['Tube_t'], q_solution)
                 
-        A_out_1_tube = self.params['A_finned']/(self.params['n_tubes']*self.params['n_disc']) # self.geom.A_finned/(self.geom.n_tubes*self.n_disc)
-        A_in_1_tube = self.params['A_unfinned']/(self.params['n_tubes']*self.params['n_disc']) # self.geom.A_unfinned/(self.geom.n_tubes*self.n_disc)
+        A_out_1_tube = self.params['A_finned']/(self.params['n_tubes']*self.params['n_disc']) 
+        A_in_1_tube = self.params['A_unfinned']/(self.params['n_tubes']*self.params['n_disc']) 
         
         AU = 1/(1/(alpha_t*A_in_1_tube) + 1/(alpha_b*A_out_1_tube))
         
         if self.debug == 1:
-            
             print("alpha_b",alpha_b)
             print("alpha_t",alpha_t)
             print("-----")
@@ -429,42 +386,29 @@ class CrossFlowTubeAndFinsHTX(BaseComponent):
         m_dot_b_in = m_dot_b_in_all/(self.params['n_disc']*(self.params['n_tubes']/self.params['n_rows']))
         m_dot_t_in = m_dot_1_tube_in
         
-        C_b = m_dot_b_in*PropsSI('C','P',p_b_in,'H',h_b_in,self.B_su.fluid)
+        C_b = m_dot_b_in * AS_b.cpmass()
         
-        if PropsSI('Q', 'H', h_t_in, 'P', p_t_in, self.T_su.fluid) < 0: # 1 phase case
-            C_t = m_dot_t_in*PropsSI('C','P',p_t_in,'H',h_t_in,self.T_su.fluid)
+        if x < 0: # 1 phase case
+            C_t = m_dot_t_in * AS_t.cpmass()
         else: # 2 phase case
             C_t = 20000
         
         C_min = min(C_b, C_t)
         C_max = max(C_b, C_t)
-        
+            
         C_r = C_min/C_max
-        
+            
         NTU = max(0,AU/C_min)
-        
+            
         # CrossFlow, both unmixed
         eps = 1 - np.exp((1/C_r)*NTU**0.22*(np.exp(-C_r*NTU**0.78)-1))
-        
-        # print("eps :",eps)
-        # print("NTU :",NTU)
-        # print("AU :",AU)
-        
-        x_t = PropsSI('Q','P',p_t_in,'H',h_t_in,self.T_su.fluid)
-        
-        # print("x_t :",x_t)
-        # print("C_min :",C_min)
-        # print("C_b :",C_b)
-        # print("C_t :",C_t)
-        # print("\n")
-        
+            
         Q_dot_max = C_min*(abs(T_b_in - T_t_in))
         Q_dot_1_tube = Q_dot_max*eps
-
+        
         Q_dot_1_row = Q_dot_1_tube*(self.params['n_tubes']/self.params['n_rows'])
-
+    
         if self.debug == 1:
-            
             print("AU", AU)
             print("C_r", C_r)
             print("NTU", NTU)
@@ -485,59 +429,66 @@ class CrossFlowTubeAndFinsHTX(BaseComponent):
         DP_b = DP_tube_and_fins(self.B_su.fluid, self.params, p_b_in, T_b_in, m_dot_b_in)
         p_b_out = p_b_in-DP_b
         p_t_out = p_t_in-DP_t
-
-        T_b_out = PropsSI('T','H',h_b_out,'P',p_b_out,self.B_su.fluid)
-        T_t_out = PropsSI('T','H',h_t_out,'P',p_t_out,self.T_su.fluid)
-
+    
+        AS_b.update(CP.HmassP_INPUTS, h_b_out, p_b_out)
+        AS_t.update(CP.HmassP_INPUTS, h_t_out, p_t_out)
+    
+        T_b_out = AS_b.T()
+        T_t_out = AS_t.T()
+    
         if self.debug == 1:
-            
             print("-----------------")
-
             print("h_b_out", h_b_out)
             print("h_t_out", h_t_out)
-            
             print("p_b_out", p_b_out)
             print("p_t_out", p_t_out)
-            
             print("T_b_out", T_b_out)
             print("T_t_out", T_t_out)
-            
             print("---------")
             
         return h_b_out, h_t_out, p_b_out, p_t_out, T_b_out, T_t_out, Q_dot_1_row
-
-    def compute_mass(self, H_vec, P_vec, fluid,i):
         
+    def compute_mass(self, H_vec, P_vec, fluid, i):
         D_vec = np.zeros(len(H_vec))
         M_vec = np.zeros(len(H_vec))
         x_vec = np.zeros(len(H_vec))
-        
-        "Compute Density"
-        
-        if np.mod(i,2) == 0: #calculate the remainder of dividing i by 2 (to determine whether i is a odd or even number)
-        # Air-side (even index): use total volume of bundle side (B_V_tot)
-            Volume = self.params['B_V_tot']/(self.params['n_disc']*(self.params['n_rows']+1))
-        #Use the total volume of the air-side divided among rows and discretization steps    
+
+        # Determine segment volume
+        if np.mod(i, 2) == 0:
+            Volume = self.params['B_V_tot'] / (self.params['n_disc'] * (self.params['n_rows'] + 1))
         else:
-         # Tube-side (odd index): compute based on number of tubes and tube geometry
-            N_tpr = self.params['n_tubes']/self.params['n_rows']
-            Tube_vol = self.params['Tube_L']*np.pi*((self.params['Tube_OD']-self.params['Tube_t'])/2)**2
-            Volume = N_tpr*Tube_vol/self.params['n_disc']          
-        #Compute tube volume per segment per tube row
-        
+            N_tpr = self.params['n_tubes'] / self.params['n_rows']
+            Tube_vol = self.params['Tube_L'] * np.pi * ((self.params['Tube_OD'] - self.params['Tube_t']) / 2) ** 2
+            Volume = N_tpr * Tube_vol / self.params['n_disc']
+
+        # Initialize AbstractState
+        AS = CP.AbstractState("HEOS", fluid)
+
         for j in range(len(H_vec)):
-            x_vec[j] = PropsSI('Q', 'H',H_vec[j],'P',P_vec[j],fluid)
-            if x_vec[j] < 0:
-                D_vec[j] = PropsSI('D', 'H',H_vec[j],'P',P_vec[j],fluid)
-                M_vec[j] = D_vec[j]*Volume
+            try:
+                AS.update(CP.HmassP_INPUTS, H_vec[j], P_vec[j])
+                x = AS.Q()
+            except ValueError:
+                x = -1  # Single-phase fallback if not two-phase
+
+            x_vec[j] = x
+
+            if x < 0 or x > 1:
+                rho = AS.rhomass()
+                D_vec[j] = rho
+                M_vec[j] = rho * Volume
             else:
-                rho_g = PropsSI('D', 'P', P_vec[j], "Q", 1, fluid)
-                rho_l = PropsSI('D', 'P', P_vec[j], "Q", 0, fluid)
-                
-                eps_void, D_vec[j] = void_fraction(x_vec[j], rho_g, rho_l)
-                M_vec[j] = D_vec[j]*Volume
+                AS.update(CP.PQ_INPUTS, P_vec[j], 1)
+                rho_g = AS.rhomass()
+                AS.update(CP.PQ_INPUTS, P_vec[j], 0)
+                rho_l = AS.rhomass()
+
+                eps_void, rho_avg = void_fraction(x, rho_g, rho_l)
+                D_vec[j] = rho_avg
+                M_vec[j] = rho_avg * Volume
 
         return [D_vec, M_vec, x_vec]
+
 
 #%%
 

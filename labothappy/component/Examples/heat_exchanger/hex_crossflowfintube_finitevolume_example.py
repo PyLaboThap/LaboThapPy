@@ -23,18 +23,19 @@ m_dot_air = V_dot*rho_in_air
 
 # Evaporator Case
 ACC.set_inputs(
+  
     # First fluid
-    Hsu_fluid = "Cyclopentane",
-    Hsu_T = 65 + 273.15, # K
-    Hsu_p = 116645.96, # Pa
-    # Hsu_x = 0.5, # Quality 
-    Hsu_m_dot = 0.5, # kg/s
+    fluid_H = "Cyclopentane",
+    T_su_H = 65 + 273.15, # K
+    P_su_H = 116645.96, # Pa
+    # x_su_H = 0.5, # Quality 
+    m_dot_H = 0.5, # kg/s
 
     # Second fluid
-    Csu_fluid = "Air",
-    Csu_T = T_in_air, # K
-    Csu_p = P_in_air, # Pa
-    Csu_m_dot = m_dot_air, # kg/s  # Make sure to include fluid information
+    fluid_C = "Air",
+    T_su_C = T_in_air, # K
+    P_su_C = P_in_air, # Pa
+    m_dot_C = m_dot_air, # kg/s  # Make sure to include fluid information
 )
 
 "Geometry"
@@ -62,9 +63,14 @@ ACC.set_parameters(
 ACC.solve()
 
 if temperature_plot == 1:
-    # Plot the matrix using imshow for the tube side
-    plt.pcolor(ACC.T_matrix)
-    plt.colorbar()
+    # Plot the temperature matrix for the tube side
+    plt.figure(figsize=(8, 6))  # Optional: set figure size
+    plt.pcolor(ACC.T_matrix, shading='auto', cmap='jet')  # Better colormap and shading
+    plt.title('Temperature Distribution')
+    plt.xlabel('Disc Index')
+    plt.ylabel('Row Index')
+    plt.colorbar(label='Temperature [°C]')  # or K, depending on your units
+    plt.tight_layout()
     plt.show()
 
 if pressure_plot == 1:
@@ -108,4 +114,4 @@ if pressure_plot == 1:
     print("=== Heat Exchanger outlet conditions ===")
     print(f"ex bundle: fluid_bundle = {ACC.B_su.fluid}, T_ex_bundle ={(int(round(ACC.B_ex.T)))}[K], h_ex_bundle={(int(round(ACC.B_ex.h)))}[J/kg-K], p_ex_bundle={(int(round(ACC.B_ex.p)))}[Pa], m_dot_ex_bundle={(int(round(ACC.B_su.m_dot)))}[kg/s]")
     print("======")
-    print(f"ex tube: fluid={ACC.T_su.fluid}, T_ex_tube ={(int(round(ACC.T_ex.T)))}[K], h_ex_tube={(int(round(ACC.T_ex.h)))}[J/kg-K], p_ex_tube={(int(round(ACC.T_ex.p)))}[Pa], m_dot_tube={(int(round(ACC.T_su.m_dot)))}[kg/s]")
+    print(f"ex tube: fluid={ACC.T_su.fluid}, T_ex_tube ={(int(round(ACC.T_ex.T)))}[K], h_ex_tube={(int(round(ACC.T_ex.h)))}[J/kg-K], p_ex_tube={(int(round(ACC.T_ex.p)))}[Pa], m_dot_tube={ACC.T_su.m_dot}[kg/s]")
