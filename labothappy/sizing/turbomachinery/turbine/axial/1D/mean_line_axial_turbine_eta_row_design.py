@@ -305,7 +305,7 @@ class AxialTurbineMeanLineDesign(object):
         h_is_ex = self.AS.hmass()
         Dh0s = self.stages[0].total_states['H'][1] - h_is_ex
         
-        Dh0 = self.inputs['W_dot_req']/self.inputs['mdot']
+        Dh0 = self.inputs['W_dot']/self.inputs['mdot']
         
         self.eta_is = Dh0/Dh0s
         
@@ -439,74 +439,95 @@ class AxialTurbineMeanLineDesign(object):
 
         return
 
-Turb = AxialTurbineMeanLineDesign('Cyclopentane')
+case_study = "TCO2_ORC"
 
-# Cuerva Case
+if case_study == 'Cuerva':
 
-Turb.set_inputs(
-    mdot = 46.18, # kg/s
-    W_dot_req = 4257000, # W
-    p0_su = 1230000, # Pa
-    T0_su = 273.15 + 158, # K
-    p_ex = 78300, # Pa
-    psi = 1, # [-]
-    phi = 0.6, # [-]
-    R = 0.5, # [-]
-    Mmax = 0.8 # [-]
-    )
+    Turb = AxialTurbineMeanLineDesign('Cyclopentane')
+    
+    Turb.set_inputs(
+        mdot = 46.18, # kg/s
+        W_dot_req = 4257000, # W
+        p0_su = 1230000, # Pa
+        T0_su = 273.15 + 158, # K
+        p_ex = 78300, # Pa
+        psi = 1, # [-]
+        phi = 0.6, # [-]
+        R = 0.5, # [-]
+        Mmax = 0.8 # [-]
+        )
+    
+    Turb.set_parameters(
+        Zweifel = 0.8, # [-]
+        Re_min = 5e5, # [-]
+        AR_min = 1, # [-]
+        r_hub_tip_max = 0.95, # [-]
+        r_hub_tip_min = 0.6, # [-]
+        r_m_bounds = [0.4,0.5], # [m]
+        psi_bounds = [0.9,1.4], # [-]
+        phi_bounds = [0.4,0.6], # [-] 
+        R_bounds = [0.49,0.51], # [-]
+        n_disc = 10
+        )
 
-Turb.set_parameters(
-    Zweifel = 0.8, # [-]
-    Re_min = 5e5, # [-]
-    AR_min = 1, # [-]
-    r_hub_tip_max = 0.95, # [-]
-    r_hub_tip_min = 0.6, # [-]
-    )
+elif case_study == 'Zorlu':
+    
+    Turb = AxialTurbineMeanLineDesign('Cyclopentane')
 
-# Torrecid Case
+    Turb.set_inputs(
+        mdot = 34.51, # kg/s
+        W_dot_req = 2506000, # W
+        p0_su = 767800, # Pa
+        T0_su = 273.15 + 131, # K
+        p_ex = 82000, # Pa
+        psi = 1, # [-]
+        phi = 0.6, # [-]
+        R = 0.5, # [-]
+        Mmax = 0.8 # [-]
+        )
+    
+    Turb.set_parameters(
+        Zweifel = 0.8, # [-]
+        Re_min = 5e5, # [-]
+        AR_min = 1, # [-]
+        r_hub_tip_max = 0.95, # [-]
+        r_hub_tip_min = 0.6, # [-]
+        r_m_bounds = [0.16,0.4], # [m]
+        psi_bounds = [0.8,1.4], # [-]
+        phi_bounds = [0.5,0.7], # [-] 
+        R_bounds = [0.49,0.51], # [-]
+        n_disc = 15
+        )
+    
+elif case_study == 'TCO2_ORC':
 
-# Turb.set_inputs(
-#     mdot = 3.581, # kg/s
-#     W_dot_req = 409200, # W
-#     p0_su = 3190000, # Pa
-#     T0_su = 273.15 + 220, # K
-#     p_ex = 73630, # Pa
-#     psi = 1, # [-]
-#     phi = 0.6, # [-]
-#     R = 0.5, # [-]
-#     Mmax = 0.8 # [-]
-#     )
+    Turb = AxialTurbineMeanLineDesign('CO2')
 
-# Turb.set_parameters(
-#     Zweifel = 0.8, # [-]
-#     Re_min = 5e5, # [-]
-#     AR_min = 1, # [-]
-#     r_hub_tip_max = 0.95, # [-]
-#     r_hub_tip_min = 0.6, # [-]
-#     )
+    Turb.set_inputs(
+        mdot = 100, # kg/s
+        W_dot = 4.69*1e6, # W
+        p0_su = 140*1e5, # Pa
+        T0_su = 273.15 + 121, # K
+        p_ex = 39.8*1e5, # Pa
+        psi = 1, # [-]
+        phi = 0.6, # [-]
+        R = 0.5, # [-]
+        Mmax = 0.8 # [-]
+        )
+    
+    Turb.set_parameters(
+        Zweifel = 0.8, # [-]
+        Re_min = 5e5, # [-]
+        AR_min = 1, # [-]
+        r_hub_tip_max = 0.95, # [-]
+        r_hub_tip_min = 0.6, # [-]
+        r_m_bounds = [0.01,1], # [m]
+        psi_bounds = [0.8,1.4], # [-]
+        phi_bounds = [0.5,0.7], # [-] 
+        R_bounds = [0.49,0.51], # [-]
+        n_disc = 3
+        )
 
-
-# Zorlu Case
-
-# Turb.set_inputs(
-#     mdot = 34.51, # kg/s
-#     W_dot_req = 2506000, # W
-#     p0_su = 767800, # Pa
-#     T0_su = 273.15 + 131, # K
-#     p_ex = 82000, # Pa
-#     psi = 1, # [-]
-#     phi = 0.6, # [-]
-#     R = 0.5, # [-]
-#     Mmax = 0.8 # [-]
-#     )
-
-# Turb.set_parameters(
-#     Zweifel = 0.8, # [-]
-#     Re_min = 5e5, # [-]
-#     AR_min = 1, # [-]
-#     r_hub_tip_max = 0.95, # [-]
-#     r_hub_tip_min = 0.6, # [-]
-#     )
 
 Turb.design()
 

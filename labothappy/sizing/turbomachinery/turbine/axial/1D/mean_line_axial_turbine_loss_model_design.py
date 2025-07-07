@@ -256,9 +256,13 @@ class AxialTurbineMeanLineDesign(object):
 
     # ---------------- Loss Models ------------------------------------------------------------------------
 
-    def stator_blade_row_system(self, x, stage):
+    def stator_blade_row_system(self, x):
+                
+        stage = self.stages[self.curr_stage_index]
+
         # 1) Guess outlet state
-        [h_static_out, p_static_out] = x
+        h_static_out = x[0]*1e5
+        p_static_out = x[1]*1e5
         
         stage.update_static_AS(CP.HmassP_INPUTS, h_static_out, p_static_out, 2)
         
@@ -285,7 +289,7 @@ class AxialTurbineMeanLineDesign(object):
         # 5.1) Balje-Binsley
         H_TE = 1.4 + 300/self.params['Re_min']**0.5 # Trailing-edge boundary layer shape factor : Aungier's Correlation for fully turbulent flow
         t_TE = 5e-4 # m Tailing-edge blade thickness design estimate  - # !!! Limite de fabrication, voir 
-        theta = 0.036*stage.chord_S/self.params['Re_min']**0.2 # Boundary layer momentum thickness : c
+        theta = 0.036*stage.chord_S/self.params['Re_min']**0.2 # Boundary layer momentum thickness 
         t_blade = 0.12*stage.chord_S # Blade thickness estimate : Assumption for NACA 0012 airfoil
         lambda_2_rad = (self.Vel_Tri['beta2']+self.Vel_Tri['beta1'])/2
         
@@ -302,7 +306,10 @@ class AxialTurbineMeanLineDesign(object):
 
         # Pressure loss 
         DP_loss = (Yp+Ys)*(self.Vel_Tri['vm']**2 + self.Vel_Tri['vu2']**2)*stage.static_states['D'][2]/2
-        p0_out = stage.total_states['P'][1]-DP_loss
+        
+        p0_out = max(stage.total_states['P'][1]-DP_loss, self.inputs['p_ex']*0.6)
+        
+        # print(f"Rotor DP_loss : {DP_loss}")
         
         # Computation of static outlet pressure
         stage.update_total_AS(CP.HmassP_INPUTS, h0in, p0_out, 2)
@@ -319,11 +326,14 @@ class AxialTurbineMeanLineDesign(object):
 
         stage.eta_is_S = (stage.static_states['H'][1]-stage.static_states['H'][2])/(stage.static_states['H'][1]-hout_s)
 
-        return (p_static_out - pout_calc)**2 + (h_static_out - hout)**2
+        return np.array([hout, pout_calc])*1e-5 # (p_static_out - pout_calc)**2 + (h_static_out - hout)**2
 
-    def rotor_blade_row_system(self, x, stage):
+    def rotor_blade_row_system(self, x):
+        
+        stage = self.stages[self.curr_stage_index]
+        
         # 1) Guess outlet state
-        [h_static_out, p_static_out] = x
+        [h_static_out, p_static_out] = x*1e5
         
         stage.update_static_AS(CP.HmassP_INPUTS, h_static_out, p_static_out, 3)
         
@@ -366,8 +376,10 @@ class AxialTurbineMeanLineDesign(object):
 
         # Pressure loss 
         DP_loss = (Yp+Ys)*(self.Vel_Tri['vm']**2 + self.Vel_Tri['wu3']**2)*stage.static_states['D'][3]/2
-        p0_out = stage.total_states['P'][2]-DP_loss
+        p0_out = max(stage.total_states['P'][2]-DP_loss, self.inputs['p_ex']*0.6)
         
+        # print(f"Rotor DP_loss : {DP_loss}")
+
         # Computation of static outlet pressure
         stage.update_total_AS(CP.HmassP_INPUTS, h0in, p0_out, 3)
         sout = stage.total_states['S'][3]
@@ -383,11 +395,11 @@ class AxialTurbineMeanLineDesign(object):
 
         stage.eta_is_R = (stage.static_states['H'][2]-stage.static_states['H'][3])/(stage.static_states['H'][2]-hout_s)
 
-        return (p_static_out - pout_calc)**2 + (h_static_out - hout)**2
+        return np.array([hout, pout_calc])*1e-5 # (p_static_out - pout_calc)**2 + (h_static_out - hout)**2
 
     def last_blade_row_system(self, x):
         # 1) Guess outlet state
-        [h_static_out, p_static_out] = x
+        [h_static_out, p_static_out] = x*1e5
         
         stage = self.stages[-1]
         
@@ -436,7 +448,7 @@ class AxialTurbineMeanLineDesign(object):
         # Pressure loss 
         DP_loss = (Yp+Yew)*(self.Vel_Tri_Last_Stage['vm']**2 + self.Vel_Tri_Last_Stage['vu1']**2)*stage.static_states['D'][1]/2
         p0_out = stage.total_states['P'][1]-DP_loss
-        
+                
         # Computation of static outlet pressure
         stage.update_total_AS(CP.HmassP_INPUTS, h0in, p0_out, 2)
         sout = stage.total_states['S'][2]
@@ -458,7 +470,7 @@ class AxialTurbineMeanLineDesign(object):
         # print(f"h2: {stage.static_states['H'][2]}")
         # print(f"kinetic2: {(self.Vel_Tri_Last_Stage['vu2']**2 + self.Vel_Tri_Last_Stage['vm']**2)/2}")
 
-        return (p_static_out - pout_calc)**2 + (h_static_out - hout)**2
+        return np.array([hout, pout_calc])*1e-5 # return (p_static_out - pout_calc)**2 + (h_static_out - hout)**2
 
     # ---------------- Flow Computations ------------------------------------------------------------------
 
@@ -506,33 +518,103 @@ class AxialTurbineMeanLineDesign(object):
         
         return 
     
-    def computeBladeRow(self,stage,row_type):
+    def computeBladeRow(self,stage_index,row_type):
+        stage = self.stages[stage_index]
+
+        self.curr_stage_index = stage_index
+               
         if row_type == 'S': # Stator
             
+            # print("Stator")
+        
             RP_1_row = (self.inputs['p0_su']/self.inputs['p_ex'])**(1/(2*self.nStages))
             h_out_guess = stage.static_states['H'][1] - self.Dh0Stage/2
             pout_guess = stage.static_states['P'][1]/RP_1_row
-            sol = minimize(self.stator_blade_row_system, x0=(h_out_guess,pout_guess), args=(stage), bounds=[(stage.static_states['H'][1]-2*self.Dh0Stage, stage.static_states['H'][1]), (self.inputs['p_ex']*0.8, stage.static_states['P'][1])])         
-                        
+            # sol = minimize(self.stator_blade_row_system, x0=(h_out_guess,pout_guess), args=(stage), bounds=[(stage.static_states['H'][1]-2*self.Dh0Stage, stage.static_states['H'][1]), (self.inputs['p_ex']*0.8, stage.static_states['P'][1])])         
+            
+            # Initial guess vector
+            x0_disc = np.concatenate(([h_out_guess], [pout_guess]))*1e-5
+            
+            res = 1
+            x_in = x0_disc
+            
+            c = 0
+            
+            while res > 1e-6:
+                
+                if c > 100:
+                    exit()
+                
+                # print(f"x_in : {x_in}")
+                
+                x_out = self.stator_blade_row_system(x_in)
+
+                # print(f"x_out : {x_out}")
+                
+                res_vec = abs((x_in - x_out)/x_out)
+                res = sum(res_vec)
+                
+                x_in = (1-self.params['damping'])*x_in + self.params['damping'] * x_out 
+                              
+                # print(f"new x_in : {x_in}")
+
+                c += 1
+                
+            self.stator_blade_row_system(x_out)
+            
         else: # Rotor
+
+            # print("Rotor")
 
             RP_1_row = (self.inputs['p0_su']/self.inputs['p_ex'])**(1/(2*self.nStages))
             h_out_guess = stage.static_states['H'][2] - self.Dh0Stage/2
             pout_guess = stage.static_states['P'][2]/RP_1_row
-            sol = minimize(self.rotor_blade_row_system, x0=(h_out_guess,pout_guess), args=(stage), bounds=[(stage.static_states['H'][1]-2*self.Dh0Stage, stage.static_states['H'][1]), (self.inputs['p_ex']*0.8, stage.static_states['P'][1])])    
+            # sol = minimize(self.rotor_blade_row_system, x0=(h_out_guess,pout_guess), args=(stage), bounds=[(stage.static_states['H'][1]-2*self.Dh0Stage, stage.static_states['H'][1]), (self.inputs['p_ex']*0.8, stage.static_states['P'][1])])    
+            
+            # Initial guess vector
+            x0_disc = np.concatenate(([h_out_guess], [pout_guess]))*1e-5
+
+            res = 1
+            x_in = x0_disc
+            
+            c = 0
+            
+            while res > 1e-6:
+
+                if c > 100:
+                    exit()                
+
+                # print(f"x_in : {x_in}")
+
+                x_out = self.rotor_blade_row_system(x_in) 
+
+                # print(f"x_out : {x_out}")
+
+                res_vec = abs((x_in - x_out)/x_out)
+                res = sum(res_vec)
+                
+                x_in = (1-self.params['damping'])*x_in + self.params['damping'] * x_out 
+                       
+                # print(f"new x_in : {x_in}")
+
+                c += 1
+            
+            self.rotor_blade_row_system(x_out)
+            
         return
             
     def computeRepeatingStages(self):
         
         for i in range(int(self.nStages)):
             if i == 0:
-                self.computeBladeRow(self.stages[i], 'S')
-                self.computeBladeRow(self.stages[i], 'R')
+                self.computeBladeRow(i, 'S')
+                self.computeBladeRow(i, 'R')
+
             else:
                 self.stages[i].static_states.loc[1] = self.stages[i-1].static_states.loc[3]
                 
-                self.computeBladeRow(self.stages[i], 'S')
-                self.computeBladeRow(self.stages[i], 'R')
+                self.computeBladeRow(i, 'S')
+                self.computeBladeRow(i, 'R')
             
             self.r_tip.append(self.r_m + self.stages[i].h_blade_S/2)
             self.r_hub.append(self.r_m - self.stages[i].h_blade_S/2)
@@ -551,154 +633,196 @@ class AxialTurbineMeanLineDesign(object):
         
         h_out_guess = self.stages[-2].total_states['H'][3]
         pout_guess = self.stages[-2].total_states['P'][3]
-        sol = minimize(self.last_blade_row_system, x0=(h_out_guess,pout_guess), bounds=[(self.stages[-1].static_states['H'][1], h_out_guess), (self.stages[-1].static_states['P'][1], pout_guess)])         
+        # sol = minimize(self.last_blade_row_system, x0=(h_out_guess,pout_guess), bounds=[(self.stages[-1].static_states['H'][1], h_out_guess), (self.stages[-1].static_states['P'][1], pout_guess)])         
+        
+        # Initial guess vector
+        x0_disc = np.concatenate(([h_out_guess], [pout_guess]))*1e-5
+
+        res = 1
+        x_in = x0_disc
+        
+        c = 0
+            
+        while res > 1e-6:
+
+            if c > 100:
+                exit()                
+
+            x_out = self.last_blade_row_system(x_in) 
+
+            res_vec = abs((x_in - x_out)/x_out)
+            res = sum(res_vec)
+            
+            x_in = (1-self.params['damping'])*x_in + self.params['damping'] * x_out 
+                        
+            c += 1
+        
+        self.last_blade_row_system(x_out)
         
         return
     
     def design_system(self, x):
+        self.penalty = -1
+        # try:
+            # print(x)
+        self.reset()
+        
+        self.psi = x[0]
+        self.phi = x[1]
+        self.R = x[2]
+        self.r_m = x[3]
+        
+        # print(f"pos : [{self.psi, self.phi, self.R, self.r_m}]")
+        
+        self.r_tip = []
+        self.r_hub = []
+        self.r_hub_tip = []
+        self.r_ratio2 = []
+        
+        # First Stator Instanciation
+        self.stages.append(self.stage(self.fluid))
+        self.stages[0].update_total_AS(CP.PT_INPUTS, self.inputs['p0_su'], self.inputs['T0_su'], 1)
+        
+        "------------- 1) Isentropic Expansion Calculation -----------------------------------------------" 
+        s_in = self.stages[0].total_states['S'][1]
+        self.AS.update(CP.PSmass_INPUTS, self.inputs['p_ex'], s_in)
+        
+        h_is_ex = self.AS.hmass()
+        Dh0s = self.stages[0].total_states['H'][1] - h_is_ex
+        
+        Dh0 = self.inputs['W_dot']/self.inputs['mdot']
+        
+        self.eta_is = Dh0/Dh0s
+        
+        "------------- 2) Velocity Triangle Computation (+ Solodity) -------------------------------------" 
+        self.computeVelTriangle()
+        
+        self.solidityStator = 2*np.cos(self.Vel_Tri['alpha2'])/np.cos(self.Vel_Tri['alpha1'])*np.sin(abs(self.Vel_Tri['alpha2']-self.Vel_Tri['alpha1']))/self.params['Zweifel']
+        self.solidityRotor  = 2*np.cos(self.Vel_Tri['beta3'])/np.cos(self.Vel_Tri['beta2'])*np.sin(abs(self.Vel_Tri['beta3']-self.Vel_Tri['beta2']))/self.params['Zweifel']
+        
+        "------------- 3) Guess u from vMax (subsonic flow)  ---------------------------------------------" 
+        
+        vMax = self.AS.speed_sound() * self.inputs['Mmax']
+        
+        # Assume u based on the maximum speed
+        self.Vel_Tri['u'] = vMax / max([self.Vel_Tri['v2OverU'],self.Vel_Tri['w3OverU']])
+        
+        "------------- 4) Compute number of stage + recompute u  -----------------------------------------" 
+        
+        # Compute required number of stages based on assumed u
+        Dh0Stage = self.psi * self.Vel_Tri['u']**2
+        self.nStages = int(round(Dh0/Dh0Stage))
+        
+        for i in range(self.nStages-1):
+            self.stages.append(self.stage(self.fluid))
+        
+        # Recompute u based on the number of stages to satisfy the work. As r_m is constant, u is contant accross stages
+        self.Dh0Stage = Dh0/self.nStages
+        self.Vel_Tri['u'] = np.sqrt(self.Dh0Stage/self.psi)
+
+        "------------- 5) Compute complete velocity triangles and exit losses ----------------------------" 
+
+        # Compute velocity triangle with the value of u
+        self.Vel_Tri['vm'] = self.Vel_Tri['vmOverU'] * self.Vel_Tri['u']
+        self.Vel_Tri['vu2'] = self.Vel_Tri['vu2OverU'] * self.Vel_Tri['u']
+        self.Vel_Tri['vu3'] = self.Vel_Tri['vu3OverU'] * self.Vel_Tri['u']
+        self.Vel_Tri['wu2'] = self.Vel_Tri['wu2OverU'] * self.Vel_Tri['u']
+        self.Vel_Tri['wu3'] = self.Vel_Tri['wu3OverU'] * self.Vel_Tri['u']
+        self.Vel_Tri['vu1'] = self.Vel_Tri['vu3']
+
+        self.exit_loss = (self.Vel_Tri['vm']**2+self.Vel_Tri['vu3']**2)/2
+        self.exit_loss_W = self.exit_loss*self.inputs['mdot']
+
+        "------------- 6) Iterate on r_m and compute repeating stages ------------------------" 
+
+        h_in = self.stages[0].total_states['H'][1] - (self.Vel_Tri['vm']**2)/2
+        self.stages[0].update_static_AS(CP.HmassSmass_INPUTS, h_in, s_in, 1)
+        
         try:
-            self.reset()
-            
-            self.psi = x[0]
-            self.phi = x[1]
-            self.R = x[2]
-            self.r_m = x[3]
-            
-            # print(f"pos : [{self.psi, self.phi, self.R, self.r_m}]")
-            
-            self.r_tip = []
-            self.r_hub = []
-            self.r_hub_tip = []
-            self.r_ratio2 = []
-            
-            # First Stator Instanciation
-            self.stages.append(self.stage(self.fluid))
-            self.stages[0].update_total_AS(CP.PT_INPUTS, self.inputs['p0_su'], self.inputs['T0_su'], 1)
-            
-            "------------- 1) Isentropic Expansion Calculation -----------------------------------------------" 
-            s_in = self.stages[0].total_states['S'][1]
-            self.AS.update(CP.PSmass_INPUTS, self.inputs['p_ex'], s_in)
-            
-            h_is_ex = self.AS.hmass()
-            Dh0s = self.stages[0].total_states['H'][1] - h_is_ex
-            
-            Dh0 = self.inputs['W_dot']/self.inputs['mdot']
-            
-            self.eta_is = Dh0/Dh0s
-            
-            "------------- 2) Velocity Triangle Computation (+ Solodity) -------------------------------------" 
-            self.computeVelTriangle()
-            
-            self.solidityStator = 2*np.cos(self.Vel_Tri['alpha2'])/np.cos(self.Vel_Tri['alpha1'])*np.sin(abs(self.Vel_Tri['alpha2']-self.Vel_Tri['alpha1']))/self.params['Zweifel']
-            self.solidityRotor  = 2*np.cos(self.Vel_Tri['beta3'])/np.cos(self.Vel_Tri['beta2'])*np.sin(abs(self.Vel_Tri['beta3']-self.Vel_Tri['beta2']))/self.params['Zweifel']
-            
-            "------------- 3) Guess u from vMax (subsonic flow)  ---------------------------------------------" 
-            
-            vMax = self.AS.speed_sound() * self.inputs['Mmax']
-            
-            # Assume u based on the maximum speed
-            self.Vel_Tri['u'] = vMax / max([self.Vel_Tri['v2OverU'],self.Vel_Tri['w3OverU']])
-            
-            "------------- 4) Compute number of stage + recompute u  -----------------------------------------" 
-            
-            # Compute required number of stages based on assumed u
-            Dh0Stage = self.psi * self.Vel_Tri['u']**2
-            self.nStages = int(round(Dh0/Dh0Stage))
-            
-            for i in range(self.nStages-1):
-                self.stages.append(self.stage(self.fluid))
-            
-            # Recompute u based on the number of stages to satisfy the work. As r_m is constant, u is contant accross stages
-            self.Dh0Stage = Dh0/self.nStages
-            self.Vel_Tri['u'] = np.sqrt(self.Dh0Stage/self.psi)
-    
-            "------------- 5) Compute complete velocity triangles and exit losses ----------------------------" 
-    
-            # Compute velocity triangle with the value of u
-            self.Vel_Tri['vm'] = self.Vel_Tri['vmOverU'] * self.Vel_Tri['u']
-            self.Vel_Tri['vu2'] = self.Vel_Tri['vu2OverU'] * self.Vel_Tri['u']
-            self.Vel_Tri['vu3'] = self.Vel_Tri['vu3OverU'] * self.Vel_Tri['u']
-            self.Vel_Tri['wu2'] = self.Vel_Tri['wu2OverU'] * self.Vel_Tri['u']
-            self.Vel_Tri['wu3'] = self.Vel_Tri['wu3OverU'] * self.Vel_Tri['u']
-            self.Vel_Tri['vu1'] = self.Vel_Tri['vu3']
-    
-            self.exit_loss = (self.Vel_Tri['vm']**2+self.Vel_Tri['vu3']**2)/2
-            self.exit_loss_W = self.exit_loss*self.inputs['mdot']
-    
-            "------------- 6) Iterate on r_m and compute repeating stages ------------------------" 
-    
-            h_in = self.stages[0].total_states['H'][1] - (self.Vel_Tri['vm']**2)/2
-            self.stages[0].update_static_AS(CP.HmassSmass_INPUTS, h_in, s_in, 1)
-    
             self.computeRepeatingStages()        
-            
-            "------------- 7) Compute rotation speed and number of blades per stage ---------------------------" 
-    
-            self.omega_rads = self.Vel_Tri['u']/self.r_m # rad/s
-            self.omega_RPM = self.omega_rads*60/(2*np.pi) 
-    
-            self.n_blade = []
-    
-            for stage in self.stages:
-                  stage.pitch_S = self.solidityStator*stage.chord_S
-                  stage.pitch_R = self.solidityRotor*stage.chord_R
-    
-                  stage.n_blade_S = round(2*np.pi*self.r_m/stage.pitch_S)
-                  self.n_blade.append(stage.n_blade_S)
-    
-                  stage.n_blade_R = round(2*np.pi*self.r_m/stage.pitch_R)
-                  self.n_blade.append(stage.n_blade_R)
-    
-            "------------- 8) Add last redirecting stator stage -------------------------------------------------------------" 
-    
-            self.stages.append(self.stage(self.fluid))
-            
-            self.computeVelTriangleLastStage()
-            
+        except:
+            print("Error in stages")
+            obj = 10000
+            return obj
+        
+        "------------- 7) Compute rotation speed and number of blades per stage ---------------------------" 
+
+        self.omega_rads = self.Vel_Tri['u']/self.r_m # rad/s
+        self.omega_RPM = self.omega_rads*60/(2*np.pi) 
+
+        self.n_blade = []
+
+        for stage in self.stages:
+              stage.pitch_S = self.solidityStator*stage.chord_S
+              stage.pitch_R = self.solidityRotor*stage.chord_R
+
+              stage.n_blade_S = round(2*np.pi*self.r_m/stage.pitch_S)
+              self.n_blade.append(stage.n_blade_S)
+
+              stage.n_blade_R = round(2*np.pi*self.r_m/stage.pitch_R)
+              self.n_blade.append(stage.n_blade_R)
+
+        "------------- 8) Add last redirecting stator stage -------------------------------------------------------------" 
+
+        self.stages.append(self.stage(self.fluid))
+        
+        self.computeVelTriangleLastStage()
+        
+        try:
             self.computeLastStage()
-    
-            "------------- 9) Compute main outputs -------------------------------------------------------------" 
-            
-            hin = self.stages[0].total_states['H'][1]
-            hout = self.stages[-1].static_states['H'][2]
-            
-            self.AS.update(CP.PSmass_INPUTS, self.stages[-1].static_states['P'][2], self.stages[0].static_states['S'][1])
-    
-            hout_s = self.AS.hmass()
-            
-            self.W_dot = self.inputs['mdot']*(hin-hout)
-                    
-            self.eta_is = (hin - hout)/(hin - hout_s)
-    
-    
-            penalty_1 = max(self.r_hub_tip[0] - self.params['r_hub_tip_max'],0)*100
-            penalty_2 = max(self.params['r_hub_tip_min'] - self.r_hub_tip[-1],0)*100
-            
-            if abs((self.inputs["p_ex"] - self.stages[-1].static_states['P'][2])/self.inputs["p_ex"]) >= 5e-2:
-                penalty_3 = abs(self.inputs["p_ex"] - self.stages[-1].static_states['P'][2])/10
-                self.Pressure_Deviation = self.inputs["p_ex"] - self.stages[-1].static_states['P'][2]
-            else:
-                penalty_3 = 0
-                self.Pressure_Deviation = self.inputs["p_ex"] - self.stages[-1].static_states['P'][2]
-    
-            penalty = penalty_1 + penalty_2 + penalty_3
-    
-            if self.eta_is > 0 and self.eta_is <= 1:
-                if penalty == 0:
-                    if self.W_dot > self.inputs['W_dot']:
-                        self.inputs['W_dot'] = self.W_dot
-                        
-                obj = -self.eta_is + penalty
-            else:
-                obj = 10000
-    
-            
-            # print(obj)
+        except:
+            print("Error in last stage")
+            obj = 10000
             return obj
 
-        except:
-            print("FAIL")
-            return 10000
+        "------------- 9) Compute main outputs -------------------------------------------------------------" 
+        
+        hin = self.stages[0].total_states['H'][1]
+        hout = self.stages[-1].static_states['H'][2]
+        
+        self.AS.update(CP.PSmass_INPUTS, self.stages[-1].static_states['P'][2], self.stages[0].static_states['S'][1])
+
+        hout_s = self.AS.hmass()
+        
+        self.W_dot = self.inputs['mdot']*(hin-hout)
+                
+        self.eta_is = (hin - hout)/(hin - hout_s)
+
+
+        penalty_1 = max(self.r_hub_tip[0] - self.params['r_hub_tip_max'],0)*100
+        penalty_2 = max(self.params['r_hub_tip_min'] - self.r_hub_tip[-1],0)*100
+        
+        if abs((self.inputs["p_ex"] - self.stages[-1].static_states['P'][2])/self.inputs["p_ex"]) >= 5e-2:
+            penalty_3 = abs((self.inputs["p_ex"] - self.stages[-1].static_states['P'][2])/self.inputs["p_ex"])*10
+            self.Pressure_Deviation = self.inputs["p_ex"] - self.stages[-1].static_states['P'][2]
+        else:
+            penalty_3 = 0
+            self.Pressure_Deviation = self.inputs["p_ex"] - self.stages[-1].static_states['P'][2]
+
+        self.penalty = penalty_1 + penalty_2 + penalty_3
+
+        if self.eta_is > 0 and self.eta_is <= 1:
+            if self.penalty == 0:
+                if self.W_dot > self.inputs['W_dot']:
+                    self.inputs['W_dot'] = self.W_dot
+                    
+            obj = -self.eta_is + self.penalty
+            # print(f"opt 'success' : {obj}")
+        else:
+            # print("Bad eta_is")
+            obj = 10000
+
+        
+        print(obj)
+        
+        if obj < 10000:
+            self.allowable_positions.append([self.psi, self.phi, self.R, self.r_m])
+        
+        return obj
+
+        # except:
+        #     # print("FAIL")
+        #     return 10000
 
     # def design(self):
     #     bounds = (np.array([
@@ -749,12 +873,14 @@ class AxialTurbineMeanLineDesign(object):
     
         # Initialize the optimizer
         optimizer = ps.single.GlobalBestPSO(
-            n_particles=5,
+            n_particles=50,
             dimensions=4,
             options={'c1': 1.5, 'c2': 2.0, 'w': 0.7},
             bounds=bounds
         )
-    
+        
+        self.allowable_positions = []
+        
         # Custom stopping logic
         patience = 5
         tol = 1e-3
@@ -786,7 +912,7 @@ class AxialTurbineMeanLineDesign(object):
              
         "------------- Print Main Results -------------------------------------------------------------" 
         
-        print(f"Parameters : {self.psi, self.phi, self.R}")
+        print(f"Parameters : {self.psi, self.phi, self.R, self.r_m}")
         
         print(f"Turbine mean radius: {self.r_m} [m]")
         print(f"Turbine rotation speed: {self.omega_RPM} [RPM]")
@@ -796,11 +922,11 @@ class AxialTurbineMeanLineDesign(object):
         
         return 
 
-Turb = AxialTurbineMeanLineDesign('Cyclopentane')
-
-case_study = "Zorlu"
+case_study = "TCO2_ORC"
 
 if case_study == 'Cuerva':
+
+    Turb = AxialTurbineMeanLineDesign('Cyclopentane')
     
     Turb.set_inputs(
         mdot = 46.18, # kg/s
@@ -817,14 +943,17 @@ if case_study == 'Cuerva':
         AR_min = 1, # [-]
         r_hub_tip_max = 0.95, # [-]
         r_hub_tip_min = 0.6, # [-]
-        r_m_bounds = [0.2,0.4], # [m]
+        r_m_bounds = [0.4,0.5], # [m]
         psi_bounds = [0.9,1.4], # [-]
         phi_bounds = [0.4,0.6], # [-] 
-        R_bounds = [0.49,0.51] # [-]
+        R_bounds = [0.49,0.51], # [-]
+        damping = 0.5 # [-]
         )
 
 elif case_study == 'Zorlu':
     
+    Turb = AxialTurbineMeanLineDesign('Cyclopentane')
+
     Turb.set_inputs(
         mdot = 34.51, # kg/s
         W_dot = 2506000, # W
@@ -840,10 +969,37 @@ elif case_study == 'Zorlu':
         AR_min = 1, # [-]
         r_hub_tip_max = 0.95, # [-]
         r_hub_tip_min = 0.6, # [-]
-        r_m_bounds = [0.16,0.24], # [m]
+        r_m_bounds = [0.16,0.4], # [m]
         psi_bounds = [0.8,1.4], # [-]
-        phi_bounds = [0.5,0.7], # [-] 
-        R_bounds = [0.49,0.51] # [-]
+        phi_bounds = [0.5,0.7], # [-]
+        R_bounds = [0.49,0.51], # [-]
+        damping = 0.5 # [-]
+        )
+    
+elif case_study == 'TCO2_ORC':
+
+    Turb = AxialTurbineMeanLineDesign('CO2')
+
+    Turb.set_inputs(
+        mdot = 5*100, # kg/s
+        W_dot = 5*4.69*1e6, # W
+        p0_su = 140*1e5, # Pa
+        T0_su = 273.15 + 121, # K
+        p_ex = 39.8*1e5, # Pa
+        Mmax = 0.8 # [-]
+        )
+    
+    Turb.set_parameters(
+        Zweifel = 0.8, # [-]
+        Re_min = 5e6, # [-]
+        AR_min = 1, # [-]
+        r_hub_tip_max = 0.95, # [-]
+        r_hub_tip_min = 0.6, # [-]
+        r_m_bounds = [0.02,0.06], # [m]
+        psi_bounds = [1,1.4], # [-]
+        phi_bounds = [0.4,0.8], # [-] 
+        R_bounds = [0.49,0.51], # [-]
+        damping = 0.2 # [-]
         )
 
 Turb.design()
