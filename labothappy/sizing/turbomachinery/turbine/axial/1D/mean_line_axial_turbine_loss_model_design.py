@@ -995,7 +995,7 @@ elif case_study == 'TCO2_ORC':
         AR_min = 1, # [-]
         r_hub_tip_max = 0.95, # [-]
         r_hub_tip_min = 0.6, # [-]
-        r_m_bounds = [0.02,0.06], # [m]
+        r_m_bounds = [0.02,0.12], # [m]
         psi_bounds = [1,1.4], # [-]
         phi_bounds = [0.4,0.8], # [-] 
         R_bounds = [0.49,0.51], # [-]
