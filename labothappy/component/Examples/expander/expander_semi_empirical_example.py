@@ -16,7 +16,7 @@ import numpy as np
 # rv_in, V_s, mode
 
 #-------------------------------------------------------------------------------------------#
-"First case: m_dot and P_ex known + N_rot unknown"
+"First case: N_rot and P_ex known + m_dot unknown"
 #-------------------------------------------------------------------------------------------#
 # Create an instance of the expander component
 expander = ExpanderSE()
@@ -35,7 +35,7 @@ expander.set_inputs(N_rot = 6000)
 # Set ambient temperature
 expander.Q_amb.set_T_cold(293)
 
-"2. Inputs set directly"
+# "2. Inputs set directly"
 # expander.set_inputs(
 #     N_rot=6000,
 #     T_amb=298.15,
@@ -59,22 +59,22 @@ expander.solve()
 expander.print_results()
 
 #-------------------------------------------------------------------------------------------#
-"Second case: N_rot and P_ex known + m_dot unknown"
+"Second case: m_dot and P_ex known + N_rot unknown "
 #-------------------------------------------------------------------------------------------#
-# # Create an instance of the expander component
+# Create an instance of the expander component
 # expander = ExpanderSE()
 # "1. Inputs set through connectors"
-# # # Set properties for su connector
-# # expander.su.set_fluid('R1233zd(E)')
-# # expander.su.set_p(4*1e5)
-# # expander.su.set_T(273.15+70)  # Sets h_su -> OK for inputs
-# # expander.su.set_m_dot(0.1)
+# # Set properties for su connector
+# expander.su.set_fluid('R1233zd(E)')
+# expander.su.set_p(4*1e5)
+# expander.su.set_T(273.15+70)  # Sets h_su -> OK for inputs
+# expander.su.set_m_dot(0.1)
 
-# # # Set properties for ex connector
-# # expander.ex.set_p(1.1*1e5)
+# # Set properties for ex connector
+# expander.ex.set_p(1.1*1e5)
 
-# # # Set ambient temperature
-# # expander.Q_amb.set_T_cold(293)
+# # Set ambient temperature
+# expander.Q_amb.set_T_cold(293)
 
 # "2. Inputs set directly"
 # expander.set_inputs(
@@ -102,20 +102,22 @@ expander.print_results()
 #-------------------------------------------------------------------------------------------#
 "Third case: N_rot and m_dot known + P_ex unknown"
 #-------------------------------------------------------------------------------------------#
-# # Create an instance of the expander component
-# expander = ExpanderSE()
-# "1. Inputs set through connectors"
-# # # Set properties for su connector
-# # expander.su.set_fluid('R1233zd(E)')
-# # expander.su.set_p(4*1e5)
-# # expander.su.set_T(273.15+70)  # Sets h_su -> OK for inputs
-# # expander.su.set_m_dot(0.1)
+# Create an instance of the expander component
+expander = ExpanderSE()
+"1. Inputs set through connectors"
+# Set properties for su connector
+# expander.su.set_fluid('R1233zd(E)')
+# expander.su.set_p(4*1e5)
+# expander.su.set_T(273.15+70)  # Sets h_su -> OK for inputs
+# expander.su.set_m_dot(0.1)
 
-# # # Set properties for ex connector
-# # expander.ex.set_p(1.1*1e5)
 
-# # Set ambient temperature
-# # expander.Q_amb.set_T_cold(293)
+# # # Set rotational speed
+# expander.W_mec.set_N(8055.33)
+
+
+# #Set ambient temperature
+# expander.Q_amb.set_T_cold(293)
 
 # "2. Inputs set directly"
 # expander.set_inputs(
