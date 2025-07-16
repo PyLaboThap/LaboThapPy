@@ -7,6 +7,7 @@ Created on Fri May 10 14:31:24 2024
 
 from connector.mass_connector import MassConnector
 from CoolProp.CoolProp import PropsSI
+
 from component.base_component import BaseComponent
 import numpy as np         
             
@@ -224,7 +225,8 @@ class Mixer(BaseComponent):
                 
         self.check_calculable()
         self.check_parametrized()
-                
+                        
+        
         if not self.calculable:
             print("Component not calculable, check input")
             

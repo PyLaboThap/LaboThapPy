@@ -15,7 +15,7 @@ from connector.work_connector import WorkConnector
 from connector.heat_connector import HeatConnector
 
 from CoolProp.CoolProp import PropsSI
-
+import CoolProp.CoolProp as CP
 
 class HXeNTU(BaseComponent):
     
@@ -185,7 +185,7 @@ class HXeNTU(BaseComponent):
     def solve(self):
         self.check_calculable()
         self.check_parametrized()
-
+        
         if self.calculable and self.parametrized:
             
             # Detect Phase change
