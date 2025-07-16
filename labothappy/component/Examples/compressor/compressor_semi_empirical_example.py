@@ -1,5 +1,5 @@
 # import __init__
-from labothappy.component.compressor.compressor_semi_empirical import CompressorSE
+from component.compressor.compressor_semi_empirical import CompressorSE
 
 "Example of the semi-empirical model compressor component"
 # Inputs: N_rot, T_amb, P_su, h_su, P_ex, fluid 
