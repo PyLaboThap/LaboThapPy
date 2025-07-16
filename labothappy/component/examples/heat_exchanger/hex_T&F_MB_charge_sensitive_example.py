@@ -14,7 +14,7 @@ Modification w/r to previous version:
 # from __future__ import division, print_function
 import __init__
 from component.heat_exchanger.hex_MB_charge_sensitive import HeatExchangerMB
-from toolbox.geometries.heat_exchanger.geometry_tube_and_fins_hx import CFTubeAndFinsGeom
+from toolbox.geometries.heat_exchanger.geometry_tube_and_fins_hx import TubeAndFinsGeom
 
 #%%
 
@@ -49,7 +49,7 @@ HX.set_inputs(
 
 "Geometry Loading"
 
-HX_geom = CFTubeAndFinsGeom()
+HX_geom = TubeAndFinsGeom()
 HX_geom.set_parameters("DECAGONE_RECUP") 
 
 Fin_Side = 'H'
@@ -99,8 +99,8 @@ HX.set_parameters(
     B_V_tot = HX_geom.B_V_tot, Fin_OD = HX_geom.Fin_OD, Fin_per_m = HX_geom.Fin_per_m, Fin_t = HX_geom.Fin_t, Fin_type = HX_geom.Fin_type, # 10
     Finned_tube_flag = HX_geom.Tube_t, L = HX_geom.L, T_V_tot = HX_geom.T_V_tot, Tube_L = HX_geom.Tube_L, Tube_OD = HX_geom.Tube_OD, # 15
     Tube_cond = HX_geom.Tube_cond, Tube_t = HX_geom.Tube_t, fouling = HX_geom.fouling, h = HX_geom.h, k_fin = HX_geom.k_fin, # 20
-    n_passes = HX_geom.n_passes, n_rows = HX_geom.n_rows, n_tubes = HX_geom.n_tubes, pitch = HX_geom.pitch, pitch_ratio = HX_geom.pitch_ratio, # 25
-    tube_arrang = HX_geom.tube_arrang, w = HX_geom.w, # 27
+    Tube_pass = HX_geom.Tube_pass, n_rows = HX_geom.n_rows, n_series = HX_geom.n_series, n_tubes = HX_geom.n_tubes, pitch = HX_geom.pitch, # 25
+    pitch_H = HX_geom.pitch, pitch_V = HX_geom.pitch, pitch_ratio = HX_geom.pitch_ratio, tube_arrang = HX_geom.tube_arrang, w = HX_geom.w, # 30
 
     Fin_Side = Fin_Side, # 28
 

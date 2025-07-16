@@ -83,6 +83,8 @@ class Mixer(BaseComponent):
         if n_inlets is not None: 
             self.n_inlets = n_inlets
             
+            self.params['n_inlets'] = n_inlets
+            
             for i in range(n_inlets): # Create inlet connectors dynamically based on number of inlets
                 inlet_num = i + 1
                 setattr(self, f"su_{inlet_num}", MassConnector())

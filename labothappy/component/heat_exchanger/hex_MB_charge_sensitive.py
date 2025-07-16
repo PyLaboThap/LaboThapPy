@@ -9,9 +9,14 @@ Modification w/r to previous version:
     - Implemenation of the code in the LaboThap Python Library
 """
 
+
 "EXTERNAL IMPORTS"
 
-import __init__
+import sys
+import os
+    
+import correlations
+
 import CoolProp.CoolProp as CP
 from CoolProp.Plots import PropertyPlot
 import matplotlib.pyplot as plt
@@ -30,7 +35,7 @@ from correlations.convection.plate_htc import han_BPHEX_DP, water_plate_HTC, mar
 from correlations.convection.pipe_htc import gnielinski_pipe_htc, boiling_curve, horizontal_tube_internal_condensation, horizontal_flow_boiling, flow_boiling_gungor_winterton, Liu_sCO2, Cheng_sCO2
 from correlations.convection.shell_and_tube_htc import shell_bell_delaware_htc, shell_htc_kern
 from correlations.convection.tube_bank_htc import ext_tube_film_condens
-from correlations.convection.fins import htc_tube_and_fins
+from correlations.convection.fins_htc import htc_tube_and_fins
 
 # DP Correlations 
 from correlations.pressure_drop.shell_and_tube_DP import shell_DP_kern, shell_DP_donohue, shell_bell_delaware_DP
@@ -155,33 +160,33 @@ class HeatExchangerMB(BaseComponent):
 
         **Inputs**:
 
-            su_H_p: Hot suction side pressure. [Pa]
+            P_su_H: Hot suction side pressure. [Pa]
 
-            su_H_h: Hot suction side enthalpy. [J/kg]
+            h_su_H: Hot suction side enthalpy. [J/kg]
 
-            su_H_fluid: Hot suction side fluid. [-]
+            fluid_H: Hot suction side fluid. [-]
 
-            su_H_m_dot: Hot suction side mass flowrate. [kg/s]
+            m_dot_H: Hot suction side mass flowrate. [kg/s]
 
-            su_C_p: Cold suction side pressure. [Pa]
+            P_su_C: Cold suction side pressure. [Pa]
 
-            su_C_h: Cold suction side enthalpy. [J/kg]
+            h_su_C: Cold suction side enthalpy. [J/kg]
 
-            su_C_fluid: Cold suction side fluid. [-]
+            fluid_C: Cold suction side fluid. [-]
 
-            su_C_m_dot: Cold suction side mass flowrate. [kg/s]
+            m_dot_C: Cold suction side mass flowrate. [kg/s]
 
         **Ouputs**:
 
-            ex_H_h: Hot exhaust side specific enthalpy. [J/kg]
+            h_ex_H: Hot exhaust side specific enthalpy. [J/kg]
 
-            ex_H_p: Hot exhaust side pressure. [Pa]
+            P_ex_H: Hot exhaust side pressure. [Pa]
 
-            ex_C_h: Cold exhaust side specific enthalpy. [J/kg]
+            h_ex_C: Cold exhaust side specific enthalpy. [J/kg]
 
-            ex_C_p: Cold exhaust side pressure. [Pa]
+            P_ex_C: Cold exhaust side pressure. [Pa]
 
-            Q_dot: Heat transfer rate [W]
+            Q: Heat transfer rate [W]
 
             M_H : Hot fluid charge [kg]
 
@@ -255,78 +260,11 @@ class HeatExchangerMB(BaseComponent):
         
     #%% INPUTS AND PARAMETERS RELATED METHODS
     
-    def get_required_inputs(self): # Used in check_calculablle to see if all of the required inputs are set
-        """
-        Hot side required inputs : 
-            
-            - Hsu_T or Hsu_h : Hot supply temperature or enthalpy
-            - Hsu_p          : Hot supply pressure
-            - Hsu_fluid      : Hot supply fluid
-            - Hsu_m_dot      : Hot supply flow rate
-            
-        Cold side required inputs : 
-            
-            - Csu_T or Hsu_h : Cold supply temperature or enthalpy
-            - Csu_p          : Cold supply pressure
-            - Csu_fluid      : Cold supply fluid
-            - Csu_m_dot      : Cold supply flow rate
-        """
+    def get_required_inputs(self): # Used in check_calculable to see if all of the required inputs are set
+
         self.sync_inputs()
         # Return a list of required inputs
-        return['Hsu_p', 'Hsu_T', 'Hsu_m_dot', 'Hsu_fluid', 'Csu_p', 'Csu_T', 'Csu_m_dot', 'Csu_fluid']
-    
-    def sync_inputs(self):
-        """Synchronize the inputs dictionary with the connector states."""
-        # Hot Fluid
-        if self.su_H.T is not None:
-            self.inputs['Hsu_T'] = self.su_H.T
-        elif self.su_H.h is not None:
-            self.inputs['Hsu_h'] = self.su_H.h
-        if self.su_H.p is not None:
-            self.inputs['Hsu_p'] = self.su_H.p
-        if self.su_H.fluid is not None:
-            self.inputs['Hsu_fluid'] = self.su_H.fluid
-        if self.su_H.m_dot is not None:
-            self.inputs['Hsu_m_dot'] = self.su_H.m_dot
-            
-        # Cold Fluid                
-        if self.su_C.T is not None:
-            self.inputs['Csu_T'] = self.su_C.T
-        elif self.su_C.h is not None:
-            self.inputs['Csu_h'] = self.su_C.h
-        if self.su_C.p is not None:
-            self.inputs['Csu_p'] = self.su_C.p
-        if self.su_C.fluid is not None:
-            self.inputs['Csu_fluid'] = self.su_C.fluid
-        if self.su_C.m_dot is not None:
-            self.inputs['Csu_m_dot'] = self.su_C.m_dot
-
-    def set_inputs(self, **kwargs):
-        """Set inputs directly through a dictionary and update connector properties."""
-        self.inputs.update(kwargs) # This line merges the keyword arguments ('kwargs') passed to the 'set_inputs()' method into the eisting 'self.inputs' dictionary.
-
-        # Update the connectors based on the new inputs
-        # Hot Fluid
-        self.su_H.set_fluid(self.inputs['Hsu_fluid'])
-        if 'Hsu_T' in self.inputs:
-            self.su_H.set_T(self.inputs['Hsu_T'])
-        elif 'Hsu_h' in self.inputs:
-            self.su_H.set_h(self.inputs['Hsu_h'])
-        if 'Hsu_p' in self.inputs:
-            self.su_H.set_p(self.inputs['Hsu_p'])
-        if 'Hsu_m_dot' in self.inputs:
-            self.su_H.set_m_dot(self.inputs['Hsu_m_dot'])
-
-        # Cold Fluid
-        self.su_C.set_fluid(self.inputs['Csu_fluid'])
-        if 'Csu_T' in self.inputs:
-            self.su_C.set_T(self.inputs['Csu_T'])
-        elif 'Csu_h' in self.inputs:
-            self.su_C.set_h(self.inputs['Csu_h'])
-        if 'Csu_p' in self.inputs:
-            self.su_C.set_p(self.inputs['Csu_p'])
-        if 'Csu_m_dot' in self.inputs:
-            self.su_C.set_m_dot(self.inputs['Csu_m_dot'])
+        return['P_su_H', 'T_su_H', 'm_dot_H', 'fluid_H', 'P_su_C', 'T_su_C', 'm_dot_C', 'fluid_C']
 
     def get_required_parameters(self):
         """
@@ -419,7 +357,7 @@ class HeatExchangerMB(BaseComponent):
         """
         
         self.params['htc_type'] = htc_type
-        self.check_calculable()
+        # self.check_calculable()
         
         if htc_type == "User-Defined":
             
@@ -497,7 +435,7 @@ class HeatExchangerMB(BaseComponent):
 
         self.params['DP_type'] = DP_type
 
-        self.check_calculable()
+        # self.check_calculable()
         
         if self.params['H_DP_ON']:
             if self.params['DP_type'] == "User-Defined":
@@ -1324,6 +1262,7 @@ class HeatExchangerMB(BaseComponent):
             print("Component not parametrized, check parameters")            
             
         "1) Main Input variables"
+        
         self.H_su = self.su_H
         self.C_su = self.su_C
             
@@ -1461,6 +1400,7 @@ class HeatExchangerMB(BaseComponent):
         
         
         "5) Calculate maximum and actual heat rates"
+                
         if (self.T_hi - self.T_ci) > 1e-2  and self.mdot_h  > 0 and self.mdot_c > 0: # Check that the operating conditions allow for heat transfer
             "5.1) Compute the external pinching & update cell boundaries"
             Qmax_ext = self.external_pinching() # Call to external-pinching procedure
@@ -1583,6 +1523,7 @@ class HeatExchangerMB(BaseComponent):
             
         else: # Just a flag if the heat exchanger is not solved
             self.Q = 1
+            raise Exception("Hot and cold temperatures seem to be reversed or a flow rate is negative.")
  
     def objective_function(self, Q):
         "1) Initialize cell boundaries and results vectors"
@@ -1920,7 +1861,7 @@ class HeatExchangerMB(BaseComponent):
                         
         if debug:
             print(Q, 1-sum(w))
-            
+                        
         return 1-sum(w)
 
 #%% 

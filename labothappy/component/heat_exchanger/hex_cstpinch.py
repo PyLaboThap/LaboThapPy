@@ -23,8 +23,8 @@ from connector.heat_connector import HeatConnector
 
 from component.base_component import BaseComponent
 
-
-from CoolProp.CoolProp import PropsSI
+from CoolProp.CoolProp import AbstractState
+import CoolProp.CoolProp as CoolProp
 from scipy.optimize import fsolve, root, minimize
 import numpy as np
 import math
@@ -61,35 +61,35 @@ class HXPinchCst(BaseComponent):
         
         Delta_T_sh_sc: Superheating or subcooling, depending if the HEX is an evaporator (superheating) or a condenser (subcooling)
             
-        type_HX: HX type, i.e. evaporator or condenser
+        HX_type: HX type, i.e. evaporator or condenser
 
     **Inputs**:
         
-        su_C_fluid: Cold suction side fluid. [-]
+        fluid_C: Cold suction side fluid. [-]
 
-        su_C_h: Cold suction side enthalpy. [J/kg]
+        h_su_C: Cold suction side enthalpy. [J/kg]
 
-        su_C_p: Cold suction side pressure. [Pa]
+        P_su_C: Cold suction side pressure. [Pa]
 
-        su_C_m_dot: Cold suction side mass flow rate. [kg/s]
+        m_dot_C: Cold suction side mass flow rate. [kg/s]
 
-        su_H_fluid: Hot suction side fluid. [-]
+        fluid_H: Hot suction side fluid. [-]
 
-        su_H_h: Hot suction side enthalpy. [J/kg]
+        h_su_H: Hot suction side enthalpy. [J/kg]
 
-        su_H_p: Hot suction side pressure. [Pa]
+        P_su_H: Hot suction side pressure. [Pa]
 
-        su_H_m_dot: Hot suction side mass flow rate. [kg/s]
+        m_dot_H: Hot suction side mass flow rate. [kg/s]
 
     **Outputs**:
 
-        ex_C_h: Cold exhaust side enthalpy. [J/kg]
+        h_ex_C: Cold exhaust side enthalpy. [J/kg]
 
-        ex_C_p: Cold exhaust side pressure. [Pa]
+        P_ex_C: Cold exhaust side pressure. [Pa]
 
-        ex_H_h: Hot exhaust side enthalpy. [J/kg]
+        h_ex_H: Hot exhaust side enthalpy. [J/kg]
 
-        ex_H_p: Hot exhaust side pressure. [Pa]
+        P_ex_H: Hot exhaust side pressure. [Pa]
 
         Q_dot: Heat Exchanger's heat duty. [W]
     """
@@ -107,66 +107,13 @@ class HXPinchCst(BaseComponent):
     def get_required_inputs(self): # Used in check_calculablle to see if all of the required inputs are set
         self.sync_inputs()
         # Return a list of required inputs
-        return ['su_C_fluid', 'su_C_h', 'su_C_p', 'su_C_m_dot', 'su_H_fluid', 'su_H_h', 'su_H_p', 'su_H_m_dot']
-    
-    def sync_inputs(self):
-        """Synchronize the inputs dictionary with the connector states."""
-        if self.su_C.fluid is not None:
-            self.inputs['su_C_fluid'] = self.su_C.fluid
-        if self.su_C.h is not None:
-            self.inputs['su_C_h'] = self.su_C.h
-        if self.su_C.T is not None:
-            self.inputs['su_C_T'] = self.su_C.T
-        if self.su_C.m_dot is not None:
-            self.inputs['su_C_m_dot'] = self.su_C.m_dot
-        if self.su_C.p is not None:
-            self.inputs['su_C_p'] = self.su_C.p
-            
-        if self.su_H.fluid is not None:
-            self.inputs['su_H_fluid'] = self.su_H.fluid
-        if self.su_H.T is not None:
-            self.inputs['su_H_T'] = self.su_H.T
-        if self.su_H.h is not None:
-            self.inputs['su_H_h'] = self.su_H.h
-        if self.su_H.m_dot is not None:
-            self.inputs['su_H_m_dot'] = self.su_H.m_dot
-        if self.su_H.p is not None:
-            self.inputs['su_H_p'] = self.su_H.p
-
-    def set_inputs(self, **kwargs):
-        """Set inputs directly through a dictionary and update connector properties."""
-        self.inputs.update(kwargs) # This line merges the keyword arguments ('kwargs') passed to the 'set_inputs()' method into the eisting 'self.inputs' dictionary.
-
-        # Update the connectors based on the new inputs
-        if 'su_C_fluid' in self.inputs:
-            self.su_C.set_fluid(self.inputs['su_C_fluid'])
-        if 'su_C_h' in self.inputs:
-            self.su_C.set_h(self.inputs['su_C_h'])
-        if 'su_C_m_dot' in self.inputs:
-            self.su_C.set_m_dot(self.inputs['su_C_m_dot'])
-        if 'su_C_p' in self.inputs:
-            self.su_C.set_p(self.inputs['su_C_p'])
-        if 'su_C_T' in self.inputs:
-            self.su_C.set_T(self.inputs['su_C_T'])
-            
-        if 'su_H_fluid' in self.inputs:
-            self.su_H.set_fluid(self.inputs['su_H_fluid'])
-        if 'su_H_T' in self.inputs:
-            self.su_H.set_T(self.inputs['su_H_T'])
-        if 'su_H_p' in self.inputs:
-            self.su_H.set_p(self.inputs['su_H_p'])
-        if 'su_H_h' in self.inputs:
-            self.su_H.set_h(self.inputs['su_H_h'])
-        if 'su_H_m_dot' in self.inputs:
-            self.su_H.set_m_dot(self.inputs['su_H_m_dot'])
-
-        return ['su_C_fluid', 'su_C_h', 'su_C_p', 'su_C_m_dot', 'su_H_fluid', 'su_H_h', 'su_H_p', 'su_H_m_dot']
+        return ['fluid_C', 'h_su_C', 'P_su_C', 'm_dot_C', 'fluid_H', 'h_su_H', 'P_su_H', 'm_dot_H']
     
     def get_required_parameters(self):
         return [
             'Pinch', # pinch point
             'Delta_T_sh_sc', # Superheating or subcooling
-            'type_HX' # Evaporator or condenser
+            'HX_type' # Evaporator or condenser
         ]
     
     def get_required_guesses(self):
@@ -203,32 +150,38 @@ class HXPinchCst(BaseComponent):
         PP_list = []
         
         # Ensure the pressure is non-negative
-        if P_ev < PropsSI("ptriple", self.su_C.fluid):
-            P_ev = PropsSI("ptriple", self.su_C.fluid) + 1
+        P_triple = self.AS_C.trivial_keyed_output(CoolProp.iP_triple)
+        if P_ev < P_triple:
+            P_ev = P_triple + 1
         
-        if P_ev > PropsSI("PCRIT", self.su_C.fluid):
-            P_ev = PropsSI("PCRIT", self.su_C.fluid) - 1000
+        P_crit = self.AS_C.trivial_keyed_output(CoolProp.iP_critical)
+        if P_ev > P_crit:
+            P_ev = P_crit - 1000
         # Get the temperature of the evaporator based on the pressure and quality
         # Vapor zone
         
-        T_sat_ev = PropsSI('T', 'P', P_ev, 'Q', 0.5, self.su_C.fluid)
+        self.AS_C.update(CoolProp.PQ_INPUTS, P_ev, 0.5)
+        T_sat_ev = self.AS_C.T()
         self.T_sat_ev = T_sat_ev
         self.su_C.p = P_ev
         
         "Refrigerant side calculations"
         # Liquid zone
         try:
-            h_C_su = PropsSI('H', 'P', P_ev, 'T', self.su_C.T, self.su_C.fluid)
+            self.AS_C.update(CoolProp.PT_INPUTS,P_ev,self.su_C.T)
         except:
-            h_C_su = PropsSI('H', 'P', P_ev, 'Q', 0, self.su_C.fluid)
+            self.AS_C.update(CoolProp.PQ_INPUTS,P_ev,0)
             
+        h_C_su = self.AS_C.hmass()
         
-        h_C_x0 = PropsSI('H', 'P', P_ev, 'Q', 0, self.su_C.fluid)
+        self.AS_C.update(CoolProp.PQ_INPUTS,P_ev,0)
+        h_C_x0 = self.AS_C.hmass()
         
         self.Q_dot_sc = self.su_C.m_dot * (h_C_x0 - h_C_su)
 
         # Two-phase zone
-        h_C_x1 = PropsSI('H', 'P', P_ev, 'Q', 1, self.su_C.fluid)
+        self.AS_C.update(CoolProp.PQ_INPUTS,P_ev,1)
+        h_C_x1 = self.AS_C.hmass()
 
         if self.Q_dot_sc > 0:
             self.Q_dot_tp = self.su_C.m_dot * (h_C_x1 - h_C_x0)
@@ -238,7 +191,8 @@ class HXPinchCst(BaseComponent):
             
         # Vapor zone
         self.T_C_ex = T_sat_ev + self.params['Delta_T_sh_sc']
-        h_C_ex = PropsSI('H', 'P', P_ev, 'T', self.T_C_ex, self.su_C.fluid)
+        self.AS_C.update(CoolProp.PT_INPUTS,P_ev,self.T_C_ex)
+        h_C_ex = self.AS_C.hmass()
 
         if self.Q_dot_tp > 0:
             self.Q_dot_sh = self.su_C.m_dot * (h_C_ex - h_C_x1)
@@ -250,17 +204,20 @@ class HXPinchCst(BaseComponent):
         Q_dot_ev = self.Q_dot_sc + self.Q_dot_tp + self.Q_dot_sh
         
         "Secondary fluid side calculations"
-        # First zone
+        # First zone - Superheating
         self.h_H_x1 = self.su_H.h - self.Q_dot_sh/self.su_H.m_dot
-        self.T_H_x1 = PropsSI('T', 'P', self.su_H.p, 'H', self.h_H_x1, self.su_H.fluid)
+        self.AS_H.update(CoolProp.HmassP_INPUTS,self.h_H_x1,self.su_H.p)
+        self.T_H_x1 = self.AS_H.T()
         
-        # Second zone
+        # Second zone - Phase change
         self.h_H_x0 = self.h_H_x1 - self.Q_dot_tp/self.su_H.m_dot
-        self.T_H_x0 = PropsSI('T', 'P', self.su_H.p, 'H', self.h_H_x0, self.su_H.fluid)
+        self.AS_H.update(CoolProp.HmassP_INPUTS,self.h_H_x0,self.su_H.p)
+        self.T_H_x0 = self.AS_H.T()
 
-        # Third zone
+        # Third zone - Subcooling
         self.h_H_ex = self.h_H_x0 - self.Q_dot_sc/self.su_H.m_dot
-        self.T_H_ex = PropsSI('T', 'P', self.su_H.p, 'H', self.h_H_ex, self.su_H.fluid)        
+        self.AS_H.update(CoolProp.HmassP_INPUTS,self.h_H_ex,self.su_H.p)
+        self.T_H_ex = self.AS_H.T()    
         
         PP_list.append(self.T_H_ex - self.su_C.T)
         
@@ -291,28 +248,32 @@ class HXPinchCst(BaseComponent):
         PP_list = []
         
         # Ensure the pressure is non-negative
-        if P_cd < PropsSI("ptriple", self.su_H.fluid):
-            P_cd = PropsSI("ptriple", self.su_H.fluid) * 2
+        P_triple = self.AS_H.trivial_keyed_output(CoolProp.iP_triple)
+        if P_cd < P_triple:
+            P_cd = P_triple*2
         
-        if P_cd > PropsSI("PCRIT", self.su_H.fluid):
-            P_cd = PropsSI("PCRIT", self.su_H.fluid) - 1000
+        P_crit = self.AS_H.trivial_keyed_output(CoolProp.iP_critical)
+        if P_cd > P_crit:
+            P_cd = P_crit - 1000
                 
         # Get the temperature of the condenser based on pressure and quality
-        T_sat_cd = PropsSI('T', 'P', P_cd, 'Q', 0.5, self.su_H.fluid)
-                
+        self.AS_H.update(CoolProp.PQ_INPUTS,P_cd,0.5)
+        T_sat_cd = self.AS_H.T()            
         self.T_sat_cd = T_sat_cd
         self.su_H.p = P_cd
 
         "Refrigerant side calculations"
         # Vapor zone
         try:
-            h_H_su = PropsSI('H', 'P', P_cd, 'T', self.su_H.T, self.su_H.fluid)
+            self.AS_H.update(CoolProp.PT_INPUTS,P_cd,self.su_H.T)
         except:
-            h_H_su = PropsSI('H', 'P', P_cd, 'Q', 1, self.su_H.fluid)
-            
+            self.AS_H.update(CoolProp.PQ_INPUTS,P_cd,1)
+        
+        h_H_su = self.AS_H.hmass()
         self.su_H.h = h_H_su
         
-        h_H_x1 = PropsSI('H', 'P', P_cd, 'Q', 1, self.su_H.fluid)
+        self.AS_H.update(CoolProp.PQ_INPUTS,P_cd,1)
+        h_H_x1 = self.AS_H.hmass()
         
         if T_sat_cd < self.su_H.T:
             self.Q_dot_sh = self.su_H.m_dot * (h_H_su - h_H_x1)
@@ -320,7 +281,8 @@ class HXPinchCst(BaseComponent):
             self.Q_dot_sh = 0
 
         # Two-phase zone
-        h_H_x0 = PropsSI('H', 'P', P_cd, 'Q', 0, self.su_H.fluid)
+        self.AS_H.update(CoolProp.PQ_INPUTS,P_cd,0)
+        h_H_x0 = self.AS_H.hmass()
         
         if self.Q_dot_sh > 0:
             self.Q_dot_tp = self.su_H.m_dot * (h_H_x1 - h_H_x0)
@@ -330,13 +292,14 @@ class HXPinchCst(BaseComponent):
         
         # Liquid zone
         self.T_H_ex = T_sat_cd - self.params['Delta_T_sh_sc']
-        h_h_ex = PropsSI('H', 'P', P_cd, 'T', self.T_H_ex, self.su_H.fluid)
+        self.AS_H.update(CoolProp.PT_INPUTS,P_cd,self.T_H_ex)
+        h_H_ex = self.AS_H.hmass()
         
         if self.Q_dot_tp > 0:
-            self.Q_dot_sc = self.su_H.m_dot * (h_H_x0 - h_h_ex)
+            self.Q_dot_sc = self.su_H.m_dot * (h_H_x0 - h_H_ex)
         else:
             self.Q_dot_tp = 0
-            self.Q_dot_sc = self.su_H.m_dot * (self.su_H.h - h_h_ex)
+            self.Q_dot_sc = self.su_H.m_dot * (self.su_H.h - h_H_ex)
 
         # Total heat transfer
         Q_dot_cd = self.Q_dot_sh + self.Q_dot_tp + self.Q_dot_sc
@@ -344,15 +307,18 @@ class HXPinchCst(BaseComponent):
         "Secondary fluid side calculations"
         # First zone
         self.h_C_x0 = self.su_C.h + self.Q_dot_sc/self.su_C.m_dot
-        self.T_C_x0 = PropsSI('T', 'P', self.su_C.p, 'H', self.h_C_x0, self.su_C.fluid)
+        self.AS_C.update(CoolProp.HmassP_INPUTS,self.h_C_x0,self.su_C.p)
+        self.T_C_x0 = self.AS_C.T()
         
         # Second zone
         self.h_C_x1 = self.h_C_x0 + self.Q_dot_tp/self.su_C.m_dot
-        self.T_C_x1 = PropsSI('T', 'P', self.su_C.p, 'H', self.h_C_x1, self.su_C.fluid)
+        self.AS_C.update(CoolProp.HmassP_INPUTS,self.h_C_x1,self.su_C.p)
+        self.T_C_x1 = self.AS_C.T()
 
         # Third zone
         self.h_C_ex = self.h_C_x1 + self.Q_dot_sh/self.su_C.m_dot
-        self.T_C_ex = PropsSI('T', 'P', self.su_C.p, 'H', self.h_C_ex, self.su_C.fluid)        
+        self.AS_C.update(CoolProp.HmassP_INPUTS,self.h_C_ex,self.su_C.p)
+        self.T_C_ex = self.AS_C.T()
         
         PP_list.append(self.su_H.T - self.T_C_ex)
         
@@ -383,14 +349,20 @@ class HXPinchCst(BaseComponent):
         if not (self.calculable and self.parametrized):
             print("HTX IS NOT CALCULABLE")
             return
+        
+        fluid_C = self.su_C.fluid  # Extract cold fluid name
+        self.AS_C = AbstractState("HEOS", fluid_C)  # Create a reusable state object
+        
+        fluid_H = self.su_H.fluid  # Extract hot fluid name
+        self.AS_H = AbstractState("HEOS", fluid_H)  # Create a reusable state object
 
         # Determine the type of heat exchanger and set the initial guess for pressure
-        if self.params['type_HX'] == 'evaporator':
+        if self.params['HX_type'] == 'evaporator':
             guess_T_sat = self.su_H.T - self.params['Pinch'] - self.params['Delta_T_sh_sc']
             
             # print(f"guess_T_sat: {guess_T_sat}")
-            
-            P_ev_guess = PropsSI('P', 'T', guess_T_sat, 'Q', 0.5, self.su_C.fluid) # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
+            self.AS_C.update(CoolProp.QT_INPUTS,0.5,guess_T_sat)
+            P_ev_guess = self.AS_C.p() # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
             x = [P_ev_guess]
 
             try:
@@ -412,10 +384,11 @@ class HXPinchCst(BaseComponent):
                 self.solved = False
                 print(f"Convergence problem in evaporator model: {e}")
 
-        elif self.params['type_HX'] == 'condenser':
+        elif self.params['HX_type'] == 'condenser':
             guess_T_sat = self.su_C.T + self.params['Pinch'] + self.params['Delta_T_sh_sc']
             
-            P_cd_guess = PropsSI('P', 'T', guess_T_sat, 'Q', 0.5, self.su_H.fluid)   # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
+            self.AS_H.update(CoolProp.QT_INPUTS,0.5,guess_T_sat)
+            P_cd_guess = self.AS_H.p() # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
             x = [P_cd_guess]
 
             try:
@@ -437,7 +410,7 @@ class HXPinchCst(BaseComponent):
         
         "Mass Connectors"
 
-        if self.params['type_HX'] == 'evaporator':
+        if self.params['HX_type'] == 'evaporator':
 
             self.su_C.set_p(self.P_sat)
 
@@ -473,7 +446,7 @@ class HXPinchCst(BaseComponent):
         print("=== Heat Exchanger Results ===")
         print(f"Q: {self.Q_dot.Q_dot}")
 
-        if self.params['type_HX'] == 'evaporator':
+        if self.params['HX_type'] == 'evaporator':
             print(f"P_sat: {self.su_C.p}")
         else:
             print(f"P_sat: {self.su_H.p}")
@@ -483,17 +456,17 @@ class HXPinchCst(BaseComponent):
     def print_states_connectors(self):
         print("=== Heat Exchanger States ===")
         print("Connectors:")
-        print(f"  - su_C: fluid={self.su_C.fluid}, T={self.su_C.T}, p={self.su_C.p}, m_dot={self.su_C.m_dot}")
-        print(f"  - su_H: fluid={self.su_H.fluid}, T={self.su_H.T}, p={self.su_H.p}, m_dot={self.su_H.m_dot}")
-        print(f"  - ex_C: fluid={self.ex_C.fluid}, T={self.ex_C.T}, p={self.ex_C.p}, m_dot={self.ex_C.m_dot}")
-        print(f"  - ex_H: fluid={self.ex_H.fluid}, T={self.ex_H.T}, p={self.ex_H.p}, m_dot={self.ex_H.m_dot}")
+        print(f"  - su_C: fluid={self.su_C.fluid}, T={self.su_C.T}, P={self.su_C.p}, m_dot={self.su_C.m_dot}")
+        print(f"  - su_H: fluid={self.su_H.fluid}, T={self.su_H.T}, P={self.su_H.p}, m_dot={self.su_H.m_dot}")
+        print(f"  - ex_C: fluid={self.ex_C.fluid}, T={self.ex_C.T}, P={self.ex_C.p}, m_dot={self.ex_C.m_dot}")
+        print(f"  - ex_H: fluid={self.ex_H.fluid}, T={self.ex_H.T}, P={self.ex_H.p}, m_dot={self.ex_H.m_dot}")
         print(f"  - Q_dot: {self.Q_dot.Q_dot}")
         print("======================")
 
     def plot_disc(self):
         import matplotlib.pyplot as plt
         
-        if self.params['type_HX'] == 'condenser':
+        if self.params['HX_type'] == 'condenser':
             plt.figure()
             
             plt.plot([0, self.Q_dot_sh]                          , [self.su_H.T, self.T_sat_cd]  , 'r', label='H')
@@ -508,7 +481,7 @@ class HXPinchCst(BaseComponent):
             plt.legend()
             plt.show()
 
-        if self.params['type_HX'] == 'evaporator':
+        if self.params['HX_type'] == 'evaporator':
             plt.figure()
             
             plt.plot([0, self.Q_dot_sc]                          , [self.su_C.T, self.T_sat_ev]  , 'b', label='C')

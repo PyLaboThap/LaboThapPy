@@ -1,21 +1,7 @@
-import sys
-import os
-
-# Get the absolute path of the directory that contains the script (simulation_model.py)
-current_dir = os.path.dirname(os.path.abspath(__file__))
-
-# Determine the project root directory (which contains both 'connector' and 'component')
-project_root = os.path.abspath(os.path.join(current_dir, '..', '..', '..'))
-
-# Add the project root to sys.path if it's not already there
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-###############    
 
 from component.base_component import BaseComponent
 from connector.mass_connector import MassConnector
 from connector.work_connector import WorkConnector
-from connector.heat_connector import HeatConnector
 
 from CoolProp.CoolProp import PropsSI
 
@@ -141,7 +127,7 @@ class PumpCstEff(BaseComponent):
             """PUMP MODEL"""
             # Calculate the outlet enthalpy based on isentropic efficiency
             h_ex_is = PropsSI('H', 'P', self.ex.p, 'S', self.su.s, self.su.fluid)
-            h_ex = self.su.h + (h_ex_is - self.su.h) * self.params['eta_is']
+            h_ex = self.su.h + (h_ex_is - self.su.h) / self.params['eta_is']
             w_pp = h_ex - self.su.h
             W_dot_pp = self.su.m_dot*w_pp
 

@@ -1,5 +1,5 @@
 import __init__
-from component.turbomachinery.pump_extrapolation import PumpExtrapolationModel
+from labothappy.component.pump.pump_extrapolation import PumpExtrapolationModel
 
 # Instantiate Pump
 Pump = PumpExtrapolationModel()

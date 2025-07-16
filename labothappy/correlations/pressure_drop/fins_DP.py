@@ -43,11 +43,11 @@ def DP_tube_and_fins(fluid, params, P_in, T_in, m_dot_in):
     
     "Geom data"
 
-    n_tubes = params['n_tubes']*params['Tube_pass']
+    n_tubes = params['n_tubes']
     Tube_ID = params['Tube_OD'] - 2*params['Tube_t']
     n_tpr = n_tubes/params['n_rows']
     
-    HTX_L = params['L']
+    HTX_L = params['Tube_L']
     HTX_W = params['w']
     
     Fin_L = (params['Fin_OD'] - params['Tube_OD'])/2
@@ -61,8 +61,8 @@ def DP_tube_and_fins(fluid, params, P_in, T_in, m_dot_in):
     # Fin conventional length
     D_fin_c = params['Tube_OD'] + (2*Fin_L*params['Fin_t'])/Fin_spacing
     
-    Tube_diag_pitch = np.sqrt(2)*params['pitch'] # Square staggered bank
-    psi_c = (params['pitch'] - D_fin_c)/(Tube_diag_pitch - D_fin_c)
+    Tube_diag_pitch = np.sqrt(2)*np.sqrt(params['pitch_V']*params['pitch_H']) # Square staggered bank
+    psi_c = (np.sqrt(params['pitch_V']*params['pitch_H']) - D_fin_c)/(Tube_diag_pitch - D_fin_c)
 
     if psi_c > 2:
         S_flow = (HTX_L*HTX_W - n_tpr*D_fin_c*params['Tube_L'])*(2/psi_c)
@@ -75,11 +75,11 @@ def DP_tube_and_fins(fluid, params, P_in, T_in, m_dot_in):
     
     # n and C_r
     
-    S_1 = params['pitch']
-    S_2 = params['pitch']
+    S_1 = params['pitch_V']
+    S_2 = params['pitch_H']
     
     fact_1 = np.pi*(params['Tube_OD']*Fin_spacing + 2*Fin_L*params['Fin_t'] + 2*Fin_L*(Fin_L + params['Tube_OD']))
-    fact_2 = params['pitch']*Fin_spacing - (params['Tube_OD']*Fin_spacing + 2*Fin_L*params['Fin_t'])
+    fact_2 = np.sqrt(params['pitch_V']*params['pitch_H'])*Fin_spacing - (params['Tube_OD']*Fin_spacing + 2*Fin_L*params['Fin_t'])
     
     A_totF = fact_1/fact_2 # Reduced length of developped surface
         
@@ -95,7 +95,7 @@ def DP_tube_and_fins(fluid, params, P_in, T_in, m_dot_in):
         
     # D_eq
     
-    D_eq = 2*(Fin_spacing*(params['pitch']-params['Tube_OD']) - 2*Fin_L*params['Fin_t'])/(2*Fin_L + Fin_spacing)
+    D_eq = 2*(Fin_spacing*(np.sqrt(params['pitch_V']*params['pitch_H'])-params['Tube_OD']) - 2*Fin_L*params['Fin_t'])/(2*Fin_L + Fin_spacing)
 
     # xi_o
     

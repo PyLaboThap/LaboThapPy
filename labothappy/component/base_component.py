@@ -7,6 +7,10 @@ Created on Tue Sep 10 14:09:18 2024
 
 """
 
+from connector.mass_connector import MassConnector
+from connector.work_connector import WorkConnector
+from connector.heat_connector import HeatConnector
+
 class BaseComponent:
     """
 
@@ -29,6 +33,9 @@ class BaseComponent:
 
         set_inputs(inputs):
             Sets the input values for the component.
+
+        sync_inputs():
+            Synchronizes the inputs dictionary with the current state of the component's connectors.
             
         set_parameters(parameters):
             Sets the parameter values for the component and checks if it is fully parametrized.
@@ -67,72 +74,162 @@ class BaseComponent:
         self.inputs = {}
         self.params = {}
         self.guesses = {}
+        self.print_flag = 1
 
     def set_inputs(self, **kwargs):
         """Set inputs directly through a dictionary and update connector properties."""
         self.inputs.update(kwargs)
 
-        # Update the connectors based on the new inputs
-        try:
-            if 'fluid' in self.inputs:
-                self.su.set_fluid(self.inputs['fluid'])
-            if 'T_su' in self.inputs:
-                self.su.set_T(self.inputs['T_su'])
-            if 'h_su' in self.inputs:
-                self.su.set_h(self.inputs['h_su'])
-            if 'P_su' in self.inputs:
-                self.su.set_p(self.inputs['P_su'])
-            if 'm_dot' in self.inputs:
-                self.su.set_m_dot(self.inputs['m_dot'])
-        except:
-            pass
-        try:
-            if 'P_ex' in self.inputs:
-                self.ex.set_p(self.inputs['P_ex'])
-        except:
-            pass
-        try:
-            if 'N_rot' in self.inputs:
-                self.W_mec.set_N(self.inputs['N_rot'])
-        except:
-            pass
-        try:
-            if 'T_amb' in self.inputs:
-                self.Q_amb.set_T_cold(self.inputs['T_amb'])
-        except:
-            pass
+        # Define mappings from input keys to methods
+        input_methods = {
+            # su connector inputs
+            'fluid':     lambda val: self.su.set_fluid(val),
+            'x_su':      lambda val: self.su.set_x(val),
+            'T_su':      lambda val: self.su.set_T(val),
+            'h_su':      lambda val: self.su.set_h(val),
+            'P_su':      lambda val: self.su.set_p(val),
+            'm_dot':     lambda val: self.su.set_m_dot(val),
+
+            # su_1 connector inputs
+            'fluid_su_1': lambda val: self.su_1.set_fluid(val),
+            'T_su_1':    lambda val: self.su_1.set_T(val),
+            'h_su_1':    lambda val: self.su_1.set_h(val),
+            'P_su_1':    lambda val: self.su_1.set_p(val),
+            'm_dot_su_1': lambda val: self.su_1.set_m_dot(val),
+
+            # su_2 connector inputs
+            'fluid_su_2': lambda val: self.su_2.set_fluid(val),
+            'T_su_2':    lambda val: self.su_2.set_T(val),
+            'h_su_2':    lambda val: self.su_2.set_h(val),
+            'P_su_2':    lambda val: self.su_2.set_p(val),
+            'm_dot_su_2': lambda val: self.su_2.set_m_dot(val),
+
+            # su_H connector inputs
+            'fluid_H': lambda val: self.su_H.set_fluid(val),
+            'T_su_H':    lambda val: self.su_H.set_T(val),
+            'h_su_H':    lambda val: self.su_H.set_h(val),
+            'P_su_H':    lambda val: self.su_H.set_p(val),
+            'm_dot_H':   lambda val: self.su_H.set_m_dot(val),
+
+            # su_C connector inputs
+            'fluid_C': lambda val: self.su_C.set_fluid(val),
+            'T_su_C':    lambda val: self.su_C.set_T(val),
+            'h_su_C':    lambda val: self.su_C.set_h(val),
+            'P_su_C':    lambda val: self.su_C.set_p(val),
+            'm_dot_C':   lambda val: self.su_C.set_m_dot(val),
+
+            # ex connector inputs
+            'P_ex':      lambda val: self.ex.set_p(val),
+            'T_ex':      lambda val: self.ex.set_T(val),
+            'h_ex':      lambda val: self.ex.set_h(val),
+            'x_ex':      lambda val: self.ex.set_x(val),
+
+            # ex_1 connector inputs
+            'P_ex_1':    lambda val: self.ex_1.set_p(val),
+            'T_ex_1':    lambda val: self.ex_1.set_T(val),
+            'h_ex_1':    lambda val: self.ex_1.set_h(val),
+
+            # ex_2 connector inputs
+            'P_ex_2':    lambda val: self.ex_2.set_p(val),
+            'T_ex_2':    lambda val: self.ex_2.set_T(val),
+            'h_ex_2':    lambda val: self.ex_2.set_h(val),         
+
+            # ex_H connector inputs
+            'P_ex_H':    lambda val: self.ex_H.set_p(val),
+            'T_ex_H':    lambda val: self.ex_H.set_T(val),
+            'h_ex_H':    lambda val: self.ex_H.set_h(val),
+
+            # ex_C connector inputs
+            'P_ex_C':    lambda val: self.ex_C.set_p(val),
+            'T_ex_C':    lambda val: self.ex_C.set_T(val),
+            'h_ex_C':    lambda val: self.ex_C.set_h(val),
+
+            # W connector inputs
+            'N_rot':     lambda val: self.W.set_N(val),
+
+            # Q_amb connector inputs
+            'T_amb':     lambda val: self.Q_amb.set_T_cold(val),
+        }
+
+        unknown_keys = []  # To collect any keys that do not match the input methods
+
+        for key, value in self.inputs.items():
+            method = input_methods.get(key)
+            if method:
+                try:
+                    method(value)
+                except Exception as e:
+                    # Optionally log the exception or raise with more context
+                    pass  # Replace with logging if desired
+            else:
+                unknown_keys.append(key)
+
+        if unknown_keys:
+            raise ValueError(f"Unrecognized input keys: {', '.join(unknown_keys)}")
         return
 
     def sync_inputs(self):
         """Synchronize the inputs dictionary with the connector states."""
-        try:
-            if self.su.fluid is not None:
-                self.inputs['fluid'] = self.su.fluid
-            if self.su.T is not None:
-                self.inputs['T_su'] = self.su.T
-            if self.su.h is not None:
-                self.inputs['h_su'] = self.su.h
-            if self.su.p is not None:
-                self.inputs['P_su'] = self.su.p
-            if self.su.m_dot is not None:
-                self.inputs['m_dot'] = self.su.m_dot
-        except:
-            pass
-        try:
-            if self.ex.p is not None:
-                self.inputs['P_ex'] = self.ex.p
-        except:
-            pass
-        try:
-            if self.W_mec.N is not None:
-                self.inputs['N_rot'] = self.W_mec.N
-        except:
-            pass
-        try:
-            if self.Q_amb.T_cold is not None:
-                self.inputs['T_amb'] = self.Q_amb.T_cold
-        except:
-            pass
+
+        # Lazy getters: only access if the connector exists
+        attribute_map = {
+            # su connectors
+            'fluid':     lambda: self.su.fluid if hasattr(self,'su') else None,
+            'T_su':      lambda: self.su.T if hasattr(self,'su') else None,
+            'h_su':      lambda: self.su.h if hasattr(self,'su') else None,
+            'P_su':      lambda: self.su.p if hasattr(self,'su') else None,
+            'm_dot':     lambda: self.su.m_dot if hasattr(self, 'su') else None,
+
+            # su_H connector
+            'fluid_H':   lambda: self.su_H.fluid if hasattr(self,'su_H') else None,
+            'T_su_H':    lambda: self.su_H.T if hasattr(self,'su_H') else None,
+            'h_su_H':    lambda: self.su_H.h if hasattr(self,'su_H') else None,
+            'P_su_H':    lambda: self.su_H.p if hasattr(self,'su_H') else None,
+            'm_dot_H':   lambda: self.su_H.m_dot if hasattr(self,'su_H') else None,
+
+            # su_C connector
+            'fluid_C':   lambda: self.su_C.fluid if hasattr(self,'su_C') else None,
+            'T_su_C':    lambda: self.su_C.T if hasattr(self,'su_C') else None,
+            'h_su_C':    lambda: self.su_C.h if hasattr(self,'su_C') else None,
+            'P_su_C':    lambda: self.su_C.p if hasattr(self,'su_C') else None,
+            'm_dot_C':   lambda: self.su_C.m_dot if hasattr(self,'su_C') else None,
+
+            # ex connector
+            'P_ex':      lambda: self.ex.p if hasattr(self,'ex') else None,
+            'T_ex':      lambda: self.ex.T if hasattr(self,'ex') else None,
+            'h_ex':      lambda: self.ex.h if hasattr(self,'ex') else None,
+
+            # ex_C connector
+            'P_ex_C':    lambda: self.ex_C.p if hasattr(self,'ex_C') else None,
+            'T_ex_C':    lambda: self.ex_C.T if hasattr(self,'ex_C') else None,
+            'h_ex_C':    lambda: self.ex_C.h if hasattr(self,'ex_C') else None,
+
+            # ex_H connector
+            'P_ex_H':    lambda: self.ex_H.p if hasattr(self,'ex_H') else None,
+            'T_ex_H':    lambda: self.ex_H.T if hasattr(self,'ex_H') else None,
+            'h_ex_H':    lambda: self.ex_H.h if hasattr(self,'ex_H') else None,
+
+            # W connector
+            'N_rot':     lambda: self.W.N if hasattr(self,'W') else None,
+
+            # Q_amb connector
+            'T_amb':     lambda: self.Q_amb.T_cold if hasattr(self,'Q_amb') else None,
+        }
+
+        self.inputs = getattr(self,'inputs',{})
+
+        for key, getter in attribute_map.items():
+            try:
+                value = getter()
+                if value is not None:
+                    self.inputs[key] = value
+            except Exception:
+                pass  # Optional: add logging for debugging
+
+        return
+
+    def mute_print(self):
+        self.print_flag = 0
         return
 
     def print_setup(self):
@@ -166,12 +263,19 @@ class BaseComponent:
     def check_calculable(self):
         self.sync_inputs()
         required_inputs = self.get_required_inputs() 
+        
         self.calculable = all(self.inputs.get(inp) is not None for inp in required_inputs) # check if all required inputs are set
+        if not self.calculable:
+            if self.print_flag:
+                print(f"Component {self.__class__.__name__} is not calculable. Missing inputs: {', '.join([inp for inp in required_inputs if self.inputs.get(inp) is None])}")
         return self.calculable
 
     def check_parametrized(self):
         required_params = self.get_required_parameters()
         self.parametrized = all(self.params.get(param) is not None for param in required_params) # check if all required parameters are set
+        if not self.parametrized:
+            if self.print_flag:
+                print(f"Component {self.__class__.__name__} is not parametrized. Missing parameters: {', '.join([param for param in required_params if self.params.get(param) is None])}")
         return self.parametrized
 
     def get_required_inputs(self):

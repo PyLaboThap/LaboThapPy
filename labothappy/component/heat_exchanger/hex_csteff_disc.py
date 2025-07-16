@@ -27,6 +27,76 @@ import numpy as np
 import math
 
 class HXEffCstDisc(BaseComponent):
+    """
+    Component: Counterflow Heat Exchanger with Constant Effectiveness (HXEffCstDisc)
+    
+    Model: Discretized Counterflow Heat Exchanger with Fixed Effectiveness and Pinch Check
+    
+    **Description**:
+    
+        This model simulates a counterflow heat exchanger with constant effectiveness, discretized into segments along the flow direction. The model uses energy balances and basic thermodynamics (via CoolProp) to determine outlet conditions for both hot and cold streams. It iteratively adjusts the effectiveness to satisfy a minimum pinch point temperature difference (Pinch_min). The model is suitable for on-design, steady-state simulations of heat exchangers where detailed flow dynamics are simplified.
+    
+    **Assumptions**:
+    
+        - Steady-state operation.
+        - Constant effectiveness per iteration, adjusted to meet Pinch_min.
+        - Uniform discretization of the heat exchanger along its length.
+        - Uniform mass flow rates at inlets and outlets.
+        - Fluid properties are obtained via CoolProp.
+    
+    **Connectors**:
+    
+        su_C (MassConnector): Mass connector for the cold-side supply.
+        su_H (MassConnector): Mass connector for the hot-side supply.
+        ex_C (MassConnector): Mass connector for the cold-side exhaust.
+        ex_H (MassConnector): Mass connector for the hot-side exhaust.
+        Q_dot (HeatConnector): Heat transfer connector for the total exchanged heat.
+    
+    **Parameters**:
+    
+        eta (float): Initial effectiveness of the heat exchanger [-].
+        
+        n_disc (int): Number of discretization segments along the exchanger length.
+        
+        Pinch_min (float): Minimum allowable pinch temperature difference [K].
+    
+    **Inputs**:
+    
+        su_H_fluid (str): Hot-side fluid.
+        
+        su_H_h (float): Hot-side inlet specific enthalpy [J/kg].
+        
+        su_H_p (float): Hot-side inlet pressure [Pa].
+        
+        su_H_m_dot (float): Hot-side mass flow rate [kg/s].
+    
+        su_C_fluid (str): Cold-side fluid.
+        
+        su_C_h (float): Cold-side inlet specific enthalpy [J/kg].
+        
+        su_C_p (float): Cold-side inlet pressure [Pa].
+        
+        su_C__m_dot (float): Cold-side mass flow rate [kg/s].
+    
+    **Outputs**:
+    
+        ex_C_h: Cold-Side Exhaust specific enthalpy at outlet [J/kg].
+        
+        ex_C_p: Cold-Side Exhaust pressure at outlet [Pa].
+                    
+        ex_C_h: Hot-Side specific enthalpy at outlet [J/kg].
+        
+        ex_C_p: Hot-Side pressure at outlet [Pa].
+        
+        Q_dot: Total heat transfer rate across the exchanger [W].
+        
+        DT_pinch: Minimum temperature difference between hot and cold streams across all segments [K].
+        
+        h_hot, h_cold: Arrays of enthalpies across discretization points [J/kg].
+        T_hot, T_cold: Arrays of temperatures across discretization points [K].
+    
+    """
+    
     def __init__(self):
         super().__init__()
         self.su_C = MassConnector() # Working fluid supply
@@ -37,6 +107,11 @@ class HXEffCstDisc(BaseComponent):
         self.Q_dot = HeatConnector()
         self.guesses = {}
         self.DT_pinch = -1
+        
+        self.h_hot = None
+        self.h_cold = None
+        self.T_hot = None
+        self.T_cold = None
 
     def get_required_inputs(self): # Used in check_calculablle to see if all of the required inputs are set
         self.sync_inputs()
@@ -149,11 +224,11 @@ class HXEffCstDisc(BaseComponent):
         # print("------------------------------------------------")
         
         self.Q_dot_max = min(Q_dot_maxh,Q_dot_maxc)
-                    
+        
         "Heat Transfer Rate"
-        self.Q = self.params['eta']*self.Q_dot_max    
+        self.Q = self.params['eta']*self.Q_dot_max
         Q_dot_seg = self.Q / self.params['n_disc']
-    
+        
         # Set inlet enthalpies
         self.h_hot[0] = self.su_H.h
         self.T_hot[0] = self.su_H.T
@@ -162,12 +237,12 @@ class HXEffCstDisc(BaseComponent):
         self.h_cold[0] = h_cold_out
         
         self.T_cold[0] = PropsSI('T', 'H', h_cold_out, 'P', self.su_C.p, self.su_C.fluid)
-    
+        
         for i in range(self.params['n_disc']):
             # Hot side: forward direction
             self.h_hot[i+1] = self.h_hot[i] - Q_dot_seg / self.su_H.m_dot
             self.T_hot[i+1] = PropsSI('T', 'H', self.h_hot[i+1], 'P', self.su_H.p, self.su_H.fluid)
-    
+            
             # Cold side: reverse direction
             self.h_cold[i+1] = self.h_cold[i] - Q_dot_seg / self.su_C.m_dot
             self.T_cold[i+1] = PropsSI('T', 'H', self.h_cold[i+1], 'P', self.su_C.p, self.su_C.fluid)
@@ -196,11 +271,12 @@ class HXEffCstDisc(BaseComponent):
             print("HTX IS NOT PARAMETRIZED")
             return
 
-        # Allocate arrays
-        self.h_hot = np.zeros(self.params['n_disc']+1)
-        self.h_cold = np.zeros(self.params['n_disc']+1)
-        self.T_hot = np.zeros(self.params['n_disc']+1)
-        self.T_cold = np.zeros(self.params['n_disc']+1)
+        if self.T_hot is None:
+            # Allocate arrays
+            self.h_hot = np.zeros(self.params['n_disc']+1)
+            self.h_cold = np.zeros(self.params['n_disc']+1)
+            self.T_hot = np.zeros(self.params['n_disc']+1)
+            self.T_cold = np.zeros(self.params['n_disc']+1)
 
         self.DT_pinch = -1 
 
@@ -237,6 +313,8 @@ class HXEffCstDisc(BaseComponent):
 
         "Heat conector"
         self.Q_dot.set_Q_dot(self.Q)
+
+        return
 
     def print_results(self):
         print("=== Heat Exchanger Results ===")

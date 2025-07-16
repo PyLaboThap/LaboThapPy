@@ -1,4 +1,4 @@
-import __init__
+# import __init__
 from component.compressor.compressor_semi_empirical import CompressorSE
 
 "Example of the semi-empirical model compressor component"

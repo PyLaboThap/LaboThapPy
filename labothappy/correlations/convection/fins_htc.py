@@ -188,11 +188,11 @@ def htc_tube_and_fins_square(fluid, params, P_in, h_in, m_dot_in):
 
     n_tubes = params['n_tubes']
     Tube_ID = params['Tube_OD'] - 2*params['Tube_t']
-    n_tpr = n_tubes/(params['n_rows'])
+    n_tpr = n_tubes/(params['n_rows']*params['Tube_pass'])
     
     # print("n_tpr", n_tpr)
     
-    HTX_L = params['L']
+    HTX_L = params['Tube_L']
     HTX_W = params['w']
     
     Fin_L = (params['Fin_OD'] - params['Tube_OD'])/2
@@ -206,7 +206,7 @@ def htc_tube_and_fins_square(fluid, params, P_in, h_in, m_dot_in):
     A_r = 2*(params['Fin_OD']**2 - 0.785*params['Tube_OD']**2 + 2*params['Fin_OD']*params['Fin_t'])*(params['Tube_L']/Fin_spacing)*params['n_tubes']*params['Tube_pass']  # 
     
     L_t = params['Tube_L'] - N_fins*params['Fin_t']
-    A_t = np.pi*params['Tube_OD']*(params['Tube_L']*(1 - params['Fin_t']/Fin_spacing)*params['n_tubes']*params['Tube_pass'] + L_t)
+    A_t = np.pi*params['Tube_OD']*(params['Tube_L']*(1 - params['Fin_t']/Fin_spacing)*params['n_tubes'] + L_t)*params['Tube_pass']
     
     A_tot = A_r + A_t    
     
@@ -230,8 +230,8 @@ def htc_tube_and_fins_square(fluid, params, P_in, h_in, m_dot_in):
     # Fin conventional length
     D_fin_c = params['Tube_OD'] + (2*Fin_L*params['Fin_t'])/Fin_spacing
     
-    Tube_diag_pitch = np.sqrt(2)*params['pitch'] # Square staggered bank
-    psi_c = (params['pitch'] - D_fin_c)/(Tube_diag_pitch - D_fin_c)
+    Tube_diag_pitch = np.sqrt(2)*np.sqrt(params['pitch_V']*params['pitch_H']) # Square staggered bank
+    psi_c = (np.sqrt(params['pitch_V']*params['pitch_H']) - D_fin_c)/(Tube_diag_pitch - D_fin_c)
 
     if psi_c > 2:
         S_flow = (HTX_L*HTX_W - n_tpr*D_fin_c*params['Tube_L'])*(2/psi_c)
@@ -254,8 +254,8 @@ def htc_tube_and_fins_square(fluid, params, P_in, h_in, m_dot_in):
 
     "Bundle shape param X"
     
-    sigma_1 = params['pitch_ratio']
-    sigma_2 = params['pitch_ratio']
+    sigma_1 = params['pitch_V']/params['Tube_OD']
+    sigma_2 = params['pitch_H']/params['Tube_OD']
     
     X = sigma_1/sigma_2 - 1.26/Psi_f - 2
         
