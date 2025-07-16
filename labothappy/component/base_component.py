@@ -7,9 +7,9 @@ Created on Tue Sep 10 14:09:18 2024
 
 """
 
-from labothappy.connector.mass_connector import MassConnector
-from labothappy.connector.work_connector import WorkConnector
-from labothappy.connector.heat_connector import HeatConnector
+from connector.mass_connector import MassConnector
+from connector.work_connector import WorkConnector
+from connector.heat_connector import HeatConnector
 
 class BaseComponent:
     """
@@ -84,6 +84,7 @@ class BaseComponent:
         input_methods = {
             # su connector inputs
             'fluid':     lambda val: self.su.set_fluid(val),
+            'x_su':      lambda val: self.su.set_x(val),
             'T_su':      lambda val: self.su.set_T(val),
             'h_su':      lambda val: self.su.set_h(val),
             'P_su':      lambda val: self.su.set_p(val),
