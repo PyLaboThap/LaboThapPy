@@ -443,51 +443,55 @@ class AxialCPMLEtaDesign(object):
 
         return
 
-Comp = AxialCPMLEtaDesign('Cyclopentane')
+case_study = "Zorlu"
 
-# Cuerva Case
+if case_study == 'Cuerva':
 
-# Comp.set_inputs(
-#     mdot = 53.52, # kg/s
-#     W_dot_req = 3150*1e3, # W
-#     p0_su = 1009*1e3, # Pa
-#     T0_su = 273.15 + 182.3, # K
-#     p_ex = 2493*1e3, # Pa
-#     psi = 1, # [-] # 0.25
-#     phi = 0.35, # [-]
-#     R = 0.5, # [-] # 0.875
-#     Mmax = 0.8 # [-]
-#     )
+    Comp = AxialCPMLEtaDesign('Cyclopentane')
+    
+    Comp.set_inputs(
+        mdot = 53.52, # kg/s
+        W_dot = 3150*1e3, # W
+        p0_su = 1009*1e3, # Pa
+        T0_su = 273.15 + 182.3, # K
+        p_ex = 2493*1e3, # Pa
+        psi = 1, # [-] # 0.25
+        phi = 0.35, # [-]
+        R = 0.5, # [-] # 0.875
+        Mmax = 0.8 # [-]
+        )
+    
+    Comp.set_parameters(
+        Zweifel = 0.8, # [-]
+        Re_min = 5e5, # [-]
+        AR_min = 1, # [-]
+        r_hub_tip_max = 0.95, # [-]
+        r_hub_tip_min = 0.6, # [-]
+        )
 
-# Comp.set_parameters(
-#     Zweifel = 0.8, # [-]
-#     Re_min = 5e5, # [-]
-#     AR_min = 1, # [-]
-#     r_hub_tip_max = 0.95, # [-]
-#     r_hub_tip_min = 0.6, # [-]
-#     )
+elif case_study == 'Zorlu':
+    
+    Comp = AxialCPMLEtaDesign('Cyclopentane')
 
-# Zorlu Case
-
-Comp.set_inputs(
-    mdot = 19.24, # kg/s
-    W_dot_req = 1187*1e3, # W
-    p0_su = 468.4*1e3, # Pa
-    T0_su = 273.15 + 138.3, # K
-    p_ex = 1149*1e3, # Pa
-    psi = 1, # [-]
-    phi = 0.35, # [-]
-    R = 0.5, # [-]
-    Mmax = 0.8 # [-]
-    )
-
-Comp.set_parameters(
-    Zweifel = 0.8, # [-]
-    Re_min = 5e5, # [-]
-    AR_min = 1, # [-]
-    r_hub_tip_max = 0.95, # [-]
-    r_hub_tip_min = 0.6, # [-]
-    )
+    Comp.set_inputs(
+        mdot = 19.24, # kg/s
+        W_dot_req = 1187*1e3, # W
+        p0_su = 468.4*1e3, # Pa
+        T0_su = 273.15 + 138.3, # K
+        p_ex = 1149*1e3, # Pa
+        psi = 1, # [-]
+        phi = 0.35, # [-]
+        R = 0.5, # [-]
+        Mmax = 0.8 # [-]
+        )
+    
+    Comp.set_parameters(
+        Zweifel = 0.8, # [-]
+        Re_min = 5e5, # [-]
+        AR_min = 1, # [-]
+        r_hub_tip_max = 0.95, # [-]
+        r_hub_tip_min = 0.6, # [-]
+        )
 
 Comp.design()
 

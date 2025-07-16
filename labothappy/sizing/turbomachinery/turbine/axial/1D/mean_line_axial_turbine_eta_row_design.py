@@ -463,11 +463,6 @@ if case_study == 'Cuerva':
         AR_min = 1, # [-]
         r_hub_tip_max = 0.95, # [-]
         r_hub_tip_min = 0.6, # [-]
-        r_m_bounds = [0.4,0.5], # [m]
-        psi_bounds = [0.9,1.4], # [-]
-        phi_bounds = [0.4,0.6], # [-] 
-        R_bounds = [0.49,0.51], # [-]
-        n_disc = 10
         )
 
 elif case_study == 'Zorlu':
@@ -492,11 +487,6 @@ elif case_study == 'Zorlu':
         AR_min = 1, # [-]
         r_hub_tip_max = 0.95, # [-]
         r_hub_tip_min = 0.6, # [-]
-        r_m_bounds = [0.16,0.4], # [m]
-        psi_bounds = [0.8,1.4], # [-]
-        phi_bounds = [0.5,0.7], # [-] 
-        R_bounds = [0.49,0.51], # [-]
-        n_disc = 15
         )
     
 elif case_study == 'TCO2_ORC':
@@ -521,11 +511,6 @@ elif case_study == 'TCO2_ORC':
         AR_min = 1, # [-]
         r_hub_tip_max = 0.95, # [-]
         r_hub_tip_min = 0.6, # [-]
-        r_m_bounds = [0.01,1], # [m]
-        psi_bounds = [0.8,1.4], # [-]
-        phi_bounds = [0.5,0.7], # [-] 
-        R_bounds = [0.49,0.51], # [-]
-        n_disc = 3
         )
 
 

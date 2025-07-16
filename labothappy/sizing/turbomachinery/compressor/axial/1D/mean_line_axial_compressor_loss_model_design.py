@@ -5,6 +5,7 @@
 from connector.mass_connector import MassConnector
 from CoolProp.CoolProp import PropsSI
 from scipy.optimize import fsolve, minimize, differential_evolution
+import pyswarms as ps
 
 import CoolProp.CoolProp as CP
 import matplotlib.pyplot as plt
@@ -35,6 +36,22 @@ class AxialCPMLLossCorrDesign(object):
         
         # Blade Row Efficiency
         self.eta_blade_row = None
+
+    def reset(self):
+
+        self.AS = CP.AbstractState('HEOS', self.fluid)
+        
+        # Blade Dictionnary
+        self.stages = []
+        
+        # Velocity Triangle Data
+        self.Vel_Tri = {}
+        self.Vel_Tri_Last_Stage = {}
+        
+        # Blade Row Efficiency
+        self.eta_blade_row = None
+        
+        return
 
     # ---------------- Stage Sub Class ----------------------------------------------------------------------
     
@@ -239,9 +256,9 @@ class AxialCPMLLossCorrDesign(object):
     def computeVelTriangle(self):
 
         # Velocities over u
-        self.Vel_Tri['vu2OverU'] = (2*(1-self.inputs['R']) + self.inputs['psi'])/2
-        self.Vel_Tri['vu3OverU'] = (2*(1-self.inputs['R']) - self.inputs['psi'])/2
-        self.Vel_Tri['vmOverU']  = self.inputs['phi']
+        self.Vel_Tri['vu2OverU'] = (2*(1-self.R) + self.psi)/2
+        self.Vel_Tri['vu3OverU'] = (2*(1-self.R) - self.psi)/2
+        self.Vel_Tri['vmOverU']  = self.phi
         
         self.Vel_Tri['wu2OverU']  = self.Vel_Tri['vu2OverU'] - 1
         self.Vel_Tri['wu3OverU']  = self.Vel_Tri['vu3OverU'] - 1
@@ -277,8 +294,8 @@ class AxialCPMLLossCorrDesign(object):
             stage.chord_S = stage.h_blade_S/stage.AR_S
             stage.pitch_S = self.solidityStator*stage.chord_S
 
-            stage.n_blade_S = round(2*np.pi*self.r_m/stage.pitch_S)
-            self.n_blade.append(stage.n_blade_S)
+            # stage.n_blade_S = round(2*np.pi*self.r_m/stage.pitch_S)
+            # self.n_blade.append(stage.n_blade_S)
             
             # 5) Estimate pressure losses 
             # 5.1) Aungier : Profile pressure losses                     
@@ -353,8 +370,8 @@ class AxialCPMLLossCorrDesign(object):
             stage.chord_R = stage.h_blade_R/stage.AR_R
             stage.pitch_R = self.solidityRotor*stage.chord_R
 
-            stage.n_blade_R = round(2*np.pi*self.r_m/stage.pitch_R)
-            self.n_blade.append(stage.n_blade_R)
+            # stage.n_blade_R = round(2*np.pi*self.r_m/stage.pitch_R)
+            # self.n_blade.append(stage.n_blade_R)
             
             # 5) Estimate pressure losses 
             # 5.1) Aungier : Profile pressure losses                     
@@ -371,7 +388,6 @@ class AxialCPMLLossCorrDesign(object):
             P_cst = np.cos(self.Vel_Tri["beta2"])/2 * self.solidityRotor * (w_1/w_2)**2 # Profile Constant
             
             Yp = 0.004*(1+3.1*(D_e - 1)**2 + 0.4*(D_e-1)**8)/P_cst
-        
         
             # 5.2) Cohen : Endwall losses
             EW_Cst = np.cos((self.Vel_Tri["beta1"]+self.Vel_Tri["beta2"])/2)**3 / np.cos(self.Vel_Tri["beta1"])**2  # Endwall Constant
@@ -425,7 +441,21 @@ class AxialCPMLLossCorrDesign(object):
     
     # ---------------- Main Method ------------------------------------------------------------------------
     
-    def design(self):
+    def design_system(self, x):
+        
+        self.penalty = -1
+
+        self.reset()
+        
+        self.psi = x[0]
+        self.phi = x[1]
+        self.R = x[2]
+        self.r_m = x[3]
+                
+        self.r_tip = []
+        self.r_hub = []
+        self.r_hub_tip = []
+        self.r_ratio2 = []
         
         # First Stator Instanciation
         self.stages.append(self.stage(self.fluid))
@@ -438,7 +468,7 @@ class AxialCPMLLossCorrDesign(object):
         h_is_ex = self.AS.hmass()
         Dh0s = self.stages[0].total_states['H'][1] - h_is_ex
         
-        Dh0 = self.inputs['W_dot_req']/self.inputs['mdot']
+        Dh0 = self.inputs['W_dot']/self.inputs['mdot']
         
         self.eta_is = Dh0/Dh0s
         
@@ -458,7 +488,7 @@ class AxialCPMLLossCorrDesign(object):
         "------------- 4) Compute number of stage + recompute u  -----------------------------------------" 
         
         # Compute required number of stages based on assumed u
-        Dh0Stage = self.inputs['psi'] * self.Vel_Tri['u']**2
+        Dh0Stage = self.psi * self.Vel_Tri['u']**2
         self.nStages = int(round(Dh0/Dh0Stage))
         
         for i in range(self.nStages-1):
@@ -466,7 +496,7 @@ class AxialCPMLLossCorrDesign(object):
         
         # Recompute u based on the number of stages to satisfy the work. As r_m is constant, u is contant accross stages
         self.Dh0Stage = Dh0/self.nStages
-        self.Vel_Tri['u'] = np.sqrt(self.Dh0Stage/self.inputs['psi'])
+        self.Vel_Tri['u'] = np.sqrt(self.Dh0Stage/self.psi)
 
         "------------- 5) Compute complete velocity triangles and exit losses ----------------------------" 
 
@@ -481,37 +511,34 @@ class AxialCPMLLossCorrDesign(object):
 
         self.exit_loss = (self.Vel_Tri['vm']**2+self.Vel_Tri['vu3']**2)/2
 
-        # "------------- 6) Iterate on r_m and compute repeating stages ------------------------" 
+        "------------- 6) Iterate on r_m and compute repeating stages ------------------------" 
 
         h_in = self.stages[0].total_states['H'][1] - (self.Vel_Tri['vm']**2)/2
         self.stages[0].update_static_AS(CP.HmassSmass_INPUTS, h_in, s_in, 1)
-
-        def find_r_m(x):
-            self.r_m = np.round(x[0],3)
-            
-            self.n_blade = []
-            self.r_tip = []
-            self.r_hub = []
-            self.r_hub_tip = []
-            self.r_ratio2 = []
-    
-            self.computeRepeatingStages()
         
-            if self.r_hub_tip[-1] > 0: # Penalty to prevent converging to values not satisfying conditions on r_hub_tip
-                penalty_1 = max(self.r_hub_tip[-1] - self.params['r_hub_tip_max'],0)*1000
-                penalty_2 = max(self.params['r_hub_tip_min'] - self.r_hub_tip[0],0)*1000
-                                
-                return self.r_m + penalty_1 + penalty_2
-            
-            else: # A very high penalty prevents converging to r_m values very close to 0,  
-                return self.r_m + 100
-        
-        sol = differential_evolution(find_r_m, bounds = self.params['r_m_bounds'], popsize = 5, strategy='best1bin', tol=1e-3, maxiter=100)        
+        try:
+            self.computeRepeatingStages()        
+        except:
+            print("Error in stages")
+            obj = 10000
+            return obj     
         
         "------------- 7) Compute rotation speed and number of blades per stage ---------------------------" 
 
         self.omega_rads = self.Vel_Tri['u']/self.r_m # rad/s
         self.omega_RPM = self.omega_rads*60/(2*np.pi) 
+
+        self.n_blade = []
+
+        for stage in self.stages:
+              stage.pitch_S = self.solidityStator*stage.chord_S
+              stage.pitch_R = self.solidityRotor*stage.chord_R
+
+              stage.n_blade_S = round(2*np.pi*self.r_m/stage.pitch_S)
+              self.n_blade.append(stage.n_blade_S)
+
+              stage.n_blade_R = round(2*np.pi*self.r_m/stage.pitch_R)
+              self.n_blade.append(stage.n_blade_R)
 
         "------------- 8) Compute main outputs -------------------------------------------------------------" 
         
@@ -522,66 +549,158 @@ class AxialCPMLLossCorrDesign(object):
 
         hout_s = self.AS.hmass()
         
-        self.W_dot = self.inputs['mdot']*(hin-hout)
+        self.W_dot = self.inputs['mdot']*(hout-hin)
                 
         self.eta_is = (hout_s - hin)/(hout - hin)
 
-        "------------- 9) Print Main Results -------------------------------------------------------------" 
+        penalty_1 = max(self.r_hub_tip[0] - self.params['r_hub_tip_min'],0)*100
+        penalty_2 = max(self.params['r_hub_tip_max'] - self.r_hub_tip[-1],0)*100
         
-        print(f"Compressor mean diameter: {self.r_m} [m]")
+        if abs((self.inputs["p_ex"] - self.stages[-1].static_states['P'][2])/self.inputs["p_ex"]) >= 5e-2:
+            penalty_3 = abs((self.inputs["p_ex"] - self.stages[-1].static_states['P'][2])/self.inputs["p_ex"])*10
+            self.Pressure_Deviation = self.inputs["p_ex"] - self.stages[-1].static_states['P'][2]
+        else:
+            penalty_3 = 0
+            self.Pressure_Deviation = self.inputs["p_ex"] - self.stages[-1].static_states['P'][2]
+
+        self.penalty = penalty_1 + penalty_2 + penalty_3
+
+        if self.eta_is > 0 and self.eta_is <= 1:
+            if self.penalty == 0:
+                if self.W_dot > self.inputs['W_dot']:
+                    self.inputs['W_dot'] = self.W_dot
+                    
+            obj = -self.eta_is + self.penalty
+            # print(f"opt 'success' : {obj}")
+        else:
+            # print("Bad eta_is")
+            obj = 10000
+
+        return obj
+    
+    def design(self):
+    
+        bounds = (np.array([
+            self.params['psi_bounds'][0],
+            self.params['phi_bounds'][0],
+            self.params['R_bounds'][0],
+            self.params['r_m_bounds'][0],
+        ]),
+        np.array([
+            self.params['psi_bounds'][1],
+            self.params['phi_bounds'][1],
+            self.params['R_bounds'][1],
+            self.params['r_m_bounds'][1],
+        ]))
+        
+        def objective_wrapper(x):
+            # Round inputs if needed for discrete steps
+            rounded_x = np.copy(x)
+            # (Optional rounding logic goes here)
+            return np.array([self.design_system(xi) for xi in rounded_x])
+        
+        # Initialize the optimizer
+        optimizer = ps.single.GlobalBestPSO(
+            n_particles=50,
+            dimensions=4,
+            options={'c1': 1.5, 'c2': 2.0, 'w': 0.7},
+            bounds=bounds
+        )
+        
+        self.allowable_positions = []
+        
+        # Custom stopping logic
+        patience = 5
+        tol = 1e-3
+        max_iter = 20
+        no_improve_counter = 0
+        best_cost = np.inf
+        
+        for i in range(max_iter):
+            # One iteration step
+            optimizer.optimize(objective_wrapper, iters=1, verbose=False)
+        
+            current_best = optimizer.swarm.best_cost
+        
+            if current_best < best_cost - tol:
+                best_cost = current_best
+                no_improve_counter = 0
+            else:
+                no_improve_counter += 1
+        
+            print(f"[{i+1}] Best cost: {best_cost:.6f}")
+        
+            if no_improve_counter >= patience:
+                print("Stopping early due to stagnation.")
+                break
+             
+        best_pos = optimizer.swarm.best_pos
+             
+        self.design_system(best_pos)
+             
+        "------------- Print Main Results -------------------------------------------------------------" 
+        
+        print(f"Parameters : {self.psi, self.phi, self.R, self.r_m}")
+        
+        print(f"Compressor mean radius: {self.r_m} [m]")
         print(f"Compressor rotation speed: {self.omega_RPM} [RPM]")
         print(f"Compressor number of stage : {self.nStages} [-]")
-        print(f"Compressor total-to-static efficiency : {self.eta_is} [-]")
-
+        print(f"Compressor total-to-static efficiency : {self.eta_is} [-]")        
+        print(f"Compressor Generation : {self.W_dot} [W]") 
+        
         return
 
-Comp = AxialCPMLLossCorrDesign('Cyclopentane')
+case_study = "Zorlu"
 
-# Cuerva Case
+if case_study == 'Cuerva':
 
-Comp.set_inputs(
-    mdot = 53.52, # kg/s
-    W_dot_req = 3150*1e3, # W
-    p0_su = 1009*1e3, # Pa
-    T0_su = 273.15 + 182.3, # K
-    p_ex = 2493*1e3, # Pa
-    psi = 0.25, # [-] # 0.25
-    phi = 0.35, # [-]
-    R = 0.875, # [-] # 0.875
-    Mmax = 0.8 # [-]
-    )
+    Comp = AxialCPMLLossCorrDesign('Cyclopentane')
 
-Comp.set_parameters(
-    Zweifel = 0.8, # [-]
-    Re_min = 5e5, # [-]
-    AR_min = 1, # [-]
-    r_hub_tip_max = 0.95, # [-]
-    r_hub_tip_min = 0.6, # [-]
-    r_m_bounds = [(0.05,0.2)]
-    )
+    Comp.set_inputs(
+        mdot = 53.52, # kg/s
+        W_dot = 3150*1e3, # W
+        p0_su = 1009*1e3, # Pa
+        T0_su = 273.15 + 182.3, # K
+        p_ex = 2493*1e3, # Pa
+        Mmax = 0.8 # [-]
+        )
 
-# Zorlu Case
+    Comp.set_parameters(
+        Zweifel = 0.8, # [-]
+        Re_min = 5e5, # [-]
+        AR_min = 1, # [-]
+        r_hub_tip_max = 0.95, # [-]
+        r_hub_tip_min = 0.6, # [-]
+        r_m_bounds = [0.05,0.2], # [m]
+        psi_bounds = [0.7,1.4], # [-]
+        phi_bounds = [0.2,0.8], # [-] 
+        R_bounds = [0.49,0.51], # [-]
+        )
 
-# Comp.set_inputs(
-#     mdot = 19.24, # kg/s
-#     W_dot_req = 1187*1e3, # W
-#     p0_su = 468.4*1e3, # Pa
-#     T0_su = 273.15 + 138.3, # K
-#     p_ex = 1149*1e3, # Pa
-#     psi = 0.25, # [-]
-#     phi = 0.35, # [-]
-#     R = 0.875, # [-]
-#     Mmax = 0.8 # [-]
-#     )
+elif case_study == 'Zorlu':
 
-# Comp.set_parameters(
-#     Zweifel = 0.8, # [-]
-#     Re_min = 5e5, # [-]
-#     AR_min = 1, # [-]
-#     r_hub_tip_max = 0.95, # [-]
-#     r_hub_tip_min = 0.6, # [-]
-#     r_m_bounds = [(0.05,0.2)]
-#     )
+    Comp = AxialCPMLLossCorrDesign('Cyclopentane')    
+
+    Comp.set_inputs(
+        mdot = 19.24, # kg/s
+        W_dot = 1187*1e3, # W
+        p0_su = 468.4*1e3, # Pa
+        T0_su = 273.15 + 138.3, # K
+        p_ex = 1149*1e3, # Pa
+        Mmax = 0.8 # [-]
+        )
+    
+    Comp.set_parameters(
+        Zweifel = 0.8, # [-]
+        Re_min = 5e5, # [-]
+        AR_min = 1, # [-]
+        r_hub_tip_max = 0.95, # [-]
+        r_hub_tip_min = 0.6, # [-]
+        r_m_bounds = [0.05,0.2], # [m]
+        psi_bounds = [0.7,1.4], # [-]
+        phi_bounds = [0.2,0.8], # [-] 
+        R_bounds = [0.49,0.51], # [-]
+        )
 
 Comp.design()
 

@@ -11,19 +11,19 @@ from CoolProp.CoolProp import PropsSI
 from connector.mass_connector import MassConnector
 
 from component.heat_exchanger.hex_MB_charge_sensitive import HeatExchangerMB
-from component.heat_exchanger.steady_state.finite_volumes.cross_flow_tube_and_fins.simulation_model import CrossFlowTubeAndFinsHTX
+from component.heat_exchanger.hex_crossflowfintube_finitevolume import CrossFlowTubeAndFinsHTX
 
-from component.heat_exchanger.steady_state.finite_volumes.cross_flow_tube_and_fins.modules.geometry_tube_and_fins_hx import CFTubeAndFinsGeom
+from toolbox.geometries.heat_exchanger.geometry_tube_and_fins_hx import TubeAndFinsGeom
 from toolbox.geometries.heat_exchanger.geometry_shell_and_tube_hx import ShellAndTubeGeom
 from toolbox.geometries.heat_exchanger.geometry_tube_and_fins_hx import TubeAndFinsGeom
 
-from component.turbomachinery.turbine.steady_state.polyn_isentropic_eff.simulation_model import Turb_polyn_eff
-from component.turbomachinery.turbine.steady_state.polyn_isentropic_eff.modules.geometry_turb_polyn import Geometry_polyn_turb
+from component.expander.turbine_polyneff import Turb_polyn_eff
+from toolbox.geometries.expander.geometry_turb_polyn import Geometry_polyn_turb
 
-from component.turbomachinery.pump.steady_state.extrapolation_model.simulation_model_P_out import PumpExtrapolationModelP_out
-from component.turbomachinery.pump.steady_state.extrapolation_model.modules.geometry_extrapolation_pump import Geometry_extrapol_pump
+from component.pump.pump_extrapolation import PumpExtrapolationModel
+from toolbox.geometries.pump.geometry_extrapolation_pump import Geometry_extrapol_pump
 
-from component.tank.spliter.simulation_model import Spliter
+from component.tank.tank_spliter import Spliter
 from component.tank.tank_mixer import Mixer 
 
 #%% Define Circuit
@@ -35,7 +35,7 @@ Turbine = Turb_polyn_eff()
 Condenser_1 = CrossFlowTubeAndFinsHTX()
 Condenser_2 = CrossFlowTubeAndFinsHTX()
 
-Pump = PumpExtrapolationModelP_out()
+Pump = PumpExtrapolationModel()
 
 Spliter_ACC = Spliter(outlet_repartition=[0.5,0.5])
 Mixer_ACC = Mixer(n_inlets=2)
@@ -45,7 +45,7 @@ Mixer_ACC = Mixer(n_inlets=2)
 # TubeAndFinsGeom
 
 # Condenser 1
-ACC_geom = CFTubeAndFinsGeom()
+ACC_geom = TubeAndFinsGeom()
 ACC_geom.set_parameters("DECAGONE_ACC")
 
 Condenser_1.set_parameters(

@@ -7,7 +7,7 @@ Created on Mon Feb  3 15:31:53 2025
 
 import __init__
 
-from machine.circuit import Circuit
+from machine.circuit_rec import RecursiveCircuit
 from CoolProp.CoolProp import PropsSI
 
 from connector.mass_connector import MassConnector
@@ -23,7 +23,7 @@ from component.pump.pump_csteff import PumpCstEff
 # from component.tank.Separator.LV_separator import LV_Separator
 
 def basic_CO2_TC(HSource, CSource, eta_pp, eta_exp, eta_gh, PP_cd, SC_cd, P_low, P_high, m_dot):
-    CO2_TC = Circuit('CO2')
+    CO2_TC = RecursiveCircuit('CO2')
     
     # Create components
     Expander = ExpanderCstEff()
@@ -90,8 +90,8 @@ def basic_CO2_TC(HSource, CSource, eta_pp, eta_exp, eta_gh, PP_cd, SC_cd, P_low,
     
     return CO2_TC
 
-def REC_CO2_TC(HSource, CSource, eta_pp, eta_exp, eta_gh, eta_rec, PP_cd, SC_cd, P_low, P_high, m_dot):
-    CO2_TC = Circuit('CO2')
+def REC_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, eta_gh, eta_rec, PP_cd, SC_cd, P_low, P_high, m_dot):
+    CO2_TC = RecursiveCircuit('CO2')
     
     # Create components
     Expander = ExpanderCstEff()
@@ -111,13 +111,13 @@ def REC_CO2_TC(HSource, CSource, eta_pp, eta_exp, eta_gh, eta_rec, PP_cd, SC_cd,
     #%% Recuperator PARAMETERS
     
     Rec.set_parameters(**{
-        'eta': eta_rec, 'n_disc' : 20, 'Pinch_min' : 0
+        'eta': eta_rec, 'n_disc' : 20, 'Pinch_min' : Pinch_min_REC
     })    
     
     #%% GASCOOLER PARAMETERS
     
     GasHeater.set_parameters(**{
-        'eta': eta_gh, 'n_disc' : 20, 'Pinch_min' : 5
+        'eta': eta_gh, 'n_disc' : 20, 'Pinch_min' : Pinch_min_GH
     })
     
     #%% EVAPORATOR PARAMETERS

@@ -5,7 +5,7 @@ Created on Wed Feb  5 14:04:10 2025
 @author: Basile
 """
 
-from examples.CO2_Heat_Pumps.CO2_HeatPump_circuit import basic_CO2_HP, IHX_CO2_HP, Flash_CO2_HP_Series_CP
+from machine.examples.CO2_Heat_Pumps.CO2_HeatPump_circuit import basic_CO2_HP, IHX_CO2_HP, Flash_CO2_HP_Series_CP, IHX_EXP_CO2_HP
 from connector.mass_connector import MassConnector
 from CoolProp.CoolProp import PropsSI
 import numpy as np
@@ -13,19 +13,24 @@ import matplotlib.pyplot as plt
 
 "1) Initiate the heat pump cycle"
 
+study_case = "NoExp"
+print_flag = 0
+
+
 T_cold_source = 0.1+273.15
 T_hot_source = 15+273.15
 
 eta_is_cp = 0.7
 eta_gc = 0.9
 eta_IHX = 0.7
+eta_exp = 0.8 
 
 m_dot = 0.04
 
 PPTD_ev = 5
 SH_ev = 0.1
 
-P_high = 110*1e5
+P_high = 140*1e5
 P_sat_T_CSource = PropsSI('P', 'T', T_cold_source, 'Q', 0.5, 'CO2')
 P_crit_CO2 = PropsSI('PCRIT', 'CO2')
 
@@ -39,11 +44,17 @@ CSource = MassConnector()
 CSource.set_properties(fluid='Water', T=T_cold_source,
                        p=5e5, m_dot=1000*m_dot)  # 1000 # 625000
 
-CO2_HP = IHX_CO2_HP(HSource, CSource, eta_is_cp, eta_gc, eta_IHX, PPTD_ev, SH_ev, P_low_guess, P_high, m_dot) # 0.16 # 100
+if study_case == "Exp":
+    CO2_HP = IHX_EXP_CO2_HP(HSource, CSource, eta_is_cp, eta_gc, eta_IHX, eta_exp, PPTD_ev, SH_ev, P_low_guess, P_high, m_dot) # 0.16 # 100
+else:
+    CO2_HP = IHX_CO2_HP(HSource, CSource, eta_is_cp, eta_gc, eta_IHX, PPTD_ev, SH_ev, P_low_guess, P_high, m_dot, print_flag) # 0.16 # 100
 
 CO2_HP.solve()
 
-COP = CO2_HP.components['GasCooler'].model.Q_dot.Q_dot/CO2_HP.components['Compressor'].model.W.W_dot
+if study_case == "Exp":
+    COP = CO2_HP.components['GasCooler'].model.Q_dot.Q_dot/(CO2_HP.components['Compressor'].model.W.W_dot - CO2_HP.components['Expander'].model.W_exp.W_dot)
+else:
+    COP = CO2_HP.components['GasCooler'].model.Q_dot.Q_dot/CO2_HP.components['Compressor'].model.W.W_dot
 
 T_hw_out = CO2_HP.components['GasCooler'].model.ex_C.T
 

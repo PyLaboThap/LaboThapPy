@@ -5,7 +5,7 @@ Created on Wed Feb  5 14:04:10 2025
 @author: Basile
 """
 
-from examples.CO2_Transcritical_Circuits.CO2_Transcritical_circuit import basic_CO2_TC, REC_CO2_TC
+from machine.examples.CO2_Transcritical_Circuits.CO2_Transcritical_circuit import basic_CO2_TC, REC_CO2_TC
 from connector.mass_connector import MassConnector
 from CoolProp.CoolProp import PropsSI
 import numpy as np
@@ -53,20 +53,22 @@ if case_study == "Test_Bench":
     print(f"T_hw_out : {T_hw_out}")
 
 else:
-    T_cold_source = 15+273.15
+    T_cold_source = 0+273.15
     T_hot_source = 130+273.15
     
-    eta_is_exp = 0.8
+    eta_is_exp = 0.9
     eta_gh = 0.95
-    eta_rec = 0.7
+    eta_rec = 0.8
     eta_is_pp = 0.9
     
     m_dot = 100 # 0.08
     
+    Pinch_min_GH = 5
+    Pinch_min_REC = 0
     PPTD_cd = 5
     SC_cd = 0.1
     
-    P_high = 150*1e5
+    P_high = 140*1e5
     P_sat_T_CSource = PropsSI('P', 'T', T_cold_source,'Q',0.5,'CO2')
     P_crit_CO2 = PropsSI('PCRIT','CO2')
     
@@ -78,7 +80,7 @@ else:
     CSource = MassConnector()
     CSource.set_properties(fluid = 'Water', T = T_cold_source, p = 5e5, m_dot = m_dot*100) # 1000 # 625000
     
-    CO2_TC = REC_CO2_TC(HSource, CSource, eta_is_pp, eta_is_exp, eta_gh, eta_rec, PPTD_cd, SC_cd, P_low_guess, P_high, m_dot) # 0.16 # 100
+    CO2_TC = REC_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_is_pp, eta_is_exp, eta_gh, eta_rec, PPTD_cd, SC_cd, P_low_guess, P_high, m_dot) # 0.16 # 100
     
     CO2_TC.solve()
     
@@ -89,7 +91,7 @@ else:
     print(f"eta : {eta}")
     print(f"T_hw_out : {T_hw_out}")
 
-    CO2_TC.Ts_plot()
+    # CO2_TC.Ts_plot()
 
 # "2) Sensitivity Analysis of high pressure"
 
