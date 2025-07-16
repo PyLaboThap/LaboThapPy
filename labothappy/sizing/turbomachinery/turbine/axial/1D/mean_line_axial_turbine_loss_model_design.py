@@ -15,8 +15,6 @@ import pandas as pd
 import warnings
 warnings.filterwarnings("ignore")
 
-from correlations.turbomachinery.pressure_loss_model import balje_binsley, kacker_okaapu
-
 class AxialTurbineMeanLineDesign(object):
 
     def __init__(self, fluid):
@@ -287,15 +285,13 @@ class AxialTurbineMeanLineDesign(object):
         stage.chord_S = (self.params['Re_min']*stage.static_states['V'][2])/(stage.static_states['D'][2]*self.Vel_Tri['vm'])            
         stage.AR_S = stage.h_blade_S/stage.chord_S
         
-        stage.t_blade_S = self.params['t_c_ratio']*stage.chord_S
-        
         # 5) Estimate pressure losses 
         # 5.1) Balje-Binsley
         H_TE = 1.4 + 300/self.params['Re_min']**0.5 # Trailing-edge boundary layer shape factor : Aungier's Correlation for fully turbulent flow
         t_TE = 5e-4 # m Tailing-edge blade thickness design estimate  - # !!! Limite de fabrication, voir 
         theta = 0.036*stage.chord_S/self.params['Re_min']**0.2 # Boundary layer momentum thickness 
-        t_blade = self.params['t_c_ratio']*stage.chord_S # Blade thickness estimate : Assumption for NACA 0012 airfoil
-        lambda_2_rad = (self.Vel_Tri['alpha2']+self.Vel_Tri['alpha1'])/2
+        t_blade = 0.12*stage.chord_S # Blade thickness estimate : Assumption for NACA 0012 airfoil
+        lambda_2_rad = (self.Vel_Tri['beta2']+self.Vel_Tri['beta1'])/2
         
         A = 1-(1+H_TE)*theta-t_TE/t_blade
         B = 1-H_TE*theta-t_TE/t_blade
@@ -303,27 +299,10 @@ class AxialTurbineMeanLineDesign(object):
         num_Yp = (np.cos(lambda_2_rad)**2 * A**2) / B**2 + (np.sin(lambda_2_rad)**2) * B**2
         den_Yp = 1 + 2 * (np.sin(lambda_2_rad)**2) * lambda_2_rad * (B**2 - A)
         Yp = 1- num_Yp/den_Yp
-        
-        # print(f"H_TE : {H_TE}")
-        # print(f"theta : {theta}")
-        # print(f"A : {A}")
-        # print(f"B : {B}")
-        # print(f"Stagger : {lambda_2_rad}")
 
-        # print(f"Yp : {Yp}")
-
-        # print("--------------------")
-        
-        Yp = balje_binsley(self.params['Re_min'], self.params['t_TE'], stage.chord_S, stage.t_blade_S, self.Vel_Tri['alpha1'], self.Vel_Tri['alpha2'])
-
-        # print(f"Yp S : {Yp}")
-
-        # print("--------------------")
-        
-        # 5.2) Secondary loss : Kacker-Okaapu
+        # Secondary loss : Kacker-Okaapu
         Z = self.solidityStator*(self.Vel_Tri['beta1']-self.Vel_Tri['beta2'])/np.cos(self.Vel_Tri['beta2']) # Loading Factor
         Ys = abs(0.0334*1/stage.AR_S*(np.cos(self.Vel_Tri['alpha2'])/np.cos(self.Vel_Tri['beta1']))*Z)
-        Ys = kacker_okaapu(stage.AR_S, self.solidityStator, self.Vel_Tri['alpha1'], self.Vel_Tri['alpha2'], self.Vel_Tri['beta1'])
 
         # Pressure loss 
         DP_loss = (Yp+Ys)*(self.Vel_Tri['vm']**2 + self.Vel_Tri['vu2']**2)*stage.static_states['D'][2]/2
@@ -376,34 +355,24 @@ class AxialTurbineMeanLineDesign(object):
         stage.chord_R = (self.params['Re_min']*stage.static_states['V'][3])/(stage.static_states['D'][3]*self.Vel_Tri['vm'])            
         stage.AR_R = stage.h_blade_R/stage.chord_R
         
-        stage.t_blade_R = self.params['t_c_ratio']*stage.chord_R
-
         # 5) Estimate pressure losses 
         # 5.1) Balje-Binsley : Profile pressure losses         
-        # H_TE = 1.4 + 300/self.params['Re_min']**0.5 # Trailing-edge boundary layer shape factor : Aungier's Correlation for fully turbulent flow
-        # t_TE = 5e-4 #  Tailing-edge blade thickness design estimate 
-        # theta = 0.036*stage.chord_R/self.params['Re_min']**0.2 # Boundary layer momentum thickness : Empirical equation for turbulent plate
-        # t_blade = self.params['t_c_ratio']*stage.chord_R # Blade thickness estimate : Assumption for NACA 0012 airfoil
-        # lambda_2_rad = abs((self.Vel_Tri['beta3']+self.Vel_Tri['beta2'])/2)
+        H_TE = 1.4 + 300/self.params['Re_min']**0.5 # Trailing-edge boundary layer shape factor : Aungier's Correlation for fully turbulent flow
+        t_TE = 5e-4 #  Tailing-edge blade thickness design estimate 
+        theta = 0.036*stage.chord_R/self.params['Re_min']**0.2 # Boundary layer momentum thickness : Empirical equation for turbulent plate
+        t_blade = 0.12*stage.chord_R # Blade thickness estimate : Assumption for NACA 0012 airfoil
+        lambda_2_rad = abs((self.Vel_Tri['beta3']+self.Vel_Tri['beta2'])/2)
         
-        # A = 1-(1+H_TE)*theta-t_TE/t_blade
-        # B = 1-H_TE*theta-t_TE/t_blade
+        A = 1-(1+H_TE)*theta-t_TE/t_blade
+        B = 1-H_TE*theta-t_TE/t_blade
         
-        # num_Yp = (np.cos(lambda_2_rad)**2 * A**2) / B**2 + (np.sin(lambda_2_rad)**2) * B**2
-        # den_Yp = 1 + 2 * (np.sin(lambda_2_rad)**2) * lambda_2_rad * (B**2 - A)
-        # Yp = abs(1- num_Yp/den_Yp)
-        
-        Yp = balje_binsley(self.params['Re_min'], self.params['t_TE'], stage.chord_R, stage.t_blade_R, self.Vel_Tri['alpha2'], self.Vel_Tri['alpha3'])
+        num_Yp = (np.cos(lambda_2_rad)**2 * A**2) / B**2 + (np.sin(lambda_2_rad)**2) * B**2
+        den_Yp = 1 + 2 * (np.sin(lambda_2_rad)**2) * lambda_2_rad * (B**2 - A)
+        Yp = abs(1- num_Yp/den_Yp)
 
-        # print(f"Yp R : {Yp}")
-
-        # # 5.2) Kacker-Okaapu : Secondary pressure losses
-        # Z = self.solidityRotor*(self.Vel_Tri['beta2']-self.Vel_Tri['beta3'])/np.cos(self.Vel_Tri['beta3']) # Loading Factor
-        # Ys = abs(0.0334*1/stage.AR_R*(np.cos(self.Vel_Tri['alpha3'])/np.cos(self.Vel_Tri['beta2']))*Z)
-        Ys = kacker_okaapu(stage.AR_R, self.solidityRotor, self.Vel_Tri['beta1'], self.Vel_Tri['beta2'], self.Vel_Tri['alpha1'])
-
-        # print(f"Ys : {Ys}")
-        # print(f"Ys2 : {Ys2}")
+        # 5.2) Kacker-Okaapu : Secondary pressure losses
+        Z = self.solidityRotor*(self.Vel_Tri['beta2']-self.Vel_Tri['beta3'])/np.cos(self.Vel_Tri['beta3']) # Loading Factor
+        Ys = abs(0.0334*1/stage.AR_R*(np.cos(self.Vel_Tri['alpha3'])/np.cos(self.Vel_Tri['beta2']))*Z)
 
         # Pressure loss 
         DP_loss = (Yp+Ys)*(self.Vel_Tri['vm']**2 + self.Vel_Tri['wu3']**2)*stage.static_states['D'][3]/2
@@ -425,6 +394,7 @@ class AxialTurbineMeanLineDesign(object):
         hout_s = self.AS.hmass()
 
         stage.eta_is_R = (stage.static_states['H'][2]-stage.static_states['H'][3])/(stage.static_states['H'][2]-hout_s)
+
         return np.array([hout, pout_calc])*1e-5 # (p_static_out - pout_calc)**2 + (h_static_out - hout)**2
 
     def last_blade_row_system(self, x):
@@ -694,7 +664,7 @@ class AxialTurbineMeanLineDesign(object):
     def design_system(self, x):
         self.penalty = -1
         # try:
-        print(x)
+            # print(x)
         self.reset()
         
         self.psi = x[0]
@@ -818,8 +788,9 @@ class AxialTurbineMeanLineDesign(object):
                 
         self.eta_is = (hin - hout)/(hin - hout_s)
 
-        penalty_1 = max(self.params['r_hub_tip_max'] - self.r_hub_tip[0],0)*100
-        penalty_2 = max(self.r_hub_tip[-1] - self.params['r_hub_tip_min'],0)*100
+
+        penalty_1 = max(self.r_hub_tip[0] - self.params['r_hub_tip_max'],0)*100
+        penalty_2 = max(self.params['r_hub_tip_min'] - self.r_hub_tip[-1],0)*100
         
         if abs((self.inputs["p_ex"] - self.stages[-1].static_states['P'][2])/self.inputs["p_ex"]) >= 5e-2:
             penalty_3 = abs((self.inputs["p_ex"] - self.stages[-1].static_states['P'][2])/self.inputs["p_ex"])*10
@@ -841,19 +812,44 @@ class AxialTurbineMeanLineDesign(object):
             # print("Bad eta_is")
             obj = 10000
 
-                
+        
+        print(obj)
+        
         if obj < 10000:
-            self.allowable_positions.append(
-                {
-                    'position' :  [self.psi, self.phi, self.R, self.r_m],
-                    'Omega' : self.omega_RPM,
-                    'eta_is' : self.eta_is,
-                    'nStages' : self.nStages,
-                    'W_dot' : self.W_dot,
-                    'p0_out' : self.stages[-1].static_states['P'][2],
-                })
+            self.allowable_positions.append([self.psi, self.phi, self.R, self.r_m])
         
         return obj
+
+        # except:
+        #     # print("FAIL")
+        #     return 10000
+
+    # def design(self):
+    #     bounds = (np.array([
+    #         self.params['psi_bounds'][0],
+    #         self.params['phi_bounds'][0],
+    #         self.params['R_bounds'][0],
+    #         self.params['r_m_bounds'][0],
+    #     ]),
+    #     np.array([
+    #         self.params['psi_bounds'][1],
+    #         self.params['phi_bounds'][1],
+    #         self.params['R_bounds'][1],
+    #         self.params['r_m_bounds'][1],
+    #     ]))
+    
+    #     # Wrap your function to return a scalar
+    #     def objective_wrapper(x):
+    #         return np.array([self.design_system(xi) for xi in x])
+    
+    #     optimizer = ps.single.GlobalBestPSO(
+    #         n_particles=10,
+    #         dimensions=4,
+    #         options={'c1': 1.5, 'c2': 2.0, 'w': 0.7},
+    #         bounds=bounds
+    #     )
+    
+    #     cost, pos = optimizer.optimize(objective_wrapper, iters=30, verbose=True)
 
     def design(self):
         bounds = (np.array([
@@ -877,7 +873,7 @@ class AxialTurbineMeanLineDesign(object):
     
         # Initialize the optimizer
         optimizer = ps.single.GlobalBestPSO(
-            n_particles=5,
+            n_particles=50,
             dimensions=4,
             options={'c1': 1.5, 'c2': 2.0, 'w': 0.7},
             bounds=bounds
@@ -990,20 +986,18 @@ elif case_study == 'TCO2_ORC':
         p0_su = 140*1e5, # Pa
         T0_su = 273.15 + 121, # K
         p_ex = 39.8*1e5, # Pa
-        Mmax = 0.6 # [-]
+        Mmax = 0.8 # [-]
         )
-
+    
     Turb.set_parameters(
         Zweifel = 0.8, # [-]
         Re_min = 5e6, # [-]
         AR_min = 1, # [-]
-        t_TE = 5*1e-4, # [-]
-        t_c_ratio = 0.2, # [-]
         r_hub_tip_max = 0.95, # [-]
         r_hub_tip_min = 0.6, # [-]
-        r_m_bounds = [0.1,0.35], # [m]
-        psi_bounds = [0.8,2.5], # [-]
-        phi_bounds = [0.3,0.7], # [-]
+        r_m_bounds = [0.02,0.12], # [m]
+        psi_bounds = [1,1.4], # [-]
+        phi_bounds = [0.4,0.8], # [-] 
         R_bounds = [0.49,0.51], # [-]
         damping = 0.2 # [-]
         )
@@ -1014,114 +1008,3 @@ Turb.plot_geometry()
 Turb.plot_n_blade()
 Turb.plot_radius_verif()
 Turb.plot_Mollier()
-
-
-def scatter_r_m_Omega(Turb):
-    
-    r_m_values = []
-    omega_values = []
-    eta_is = []
-    
-    for position in Turb.allowable_positions:
-        r_m_values.append(position['position'][-1])
-        omega_values.append(position['Omega'])
-        eta_is.append(position['eta_is'])
-        
-    colors = np.array(eta_is)    
-    r_m_values = np.array(r_m_values)  
-    omega_values = np.array(omega_values)  
-    
-    plt.scatter(r_m_values, omega_values, c=colors, cmap="viridis", alpha=0.7)
-    plt.colorbar(label="Score")  # Add color legend
-    plt.grid()
-    plt.xlabel("r_m [m]")
-    plt.ylabel("Omega [RPM]")
-    plt.title("Means radius vs Rotation speed")
-    plt.show()
-
-    return
-
-def scatter_r_m_phi(Turb):
-    
-    r_m_values = []
-    phi_values = []
-    eta_is = []
-    
-    for position in Turb.allowable_positions:
-        r_m_values.append(position['position'][-1])
-        phi_values.append(position['position'][1])
-        eta_is.append(position['eta_is'])
-        
-    colors = np.array(eta_is)    
-    r_m_values = np.array(r_m_values)  
-    phi_values = np.array(phi_values)  
-    
-    plt.scatter(r_m_values, phi_values, c=colors, cmap="viridis", alpha=0.7)
-    plt.colorbar(label="eta_is")  # Add color legend
-    plt.grid()
-    plt.xlabel("r_m [m]")
-    plt.ylabel("phi [-]")
-    plt.title("Mean radius vs flow coef")
-    plt.show()
-
-    return
-
-def scatter_r_m_psi(Turb):
-    
-    r_m_values = []
-    psi_values = []
-    eta_is = []
-    
-    for position in Turb.allowable_positions:
-        r_m_values.append(position['position'][-1])
-        psi_values.append(position['position'][0])
-        eta_is.append(position['eta_is'])
-        
-    colors = np.array(eta_is)    
-    r_m_values = np.array(r_m_values)  
-    psi_values = np.array(psi_values)  
-    
-    plt.scatter(r_m_values, psi_values, c=colors, cmap="viridis", alpha=0.7)
-    plt.colorbar(label="eta_is")  # Add color legend
-    plt.grid()
-    plt.xlabel("r_m [m]")
-    plt.ylabel("psi [-]")
-    plt.title("Mean radius vs work coef")
-    plt.show()
-
-    return
-
-def scatter_psi_phi(Turb):
-    
-    psi_values = []
-    phi_values = []
-    eta_is = []
-    
-    for position in Turb.allowable_positions:
-        psi_values.append(position['position'][0])
-        phi_values.append(position['position'][1])
-        eta_is.append(position['eta_is'])
-        
-    colors = np.array(eta_is)    
-    psi_values = np.array(psi_values)  
-    phi_values = np.array(phi_values)  
-    
-    plt.scatter(psi_values, phi_values, c=colors, cmap="viridis", alpha=0.7)
-    plt.colorbar(label="eta_is")  # Add color legend
-    plt.grid()
-    plt.xlabel("psi [-]")
-    plt.ylabel("phi [-]")
-    plt.title("'Smith diagram' for this application")
-    plt.show()
-
-    return
-
-
-scatter_r_m_Omega(Turb)
-
-scatter_r_m_psi(Turb)
-
-scatter_r_m_phi(Turb)
-
-scatter_psi_phi(Turb)
-
