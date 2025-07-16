@@ -186,14 +186,26 @@ class HXeNTU(BaseComponent):
         self.check_calculable()
         self.check_parametrized()
         
+        self.AS_H = CP.AbstractState('HEOS', self.su_hot.fluid)
+        self.AS_C = CP.AbstractState('HEOS', self.su_cold.fluid)
+        
+        
         if self.calculable and self.parametrized:
             
             # Detect Phase change
             # self.detect_phase_change()
             
             # Calcul de C_r
-            cp_h = PropsSI('C', 'H', self.su_hot.h, 'P', self.su_hot.p, self.su_hot.fluid)
-            cp_c = PropsSI('C', 'H', self.su_cold.h, 'P', self.su_cold.p, self.su_cold.fluid)
+            # cp_h = PropsSI('C', 'H', self.su_hot.h, 'P', self.su_hot.p, self.su_hot.fluid)
+            # cp_c = PropsSI('C', 'H', self.su_cold.h, 'P', self.su_cold.p, self.su_cold.fluid)
+            
+            self.AS_H.update(CP.HmassP_INPUTS, self.su_hot.h, self.su_hot.p)
+            cp_h = self.AS_H.cpmass()
+            
+            self.AS_C.update(CP.HmassP_INPUTS, self.su_cold.h, self.su_cold.p)
+            cp_c = self.AS_C.cpmass()
+
+            
             
             C_h = cp_h*self.su_hot.m_dot #Heat capacity rate
             C_c = cp_c*self.su_cold.m_dot
@@ -206,8 +218,20 @@ class HXeNTU(BaseComponent):
             T_w = (self.su_hot.T + self.su_cold.T)/2
             
             # --- Heat transfer coefficient estimation using Gnielinski correlation ---
-            mu_h, Pr_h, k_h = PropsSI(('V','PRANDTL','L'), 'H', self.su_hot.h, 'P', self.su_hot.p, self.su_hot.fluid)
-            mu_c, Pr_c, k_c = PropsSI(('V','PRANDTL','L'), 'H', self.su_cold.h, 'P', self.su_cold.p, self.su_cold.fluid)
+            # mu_h, Pr_h, k_h = PropsSI(('V','PRANDTL','L'), 'H', self.su_hot.h, 'P', self.su_hot.p, self.su_hot.fluid)
+            # mu_c, Pr_c, k_c = PropsSI(('V','PRANDTL','L'), 'H', self.su_cold.h, 'P', self.su_cold.p, self.su_cold.fluid)
+            
+            self.AS_H.update(CP.HmassP_INPUTS, self.su_hot.h, self.su_hot.p)
+            mu_h = self.AS_H.viscosity()
+            Pr_h = self.AS_H.Prandtl()
+            k_h = self.AS_H.conductivity()
+            
+            self.AS_C.update(CP.HmassP_INPUTS, self.su_cold.h, self.su_cold.p)
+            mu_c = self.AS_C.viscosity()
+            Pr_c = self.AS_C.Prandtl()
+            k_c = self.AS_C.conductivity()
+
+
             
             G_h = self.su_hot.m_dot/self.params['A_canal_h']
             G_c = self.su_cold.m_dot/self.params['A_canal_c']
@@ -224,16 +248,44 @@ class HXeNTU(BaseComponent):
 
                         
             # --- Estimate maximum heat transfer Q(ideal case with infinite area) ---
-            h_c_Th = PropsSI('H','T',self.su_hot.T,'P',self.su_cold.p,self.su_cold.fluid)
-            h_h_Tc = PropsSI('H','T',self.su_cold.T,'P',self.su_hot.p,self.su_hot.fluid)
+            # h_c_Th = PropsSI('H','T',self.su_hot.T,'P',self.su_cold.p,self.su_cold.fluid)
+            # h_h_Tc = PropsSI('H','T',self.su_cold.T,'P',self.su_hot.p,self.su_hot.fluid)
             
-            DH_pc_c = PropsSI('H','Q',1,'P',self.su_cold.p,self.su_cold.fluid) - PropsSI('H','Q',0,'P',self.su_cold.p,self.su_cold.fluid)
+            self.AS_C.update(CP.PT_INPUTS, self.su_cold.p, self.su_hot.T)
+            h_c_Th = self.AS_C.hmass()
+            
+            self.AS_H.update(CP.PT_INPUTS, self.su_hot.p, self.su_cold.T)
+            h_h_Tc = self.AS_H.hmass()
+
+            
+            
+            # DH_pc_c = PropsSI('H','Q',1,'P',self.su_cold.p,self.su_cold.fluid) - PropsSI('H','Q',0,'P',self.su_cold.p,self.su_cold.fluid)
+            
+            self.AS_C.update(CP.PQ_INPUTS, self.su_cold.p, 0)
+            h_l_cold = self.AS_C.hmass()
+            
+            self.AS_C.update(CP.PQ_INPUTS, self.su_cold.p, 1)
+            h_v_cold = self.AS_C.hmass()
+            
+            DH_pc_c = h_v_cold - h_l_cold
+
 
             # Special case for incompressibles
             if "INCOMP" not in self.su_hot.fluid:
-                DH_pc_h = PropsSI('H','Q',1,'P',self.su_hot.p,self.su_hot.fluid) - PropsSI('H','Q',0,'P',self.su_hot.p,self.su_hot.fluid)
+                # DH_pc_h = PropsSI('H','Q',1,'P',self.su_hot.p,self.su_hot.fluid) - PropsSI('H','Q',0,'P',self.su_hot.p,self.su_hot.fluid)
+                
+                self.AS_H.update(CP.PQ_INPUTS, self.su_hot.p, 0)
+                h_l_hot = self.AS_H.hmass()
+                
+                self.AS_H.update(CP.PQ_INPUTS, self.su_hot.p, 1)
+                h_v_hot = self.AS_H.hmass()
+                
+                DH_pc_h = h_v_hot - h_l_hot
+
             else:
                 DH_pc_h = 0
+            
+            
             
             Qmax_c = self.su_cold.m_dot*((h_c_Th - self.su_cold.h))
             Qmax_h = self.su_hot.m_dot*((self.su_hot.h - h_h_Tc))

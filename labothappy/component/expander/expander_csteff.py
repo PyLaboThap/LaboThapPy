@@ -114,7 +114,7 @@ class ExpanderCstEff(BaseComponent):
             W_dot_exp = self.su.m_dot * w_exp #Mechanical power output
 
             # Update connectors after the calculations
-            self.update_connectors(h_ex, w_exp, W_dot_exp)
+            self.update_connectors(h_ex, w_exp, self.ex.p, W_dot_exp)
 
             # Mark the model as solved if successful
             self.solved = True
