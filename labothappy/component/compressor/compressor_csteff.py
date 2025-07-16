@@ -5,6 +5,7 @@ from connector.mass_connector import MassConnector
 from connector.work_connector import WorkConnector
 
 from CoolProp.CoolProp import PropsSI
+import CoolProp.CoolProp as CP
 
 class CompressorCstEff(BaseComponent):
     """
@@ -71,8 +72,14 @@ class CompressorCstEff(BaseComponent):
         self.check_calculable()
         self.check_parametrized()
 
+        self.AS = CP.AbstractState('HEOS', self.su.fluid)
+
         try:
-            h_ex_is = PropsSI('H', 'P', self.ex.p, 'S', self.su.s, self.su.fluid)
+            self.AS.update(CP.PSmass_INPUTS, self.ex.p, self.su.s)
+            h_ex_is = self.AS.hmass()
+            
+            self.AS.T()
+            
             h_ex = self.su.h + (h_ex_is - self.su.h) / self.params['eta_is']
             w = h_ex - self.su.h
             W_dot = self.su.m_dot*w
@@ -108,4 +115,9 @@ class CompressorCstEff(BaseComponent):
         print(f"  - su: fluid={self.su.fluid}, T={self.su.T} [K], p={self.su.p} [Pa], h={self.su.h} [J/kg], s={self.su.s} [J/K.kg], m_dot={self.su.m_dot} [kg/s]")
         print(f"  - ex: fluid={self.ex.fluid}, T={self.ex.T} [K], p={self.ex.p} [Pa], h={self.ex.h} [J/kg], s={self.ex.s} [J/K.kg], m_dot={self.ex.m_dot} [kg/s]")
         print("=========================")
+
+
+
+
+
 
