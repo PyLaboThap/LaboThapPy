@@ -9,7 +9,7 @@ from component.heat_exchanger.hex_MB_charge_sensitive import HeatExchangerMB
 from toolbox.geometries.heat_exchanger.geometry_plate_hx_swep import PlateGeomSWEP
 from component.expander.expander_semi_empirical import ExpanderSE
 from component.pump.pump_similarity_laws import PumpSimilarityLaws
-from component.tank.spliter.simulation_model import Spliter
+from component.tank.tank_spliter import Spliter
 from component.tank.tank_mixer import Mixer
 
 #%% DEFINE MODELS
@@ -85,25 +85,38 @@ if __name__ == "__main__":
     
         N_exp = 6000
         T_amb = 293
-    
-        Expander_1.set_parameters(AU_amb=8.33758799e+00, AU_su_n=6.67152053e-01, AU_ex_n=3.21181352e+01, d_su1=6.31789061e-03, m_dot_n=0.1, mode = "N_rot",
+
+        Expander_1.set_parameters(AU_amb=8.33758799e+00, AU_su_n=6.67152053e-01, AU_ex_n=3.21181352e+01, d_su1=6.31789061e-03, m_dot_n=0.1, mode = "M_N",
                     A_leak=1.00000000e-10, W_dot_loss_0=8.19123951e-01, alpha= 7.79756524e-02, C_loss=4.68294054e-01, rv_in=1.7, V_s=0.0000712)
     
         Expander_1.set_inputs(N_rot=N_exp, T_amb=T_amb)
     
-        Expander_2.set_parameters(AU_amb=8.33758799e+00, AU_su_n=6.67152053e-01, AU_ex_n=3.21181352e+01, d_su1=6.31789061e-03, m_dot_n=0.1, mode = "N_rot",
+        Expander_2.set_parameters(AU_amb=8.33758799e+00, AU_su_n=6.67152053e-01, AU_ex_n=3.21181352e+01, d_su1=6.31789061e-03, m_dot_n=0.1, mode = "M_N",
                     A_leak=1.00000000e-10, W_dot_loss_0=8.19123951e-01, alpha= 7.79756524e-02, C_loss=4.68294054e-01, rv_in=1.7, V_s=0.0000712)
     
         Expander_2.set_inputs(N_rot=N_exp, T_amb=T_amb)
         
-        Expander_3.set_parameters(AU_amb=8.33758799e+00, AU_su_n=6.67152053e-01, AU_ex_n=3.21181352e+01, d_su1=6.31789061e-03, m_dot_n=0.1, mode = "N_rot",
+        Expander_3.set_parameters(AU_amb=8.33758799e+00, AU_su_n=6.67152053e-01, AU_ex_n=3.21181352e+01, d_su1=6.31789061e-03, m_dot_n=0.1, mode = "M_N",
                     A_leak=1.00000000e-10, W_dot_loss_0=8.19123951e-01, alpha= 7.79756524e-02, C_loss=4.68294054e-01, rv_in=1.7, V_s=0.0000712)
     
         Expander_3.set_inputs(N_rot=N_exp, T_amb=T_amb)
     
-    #%% PUMP INPUTS
+    #%% PUMP PARAMETERS AND INPUTS
     
-        Pump.set_inputs(N_pp = 2500)
+        Pump.set_inputs(N_rot = 2500)
+    
+        curves_head = [(0, 66), (0.5, 56), (1, 46), (1.5, 36), (2, 26), (3, 6), (3.3, 0)]
+        curves_power = [(0, 1.03), (1, 0.9), (1.5, 0.83), (2, 0.76), (3, 0.62), (3.5, 0.55)]
+        curves_fluid = 'Water'
+        speed_ref = 2900
+    
+        Pump.set_parameters(
+            curves_head=curves_head,
+            curves_power=curves_power,
+            curves_fluid=curves_fluid,
+            speed_ref=speed_ref,
+            mode = 'P_N'
+        )
     
     #%% ADD AND LINK COMPONENTS
         ORC.add_component(Expander_1, "Expander_1")
@@ -145,11 +158,13 @@ if __name__ == "__main__":
     
     #%% CYCLE GUESSES
         
-        P_low = 2*1e5 # 119079.39300547051
-    
-        ORC.set_cycle_guess(target='Pump:su', m_dot = 0.3, SC = 5, p = P_low)
+        P_low = 1.1*1e5 # 119079.39300547051
+        P_high = 4*1e5
         
-        ORC.set_cycle_guess(target='Spliter:su', T = 340, m_dot = 0.3, p = 4*1e5)
+        ORC.set_cycle_guess(target='Pump:su', SC = 5, p = P_low, m_dot = 0.3)
+        ORC.set_cycle_guess(target='Pump:ex', p = P_high)
+        
+        ORC.set_cycle_guess(target='Spliter:su', T = 340, m_dot = 0.3, p = P_high)
         
         ORC.set_cycle_guess(target='Expander_1:ex', p = P_low)
     

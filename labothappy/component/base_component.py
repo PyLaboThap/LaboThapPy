@@ -74,6 +74,7 @@ class BaseComponent:
         self.inputs = {}
         self.params = {}
         self.guesses = {}
+        self.print_flag = 1
 
     def set_inputs(self, **kwargs):
         """Set inputs directly through a dictionary and update connector properties."""
@@ -83,6 +84,7 @@ class BaseComponent:
         input_methods = {
             # su connector inputs
             'fluid':     lambda val: self.su.set_fluid(val),
+            'x_su':      lambda val: self.su.set_x(val),
             'T_su':      lambda val: self.su.set_T(val),
             'h_su':      lambda val: self.su.set_h(val),
             'P_su':      lambda val: self.su.set_p(val),
@@ -226,6 +228,9 @@ class BaseComponent:
 
         return
 
+    def mute_print(self):
+        self.print_flag = 0
+        return
 
     def print_setup(self):
         self.sync_inputs()
@@ -258,16 +263,19 @@ class BaseComponent:
     def check_calculable(self):
         self.sync_inputs()
         required_inputs = self.get_required_inputs() 
+        
         self.calculable = all(self.inputs.get(inp) is not None for inp in required_inputs) # check if all required inputs are set
         if not self.calculable:
-            print(f"Component {self.__class__.__name__} is not calculable. Missing inputs: {', '.join([inp for inp in required_inputs if self.inputs.get(inp) is None])}")
+            if self.print_flag:
+                print(f"Component {self.__class__.__name__} is not calculable. Missing inputs: {', '.join([inp for inp in required_inputs if self.inputs.get(inp) is None])}")
         return self.calculable
 
     def check_parametrized(self):
         required_params = self.get_required_parameters()
         self.parametrized = all(self.params.get(param) is not None for param in required_params) # check if all required parameters are set
         if not self.parametrized:
-            print(f"Component {self.__class__.__name__} is not parametrized. Missing parameters: {', '.join([param for param in required_params if self.params.get(param) is None])}")
+            if self.print_flag:
+                print(f"Component {self.__class__.__name__} is not parametrized. Missing parameters: {', '.join([param for param in required_params if self.params.get(param) is None])}")
         return self.parametrized
 
     def get_required_inputs(self):

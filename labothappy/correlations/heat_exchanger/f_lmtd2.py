@@ -4,6 +4,8 @@ Created on Fri Aug 13 14:50:11 2021
 
 @author: jvega
 """
+
+import __init__
 import numpy as np
 from scipy.optimize import fsolve
 import math

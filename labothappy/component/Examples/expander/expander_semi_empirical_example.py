@@ -5,7 +5,7 @@ Created on Wed Nov 22 14:39:37 2023
 @author: Elise
 """
 # import __init__
-from labothappy.component.expander.expander_semi_empirical import ExpanderSE
+from component.expander.expander_semi_empirical import ExpanderSE
 
 import numpy as np
 
@@ -29,7 +29,8 @@ expander.ex.set_properties(P=1.1*1e5)
 expander.ex.set_properties(P=1.1*1e5)
 
 # Set rotational speed
-expander.W_mec.set_N(6000)
+# expander.W_mec.set_N(6000)
+expander.set_inputs(N_rot = 6000)
 
 # Set ambient temperature
 expander.Q_amb.set_T_cold(293)
