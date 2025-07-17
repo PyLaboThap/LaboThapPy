@@ -22,7 +22,7 @@ class AxialTurbineMeanLineDesign(object):
         self.inputs = {}
         
         # Params
-        self.params = {}  
+        self.params = {}
 
         # Abstract State 
         self.fluid = fluid
@@ -160,8 +160,8 @@ class AxialTurbineMeanLineDesign(object):
         def update_static_AS_disc(self, CP_INPUTS, input_1, input_2, position, i):
             self.AS.update(CP_INPUTS, input_1, input_2)
                         
-            self.static_states_disc['H'][position][i] = self.AS.hmass()            
-            self.static_states_disc['S'][position][i] = self.AS.smass()            
+            self.static_states_disc['H'][position][i] = self.AS.hmass()    
+            self.static_states_disc['S'][position][i] = self.AS.smass()    
             self.static_states_disc['P'][position][i] = self.AS.p()            
             self.static_states_disc['D'][position][i] = self.AS.rhomass()            
 

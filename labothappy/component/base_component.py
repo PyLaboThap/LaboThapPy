@@ -144,6 +144,9 @@ class BaseComponent:
             'T_ex_C':    lambda val: self.ex_C.set_T(val),
             'h_ex_C':    lambda val: self.ex_C.set_h(val),
 
+            # Storage connector related inputs
+            'sto_fluid': lambda val: self.sto_fluid.set_fluid(val),
+
             # W connector inputs
             'N_rot':     lambda val: self.W.set_N(val),
 
@@ -208,6 +211,9 @@ class BaseComponent:
             'P_ex_H':    lambda: self.ex_H.p if hasattr(self, 'ex_H') else None,
             'T_ex_H':    lambda: self.ex_H.T if hasattr(self, 'ex_H') else None,
             'h_ex_H':    lambda: self.ex_H.h if hasattr(self, 'ex_H') else None,
+
+            # sto_fluid connector
+            'sto_fluid': lambda: self.sto_fluid.fluid if hasattr(self, 'sto_fluid') else None,
 
             # W connector
             'N_rot':     lambda: self.W.N if hasattr(self, 'W') else None,
