@@ -249,13 +249,19 @@ class Mixer(BaseComponent):
             m_dot[i] = connector.m_dot
             fluids.append(connector.fluid)
             
-            if connector.h is not None:
-                mean_h += connector.h * connector.m_dot
-            elif connector.T is not None and connector.p is not None:
-                h = PropsSI('H', 'T', connector.T, 'P', connector.p, connector.fluid)
-                mean_h += h * connector.m_dot
-            else:
-                raise ValueError(f"Missing enthalpy or temperature/pressure for inlet {inlet_num}")
+            # if connector.h is not None:
+            #     mean_h += connector.h * connector.m_dot
+            # elif connector.T is not None and connector.p is not None:
+            #     h = PropsSI('H', 'T', connector.T, 'P', connector.p, connector.fluid)
+            #     mean_h += h * connector.m_dot
+            # else:
+            #     raise ValueError(f"Missing enthalpy or temperature/pressure for inlet {inlet_num}")
+            
+            if connector.h is None:
+                raise ValueError(f"Missing enthalpy for inlet {inlet_num}")
+            mean_h += connector.h * connector.m_dot
+
+
                 
         # Final enthalpy and pressure computation
         mean_h = mean_h/(sum(m_dot))
