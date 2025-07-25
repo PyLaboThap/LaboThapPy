@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 
 "1) Initiate the heat pump cycle"
 
-study_case = "NoExp"
+study_case = "Exp"
 print_flag = 0
 
 

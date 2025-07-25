@@ -14,7 +14,7 @@ from scipy.optimize import fsolve, root, minimize
 import numpy as np
 import math
 
-class StorageLatentIsothermalCstePinch(BaseComponent):
+class IsothermalTank(BaseComponent):
     """
     Component: Heat Exchanger with constant pinch point.
 
@@ -84,6 +84,9 @@ class StorageLatentIsothermalCstePinch(BaseComponent):
         self.su = MassConnector() # Working fluid supply
         self.ex = MassConnector()
 
+        self.mode = 'Charge'
+        self.level = 0
+
         self.sto_fluid = MassConnector()
 
         self.Q_dot = HeatConnector()
@@ -95,8 +98,8 @@ class StorageLatentIsothermalCstePinch(BaseComponent):
     
     def get_required_parameters(self):
         return [
-            'Pinch', # pinch point
-            'Delta_T_sh_sc', # Superheating or subcooling
+            'Vol', # Volume
+            'HeatLoss', # Heat loss
         ]
     
     def get_required_guesses(self):
@@ -200,7 +203,6 @@ class StorageLatentIsothermalCstePinch(BaseComponent):
         
         self.solved = True
         self.update_connectors()
-
 
     def update_connectors(self):
         

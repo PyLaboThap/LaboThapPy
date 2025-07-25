@@ -56,10 +56,10 @@ else:
     T_cold_source = 0+273.15
     T_hot_source = 130+273.15
     
-    eta_is_exp = 0.92
+    eta_is_exp = 0.9
     eta_gh = 0.95
-    eta_rec = 0.8
-    eta_is_pp = 0.9
+    eta_rec = 0
+    eta_is_pp = 0.95
     
     m_dot = 100 # 0.08
     
@@ -68,7 +68,7 @@ else:
     PPTD_cd = 5
     SC_cd = 0.1
     
-    P_high = 140*1e5
+    P_high = 110*1e5
     P_sat_T_CSource = PropsSI('P', 'T', T_cold_source,'Q',0.5,'CO2')
     P_crit_CO2 = PropsSI('PCRIT','CO2')
     

@@ -18,23 +18,23 @@ from tqdm import tqdm
 
 #%% Optimization Parmeters
 
-study_case = "NoExp"
+study_case = "Exp"
 
 m_dot = 0.04
 
 def opt_CO2_HP(x):
     
-    study_case = "NoExp"
+    study_case = "Exp"
     
-    T_hot_set_point = 130+273.15
+    T_hot_set_point = 95+273.15 # 130+273.15
     
     T_cold_source = 0.1+273.15
     T_hot_source = 15+273.15
 
-    eta_is_cp = 0.7
+    eta_is_cp = 0.8
     eta_gc = 0.9
     eta_IHX = 0.7
-    eta_exp = 0.8
+    eta_exp = 0.7
 
     PPTD_ev = 5
     SH_ev = 0.1
@@ -48,8 +48,7 @@ def opt_CO2_HP(x):
     P_low_guess = 0.5*min(P_sat_T_CSource, P_crit_CO2)
 
     HSource = MassConnector()
-    HSource.set_properties(fluid='Water', T=T_hot_source,
-                           p=5e5, m_dot=m_dot_HS)  # 0.1 # 62.5
+    HSource.set_properties(fluid='Water', T=T_hot_source, p=5e5, m_dot=m_dot_HS)  # 0.1 # 62.5
     
     try:
         if study_case == "Exp":
@@ -86,7 +85,7 @@ bounds = (np.array([P_high_min, m_dot_HS_min]), np.array([P_high_max, m_dot_HS_m
 
 # Objective wrapper for 1D input (reshape required by pyswarms)
 def objective_wrapper(x):
-    return np.array([opt_CO2_HP(xi) for xi in x])
+    return np.array([opt_CO2_HP(xi)[0] for xi in x])
 
 # Initialize the optimizer
 optimizer = GlobalBestPSO(
@@ -107,7 +106,7 @@ convergence_curve = []
 # Optimization loop with progress
 for i in tqdm(range(max_iter), desc="Optimizing", ncols=80):
     optimizer.optimize(objective_wrapper, iters=1, verbose=False)
-    current_best, CO2_HP = optimizer.swarm.best_cost
+    current_best = optimizer.swarm.best_cost
 
     convergence_curve.append(current_best)
 
