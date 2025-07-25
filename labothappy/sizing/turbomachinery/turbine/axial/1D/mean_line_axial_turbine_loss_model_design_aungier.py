@@ -257,6 +257,70 @@ class AxialTurbineMeanLineDesign(object):
         plt.show()
 
     # ---------------- Loss Models ------------------------------------------------------------------------
+    def compute_rotor_t_max(self, stage):
+                
+        def z_Saravanamuttoo(xhi, t, c):
+            
+            B_values = np.array([951.083, 904.889, 829.035, 753.251, 665.223, 568.022, 461.654, 359.362, 273.379])
+            n_values = np.array([1.694, 1.605, 1.520, 1.436, 1.347, 1.268, 1.179, 1.094, 1])
+            xhi_values = np.array([40,50,60,70,80,90,100,110,120])
+            
+            B = np.interp(xhi, xhi_values, B_values)
+            n = np.interp(xhi, xhi_values, n_values)
+            
+            z = 1/B * (10*t/c)**n 
+            
+            return z
+        
+        def system(x):
+
+            stage.t_blade_R = x[0]
+            # Maximum Bending Stress : from Saravanamuttoo et. al. - Gas Turbine Theory
+            xhi = abs(180*(self.Vel_Tri["alpha2"] - self.Vel_Tri["alpha3"])/np.pi) # Rotor blade camber angle
+             
+            z = z_Saravanamuttoo(xhi, stage.t_blade_R, stage.chord_R)
+            stage.sigma_bmax = (1/(z*stage.chord_R**3)) * (stage.h_blade_R/2) * self.inputs['mdot']*self.Vel_Tri['vm']*(np.tan(self.Vel_Tri['alpha2'])+np.tan(self.Vel_Tri['alpha3']))/stage.n_blade_R
+    
+            return stage.sigma_bmax - (130*1e6*2)
+
+        # Initial guess (e.g., 5 mm thickness)
+        x0 = [0.005]  # in meters
+        
+        # Solve
+        solution = fsolve(system, x0)
+
+    def compute_stator_t_max(self, stage):
+                
+        def z_Saravanamuttoo(xhi, t, c):
+            
+            B_values = np.array([951.083, 904.889, 829.035, 753.251, 665.223, 568.022, 461.654, 359.362, 273.379])
+            n_values = np.array([1.694, 1.605, 1.520, 1.436, 1.347, 1.268, 1.179, 1.094, 1])
+            xhi_values = np.array([40,50,60,70,80,90,100,110,120])
+            
+            B = np.interp(xhi, xhi_values, B_values)
+            n = np.interp(xhi, xhi_values, n_values)
+            
+            z = 1/B * (10*t/c)**n 
+            
+            return z
+        
+        def system(x):
+
+            stage.t_blade_S = x[0]
+            # Maximum Bending Stress : from Saravanamuttoo et. al. - Gas Turbine Theory
+            xhi = abs(180*(self.Vel_Tri["alpha1"] - self.Vel_Tri["alpha2"])/np.pi) # Rotor blade camber angle
+             
+            z = z_Saravanamuttoo(xhi, stage.t_blade_S, stage.chord_S)
+            stage.sigma_bmax = (1/(z*stage.chord_S**3)) * (stage.h_blade_S/2) * self.inputs['mdot']*self.Vel_Tri['vm']*(np.tan(self.Vel_Tri['alpha1'])+np.tan(self.Vel_Tri['alpha2']))/stage.n_blade_S
+    
+            return stage.sigma_bmax - (130*1e6*2)
+
+        # Initial guess (e.g., 5 mm thickness)
+        x0 = [0.005]  # in meters
+        
+        # Solve
+        solution = fsolve(system, x0)
+        return 
 
     def stator_blade_row_system(self, x):
                 
@@ -282,57 +346,36 @@ class AxialTurbineMeanLineDesign(object):
         stage.A_flow_S = self.inputs['mdot']/(stage.static_states['D'][2]*self.Vel_Tri['vm'])
         stage.h_blade_S = stage.A_flow_S/(4*np.pi*self.r_m)
 
-        # 4) Compute cord and aspect ratio
+        # 4) Compute cord, aspect ratio, blade pitch and blade number
                 
         stage.chord_S = (self.params['Re_min']*stage.static_states['V'][2])/(stage.static_states['D'][2]*self.Vel_Tri['vm'])            
         stage.AR_S = stage.h_blade_S/stage.chord_S
         
         stage.pitch_S = self.solidityStator*stage.chord_S
-
+        stage.n_blade_S = round(2*np.pi*self.r_m/stage.pitch_S)
         
-        stage.delta_tip = 0 # for a stator stage
-        stage.lashing_wire = 0 # no lashing wire considered
-        stage.e_blade = 5*1e-4 # m : blade roughness
+        self.compute_stator_t_max(stage)
         
-        t_max, t_TE, vm2, w2, rad_flag
-        
-        D_lw = 0
-        N_lw = 0
+        # 5) Loss model
         
         camber = self.Vel_Tri['alpha2'] - self.Vel_Tri['alpha1']
         
-        R_c = 2*np.sin(abs(camber)/2)*stage.chord_S # Geometrical estimation 
+        R_c = 2*np.sin(abs(camber)/2)*stage.chord_S # Geometrical estimation of blade curvature radius
+                
+        stage.M1_S = self.Vel_Tri['v1']/stage.static_states['A'][1]
+        stage.M2_S = self.Vel_Tri['v2']/stage.static_states['A'][2]
         
-        M1_pr = self.Vel_Tri['w1']/stage.static_states['A'][1]
-        M2_pr = self.Vel_Tri['w2']/stage.static_states['A'][2]
+        stage.Y_vec_S = aungier_loss_model(self.Vel_Tri['alpha1'], self.Vel_Tri['alpha2'], self.Vel_Tri['alpha1'], stage.chord_S, 
+                               0, self.params['D_lw'], self.params['e_blade'], stage.h_blade_S, stage.static_states['V'][2], 
+                               stage.M1_S, stage.M2_S, self.params['N_lw'], R_c, stage.static_states['D'][2], stage.pitch_S, stage.t_blade_S, self.params['t_TE'],
+                               self.Vel_Tri['vm'], self.Vel_Tri['v2'],1)
         
-        Y = aungier_loss_model(self.Vel_Tri['beta1'], self.Vel_Tri['beta2'], self.Vel_Tri['beta1'], self.chord_S, self.params['delta_tip'], 
-                               D_lw, self.params["e_blade"] , stage.h_blade_S, stage.static_states['V'][2], M1_pr, M2_pr, N_lw, R_c,
-                               stage.static_states['D'][2], stage.pitch_S)
-        
-        # 5) Estimate pressure losses 
-        # 5.1) Balje-Binsley
-        H_TE = 1.4 + 300/self.params['Re_min']**0.5 # Trailing-edge boundary layer shape factor : Aungier's Correlation for fully turbulent flow
-        t_TE = 5e-4 # m Tailing-edge blade thickness design estimate  - # !!! Limite de fabrication, voir 
-        theta = 0.036*stage.chord_S/self.params['Re_min']**0.2 # Boundary layer momentum thickness 
-        t_blade = 0.12*stage.chord_S # Blade thickness estimate : Assumption for NACA 0012 airfoil
-        lambda_2_rad = (self.Vel_Tri['beta2']+self.Vel_Tri['beta1'])/2
-        
-        A = 1-(1+H_TE)*theta-t_TE/t_blade
-        B = 1-H_TE*theta-t_TE/t_blade
-        
-        num_Yp = (np.cos(lambda_2_rad)**2 * A**2) / B**2 + (np.sin(lambda_2_rad)**2) * B**2
-        den_Yp = 1 + 2 * (np.sin(lambda_2_rad)**2) * lambda_2_rad * (B**2 - A)
-        Yp = 1- num_Yp/den_Yp
+        # stage.Y_vec_S = aungier_loss_model(self.Vel_Tri['beta1'], self.Vel_Tri['beta2'], self.Vel_Tri['beta1'], stage.chord_S, stage.delta_tip, stage.e_blade)    
+        Y = stage.Y_vec_S['Y_tot']
+                        
+        # p0_out = stage.total_states['P'][1] - (Y*(stage.total_states['P'][1] - p_static_out))
+        p0_out = (stage.total_states['P'][1] + Y * p_static_out)/(1+Y)
 
-        # Secondary loss : Kacker-Okaapu
-        Z = self.solidityStator*(self.Vel_Tri['beta1']-self.Vel_Tri['beta2'])/np.cos(self.Vel_Tri['beta2']) # Loading Factor
-        Ys = abs(0.0334*1/stage.AR_S*(np.cos(self.Vel_Tri['alpha2'])/np.cos(self.Vel_Tri['beta1']))*Z)
-
-        # Pressure loss 
-        DP_loss = (Yp+Ys)*(self.Vel_Tri['vm']**2 + self.Vel_Tri['vu2']**2)*stage.static_states['D'][2]/2
-        
-        p0_out = max(stage.total_states['P'][1]-DP_loss, self.inputs['p_ex']*0.6)
         
         # print(f"Rotor DP_loss : {DP_loss}")
         
@@ -380,30 +423,28 @@ class AxialTurbineMeanLineDesign(object):
         stage.chord_R = (self.params['Re_min']*stage.static_states['V'][3])/(stage.static_states['D'][3]*self.Vel_Tri['vm'])            
         stage.AR_R = stage.h_blade_R/stage.chord_R
         
-        # 5) Estimate pressure losses 
-        # 5.1) Balje-Binsley : Profile pressure losses         
-        H_TE = 1.4 + 300/self.params['Re_min']**0.5 # Trailing-edge boundary layer shape factor : Aungier's Correlation for fully turbulent flow
-        t_TE = 5e-4 #  Tailing-edge blade thickness design estimate 
-        theta = 0.036*stage.chord_R/self.params['Re_min']**0.2 # Boundary layer momentum thickness : Empirical equation for turbulent plate
-        t_blade = 0.12*stage.chord_R # Blade thickness estimate : Assumption for NACA 0012 airfoil
-        lambda_2_rad = abs((self.Vel_Tri['beta3']+self.Vel_Tri['beta2'])/2)
+        stage.pitch_R = self.solidityRotor*stage.chord_R
+        stage.n_blade_R = round(2*np.pi*self.r_m/stage.pitch_R)
         
-        A = 1-(1+H_TE)*theta-t_TE/t_blade
-        B = 1-H_TE*theta-t_TE/t_blade
+        self.compute_rotor_t_max(stage)
         
-        num_Yp = (np.cos(lambda_2_rad)**2 * A**2) / B**2 + (np.sin(lambda_2_rad)**2) * B**2
-        den_Yp = 1 + 2 * (np.sin(lambda_2_rad)**2) * lambda_2_rad * (B**2 - A)
-        Yp = abs(1- num_Yp/den_Yp)
+        # 5) Loss model
+        
+        camber = self.Vel_Tri['alpha3'] - self.Vel_Tri['alpha2']
+        
+        R_c = 2*np.sin(abs(camber)/2)*stage.chord_R # Geometrical estimation of blade curvature radius
+                
+        stage.M2_R = self.Vel_Tri['w2']/stage.static_states['A'][2]
+        stage.M3_R = self.Vel_Tri['w3']/stage.static_states['A'][3]
+        
+        stage.Y_vec_R = aungier_loss_model(self.Vel_Tri['beta2'], self.Vel_Tri['beta3'], self.Vel_Tri['beta2'], stage.chord_R, 
+                               self.params['delta_tip'], self.params['D_lw'], self.params['e_blade'], stage.h_blade_R, stage.static_states['V'][3], 
+                               stage.M2_R, stage.M3_R, self.params['N_lw'], R_c, stage.static_states['D'][3], stage.pitch_R, stage.t_blade_R, self.params['t_TE'],
+                               self.Vel_Tri['vm'], self.Vel_Tri['w3'],1)
 
-        # 5.2) Kacker-Okaapu : Secondary pressure losses
-        Z = self.solidityRotor*(self.Vel_Tri['beta2']-self.Vel_Tri['beta3'])/np.cos(self.Vel_Tri['beta3']) # Loading Factor
-        Ys = abs(0.0334*1/stage.AR_R*(np.cos(self.Vel_Tri['alpha3'])/np.cos(self.Vel_Tri['beta2']))*Z)
-
-        # Pressure loss 
-        DP_loss = (Yp+Ys)*(self.Vel_Tri['vm']**2 + self.Vel_Tri['wu3']**2)*stage.static_states['D'][3]/2
-        p0_out = max(stage.total_states['P'][2]-DP_loss, self.inputs['p_ex']*0.6)
-        
-        # print(f"Rotor DP_loss : {DP_loss}")
+        Y = stage.Y_vec_R['Y_tot']
+                
+        p0_out = (stage.total_states['P'][2] + Y * p_static_out)/(1+Y)
 
         # Computation of static outlet pressure
         stage.update_total_AS(CP.HmassP_INPUTS, h0in, p0_out, 3)
@@ -533,6 +574,7 @@ class AxialTurbineMeanLineDesign(object):
         self.Vel_Tri_Last_Stage['wu2'] = self.Vel_Tri_Last_Stage['vu2'] - self.Vel_Tri_Last_Stage['u']
         self.Vel_Tri['v2'] = np.sqrt(self.Vel_Tri['vu2']**2 + self.Vel_Tri['vm']**2)
         self.Vel_Tri['w2'] = np.sqrt(self.Vel_Tri['wu2']**2 + self.Vel_Tri['vm']**2)
+        self.Vel_Tri['w3'] = np.sqrt(self.Vel_Tri['wu3']**2 + self.Vel_Tri['vm']**2)
 
         # Angles in radians
         self.Vel_Tri_Last_Stage['alpha1'] = self.Vel_Tri['alpha3'] 
@@ -625,7 +667,7 @@ class AxialTurbineMeanLineDesign(object):
                 c += 1
             
             self.rotor_blade_row_system(x_out)
-            
+                        
         return
             
     def computeRepeatingStages(self):
@@ -696,6 +738,7 @@ class AxialTurbineMeanLineDesign(object):
         self.phi = x[1]
         self.R = x[2]
         self.r_m = x[3]
+        self.M_max = x[4]
         
         # print(f"pos : [{self.psi, self.phi, self.R, self.r_m}]")
         
@@ -727,7 +770,7 @@ class AxialTurbineMeanLineDesign(object):
         
         "------------- 3) Guess u from vMax (subsonic flow)  ---------------------------------------------" 
         
-        vMax = self.AS.speed_sound() * self.inputs['Mmax']
+        vMax = self.AS.speed_sound() * self.M_max
         
         # Assume u based on the maximum speed
         self.Vel_Tri['u'] = vMax / max([self.Vel_Tri['v2OverU'],self.Vel_Tri['w3OverU']])
@@ -752,8 +795,16 @@ class AxialTurbineMeanLineDesign(object):
         self.Vel_Tri['vu2'] = self.Vel_Tri['vu2OverU'] * self.Vel_Tri['u']
         self.Vel_Tri['vu3'] = self.Vel_Tri['vu3OverU'] * self.Vel_Tri['u']
         self.Vel_Tri['wu2'] = self.Vel_Tri['wu2OverU'] * self.Vel_Tri['u']
-        self.Vel_Tri['wu3'] = self.Vel_Tri['wu3OverU'] * self.Vel_Tri['u']
+        self.Vel_Tri['wu3'] = self.Vel_Tri['wu1'] = self.Vel_Tri['wu3OverU'] * self.Vel_Tri['u']
         self.Vel_Tri['vu1'] = self.Vel_Tri['vu3']
+
+        self.Vel_Tri['v1'] = np.sqrt(self.Vel_Tri['vu1']**2 + self.Vel_Tri['vm']**2)
+        self.Vel_Tri['v2'] = np.sqrt(self.Vel_Tri['vu2']**2 + self.Vel_Tri['vm']**2)
+        self.Vel_Tri['v3'] = np.sqrt(self.Vel_Tri['vu3']**2 + self.Vel_Tri['vm']**2)
+
+        self.Vel_Tri['w1'] = np.sqrt(self.Vel_Tri['wu1']**2 + self.Vel_Tri['vm']**2)
+        self.Vel_Tri['w2'] = np.sqrt(self.Vel_Tri['wu2']**2 + self.Vel_Tri['vm']**2)
+        self.Vel_Tri['w3'] = np.sqrt(self.Vel_Tri['wu3']**2 + self.Vel_Tri['vm']**2)
 
         self.exit_loss = (self.Vel_Tri['vm']**2+self.Vel_Tri['vu3']**2)/2
         self.exit_loss_W = self.exit_loss*self.inputs['mdot']
@@ -778,6 +829,7 @@ class AxialTurbineMeanLineDesign(object):
         self.n_blade = []
 
         for stage in self.stages:
+              stage.pitch_S = self.solidityStator*stage.chord_S
               stage.pitch_R = self.solidityRotor*stage.chord_R
 
               stage.n_blade_S = round(2*np.pi*self.r_m/stage.pitch_S)
@@ -792,12 +844,12 @@ class AxialTurbineMeanLineDesign(object):
         
         self.computeVelTriangleLastStage()
         
-        try:
-            self.computeLastStage()
-        except:
-            print("Error in last stage")
-            obj = 10000
-            return obj
+        # try:
+        self.computeLastStage()
+        # except:
+        #     print("Error in last stage")
+        #     obj = 10000
+        #     return obj
 
         "------------- 9) Compute main outputs -------------------------------------------------------------" 
         
@@ -881,12 +933,14 @@ class AxialTurbineMeanLineDesign(object):
             self.params['phi_bounds'][0],
             self.params['R_bounds'][0],
             self.params['r_m_bounds'][0],
+            self.params['M_1_st_bounds'][0],
         ]),
         np.array([
             self.params['psi_bounds'][1],
             self.params['phi_bounds'][1],
             self.params['R_bounds'][1],
             self.params['r_m_bounds'][1],
+            self.params['M_1_st_bounds'][1],
         ]))
     
         def objective_wrapper(x):
@@ -897,8 +951,8 @@ class AxialTurbineMeanLineDesign(object):
     
         # Initialize the optimizer
         optimizer = ps.single.GlobalBestPSO(
-            n_particles=50,
-            dimensions=4,
+            n_particles=20,
+            dimensions=5,
             options={'c1': 1.5, 'c2': 2.0, 'w': 0.7},
             bounds=bounds
         )
@@ -936,7 +990,7 @@ class AxialTurbineMeanLineDesign(object):
              
         "------------- Print Main Results -------------------------------------------------------------" 
         
-        print(f"Parameters : {self.psi, self.phi, self.R, self.r_m}")
+        print(f"Parameters : {self.psi, self.phi, self.R, self.r_m, self.M_max}")
         
         print(f"Turbine mean radius: {self.r_m} [m]")
         print(f"Turbine rotation speed: {self.omega_RPM} [RPM]")
@@ -944,7 +998,7 @@ class AxialTurbineMeanLineDesign(object):
         print(f"Turbine total-to-static efficiency : {self.eta_is} [-]")        
         print(f"Turbine Generation : {self.W_dot} [W]")        
         
-        return 
+        return best_pos
 
 case_study = "TCO2_ORC"
 
@@ -1010,7 +1064,7 @@ elif case_study == 'TCO2_ORC':
         p0_su = 140*1e5, # Pa
         T0_su = 273.15 + 121, # K
         p_ex = 39.8*1e5, # Pa
-        Mmax = 0.8 # [-]
+        Mmax = 0.5 # [-]
         )
     
     Turb.set_parameters(
@@ -1019,14 +1073,21 @@ elif case_study == 'TCO2_ORC':
         AR_min = 1, # [-]
         r_hub_tip_max = 0.95, # [-]
         r_hub_tip_min = 0.6, # [-]
-        r_m_bounds = [0.02,0.12], # [m]
-        psi_bounds = [1,1.4], # [-]
-        phi_bounds = [0.4,0.8], # [-] 
+        r_m_bounds = [0.1,0.3], # [m]
+        psi_bounds = [1,2.5], # [-]
+        phi_bounds = [0.4,0.7], # [-] 
         R_bounds = [0.49,0.51], # [-]
-        damping = 0.2 # [-]
+        M_1_st_bounds = [0.4, 0.7], # [-]
+        damping = 0.2, # [-]
+        delta_tip = 0.2*1e-3, # [m] : tip clearance
+        N_lw = 0, # [-] : Number of lashing wires
+        D_lw = 0, # [m] : Diameter of lashing wires
+        e_blade = 0.002*1e-3, # [m] : blade roughness
+        t_TE = 0.5*1e-3 # [m] : trailing edge thickness
         )
+    
 
-Turb.design()
+best_pos = Turb.design()
 
 Turb.plot_geometry()
 Turb.plot_n_blade()

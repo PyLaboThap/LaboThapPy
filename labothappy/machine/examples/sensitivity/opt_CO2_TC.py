@@ -56,7 +56,7 @@ else:
     T_cold_source = 0+273.15
     T_hot_source = 130+273.15
     
-    eta_is_exp = 0.9
+    eta_is_exp = 0.92
     eta_gh = 0.95
     eta_rec = 0.8
     eta_is_pp = 0.9

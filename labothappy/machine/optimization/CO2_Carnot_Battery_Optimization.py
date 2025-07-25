@@ -73,7 +73,7 @@ def opt_CO2_HP(x):
     else:
         penalty = 0
       
-    return -COP + penalty
+    return -COP + penalty, CO2_HP
 
 # Define bounds
 P_high_min = 100 * 1e5
@@ -107,7 +107,7 @@ convergence_curve = []
 # Optimization loop with progress
 for i in tqdm(range(max_iter), desc="Optimizing", ncols=80):
     optimizer.optimize(objective_wrapper, iters=1, verbose=False)
-    current_best = optimizer.swarm.best_cost
+    current_best, CO2_HP = optimizer.swarm.best_cost
 
     convergence_curve.append(current_best)
 
