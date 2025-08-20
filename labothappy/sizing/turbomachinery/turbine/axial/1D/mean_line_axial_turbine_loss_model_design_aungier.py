@@ -257,70 +257,111 @@ class AxialTurbineMeanLineDesign(object):
         plt.show()
 
     # ---------------- Loss Models ------------------------------------------------------------------------
-    def compute_rotor_t_max(self, stage):
-                
-        def z_Saravanamuttoo(xhi, t, c):
-            
-            B_values = np.array([951.083, 904.889, 829.035, 753.251, 665.223, 568.022, 461.654, 359.362, 273.379])
-            n_values = np.array([1.694, 1.605, 1.520, 1.436, 1.347, 1.268, 1.179, 1.094, 1])
-            xhi_values = np.array([40,50,60,70,80,90,100,110,120])
-            
-            B = np.interp(xhi, xhi_values, B_values)
-            n = np.interp(xhi, xhi_values, n_values)
-            
-            z = 1/B * (10*t/c)**n 
-            
-            return z
-        
-        def system(x):
-
-            stage.t_blade_R = x[0]
-            # Maximum Bending Stress : from Saravanamuttoo et. al. - Gas Turbine Theory
-            xhi = abs(180*(self.Vel_Tri["alpha2"] - self.Vel_Tri["alpha3"])/np.pi) # Rotor blade camber angle
-             
-            z = z_Saravanamuttoo(xhi, stage.t_blade_R, stage.chord_R)
-            stage.sigma_bmax = (1/(z*stage.chord_R**3)) * (stage.h_blade_R/2) * self.inputs['mdot']*self.Vel_Tri['vm']*(np.tan(self.Vel_Tri['alpha2'])+np.tan(self.Vel_Tri['alpha3']))/stage.n_blade_R
-    
-            return stage.sigma_bmax - (130*1e6*2)
-
-        # Initial guess (e.g., 5 mm thickness)
-        x0 = [0.005]  # in meters
-        
-        # Solve
-        solution = fsolve(system, x0)
-
     def compute_stator_t_max(self, stage):
-                
-        def z_Saravanamuttoo(xhi, t, c):
-            
-            B_values = np.array([951.083, 904.889, 829.035, 753.251, 665.223, 568.022, 461.654, 359.362, 273.379])
-            n_values = np.array([1.694, 1.605, 1.520, 1.436, 1.347, 1.268, 1.179, 1.094, 1])
-            xhi_values = np.array([40,50,60,70,80,90,100,110,120])
-            
-            B = np.interp(xhi, xhi_values, B_values)
-            n = np.interp(xhi, xhi_values, n_values)
-            
-            z = 1/B * (10*t/c)**n 
-            
-            return z
-        
-        def system(x):
-
-            stage.t_blade_S = x[0]
-            # Maximum Bending Stress : from Saravanamuttoo et. al. - Gas Turbine Theory
-            xhi = abs(180*(self.Vel_Tri["alpha1"] - self.Vel_Tri["alpha2"])/np.pi) # Rotor blade camber angle
-             
-            z = z_Saravanamuttoo(xhi, stage.t_blade_S, stage.chord_S)
-            stage.sigma_bmax = (1/(z*stage.chord_S**3)) * (stage.h_blade_S/2) * self.inputs['mdot']*self.Vel_Tri['vm']*(np.tan(self.Vel_Tri['alpha1'])+np.tan(self.Vel_Tri['alpha2']))/stage.n_blade_S
+        # --- constants from stage / design ---
+        c   = stage.chord_S
+        h   = stage.h_blade_S
+        vm  = self.Vel_Tri['vm']
+        a1  = self.Vel_Tri['alpha1']     # radians
+        a2  = self.Vel_Tri['alpha2']     # radians
+        mdot = self.inputs['mdot']
+        Nbl  = stage.n_blade_S
     
-            return stage.sigma_bmax - (130*1e6*2)
+        # allowable stress (what you had: 2 * 130 MPa)
+        sigma_allow = 2 * 130e6
+    
+        # camber (deg) for B,n interpolation (same as your code)
+        xhi = abs(180.0 * (self.Vel_Tri["alpha1"] - self.Vel_Tri["alpha2"]) / np.pi)
+    
+        # ----- interpolate B and n ONCE -----
+        B_values  = np.array([951.083, 904.889, 829.035, 753.251, 665.223, 568.022, 461.654, 359.362, 273.379])
+        n_values  = np.array([1.694,   1.605,   1.520,   1.436,   1.347,   1.268,   1.179,   1.094,   1.000])
+        xhi_grid  = np.array([40, 50, 60, 70, 80, 90, 100, 110, 120])
+    
+        # clamp to table range to avoid extrapolation surprises
+        xhi_clamped = np.clip(xhi, xhi_grid.min(), xhi_grid.max())
+        B = np.interp(xhi_clamped, xhi_grid, B_values)
+        n = np.interp(xhi_clamped, xhi_grid, n_values)
+    
+        # ----- closed-form thickness -----
+        K = (h/2.0) * mdot * vm * (np.tan(a1) + np.tan(a2)) / Nbl
+    
+        # t = ((K*B*c^(n-3)) / (10^n * sigma_allow))^(1/n)
+        t = ((K * B * (c**(n - 3.0))) / ( (10.0**n) * sigma_allow ))**(1.0/n)
+    
+        # optional: sanity bounds
+        t_min = 0.1*c   # 0.3 mm
+        t_max = 0.35*c   # e.g. 5% chord
+        t = float(np.clip(t, t_min, t_max))
+    
+        # populate stage + return
+        stage.t_blade_S    = t
+        # compute resulting sigma for reporting
+        z = (1.0 / B) * (10.0 * t / c)**n
+        stage.sigma_bmax_S = (1.0 / (z * c**3)) * (h/2.0) * mdot * vm * (np.tan(a1) + np.tan(a2)) / Nbl
+        return
 
-        # Initial guess (e.g., 5 mm thickness)
-        x0 = [0.005]  # in meters
-        
-        # Solve
-        solution = fsolve(system, x0)
-        return 
+    def compute_rotor_t_max(self, stage):
+        """
+        Fast, closed-form rotor thickness from Saravanamuttoo z-correlation.
+        Uses rotor metal angles for camber and rotor (relative) angles in load term.
+        """
+    
+        # --- inputs/geometry ---
+        c   = stage.chord_R
+        h   = stage.h_blade_R
+        Nbl = stage.n_blade_R
+        mdot = self.inputs['mdot']
+        vm   = self.Vel_Tri['vm']
+    
+        # ***** IMPORTANT *****
+        # Use rotor METAL angles for camber (replace with your stored metal angles if named differently)
+        # If you only have them in radians:
+        beta2_metal = self.Vel_Tri['beta2']   # radians
+        beta3_metal = self.Vel_Tri['beta3']   # radians
+        xhi_deg = abs(np.degrees(beta2_metal - beta3_metal))  # rotor blade camber in degrees
+    
+        # use RELATIVE flow angles in the load term. If your stored ones are the same, reuse:
+        # guard against tan() singularities at ±90°
+        eps = 1e-6  # rad
+        def safe_tan(theta):
+            # wrap to (-pi/2, pi/2) and clip
+            th = ((theta + np.pi/2) % np.pi) - np.pi/2
+            th = np.clip(th, -np.pi/2 + eps, np.pi/2 - eps)
+            return np.tan(th)
+    
+        tan_sum = safe_tan(beta2_metal) + safe_tan(beta3_metal)
+    
+        # Allowable stress (your previous 130 MPa with SF=2)
+        sigma_allow = 130e6 * 2
+    
+        # --- interpolate B, n once (clamped to table) ---
+        B_values = np.array([951.083, 904.889, 829.035, 753.251, 665.223, 568.022, 461.654, 359.362, 273.379])
+        n_values = np.array([  1.694,   1.605,   1.520,   1.436,   1.347,   1.268,   1.179,   1.094,   1.000])
+        xhi_grid = np.array([40, 50, 60, 70, 80, 90, 100, 110, 120], dtype=float)
+    
+        xhi_clamped = float(np.clip(xhi_deg, xhi_grid[0], xhi_grid[-1]))
+        B = np.interp(xhi_clamped, xhi_grid, B_values)
+        n = np.interp(xhi_clamped, xhi_grid, n_values)
+    
+        # --- closed-form thickness from sigma(t) = K*B*c^(n-3) / (10^n * t^n) ---
+        # K = (h/2) * mdot * vm * (tan(beta2) + tan(beta3)) / Nbl
+        K = abs((h * 0.5) * mdot * vm * tan_sum / Nbl)
+    
+        # t = ((K * B * c^(n-3)) / (10^n * sigma_allow))^(1/n)
+        t = ((K * B * (c**(n - 3.0))) / ((10.0**n) * sigma_allow))**(1.0 / n)
+    
+        # optional: sanity bounds
+        t_min = 0.1*c   # 0.3 mm
+        t_max = 0.35*c   # e.g. 5% chord
+        t = float(np.clip(t, t_min, t_max))
+    
+        # write back + compute resulting sigma for reporting
+        stage.t_blade_R = t
+                
+        z = (10.0 * t / c)**n / B
+        stage.sigma_bmax_R = (1.0 / (z * c**3)) * (h * 0.5) * mdot * vm * tan_sum / Nbl
+        return
 
     def stator_blade_row_system(self, x):
                 
@@ -351,7 +392,7 @@ class AxialTurbineMeanLineDesign(object):
         stage.chord_S = (self.params['Re_min']*stage.static_states['V'][2])/(stage.static_states['D'][2]*self.Vel_Tri['vm'])            
         stage.AR_S = stage.h_blade_S/stage.chord_S
         
-        stage.pitch_S = self.solidityStator*stage.chord_S
+        stage.pitch_S = stage.chord_S/self.solidityStator
         stage.n_blade_S = round(2*np.pi*self.r_m/stage.pitch_S)
         
         self.compute_stator_t_max(stage)
@@ -365,14 +406,18 @@ class AxialTurbineMeanLineDesign(object):
         stage.M1_S = self.Vel_Tri['v1']/stage.static_states['A'][1]
         stage.M2_S = self.Vel_Tri['v2']/stage.static_states['A'][2]
         
-        stage.Y_vec_S = aungier_loss_model(self.Vel_Tri['alpha1'], self.Vel_Tri['alpha2'], self.Vel_Tri['alpha1'], stage.chord_S, 
-                               0, self.params['D_lw'], self.params['e_blade'], stage.h_blade_S, stage.static_states['V'][2], 
-                               stage.M1_S, stage.M2_S, self.params['N_lw'], R_c, stage.static_states['D'][2], stage.pitch_S, stage.t_blade_S, self.params['t_TE'],
-                               self.Vel_Tri['vm'], self.Vel_Tri['v2'],1)
+        beta_g = 0.5*(self.Vel_Tri['alpha1'] + self.Vel_Tri['alpha2'])*180/np.pi 
         
+        stage.t_TE_S = self.params['t_TE_o']*stage.pitch_S * np.cos(self.Vel_Tri['alpha2'])/(1+self.params['t_TE_o'])  
+        
+        stage.Y_vec_S = aungier_loss_model(self.Vel_Tri['alpha1'], self.Vel_Tri['alpha2'], beta_g, self.Vel_Tri['alpha1'], stage.chord_S, 
+                               0, self.params['D_lw'], self.params['e_blade'], stage.h_blade_S, stage.static_states['V'][2], 
+                               stage.M1_S, stage.M2_S, self.params['N_lw'], R_c, stage.static_states['D'][2], stage.pitch_S, stage.t_blade_S, stage.t_TE_S,
+                               self.Vel_Tri['vm'], self.Vel_Tri['v2'],1)
+                
         # stage.Y_vec_S = aungier_loss_model(self.Vel_Tri['beta1'], self.Vel_Tri['beta2'], self.Vel_Tri['beta1'], stage.chord_S, stage.delta_tip, stage.e_blade)    
         Y = stage.Y_vec_S['Y_tot']
-                        
+                
         # p0_out = stage.total_states['P'][1] - (Y*(stage.total_states['P'][1] - p_static_out))
         p0_out = (stage.total_states['P'][1] + Y * p_static_out)/(1+Y)
 
@@ -415,15 +460,15 @@ class AxialTurbineMeanLineDesign(object):
         
         stage.update_total_AS(CP.HmassSmass_INPUTS, h0in, stage.static_states['S'][2], 2)            
         
-        # 3) Compute A_flow and h_blade based on r_m guess
+        # 3) Compute A_flow and h_blade based on r_m 
         stage.A_flow_R = self.inputs['mdot']/(stage.static_states['D'][3]*self.Vel_Tri['vm'])
         stage.h_blade_R = stage.A_flow_R/(4*np.pi*self.r_m)
         
-        # 4) Compute cord and aspect ratio
+        # 4) Compute cord, aspect ratio, pitch and blade number
         stage.chord_R = (self.params['Re_min']*stage.static_states['V'][3])/(stage.static_states['D'][3]*self.Vel_Tri['vm'])            
         stage.AR_R = stage.h_blade_R/stage.chord_R
         
-        stage.pitch_R = self.solidityRotor*stage.chord_R
+        stage.pitch_R = stage.chord_R/self.solidityRotor
         stage.n_blade_R = round(2*np.pi*self.r_m/stage.pitch_R)
         
         self.compute_rotor_t_max(stage)
@@ -437,9 +482,13 @@ class AxialTurbineMeanLineDesign(object):
         stage.M2_R = self.Vel_Tri['w2']/stage.static_states['A'][2]
         stage.M3_R = self.Vel_Tri['w3']/stage.static_states['A'][3]
         
-        stage.Y_vec_R = aungier_loss_model(self.Vel_Tri['beta2'], self.Vel_Tri['beta3'], self.Vel_Tri['beta2'], stage.chord_R, 
+        beta_g = 0.5*(self.Vel_Tri['beta2'] + self.Vel_Tri['beta3'])*180/np.pi   # mid-passage metal angle
+        
+        stage.t_TE_R = self.params['t_TE_o']*stage.pitch_R * np.cos(self.Vel_Tri['alpha2'])/(1+self.params['t_TE_o'])  
+        
+        stage.Y_vec_R = aungier_loss_model(-self.Vel_Tri['beta2'], -self.Vel_Tri['beta3'], beta_g, -self.Vel_Tri['beta2'], stage.chord_R, 
                                self.params['delta_tip'], self.params['D_lw'], self.params['e_blade'], stage.h_blade_R, stage.static_states['V'][3], 
-                               stage.M2_R, stage.M3_R, self.params['N_lw'], R_c, stage.static_states['D'][3], stage.pitch_R, stage.t_blade_R, self.params['t_TE'],
+                               stage.M2_R, stage.M3_R, self.params['N_lw'], R_c, stage.static_states['D'][3], stage.pitch_R, stage.t_blade_R, stage.t_TE_R,
                                self.Vel_Tri['vm'], self.Vel_Tri['w3'],1)
 
         Y = stage.Y_vec_R['Y_tot']
@@ -629,6 +678,8 @@ class AxialTurbineMeanLineDesign(object):
                 
             self.stator_blade_row_system(x_out)
             
+            # print(f'Y_S : {stage.Y_vec_S}')
+
         else: # Rotor
 
             # print("Rotor")
@@ -668,6 +719,8 @@ class AxialTurbineMeanLineDesign(object):
             
             self.rotor_blade_row_system(x_out)
                         
+            # print(f'Y_R : {stage.Y_vec_R}')
+
         return
             
     def computeRepeatingStages(self):
@@ -728,17 +781,92 @@ class AxialTurbineMeanLineDesign(object):
         
         return
     
+    def cost_estimation(self):
+        
+        if self.fluid == 'CO2' or self.fluid == 'CarbonDioxide' or self.fluid == 'R744':
+            """
+            SCO2 POWER CYCLE COMPONENT COST CORRELATIONS FROM DOE DATA
+            SPANNING MULTIPLE SCALES AND APPLICATIONS (2019)
+            
+            Nathan T. Weiland,  Blake W. Lance, Sandeep R. Pidaparti
+            
+            Especially good for 10 - 750 
+            Based on 2017 CEPCI (chemical plant cost index) for dollars
+            """
+            
+            T_500 = 273.15+500
+            
+            if self.inputs['T0_su'] > T_500: # K  
+                f = 1 + 1.106*1e-4*(self.inputs['T0_su'] - T_500)**2
+            else:
+                f = 1
+        
+            W_dot_MW = self.W_dot/1e6
+            self.CAPEX_turb = 182600*W_dot_MW**0.5561 * f
+        
+        else:
+            """
+            Supplementary Information:
+            Techno-economic analysis of recuperated Joule-Brayton
+            pumped thermal energy storage (2022)
+                        
+            Joshua D. McTigue, Pau Farres-Antunez, Kavin Sundarnath Jawaharlal Ayyanathanc, Christos N. Markides, Alexander J. White           
+            Based on 1995 CEPCI (chemical plant cost index) for dollars
+            """
+            rho0_air = PropsSI('D', 'T', 15+273.15, 'P', 101325, 'Air')
+            rho_out = self.stages[-1].static_states['D'][2]
+            
+            W_dot_MW = self.W_dot/1e6
+            
+            n = 1
+            
+            if self.eta_is >= 0.92:
+                 fact_1 = 1.051 * 266 * self.inputs['mdot'] * np.log(self.inputs['p0_su']/self.inputs['p_ex']) / (0.94 - self.eta_is)
+            else:
+                 fact_1 = 1.051 * 266 * self.inputs['mdot'] * np.log(self.inputs['p0_su']/self.inputs['p_ex']) / (0.92 - self.eta_is)                
+                
+            fact_2 = (1+np.exp(0.036*(self.inputs['T0_su']) - 1.207 * 54.4))
+            
+            fact_3 = (rho_out/rho0_air)**(-n)
+            
+            self.CAPEX_turb = fact_1*fact_2*fact_3
+            
+        # Generator Costs
+        
+        """
+        SCO2 POWER CYCLE COMPONENT COST CORRELATIONS FROM DOE DATA
+        SPANNING MULTIPLE SCALES AND APPLICATIONS (2019)
+        
+        Nathan T. Weiland,  Blake W. Lance, Sandeep R. Pidaparti
+        
+        Especially good for 10 - 750 
+        Based on 2017 CEPCI (chemical plant cost index) for dollars
+        """
+        
+        self.eta_alt = 0.97
+        self.W_dot_el = self.W_dot*self.eta_alt
+        
+        W_dot_el_MW = self.W_dot_el/1e6
+        
+        self.CAPEX_alt = 108900 * W_dot_el_MW**0.5463
+        
+        self.f_install = 0.35 
+        self.CAPEX_install = self.f_install*(self.CAPEX_alt + self.CAPEX_turb)
+        
+        self.CAPEX_tot = self.CAPEX_turb + self.CAPEX_alt + self.CAPEX_install
+            
+        return
+    
     def design_system(self, x):
         self.penalty = -1
-        # try:
-            # print(x)
+
         self.reset()
         
         self.psi = x[0]
         self.phi = x[1]
         self.R = x[2]
-        self.r_m = x[3]
-        self.M_max = x[4]
+        self.M_1st = x[3]
+        self.params['Re_min'] = x[4]
         
         # print(f"pos : [{self.psi, self.phi, self.R, self.r_m}]")
         
@@ -770,10 +898,10 @@ class AxialTurbineMeanLineDesign(object):
         
         "------------- 3) Guess u from vMax (subsonic flow)  ---------------------------------------------" 
         
-        vMax = self.AS.speed_sound() * self.M_max
+        v1st = self.AS.speed_sound() * self.M_1st
         
         # Assume u based on the maximum speed
-        self.Vel_Tri['u'] = vMax / max([self.Vel_Tri['v2OverU'],self.Vel_Tri['w3OverU']])
+        self.Vel_Tri['u'] = v1st / max([self.Vel_Tri['v2OverU'],self.Vel_Tri['w3OverU']])
         
         "------------- 4) Compute number of stage + recompute u  -----------------------------------------" 
         
@@ -787,6 +915,9 @@ class AxialTurbineMeanLineDesign(object):
         # Recompute u based on the number of stages to satisfy the work. As r_m is constant, u is contant accross stages
         self.Dh0Stage = Dh0/self.nStages
         self.Vel_Tri['u'] = np.sqrt(self.Dh0Stage/self.psi)
+
+        self.omega_rads = self.params['Omega']*(2*np.pi)/60
+        self.r_m = self.Vel_Tri['u']/self.omega_rads
 
         "------------- 5) Compute complete velocity triangles and exit losses ----------------------------" 
 
@@ -821,17 +952,11 @@ class AxialTurbineMeanLineDesign(object):
             obj = 10000
             return obj
         
-        "------------- 7) Compute rotation speed and number of blades per stage ---------------------------" 
-
-        self.omega_rads = self.Vel_Tri['u']/self.r_m # rad/s
-        self.omega_RPM = self.omega_rads*60/(2*np.pi) 
+        "------------- 7) Compute number of blades per stage ---------------------------" 
 
         self.n_blade = []
 
         for stage in self.stages:
-              stage.pitch_S = self.solidityStator*stage.chord_S
-              stage.pitch_R = self.solidityRotor*stage.chord_R
-
               stage.n_blade_S = round(2*np.pi*self.r_m/stage.pitch_S)
               self.n_blade.append(stage.n_blade_S)
 
@@ -844,12 +969,12 @@ class AxialTurbineMeanLineDesign(object):
         
         self.computeVelTriangleLastStage()
         
-        # try:
-        self.computeLastStage()
-        # except:
-        #     print("Error in last stage")
-        #     obj = 10000
-        #     return obj
+        try:
+            self.computeLastStage()
+        except:
+            print("Error in last stage")
+            obj = 10000
+            return obj
 
         "------------- 9) Compute main outputs -------------------------------------------------------------" 
         
@@ -864,11 +989,10 @@ class AxialTurbineMeanLineDesign(object):
                 
         self.eta_is = (hin - hout)/(hin - hout_s)
 
-
         penalty_1 = max(self.r_hub_tip[0] - self.params['r_hub_tip_max'],0)*100
         penalty_2 = max(self.params['r_hub_tip_min'] - self.r_hub_tip[-1],0)*100
         
-        if abs((self.inputs["p_ex"] - self.stages[-1].static_states['P'][2])/self.inputs["p_ex"]) >= 5e-2:
+        if abs((self.inputs["p_ex"] - self.stages[-1].static_states['P'][2])/self.inputs["p_ex"]) >= 1e-1:
             penalty_3 = abs((self.inputs["p_ex"] - self.stages[-1].static_states['P'][2])/self.inputs["p_ex"])*10
             self.Pressure_Deviation = self.inputs["p_ex"] - self.stages[-1].static_states['P'][2]
         else:
@@ -883,64 +1007,31 @@ class AxialTurbineMeanLineDesign(object):
                     self.inputs['W_dot'] = self.W_dot
                     
             obj = -self.eta_is + self.penalty
-            # print(f"opt 'success' : {obj}")
+            print(f"opt 'success' : {obj}")
         else:
             # print("Bad eta_is")
             obj = 10000
 
-        
-        print(obj)
-        
         if obj < 10000:
-            self.allowable_positions.append([self.psi, self.phi, self.R, self.r_m])
+            self.allowable_positions.append([obj, self.psi, self.phi, self.R, self.M_1st, self.params['Re_min'], self.eta_is])
         
         return obj
 
-        # except:
-        #     # print("FAIL")
-        #     return 10000
-
-    # def design(self):
-    #     bounds = (np.array([
-    #         self.params['psi_bounds'][0],
-    #         self.params['phi_bounds'][0],
-    #         self.params['R_bounds'][0],
-    #         self.params['r_m_bounds'][0],
-    #     ]),
-    #     np.array([
-    #         self.params['psi_bounds'][1],
-    #         self.params['phi_bounds'][1],
-    #         self.params['R_bounds'][1],
-    #         self.params['r_m_bounds'][1],
-    #     ]))
-    
-    #     # Wrap your function to return a scalar
-    #     def objective_wrapper(x):
-    #         return np.array([self.design_system(xi) for xi in x])
-    
-    #     optimizer = ps.single.GlobalBestPSO(
-    #         n_particles=10,
-    #         dimensions=4,
-    #         options={'c1': 1.5, 'c2': 2.0, 'w': 0.7},
-    #         bounds=bounds
-    #     )
-    
-    #     cost, pos = optimizer.optimize(objective_wrapper, iters=30, verbose=True)
 
     def design(self):
         bounds = (np.array([
             self.params['psi_bounds'][0],
             self.params['phi_bounds'][0],
             self.params['R_bounds'][0],
-            self.params['r_m_bounds'][0],
             self.params['M_1_st_bounds'][0],
+            self.params['Re_bounds'][0],
         ]),
         np.array([
             self.params['psi_bounds'][1],
             self.params['phi_bounds'][1],
             self.params['R_bounds'][1],
-            self.params['r_m_bounds'][1],
             self.params['M_1_st_bounds'][1],
+            self.params['Re_bounds'][1],
         ]))
     
         def objective_wrapper(x):
@@ -987,13 +1078,15 @@ class AxialTurbineMeanLineDesign(object):
         best_pos = optimizer.swarm.best_pos
              
         self.design_system(best_pos)
-             
+        
+        self.cost_estimation()
+        
         "------------- Print Main Results -------------------------------------------------------------" 
         
-        print(f"Parameters : {self.psi, self.phi, self.R, self.r_m, self.M_max}")
+        print(f"Parameters : {self.psi, self.phi, self.R, self.params['Re_min'], self.M_1st}")
         
         print(f"Turbine mean radius: {self.r_m} [m]")
-        print(f"Turbine rotation speed: {self.omega_RPM} [RPM]")
+        print(f"Turbine rotation speed: {self.params['Omega']} [RPM]")
         print(f"Turbine number of stage : {self.nStages} [-]")
         print(f"Turbine total-to-static efficiency : {self.eta_is} [-]")        
         print(f"Turbine Generation : {self.W_dot} [W]")        
@@ -1038,20 +1131,25 @@ elif case_study == 'Zorlu':
         p0_su = 767800, # Pa
         T0_su = 273.15 + 131, # K
         p_ex = 82000, # Pa
-        Mmax = 0.8 # [-]
         )
     
     Turb.set_parameters(
+        Omega = 3000, # [RPM]
         Zweifel = 0.8, # [-]
         Re_min = 5e5, # [-]
-        AR_min = 1, # [-]
+        AR_min = 0.8, # [-]
         r_hub_tip_max = 0.95, # [-]
         r_hub_tip_min = 0.6, # [-]
-        r_m_bounds = [0.16,0.4], # [m]
-        psi_bounds = [0.8,1.4], # [-]
-        phi_bounds = [0.5,0.7], # [-]
-        R_bounds = [0.49,0.51], # [-]
-        damping = 0.5 # [-]
+        psi_bounds = [0.6,2.5], # [-]
+        phi_bounds = [0.3,0.7], # [-] 
+        R_bounds = [0.4,0.6], # [-]
+        M_1_st_bounds = [0.2, 0.7], # [-]
+        damping = 0.2, # [-]
+        delta_tip = 0.4*1e-3, # [m] : tip clearance
+        N_lw = 0, # [-] : Number of lashing wires
+        D_lw = 0, # [m] : Diameter of lashing wires
+        e_blade = 0.002*1e-3, # [m] : blade roughness
+        t_TE_o = 0.05 # [-] : trailing edge to throat opening ratio
         )
     
 elif case_study == 'TCO2_ORC':
@@ -1059,37 +1157,68 @@ elif case_study == 'TCO2_ORC':
     Turb = AxialTurbineMeanLineDesign('CO2')
 
     Turb.set_inputs(
-        mdot = 5*100, # kg/s
-        W_dot = 5*4.69*1e6, # W
+        mdot = 10*100, # kg/s
+        W_dot = 10*4.69*1e6, # W
         p0_su = 140*1e5, # Pa
         T0_su = 273.15 + 121, # K
         p_ex = 39.8*1e5, # Pa
-        Mmax = 0.5 # [-]
         )
     
     Turb.set_parameters(
+        Omega = 3000, # [RPM]
         Zweifel = 0.8, # [-]
-        Re_min = 5e6, # [-]
-        AR_min = 1, # [-]
+        AR_min = 0.8, # [-]
         r_hub_tip_max = 0.95, # [-]
         r_hub_tip_min = 0.6, # [-]
-        r_m_bounds = [0.1,0.3], # [m]
-        psi_bounds = [1,2.5], # [-]
-        phi_bounds = [0.4,0.7], # [-] 
-        R_bounds = [0.49,0.51], # [-]
-        M_1_st_bounds = [0.4, 0.7], # [-]
+        Re_bounds = [1*1e6,1*1e7], # [-]
+        psi_bounds = [0.6,2.5], # [-]
+        phi_bounds = [0.3,0.7], # [-] 
+        R_bounds = [0.4,0.6], # [-]
+        M_1_st_bounds = [0.3, 0.7], # [-]
         damping = 0.2, # [-]
-        delta_tip = 0.2*1e-3, # [m] : tip clearance
+        delta_tip = 0.4*1e-3, # [m] : tip clearance
         N_lw = 0, # [-] : Number of lashing wires
         D_lw = 0, # [m] : Diameter of lashing wires
         e_blade = 0.002*1e-3, # [m] : blade roughness
-        t_TE = 0.5*1e-3 # [m] : trailing edge thickness
+        t_TE_o = 0.1 # [-] : trailing edge to throat opening ratio
+        )
+
+elif case_study == 'Salah_Case':
+
+    Turb = AxialTurbineMeanLineDesign('CO2')
+
+    Turb.set_inputs(
+        mdot = 655.18, # kg/s
+        W_dot = 100*1e6, # W
+        p0_su = 250*1e5, # Pa
+        T0_su = 923, # K
+        p_ex = 100*1e5, # Pa
         )
     
-
+    Turb.set_parameters(
+        Omega = 3000, # [RPM]
+        Zweifel = 0.8, # [-]
+        AR_min = 0.8, # [-]
+        r_hub_tip_max = 0.95, # [-]
+        r_hub_tip_min = 0.6, # [-]
+        Re_bounds = [1*1e6,1*1e7], # [-]
+        psi_bounds = [1,2.5], # [-]
+        phi_bounds = [0.4,0.8], # [-]
+        R_bounds = [0.4,0.6], # [-]
+        M_1_st_bounds = [0.3, 0.5], # [-]
+        damping = 0.2, # [-]
+        delta_tip = 0.4*1e-3, # [m] : tip clearance
+        N_lw = 0, # [-] : Number of lashing wires
+        D_lw = 0, # [m] : Diameter of lashing wires
+        e_blade = 0.002*1e-3, # [m] : blade roughness
+        t_TE_o = 0.05 # [-] : trailing edge to throat opening ratio
+        )
+    
 best_pos = Turb.design()
 
 Turb.plot_geometry()
 Turb.plot_n_blade()
 Turb.plot_radius_verif()
 Turb.plot_Mollier()
+
+# (1.4528688807250987, 0.4939933148314975, 0.42406128096733176, 6364578.748939947, 0.4557043394023795)

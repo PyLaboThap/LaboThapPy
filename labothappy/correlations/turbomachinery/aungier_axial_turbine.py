@@ -17,9 +17,9 @@ def tand(x):
     return np.tan(np.deg2rad(x))
 
 def cotd(x):
-    return np.cot(np.deg2rad(x))
+    return 1/np.tan(np.deg2rad(x))
 
-def profile_losses(alpha1_pr, alpha2_pr, beta1, c, e, mu2, M1_pr, M2_pr, R_c, rho2, s, t_max, w2):#
+def profile_losses(alpha1_pr, alpha2_pr, beta_g, beta1, c, e, mu2, M1_pr, M2_pr, R_c, rho2, s, t_max, w2):#
     """
     alpha_1_pr : inlet flow angle with respect to tangent in the rotating coordinate system [°] 
     alpha_2_pr : outlet flow angle with respect to tangent in the rotating coordinate system [°] 
@@ -36,7 +36,10 @@ def profile_losses(alpha1_pr, alpha2_pr, beta1, c, e, mu2, M1_pr, M2_pr, R_c, rh
     w2         : outlet flow speed in the rotating coordinate system [m/s]
     """
 
-    xi = (90 - beta1)/(90 - alpha2_pr)
+    xi = (90-beta1)/(90-alpha2_pr) # (beta1)/(alpha2_pr)
+
+    if abs(xi) > 1.2:
+        raise ValueError("abs(xhi) value above 1.2")
 
     "1 Experience factor (Kacker-Okapuu)"
     Kmod = 0.67 # For modern optimized design (2006) - =1 for old designs
@@ -67,7 +70,6 @@ def profile_losses(alpha1_pr, alpha2_pr, beta1, c, e, mu2, M1_pr, M2_pr, R_c, rh
         i_sr = i_s0 + abs(i_sr_40-i_s0) * abs(55-alpha2_pr) / 15
         
     # 2.1.2) Dis : Correction factor from reference is
-    c = 1
     X = s/c - 0.75
     
     if s/c <= 0.8: 
@@ -91,8 +93,10 @@ def profile_losses(alpha1_pr, alpha2_pr, beta1, c, e, mu2, M1_pr, M2_pr, R_c, rh
     "3) Mach number correction"
     if M2_pr <= 0.6:
         Km = 1
-    else:
+    elif M2_pr <= 1:
         Km = 1 + (1.65*(M2_pr-0.6) + 240*(M2_pr-0.06)**2)*(s/R_c)**(3*M2_pr - 0.6)
+    else:
+        Km = 1
     
     "4) Compressibility correction"
     M1_corr = (M1_pr + 0.566 - abs(0.566-M1_pr))/2
@@ -106,7 +110,7 @@ def profile_losses(alpha1_pr, alpha2_pr, beta1, c, e, mu2, M1_pr, M2_pr, R_c, rh
     
     "5) Reynolds number correction"
     Re_c = rho2*w2*c/mu2
-    
+        
     if e == 0:
         Re_r = -1
     else:
@@ -123,8 +127,7 @@ def profile_losses(alpha1_pr, alpha2_pr, beta1, c, e, mu2, M1_pr, M2_pr, R_c, rh
             if Re_c > Re_r > 0:
                 Kre = coef_r
             else:
-                Kre = (np.log10(5*1e5)/np.log10(Re_c))**2.58
-                
+                Kre = (np.log10(5*1e5)/np.log10(Re_c))**2.58               
         
     "6) Profile loss coefficient for nozzle blades (beta_1 = 90°)"
 
@@ -168,25 +171,33 @@ def profile_losses(alpha1_pr, alpha2_pr, beta1, c, e, mu2, M1_pr, M2_pr, R_c, rh
     Yp2 = A + B*X**2 - C*X**3
     
     "8) DY_TE Substract trailing edge loss for t = 0.02*s"
-    o = s * sind(alpha2_pr) # throat opening
-    beta_g = np.arcsin(o/s) # gauging angle
-    
     t2 = 0.02*s
-    DPt = 1/2 * rho2 * w2**2 * (s*np.sin(beta_g)/(s*np.sin(beta_g)-t2)-1)**2
+    denom = s*sind(beta_g) - t2
+    denom = np.sign(denom) * max(abs(denom), 1e-12)
+    DPt = 0.5*rho2*w2**2 * ( (s*sind(beta_g)/denom) - 1 )**2    
     
     DY_TE = 2*DPt/(rho2*w2**2)
     
     "9) Total"
     fact_1 = Yp1 + xi**2*(Yp2 - Yp1)
-    fact_2 = (5*t_max/c)**xi 
+    tau = np.clip(5*t_max/c, 1e-3, 1e3)
+    fact_2 = tau**xi 
     
     Yp = Kmod * Kinc * Km * Kp * Kre * (fact_1 * fact_2 - DY_TE)    
 
     if __name__ == "__main__":
+
+        print(f"alpha1_pr: {alpha1_pr}")
+        print(f"alpha2_pr: {alpha2_pr}")
+        print(f"beta1: {beta1}")        
     
         print(f"Yp: {Yp}")
         print(f"Kmod: {Kmod}")
+        print(f"Yp2: {Yp2}")
+        print(f"Yp1: {Yp1}")
         print(f"xi: {xi}")
+        print(f"isr: {i_sr}")
+    
         print(f"Kinc: {Kinc}")
         print(f"Km: {Km}")
         print(f"Kp: {Kp}")
@@ -198,7 +209,6 @@ def profile_losses(alpha1_pr, alpha2_pr, beta1, c, e, mu2, M1_pr, M2_pr, R_c, rh
         print(f"---------------------")
 
     return Yp
-
 
 def secondary_losses(alpha1_pr, alpha2_pr, beta1, b_z, c, e, h, mu2, M1_pr, M2_pr, rho2, s, w2):#
     """
@@ -221,17 +231,17 @@ def secondary_losses(alpha1_pr, alpha2_pr, beta1, b_z, c, e, h, mu2, M1_pr, M2_p
     C_L = 2*(1/tand(alpha1_pr)+1/tand(alpha2_pr))*s/c
 
     "2) Ainley Loading Parameter"
-    alpha_m_pr = 90 - np.arctan((1/tand(alpha1_pr)-1/tand(alpha2_pr))/2)
+    alpha_m_pr = 180*np.arctan((1/tand(alpha1_pr)+1/tand(alpha2_pr))/2)/np.pi # 90 -
 
     Z = (C_L*c/s)**2 * sind(alpha2_pr)**2 / sind(alpha_m_pr)**3
 
-    if __name__ == "__main__":
-        print(f"sin_ratio : {sind(alpha2_pr)**2 / sind(alpha_m_pr)**3}")
-        print(f"cos_ratio : {cosd(alpha2_pr)**2 / cosd(alpha_m_pr)**3}")
-        print(f"Z : {Z}")
-        print(f"C_L : {C_L}")
-        print(f"c/s : {c/s}")
-        print(f"---------------------")
+    # if __name__ == "__main__":
+    #     print(f"sin_ratio : {sind(alpha2_pr)**2 / sind(alpha_m_pr)**3}")
+    #     print(f"cos_ratio : {cosd(alpha2_pr)**2 / cosd(alpha_m_pr)**3}")
+    #     print(f"Z : {Z}")
+    #     print(f"C_L : {C_L}")
+    #     print(f"c/s : {c/s}")
+    #     print(f"---------------------")
 
     "3) Aspect ratio correction"
     if h/c >= 2:
@@ -262,7 +272,7 @@ def secondary_losses(alpha1_pr, alpha2_pr, beta1, b_z, c, e, h, mu2, M1_pr, M2_p
             if Re_c > Re_r > 0:
                 Kre = coef_r
             else:
-                Kre = (np.log10(5*1e5)/np.log10(Re_c))**2.58
+                Kre = (np.log10(5*1e5)/np.log10(Re_c))**2.58     
     
     "6) Compressibility correction"
     M1_corr = (M1_pr + 0.566 - abs(0.566-M1_pr))/2
@@ -278,23 +288,23 @@ def secondary_losses(alpha1_pr, alpha2_pr, beta1, b_z, c, e, h, mu2, M1_pr, M2_p
     
     Ys = Ks*Kre*np.sqrt(Ys_est**2 / (1+7.5*Ys_est**2))
 
-    if __name__ == "__main__":
-        print(f"Ks : {Ks}")
-        print(f"Kre : {Kre}")
-        print(f"Kre : {Kre}")
-        print(f"fact : {np.sqrt(Ys_est**2 / (1+7.5*Ys_est**2))}")
-        print(f"Ys_est : {Ys_est}")
+    # if __name__ == "__main__":
+    #     print(f"Ks : {Ks}")
+    #     print(f"F_AR : {F_AR}")
+    #     print(f"Kre : {Kre}")
+    #     print(f"fact : {np.sqrt(Ys_est**2 / (1+7.5*Ys_est**2))}")
+    #     print(f"Ys_est : {Ys_est}")
     
-        print(f"Ys : {Ys}")
+    #     print(f"Ys : {Ys}")
 
-        print(f"---------------------")
+    #     print(f"---------------------")
 
 
     return Ys
 
 # a2, delta_seal, D_bh, D_lw, epsilon, h1, h2, i, mdot, N_bh, N_lw, N_seal, P1, P2, R, r_m, r_seal, s_seal, t, T2, u_m, vm2
 
-def aungier_loss_model(alpha1_pr, alpha2_pr, beta1, c, delta, D_lw, e, h, mu2, M1_pr, M2_pr, N_lw, R_c, rho2, s, t_max, t_TE, vm2, w2, rad_flag):
+def aungier_loss_model(alpha1_pr, alpha2_pr, beta_g, beta1, c, delta, D_lw, e, h, mu2, M1_pr, M2_pr, N_lw, R_c, rho2, s, t_max, t_TE, vm2, w2, rad_flag):
     """
     alpha_1_pr : inlet flow angle with respect to tangent in the rotating coordinate system [rad] = beta_1 ? 
     alpha_2_pr : outlet flow angle with respect to tangent in the rotating coordinate system [rad] = beta_2 ? 
@@ -340,22 +350,22 @@ def aungier_loss_model(alpha1_pr, alpha2_pr, beta1, c, delta, D_lw, e, h, mu2, M
         alpha2_pr = (180/np.pi)*alpha2_pr # [rad] to [°]
         beta1 = (180/np.pi)*beta1 # [rad] to [°]
         
-    alpha1_pr = abs(alpha1_pr - 90)
-    alpha2_pr = abs(alpha2_pr + 90)
-    beta1 = abs(beta1 - 90)
+    alpha1_pr = 90 - alpha1_pr
+    alpha2_pr = 90 - alpha2_pr # + 90
+    beta1 = 90 - beta1
     
-    if __name__ == "__main__":
-        print(f"alpha1_pr:{alpha1_pr}")
-        print(f"alpha2_pr:{alpha2_pr}")
-        print(f"beta1:{beta1}")
+    # if __name__ == "__main__":
+    #     print(f"alpha1_pr:{alpha1_pr}")
+    #     print(f"alpha2_pr:{alpha2_pr}")
+    #     print(f"beta1:{beta1}")
     
     #%% "1) Total Pressure loss"
     
     "1.1 Profile Losses"
     
-    Yp = profile_losses(alpha1_pr, alpha2_pr, beta1, c, e, mu2, M1_pr, M2_pr, R_c, rho2, s, t_max, w2)
+    Yp = profile_losses(alpha1_pr, alpha2_pr, beta_g, beta1, c, e, mu2, M1_pr, M2_pr, R_c, rho2, s, t_max, w2)
     
-    b_z = c*cosd(beta1)
+    b_z = c*sind(beta1)
     
     "1.2 Secondary Losses"
     Ys = secondary_losses(alpha1_pr, alpha2_pr, beta1, b_z, c, e, h, mu2, M1_pr, M2_pr, rho2, s, w2)
@@ -365,25 +375,21 @@ def aungier_loss_model(alpha1_pr, alpha2_pr, beta1, c, delta, D_lw, e, h, mu2, M
     C_L = 2*(1/tand(alpha1_pr)+1/tand(alpha2_pr))*s/c
 
     # 2) Ainley Loading Parameter
-    alpha_m_pr = 90 - np.rad2deg(np.arctan((1/tand(alpha1_pr)-1/tand(alpha2_pr))/2))
+    alpha_m_pr = 90 - 180*np.arctan((1/tand(alpha1_pr)+1/tand(alpha2_pr))/2)/np.pi
     Z = (C_L*c/s)**2 * sind(alpha2_pr)**2 / sind(alpha_m_pr)**3
     
     Ycl = 0.47*Z*(c/h)*(delta/c)**0.78
     
-    if __name__ == "__main__":
-        print(f"sin_ratio : {sind(alpha2_pr)**2 / sind(alpha_m_pr)**3}")
-        print(f"cos_ratio : {cosd(alpha2_pr)**2 / cosd(alpha_m_pr)**3}")
-        print(f"Ycl : {Ycl}")
-        print(f"Z : {Z}")
-        print(f"C_L : {C_L}")
-        print(f"c/s : {c/s}")
-        print(f"---------------------")
-
+    # if __name__ == "__main__":
+    #     print(f"sin_ratio : {sind(alpha2_pr)**2 / sind(alpha_m_pr)**3}")
+    #     print(f"cos_ratio : {cosd(alpha2_pr)**2 / cosd(alpha_m_pr)**3}")
+    #     print(f"Ycl : {Ycl}")
+    #     print(f"Z : {Z}")
+    #     print(f"C_L : {C_L}")
+    #     print(f"c/s : {c/s}")
+    #     print(f"---------------------")
     
     "1.4 Trailing Edge Losses"
-    o = s * sind(alpha2_pr) # throat opening
-    beta_g = np.arcsin(o/s) # gauging angle
-    
     DPt = 1/2 * rho2 * w2**2 * (s*np.sin(beta_g)/(s*np.sin(beta_g)-t_TE)-1)**2
     
     Yte = 2*DPt/(rho2*w2**2)    
@@ -423,47 +429,6 @@ def aungier_loss_model(alpha1_pr, alpha2_pr, beta1, c, delta, D_lw, e, h, mu2, M
     # Y = (Pt1' - Pt2')/(Pt2' - P2)
     Y = Yp + Ys + Ycl + Yte + Yex + Ysh + Ylw
     
-    # #%% "2) Parasitic loss"
-    
-    # "2.1 Partial admission work (rotor)"
-    # # 2.1.1 Windage loss
-    # # DHw = 0.05*np.pi*rho2*(2*r_m)*u_m**3*h*(1-epsilon-a)
-    
-    # DHadm = 0
-
-    # "2.2 Disk friction work (diaphragm-disk rotor)"
-    # DHDF = 0
-    
-    # "2.3 Leakage bypass loss (shrouded rotors and rotor balance holes)"
-    # # P_r = P1/P2
-    # # C_r = 1 - 1/(3 + (54.3/(1+100*delta_seal/t))**3.45)
-    # # C_t = (1-P_r)**(0.375*P_r) * (2.143*np.log(N_seal) - 1.464)/(N_seal - 4.322) 
-    
-    # # if N_seal <= 12:
-    # #     X1 = 15.1 - 0.05255*np.exp(0.507*(12-N_seal))
-    # #     X2 = 1.058+0.0218*N_seal
-    # # else:
-    # #     X1 = 13.15 + 0.1625*N_seal
-    # #     X2 = 1.32
-    
-    # # C_c = 1 + X1*(delta_seal/s_seal)
-    
-    # # mdot_seal = 2*np.pi*r_seal*delta_seal*C_c*C_r*C_t*rho2*np.sqrt(R*T2)
-    # # mdot_BH = 1/8 * N_bh * np.pi * D_bh**2 * np.sqrt(2*(P1 - P2)/rho2)
-    
-    # # DHlea = (mdot_seal + mdot_BH)*(h1-h2)/mdot
-
-    # DHlea = 0 # h1-h2 = 0 for immobile stator, small for rotor
-    
-    # "2.4 Clearance gap windage loss (shrouded blades and nozzle of diaphragm-disk rotors)"
-    # DHgap = 0 # 
-    
-    # "2.5 Moisture work loss (rotors)"
-    # DHQ = 0
-    
-    # "2.6 Total"
-    # DHpar = DHadm + DHDF + DHlea + DHgap + DHQ
-    
     Y_dict = {'Y_tot': Y,
               'Yp'   : Yp,
               'Ys'   : Ys,
@@ -473,96 +438,351 @@ def aungier_loss_model(alpha1_pr, alpha2_pr, beta1, c, delta, D_lw, e, h, mu2, M
               'Ysh'  : Ysh,
               'Ylw'  : Ylw
               }
-    
+        
     return Y_dict
 
 if __name__ == "__main__":
-
+    
     from CoolProp.CoolProp import PropsSI
     
-    # States
+    study_case = 'Test'
     
-    fluid = 'CO2'
-    p_in_stator = 12553060 # Pa
-    T_in_stator = 385.7 # Pa
-    
-    p_out_stator = 11455100 # Pa
-    T_out_stator = 378.5 # K
-    
-    rho_out_stat, mu_out_stat, a_out = PropsSI(('D','V','A'),'P', p_out_stator, 'T', T_out_stator, fluid)
-    a_in = PropsSI(('A'),'P', p_in_stator, 'T', T_in_stator, fluid)
-    
-    # Speed triangles
-    
-    R = 0.5
-    psi = 1
-    phi = 0.414
-    
-    vu2OverU = (2*(1-R) + psi)/2
-    wu2OverU  = vu2OverU - 1
-    
-    vu3OverU = (2*(1-R) - psi)/2
-    wu3OverU  = vu3OverU - 1
-    
-    beta1 = beta3 = np.arctan(wu3OverU/phi)
-    beta2 = np.arctan(wu2OverU/phi)
-    
-    alpha1 = alpha3 = np.arctan(vu3OverU/phi)
-    alpha2 = np.arctan(vu2OverU/phi)
-    
-    # General params
-    omega = 3207 # RPM
-    r_m = 209.8 * 1e-3 # m
-    
-    omega_rad = omega*(2*np.pi)/60
-    u = r_m*omega_rad
-    
-    vm = phi*u
-    wu2 = wu2OverU*u
-    wu3 = wu3OverU*u
-    vu2 = vu2OverU*u
-    vu3 = vu3OverU*u
-    
-    v2 = np.sqrt(vu2**2 + vm**2)
-    w2 = np.sqrt(wu2**2 + vm**2)
-
-    wu2 = wu2OverU*u
-    vu2 = vu2OverU*u
-    
-    v3 = np.sqrt(vu3**2 + vm**2)
-    w3 = np.sqrt(wu3**2 + vm**2)
-    
-    # Geometry
-    
-    h_rot = 29.8*1e-3 # m
-    c_rot = 18.15*1e-3 # m
-    xhi_rot = alpha2 # rad
-    t_max_rot = 3.55*1e-3 # m
-    
-    M2_pr_rot = w2/a_out
-    M3_pr_rot = w3/a_out
-    
-    s_rot = 16.5*1e-3 # m
-    
-    R_c = c_rot/(2*np.sin((alpha2 - alpha3)))
-    
-    # Params
-    
-    D_lw = 0
-    N_lw = 0
-    t_TE = 1*1e-3 # m
-    e = 0.002*1e-3 # m : roughness
-    delta_tip_rot = 0*1e-3 # m : rotor tip clearance 
+    if study_case == 'CO2':    
         
-    # results_stator
-    results_rotor = aungier_loss_model(beta2, beta3, beta2, c_rot, delta_tip_rot, D_lw, 
-                                       e, h_rot, mu_out_stat, M2_pr_rot, M3_pr_rot, N_lw, R_c, 
-                                       rho_out_stat, s_rot, t_max_rot, t_TE, vm, w3, 1)
+        # States
+        
+        fluid = 'CO2'
+        p_in_stator = 15*1e5 # Pa
+        T_in_stator = 773 # K
+        
+        p_out_stator = 15*1e5/1.55 # Pa
+        T_out_stator = 378.5 # K
+        
+        rho_out_stat, mu_out_stat, a_out = PropsSI(('D','V','A'),'P', p_out_stator, 'T', T_out_stator, fluid)
+        a_in = PropsSI(('A'),'P', p_in_stator, 'T', T_in_stator, fluid)
+        
+        # Speed triangles
+        
+        R = 0.5
+        psi = 1
+        phi = 0.5
+        
+        vu2OverU = (2*(1-R) + psi)/2
+        wu2OverU  = vu2OverU - 1
+        
+        vu3OverU = (2*(1-R) - psi)/2
+        wu3OverU  = vu3OverU - 1
+        
+        beta1 = beta3 = np.arctan(wu3OverU/phi)
+        beta2 = np.arctan(wu2OverU/phi)
+        
+        alpha1 = alpha3 = np.arctan(vu3OverU/phi)
+        alpha2 = np.arctan(vu2OverU/phi)
+        
+        # General params
+        omega = 3000 # RPM
+        r_m = 209.8 * 1e-3 # m
+        
+        omega_rad = omega*(2*np.pi)/60
+        u = r_m*omega_rad
+        
+        vm = phi*u
+        wu2 = wu2OverU*u
+        wu3 = wu3OverU*u
+        vu2 = vu2OverU*u
+        vu3 = vu3OverU*u
+        
+        v2 = np.sqrt(vu2**2 + vm**2)
+        w2 = np.sqrt(wu2**2 + vm**2)
     
+        wu2 = wu2OverU*u
+        vu2 = vu2OverU*u
+        
+        v3 = np.sqrt(vu3**2 + vm**2)
+        w3 = np.sqrt(wu3**2 + vm**2)
+        
+        # Geometry
+        
+        h_rot = 29.8*1e-3 # m
+        c_rot = 18.15*1e-3 # m
+        xhi_rot = alpha2 # rad
+        t_max_rot = 3.55*1e-3 # m
+        
+        M2_pr_rot = w2/a_out
+        M3_pr_rot = w3/a_out
+        
+        s_rot = 16.5*1e-3 # m
+        
+        R_c = c_rot/(2*np.sin((alpha2 - alpha3)))
+        
+        # Params
+        
+        D_lw = 0
+        N_lw = 0
+        t_TE = 0.4*1e-3 # m
+        e = 0.002*1e-3 # m : roughness
+        delta_tip_rot = 0*1e-3 # m : rotor tip clearance 
+            
+        beta_g = 0.5*(alpha1 + alpha2)   # mid-passage metal angle
+        beta_gr = 0.5*(beta2 + beta3)   # mid-passage metal angle
+        
+        # results_stator
+        results_rotor = aungier_loss_model(beta2, beta3, beta_g, alpha2, c_rot, delta_tip_rot, D_lw, 
+                                           e, h_rot, mu_out_stat, M2_pr_rot, M3_pr_rot, N_lw, R_c, 
+                                           rho_out_stat, s_rot, t_max_rot, t_TE, vm, w3, 1)
+        
+        
+        # stage.Y_vec_R = aungier_loss_model(self.Vel_Tri['beta2'], self.Vel_Tri['beta3'], self.Vel_Tri['beta2'], stage.chord_R, 
+        #                        self.params['delta_tip'], self.params['D_lw'], self.params['e_blade'], stage.h_blade_R, stage.static_states['V'][3], 
+        #                        stage.M2_R, stage.M3_R, self.params['N_lw'], R_c, stage.static_states['D'][3], stage.pitch_R, stage.t_blade_R, self.params['t_TE'],
+        #                        self.Vel_Tri['vm'], self.Vel_Tri['w3'],1)
     
-    # stage.Y_vec_R = aungier_loss_model(self.Vel_Tri['beta2'], self.Vel_Tri['beta3'], self.Vel_Tri['beta2'], stage.chord_R, 
-    #                        self.params['delta_tip'], self.params['D_lw'], self.params['e_blade'], stage.h_blade_R, stage.static_states['V'][3], 
-    #                        stage.M2_R, stage.M3_R, self.params['N_lw'], R_c, stage.static_states['D'][3], stage.pitch_R, stage.t_blade_R, self.params['t_TE'],
-    #                        self.Vel_Tri['vm'], self.Vel_Tri['w3'],1)
+    if study_case == 'ORC':    
+        
+        # States
+        
+        fluid = 'R245fa'
+        p_in_stator = 12.6*1e5 # Pa
+        T_in_stator = 373.7 # K
+        
+        mdot = 50
+        
+        Wdot = 1.52*1e6 # W
+        
+        PR = 6.4
+        p_out_stator = p_in_stator/PR # Pa
+        
+        h_in_stator = PropsSI('H', 'T', T_in_stator, 'P', p_in_stator, fluid)        
+        h_out_stator = h_in_stator
+        
+        T_out_stator = PropsSI('T', 'H', h_out_stator, 'P', p_out_stator, fluid)  
+        
+        rho_out_stat, mu_out_stat, a_out = PropsSI(('D','V','A'),'P', p_out_stator, 'T', T_out_stator, fluid)
+        a_in = PropsSI(('A'),'P', p_in_stator, 'T', T_in_stator, fluid)
+        
+        h_in_rotor = h_out_stator
+        h_out_rotor = h_in_rotor - Wdot/mdot
+        
+        p_out_rotor = p_out_stator
 
-    print(results_rotor)
+        T_out_rotor = PropsSI('T', 'H', h_out_rotor, 'P', p_out_rotor, fluid)  
+        
+        rho_out_rot, mu_out_rot, a_out = PropsSI(('D','V','A'),'P', p_out_rotor, 'T', T_out_rotor, fluid)
+
+        
+        "Speed triangles"
+        
+        # Stator
+        alpha1 = 3
+        alpha2 = 71 # [°]
+        
+        khi1 = alpha1
+
+        beta2 = -24
+
+        v2 = 202
+        w2 = 71 # [m/s]
+        vm = 65
+        
+        M1 = 0.53
+        M2 = 1.47
+
+        # Rotor
+        
+        alpha3 = 3 # [°]
+        beta3 = 68 # [°]
+        
+        v3 = 65 # [m/s]
+        w3 = 172 # [m/s]
+        
+        M2r = 0.52
+        M3 = 1.23
+        
+        "General params"
+        omega = 10000 # RPM
+        
+        cs = 44.34*1e-3 # m
+        cr = 53.26*1e-3 # m
+        
+        e = 0.002*1e-3
+        
+        ZW = 0.8
+                
+        solidityStator = 2*cosd(alpha2)/cosd(alpha1) * sind(alpha2-alpha1)/ZW
+        
+        ss = (cs/solidityStator)/2
+        
+        hs = cs*0.43
+        hr = cr*0.9
+        
+        solidityRotor = 2*cosd(beta3)/cosd(beta2) * sind(beta3-beta2)/ZW
+        sr = (cr/solidityRotor)/2
+        
+        d = 0.31
+        tip_cl = 0.0177*hr# max(0.001, 5*1e-4*d)
+        
+        "Assumptions"
+        
+        R_c = cs/(2*abs(np.sin((alpha1 - alpha2))))
+        
+        o_s = ss*sind(alpha2)
+        o_r = ss*sind(beta3)
+        
+        t_TE_s = 0.0806*o_s
+        t_TE_r = 0.0575*o_r
+        
+        t_max = 0.08*cs
+        t_maxr = 0.3*cr
+        
+        beta_g = alpha2 #0.5*(alpha1 + alpha2)   
+        beta_gr = beta3 # 0.5*(beta2 + beta3)   
+                
+        YdictS = aungier_loss_model(alpha1, alpha2, beta_g, khi1, cs, 0, 0, e, hs, mu_out_stat, M1, M2, 0, R_c, rho_out_stat, ss, t_max, t_TE_s, vm, v2, 0)
+
+        YdictR = aungier_loss_model(beta2, beta3, beta_gr, beta2, cr, tip_cl, 0, e, hr, mu_out_rot, M2r, M3, 0, R_c, rho_out_rot, sr, t_maxr, t_TE_r, vm, w3, 0)
+        
+        ref_value_S = {
+            'Y_tot' : 0.191,
+            'Yp' : 0.013,
+            'Ys' : 0.055,
+            'Yte' : 0.008,
+            'Ysh' : 0.013,
+            'Yex' : 0.101,
+            'Ycl' : 0
+            }
+        
+        ref_value_R = {
+            'Y_tot' : 0.253,
+            'Yp' : 0.016,
+            'Ys' : 0.05,
+            'Yte' : 0.004,
+            'Ysh' : 0.011,
+            'Yex' : 0.034,
+            'Ycl' : 0.139
+            }
+
+        def relative_errors(computed, reference):
+            errors = {}
+            for key, ref_val in reference.items():
+                comp_val = computed.get(key, None)
+                if comp_val is None:
+                    errors[key] = None
+                elif ref_val != 0:
+                    errors[key] = (comp_val - ref_val) / ref_val
+                else:
+                    errors[key] = float('inf') if comp_val != 0 else 0.0
+            return errors
+        
+        # Example usage:
+        err_S = relative_errors(YdictS, ref_value_S)
+        err_R = relative_errors(YdictR, ref_value_R)
+        
+        print("Relative errors - Stator:")
+        for k, v in err_S.items():
+            print(f"{k}: {v:.2%}" if v is not None else f"{k}: N/A")
+        
+        print("\nRelative errors - Rotor:")
+        for k, v in err_R.items():
+            print(f"{k}: {v:.2%}" if v is not None else f"{k}: N/A")
+ 
+    if study_case == 'Test':    
+    
+        # States
+        
+        fluid = 'CO2'
+        p_in_stator = 24679496 # Pa
+        T_in_stator = PropsSI('T', 'H', 1159373, 'P', p_in_stator, fluid)  # K
+        
+        mdot = 50
+        
+        Wdot = 1.52*1e6 # W
+        p_out_stator = 22409929 # Pa
+        
+        h_in_stator = PropsSI('H', 'T', T_in_stator, 'P', p_in_stator, fluid)        
+        h_out_stator = h_in_stator
+        
+        T_out_stator = PropsSI('T', 'H', h_out_stator, 'P', p_out_stator, fluid)  
+        
+        rho_out_stat, mu_out_stat, a_out = PropsSI(('D','V','A'),'P', p_out_stator, 'T', T_out_stator, fluid)
+        a_in = PropsSI(('A'),'P', p_in_stator, 'T', T_in_stator, fluid)
+        
+        h_in_rotor = h_out_stator
+        h_out_rotor = h_in_rotor - Wdot/mdot
+        
+        p_out_rotor = p_out_stator
+    
+        T_out_rotor = PropsSI('T', 'H', h_out_rotor, 'P', p_out_rotor, fluid)  
+        
+        rho_out_rot, mu_out_rot, a_out = PropsSI(('D','V','A'),'P', p_out_rotor, 'T', T_out_rotor, fluid)
+    
+        
+        "Speed triangles"
+        
+        # Stator
+        alpha1 = -0.691573555766352
+        alpha2 = 1.205642036706006
+        
+        khi1 = alpha1
+    
+        beta2 = 0.8130386970159275
+    
+        v2 = 192.77
+        w2 = 100.16 # [m/s]
+        vm = 68.84
+        
+        M1 = 0.18245508233270885
+        M2 = 0.3991590667470393
+    
+        # Rotor
+        
+        alpha3 = -0.69157355576635 # [rad]
+        beta3 = -1.1740541019416815 # [rad]
+        
+        v3 = 89.4 # [m/s]
+        w3 = 178.14 # [m/s]
+        
+        M2r = 0.20738868745930328
+        M3 = 0.3729579990457117
+        
+        "General params"
+        omega = 3000 # RPM
+        
+        cs = 0.02654026363206464 # m
+        cr = 0.02506353058148693 # m
+        
+        e = 0.002*1e-3
+        
+        ZW = 0.8
+                
+        solidityStator = 2*cosd(alpha2)/cosd(alpha1) * sind(alpha2-alpha1)/ZW
+        
+        ss = (cs/solidityStator)/2
+        
+        hs = 0.019044317415287667
+        hr = 0.017786116071656515
+        
+        solidityRotor = 2*cosd(beta3)/cosd(beta2) * sind(beta3-beta2)/ZW
+        sr = (cr/solidityRotor)/2
+        
+        tip_cl = 0.4*1e-3
+        
+        "Assumptions"
+        
+        R_c = cs/(2*abs(np.sin((alpha1 - alpha2))))
+        
+        o_s = ss*sind(alpha2)
+        o_r = ss*sind(beta3)
+        
+        t_TE_s = 0.0005
+        t_TE_r = 0.0005
+        
+        t_max = 0.0010331685787306332
+        t_maxr = 0.0012531765290743466
+        
+        beta_g = alpha2 #0.5*(alpha1 + alpha2)   
+        beta_gr = beta3 # 0.5*(beta2 + beta3)   
+                
+        YdictS = aungier_loss_model(alpha1, alpha2, beta_g, khi1, cs, 0, 0, e, hs, mu_out_stat, M1, M2, 0, R_c, rho_out_stat, ss, t_max, t_TE_s, vm, v2, 1)
+    
+        YdictR = aungier_loss_model(-beta2, -beta3, beta_gr, -beta2, cr, tip_cl, 0, e, hr, mu_out_rot, M2r, M3, 0, R_c, rho_out_rot, sr, t_maxr, t_TE_r, vm, w3, 1)
+        

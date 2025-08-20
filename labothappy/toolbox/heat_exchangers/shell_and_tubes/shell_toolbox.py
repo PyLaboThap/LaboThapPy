@@ -54,4 +54,9 @@ def shell_thickness(D_i, T_shell, P_des):
     # Solve for t
     t_initial_guess = 0.001
     t_solution = fsolve(equation, t_initial_guess, args=(P_des, S_tube_calc, D_i))
-    return t_solution[0]
+    
+    corrosion_allowance = 1.6*1e-3 # mm as per TEMA code
+    
+    return t_solution[0] + corrosion_allowance
+
+

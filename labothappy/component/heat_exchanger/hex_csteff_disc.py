@@ -288,7 +288,10 @@ class HXEffCstDisc(BaseComponent):
                 
                 if self.params['eta'] <= 0:
                     self.solved = False
-                    print("No eta satisfies Pinch_min in HXEffCstDisc")
+                    
+                    if self.print_flag:
+                        print("No eta satisfies Pinch_min in HXEffCstDisc")
+                        
                     return
 
         "Outlet states"   

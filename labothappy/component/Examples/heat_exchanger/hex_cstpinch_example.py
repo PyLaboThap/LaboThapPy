@@ -8,10 +8,35 @@ import numpy as np
 "Evaporator test"
 
 # # Exo ORC M&S
+# EVAP = HXPinchCst()
+
+# EVAP.set_inputs(
+#     su_C_fluid = 'Cyclopentane',
+#     su_C_T = 130+273.15,
+#     su_C_p = 831.8*1e3,
+#     su_C_m_dot = 51.03,
+
+#     su_H_fluid = 'Water', #Oil
+#     su_H_T = 145+273.15,
+#     su_H_p = 5*1e5,
+#     su_H_m_dot = 400,
+# )
+
+# EVAP.set_parameters(**{
+#     'Pinch': 4,
+#     'Delta_T_sh_sc': 10,
+#     'type_HX': 'evaporator'
+# })
+
+# EVAP.solve()
+# EVAP.print_results()
+# EVAP.print_states_connectors()
+# EVAP.plot_disc()
+
 EVAP = HXPinchCst()
 
 EVAP.set_inputs(
-    su_C_fluid = 'Cyclopentane',
+    su_C_fluid = 'CO2',
     su_C_T = 130+273.15,
     su_C_p = 831.8*1e3,
     su_C_m_dot = 51.03,
@@ -23,8 +48,8 @@ EVAP.set_inputs(
 )
 
 EVAP.set_parameters(**{
-    'Pinch': 4,
-    'Delta_T_sh_sc': 10,
+    'Pinch': 5,
+    'Delta_T_sh_sc': 0.1,
     'type_HX': 'evaporator'
 })
 

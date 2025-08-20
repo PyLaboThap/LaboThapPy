@@ -4,3 +4,128 @@
 2025-06-24 18:12:13,190 - pyswarms.single.global_best - INFO - Optimize for 30 iters with {'c1': 1.5, 'c2': 2.0, 'w': 0.7}
 2025-06-24 18:21:28,707 - pyswarms.single.global_best - INFO - Optimization finished | best cost: -0.8757372603958173, best pos: [1.32516081 0.51864225 0.50454804 0.21154337]
 2025-07-03 11:04:58,810 - pyswarms.single.global_best - INFO - Optimize for 30 iters with {'c1': 1.5, 'c2': 1.5, 'w': 0.5}
+2025-07-30 11:37:41,971 - pyswarms.backend.generators - ERROR - Bounds and/or init_pos should be of size (3,)
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pyswarms\backend\generators.py", line 81, in generate_swarm
+    pos = center * np.random.uniform(
+                   ^^^^^^^^^^^^^^^^^^
+  File "numpy\\random\\mtrand.pyx", line 1171, in numpy.random.mtrand.RandomState.uniform
+  File "_common.pyx", line 600, in numpy.random._common.cont
+  File "_common.pyx", line 517, in numpy.random._common.cont_broadcast_2
+  File "__init__.cython-30.pxd", line 780, in numpy.PyArray_MultiIterNew3
+ValueError: shape mismatch: objects cannot be broadcast to a single shape.  Mismatch is between arg 0 with shape (20, 3) and arg 1 with shape (20, 2).
+2025-07-30 14:47:15,875 - pyswarms.backend.generators - ERROR - Bounds and/or init_pos should be of size (3,)
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pyswarms\backend\generators.py", line 81, in generate_swarm
+    pos = center * np.random.uniform(
+                   ^^^^^^^^^^^^^^^^^^
+  File "numpy\\random\\mtrand.pyx", line 1171, in numpy.random.mtrand.RandomState.uniform
+  File "_common.pyx", line 600, in numpy.random._common.cont
+  File "_common.pyx", line 517, in numpy.random._common.cont_broadcast_2
+  File "__init__.cython-30.pxd", line 780, in numpy.PyArray_MultiIterNew3
+ValueError: shape mismatch: objects cannot be broadcast to a single shape.  Mismatch is between arg 0 with shape (20, 3) and arg 1 with shape (20, 2).
+2025-07-31 11:30:10,389 - pyswarms.backend.generators - ERROR - Bounds and/or init_pos should be of size (2,)
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pyswarms\backend\generators.py", line 81, in generate_swarm
+    pos = center * np.random.uniform(
+                   ^^^^^^^^^^^^^^^^^^
+  File "numpy\\random\\mtrand.pyx", line 1171, in numpy.random.mtrand.RandomState.uniform
+  File "_common.pyx", line 600, in numpy.random._common.cont
+  File "_common.pyx", line 517, in numpy.random._common.cont_broadcast_2
+  File "__init__.cython-30.pxd", line 780, in numpy.PyArray_MultiIterNew3
+ValueError: shape mismatch: objects cannot be broadcast to a single shape.  Mismatch is between arg 0 with shape (20, 2) and arg 1 with shape (20, 3).
+2025-08-07 11:13:24,681 - tornado.general - ERROR - Uncaught exception in ZMQStream callback
+Traceback (most recent call last):
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\eventloop\zmqstream.py", line 560, in _run_callback
+    f = callback(*args, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\ipykernel\iostream.py", line 170, in _handle_event
+    event_f()
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\ipykernel\iostream.py", line 276, in <lambda>
+    self.schedule(lambda: self._really_send(*args, **kwargs))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\ipykernel\iostream.py", line 287, in _really_send
+    self.socket.send_multipart(msg, *args, **kwargs)
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\sugar\socket.py", line 754, in send_multipart
+    return self.send(msg_parts[-1], flags, copy=copy, track=track)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\sugar\socket.py", line 701, in send
+    return super().send(data, flags=flags, copy=copy, track=track)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "_zmq.py", line 1092, in zmq.backend.cython._zmq.Socket.send
+  File "_zmq.py", line 1153, in zmq.backend.cython._zmq.Socket.send
+  File "_zmq.py", line 329, in zmq.backend.cython._zmq.Frame.__init__
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\utils\garbage.py", line 152, in _push_socket
+    raise RuntimeError("zmq gc socket requested during shutdown")
+RuntimeError: zmq gc socket requested during shutdown
+2025-08-07 11:13:24,764 - tornado.general - ERROR - Uncaught exception in zmqstream callback
+Traceback (most recent call last):
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\eventloop\zmqstream.py", line 610, in _handle_events
+    self._handle_recv()
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\eventloop\zmqstream.py", line 639, in _handle_recv
+    self._run_callback(callback, msg)
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\eventloop\zmqstream.py", line 560, in _run_callback
+    f = callback(*args, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\ipykernel\iostream.py", line 170, in _handle_event
+    event_f()
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\ipykernel\iostream.py", line 276, in <lambda>
+    self.schedule(lambda: self._really_send(*args, **kwargs))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\ipykernel\iostream.py", line 287, in _really_send
+    self.socket.send_multipart(msg, *args, **kwargs)
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\sugar\socket.py", line 754, in send_multipart
+    return self.send(msg_parts[-1], flags, copy=copy, track=track)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\sugar\socket.py", line 701, in send
+    return super().send(data, flags=flags, copy=copy, track=track)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "_zmq.py", line 1092, in zmq.backend.cython._zmq.Socket.send
+  File "_zmq.py", line 1153, in zmq.backend.cython._zmq.Socket.send
+  File "_zmq.py", line 329, in zmq.backend.cython._zmq.Frame.__init__
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\utils\garbage.py", line 152, in _push_socket
+    raise RuntimeError("zmq gc socket requested during shutdown")
+RuntimeError: zmq gc socket requested during shutdown
+2025-08-07 11:13:24,766 - asyncio - ERROR - Exception in callback BaseAsyncIOLoop._handle_events(2400, 1)
+handle: <Handle BaseAsyncIOLoop._handle_events(2400, 1)>
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\asyncio\events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\tornado\platform\asyncio.py", line 202, in _handle_events
+    handler_func(fileobj, events)
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\eventloop\zmqstream.py", line 610, in _handle_events
+    self._handle_recv()
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\eventloop\zmqstream.py", line 639, in _handle_recv
+    self._run_callback(callback, msg)
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\eventloop\zmqstream.py", line 560, in _run_callback
+    f = callback(*args, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\ipykernel\iostream.py", line 170, in _handle_event
+    event_f()
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\ipykernel\iostream.py", line 276, in <lambda>
+    self.schedule(lambda: self._really_send(*args, **kwargs))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\ipykernel\iostream.py", line 287, in _really_send
+    self.socket.send_multipart(msg, *args, **kwargs)
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\sugar\socket.py", line 754, in send_multipart
+    return self.send(msg_parts[-1], flags, copy=copy, track=track)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\sugar\socket.py", line 701, in send
+    return super().send(data, flags=flags, copy=copy, track=track)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "_zmq.py", line 1092, in zmq.backend.cython._zmq.Socket.send
+  File "_zmq.py", line 1153, in zmq.backend.cython._zmq.Socket.send
+  File "_zmq.py", line 329, in zmq.backend.cython._zmq.Frame.__init__
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\utils\garbage.py", line 152, in _push_socket
+    raise RuntimeError("zmq gc socket requested during shutdown")
+RuntimeError: zmq gc socket requested during shutdown
+2025-08-15 18:01:18,645 - pyswarms.backend.generators - ERROR - Bounds and/or init_pos should be of size (5,)
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pyswarms\backend\generators.py", line 81, in generate_swarm
+    pos = center * np.random.uniform(
+                   ^^^^^^^^^^^^^^^^^^
+  File "numpy\\random\\mtrand.pyx", line 1171, in numpy.random.mtrand.RandomState.uniform
+  File "_common.pyx", line 600, in numpy.random._common.cont
+  File "_common.pyx", line 517, in numpy.random._common.cont_broadcast_2
+  File "__init__.cython-30.pxd", line 780, in numpy.PyArray_MultiIterNew3
+ValueError: shape mismatch: objects cannot be broadcast to a single shape.  Mismatch is between arg 0 with shape (10, 5) and arg 1 with shape (10, 4).

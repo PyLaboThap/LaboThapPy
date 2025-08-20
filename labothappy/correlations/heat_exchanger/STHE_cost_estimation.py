@@ -3,10 +3,16 @@
 """
 Created on Thu Mar 20 11:17:07 2025
 
-@author: Samuel Gendebien
+@authors: Samuel Gendebien & Basile Chaudoir
 """
-import math
-import numpy as math
+
+"""
+Source for the model : Manufacturing cost model for heat exchangers optimization
+
+Antonio C. Caputo, Pacifico M. Pelagagge, Paolo Salini
+"""
+
+import numpy as np
 import matplotlib.pyplot as plt
 
 class EconomicParameters:
@@ -39,7 +45,8 @@ class EconomicParameters:
             'Removable Cover' :
                 ['Cutting', 'Beveling', 'Drilling'],
             'Tube' :
-                ['Assembly', 'Cutting', 'Expansion', 'Welding', 'Welding Check'],
+                # ['Assembly', 'Cutting', 'Expansion', 'Welding', 'Welding Check'],
+                ['Assembly', 'Expansion'],
             'Bolts' : 
                 ['Assembly'],
             'Spacer' : 
@@ -235,13 +242,14 @@ class EconomicParameters:
             'Assembly' : 0
             }
         
-        # Processing speeds [m/min]
-        v_b = 1.5      # Beveling [m/min]
-        v_c = 1        # Cutting [m/min] assumed to be equal to 1 (to be better assessed)
-        v_cw= 1.5*0.06 # Welding Check [m/min]
-        v_d = 0.3      # Drilling [m/min]
-        v_r = 0.2      # Rolling [m/min]
-        v_w = 0.2      # Welding [m/min]
+        # Processing speeds [m/min] : Results from an optimization to fit operational costs from the source article 
+        v_b = 0.3085   # Beveling [m/min]
+        v_c = 0.1      # Cutting [m/min] assumed to be equal to 1 (to be better assessed)
+        v_cw= 0.09     # Welding Check [m/min]
+        v_d = 0.0562   # Drilling [m/min]
+        v_r = 0.6189   # Rolling [m/min]
+        v_w = 0.6145   # Welding [m/min]
+
 
         self.v = {
             'Beveling' : v_b,
@@ -331,8 +339,6 @@ class HeatExchangerCost:
 
         self.params = EconomicParameters()  # Linking to economic parameters
 
-
-
         # Geometry parameters
         
         #Shell characteristics
@@ -382,14 +388,18 @@ class HeatExchangerCost:
         #Bolts
         self.N_Bt=N_Bt          #Number of bolts (-)
         
+        self.mass = {
+            'Total' : 0
+            }
+        
         """
         Geometry parameters deduction from the defined inputs
         """
         # Calculate number of baffles
-        self.N_B = math.floor(self.L_T / self.L_B) - 1
+        self.N_B = np.floor(self.L_T / self.L_B) - 1
         
         # Calculate k4 = cos^-1((0.5-Bc)/0.5)
-        self.k4 = math.arccos((0.5 - self.B_c) / 0.5)
+        self.k4 = np.arccos((0.5 - self.B_c) / 0.5)
         
         # Manufacturing consideration regarding the shell
         self.shell_type = "Rolled Shell" if self.D_S_i > 0.6 else "Standard Tube Shell"  # Shell is rolled if Ds > 600mm
@@ -420,23 +430,23 @@ class HeatExchangerCost:
     def calculate_volume(self, component):
         """Calculate volume for each heat exchanger subassembly based on Appendix B formulas"""
         if component == 'Rolled Shell' or component == 'Standard Tube Shell' :
-            return math.pi * ((self.D_S_i + 2*self.t_S)**2 - self.D_S_i**2) / 4 * self.L_T  # Shell volume
+            return np.pi * ((self.D_S_i + 2*self.t_S)**2 - self.D_S_i**2) / 4 * self.L_T  # Shell volume
         elif component == 'Baffle':
-            return self.D_S_i**2 * (math.pi / 4 * (1 - 1 / (math.pi) * self.k4) + 0.5 * math.sin(self.k4) * (0.5 - self.B_c)) * self.t_B * self.N_B  # Baffle volume
+            return self.D_S_i**2 * (np.pi / 4 * (1 - 1 / (np.pi) * self.k4) + 0.5 * np.sin(self.k4) * (0.5 - self.B_c)) * self.t_B * self.N_B  # Baffle volume
         elif component == 'Tubesheet':
-            return math.pi * ((self.D_S_i + 2*self.D_r)**2 - self.D_S_i**2) / 4 * self.t_TS * self.N_TS  # Tube-sheet volume
+            return np.pi * ((self.D_S_i + 2*self.D_r)**2 - self.D_S_i**2) / 4 * self.t_TS * self.N_TS  # Tube-sheet volume
         elif component == 'Tube':
-            return math.pi * (self.D_T_o**2 - self.D_T_i**2) / 4 * self.L_T * self.N_T  # Tube volume
+            return np.pi * (self.D_T_o**2 - self.D_T_i**2) / 4 * self.L_T * self.N_T  # Tube volume
         elif component == 'Rolled Channel' or component == 'Standard Channel':
-            return math.pi * ((self.D_S_i + 2*self.t_S)**2 - self.D_S_i**2) / 4 * self.L_CH * self.N_CH  # Channel volume
+            return np.pi * ((self.D_S_i + 2*self.t_S)**2 - self.D_S_i**2) / 4 * self.L_CH * self.N_CH  # Channel volume
         elif component == 'Removable Cover':
-            return math.pi * ((self.D_S_i + 2*self.D_r)**2) / 4 * self.t_RC * self.N_CH  # Removable cover volume
+            return np.pi * ((self.D_S_i + 2*self.D_r)**2) / 4 * self.t_RC * self.N_CH  # Removable cover volume
         elif component == 'Flange':
-            return math.pi * ((self.D_S_i + 2*self.D_r)**2 - self.D_S_i**2) / 4 * self.t_FL * self.N_FL  # Flange volume (Equation 51)
+            return np.pi * ((self.D_S_i + 2*self.D_r)**2 - self.D_S_i**2) / 4 * self.t_FL * self.N_FL  # Flange volume (Equation 51)
         elif component == 'Tie rods':
-            return self.N_TR * math.pi * (self.D_TR**2 / 4) * self.L_TR  # Tie rod volume (Equation 51 bis)
+            return self.N_TR * np.pi * (self.D_TR**2 / 4) * self.L_TR  # Tie rod volume (Equation 51 bis)
         elif component == 'Spacer':
-            return self.N_B * math.pi * ((self.D_SP_e**2 - self.D_SP_i**2) / 4) * self.L_B * self.N_TR  # Spacer volume (Equations 5 ter)
+            return self.N_B * np.pi * ((self.D_SP_e**2 - self.D_SP_i**2) / 4) * self.L_B * self.N_TR  # Spacer volume (Equations 5 ter)
         elif component == 'Bolts':
             return self.N_Bt * 3E-6   # Bolts volume (Equations 5 ter)
         else: 
@@ -450,6 +460,8 @@ class HeatExchangerCost:
                 
         if component in self.params.C_mat:
             cost = volume * density * self.params.C_mat[component]
+            self.mass[component] = volume*density
+            self.mass['Total'] += volume*density
         else:
             cost = 0
             
@@ -499,7 +511,7 @@ class HeatExchangerCost:
             "Tubesheet": {
                 "Beveling": np.pi * self.D_S_i * (1 + 2 * self.D_r)*self.N_TS,
                 "Cutting": np.pi * self.D_S_i * (1 + 2 * self.D_r)*self.N_TS,
-                "Drilling": (self.N_T + self.D_S_i * (1 + self.D_r) / self.bd) * (self.t_TS+L_D_add)*self.N_TS},
+                "Drilling": (self.N_T + self.D_S_i * (1 + self.D_r) / self.bd) * (self.t_TS*self.N_TS)}, #+L_D_add)*self.N_TS},
             
             "Rolled Channel": {
                 "Beveling": 2 * (np.pi * self.D_S_i + self.W_CH)*self.N_CH,
@@ -517,8 +529,8 @@ class HeatExchangerCost:
                 "Drilling": (self.D_S_i * (1 + self.D_r) / self.bd) * (self.t_RC+L_D_add) * self.N_RC},
             
             "Tube": {
-                "Cutting": np.pi * self.D_T_o* self.N_T,
-                "Welding": np.pi * self.D_T_o * self.N_T_tr* self.N_T}
+                "Cutting": np.pi * self.D_T_o * self.N_T,
+                "Welding": np.pi * self.D_T_o * self.N_T_tr * self.N_T}
         }
         
         # self.processing_lengths = {
@@ -661,10 +673,17 @@ class HeatExchangerCost:
         self.C_comp = {}
         C_op_tot = 0
         
-        for component in self.params.operation_per_part.keys():
+        for component in [self.shell_type, 'Baffle', 'Tubesheet', 'Tube', self.channel_type, 'Removable Cover', 'Flange', 'Tie rods', 'Spacer', 'Bolts']: # self.params.operation_per_part.keys():
+            # print(f"---------------------------------------------------")
+
+            # print(f"Component : {component}")
             self.C_op = {}
             C_tot = 0 
             for operation in self.params.operation_per_part[component]:
+                # print(f"----------------")
+
+                # print(f"Operation : {operation}")
+
                 C_HO = self.C_HO[operation]['Hourly']
                 C_L = self.C_HO[operation]['Labor']
                 C_D = self.C_HO[operation]['Depreciation']
@@ -673,6 +692,7 @@ class HeatExchangerCost:
                 batch_size = self.batches[component] # 1 HX built at a time is considered
                 
                 if operation != "Assembly" and operation != "Expansion":
+                    # print(f"Operation 2 : {operation}")
                     if component in self.params.T_SU:
                         T_SU = self.params.T_SU[component][operation]/3600
                     else: 
@@ -683,7 +703,9 @@ class HeatExchangerCost:
                     else: 
                         T_LU = 0
                         
-                    if operation in self.processing_lengths:
+                    if operation in self.processing_lengths[component]:
+                        # print(f"Operation 3 : {operation}")
+
                         process_len = self.processing_lengths[component][operation]
                         process_speed = self.params.v[operation]
                         self.C_op[operation] = ((process_len/(process_speed*60))*C_HO + (C_L + C_D)*(T_LU + T_SU/batch_size) + C_AUX/batch_size)/self.params.OF
@@ -705,11 +727,12 @@ class HeatExchangerCost:
                         T_e = self.params.ST_in[component][operation]*self.N_T*self.N_TS
                         self.C_op[operation] = ((C_L + C_D)*(T_e/3600))/self.params.OF          
                         C_tot += self.C_op[operation]
-
+                
+                # print(f"Operation cost : {self.C_op[operation]}")
+                
             self.C_comp[component] = self.C_op.copy()
             self.C_comp[component]['Total'] = C_tot
             C_op_tot += C_tot
-            
             
         return C_op_tot
 
@@ -720,8 +743,10 @@ class HeatExchangerCost:
         processing_lengths, batches = self.compute_processing_length()
         total_operation_cost = self.calculate_operation_cost()
         
-        # total_cost = (total_material_cost + total_manufacturing_cost)
-        # return total_cost
+        # print(f"Total costs [€] : {total_material_cost + total_operation_cost}")
+        # print(f"Total material costs [€] : {total_material_cost}")
+        # print(f"Total operation costs [€] : {total_operation_cost}")
+        
         return total_material_cost + total_operation_cost, total_material_cost, total_operation_cost
 
     def print_cost_breakdown(self):
@@ -852,7 +877,7 @@ if __name__ == "__main__":
     
     # Baffles
     B = 0.7 # m
-    t_B = 0.032 # m
+    t_B = 0.032 # m : # !!! This seems high, it is weird
     BC = 40/100 
     
     # Tubesheets
@@ -920,10 +945,11 @@ if __name__ == "__main__":
         L_TR=L_TR, 
         N_Bt=N_bt
     )
-
+    
     Costs = calculator.calculate_total_cost()
-    # Cost_Breakdown=calculator.print_cost_breakdown()
-    #Test=calculator.compute_processing_length("Drilling","Baffle")
+    
+    # # Cost_Breakdown=calculator.print_cost_breakdown()
+    # # Test=calculator.compute_processing_length("Drilling","Baffle")
     
     # print(" Material Costs Breakdown (€):")
     # # First, calculate the total material cost without calculating percentages
@@ -950,4 +976,58 @@ if __name__ == "__main__":
     # # Print total material cost
     # print("-" * 70)
 
+    # from scipy.optimize import minimize
+
+    # def objective(speeds_vector):
+    #     total_op_costs = 0.95*5715.2
+        
+    #     target_cost_rolled_shell = total_op_costs*(0.11)
+    #     target_cost_baffle = total_op_costs*(0.53)
+    #     target_cost_tube = total_op_costs*(0.023)
+    #     target_cost_TS = total_op_costs*(0.164)
+    #     target_cost_channel = total_op_costs*(0.062)
+    #     target_cost_flanges = total_op_costs*(0.047)
+        
+    #     calculator.params.v['Beveling'] = speeds_vector[0]
+    #     calculator.params.v['Cutting'] = speeds_vector[1]
+    #     calculator.params.v['Welding'] = speeds_vector[2]
+    #     calculator.params.v['Rolling'] = speeds_vector[3]
+    #     calculator.params.v['Drilling'] = speeds_vector[4]
+    #     calculator.params.v['Welding Check'] = speeds_vector[5]
+        
+    #     total = calculator.calculate_total_cost()
+        
+    #     predicted_costs_shell = calculator.C_comp['Rolled Shell']['Total']  # example
+    #     predicted_costs_baffle = calculator.C_comp['Baffle']['Total']  # example
+    #     predicted_costs_tube = calculator.C_comp['Tube']['Total']  # example
+    #     predicted_costs_TS = calculator.C_comp['Tubesheet']['Total']  # example
+    #     predicted_costs_channel = calculator.C_comp['Rolled Channel']['Total']  # example
+    #     predicted_costs_flanges = calculator.C_comp['Flange']['Total']  # example
+
+        
+    #     res_rolled_shell = (predicted_costs_shell - target_cost_rolled_shell)**2  # squared error
+    #     res_baffle = (predicted_costs_baffle - target_cost_baffle)**2  # squared error
+    #     res_tube = (predicted_costs_tube - target_cost_tube)**2  # squared error
+    #     res_std_TS = (predicted_costs_TS - target_cost_TS)**2  # squared error        
+    #     res_channel = (predicted_costs_channel - target_cost_channel)**2  # squared error        
+    #     res_flanges = (predicted_costs_flanges - target_cost_flanges)**2  # squared error        
+    #     # res_op_cost = 
+        
+    #     res_tot = res_rolled_shell + res_baffle + res_tube + res_std_TS + res_channel + res_flanges
+
+    #     return res_tot
+    
+    # x0=[1.5, 1.0, 0.2, 0.2, 0.3, 0.09]
+    
+    # # Define bounds: each tuple (lower, upper), set lower bound to a small positive number like 1e-3
+    # bounds = [(1e-4, 5)] * len(x0)  # This applies positivity to all speed variables
+    
+    # result = minimize(objective, x0=x0, bounds=bounds, method='L-BFGS-B')
+
+    # print(f"Beveling speed     : {result.x[0]:.4f}")
+    # print(f"Cutting speed      : {result.x[1]:.4f}")
+    # print(f"Welding speed      : {result.x[2]:.4f}")
+    # print(f"Rolling speed      : {result.x[3]:.4f}")
+    # print(f"Drilling speed     : {result.x[4]:.4f}")
+    # print(f"Welding Check speed: {result.x[5]:.4f}")
 

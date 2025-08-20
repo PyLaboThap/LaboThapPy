@@ -45,9 +45,9 @@ CSource.set_properties(fluid='Water', T=T_cold_source,
                        p=5e5, m_dot=1000*m_dot)  # 1000 # 625000
 
 if study_case == "Exp":
-    CO2_HP = IHX_EXP_CO2_HP(HSource, eta_is_cp, eta_gc, eta_IHX, eta_exp, PPTD_ev, SH_ev, P_low_guess, P_high, m_dot) # 0.16 # 100
+    CO2_HP = IHX_EXP_CO2_HP(HSource, T_cold_source, eta_is_cp, eta_gc, eta_IHX, eta_exp, PPTD_ev, SH_ev, P_low_guess, P_high, m_dot) # 0.16 # 100
 else:
-    CO2_HP = IHX_CO2_HP(HSource, eta_is_cp, eta_gc, eta_IHX, PPTD_ev, SH_ev, P_low_guess, P_high, m_dot, print_flag) # 0.16 # 100
+    CO2_HP = IHX_CO2_HP(HSource, T_cold_source, eta_is_cp, eta_gc, eta_IHX, PPTD_ev, SH_ev, P_low_guess, P_high, m_dot, print_flag) # 0.16 # 100
 
 # HSource, eta_cp, eta_gc, eta_IHX, PP_ev, SH_ev, P_low, P_high, m_dot, print_flag
 

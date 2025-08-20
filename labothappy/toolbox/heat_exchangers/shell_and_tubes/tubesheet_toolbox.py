@@ -52,4 +52,6 @@ def tube_sheet_thickness(D_o, pitch, T_shell, P_des, G):
     
     t_tube_sheet = (F*G/3)*np.sqrt(P_des/(eta*S_tube_calc))
     
-    return t_tube_sheet
+    corrosion_allowance = 1.6*1e-3 # m
+    
+    return t_tube_sheet + corrosion_allowance

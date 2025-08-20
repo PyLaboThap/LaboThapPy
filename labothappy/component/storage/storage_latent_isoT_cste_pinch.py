@@ -8,7 +8,7 @@ from connector.heat_connector import HeatConnector
 
 from component.base_component import BaseComponent
 
-
+import CoolProp.CoolProp as CP
 from CoolProp.CoolProp import PropsSI
 from scipy.optimize import fsolve, root, minimize
 import numpy as np
@@ -143,25 +143,43 @@ class StorageLatentIsothermalCstePinch(BaseComponent):
 
         P_sto = 101325 # Pa : Latent storage at ambient pressure
         
+        self.AS_sto = CP.AbstractState('HEOS', self.inputs['sto_fluid'])
+        self.AS = CP.AbstractState('HEOS', self.su.fluid)
+        
         # Get temperature at the triple point (freezing/melting point)
-        self.sto_fluid.set_T(PropsSI("T_triple", "P", P_sto, "Q", 0, "Water"))
+        try:    
+            self.sto_fluid.set_T(self.params['T_sto'])
+        except:
+            self.sto_fluid.set_T(self.AS_sto.Ttriple())
+
+        
         self.sto_fluid.set_p(P_sto)
 
         if self.su.T <= self.sto_fluid.T:
-            if self.su.T <= self.sto_fluid.T - self.params['Pinch'] - self.params['Delta_T_sh_sc']:
+            if  self.su.T - (self.sto_fluid.T - self.params['Pinch'] - self.params['Delta_T_sh_sc']) <= 1e-2:
                 self.T_ex = self.sto_fluid.T - self.params['Pinch']
                 self.T_sat = self.T_ex - self.params['Delta_T_sh_sc']
                 
-                self.P_sat = PropsSI('P', 'Q', 0, 'T', self.T_sat, self.su.fluid)
-                self.h_ex = PropsSI('H', 'P', self.P_sat, 'T', self.T_ex, self.su.fluid)
+                self.AS.update(CP.QT_INPUTS, 0, self.T_sat)
+                self.P_sat = self.AS.p()
 
-                self.h_sat_v = PropsSI('H', 'Q', 1, 'T', self.T_sat, self.su.fluid)
-                self.h_sat_l = PropsSI('H', 'Q', 0, 'T', self.T_sat, self.su.fluid)
+                self.AS.update(CP.PT_INPUTS, self.P_sat, self.T_ex)                
+                self.h_ex = self.AS.hmass()
+
+                self.AS.update(CP.QT_INPUTS, 1, self.T_sat)
+                self.h_sat_v = self.AS.hmass()
+                                
+                self.AS.update(CP.QT_INPUTS, 0, self.T_sat)
+                self.h_sat_l = self.AS.hmass()
                 
                 self.Q_dot_3 = self.su.m_dot*(self.h_ex - self.h_sat_v)
                 self.Q_dot_2 = self.su.m_dot*(self.h_sat_v - self.h_sat_l)
 
-                h_su = PropsSI('H', 'P', self.P_sat, 'T', self.su.T, self.su.fluid)
+                try:
+                    self.AS.update(CP.PT_INPUTS, self.P_sat,self.su.T)
+                    h_su = self.AS.hmass()
+                except:
+                    h_su = self.su.h
 
                 self.Q_dot_1 = self.su.m_dot*(self.h_sat_l - h_su)
                 
@@ -173,29 +191,40 @@ class StorageLatentIsothermalCstePinch(BaseComponent):
                 # self.T_ex = self.su.T
                 # self.P_sat = self.su.p
                 # self.h_ex = self.su.h
-
+                
                 return
         else:
             if self.su.T >= self.sto_fluid.T + self.params['Pinch'] + self.params['Delta_T_sh_sc']:
                 self.T_ex = self.sto_fluid.T + self.params['Pinch']
                 self.T_sat = self.T_ex + self.params['Delta_T_sh_sc']
                 
-                self.P_sat = PropsSI('P', 'Q', 0, 'T', self.T_sat, self.su.fluid)
-                self.h_ex = PropsSI('H', 'P', self.P_sat, 'T', self.T_ex, self.su.fluid)
-
-                self.h_sat_v = PropsSI('H', 'Q', 1, 'T', self.T_sat, self.su.fluid)
-                self.h_sat_l = PropsSI('H', 'Q', 0, 'T', self.T_sat, self.su.fluid)
+                self.AS.update(CP.QT_INPUTS, 0, self.T_sat)
+                self.P_sat = self.AS.p()                
+                
+                self.AS.update(CP.PT_INPUTS, self.P_sat, self.T_ex)                
+                self.h_ex = self.AS.hmass()
+                
+                self.AS.update(CP.QT_INPUTS, 1, self.T_sat)
+                self.h_sat_v = self.AS.hmass()
+                                
+                self.AS.update(CP.QT_INPUTS, 0, self.T_sat)
+                self.h_sat_l = self.AS.hmass()
                 
                 self.Q_dot_3 = self.su.m_dot*(self.h_sat_l - self.h_ex)
                 self.Q_dot_2 = self.su.m_dot*(self.h_sat_v - self.h_sat_l)
 
-                h_su = PropsSI('H', 'P', self.P_sat, 'T', self.su.T, self.su.fluid)
-                
+                try:
+                    self.AS.update(CP.PT_INPUTS, self.P_sat,self.su.T)
+                    h_su = self.AS.hmass()
+                except:
+                    h_su = self.su.h
+                    
                 self.Q_dot_1 = self.su.m_dot*(h_su - self.h_sat_v)
 
                 self.Q = self.Q_dot_1 + self.Q_dot_2 + self.Q_dot_3
+                
             else: # Pinch and SC_SH cannot be satisfied
-                raise ValueError("Pinch and SC_SH are not satisfied")
+                # raise ValueError("Pinch and SC_SH are not satisfied")
                 return
         
         self.solved = True

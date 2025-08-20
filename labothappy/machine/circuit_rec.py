@@ -521,7 +521,7 @@ class RecursiveCircuit(BaseCircuit):
         self.guess_update = True
 
         i=0
-        n_it_max = 10   
+        n_it_max = 30   
         
         while i < n_it_max:
  
@@ -666,7 +666,7 @@ class RecursiveCircuit(BaseCircuit):
         # plt.plot(res_ev, 'r',  marker='o')                            
         # plt.show()
 
-        # print(f"Solver failed to converge in {n_it_max} iterations.")
+        print(f"Solver failed to converge in {n_it_max} iterations.")
         
         # self.print_res_vars()
         
