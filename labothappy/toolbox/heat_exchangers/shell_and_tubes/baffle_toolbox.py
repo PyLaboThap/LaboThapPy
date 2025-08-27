@@ -100,8 +100,9 @@ def baffle_thickness(D_s, BC, rho_S, T_S):
     
     t_b = max(t_b, t_b_min)
 
-    return t_b
+    corrosion_allowance = 1.6*1e-3 # m
 
+    return t_b + corrosion_allowance
 
 #%% CENTRAL SPAC RELATED FUN
 

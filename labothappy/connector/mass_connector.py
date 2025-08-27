@@ -211,7 +211,7 @@ class MassConnector:
                 self.set_cp(value)
             else:
                 warnings.warn(f"Error: Invalid property '{key}'")
-
+        
     def set_fluid(self, value):
         if self.fluid != None:
             pass

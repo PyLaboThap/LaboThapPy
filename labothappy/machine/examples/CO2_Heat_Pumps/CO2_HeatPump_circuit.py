@@ -167,7 +167,7 @@ def Exp_CO2_HP(HSource, CSource, eta_cp, eta_exp, eta_gc, PP_ev, SH_ev, P_low, P
     
     return CO2_HP
 
-def IHX_CO2_HP(HSource, eta_cp, eta_gc, eta_IHX, PP_ev, SH_ev, P_low, P_high, m_dot, print_flag):
+def IHX_CO2_HP(HSource, T_cold_source, eta_cp, eta_gc, eta_IHX, PP_ev, SH_ev, P_low, P_high, m_dot, mute_print_flag):
     CO2_HP = RecursiveCircuit('CO2')
     
     n_disc_HX = 50
@@ -205,6 +205,7 @@ def IHX_CO2_HP(HSource, eta_cp, eta_gc, eta_IHX, PP_ev, SH_ev, P_low, P_high, m_
     Evaporator.set_parameters(**{
         'Pinch': PP_ev,
         'Delta_T_sh_sc': SH_ev,
+        'T_sto' : T_cold_source,
     })
     
     
@@ -217,9 +218,9 @@ def IHX_CO2_HP(HSource, eta_cp, eta_gc, eta_IHX, PP_ev, SH_ev, P_low, P_high, m_
     CO2_HP.add_component(Valve, "Valve")
     CO2_HP.add_component(Evaporator, "Evaporator")
     
-    if not print_flag:
+    if mute_print_flag:
         CO2_HP.mute_print()
-    
+        
     # Link components
     CO2_HP.link_components("Compressor", "m-ex", "GasCooler", "m-su_H")
     CO2_HP.link_components("GasCooler", "m-ex_H", "IHX", "m-su_H")
@@ -240,10 +241,12 @@ def IHX_CO2_HP(HSource, eta_cp, eta_gc, eta_IHX, PP_ev, SH_ev, P_low, P_high, m_
     
     #%% CYCLE GUESSES
     
+    T_ex_valve_guess = T_cold_source - PP_ev - SH_ev - 5
+    
     CO2_HP.set_cycle_guess(target='Compressor:su', m_dot = m_dot, SH = 20, p = P_low)
     CO2_HP.set_cycle_guess(target='Compressor:ex', p = P_high)
 
-    CO2_HP.set_cycle_guess(target='Valve:su', p = P_high, T = 30+273.15, m_dot = m_dot)    
+    CO2_HP.set_cycle_guess(target='Valve:su', p = P_high, T = T_ex_valve_guess, m_dot = m_dot)    
     CO2_HP.set_cycle_guess(target='Valve:ex', p = P_low)
     
     #%% CYCLE RESIDUAL VARIABLES
@@ -261,7 +264,7 @@ def IHX_CO2_HP(HSource, eta_cp, eta_gc, eta_IHX, PP_ev, SH_ev, P_low, P_high, m_
     
     return CO2_HP
 
-def IHX_EXP_CO2_HP(HSource, eta_cp, eta_gc, eta_IHX, eta_exp, PP_ev, SH_ev, P_low, P_high, m_dot):
+def IHX_EXP_CO2_HP(HSource, T_cold_source, eta_cp, eta_gc, eta_IHX, eta_exp, PP_ev, SH_ev, P_low, P_high, m_dot, mute_print_flag):
     CO2_HP = RecursiveCircuit('CO2')
     
     n_disc_HX = 50
@@ -303,6 +306,7 @@ def IHX_EXP_CO2_HP(HSource, eta_cp, eta_gc, eta_IHX, eta_exp, PP_ev, SH_ev, P_lo
     Evaporator.set_parameters(**{
         'Pinch': PP_ev,
         'Delta_T_sh_sc': SH_ev,
+        'T_sto' : T_cold_source
     })
     
     #%% ADD AND LINK COMPONENTS
@@ -313,6 +317,9 @@ def IHX_EXP_CO2_HP(HSource, eta_cp, eta_gc, eta_IHX, eta_exp, PP_ev, SH_ev, P_lo
     CO2_HP.add_component(IHX, "IHX")
     CO2_HP.add_component(Expander, "Expander")
     CO2_HP.add_component(Evaporator, "Evaporator")
+    
+    if mute_print_flag:
+        CO2_HP.mute_print()
     
     # Link components
     CO2_HP.link_components("Compressor", "m-ex", "GasCooler", "m-su_H")
@@ -334,10 +341,12 @@ def IHX_EXP_CO2_HP(HSource, eta_cp, eta_gc, eta_IHX, eta_exp, PP_ev, SH_ev, P_lo
     
     #%% CYCLE GUESSES
     
+    T_ex_exp_guess = T_cold_source - PP_ev - SH_ev - 5
+    
     CO2_HP.set_cycle_guess(target='Compressor:su', m_dot = m_dot, SH = 20, p = P_low)
     CO2_HP.set_cycle_guess(target='Compressor:ex', p = P_high)
 
-    CO2_HP.set_cycle_guess(target='Expander:su', p = P_high, T = 30+273.15, m_dot = m_dot)    
+    CO2_HP.set_cycle_guess(target='Expander:su', p = P_high, T = T_ex_exp_guess, m_dot = m_dot)    
     CO2_HP.set_cycle_guess(target='Expander:ex', p = P_low)
     
     #%% CYCLE RESIDUAL VARIABLES

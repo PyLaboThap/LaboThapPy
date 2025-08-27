@@ -16,13 +16,15 @@ from component.heat_exchanger.hex_cstpinch import HXPinchCst
 from component.heat_exchanger.hex_csteff_disc import HXEffCstDisc
 from component.expander.expander_csteff import ExpanderCstEff 
 from component.pump.pump_csteff import PumpCstEff 
+from component.storage.storage_latent_isoT_cste_pinch import StorageLatentIsothermalCstePinch
 
 # from component.valve.isenthalpic_valve_P_ex import Isenthalpic_Valve_P_ex
 # from component.valve.isenthalpic_valve_x_ex import Isenthalpic_Valve_x_ex
 # from component.tank.mixer.simulation_model import Mixer
 # from component.tank.Separator.LV_separator import LV_Separator
 
-def basic_CO2_TC(HSource, CSource, eta_pp, eta_exp, eta_gh, PP_cd, SC_cd, P_low, P_high, m_dot):
+def basic_CO2_TC(HSource, T_cold_source, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, eta_gh, PP_cd, SC_cd, P_low, P_high, m_dot, mute_print_flag):
+    
     CO2_TC = RecursiveCircuit('CO2')
     
     # Create components
@@ -61,6 +63,9 @@ def basic_CO2_TC(HSource, CSource, eta_pp, eta_exp, eta_gh, PP_cd, SC_cd, P_low,
     CO2_TC.add_component(Pump, "Pump")
     CO2_TC.add_component(Condenser, "Condenser")
             
+    if mute_print_flag:
+        CO2_TC.mute_print()
+    
     # Link components
     CO2_TC.link_components("Pump", "m-ex", "GasHeater", "m-su_C")
     CO2_TC.link_components("GasHeater", "m-ex_C", "Expander", "m-su")
@@ -73,9 +78,9 @@ def basic_CO2_TC(HSource, CSource, eta_pp, eta_exp, eta_gh, PP_cd, SC_cd, P_low,
     CO2_TC.add_source("GH_Water", Gas_heater_source, CO2_TC.components["GasHeater"], "m-su_H")
     CO2_TC.set_source_properties(T=HSource.T, fluid=HSource.fluid, m_dot=HSource.m_dot, target='GH_Water', P = HSource.p)
     
-    CD_source = MassConnector()
-    CO2_TC.add_source("CD_Water", CD_source, CO2_TC.components["Condenser"], "m-su_C")
-    CO2_TC.set_source_properties(T=CSource.T, fluid=CSource.fluid, m_dot=CSource.m_dot, target='CD_Water', P = CSource.p)
+    # CD_source = MassConnector()
+    # CO2_TC.add_source("CD_Water", CD_source, CO2_TC.components["Condenser"], "m-su_C")
+    # CO2_TC.set_source_properties(T=CSource.T, fluid=CSource.fluid, m_dot=CSource.m_dot, target='CD_Water', P = CSource.p)
     
     #%% CYCLE GUESSES
     
@@ -90,7 +95,7 @@ def basic_CO2_TC(HSource, CSource, eta_pp, eta_exp, eta_gh, PP_cd, SC_cd, P_low,
     
     return CO2_TC
 
-def REC_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, eta_gh, eta_rec, PP_cd, SC_cd, P_low, P_high, m_dot):
+def REC_CO2_TC(HSource, T_cold_source, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, eta_gh, eta_rec, PP_cd, SC_cd, P_low, P_high, m_dot, mute_print_flag):
     CO2_TC = RecursiveCircuit('CO2')
     
     # Create components
@@ -98,7 +103,7 @@ def REC_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, e
     GasHeater = HXEffCstDisc()
     Rec = HXEffCstDisc()
     Pump = PumpCstEff()
-    Condenser = HXPinchCst()
+    Condenser = StorageLatentIsothermalCstePinch()
     
     #%% Pump PARAMETERS
     
@@ -122,10 +127,14 @@ def REC_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, e
     
     #%% EVAPORATOR PARAMETERS
     
+    Condenser.set_inputs(**{
+        'sto_fluid': 'Water',
+    })
+    
     Condenser.set_parameters(**{
         'Pinch': PP_cd,
         'Delta_T_sh_sc': SC_cd,
-        'type_HX': 'condenser'
+        'T_sto' : T_cold_source,
     })
     
     #%% ADD AND LINK COMPONENTS
@@ -137,13 +146,16 @@ def REC_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, e
     CO2_TC.add_component(Condenser, "Condenser")
     CO2_TC.add_component(Rec, "Recuperator")
             
+    if mute_print_flag:
+        CO2_TC.mute_print()
+    
     # Link components
     CO2_TC.link_components("Pump", "m-ex", "Recuperator", "m-su_C")
     CO2_TC.link_components("Recuperator", "m-ex_C", "GasHeater", "m-su_C")
     CO2_TC.link_components("GasHeater", "m-ex_C", "Expander", "m-su")
     CO2_TC.link_components("Expander", "m-ex", "Recuperator", "m-su_H")
-    CO2_TC.link_components("Recuperator", "m-ex_H", "Condenser", "m-su_H")
-    CO2_TC.link_components("Condenser", "m-ex_H", "Pump", "m-su")
+    CO2_TC.link_components("Recuperator", "m-ex_H", "Condenser", "m-su")
+    CO2_TC.link_components("Condenser", "m-ex", "Pump", "m-su")
     
     #%% SOURCES AND SINKS
     
@@ -151,9 +163,9 @@ def REC_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, e
     CO2_TC.add_source("GH_Water", Gas_heater_source, CO2_TC.components["GasHeater"], "m-su_H")
     CO2_TC.set_source_properties(T=HSource.T, fluid=HSource.fluid, m_dot=HSource.m_dot, target='GH_Water', P = HSource.p)
     
-    CD_source = MassConnector()
-    CO2_TC.add_source("CD_Water", CD_source, CO2_TC.components["Condenser"], "m-su_C")
-    CO2_TC.set_source_properties(T=CSource.T, fluid=CSource.fluid, m_dot=CSource.m_dot, target='CD_Water', P = CSource.p)
+    # CD_source = MassConnector()
+    # CO2_TC.add_source("CD_Water", CD_source, CO2_TC.components["Condenser"], "m-su_C")
+    # CO2_TC.set_source_properties(T=CSource.T, fluid=CSource.fluid, m_dot=CSource.m_dot, target='CD_Water', P = CSource.p)
     
     #%% CYCLE GUESSES
     
@@ -165,18 +177,18 @@ def REC_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, e
     
     #%% ITERATION VARIABLES
     
-    CO2_TC.set_iteration_variable(target=['Expander:ex'], variable='p', objective = 'Link:Condenser:su_H-p', tol = 1e-2, rel = 1, damping_factor = 0.2, cycle = CO2_TC)
+    CO2_TC.set_iteration_variable(target=['Expander:ex'], variable='p', objective = 'Link:Condenser:su-p', tol = 1e-2, rel = 1, damping_factor = 0.2, cycle = CO2_TC)
     
     #%% CYCLE RESIDUAL VARIABLES
     
-    # CO2_TC.set_residual_variable(target='Recuperator:su_C', variable='h', tolerance= 1e-5)
-    # CO2_TC.set_residual_variable(target='Recuperator:su_C', variable='p', tolerance= 1e-5)
-    # CO2_TC.set_residual_variable(target='Recuperator:su_H', variable='h', tolerance= 1e-5)
-    # CO2_TC.set_residual_variable(target='Recuperator:su_H', variable='p', tolerance= 1e-5)
+    CO2_TC.set_residual_variable(target='Recuperator:su_C', variable='h', tolerance= 1e-5)
+    CO2_TC.set_residual_variable(target='Recuperator:su_C', variable='p', tolerance= 1e-5)
+    CO2_TC.set_residual_variable(target='Recuperator:su_H', variable='h', tolerance= 1e-5)
+    CO2_TC.set_residual_variable(target='Recuperator:su_H', variable='p', tolerance= 1e-5)
     CO2_TC.set_residual_variable(target='Expander:ex', variable='h', tolerance= 1e-5)
     CO2_TC.set_residual_variable(target='Expander:ex', variable='h', tolerance= 1e-5)
-    # CO2_TC.set_residual_variable(target='Recuperator:ex_C', variable='p', tolerance= 1e-5)
-    # CO2_TC.set_residual_variable(target='Recuperator:ex_H', variable='p', tolerance= 1e-5)
+    CO2_TC.set_residual_variable(target='Recuperator:ex_C', variable='p', tolerance= 1e-5)
+    CO2_TC.set_residual_variable(target='Recuperator:ex_H', variable='p', tolerance= 1e-5)
     
     return CO2_TC
 

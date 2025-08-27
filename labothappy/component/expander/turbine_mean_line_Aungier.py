@@ -1,7 +1,3 @@
-#!/usr/bin/python3
-
-# --- loading libraries 
-
 from connector.mass_connector import MassConnector
 from correlations.turbomachinery.aungier_axial_turbine import aungier_loss_model
 
@@ -17,7 +13,7 @@ import pandas as pd
 import warnings
 warnings.filterwarnings("ignore")
 
-class AxialTurbineMeanLineDesign(object):
+class AxialTurbineMeanLine(object):
 
     def __init__(self, fluid):
         # Inputs
@@ -36,25 +32,7 @@ class AxialTurbineMeanLineDesign(object):
         # Velocity Triangle Data
         self.Vel_Tri = {}
         self.Vel_Tri_Last_Stage = {}
-        
-        # Blade Row Efficiency
-        self.eta_blade_row = None
 
-    def reset(self):
-
-        self.AS = CP.AbstractState('HEOS', self.fluid)
-        
-        # Blade Dictionnary
-        self.stages = []
-        
-        # Velocity Triangle Data
-        self.Vel_Tri = {}
-        self.Vel_Tri_Last_Stage = {}
-        
-        # Blade Row Efficiency
-        self.eta_blade_row = None
-        
-        return
     # ---------------- Stage Sub Class ----------------------------------------------------------------------
     
     class stage(object):
@@ -261,41 +239,6 @@ class AxialTurbineMeanLineDesign(object):
         plt.xlabel("$Entropy$ [J/(kg x K)]", fontsize= fontsize)
         plt.legend(["real", "isentropic"])
         plt.show()
-
-    # ---------------- Export Geom ------------------------------------------------------------------------
-
-    def export_geometry(self):
-        """
-        Print a ready-to-copy call to set_parameters() with global geometry,
-        and dump per-stage geometry (hub/tip radius, blade height, chord, #blades).
-        """
-        # --- Partie globale : uniquement paramètres géométriques ---
-        geom_keys = [
-            "r_m_bounds", "r_hub_tip_max", "r_hub_tip_min",
-            "AR_min", "Zweifel", "delta_tip", "t_TE_o", "t_TE_min"
-        ]
-        geom_params = {k: v for k, v in self.params.items() if k in geom_keys}
-        geom_params.update({"r_m": getattr(self, "r_m", None)})
-
-        args_str = ",\n    ".join([f"{k} = {repr(v)}" for k, v in geom_params.items()])
-        print("Turb.set_parameters(\n    " + args_str + "\n)\n")
-
-        # --- Partie par étage ---
-        print("# --- Stage geometry ---")
-        for i, stage in enumerate(self.stages):
-            print(f"Stage {i+1}:")
-            if hasattr(stage, "h_blade_S"):
-                print(f"  Stator : h = {stage.h_blade_S:.4f} m, "
-                      f"chord = {stage.chord_S:.4f} m, "
-                      f"AR = {stage.AR_S:.2f}, "
-                      f"N_blades = {stage.n_blade_S}")
-            if hasattr(stage, "h_blade_R"):
-                print(f"  Rotor  : h = {stage.h_blade_R:.4f} m, "
-                      f"chord = {stage.chord_R:.4f} m, "
-                      f"AR = {stage.AR_R:.2f}, "
-                      f"N_blades = {stage.n_blade_R}")
-            print("")
-
 
     # ---------------- Loss Models ------------------------------------------------------------------------
     def compute_stator_t_max(self, stage):
@@ -1129,7 +1072,7 @@ class AxialTurbineMeanLineDesign(object):
         # Custom stopping logic
         patience = 5
         tol = 1e-3
-        max_iter = 2
+        max_iter = 20
         no_improve_counter = 0
         best_cost = np.inf
     
@@ -1168,135 +1111,3 @@ class AxialTurbineMeanLineDesign(object):
         print(f"Turbine Generation : {self.W_dot} [W]")        
         
         return best_pos
-
-case_study = "Salah_Case"
-
-if case_study == 'Cuerva':
-
-    Turb = AxialTurbineMeanLineDesign('Cyclopentane')
-    
-    Turb.set_inputs(
-        mdot = 46.18, # kg/s
-        W_dot = 4500*1e3, # W
-        p0_su = 1230*1e3, # Pa
-        T0_su = 273.15 + 158, # K
-        p_ex = 78300, # Pa
-        Mmax = 0.8 # [-]
-        )
-    
-    Turb.set_parameters(
-        Zweifel = 0.8, # [-]
-        Re_min = 5e5, # [-]
-        AR_min = 1, # [-]
-        r_hub_tip_max = 0.95, # [-]
-        r_hub_tip_min = 0.6, # [-]
-        r_m_bounds = [0.4,0.5], # [m]
-        psi_bounds = [0.9,1.4], # [-]
-        phi_bounds = [0.4,0.6], # [-] 
-        R_bounds = [0.49,0.51], # [-]
-        damping = 0.5 # [-]
-        )
-
-elif case_study == 'Zorlu':
-    
-    Turb = AxialTurbineMeanLineDesign('Cyclopentane')
-
-    Turb.set_inputs(
-        mdot = 34.51, # kg/s
-        W_dot = 2506000, # W
-        p0_su = 767800, # Pa
-        T0_su = 273.15 + 131, # K
-        p_ex = 82000, # Pa
-        )
-    
-    Turb.set_parameters(
-        Omega = 3000, # [RPM]
-        Zweifel = 0.8, # [-]
-        Re_min = 5e5, # [-]
-        AR_min = 0.8, # [-]
-        r_hub_tip_max = 0.95, # [-]
-        r_hub_tip_min = 0.6, # [-]
-        psi_bounds = [0.6,2.5], # [-]
-        phi_bounds = [0.3,0.7], # [-] 
-        R_bounds = [0.4,0.6], # [-]
-        M_1_st_bounds = [0.2, 0.7], # [-]
-        damping = 0.2, # [-]
-        delta_tip = 0.4*1e-3, # [m] : tip clearance
-        N_lw = 0, # [-] : Number of lashing wires
-        D_lw = 0, # [m] : Diameter of lashing wires
-        e_blade = 0.002*1e-3, # [m] : blade roughness
-        t_TE_o = 0.05 # [-] : trailing edge to throat opening ratio
-        )
-    
-elif case_study == 'TCO2_ORC':
-
-    Turb = AxialTurbineMeanLineDesign('CO2')
-
-    Turb.set_inputs(
-        mdot = 10*100, # kg/s
-        W_dot = 10*4.69*1e6, # W
-        p0_su = 140*1e5, # Pa
-        T0_su = 273.15 + 121, # K
-        p_ex = 39.8*1e5, # Pa
-        )
-    
-    Turb.set_parameters(
-        Omega = 3000, # [RPM]
-        Zweifel = 0.8, # [-]
-        AR_min = 0.8, # [-]
-        r_hub_tip_max = 0.95, # [-]
-        r_hub_tip_min = 0.6, # [-]
-        Re_bounds = [1*1e6,1*1e7], # [-]
-        psi_bounds = [0.6,2.5], # [-]
-        phi_bounds = [0.3,0.7], # [-] 
-        R_bounds = [0.4,0.6], # [-]
-        r_m_bounds = [0.1, 0.6], # [m]
-        M_1_st = 0.3, # [-]
-        damping = 0.2, # [-]
-        delta_tip = 0.4*1e-3, # [m] : tip clearance
-        N_lw = 0, # [-] : Number of lashing wires
-        D_lw = 0, # [m] : Diameter of lashing wires
-        e_blade = 0.002*1e-3, # [m] : blade roughness
-        t_TE_o = 0.1 # [-] : trailing edge to throat opening ratio
-        )
-
-elif case_study == 'Salah_Case':
-
-    Turb = AxialTurbineMeanLineDesign('CO2')
-
-    Turb.set_inputs(
-        mdot = 655.18, # kg/s
-        W_dot = 100*1e6, # W
-        p0_su = 250*1e5, # Pa
-        T0_su = 923, # K
-        p_ex = 100*1e5, # Pa
-        )
-    
-    Turb.set_parameters(
-        Zweifel = 0.8, # [-]
-        AR_min = 0.8, # [-]
-        r_hub_tip_max = 0.95, # [-]
-        r_hub_tip_min = 0.6, # [-]
-        Re_bounds = [1*1e6,1*1e7], # [-]
-        psi_bounds = [1,2.5], # [-]
-        phi_bounds = [0.4,0.8], # [-]
-        R_bounds = [0.4,0.6], # [-]
-        r_m_bounds = [0.1, 0.6], # [m]
-        M_1_st = 0.3, # [-]
-        damping = 0.2, # [-]
-        delta_tip = 0.4*1e-3, # [m] : tip clearance
-        N_lw = 0, # [-] : Number of lashing wires
-        D_lw = 0, # [m] : Diameter of lashing wires
-        e_blade = 0.002*1e-3, # [m] : blade roughness
-        t_TE_o = 0.05, # [-] : trailing edge to throat opening ratio
-        t_TE_min = 5*1e-4, # [m]
-        )
-    
-best_pos = Turb.design()
-
-Turb.plot_geometry()
-Turb.plot_n_blade()
-Turb.plot_radius_verif()
-Turb.plot_Mollier()
-
-# (1.4528688807250987, 0.4939933148314975, 0.42406128096733176, 6364578.748939947, 0.4557043394023795)
