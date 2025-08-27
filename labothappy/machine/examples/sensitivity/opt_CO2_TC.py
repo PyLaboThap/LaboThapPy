@@ -13,23 +13,23 @@ import matplotlib.pyplot as plt
 
 "1) Initiate the heat pump cycle"
 
-case_study = "Plant"
+case_study = "Test_Bench"
 
 if case_study == "Test_Bench":
-    T_cold_source = 0.1+273.15
-    T_hot_source = 110+273.15
+    T_cold_source = 15+273.15
+    T_hot_source = 95+273.15
     
     eta_is_exp = 0.7
     eta_gh = 0.9
     eta_rec = 0.7
     eta_is_pp = 0.9
     
-    m_dot = 0.04 # 0.08
+    m_dot = 0.1 # 0.08
     
     PPTD_cd = 10
     SC_cd = 0.1
     
-    P_high = 100*1e5
+    P_high = 110*1e5
     P_sat_T_CSource = PropsSI('P', 'T', T_cold_source,'Q',0.5,'CO2')
     P_crit_CO2 = PropsSI('PCRIT','CO2')
     
@@ -40,8 +40,8 @@ if case_study == "Test_Bench":
     
     CSource = MassConnector()
     CSource.set_properties(fluid = 'Water', T = T_cold_source, p = 5e5, m_dot = m_dot*100) # 1000 # 625000
-    
-    CO2_TC = REC_CO2_TC(HSource, CSource, eta_is_pp, eta_is_exp, eta_gh, eta_rec, PPTD_cd, SC_cd, P_low_guess, P_high, m_dot) # 0.16 # 100
+        
+    CO2_TC = REC_CO2_TC(HSource, T_cold_source, 5, 0, eta_is_pp, eta_is_exp, eta_gh, eta_rec, PPTD_cd, SC_cd, P_low_guess, P_high, m_dot, 1) # 0.16 # 100
     
     CO2_TC.solve()
     
