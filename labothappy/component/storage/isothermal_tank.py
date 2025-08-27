@@ -8,9 +8,10 @@ from connector.heat_connector import HeatConnector
 
 from component.base_component import BaseComponent
 
-
-from CoolProp.CoolProp import PropsSI
 from scipy.optimize import fsolve, root, minimize
+from CoolProp.CoolProp import PropsSI
+
+import CoolProp.CoolProp as CP
 import numpy as np
 import math
 
@@ -79,31 +80,47 @@ class IsothermalTank(BaseComponent):
         Q_dot: Heat Exchanger's heat duty. [W]
     """
 
-    def __init__(self):
+    def __init__(self, fluid):
         super().__init__()
         self.su = MassConnector() # Working fluid supply
         self.ex = MassConnector()
+        self.sto_fluid = MassConnector()
+        self.Q_dot = HeatConnector()
+
+        self.AS = CP.AbstractState('HEOS', fluid)
+
+        self.su.set_fluid(fluid)
+        self.ex.set_fluid(fluid)
+        self.sto_fluid.set_fluid(fluid)
 
         self.mode = 'Charge'
-        self.level = 0
+        self.FR = 0 # Filling Rate
+        self.SOC = 0 # State of Charge
 
-        self.sto_fluid = MassConnector()
-
-        self.Q_dot = HeatConnector()
+        self.init = {}
+        self.initialized = False
 
     def get_required_inputs(self): # Used in check_calculablle to see if all of the required inputs are set
         self.sync_inputs()
-        # Return a list of required inputs
-        return ['fluid', 'sto_fluid', 'h_su', 'T_su', 'm_dot']
-    
+        # Return a list of required 
+        
+        if self.mode == 'Charge':
+            return ['fluid', 'T_su', 'P_su', 'm_dot']
+
+        elif self.mode == 'Discharge':
+            return ['fluid', 'T_ex', 'P_ex', 'm_dot']
+            
+        else:
+            raise ValueError("Mode is not 'Charge' nor 'Discharge'")
+            
+        return
+
     def get_required_parameters(self):
         return [
             'Vol', # Volume
             'HeatLoss', # Heat loss
+            'DT' # Time interval in seconds
         ]
-    
-    def get_required_guesses(self):
-        return []
     
     def print_setup(self):
         print("=== Heat Exchanger Setup ===")
@@ -130,6 +147,81 @@ class IsothermalTank(BaseComponent):
 
         print("======================")
 
+    def set_initial_conditions(self, T_init, P_init, FR_init):
+        """Set the initial conditions for the thermocline."""
+        
+        # Get temperature at the triple point (freezing/melting point)
+        self.sto_fluid.set_T(T_init)
+        self.sto_fluid.set_p(P_init)            
+        
+        self.FR = FR_init
+        self.SOC = self.FR
+        
+        self.init['P'] = P_init
+        self.init['T'] = T_init
+        self.init['FR'] = FR_init
+        
+        self.initialized = True
+        
+        return
+
+    def set_mode(self, mode):
+        """Set the initial conditions for the thermocline."""
+        
+        self.mode = mode
+        return
+
+    def system(self):
+        
+        if self.mode == 'Charge':
+            self.AS.update(CP.PT_INPUTS, self.su.p, self.su.T)
+            
+            rho_in = self.AS.rhomass()
+            Vdot_in = self.su.m_dot/rho_in
+            vol_init = self.FR*self.params['Vol']
+            vol_end = min(vol_init + Vdot_in*self.params['DT'], self.params['Vol'])
+            self.FR = min(1, vol_end/self.params['Vol'])
+            
+            h_in = self.AS.hmass()
+            self.AS.update(CP.PT_INPUTS, self.sto_fluid.p, self.sto_fluid.T)
+            h_init = self.AS.hmass()
+            rho_init = self.AS.rhomass()
+            h_end = (vol_init*rho_init*h_init + h_in*self.su.m_dot*self.params['DT'])/(vol_init*rho_init + self.su.m_dot*self.params['DT'])
+            self.sto_fluid.set_h(h_end)
+            self.sto_fluid.set_p(self.sto_fluid.p)
+            self.Q_dot.set_Q_dot(h_in*self.su.m_dot)
+        
+        elif self.mode == 'Discharge':
+            
+            self.AS.update(CP.PT_INPUTS, self.ex.p, self.ex.T)
+            
+            rho_out = self.AS.rhomass()
+            Vdot_out = self.ex.m_dot*rho_out
+            vol_init = self.FR*self.params['Vol']
+            vol_end = vol_init - Vdot_out*self.params['DT']
+            self.FR = min(0, vol_end/self.params['Vol'])
+            
+            h_out = self.AS.hmass()
+            self.AS.update(CP.PT_INPUTS, self.sto_fluid.p, self.sto_fluid.T)
+            h_init = self.AS.hmass()
+            rho_init = self.AS.rhomass()
+            h_end = (vol_init*rho_init*h_init - h_out*self.ex.mdot*self.params['DT'])/(vol_init*rho_init - self.ex.mdot*self.params['DT'])
+            self.sto_fluid.set_h(h_end)
+            self.sto_fluid.set_p(self.sto_fluid.p)
+            self.Q_dot.set_Q_dot(h_out*self.ex.mdot)
+            
+        else:
+            raise ValueError("Mode is not 'Charge' nor 'Discharge'")
+            
+        T_max = max(self.su.T, self.sto_fluid.T)
+        self.AS.update(CP.PT_INPUTS, self.sto_fluid.p, T_max)
+        h_max = self.AS.hmass()
+        rho_T_max = self.AS.rhomass()
+        
+        self.SOC = (self.sto_fluid.h*self.FR*self.params['Vol']*self.sto_fluid.D) / (h_max*self.params['Vol']*rho_T_max)
+              
+        return
+
     def solve(self):
         # Ensure all required checks are performed
 
@@ -137,86 +229,34 @@ class IsothermalTank(BaseComponent):
         self.check_parametrized()
 
         if not self.calculable:
-            print("StorageLatentIsothermalCstePinch is not calculable, check inputs.")
+            print("IsothermalTank is not calculable, check inputs.")
             return
         
         if not self.parametrized:
-            print("StorageLatentIsothermalCstePinch is not parametrized, check parameters.")
+            print("IsothermalTank is not parametrized, check parameters.")
             return
 
-        P_sto = 101325 # Pa : Latent storage at ambient pressure
+        if not self.initialized:
+            print("IsothermalTank is not initialized, check initial conditions.")
+            return   
         
-        # Get temperature at the triple point (freezing/melting point)
-        self.sto_fluid.set_T(PropsSI("T_triple", "P", P_sto, "Q", 0, "Water"))
-        self.sto_fluid.set_p(P_sto)
-
-        if self.su.T <= self.sto_fluid.T:
-            if self.su.T <= self.sto_fluid.T - self.params['Pinch'] - self.params['Delta_T_sh_sc']:
-                self.T_ex = self.sto_fluid.T - self.params['Pinch']
-                self.T_sat = self.T_ex - self.params['Delta_T_sh_sc']
-                
-                self.P_sat = PropsSI('P', 'Q', 0, 'T', self.T_sat, self.su.fluid)
-                self.h_ex = PropsSI('H', 'P', self.P_sat, 'T', self.T_ex, self.su.fluid)
-
-                self.h_sat_v = PropsSI('H', 'Q', 1, 'T', self.T_sat, self.su.fluid)
-                self.h_sat_l = PropsSI('H', 'Q', 0, 'T', self.T_sat, self.su.fluid)
-                
-                self.Q_dot_3 = self.su.m_dot*(self.h_ex - self.h_sat_v)
-                self.Q_dot_2 = self.su.m_dot*(self.h_sat_v - self.h_sat_l)
-
-                h_su = PropsSI('H', 'P', self.P_sat, 'T', self.su.T, self.su.fluid)
-
-                self.Q_dot_1 = self.su.m_dot*(self.h_sat_l - h_su)
-                
-                self.Q = self.Q_dot_1 + self.Q_dot_2 + self.Q_dot_3
-                
-            else: # Pinch and SC_SH cannot be satisfied
-                # self.Q = 0
-
-                # self.T_ex = self.su.T
-                # self.P_sat = self.su.p
-                # self.h_ex = self.su.h
-
-                return
-        else:
-            if self.su.T >= self.sto_fluid.T + self.params['Pinch'] + self.params['Delta_T_sh_sc']:
-                self.T_ex = self.sto_fluid.T + self.params['Pinch']
-                self.T_sat = self.T_ex + self.params['Delta_T_sh_sc']
-                
-                self.P_sat = PropsSI('P', 'Q', 0, 'T', self.T_sat, self.su.fluid)
-                self.h_ex = PropsSI('H', 'P', self.P_sat, 'T', self.T_ex, self.su.fluid)
-
-                self.h_sat_v = PropsSI('H', 'Q', 1, 'T', self.T_sat, self.su.fluid)
-                self.h_sat_l = PropsSI('H', 'Q', 0, 'T', self.T_sat, self.su.fluid)
-                
-                self.Q_dot_3 = self.su.m_dot*(self.h_sat_l - self.h_ex)
-                self.Q_dot_2 = self.su.m_dot*(self.h_sat_v - self.h_sat_l)
-
-                h_su = PropsSI('H', 'P', self.P_sat, 'T', self.su.T, self.su.fluid)
-                
-                self.Q_dot_1 = self.su.m_dot*(h_su - self.h_sat_v)
-
-                self.Q = self.Q_dot_1 + self.Q_dot_2 + self.Q_dot_3
-            else: # Pinch and SC_SH cannot be satisfied
-                raise ValueError("Pinch and SC_SH are not satisfied")
-                return
-        
+        self.system()
         self.solved = True
-        self.update_connectors()
-
-    def update_connectors(self):
         
-        "Mass Connectors"
+        # self.update_connectors()
+        return
 
-        self.su.set_p(self.P_sat)
-
-        self.ex.set_fluid(self.su.fluid)
-        self.ex.set_T(self.T_ex)
-        self.ex.set_p(self.P_sat)
-        self.ex.set_m_dot(self.su.m_dot)
+    # def update_connectors(self):
         
-        "Heat conector"
-        self.Q_dot.set_Q_dot(self.Q)
+    #     "Mass Connectors"
+
+    #     self.sto_fluid.set_h(self.su.fluid)
+    #     self.ex.set_T(self.T_ex)
+    #     self.ex.set_p(self.P_sat)
+    #     self.ex.set_m_dot(self.su.m_dot)
+        
+    #     "Heat conector"
+    #     self.Q_dot.set_Q_dot(self.Q)
 
     def print_results(self):
         print("=== Heat Exchanger Results ===")
@@ -235,19 +275,49 @@ class IsothermalTank(BaseComponent):
         print(f"  - Q_dot: {self.Q_dot.Q_dot}")
         print("======================")
 
-    def plot_disc(self):
-        import matplotlib.pyplot as plt
-        
-        plt.figure()
-        
-        plt.plot([0, self.Q_dot_1 ]                          , [self.su.T, self.T_sat]  , 'g', label='Fluid')
-        plt.plot([self.Q_dot_1, self.Q_dot_1+self.Q_dot_2]   , [self.T_sat, self.T_sat], 'g')
-        plt.plot([self.Q_dot_1+self.Q_dot_2, self.Q]         , [self.T_sat, self.ex.T]  , 'g')
+test = 'Discharge'
 
-        plt.plot([0, self.Q]                                 , [self.sto_fluid.T, self.sto_fluid.T], 'r', label='Storage')
+if test == 'Charge':        
+    tank = IsothermalTank('Water')
+    
+    tank.set_inputs(
+        fluid = 'Water',
+        T_su = 95 + 273.15,
+        P_su = 10*1e5,
+        m_dot = 1
+        )
+    
+    tank.set_parameters(
+        Vol = 3,
+        DT = 60,
+        HeatLoss = 0
+        )
+    
+    tank.set_mode("Discharge")
+    
+    tank.set_initial_conditions(95 + 273.15, 10*1e5, 0.5)
+    
+    tank.solve()
 
-        plt.xlabel("Q_dot [W]")
-        plt.ylabel("T [K]")
-        plt.grid()
-        plt.legend()
-        plt.show()
+elif test == 'Discharge':
+    tank = IsothermalTank('Water')
+    
+    tank.set_inputs(
+        fluid = 'Water',
+        T_ex = 95 + 273.15,
+        P_ex = 10*1e5,
+        m_dot = 1
+        )
+    
+    tank.set_parameters(
+        Vol = 3,
+        DT = 60,
+        HeatLoss = 0
+        )
+    
+    tank.set_mode("Discharge")
+    
+    tank.set_initial_conditions(95 + 273.15, 10*1e5, 0.5)
+    
+    tank.solve()
+
