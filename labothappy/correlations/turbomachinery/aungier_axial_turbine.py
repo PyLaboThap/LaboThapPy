@@ -37,8 +37,8 @@ def profile_losses(alpha1_pr, alpha2_pr, beta_g, beta1, c, e, mu2, M1_pr, M2_pr,
     """
 
     xi = (90-beta1)/(90-alpha2_pr) # (beta1)/(alpha2_pr)
-
-    if abs(xi) > 1.2:
+        
+    if abs(xi) > 1.3:
         raise ValueError("abs(xhi) value above 1.2")
 
     "1 Experience factor (Kacker-Okapuu)"

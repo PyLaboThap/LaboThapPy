@@ -263,40 +263,108 @@ class AxialTurbineMeanLineDesign(object):
         plt.show()
 
     # ---------------- Export Geom ------------------------------------------------------------------------
+    
+    def export_params(self, turb_var_name: str = "Turb_OD"):
+        """
+        Print a ready-to-copy call to set_parameters() with selected parameters,
+        mixing values from self.params, self, and self.inputs as specified.
+        """
+        # --- keys to pull from self.params (fallback to attributes if missing) ---
+        param_keys = ["damping", "delta_tip", "N_lw", "D_lw", "e_blade", "Omega_rated"]
+    
+        selected = {}
+    
+        # 1) Derived/off-design style entries from attributes & inputs
+        r_m = getattr(self, "r_m", None)
+        nStages = getattr(self, "nStages", None)
+    
+        mdot_rated = None
+        if hasattr(self, "inputs"):
+            mdot_rated = self.inputs.get("mdot", self.inputs.get("m_dot"))
+    
+        DP_rated = None
+        if hasattr(self, "inputs"):
+            # Robust name fallbacks
+            p0_su = (self.inputs.get("p0_su", None) or
+                     self.inputs.get("P0_su", None) or
+                     self.inputs.get("P_su", None))
+            p_ex  = (self.inputs.get("p_ex", None) or
+                     self.inputs.get("P_ex", None))
+            if p0_su is not None and p_ex not in (None, 0):
+                DP_rated = p0_su / p_ex
+    
+        # Insert in a sensible order
+        if r_m is not None:        selected["r_m"] = r_m
+        if nStages is not None:    selected["nStages"] = nStages
+        if mdot_rated is not None: selected["mdot_rated"] = mdot_rated
+        if DP_rated is not None:   selected["DP_rated"] = DP_rated
+    
+        # 2) Design params from self.params (or attributes)
+        for k in param_keys:
+            if hasattr(self, "params") and k in self.params:
+                selected[k] = self.params[k]
+            elif hasattr(self, k):
+                selected[k] = getattr(self, k)
+    
+        # --- formatting helpers ---
+        def fmt(v):
+            if isinstance(v, float):
+                return f"{v:.12g}"
+            if isinstance(v, (list, tuple)):
+                inner = ", ".join(fmt(x) for x in v)
+                return f"[{inner}]"
+            return repr(v)
+    
+        args_str = ",\n    ".join(f"{k} = {fmt(v)}" for k, v in selected.items())
+    
+        print(f"""{turb_var_name}.set_parameters(
+        {args_str}
+        )""")
 
-    def export_geometry(self):
+
+    def export_stage_vectors(self):
         """
-        Print a ready-to-copy call to set_parameters() with global geometry,
-        and dump per-stage geometry (hub/tip radius, blade height, chord, #blades).
+        Export stage geometry as Python vectors (lists), one per variable.
+        Stator and rotor variables are grouped separately.
         """
-        # --- Partie globale : uniquement paramètres géométriques ---
-        geom_keys = [
-            "r_m_bounds", "r_hub_tip_max", "r_hub_tip_min",
-            "AR_min", "Zweifel", "delta_tip", "t_TE_o", "t_TE_min"
+        # Define stator and rotor attribute lists
+        stator_vars = [
+            "h_blade_S", "chord_S", "xhi_S1", "xhi_S2",
+            "pitch_S", "o_S", "t_TE_S", "t_blade_S", "n_blade_S", "R_c_S"
         ]
-        geom_params = {k: v for k, v in self.params.items() if k in geom_keys}
-        geom_params.update({"r_m": getattr(self, "r_m", None)})
-
-        args_str = ",\n    ".join([f"{k} = {repr(v)}" for k, v in geom_params.items()])
-        print("Turb.set_parameters(\n    " + args_str + "\n)\n")
-
-        # --- Partie par étage ---
-        print("# --- Stage geometry ---")
-        for i, stage in enumerate(self.stages):
-            print(f"Stage {i+1}:")
-            if hasattr(stage, "h_blade_S"):
-                print(f"  Stator : h = {stage.h_blade_S:.4f} m, "
-                      f"chord = {stage.chord_S:.4f} m, "
-                      f"AR = {stage.AR_S:.2f}, "
-                      f"N_blades = {stage.n_blade_S}")
-            if hasattr(stage, "h_blade_R"):
-                print(f"  Rotor  : h = {stage.h_blade_R:.4f} m, "
-                      f"chord = {stage.chord_R:.4f} m, "
-                      f"AR = {stage.AR_R:.2f}, "
-                      f"N_blades = {stage.n_blade_R}")
-            print("")
-
-
+        rotor_vars = [
+            "h_blade_R", "chord_R", "xhi_R1", "xhi_R2",
+            "pitch_R", "o_R", "t_TE_R", "t_blade_R", "n_blade_R", "R_c_R"
+        ]
+    
+        # Helper for formatting values nicely
+        def fmt(val):
+            if isinstance(val, float):
+                return f"{val:.10g}"
+            return repr(val)
+    
+        print("# --- Stage geometry vectors ---")
+    
+        # Collect and print stator arrays
+        for var in stator_vars:
+            values = []
+            for stage in self.stages:
+                values.append(getattr(stage, var, None))
+            if any(v is not None for v in values):  # only print if something exists
+                arr = [fmt(v) for v in values]
+                print(f"{var} = [{', '.join(arr)}],")
+    
+        print()
+    
+        # Collect and print rotor arrays
+        for var in rotor_vars:
+            values = []
+            for stage in self.stages:
+                values.append(getattr(stage, var, None))
+            if any(v is not None for v in values):
+                arr = [fmt(v) for v in values]
+                print(f"{var} = [{', '.join(arr)}],")
+                
     # ---------------- Loss Models ------------------------------------------------------------------------
     def compute_stator_t_max(self, stage):
         # --- constants from stage / design ---
@@ -426,7 +494,7 @@ class AxialTurbineMeanLineDesign(object):
         
         # 3) Compute A_flow and h_blade based on r_m guess
         stage.A_flow_S = self.inputs['mdot']/(stage.static_states['D'][2]*self.Vel_Tri['vm'])
-        stage.h_blade_S = stage.A_flow_S/(4*np.pi*self.r_m)
+        stage.h_blade_S = stage.A_flow_S/(2*np.pi*self.r_m)
 
         # 4) Compute cord, aspect ratio, blade pitch and blade number
                 
@@ -442,7 +510,7 @@ class AxialTurbineMeanLineDesign(object):
         
         camber = self.Vel_Tri['alpha2'] - self.Vel_Tri['alpha1']
         
-        R_c = 2*np.sin(abs(camber)/2)*stage.chord_S # Geometrical estimation of blade curvature radius
+        stage.R_c_S = 2*np.sin(abs(camber)/2)*stage.chord_S # Geometrical estimation of blade curvature radius
                 
         stage.M1_S = self.Vel_Tri['v1']/stage.static_states['A'][1]
         stage.M2_S = self.Vel_Tri['v2']/stage.static_states['A'][2]
@@ -454,7 +522,7 @@ class AxialTurbineMeanLineDesign(object):
         
         stage.Y_vec_S = aungier_loss_model(self.Vel_Tri['alpha1'], self.Vel_Tri['alpha2'], stage.beta_g_S*180/np.pi, self.Vel_Tri['alpha1'], stage.chord_S, 
                                0, self.params['D_lw'], self.params['e_blade'], stage.h_blade_S, stage.static_states['V'][2], 
-                               stage.M1_S, stage.M2_S, self.params['N_lw'], R_c, stage.static_states['D'][2], stage.pitch_S, stage.t_blade_S, stage.t_TE_S,
+                               stage.M1_S, stage.M2_S, self.params['N_lw'], stage.R_c_S, stage.static_states['D'][2], stage.pitch_S, stage.t_blade_S, stage.t_TE_S,
                                self.Vel_Tri['vm'], self.Vel_Tri['v2'],1)
                 
         # stage.Y_vec_S = aungier_loss_model(self.Vel_Tri['beta1'], self.Vel_Tri['beta2'], self.Vel_Tri['beta1'], stage.chord_S, stage.delta_tip, stage.e_blade)    
@@ -463,9 +531,6 @@ class AxialTurbineMeanLineDesign(object):
         # p0_out = stage.total_states['P'][1] - (Y*(stage.total_states['P'][1] - p_static_out))
         p0_out = (stage.total_states['P'][1] + Y * p_static_out)/(1+Y)
 
-        
-        # print(f"Rotor DP_loss : {DP_loss}")
-        
         # Computation of static outlet pressure
         stage.update_total_AS(CP.HmassP_INPUTS, h0in, p0_out, 2)
         sout = stage.total_states['S'][2]
@@ -504,7 +569,7 @@ class AxialTurbineMeanLineDesign(object):
         
         # 3) Compute A_flow and h_blade based on r_m 
         stage.A_flow_R = self.inputs['mdot']/(stage.static_states['D'][3]*self.Vel_Tri['vm'])
-        stage.h_blade_R = stage.A_flow_R/(4*np.pi*self.r_m)
+        stage.h_blade_R = stage.A_flow_R/(2*np.pi*self.r_m)
         
         # 4) Compute cord, aspect ratio, pitch and blade number
         stage.chord_R = (self.params['Re_min']*stage.static_states['V'][3])/(stage.static_states['D'][3]*self.Vel_Tri['vm'])            
@@ -519,7 +584,7 @@ class AxialTurbineMeanLineDesign(object):
         
         camber = self.Vel_Tri['alpha3'] - self.Vel_Tri['alpha2']
         
-        R_c = 2*np.sin(abs(camber)/2)*stage.chord_R # Geometrical estimation of blade curvature radius
+        stage.R_c_R = 2*np.sin(abs(camber)/2)*stage.chord_R # Geometrical estimation of blade curvature radius
                 
         stage.M2_R = self.Vel_Tri['w2']/stage.static_states['A'][2]
         stage.M3_R = self.Vel_Tri['w3']/stage.static_states['A'][3]
@@ -532,7 +597,7 @@ class AxialTurbineMeanLineDesign(object):
         
         stage.Y_vec_R = aungier_loss_model(-self.Vel_Tri['beta2'], -self.Vel_Tri['beta3'], stage.beta_g_R*180/np.pi, -self.Vel_Tri['beta2'], stage.chord_R, 
                                self.params['delta_tip'], self.params['D_lw'], self.params['e_blade'], stage.h_blade_R, stage.static_states['V'][3], 
-                               stage.M2_R, stage.M3_R, self.params['N_lw'], R_c, stage.static_states['D'][3], stage.pitch_R, stage.t_blade_R, stage.t_TE_R,
+                               stage.M2_R, stage.M3_R, self.params['N_lw'], stage.R_c_R, stage.static_states['D'][3], stage.pitch_R, stage.t_blade_R, stage.t_TE_R,
                                self.Vel_Tri['vm'], self.Vel_Tri['w3'],1)
 
         Y = stage.Y_vec_R['Y_tot']
@@ -576,7 +641,7 @@ class AxialTurbineMeanLineDesign(object):
         
         # 3) Compute A_flow and h_blade based on r_m guess
         stage.A_flow_S = self.inputs['mdot']/(stage.static_states['D'][2]*self.Vel_Tri_Last_Stage['vm'])
-        stage.h_blade_S = stage.A_flow_S/(4*np.pi*self.r_m)
+        stage.h_blade_S = stage.A_flow_S/(2*np.pi*self.r_m)
 
         # 4) Compute cord and aspect ratio
                 
@@ -647,10 +712,10 @@ class AxialTurbineMeanLineDesign(object):
                 
         delta_0R = np.arcsin((stage.o_R/stage.pitch_R)*(1+(1-stage.o_R/stage.pitch_R)*(2*stage.beta_g_R/np.pi)**2)) - abs(stage.beta_g_R)
         
-        if stage.M2_R <= 0.5:
+        if stage.M3_R <= 0.5:
             stage.delta_R = delta_0R
         else:
-            X = 2*stage.M2_R-1
+            X = 2*stage.M3_R-1
             stage.delta_R = delta_0R*(1-10*X**3 + 15*X**4 - 6*X**5)
 
         return 
@@ -791,9 +856,9 @@ class AxialTurbineMeanLineDesign(object):
             
             self.rotor_blade_row_system(x_out)
                         
-            stage.xhi_R1 = self.Vel_Tri['beta1']
+            stage.xhi_R1 = self.Vel_Tri['beta2']
             self.compute_deviation_rotor(stage)
-            stage.xhi_R2 = self.Vel_Tri['beta2'] - stage.delta_R
+            stage.xhi_R2 = self.Vel_Tri['beta3'] - stage.delta_R
                         
             # print(f'Y_R : {stage.Y_vec_R}')
 
@@ -1129,7 +1194,7 @@ class AxialTurbineMeanLineDesign(object):
         # Custom stopping logic
         patience = 5
         tol = 1e-3
-        max_iter = 2
+        max_iter = 20
         no_improve_counter = 0
         best_cost = np.inf
     
