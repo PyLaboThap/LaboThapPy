@@ -129,3 +129,5 @@ Traceback (most recent call last):
   File "_common.pyx", line 517, in numpy.random._common.cont_broadcast_2
   File "__init__.cython-30.pxd", line 780, in numpy.PyArray_MultiIterNew3
 ValueError: shape mismatch: objects cannot be broadcast to a single shape.  Mismatch is between arg 0 with shape (10, 5) and arg 1 with shape (10, 4).
+2025-08-28 14:09:41,403 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Task-2' coro=<Kernel.poll_control_queue() running at C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\ipykernel\kernelbase.py:304> wait_for=<Future finished result=<Future at 0x...state=pending>> cb=[_chain_future.<locals>._call_set_state() at C:\Users\Basile\anaconda3\Lib\asyncio\futures.py:398]>

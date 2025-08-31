@@ -5,8 +5,9 @@
 from connector.mass_connector import MassConnector
 from correlations.turbomachinery.aungier_axial_turbine import aungier_loss_model
 
+from component.expander.turbine_mean_line_Aungier import AxialTurbineMeanLine
 from CoolProp.CoolProp import PropsSI
-from scipy.optimize import fsolve, minimize, differential_evolution
+from scipy.optimize import brentq, root
 import pyswarms as ps
 
 import CoolProp.CoolProp as CP
@@ -640,13 +641,32 @@ class AxialTurbineMeanLineDesign(object):
         stage.update_total_AS(CP.HmassSmass_INPUTS, h0in, stage.static_states['S'][1], 1)            
         
         # 3) Compute A_flow and h_blade based on r_m guess
-        stage.A_flow_S = self.inputs['mdot']/(stage.static_states['D'][2]*self.Vel_Tri_Last_Stage['vm'])
+        stage.A_flow_S = self.inputs['mdot']/(stage.static_states['D'][2]*self.Vel_Tri['vm'])
         stage.h_blade_S = stage.A_flow_S/(2*np.pi*self.r_m)
 
-        # 4) Compute cord and aspect ratio
+        # 4) Compute cord, aspect ratio, blade pitch and blade number
                 
-        stage.chord_S = (self.params['Re_min']*stage.static_states['V'][2])/(stage.static_states['D'][2]*self.Vel_Tri_Last_Stage['vm'])            
+        stage.chord_S = (self.params['Re_min']*stage.static_states['V'][2])/(stage.static_states['D'][2]*self.Vel_Tri['vm'])            
         stage.AR_S = stage.h_blade_S/stage.chord_S
+        
+        stage.pitch_S = stage.chord_S/self.solidityStator
+        stage.n_blade_S = round(2*np.pi*self.r_m/stage.pitch_S)
+        
+        self.compute_stator_t_max(stage)
+        
+        # 5) Loss model
+        
+        camber = self.Vel_Tri['alpha2'] - self.Vel_Tri['alpha1']
+        
+        stage.R_c_S = 2*np.sin(abs(camber)/2)*stage.chord_S # Geometrical estimation of blade curvature radius
+                
+        stage.M1_S = self.Vel_Tri['v1']/stage.static_states['A'][1]
+        stage.M2_S = self.Vel_Tri['v2']/stage.static_states['A'][2]
+        
+        stage.beta_g_S = 0.5*(self.Vel_Tri['alpha1'] + self.Vel_Tri['alpha2'])
+        stage.o_S = np.sin(stage.beta_g_S)*stage.pitch_S
+
+        stage.t_TE_S = max(self.params['t_TE_o']*stage.pitch_S * np.cos(self.Vel_Tri['alpha2'])/(1+self.params['t_TE_o']), self.params['t_TE_min'])
         
         # 5) Estimate pressure losses 
         # 5.1) Aungier : Profile pressure losses                     
@@ -655,8 +675,8 @@ class AxialTurbineMeanLineDesign(object):
         
         a = 0.0117 # NACA blade - 0.007 : C.4 circular-arc blade
         
-        alpha = 0
-        alpha_star = 0
+        alpha = self.Vel_Tri_Last_Stage['alpha1']
+        alpha_star = self.Vel_Tri_Last_Stage['alpha1']
         
         D_e = (np.cos(self.Vel_Tri_Last_Stage['alpha2'])/np.cos(self.Vel_Tri_Last_Stage['alpha1']))*(1.12+a*(alpha - alpha_star)+0.61*np.cos(self.Vel_Tri_Last_Stage['alpha1'])**2 / self.solidityStator * (np.tan(self.Vel_Tri_Last_Stage['alpha1'])-np.tan(self.Vel_Tri_Last_Stage['alpha2'])))
         
@@ -789,7 +809,7 @@ class AxialTurbineMeanLineDesign(object):
             
             c = 0
             
-            while res > 1e-6:
+            while res > 1e-8:
                 
                 if c > 100:
                     exit()
@@ -834,7 +854,7 @@ class AxialTurbineMeanLineDesign(object):
             
             c = 0
             
-            while res > 1e-6:
+            while res > 1e-8:
 
                 if c > 100:
                     exit()                
@@ -890,7 +910,8 @@ class AxialTurbineMeanLineDesign(object):
         return
     
     def computeLastStage(self):
-        self.stages[-1].static_states.loc[1] = self.stages[-2].static_states.loc[3]
+        stage = self.stages[-1]
+        stage.static_states.loc[1] = self.stages[-2].static_states.loc[3]
         
         h_out_guess = self.stages[-2].total_states['H'][3]
         pout_guess = self.stages[-2].total_states['P'][3]
@@ -904,7 +925,7 @@ class AxialTurbineMeanLineDesign(object):
         
         c = 0
             
-        while res > 1e-6:
+        while res > 1e-8:
 
             if c > 100:
                 exit()                
@@ -919,6 +940,10 @@ class AxialTurbineMeanLineDesign(object):
             c += 1
         
         self.last_blade_row_system(x_out)
+        
+        stage.xhi_S1 = self.Vel_Tri['alpha1']
+        self.compute_deviation_stator(stage)
+        stage.xhi_S2 = self.Vel_Tri['alpha2'] - stage.delta_S
         
         return
     
@@ -997,7 +1022,15 @@ class AxialTurbineMeanLineDesign(object):
         self.CAPEX_tot = self.CAPEX_turb + self.CAPEX_alt + self.CAPEX_install
             
         return
+   
+#%%
+    def off_design_test(self):
+        
+        
+        return 
     
+    
+#%%
     def design_system(self, x):
         self.penalty = -1
 
@@ -1234,7 +1267,9 @@ class AxialTurbineMeanLineDesign(object):
         
         return best_pos
 
-case_study = "Salah_Case"
+case_study = "TCO2_ORC"
+
+Turb = AxialTurbineMeanLineDesign('Cyclopentane')
 
 if case_study == 'Cuerva':
 
@@ -1246,20 +1281,26 @@ if case_study == 'Cuerva':
         p0_su = 1230*1e3, # Pa
         T0_su = 273.15 + 158, # K
         p_ex = 78300, # Pa
-        Mmax = 0.8 # [-]
         )
     
     Turb.set_parameters(
         Zweifel = 0.8, # [-]
-        Re_min = 5e5, # [-]
-        AR_min = 1, # [-]
+        AR_min = 0.8, # [-]
         r_hub_tip_max = 0.95, # [-]
         r_hub_tip_min = 0.6, # [-]
-        r_m_bounds = [0.4,0.5], # [m]
-        psi_bounds = [0.9,1.4], # [-]
-        phi_bounds = [0.4,0.6], # [-] 
-        R_bounds = [0.49,0.51], # [-]
-        damping = 0.5 # [-]
+        Re_bounds = [1*1e5,1*1e6], # [-]
+        psi_bounds = [1,2.5], # [-]
+        phi_bounds = [0.4,0.8], # [-]
+        R_bounds = [0.4,0.6], # [-]
+        r_m_bounds = [0.1, 0.6], # [m]
+        M_1_st = 0.3, # [-]
+        damping = 0.2, # [-]
+        delta_tip = 0.4*1e-3, # [m] : tip clearance
+        N_lw = 0, # [-] : Number of lashing wires
+        D_lw = 0, # [m] : Diameter of lashing wires
+        e_blade = 0.002*1e-3, # [m] : blade roughness
+        t_TE_o = 0.05, # [-] : trailing edge to throat opening ratio
+        t_TE_min = 5*1e-4, # [m]
         )
 
 elif case_study == 'Zorlu':
@@ -1275,22 +1316,23 @@ elif case_study == 'Zorlu':
         )
     
     Turb.set_parameters(
-        Omega = 3000, # [RPM]
         Zweifel = 0.8, # [-]
-        Re_min = 5e5, # [-]
         AR_min = 0.8, # [-]
         r_hub_tip_max = 0.95, # [-]
         r_hub_tip_min = 0.6, # [-]
-        psi_bounds = [0.6,2.5], # [-]
-        phi_bounds = [0.3,0.7], # [-] 
-        R_bounds = [0.4,0.6], # [-]
-        M_1_st_bounds = [0.2, 0.7], # [-]
+        Re_bounds = [1*1e5,1*1e6], # [-]
+        psi_bounds = [1.3,2], # [-]
+        phi_bounds = [0.4,0.7], # [-]
+        R_bounds = [0.45,0.55], # [-]
+        r_m_bounds = [0.15, 0.5], # [m]
+        M_1_st = 0.3, # [-]
         damping = 0.2, # [-]
         delta_tip = 0.4*1e-3, # [m] : tip clearance
         N_lw = 0, # [-] : Number of lashing wires
         D_lw = 0, # [m] : Diameter of lashing wires
         e_blade = 0.002*1e-3, # [m] : blade roughness
-        t_TE_o = 0.05 # [-] : trailing edge to throat opening ratio
+        t_TE_o = 0.05, # [-] : trailing edge to throat opening ratio
+        t_TE_min = 5*1e-4, # [m]
         )
     
 elif case_study == 'TCO2_ORC':
@@ -1306,23 +1348,23 @@ elif case_study == 'TCO2_ORC':
         )
     
     Turb.set_parameters(
-        Omega = 3000, # [RPM]
         Zweifel = 0.8, # [-]
         AR_min = 0.8, # [-]
         r_hub_tip_max = 0.95, # [-]
         r_hub_tip_min = 0.6, # [-]
-        Re_bounds = [1*1e6,1*1e7], # [-]
-        psi_bounds = [0.6,2.5], # [-]
-        phi_bounds = [0.3,0.7], # [-] 
+        Re_bounds = [2*1e6,7*1e6], # [-]
+        psi_bounds = [1.2,2], # [-]
+        phi_bounds = [0.4,0.8], # [-]
         R_bounds = [0.4,0.6], # [-]
-        r_m_bounds = [0.1, 0.6], # [m]
+        r_m_bounds = [0.2, 0.5], # [m]
         M_1_st = 0.3, # [-]
         damping = 0.2, # [-]
         delta_tip = 0.4*1e-3, # [m] : tip clearance
         N_lw = 0, # [-] : Number of lashing wires
         D_lw = 0, # [m] : Diameter of lashing wires
         e_blade = 0.002*1e-3, # [m] : blade roughness
-        t_TE_o = 0.1 # [-] : trailing edge to throat opening ratio
+        t_TE_o = 0.05, # [-] : trailing edge to throat opening ratio
+        t_TE_min = 5*1e-4, # [m]
         )
 
 elif case_study == 'Salah_Case':
@@ -1342,12 +1384,12 @@ elif case_study == 'Salah_Case':
         AR_min = 0.8, # [-]
         r_hub_tip_max = 0.95, # [-]
         r_hub_tip_min = 0.6, # [-]
-        Re_bounds = [1*1e6,1*1e7], # [-]
-        psi_bounds = [1,2.5], # [-]
-        phi_bounds = [0.4,0.8], # [-]
-        R_bounds = [0.4,0.6], # [-]
-        r_m_bounds = [0.1, 0.6], # [m]
-        M_1_st = 0.3, # [-]
+        Re_bounds = [1*1e6,7*1e6], # [-]
+        psi_bounds = [1.5,2.5], # [-]
+        phi_bounds = [0.6,0.9], # [-]
+        R_bounds = [0.45,0.55], # [-]
+        r_m_bounds = [0.15, 0.5], # [m]
+        M_1_st = 0.5, #0.3, # [-]
         damping = 0.2, # [-]
         delta_tip = 0.4*1e-3, # [m] : tip clearance
         N_lw = 0, # [-] : Number of lashing wires
