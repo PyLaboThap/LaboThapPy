@@ -18,6 +18,61 @@ import pandas as pd
 import warnings
 warnings.filterwarnings("ignore")
 
+#%%
+
+# ---- joblib worker (process-based) ----
+import os, numpy as np
+from joblib import Parallel, delayed
+
+from contextlib import contextmanager
+from tqdm import tqdm
+import joblib
+from joblib.parallel import BatchCompletionCallBack
+
+@contextmanager
+def tqdm_joblib(tqdm_object):
+    """Context manager to patch joblib to report into tqdm progress bar."""
+    class TqdmBatchCompletionCallback(BatchCompletionCallBack):
+        def __call__(self, *args, **kwargs):
+            tqdm_object.update(n=self.batch_size)
+            return super().__call__(*args, **kwargs)
+
+    old_cb = joblib.parallel.BatchCompletionCallBack
+    joblib.parallel.BatchCompletionCallBack = TqdmBatchCompletionCallback
+    try:
+        yield tqdm_object
+    finally:
+        joblib.parallel.BatchCompletionCallBack = old_cb
+        tqdm_object.close()
+
+_SOLVER = None  # cached per-process
+
+def _eval_particle(x, cls, fluid, params, stage_params, inputs, match_p_ex=False):
+    """Evaluate one particle using a per-process cached solver."""
+    os.environ.setdefault("OMP_NUM_THREADS", "1")
+    os.environ.setdefault("MKL_NUM_THREADS", "1")
+    os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+    os.environ.setdefault("NUMEXPR_MAX_THREADS", "1")
+
+    global _SOLVER
+    if _SOLVER is None:
+        s = cls(fluid)
+        s.set_parameters(**params)
+        if stage_params:
+            s.set_stage_parameters(**stage_params)
+        s.set_inputs(**inputs)
+        _SOLVER = s
+
+    x = np.asarray(x, dtype=float)
+    if match_p_ex:
+        # x here is WITHOUT r_m: [psi, phi, R, Re_min, M_1_st]
+        return float(_SOLVER.design_system_match_p(x))
+    else:
+        # x includes r_m (and M_1_st if you keep it)
+        return float(_SOLVER.design_system(x))
+
+#%%
+
 class AxialTurbineMeanLineDesign(object):
 
     def __init__(self, fluid):
@@ -40,6 +95,7 @@ class AxialTurbineMeanLineDesign(object):
         
         # Blade Row Efficiency
         self.eta_blade_row = None
+        self.allowable_positions = []
 
     def reset(self):
 
@@ -88,36 +144,30 @@ class AxialTurbineMeanLineDesign(object):
             
         def update_total_AS(self, CP_INPUTS, input_1, input_2, position):
             self.AS.update(CP_INPUTS, input_1, input_2)
-            
-            self.total_states['H'][position] = self.AS.hmass()            
-            self.total_states['S'][position] = self.AS.smass()            
-            self.total_states['P'][position] = self.AS.p()            
-            self.total_states['D'][position] = self.AS.rhomass()       
-            
+            ts = self.total_states  # shorthand
+            ts.loc[position, 'H'] = self.AS.hmass()
+            ts.loc[position, 'S'] = self.AS.smass()
+            ts.loc[position, 'P'] = self.AS.p()
+            ts.loc[position, 'D'] = self.AS.rhomass()
             try:
-                self.total_states['A'][position] = self.AS.speed_sound()            
-            except:
-                self.total_states['A'][position] = -1            
-                
-            self.total_states['V'][position] = self.AS.viscosity()            
-            
+                ts.loc[position, 'A'] = self.AS.speed_sound()
+            except Exception:
+                ts.loc[position, 'A'] = -1
+            ts.loc[position, 'V'] = self.AS.viscosity()
             return
         
         def update_static_AS(self, CP_INPUTS, input_1, input_2, position):
             self.AS.update(CP_INPUTS, input_1, input_2)
-            
-            self.static_states['H'][position] = self.AS.hmass()            
-            self.static_states['S'][position] = self.AS.smass()            
-            self.static_states['P'][position] = self.AS.p()            
-            self.static_states['D'][position] = self.AS.rhomass()            
-
+            ss = self.static_states
+            ss.loc[position, 'H'] = self.AS.hmass()
+            ss.loc[position, 'S'] = self.AS.smass()
+            ss.loc[position, 'P'] = self.AS.p()
+            ss.loc[position, 'D'] = self.AS.rhomass()
             try:
-                self.static_states['A'][position] = self.AS.speed_sound()            
-            except:
-                self.static_states['A'][position] = -1
-    
-            self.static_states['V'][position] = self.AS.viscosity()            
-
+                ss.loc[position, 'A'] = self.AS.speed_sound()
+            except Exception:
+                ss.loc[position, 'A'] = -1
+            ss.loc[position, 'V'] = self.AS.viscosity()
             return
 
     # ---------------- Data Handling ----------------------------------------------------------------------
@@ -496,7 +546,10 @@ class AxialTurbineMeanLineDesign(object):
         # 3) Compute A_flow and h_blade based on r_m guess
         stage.A_flow_S = self.inputs['mdot']/(stage.static_states['D'][2]*self.Vel_Tri['vm'])
         stage.h_blade_S = stage.A_flow_S/(2*np.pi*self.r_m)
-
+        
+        if stage.h_blade_S > self.r_m*0.8:
+            raise ValueError('')
+        
         # 4) Compute cord, aspect ratio, blade pitch and blade number
                 
         stage.chord_S = (self.params['Re_min']*stage.static_states['V'][2])/(stage.static_states['D'][2]*self.Vel_Tri['vm'])            
@@ -572,6 +625,9 @@ class AxialTurbineMeanLineDesign(object):
         stage.A_flow_R = self.inputs['mdot']/(stage.static_states['D'][3]*self.Vel_Tri['vm'])
         stage.h_blade_R = stage.A_flow_R/(2*np.pi*self.r_m)
         
+        if stage.h_blade_R > self.r_m*0.8:
+            raise ValueError('')
+        
         # 4) Compute cord, aspect ratio, pitch and blade number
         stage.chord_R = (self.params['Re_min']*stage.static_states['V'][3])/(stage.static_states['D'][3]*self.Vel_Tri['vm'])            
         stage.AR_R = stage.h_blade_R/stage.chord_R
@@ -643,6 +699,9 @@ class AxialTurbineMeanLineDesign(object):
         # 3) Compute A_flow and h_blade based on r_m guess
         stage.A_flow_S = self.inputs['mdot']/(stage.static_states['D'][2]*self.Vel_Tri['vm'])
         stage.h_blade_S = stage.A_flow_S/(2*np.pi*self.r_m)
+
+        if stage.h_blade_S > self.r_m*0.8:
+            raise ValueError('')
 
         # 4) Compute cord, aspect ratio, blade pitch and blade number
                 
@@ -1022,13 +1081,6 @@ class AxialTurbineMeanLineDesign(object):
         self.CAPEX_tot = self.CAPEX_turb + self.CAPEX_alt + self.CAPEX_install
             
         return
-   
-#%%
-    def off_design_test(self):
-        
-        
-        return 
-    
     
 #%%
     def design_system(self, x):
@@ -1036,14 +1088,21 @@ class AxialTurbineMeanLineDesign(object):
 
         self.reset()
         
-        self.psi = x[0]
-        self.phi = x[1]
-        self.R = x[2]
-        self.params['Re_min'] = x[3]
-        self.r_m = x[4]
-        
-        # print(f"pos : [{self.psi, self.phi, self.R, self.r_m}]")
-        
+        if "Omega_choices" in self.params:
+            self.psi = x[0]
+            self.phi = x[1]
+            self.R = x[2]
+            self.params['Re_min'] = x[3]
+            self.params['Omega'] = self.params['Omega_choices'][np.abs(self.params['Omega_choices'] - x[4]).argmin()]
+            self.params['M_1_st'] = x[5]
+        else: # Iterate on r_m
+            self.psi = x[0]
+            self.phi = x[1]
+            self.R = x[2]
+            self.params['Re_min'] = x[3]
+            self.r_m = x[4]
+            self.params['M_1_st'] = x[5]
+
         self.r_tip = []
         self.r_hub = []
         self.r_hub_tip = []
@@ -1090,8 +1149,12 @@ class AxialTurbineMeanLineDesign(object):
         self.Dh0Stage = Dh0/self.nStages
         self.Vel_Tri['u'] = np.sqrt(self.Dh0Stage/self.psi)
 
-        self.omega_rads = self.Vel_Tri['u']/(2*self.r_m)
-        self.params['Omega'] = self.omega_rads*60/(2*np.pi)
+        if "Omega_choices" in self.params:
+            self.omega_rads = self.params['Omega']*(2*np.pi)/60
+            self.r_m = self.Vel_Tri['u']/(2*self.omega_rads)
+        else:
+            self.omega_rads = self.Vel_Tri['u']/(2*self.r_m)
+            self.params['Omega'] = self.omega_rads*60/(2*np.pi)
         
         "------------- 5) Compute complete velocity triangles and exit losses ----------------------------" 
 
@@ -1122,9 +1185,9 @@ class AxialTurbineMeanLineDesign(object):
         try:
             self.computeRepeatingStages()        
         except:
-            print("Error in stages")
-            obj = 10000
-            return obj
+            # print("Error in stages")
+            self.obj = 10000
+            return self.obj
         
         "------------- 7) Compute number of blades per stage ---------------------------" 
 
@@ -1146,9 +1209,9 @@ class AxialTurbineMeanLineDesign(object):
         try:
             self.computeLastStage()
         except:
-            print("Error in last stage")
-            obj = 10000
-            return obj
+            # print("Error in last stage")
+            self.obj = 10000
+            return self.obj
 
         "------------- 9) Compute main outputs -------------------------------------------------------------" 
         
@@ -1163,11 +1226,11 @@ class AxialTurbineMeanLineDesign(object):
                 
         self.eta_is = (hin - hout)/(hin - hout_s)
 
-        penalty_1 = max(self.r_hub_tip[0] - self.params['r_hub_tip_max'],0)*100
-        penalty_2 = max(self.params['r_hub_tip_min'] - self.r_hub_tip[-1],0)*100
+        penalty_1 = max(self.r_hub_tip[0] - self.params['r_hub_tip_max'],0)*10
+        penalty_2 = max(self.params['r_hub_tip_min'] - self.r_hub_tip[-1],0)*10
         
         if abs((self.inputs["p_ex"] - self.stages[-1].static_states['P'][2])/self.inputs["p_ex"]) >= 1e-1:
-            penalty_3 = abs((self.inputs["p_ex"] - self.stages[-1].static_states['P'][2])/self.inputs["p_ex"])*10
+            penalty_3 = 3*abs((self.inputs["p_ex"] - self.stages[-1].static_states['P'][2])/self.inputs["p_ex"])**2
             self.Pressure_Deviation = self.inputs["p_ex"] - self.stages[-1].static_states['P'][2]
         else:
             penalty_3 = 0
@@ -1180,16 +1243,74 @@ class AxialTurbineMeanLineDesign(object):
                 if self.W_dot > self.inputs['W_dot']:
                     self.inputs['W_dot'] = self.W_dot
                     
-            obj = -self.eta_is + self.penalty
-            print(f"opt 'success' : {obj}")
+            self.obj = -self.eta_is + self.penalty
+            # print(f"opt 'success' : {obj}")
         else:
             # print("Bad eta_is")
-            obj = 10000
+            self.obj = 10000
 
-        if obj < 10000:
-            self.allowable_positions.append([obj, self.psi, self.phi, self.R, self.params['Re_min'], self.r_m, self.eta_is])
+        if self.obj < 10000:
+            self.allowable_positions.append([self.obj, self.psi, self.phi, self.R, self.params['Re_min'], self.r_m, self.eta_is])
         
-        return obj
+        return self.obj
+
+    from scipy.optimize import brentq
+
+    def _pout_minus_target(self, r_m, x_no_rm):
+        """
+        For a given r_m, evaluate P_out - p_ex at the end of design_system.
+        x_no_rm is [psi, phi, R, Re_min, M_1_st] (no r_m here).
+        Returns a scalar.
+        """
+        # Build a full x with r_m inserted in position 4
+        x = np.array([x_no_rm[0], x_no_rm[1], x_no_rm[2], x_no_rm[3], r_m, x_no_rm[4]], dtype=float)
+        obj = self.design_system(x)
+        # If design failed badly, return a large signed residual that pushes the solver away
+        if obj >= 1e4 or not hasattr(self, "stages") or not self.stages:
+            # keep sign based on the last known deviation if available
+            dev = getattr(self, "Pressure_Deviation", np.nan)
+            if np.isnan(dev):
+                # arbitrary sign; push upward
+                return +1e6
+            return -float(dev)  # dev = p_ex - p_out => Pout - Pex = -dev
+        # Here we have a valid evaluation
+        # Pressure_Deviation = p_ex - p_out (you set this in design_system)
+        return -float(self.Pressure_Deviation)  # => P_out - p_ex
+            
+    
+    def design_system_match_p(self, x_no_rm):
+        """
+        Solve for r_m in [r_m_min, r_m_max] so that outlet static pressure ~ p_ex.
+        x_no_rm: [psi, phi, R, Re_min, M_1_st]
+        Returns objective (same convention as design_system).
+        """
+        rmin, rmax = self.params["r_m_bounds"]
+        # 1) Try to bracket a root quickly
+        fmin = self._pout_minus_target(rmin, x_no_rm)
+        fmax = self._pout_minus_target(rmax, x_no_rm)
+    
+        r_star = None
+        if np.isfinite(fmin) and np.isfinite(fmax) and fmin * fmax < 0.0:
+            # 2) Root exists in the bracket
+            try:
+                r_star = brentq(lambda r: self._pout_minus_target(r, x_no_rm), rmin, rmax, maxiter=30, xtol=1e-6)
+            except Exception:
+                r_star = None
+    
+        if r_star is None:
+            # 3) No sign change or brentq failed: pick the best r_m on a coarse grid
+            grid = np.linspace(rmin, rmax, 15)
+            residuals = []
+            for r in grid:
+                residuals.append(abs(self._pout_minus_target(r, x_no_rm)))
+            r_star = grid[int(np.argmin(residuals))]
+    
+        # Final consistent call at r_star (populates all fields)
+        obj = self._pout_minus_target(r_star, x_no_rm)  # runs design_system inside
+        # _pout_minus_target already made a final design_system() call; objective is stored there.
+        # Retrieve the actual objective from the last run:
+        # (design_system returns obj; to avoid recompute, just take it from self.allowable_positions if needed)
+        return getattr(self, "obj", 0.0) if hasattr(self, "obj") else 1e4
 
 
     def design(self):
@@ -1221,13 +1342,11 @@ class AxialTurbineMeanLineDesign(object):
             options={'c1': 1.5, 'c2': 2.0, 'w': 0.7},
             bounds=bounds
         )
-        
-        self.allowable_positions = []
-        
+                
         # Custom stopping logic
         patience = 5
         tol = 1e-3
-        max_iter = 20
+        max_iter = 1
         no_improve_counter = 0
         best_cost = np.inf
     
@@ -1243,7 +1362,7 @@ class AxialTurbineMeanLineDesign(object):
             else:
                 no_improve_counter += 1
     
-            print(f"[{i+1}] Best cost: {best_cost:.6f}")
+            # print(f"[{i+1}] Best cost: {best_cost:.6f}")
     
             if no_improve_counter >= patience:
                 print("Stopping early due to stagnation.")
@@ -1266,6 +1385,248 @@ class AxialTurbineMeanLineDesign(object):
         print(f"Turbine Generation : {self.W_dot} [W]")        
         
         return best_pos
+
+#%% 
+
+    # def design_parallel(self, n_jobs=-1, backend="loky", chunksize="auto"):
+    #     import numpy as np
+    #     import pyswarms as ps
+    #     from joblib import Parallel, delayed
+        
+    #     if "Omega_choices" in self.params:
+    #         bounds = (np.array([
+    #             self.params['psi_bounds'][0],
+    #             self.params['phi_bounds'][0],
+    #             self.params['R_bounds'][0],
+    #             self.params['Re_bounds'][0],
+    #             self.params['Omega_choices'][0],
+    #             self.params['M_1st_bounds'][0],
+    #         ]), np.array([
+    #             self.params['psi_bounds'][1],
+    #             self.params['phi_bounds'][1],
+    #             self.params['R_bounds'][1],
+    #             self.params['Re_bounds'][1],
+    #             self.params['Omega_choices'][-1],
+    #             self.params['M_1st_bounds'][1],
+    #         ]))
+    #     else: # Iterate on r_m
+    #         bounds = (np.array([
+    #             self.params['psi_bounds'][0],
+    #             self.params['phi_bounds'][0],
+    #             self.params['R_bounds'][0],
+    #             self.params['Re_bounds'][0],
+    #             self.params['r_m_bounds'][0],
+    #             self.params['M_1st_bounds'][0],
+    #         ]), np.array([
+    #             self.params['psi_bounds'][1],
+    #             self.params['phi_bounds'][1],
+    #             self.params['R_bounds'][1],
+    #             self.params['Re_bounds'][1],
+    #             self.params['r_m_bounds'][1],
+    #             self.params['M_1st_bounds'][1],
+    #         ]))
+        
+    #     # ---- normalize & snapshot inputs (PRIMITIVES ONLY) ----
+    #     inp = dict(self.inputs)  # shallow copy
+    #     def pick(*names, default=None):
+    #         for n in names:
+    #             if n in inp and inp[n] is not None:
+    #                 return inp[n]
+    #         return default
+    
+    #     inputs_snapshot = {
+    #         # common aliases: lowercase/uppercase and 0 vs no-0
+    #         "p0_su": pick("p0_su", "P0_su", "P_su", "p_su"),
+    #         "T0_su": pick("T0_su", "t0_su", "T_su", "t_su"),
+    #         "p_ex" : pick("p_ex", "P_ex"),
+    #         "mdot" : pick("mdot", "m_dot"),
+    #         "W_dot": pick("W_dot", "W"),
+    #     }
+    
+    #     # quick sanity check to fail early & clearly
+    #     missing = [k for k,v in inputs_snapshot.items() if v is None]
+    #     if missing:
+    #         raise ValueError(f"Missing required inputs for design: {missing}. "
+    #                          f"Found keys: {sorted(self.inputs.keys())}")
+    
+    #     # ---- snapshot params/stage_params too ----
+    #     snapshot = {
+    #         "cls": type(self),                        # class object (cloudpickle handles it)
+    #         "fluid": self.fluid,
+    #         "params": dict(self.params),              # ensure only picklable values
+    #         "stage_params": getattr(self, "stage_params", None),
+    #         "inputs": inputs_snapshot,
+    #     }
+    
+    #     def objective_wrapper(X):
+    #         X = np.asarray(X, dtype=float)
+    #         with tqdm_joblib(tqdm(total=len(X), desc="Particles", unit="pt")):
+    #             results = Parallel(n_jobs=n_jobs, backend=backend, batch_size=chunksize)(
+    #                 delayed(_eval_particle)(xi, snapshot["cls"], snapshot["fluid"],
+    #                                         snapshot["params"], snapshot["stage_params"],
+    #                                         snapshot["inputs"])
+    #                 for xi in X
+    #             )
+    #         return results
+
+    
+    #     optimizer = ps.single.GlobalBestPSO(
+    #         n_particles=20, dimensions=6,
+    #         options={'c1': 1.5, 'c2': 2.0, 'w': 0.7},
+    #         bounds=bounds
+    #     )
+    
+    #     patience, tol, max_iter = 5, 1e-3, 40
+    #     no_improve, best_cost = 0, float("inf")
+    
+    #     for i in range(max_iter):
+    #         optimizer.optimize(objective_wrapper, iters=1, verbose=False)
+    #         cur = optimizer.swarm.best_cost
+    #         if cur < best_cost - tol:
+    #             best_cost, no_improve = cur, 0
+    #         else:
+    #             no_improve += 1
+    #         print(f"[{i+1}] Best cost: {best_cost:.6f}")
+    #         if no_improve >= patience:
+    #             print("Stopping early due to stagnation.")
+    #             break
+    
+    #     best_pos = optimizer.swarm.best_pos
+    #     self.design_system(best_pos)
+    #     self.cost_estimation()
+    
+    #     print(f"Parameters : {self.psi, self.phi, self.R, self.params['Re_min'], self.r_m}")
+    #     print(f"P_in : {self.stages[0].static_states['P'][1]} [Pa]")
+    #     print(f"P_out : {self.stages[-1].static_states['P'][2]} [Pa]")
+    #     print(f"r_h_tip_in : {self.r_hub_tip[0]}")
+    #     print(f"r_h_tip_out : {self.r_hub_tip[-1]}")
+    #     print(f"M_1_st : {self.params['M_1_st']}")
+    #     print(f"Turbine mean radius: {self.r_m} [m]")
+    #     print(f"Turbine rotation speed: {self.params['Omega']} [RPM]")
+    #     print(f"Turbine number of stage : {self.nStages} [-]")
+    #     print(f"Turbine total-to-static efficiency : {self.eta_is} [-]")
+    #     print(f"Turbine Generation : {self.W_dot} [W]")
+    #     return best_pos
+
+    def design_parallel(self, n_jobs=-1, backend="loky", chunksize="auto", match_p_ex=True):
+        import numpy as np
+        import pyswarms as ps
+        from joblib import Parallel, delayed
+    
+        if match_p_ex:
+            # No r_m in the swarm; r_m will be solved by brentq inside each eval
+            bounds = (np.array([
+                self.params['psi_bounds'][0],
+                self.params['phi_bounds'][0],
+                self.params['R_bounds'][0],
+                self.params['Re_bounds'][0],
+                self.params['M_1st_bounds'][0],
+            ]), np.array([
+                self.params['psi_bounds'][1],
+                self.params['phi_bounds'][1],
+                self.params['R_bounds'][1],
+                self.params['Re_bounds'][1],
+                self.params['M_1st_bounds'][1],
+            ]))
+            dimensions = 5
+        else:
+            # Keep your current 6D particle (includes r_m)
+            bounds = (np.array([
+                self.params['psi_bounds'][0],
+                self.params['phi_bounds'][0],
+                self.params['R_bounds'][0],
+                self.params['Re_bounds'][0],
+                self.params['r_m_bounds'][0],
+                self.params['M_1st_bounds'][0],
+            ]), np.array([
+                self.params['psi_bounds'][1],
+                self.params['phi_bounds'][1],
+                self.params['R_bounds'][1],
+                self.params['Re_bounds'][1],
+                self.params['r_m_bounds'][1],
+                self.params['M_1st_bounds'][1],
+            ]))
+            dimensions = 6
+    
+        # snapshot (unchanged)
+        inp = dict(self.inputs)
+        def pick(*names, default=None):
+            for n in names:
+                if n in inp and inp[n] is not None:
+                    return inp[n]
+            return default
+    
+        inputs_snapshot = {
+            "p0_su": pick("p0_su", "P0_su", "P_su", "p_su"),
+            "T0_su": pick("T0_su", "t0_su", "T_su", "t_su"),
+            "p_ex" : pick("p_ex", "P_ex"),
+            "mdot" : pick("mdot", "m_dot"),
+            "W_dot": pick("W_dot", "W"),
+        }
+        missing = [k for k,v in inputs_snapshot.items() if v is None]
+        if missing:
+            raise ValueError(f"Missing required inputs for design: {missing}. Found keys: {sorted(self.inputs.keys())}")
+    
+        snapshot = {
+            "cls": type(self),
+            "fluid": self.fluid,
+            "params": dict(self.params),
+            "stage_params": getattr(self, "stage_params", None),
+            "inputs": inputs_snapshot,
+        }
+    
+        def objective_wrapper(X):
+            X = np.asarray(X, dtype=float)
+            with tqdm_joblib(tqdm(total=len(X), desc="Particles", unit="pt")):
+                results = Parallel(n_jobs=n_jobs, backend=backend, batch_size=chunksize)(
+                    delayed(_eval_particle)(
+                        xi, snapshot["cls"], snapshot["fluid"],
+                        snapshot["params"], snapshot["stage_params"],
+                        snapshot["inputs"], match_p_ex=match_p_ex
+                    ) for xi in X
+                )
+            return results
+    
+        optimizer = ps.single.GlobalBestPSO(
+            n_particles=20, dimensions=dimensions,
+            options={'c1': 1.5, 'c2': 2.0, 'w': 0.7},
+            bounds=bounds
+        )
+    
+        patience, tol, max_iter = 5, 1e-3, 40
+        no_improve, best_cost = 0, float("inf")
+        for i in range(max_iter):
+            optimizer.optimize(objective_wrapper, iters=1, verbose=False)
+            cur = optimizer.swarm.best_cost
+            if cur < best_cost - tol:
+                best_cost, no_improve = cur, 0
+            else:
+                no_improve += 1
+            print(f"[{i+1}] Best cost: {best_cost:.6f}")
+            if no_improve >= patience:
+                print("Stopping early due to stagnation.")
+                break
+    
+        best_pos = optimizer.swarm.best_pos
+    
+        # Finalize on best position
+        if match_p_ex:
+            self.design_system_match_p(best_pos)
+        else:
+            self.design_system(best_pos)
+        self.cost_estimation()
+    
+        # prints...
+        print(f"P_in : {self.stages[0].static_states['P'][1]} [Pa]")
+        print(f"P_out: {self.stages[-1].static_states['P'][2]} [Pa]")
+        print(f"r_m  : {self.r_m} [m]")
+        print(f"Omega: {self.params['Omega']} [RPM]")
+        print(f"eta_is: {self.eta_is}")
+        print(f"W_dot : {self.W_dot} [W]")
+        return best_pos
+
+
+#%%
 
 case_study = "TCO2_ORC"
 
@@ -1321,7 +1682,7 @@ elif case_study == 'Zorlu':
         r_hub_tip_max = 0.95, # [-]
         r_hub_tip_min = 0.6, # [-]
         Re_bounds = [1*1e5,1*1e6], # [-]
-        psi_bounds = [1.3,2], # [-]
+        psi_bounds = [1,2.5], # [-]
         phi_bounds = [0.4,0.7], # [-]
         R_bounds = [0.45,0.55], # [-]
         r_m_bounds = [0.15, 0.5], # [m]
@@ -1340,8 +1701,8 @@ elif case_study == 'TCO2_ORC':
     Turb = AxialTurbineMeanLineDesign('CO2')
 
     Turb.set_inputs(
-        mdot = 10*100, # kg/s
-        W_dot = 10*4.69*1e6, # W
+        mdot = 5*100, # kg/s
+        W_dot = 5*4.69*1e6, # W
         p0_su = 140*1e5, # Pa
         T0_su = 273.15 + 121, # K
         p_ex = 39.8*1e5, # Pa
@@ -1351,14 +1712,15 @@ elif case_study == 'TCO2_ORC':
         Zweifel = 0.8, # [-]
         AR_min = 0.8, # [-]
         r_hub_tip_max = 0.95, # [-]
-        r_hub_tip_min = 0.6, # [-]
-        Re_bounds = [2*1e6,7*1e6], # [-]
-        psi_bounds = [1.2,2], # [-]
-        phi_bounds = [0.4,0.8], # [-]
-        R_bounds = [0.4,0.6], # [-]
-        r_m_bounds = [0.2, 0.5], # [m]
-        M_1_st = 0.3, # [-]
-        damping = 0.2, # [-]
+        r_hub_tip_min = 0.5, # [-]
+        Re_bounds = [3*1e6,8*1e6], # [-]
+        psi_bounds = [1.3,2.5], # [-]
+        phi_bounds = [0.5,0.8], # [-]
+        R_bounds = [0.45,0.55], # [-]
+        M_1st_bounds = [0.2, 0.5], # [-]
+        r_m_bounds = [0.1, 0.5], # [m]
+        Omega_choices = [500,750,1000,1500,3000], # [RPM] : [500,750,1000,1500,3000]
+        damping = 0.3, # [-]
         delta_tip = 0.4*1e-3, # [m] : tip clearance
         N_lw = 0, # [-] : Number of lashing wires
         D_lw = 0, # [m] : Diameter of lashing wires
@@ -1399,7 +1761,7 @@ elif case_study == 'Salah_Case':
         t_TE_min = 5*1e-4, # [m]
         )
     
-best_pos = Turb.design()
+best_pos = Turb.design_parallel()
 
 Turb.plot_geometry()
 Turb.plot_n_blade()

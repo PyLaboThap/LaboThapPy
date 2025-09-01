@@ -126,7 +126,33 @@ class AxialTurbineMeanLine(BaseComponent):
         for key, array in parameters.items():
             for i in range(len(array)):
                 setattr(self.stages[i], key, array[i])
-                    
+    
+    # # --- 1) Faire un snapshot picklable de la machine ---
+    def _snapshot_from_machine(self):
+        base_inputs = dict(
+            P_su = float(self.inputs['P_su']),
+            T_su = float(self.inputs['T_su']),
+            P_ex = float(self.inputs['P_ex']),
+            m_dot = float(self.inputs['m_dot']),
+            N_rot = float(self.inputs['N_rot']),
+            fluid = self.fluid
+        )
+        base_params = dict(self.params)  # copie légère
+
+        stage_params = {}
+        import numbers, numpy as np
+        def _ok(v): return (v is None) or isinstance(v, (numbers.Number, np.floating, np.integer))
+        if self.stages:
+            keys = set().union(*(vars(st).keys() for st in self.stages))
+            blacklist = {'AS','total_states','static_states','Vel_Tri_S','Vel_Tri_R',
+                          'eta_is_R','eta_is_S','M1_S','M2_S','M2_R','M3_R',
+                          'Y_vec_S','Y_vec_R','delta_S','delta_R','beta_g_S','beta_g_R'}
+            for k in sorted(keys - blacklist):
+                vals = [getattr(st, k, None) for st in self.stages]
+                if any((_ok(v) for v in vals)) and all((_ok(v) for v in vals)):
+                    stage_params[k] = vals
+        return base_inputs, base_params, stage_params
+                
     # ---------------- Loss Models ------------------------------------------------------------------------
 
     def stator_blade_row_system(self, x):
@@ -833,126 +859,128 @@ class AxialTurbineMeanLine(BaseComponent):
 
 #%%
 
-if __name__ == "__main__":
-    
-    # # --- 1) Faire un snapshot picklable de la machine ---
-    def _snapshot_from_machine(machine):
-        base_inputs = dict(
-            P_su = float(machine.inputs['P_su']),
-            T_su = float(machine.inputs['T_su']),
-            P_ex = float(machine.inputs['P_ex']),
-            m_dot = float(machine.inputs['m_dot']),
-            N_rot = float(machine.inputs['N_rot']),
-            fluid = machine.fluid
+def _eval_point_from_snapshot(m, N, base_inputs, base_params, stage_params):
+    try:
+        turb = AxialTurbineMeanLine(base_inputs['fluid'])
+        turb.set_inputs(
+            m_dot=float(m),
+            P_su=base_inputs['P_su'],
+            T_su=base_inputs['T_su'],
+            N_rot=float(N),
+            fluid=base_inputs['fluid'],
+            P_ex=base_inputs['P_ex'],
         )
-        base_params = dict(machine.params)  # copie légère
+        turb.set_parameters(**base_params)
+        
+        if stage_params:
+            turb.set_stage_parameters(**stage_params)
 
-        stage_params = {}
-        import numbers, numpy as np
-        def _ok(v): return (v is None) or isinstance(v, (numbers.Number, np.floating, np.integer))
-        if machine.stages:
-            keys = set().union(*(vars(st).keys() for st in machine.stages))
-            blacklist = {'AS','total_states','static_states','Vel_Tri_S','Vel_Tri_R',
-                          'eta_is_R','eta_is_S','M1_S','M2_S','M2_R','M3_R',
-                          'Y_vec_S','Y_vec_R','delta_S','delta_R','beta_g_S','beta_g_R'}
-            for k in sorted(keys - blacklist):
-                vals = [getattr(st, k, None) for st in machine.stages]
-                if any((_ok(v) for v in vals)) and all((_ok(v) for v in vals)):
-                    stage_params[k] = vals
-        return base_inputs, base_params, stage_params
+        # print(f"Computing for N = {float(N)} RPM and m_dot = {float(m)} kg/s \n ")
 
-    def _eval_point_from_snapshot(m, N, base_inputs, base_params, stage_params):
-        try:
-            turb = AxialTurbineMeanLine(base_inputs['fluid'])
-            turb.set_inputs(
-                m_dot=float(m),
-                P_su=base_inputs['P_su'],
-                T_su=base_inputs['T_su'],
-                N_rot=float(N),
-                fluid=base_inputs['fluid'],
-                P_ex=base_inputs['P_ex'],
-            )
-            turb.set_parameters(**base_params)
-            
-            if stage_params:
-                turb.set_stage_parameters(**stage_params)
+        turb.solve()
 
-            # print(f"Computing for N = {float(N)} RPM and m_dot = {float(m)} kg/s \n ")
+        P_ex_calc = float(turb.stages[-1].static_states['P'][2])
+        RP_calc = turb.inputs['P_su'] / P_ex_calc if P_ex_calc else np.nan
+        RP_target = turb.inputs['P_su'] / turb.inputs['P_ex'] if turb.inputs.get('P_ex') else np.nan
 
-            turb.solve()
-
-            P_ex_calc = float(turb.stages[-1].static_states['P'][2])
-            RP_calc = turb.inputs['P_su'] / P_ex_calc if P_ex_calc else np.nan
-            RP_target = turb.inputs['P_su'] / turb.inputs['P_ex'] if turb.inputs.get('P_ex') else np.nan
-
-            # ✅ Ajout du print de debug
-            # print(f"[DONE] m={m:.2f}, N={N:.1f}, W={turb.W_dot:.2e}, eta={turb.eta_is:.3f}, RP={RP_calc:.2f}")
-            
-            if turb.eta_is < 0.3:
-                return dict(
-                    m_dot=float(m), N_rot=float(N),
-                    P_su=float(base_inputs.get('P_su', np.nan)),
-                    T_su=float(base_inputs.get('T_su', np.nan)),
-                    P_ex_target=float(base_inputs.get('P_ex', np.nan)),
-                    P_ex_calc=np.nan, RP_target=np.nan, RP_calc=np.nan,
-                    W_dot=np.nan, eta_is=np.nan, converged=False
-                )
-                
-            else:
-                return dict(
-                    m_dot=float(m),
-                    N_rot=float(N),
-                    P_su=float(turb.inputs['P_su']),
-                    T_su=float(turb.inputs['T_su']),
-                    P_ex_target=float(turb.inputs['P_ex']),
-                    P_ex_calc=P_ex_calc,
-                    RP_target=RP_target,
-                    RP_calc=RP_calc,
-                    W_dot=float(getattr(turb, 'W_dot', np.nan)),
-                    eta_is=float(getattr(turb, 'eta_is', np.nan)),
-                    converged=True,
-                    note=""
-                )
-
-        except Exception as e:
+        # ✅ Ajout du print de debug
+        # print(f"[DONE] m={m:.2f}, N={N:.1f}, W={turb.W_dot:.2e}, eta={turb.eta_is:.3f}, RP={RP_calc:.2f}")
+        
+        if turb.eta_is < 0.3:
             return dict(
                 m_dot=float(m), N_rot=float(N),
                 P_su=float(base_inputs.get('P_su', np.nan)),
                 T_su=float(base_inputs.get('T_su', np.nan)),
                 P_ex_target=float(base_inputs.get('P_ex', np.nan)),
                 P_ex_calc=np.nan, RP_target=np.nan, RP_calc=np.nan,
-                W_dot=np.nan, eta_is=np.nan, converged=False, note=str(e)
+                W_dot=np.nan, eta_is=np.nan, converged=False
+            )
+            
+        else:
+            return dict(
+                m_dot=float(m),
+                N_rot=float(N),
+                P_su=float(turb.inputs['P_su']),
+                T_su=float(turb.inputs['T_su']),
+                P_ex_target=float(turb.inputs['P_ex']),
+                P_ex_calc=P_ex_calc,
+                RP_target=RP_target,
+                RP_calc=RP_calc,
+                W_dot=float(getattr(turb, 'W_dot', np.nan)),
+                eta_is=float(getattr(turb, 'eta_is', np.nan)),
+                converged=True,
+                note=""
             )
 
-    import sys
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-    from tqdm import tqdm
-    import pandas as pd
+    except Exception as e:
+        return dict(
+            m_dot=float(m), N_rot=float(N),
+            P_su=float(base_inputs.get('P_su', np.nan)),
+            T_su=float(base_inputs.get('T_su', np.nan)),
+            P_ex_target=float(base_inputs.get('P_ex', np.nan)),
+            P_ex_calc=np.nan, RP_target=np.nan, RP_calc=np.nan,
+            W_dot=np.nan, eta_is=np.nan, converged=False, note=str(e)
+        )
 
-    def generate_map_threads(machine, m_grid, N_grid, max_workers=6, desc="Operation map"):
-        base_inputs, base_params, stage_params = _snapshot_from_machine(machine)
-        tasks = [(m, N) for N in N_grid for m in m_grid]
-        results = []
+import os, sys
+import pandas as pdproce
+from tqdm import tqdm
+from joblib import Parallel, delayed
+import joblib
+from contextlib import contextmanager
+from joblib.parallel import BatchCompletionCallBack
 
-        with ThreadPoolExecutor(max_workers=max_workers) as ex:
-            futures = [ex.submit(_eval_point_from_snapshot, m, N, base_inputs, base_params, stage_params)
-                        for (m, N) in tasks]
-            with tqdm(total=len(futures),
-                      desc=desc,
-                      unit="pt",
-                      dynamic_ncols=True,
-                      miniters=1,
-                      mininterval=0,
-                      ascii=True,
-                      file=sys.stdout) as bar:
-                for fut in as_completed(futures):
-                    results.append(fut.result())
-                    bar.update(1)
-                    bar.refresh()
+# ---- tqdm <-> joblib bridge: update bar when each batch completes ----
+@contextmanager
+def tqdm_joblib(tqdm_object):
+    """Context manager to patch joblib to report into tqdm progress bar."""
+    class TqdmBatchCompletionCallback(BatchCompletionCallBack):
+        def __call__(self, *args, **kwargs):
+            tqdm_object.update(n=self.batch_size)
+            return super().__call__(*args, **kwargs)
 
-        return pd.DataFrame(results).sort_values(['N_rot','m_dot'], ignore_index=True)
-    
+    old_cb = joblib.parallel.BatchCompletionCallBack
+    joblib.parallel.BatchCompletionCallBack = TqdmBatchCompletionCallback
+    try:
+        yield tqdm_object
+    finally:
+        joblib.parallel.BatchCompletionCallBack = old_cb
+        tqdm_object.close()
+
+# ----- YOUR multiprocessing map using joblib+loky -----
+def generate_map_processes(machine, m_grid, N_grid, max_workers=-1, desc="Operation map"):
+    """
+    Multiprocessing version using joblib (loky). Compatible with Spyder/Windows.
+    - max_workers: -1 => use all cores, or pass an int.
+    """
+    # Prevent thread oversubscription inside each worker
+    os.environ.setdefault("OMP_NUM_THREADS", "1")
+    os.environ.setdefault("MKL_NUM_THREADS", "1")
+    os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+    os.environ.setdefault("NUMEXPR_MAX_THREADS", "1")
+
+    base_inputs, base_params, stage_params = machine._snapshot_from_machine()
+
+    tasks = [(m, N) for N in N_grid for m in m_grid]
+    total = len(tasks)
+
+    with tqdm(total=total, desc=desc, unit="pt",
+              dynamic_ncols=True, miniters=1, mininterval=0,
+              ascii=True, file=sys.stdout) as bar, tqdm_joblib(bar):
+        results = Parallel(
+            n_jobs=max_workers,
+            backend="loky",       # processes
+            prefer="processes",   # explicit
+        )(
+            delayed(_eval_point_from_snapshot)(m, N, base_inputs, base_params, stage_params)
+            for (m, N) in tasks
+        )
+
+    return pd.DataFrame(results).sort_values(['N_rot', 'm_dot'], ignore_index=True)
+
 #%%
+
+if __name__ == "__main__":
     
     case_study = "TCO2_ORC"
     
@@ -1003,23 +1031,6 @@ if __name__ == "__main__":
             n_blade_R = [212, 202, 192, 182, 173, 164, 156, 147, 139, 131, 124, 117, None],
             R_c_R = [0.01388208476, 0.01456820328, 0.01530691263, 0.01610245309, 0.01695947464, 0.0178830808, 0.01887887765, 0.01995302875, 0.02111231693, 0.02236421375, 0.02371695786, 0.02517964358, None],
             )
-        
-        df_map = generate_map_threads(
-            Turb_OD,
-            m_grid=np.linspace(0.5*Turb_OD.inputs['m_dot'], 1.5*Turb_OD.inputs['m_dot'], 10),
-            N_grid=np.linspace(0.5*Turb_OD.inputs['N_rot'], 1.5*Turb_OD.inputs['N_rot'], 10),
-            max_workers=6  # 8 threads logiques - 2 pour laisser de la marge
-        )
-        
-        fig, ax = map_plot(
-            df_map, levels=24, dpi=300,
-            use_grid=True, nx=500, ny=500, smooth_sigma=0.8
-        )
-        
-        plt.show()
-        
-        _ = plot_power_eta_vs_mdot(df_map, speeds=None, max_lines=5)  # auto-picks up to 5 speeds
-        plt.show()
         
     elif case_study == "TCO2_ORC":
         Turb_OD = AxialTurbineMeanLine('CO2')
@@ -1078,19 +1089,19 @@ if __name__ == "__main__":
             R_c_R = [0.01793973023, 0.01830696471, 0.01871136876, 0.01915527682, 0.01964112592, 0.02017146978, 0.020748996, 0.02137654743, 0.02205715091, 0.02279405719, 0.02359078917, 0.02445117746, 0.02537935828, 0.0263797596, 0.02745716811, 0.02861690411, 0.02986506607, None],
             )
         
-        df_map = generate_map_threads(
-            Turb_OD,
-            m_grid=np.linspace(0.5*Turb_OD.inputs['m_dot'], 1.5*Turb_OD.inputs['m_dot'], 10),
-            N_grid=np.linspace(0.5*Turb_OD.inputs['N_rot'], 1.5*Turb_OD.inputs['N_rot'], 10),
-            max_workers=6  # 8 threads logiques - 2 pour laisser de la marge
-        )
-        
-        fig, ax = map_plot(
-            df_map, levels=24, dpi=300,
-            use_grid=True, nx=500, ny=500, smooth_sigma=0.8
-        )
-        
-        plt.show()
-        
-        _ = plot_power_eta_vs_mdot(df_map, speeds=None, max_lines=5)  # auto-picks up to 5 speeds
-        plt.show()
+    df_map = generate_map_processes(
+        Turb_OD,
+        m_grid=np.linspace(0.5*Turb_OD.inputs['m_dot'], 1.5*Turb_OD.inputs['m_dot'], 10),
+        N_grid=np.linspace(0.5*Turb_OD.inputs['N_rot'], 1.5*Turb_OD.inputs['N_rot'], 10),
+        max_workers=6  # 8 threads logiques - 2 pour laisser de la marge
+    )
+    
+    fig, ax = map_plot(
+        df_map, levels=24, dpi=300,
+        use_grid=True, nx=500, ny=500, smooth_sigma=0.8
+    )
+    
+    plt.show()
+    
+    _ = plot_power_eta_vs_mdot(df_map, speeds=None, max_lines=5)  # auto-picks up to 5 speeds
+    plt.show()

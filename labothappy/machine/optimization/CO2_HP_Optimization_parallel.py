@@ -125,7 +125,7 @@ class CO2HPOptimizer:
     
         # ✅ Open pool once and keep it open during the loop
         def objective_wrapper(X):
-            return np.array(Parallel(n_jobs=n_cores - 1, backend='loky', prefer="threads")(
+            return np.array(Parallel(n_jobs=n_cores - 1, backend='loky', prefer="processes")(
                 delayed(system_HP_parallel)(x, input_data) for x in X
             ))
             
