@@ -48,9 +48,9 @@ def pump_0D_design(Omega, Q, h_1, h_2, v_1, v_2, p_1, p_2, rho_1):
 
     return Omega_s, D_s, D, geom
 
-case = 'Torrecid'
+case_study = 'TCO2'
 
-if case == 'Cuerva':
+if case_study == 'Cuerva':
     # Working fluid
     fluid = 'Cyclopentane'
 
@@ -83,7 +83,7 @@ if case == 'Cuerva':
 
     Omega_s,D_s,D,geom = pump_0D_design(Omega_pp_rads, Q, h_1, h_2, v_1, v_2, p_1, p_2, rho_1)
 
-elif case == "Zorlu":
+elif case_study == "Zorlu":
     # Working fluid
     fluid = 'Cyclopentane'
 
@@ -116,7 +116,7 @@ elif case == "Zorlu":
 
     Omega_s,D_s,D,geom = pump_0D_design(Omega_pp_rads, Q, h_1, h_2, v_1, v_2, p_1, p_2, rho_1)
   
-elif case == "Torrecid":
+elif case_study == "Torrecid":
     # Working fluid
     fluid = 'Cyclopentane'
 
@@ -164,7 +164,59 @@ elif case == "Torrecid":
     plt.plot(Omega_pp_vec, D_vec)
     plt.show()
 
-# print(f"Omega_s: {Omega_s}")
-# print(f"D_s: {D_s}")
-# print(f"D: {D}")
-# print(f"geom: {geom}")
+elif case_study == "TCO2":
+    # Working fluid
+    fluid = 'CO2'
+
+    # ORC pump assumptions for heights and velocities
+    h_1 = 0 # m
+    h_2 = 0 # m
+
+    v_1 = 0 # m/s
+    v_2 = 0 # m/s
+
+    # Static pressures
+    p_1 = 57.4*1e5 # Pa
+    p_2 = 140*1e5 # Pa
+
+    # Temperatures and densities
+    T_1 = 293.15 # K
+    T_2 = 305.919 # K
+
+    rho_1 = PropsSI('D', 'P', p_1, 'T', T_1, fluid) # kg/m^3
+    rho_2 = PropsSI('D', 'P', p_2, 'T', T_2, fluid) # kg/m^3
+
+    # Flowrate
+    m_dot = 100 # kg/s
+    Q = m_dot/rho_1 # m^3/s
+
+    Omega_pp_vec = np.linspace(3000, 30000, 28)
+    Omega_s_vec = np.zeros(len(Omega_pp_vec))
+    D_s_vec = np.zeros(len(Omega_pp_vec))
+    D_vec = np.zeros(len(Omega_pp_vec))
+
+    for i in range(len(Omega_pp_vec)):
+        # Rotating speed
+        Omega_pp = Omega_pp_vec[i] # RPM
+        Omega_pp_Hz = Omega_pp/60 # Hz
+        Omega_pp_rads = Omega_pp_Hz*(2*np.pi) # rad/s
+
+        Omega_s_vec[i],D_s_vec[i],D_vec[i],geom = pump_0D_design(Omega_pp_rads, Q, h_1, h_2, v_1, v_2, p_1, p_2, rho_1)
+
+        print(f"-----------------------------------------")
+        print(f"Omega: {Omega_pp} [RPM]")
+        print(f"Omega_s: {Omega_s_vec[i]}")
+        print(f"D_s: {D_s_vec[i]}")
+        print(f"D: {D_vec[i]}")
+        print(f"geom: {geom}")
+
+
+    plt.plot(Omega_pp_vec, Omega_s_vec)
+    plt.show()
+
+    plt.plot(Omega_pp_vec, D_s_vec)
+    plt.show()
+
+    plt.plot(Omega_pp_vec, D_vec)
+    plt.show()
+

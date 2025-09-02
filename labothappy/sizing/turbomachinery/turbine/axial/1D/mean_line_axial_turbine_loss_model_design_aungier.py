@@ -7,9 +7,9 @@ from correlations.turbomachinery.aungier_axial_turbine import aungier_loss_model
 
 from component.expander.turbine_mean_line_Aungier import AxialTurbineMeanLine
 from CoolProp.CoolProp import PropsSI
-from scipy.optimize import brentq, root
+from scipy.optimize import brentq, root_scalar
 import pyswarms as ps
-
+ 
 import CoolProp.CoolProp as CP
 import matplotlib.pyplot as plt
 import numpy as np
@@ -47,7 +47,8 @@ def tqdm_joblib(tqdm_object):
 
 _SOLVER = None  # cached per-process
 
-def _eval_particle(x, cls, fluid, params, stage_params, inputs, match_p_ex=False):
+# --- worker for joblib ---
+def _eval_particle(x, cls, fluid, params, stage_params, inputs):
     """Evaluate one particle using a per-process cached solver."""
     os.environ.setdefault("OMP_NUM_THREADS", "1")
     os.environ.setdefault("MKL_NUM_THREADS", "1")
@@ -63,13 +64,13 @@ def _eval_particle(x, cls, fluid, params, stage_params, inputs, match_p_ex=False
         s.set_inputs(**inputs)
         _SOLVER = s
 
+    # Re-apply inputs every call to avoid cross-particle contamination
+    _SOLVER.set_inputs(**inputs)
+    _SOLVER.W_dot = 0  # start clean for this evaluation
+
     x = np.asarray(x, dtype=float)
-    if match_p_ex:
-        # x here is WITHOUT r_m: [psi, phi, R, Re_min, M_1_st]
-        return float(_SOLVER.design_system_match_p(x))
-    else:
-        # x includes r_m (and M_1_st if you keep it)
-        return float(_SOLVER.design_system(x))
+    cost = float(_SOLVER.design_system(x))
+    return cost, float(_SOLVER.W_dot)
 
 #%%
 
@@ -96,6 +97,7 @@ class AxialTurbineMeanLineDesign(object):
         # Blade Row Efficiency
         self.eta_blade_row = None
         self.allowable_positions = []
+        self.W_dot = 0
 
     def reset(self):
 
@@ -110,7 +112,8 @@ class AxialTurbineMeanLineDesign(object):
         
         # Blade Row Efficiency
         self.eta_blade_row = None
-        
+        self.n_blade = []              # <-- make sure it always exists
+
         return
     # ---------------- Stage Sub Class ----------------------------------------------------------------------
     
@@ -1118,9 +1121,9 @@ class AxialTurbineMeanLineDesign(object):
         
         h_is_ex = self.AS.hmass()
         Dh0s = self.stages[0].total_states['H'][1] - h_is_ex
-        
+
         Dh0 = self.inputs['W_dot']/self.inputs['mdot']
-        
+                
         self.eta_is = Dh0/Dh0s
         
         "------------- 2) Velocity Triangle Computation (+ Solodity) -------------------------------------" 
@@ -1226,23 +1229,19 @@ class AxialTurbineMeanLineDesign(object):
                 
         self.eta_is = (hin - hout)/(hin - hout_s)
 
-        penalty_1 = max(self.r_hub_tip[0] - self.params['r_hub_tip_max'],0)*10
-        penalty_2 = max(self.params['r_hub_tip_min'] - self.r_hub_tip[-1],0)*10
+        self.penalty_1 = max(self.r_hub_tip[0] - self.params['r_hub_tip_max'],0)*100
+        self.penalty_2 = max(self.params['r_hub_tip_min'] - self.r_hub_tip[-1],0)*100
         
-        if abs((self.inputs["p_ex"] - self.stages[-1].static_states['P'][2])/self.inputs["p_ex"]) >= 1e-1:
-            penalty_3 = 3*abs((self.inputs["p_ex"] - self.stages[-1].static_states['P'][2])/self.inputs["p_ex"])**2
+        if abs((self.inputs["p_ex"] - self.stages[-1].static_states['P'][2])/self.inputs["p_ex"]) >= self.params['p_rel_tol']:
+            self.penalty_3 = abs((self.inputs["p_ex"] - self.stages[-1].static_states['P'][2])/self.inputs["p_ex"])*10
             self.Pressure_Deviation = self.inputs["p_ex"] - self.stages[-1].static_states['P'][2]
         else:
-            penalty_3 = 0
+            self.penalty_3 = 0
             self.Pressure_Deviation = self.inputs["p_ex"] - self.stages[-1].static_states['P'][2]
 
-        self.penalty = penalty_1 + penalty_2 + penalty_3
+        self.penalty = self.penalty_1 + self.penalty_2 + self.penalty_3 
 
         if self.eta_is > 0 and self.eta_is <= 1:
-            if self.penalty == 0:
-                if self.W_dot > self.inputs['W_dot']:
-                    self.inputs['W_dot'] = self.W_dot
-                    
             self.obj = -self.eta_is + self.penalty
             # print(f"opt 'success' : {obj}")
         else:
@@ -1254,64 +1253,7 @@ class AxialTurbineMeanLineDesign(object):
         
         return self.obj
 
-    from scipy.optimize import brentq
-
-    def _pout_minus_target(self, r_m, x_no_rm):
-        """
-        For a given r_m, evaluate P_out - p_ex at the end of design_system.
-        x_no_rm is [psi, phi, R, Re_min, M_1_st] (no r_m here).
-        Returns a scalar.
-        """
-        # Build a full x with r_m inserted in position 4
-        x = np.array([x_no_rm[0], x_no_rm[1], x_no_rm[2], x_no_rm[3], r_m, x_no_rm[4]], dtype=float)
-        obj = self.design_system(x)
-        # If design failed badly, return a large signed residual that pushes the solver away
-        if obj >= 1e4 or not hasattr(self, "stages") or not self.stages:
-            # keep sign based on the last known deviation if available
-            dev = getattr(self, "Pressure_Deviation", np.nan)
-            if np.isnan(dev):
-                # arbitrary sign; push upward
-                return +1e6
-            return -float(dev)  # dev = p_ex - p_out => Pout - Pex = -dev
-        # Here we have a valid evaluation
-        # Pressure_Deviation = p_ex - p_out (you set this in design_system)
-        return -float(self.Pressure_Deviation)  # => P_out - p_ex
-            
-    
-    def design_system_match_p(self, x_no_rm):
-        """
-        Solve for r_m in [r_m_min, r_m_max] so that outlet static pressure ~ p_ex.
-        x_no_rm: [psi, phi, R, Re_min, M_1_st]
-        Returns objective (same convention as design_system).
-        """
-        rmin, rmax = self.params["r_m_bounds"]
-        # 1) Try to bracket a root quickly
-        fmin = self._pout_minus_target(rmin, x_no_rm)
-        fmax = self._pout_minus_target(rmax, x_no_rm)
-    
-        r_star = None
-        if np.isfinite(fmin) and np.isfinite(fmax) and fmin * fmax < 0.0:
-            # 2) Root exists in the bracket
-            try:
-                r_star = brentq(lambda r: self._pout_minus_target(r, x_no_rm), rmin, rmax, maxiter=30, xtol=1e-6)
-            except Exception:
-                r_star = None
-    
-        if r_star is None:
-            # 3) No sign change or brentq failed: pick the best r_m on a coarse grid
-            grid = np.linspace(rmin, rmax, 15)
-            residuals = []
-            for r in grid:
-                residuals.append(abs(self._pout_minus_target(r, x_no_rm)))
-            r_star = grid[int(np.argmin(residuals))]
-    
-        # Final consistent call at r_star (populates all fields)
-        obj = self._pout_minus_target(r_star, x_no_rm)  # runs design_system inside
-        # _pout_minus_target already made a final design_system() call; objective is stored there.
-        # Retrieve the actual objective from the last run:
-        # (design_system returns obj; to avoid recompute, just take it from self.allowable_positions if needed)
-        return getattr(self, "obj", 0.0) if hasattr(self, "obj") else 1e4
-
+#%%
 
     def design(self):
         bounds = (np.array([
@@ -1330,232 +1272,94 @@ class AxialTurbineMeanLineDesign(object):
         ]))
     
         def objective_wrapper(x):
-            # Round inputs if needed for discrete steps
             rounded_x = np.copy(x)
-            # (Optional rounding logic goes here)
-            return np.array([self.design_system(xi) for xi in rounded_x])
+            costs, wdots = [], []
+            for xi in rounded_x:
+                c = self.design_system(xi)
+                costs.append(c)
+                wdots.append(self.W_dot)
+            self._last_batch_max_wdot = max(wdots) if wdots else self.inputs.get("W_dot", 0.0)
+            return np.asarray(costs, dtype=float)
     
-        # Initialize the optimizer
         optimizer = ps.single.GlobalBestPSO(
-            n_particles=20,
+            n_particles=40,
             dimensions=5,
             options={'c1': 1.5, 'c2': 2.0, 'w': 0.7},
             bounds=bounds
         )
-                
-        # Custom stopping logic
+    
         patience = 5
         tol = 1e-3
-        max_iter = 1
+        max_iter = 40
         no_improve_counter = 0
         best_cost = np.inf
     
         for i in range(max_iter):
-            # One iteration step
             optimizer.optimize(objective_wrapper, iters=1, verbose=False)
-    
             current_best = optimizer.swarm.best_cost
+    
+            # between-iteration W_dot raise
+            batch_best = getattr(self, "_last_batch_max_wdot", self.inputs.get("W_dot", 0.0))
+            if batch_best > self.inputs.get("W_dot", 0.0):
+                self.inputs["W_dot"] = batch_best
+                # print(f"[iter {i+1}] raised target W_dot to {self.inputs['W_dot']:.3f} W")
     
             if current_best < best_cost - tol:
                 best_cost = current_best
                 no_improve_counter = 0
             else:
                 no_improve_counter += 1
-    
             # print(f"[{i+1}] Best cost: {best_cost:.6f}")
-    
             if no_improve_counter >= patience:
                 print("Stopping early due to stagnation.")
                 break
-             
+    
         best_pos = optimizer.swarm.best_pos
-             
         self.design_system(best_pos)
-        
         self.cost_estimation()
-        
-        "------------- Print Main Results -------------------------------------------------------------" 
-        
+    
         print(f"Parameters : {self.psi, self.phi, self.R, self.params['Re_min'], self.r_m}")
-        
         print(f"Turbine mean radius: {self.r_m} [m]")
         print(f"Turbine rotation speed: {self.params['Omega']} [RPM]")
         print(f"Turbine number of stage : {self.nStages} [-]")
-        print(f"Turbine total-to-static efficiency : {self.eta_is} [-]")        
-        print(f"Turbine Generation : {self.W_dot} [W]")        
-        
+        print(f"Turbine total-to-static efficiency : {self.eta_is} [-]")
+        print(f"Turbine Generation : {self.W_dot} [W]")
         return best_pos
 
 #%% 
 
-    # def design_parallel(self, n_jobs=-1, backend="loky", chunksize="auto"):
-    #     import numpy as np
-    #     import pyswarms as ps
-    #     from joblib import Parallel, delayed
-        
-    #     if "Omega_choices" in self.params:
-    #         bounds = (np.array([
-    #             self.params['psi_bounds'][0],
-    #             self.params['phi_bounds'][0],
-    #             self.params['R_bounds'][0],
-    #             self.params['Re_bounds'][0],
-    #             self.params['Omega_choices'][0],
-    #             self.params['M_1st_bounds'][0],
-    #         ]), np.array([
-    #             self.params['psi_bounds'][1],
-    #             self.params['phi_bounds'][1],
-    #             self.params['R_bounds'][1],
-    #             self.params['Re_bounds'][1],
-    #             self.params['Omega_choices'][-1],
-    #             self.params['M_1st_bounds'][1],
-    #         ]))
-    #     else: # Iterate on r_m
-    #         bounds = (np.array([
-    #             self.params['psi_bounds'][0],
-    #             self.params['phi_bounds'][0],
-    #             self.params['R_bounds'][0],
-    #             self.params['Re_bounds'][0],
-    #             self.params['r_m_bounds'][0],
-    #             self.params['M_1st_bounds'][0],
-    #         ]), np.array([
-    #             self.params['psi_bounds'][1],
-    #             self.params['phi_bounds'][1],
-    #             self.params['R_bounds'][1],
-    #             self.params['Re_bounds'][1],
-    #             self.params['r_m_bounds'][1],
-    #             self.params['M_1st_bounds'][1],
-    #         ]))
-        
-    #     # ---- normalize & snapshot inputs (PRIMITIVES ONLY) ----
-    #     inp = dict(self.inputs)  # shallow copy
-    #     def pick(*names, default=None):
-    #         for n in names:
-    #             if n in inp and inp[n] is not None:
-    #                 return inp[n]
-    #         return default
-    
-    #     inputs_snapshot = {
-    #         # common aliases: lowercase/uppercase and 0 vs no-0
-    #         "p0_su": pick("p0_su", "P0_su", "P_su", "p_su"),
-    #         "T0_su": pick("T0_su", "t0_su", "T_su", "t_su"),
-    #         "p_ex" : pick("p_ex", "P_ex"),
-    #         "mdot" : pick("mdot", "m_dot"),
-    #         "W_dot": pick("W_dot", "W"),
-    #     }
-    
-    #     # quick sanity check to fail early & clearly
-    #     missing = [k for k,v in inputs_snapshot.items() if v is None]
-    #     if missing:
-    #         raise ValueError(f"Missing required inputs for design: {missing}. "
-    #                          f"Found keys: {sorted(self.inputs.keys())}")
-    
-    #     # ---- snapshot params/stage_params too ----
-    #     snapshot = {
-    #         "cls": type(self),                        # class object (cloudpickle handles it)
-    #         "fluid": self.fluid,
-    #         "params": dict(self.params),              # ensure only picklable values
-    #         "stage_params": getattr(self, "stage_params", None),
-    #         "inputs": inputs_snapshot,
-    #     }
-    
-    #     def objective_wrapper(X):
-    #         X = np.asarray(X, dtype=float)
-    #         with tqdm_joblib(tqdm(total=len(X), desc="Particles", unit="pt")):
-    #             results = Parallel(n_jobs=n_jobs, backend=backend, batch_size=chunksize)(
-    #                 delayed(_eval_particle)(xi, snapshot["cls"], snapshot["fluid"],
-    #                                         snapshot["params"], snapshot["stage_params"],
-    #                                         snapshot["inputs"])
-    #                 for xi in X
-    #             )
-    #         return results
-
-    
-    #     optimizer = ps.single.GlobalBestPSO(
-    #         n_particles=20, dimensions=6,
-    #         options={'c1': 1.5, 'c2': 2.0, 'w': 0.7},
-    #         bounds=bounds
-    #     )
-    
-    #     patience, tol, max_iter = 5, 1e-3, 40
-    #     no_improve, best_cost = 0, float("inf")
-    
-    #     for i in range(max_iter):
-    #         optimizer.optimize(objective_wrapper, iters=1, verbose=False)
-    #         cur = optimizer.swarm.best_cost
-    #         if cur < best_cost - tol:
-    #             best_cost, no_improve = cur, 0
-    #         else:
-    #             no_improve += 1
-    #         print(f"[{i+1}] Best cost: {best_cost:.6f}")
-    #         if no_improve >= patience:
-    #             print("Stopping early due to stagnation.")
-    #             break
-    
-    #     best_pos = optimizer.swarm.best_pos
-    #     self.design_system(best_pos)
-    #     self.cost_estimation()
-    
-    #     print(f"Parameters : {self.psi, self.phi, self.R, self.params['Re_min'], self.r_m}")
-    #     print(f"P_in : {self.stages[0].static_states['P'][1]} [Pa]")
-    #     print(f"P_out : {self.stages[-1].static_states['P'][2]} [Pa]")
-    #     print(f"r_h_tip_in : {self.r_hub_tip[0]}")
-    #     print(f"r_h_tip_out : {self.r_hub_tip[-1]}")
-    #     print(f"M_1_st : {self.params['M_1_st']}")
-    #     print(f"Turbine mean radius: {self.r_m} [m]")
-    #     print(f"Turbine rotation speed: {self.params['Omega']} [RPM]")
-    #     print(f"Turbine number of stage : {self.nStages} [-]")
-    #     print(f"Turbine total-to-static efficiency : {self.eta_is} [-]")
-    #     print(f"Turbine Generation : {self.W_dot} [W]")
-    #     return best_pos
-
-    def design_parallel(self, n_jobs=-1, backend="loky", chunksize="auto", match_p_ex=True):
+    def design_parallel(self, n_jobs=-1, backend="loky", chunksize="auto"):
         import numpy as np
         import pyswarms as ps
-        from joblib import Parallel, delayed
     
-        if match_p_ex:
-            # No r_m in the swarm; r_m will be solved by brentq inside each eval
-            bounds = (np.array([
-                self.params['psi_bounds'][0],
-                self.params['phi_bounds'][0],
-                self.params['R_bounds'][0],
-                self.params['Re_bounds'][0],
-                self.params['M_1st_bounds'][0],
-            ]), np.array([
-                self.params['psi_bounds'][1],
-                self.params['phi_bounds'][1],
-                self.params['R_bounds'][1],
-                self.params['Re_bounds'][1],
-                self.params['M_1st_bounds'][1],
-            ]))
-            dimensions = 5
-        else:
-            # Keep your current 6D particle (includes r_m)
-            bounds = (np.array([
-                self.params['psi_bounds'][0],
-                self.params['phi_bounds'][0],
-                self.params['R_bounds'][0],
-                self.params['Re_bounds'][0],
-                self.params['r_m_bounds'][0],
-                self.params['M_1st_bounds'][0],
-            ]), np.array([
-                self.params['psi_bounds'][1],
-                self.params['phi_bounds'][1],
-                self.params['R_bounds'][1],
-                self.params['Re_bounds'][1],
-                self.params['r_m_bounds'][1],
-                self.params['M_1st_bounds'][1],
-            ]))
-            dimensions = 6
+        # --- always 6D swarm (psi, phi, R, Re_min, r_m, M_1_st) ---
+        bounds = (np.array([
+            self.params['psi_bounds'][0],
+            self.params['phi_bounds'][0],
+            self.params['R_bounds'][0],
+            self.params['Re_bounds'][0],
+            self.params['r_m_bounds'][0],
+            self.params['M_1st_bounds'][0],
+        ]), np.array([
+            self.params['psi_bounds'][1],
+            self.params['phi_bounds'][1],
+            self.params['R_bounds'][1],
+            self.params['Re_bounds'][1],
+            self.params['r_m_bounds'][1],
+            self.params['M_1st_bounds'][1],
+        ]))
+        dimensions = 6
     
-        # snapshot (unchanged)
+        # snapshot of class + parameters
         inp = dict(self.inputs)
+    
         def pick(*names, default=None):
             for n in names:
                 if n in inp and inp[n] is not None:
                     return inp[n]
             return default
     
+        # this dict is updated each iteration to carry the latest W_dot target
         inputs_snapshot = {
             "p0_su": pick("p0_su", "P0_su", "P_su", "p_su"),
             "T0_su": pick("T0_su", "t0_su", "T_su", "t_su"),
@@ -1563,9 +1367,6 @@ class AxialTurbineMeanLineDesign(object):
             "mdot" : pick("mdot", "m_dot"),
             "W_dot": pick("W_dot", "W"),
         }
-        missing = [k for k,v in inputs_snapshot.items() if v is None]
-        if missing:
-            raise ValueError(f"Missing required inputs for design: {missing}. Found keys: {sorted(self.inputs.keys())}")
     
         snapshot = {
             "cls": type(self),
@@ -1582,22 +1383,39 @@ class AxialTurbineMeanLineDesign(object):
                     delayed(_eval_particle)(
                         xi, snapshot["cls"], snapshot["fluid"],
                         snapshot["params"], snapshot["stage_params"],
-                        snapshot["inputs"], match_p_ex=match_p_ex
+                        snapshot["inputs"]
                     ) for xi in X
                 )
-            return results
+            # results: list of (cost, W_dot)
+            costs = [r[0] for r in results]
+            wdots = [r[1] for r in results]
+            self._last_batch_max_wdot = max(wdots) if wdots else self.inputs.get("W_dot", 0.0)
+            return np.asarray(costs, dtype=float)
     
+        # --- PSO optimizer ---
         optimizer = ps.single.GlobalBestPSO(
-            n_particles=20, dimensions=dimensions,
+            n_particles=40, dimensions=dimensions,
             options={'c1': 1.5, 'c2': 2.0, 'w': 0.7},
             bounds=bounds
         )
     
         patience, tol, max_iter = 5, 1e-3, 40
         no_improve, best_cost = 0, float("inf")
+    
         for i in range(max_iter):
+            # ensure workers see the current target THIS iteration
+            snapshot["inputs"]["W_dot"] = self.inputs.get("W_dot", snapshot["inputs"]["W_dot"])
+    
             optimizer.optimize(objective_wrapper, iters=1, verbose=False)
             cur = optimizer.swarm.best_cost
+    
+            # --- between-iteration W_dot raise ---
+            batch_best = getattr(self, "_last_batch_max_wdot", self.inputs.get("W_dot", 0.0))
+            if batch_best > self.inputs.get("W_dot", 0.0):
+                self.inputs["W_dot"] = batch_best
+                # optional trace:
+                # print(f"[iter {i+1}] raised target W_dot to {self.inputs['W_dot']:.3f} W")
+    
             if cur < best_cost - tol:
                 best_cost, no_improve = cur, 0
             else:
@@ -1609,17 +1427,19 @@ class AxialTurbineMeanLineDesign(object):
     
         best_pos = optimizer.swarm.best_pos
     
-        # Finalize on best position
-        if match_p_ex:
-            self.design_system_match_p(best_pos)
-        else:
-            self.design_system(best_pos)
+        # Finalize
+        self.design_system(best_pos)
         self.cost_estimation()
+
+        print(f"Work Coef : {self.psi}")
+        print(f"Flow Coef : {self.phi}")
+        print(f"Reaction : {self.R}")
+        print(f"Re : {self.params['Re_min']}")
+        print(f"r_m  : {self.r_m} [m]")
+        print(f"M_1st  : {self.params['M_1_st']}")
     
-        # prints...
         print(f"P_in : {self.stages[0].static_states['P'][1]} [Pa]")
         print(f"P_out: {self.stages[-1].static_states['P'][2]} [Pa]")
-        print(f"r_m  : {self.r_m} [m]")
         print(f"Omega: {self.params['Omega']} [RPM]")
         print(f"eta_is: {self.eta_is}")
         print(f"W_dot : {self.W_dot} [W]")
@@ -1702,7 +1522,7 @@ elif case_study == 'TCO2_ORC':
 
     Turb.set_inputs(
         mdot = 5*100, # kg/s
-        W_dot = 5*4.69*1e6, # W
+        W_dot = 5*4.69*1e6, # W : 
         p0_su = 140*1e5, # Pa
         T0_su = 273.15 + 121, # K
         p_ex = 39.8*1e5, # Pa
@@ -1712,15 +1532,16 @@ elif case_study == 'TCO2_ORC':
         Zweifel = 0.8, # [-]
         AR_min = 0.8, # [-]
         r_hub_tip_max = 0.95, # [-]
-        r_hub_tip_min = 0.5, # [-]
+        r_hub_tip_min = 0.6, # [-]
         Re_bounds = [3*1e6,8*1e6], # [-]
-        psi_bounds = [1.3,2.5], # [-]
+        psi_bounds = [1,1.9], # [-]
         phi_bounds = [0.5,0.8], # [-]
         R_bounds = [0.45,0.55], # [-]
-        M_1st_bounds = [0.2, 0.5], # [-]
-        r_m_bounds = [0.1, 0.5], # [m]
-        Omega_choices = [500,750,1000,1500,3000], # [RPM] : [500,750,1000,1500,3000]
+        M_1st_bounds = [0.3, 0.5], # [-]
+        r_m_bounds = [0.15, 0.6], # [m]
+        # Omega_choices = [500,750,1000,1500,3000], # [RPM] : [500,750,1000,1500,3000]
         damping = 0.3, # [-]
+        p_rel_tol = 0.05, # [-]
         delta_tip = 0.4*1e-3, # [m] : tip clearance
         N_lw = 0, # [-] : Number of lashing wires
         D_lw = 0, # [m] : Diameter of lashing wires
@@ -1761,7 +1582,8 @@ elif case_study == 'Salah_Case':
         t_TE_min = 5*1e-4, # [m]
         )
     
-best_pos = Turb.design_parallel()
+# best_pos = Turb.design_parallel()
+best_pos = Turb.design_parallel(n_jobs=-1)
 
 Turb.plot_geometry()
 Turb.plot_n_blade()

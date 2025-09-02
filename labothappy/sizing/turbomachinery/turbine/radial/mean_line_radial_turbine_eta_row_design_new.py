@@ -262,35 +262,31 @@ class RadialTurbineMeanLineDesign(object):
         self.params['n_blade_R'] = np.round(12+0.03*(33 - self.Vel_Tri_R['alpha4']*180/np.pi),0)       
 
 
-        # "------------- 2) Velocity Triangle Computation -------------------------------------"         
-        
-        # # Assumption for now 
-        # rho4 = self.total_states['D'][1]
-        # rho5 = self.total_states['D'][1]/2
-        
-        # self.computeVelTriangles()
-        
-        # "------------- 3) Find eta_blade_row  ----------------------------------------------"         
-        
-        # def find_eta_blade(x):
-        #     print(x)
-        #     self.eta_blade_row = x[0]
-        #     self.computeStator()
-    
-        #     self.computeStator()
-        #     self.computeRotor()
-    
-        #     pn_comp = self.static_states['P'][5]
+        "------------- 4) Velocity Triangle Computation -------------------------------------"         
 
-        #     return (self.inputs["p_ex"] - pn_comp)**2
+        self.computeVelTriangles()
         
-        # sol = minimize(find_eta_blade, 1, bounds=[(self.eta_is-0.1, 1)], tol = 1e-4)
+        "------------- 5) Find eta_blade_row and stator sizing ------------------------------------"         
         
-        # self.exit_loss = self.inputs['mdot']*(self.Vel_Tri_R['v5']**2)/2        
+        def find_eta_blade(x):
+            print(x)
+            self.eta_blade_row = x[0]
+            self.computeStator()
+    
+            self.computeStator()
+            self.computeRotor()
+    
+            pn_comp = self.static_states['P'][5]
+
+            return (self.inputs["p_ex"] - pn_comp)**2
         
-        # self.params['b4'] = self.inputs['mdot']/(2*np.pi*self.static_states['D'][4]*self.params['r4']*self.Vel_Tri_R['vm4'])
-        # self.params['b5'] = self.inputs['mdot']/(2*np.pi*self.static_states['D'][4]*self.params['r5']*self.Vel_Tri_R['vm5'])
-        # self.params['b3'] = self.params['b4']
+        sol = minimize(find_eta_blade, 1, bounds=[(self.eta_is-0.1, 1)], tol = 1e-4)
+        
+        self.exit_loss = self.inputs['mdot']*(self.Vel_Tri_R['v5']**2)/2        
+        
+        self.params['b4'] = self.inputs['mdot']/(2*np.pi*self.static_states['D'][4]*self.params['r4']*self.Vel_Tri_R['vm4'])
+        self.params['b5'] = self.inputs['mdot']/(2*np.pi*self.static_states['D'][4]*self.params['r5']*self.Vel_Tri_R['vm5'])
+        self.params['b3'] = self.params['b4']
         
         return
 
