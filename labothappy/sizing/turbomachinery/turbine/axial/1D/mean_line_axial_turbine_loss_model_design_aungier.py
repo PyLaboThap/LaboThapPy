@@ -1180,7 +1180,7 @@ class AxialTurbineMeanLineDesign(object):
         self.exit_loss = (self.Vel_Tri['vm']**2+self.Vel_Tri['vu3']**2)/2
         self.exit_loss_W = self.exit_loss*self.inputs['mdot']
 
-        "------------- 6) Iterate on r_m and compute repeating stages ------------------------" 
+        "------------- 6) Compute repeating stages ------------------------" 
 
         h_in = self.stages[0].total_states['H'][1] - (self.Vel_Tri['vm']**2)/2
         self.stages[0].update_static_AS(CP.HmassSmass_INPUTS, h_in, s_in, 1)

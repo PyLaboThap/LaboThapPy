@@ -112,6 +112,9 @@ def rotor_clearance_losses(cl_a, cl_r, L_z, r4, r5h, r5s, r5, b4, b5, n_blade_R,
     
     Dh_cl = (n_blade_R*u4**3/(8*np.pi))*(K_a*cl_a*C_a + K_r*cl_r*C_r + K_ar*np.sqrt(cl_a*cl_r*C_a*C_r))
     
+    if np.isnan(Dh_cl):
+        return 0
+    
     return Dh_cl
 
 def rotor_trailing_edge_losses(w5, n_blade_R, t5, r5h, r5s, beta5, gamma5, Ma5_pr):

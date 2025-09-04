@@ -136,9 +136,9 @@ class RadialTurbineMeanLineDesign(object):
 
         "2.1) -------- (4) Rotor Inlet ------------------------"
         
-        self.update_total_AS(CP.HmassP_INPUTS, self.total_states['H'][3], self.total_states['S'][3], 4) # !!! Assumption on p
+        self.update_total_AS(CP.HmassSmass_INPUTS, self.total_states['H'][3], self.total_states['S'][3], 4)
         
-        h4 = self.total_states['H'][4] - self.Vel_Tri_R['w4']**2 / 2
+        h4 = self.total_states['H'][4] - self.Vel_Tri_R['v4']**2 / 2
         
         self.update_static_AS(CP.HmassSmass_INPUTS, h4, self.total_states['S'][3], 4)
         
@@ -201,17 +201,17 @@ class RadialTurbineMeanLineDesign(object):
             self.rotor_losses = rotor_losses(alpha4, beta4, beta5, b4, b5, self.params['cl_a'], self.params['cl_r'],
                                              gamma5, L_z, M5_rel, self.n_blades_R, r4, r5, r5h, r5t, t5t, u4, vm4, vm5, w4, w5)
             
-            h05 = self.total_states['H'][4] - 0 # self.rotor_losses['Dh_tot']        
+            h05 = self.total_states['H'][4] - self.rotor_losses['Dh_tot']   
             
             # Reconciliate with enthalpy guess
-            h5_new = self.AS.hmass() - self.Vel_Tri_R['w5']**2 / 2
+            h5_new = self.AS.hmass() - self.Vel_Tri_R['w5']**2 / 2 
             self.update_static_AS(CP.HmassP_INPUTS, h5_new, self.inputs['p_ex'], 5)
     
             self.update_total_AS(CP.HmassSmass_INPUTS, h05, self.static_states['S'][5], 5)  
             
-            f1 = h5_new - h5
-            f2 = self.A5 - np.pi*(r5t**2 - r5h**2)*(1.0 - BK5) 
-            f3 = (r5**2) - 0.5*(r5t**2 + r5h**2)
+            f1 = (h5_new - h5)/h5
+            f2 = (self.A5 - np.pi*(r5t**2 - r5h**2)*(1.0 - BK5))/self.A5
+            f3 = ((r5**2) - 0.5*(r5t**2 + r5h**2))/r5**2
             
             return np.sum(np.array([f1, f2, f3])**2)
 
@@ -227,18 +227,15 @@ class RadialTurbineMeanLineDesign(object):
             (0.011, 1),
         ]
 
-        sol = minimize(system_rotor, x0, method='L-BFGS-B', bounds=bounds,
-                       options={'ftol': 1e-10, 'gtol': 1e-10})
+        self.sol_rotor = minimize(system_rotor, x0, method='L-BFGS-B', bounds=bounds,
+                       options={'ftol': 1e-12, 'gtol': 1e-12})
         
         self.losses['Dh_R_incidence'] = self.rotor_losses['Dh_inc']
         self.losses['Dh_R_passage'] = self.rotor_losses['Dh_p']
         self.losses['Dh_R_clearance'] = self.rotor_losses['Dh_cl']
         self.losses['Dh_R_TE'] = self.rotor_losses['Dh_TE']
         self.losses['Dh_R_tot'] = self.rotor_losses['Dh_tot']
-        
-        if not sol.success:
-            raise RuntimeError(sol.message)
-            
+                
         return
         
     def designStator(self):
@@ -296,7 +293,7 @@ class RadialTurbineMeanLineDesign(object):
             self.AS.update(CP.HmassSmass_INPUTS, h03, self.total_states['S'][2])
             p03 = self.AS.p()
             
-            self.update_total_AS(CP.HmassP_INPUTS, h03, p03, 3)
+            self.update_total_AS(CP.HmassP_INPUTS, self.total_states['H'][2], p03, 3)
             h3_new = h03 - (self.Vel_Tri_S['v3']**2)/2   
                 
             self.update_static_AS(CP.HmassSmass_INPUTS, h3_new, self.total_states['S'][3], 3)
@@ -329,20 +326,20 @@ class RadialTurbineMeanLineDesign(object):
             return np.sum(np.array([f1, f2, f3, 100*f4]))
 
         # Initial guess
-        x0 = [self.static_states['H'][4] * 1e-5, self.static_states['P'][4] * 1e-5,  self.static_states['D'][4] * 1e-2, self.n_blades_R + 3]
+        x0 = [self.static_states['H'][4] * 1e-5, self.static_states['P'][4] * 1e-5 * 1.5,  self.static_states['D'][4] * 1e-2, self.n_blades_R + 3]
         
         # Bounds (in minimize, you need a sequence of (low, high) tuples)
         bounds = [
-            (self.static_states['H'][4] * 1e-5, self.static_states['H'][1] * 1e-5),
-            (self.static_states['P'][4] * 1e-5, self.static_states['P'][1] * 1e-5),
-            (self.static_states['D'][4] * 1e-2, self.static_states['D'][1] * 1e-2),
+            (self.static_states['H'][4] * 1e-5, self.total_states['H'][2] * 1e-5),
+            (self.static_states['P'][4] * 1e-5, self.static_states['P'][2] * 1e-5),
+            (self.static_states['D'][4] * 1e-2 * 0.5, self.static_states['D'][1] * 1e-2 * 2),
             (self.n_blades_R, self.n_blades_R * 2)
         ]
             
         # Call minimize (trust-constr works well with bounds, but L-BFGS-B is simpler)
-        sol = minimize(system_MB_stator, x0, method='L-BFGS-B', bounds=bounds,
+        self.sol_stator1 = minimize(system_MB_stator, x0, method='L-BFGS-B', bounds=bounds,
                        options={'ftol': 1e-10, 'gtol': 1e-10})
-                
+        
         # # Check result
         # if sol.success:
         #     print("Solver succeeded!")
@@ -386,12 +383,12 @@ class RadialTurbineMeanLineDesign(object):
         [rho_lo] = [self.static_states['D'][3]]
         [rho_hi] = [self.total_states['D'][1]]
         
-        sol = least_squares(stator_inlet_calc, x0,
+        self.sol_stator2 = least_squares(stator_inlet_calc, x0,
                     bounds=([rho_lo],[rho_hi]),
                     method='trf', xtol=1e-10, ftol=1e-10, gtol=1e-10)
 
         h2 = self.total_states['H'][1] - self.Vel_Tri_S['v2']**2 / 2
-        s2 = PropsSI('S', 'D', sol.x[0], 'H', h2, self.fluid)
+        s2 = PropsSI('S', 'D', self.sol_stator2.x[0], 'H', h2, self.fluid)
 
         self.update_static_AS(CP.HmassSmass_INPUTS, h2, s2, 2)
 
@@ -412,13 +409,12 @@ class RadialTurbineMeanLineDesign(object):
         self.Dh0 = self.inputs['W_dot']/self.inputs['mdot']
         self.eta_is = self.Dh0/Dh0s
         
-        
         def determine_stator_inlet(x):
             h03, p03 = x*1e5
-            
+                        
             "------------- 2) Rotor Design -------------------------------------"       
             # !!! : Guess on stator outlet
-            self.update_total_AS(CP.HmassP_INPUTS, self.total_states['H'][1], self.total_states['P'][1],3)
+            self.update_total_AS(CP.HmassP_INPUTS, h03, p03,3)
         
             self.designRotor()
 
@@ -430,9 +426,9 @@ class RadialTurbineMeanLineDesign(object):
             self.designStator()
 
             p03_new = self.total_states['P'][3]
-            h03_new = self.total_states['P'][3]
+            h03_new = self.total_states['H'][3]
 
-            return np.array([h03_new, p03_new])
+            return np.array([h03_new, p03_new])*1e-5
 
         # sol = minimize(self.stator_blade_row_system, x0=(h_out_guess,pout_guess), args=(stage), bounds=[(stage.static_states['H'][1]-2*self.Dh0Stage, stage.static_states['H'][1]), (self.inputs['p_ex']*0.8, stage.static_states['P'][1])])         
         
@@ -444,7 +440,7 @@ class RadialTurbineMeanLineDesign(object):
         
         c = 0
         
-        while res > 1e-8:
+        while res > 1e-6:
             
             print(f"iteration {c+1}")
             
@@ -467,9 +463,19 @@ class RadialTurbineMeanLineDesign(object):
             c += 1
             
             print(f"res : {res}")
-
-            
+                        
         determine_stator_inlet(x_out)
+
+        hin = self.total_states['H'][1]
+        hout = self.static_states['H'][5]
+        
+        self.AS.update(CP.PSmass_INPUTS, self.static_states['P'][5], self.static_states['S'][1])
+
+        hout_s = self.AS.hmass()
+        
+        self.W_dot = self.inputs['mdot']*(hin-hout)
+                
+        self.eta_is = (hin - hout)/(hin - hout_s)
 
         self.exit_loss = self.inputs['mdot']*(self.Vel_Tri_R['v5']**2)/2        
         
@@ -484,7 +490,7 @@ Turb.set_inputs(
     T0_su = 273.15 + 121, # K
     p_ex = 39.8*1e5, # Pa
     psi = 1, # [-] : Iterate
-    phi = 0.3, # [-] : Iterate
+    phi = 0.4, # [-] : Iterate
     xhi = 0.4, # [-] : Iterate
     )
 
