@@ -555,7 +555,7 @@ def Flash_CO2_HP_Series_CP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low
 
 if __name__ == "__main__":
 
-    study_case = "Simple"    
+    study_case = "IHX"    
 
     # Pressure levels
     P_low_guess = 40*1e5

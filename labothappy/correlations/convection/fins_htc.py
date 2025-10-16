@@ -183,7 +183,7 @@ def htc_tube_and_fins_square(fluid, params, P_in, h_in, m_dot_in):
     
     rho_in = PropsSI('D','P',P_in,'H',h_in,fluid)
     V_dot_in = m_dot_in/rho_in # m^3/s
-    
+        
     "Geom data"
 
     n_tubes = params['n_tubes']
@@ -239,7 +239,7 @@ def htc_tube_and_fins_square(fluid, params, P_in, h_in, m_dot_in):
         S_flow = (HTX_L*HTX_W - n_tpr*D_fin_c*params['Tube_L'])
 
     u_in = V_dot_in/S_flow
-    
+        
     # print("HTX_W", HTX_W)
     # print("n_tpr*D_fin_c", n_tpr*D_fin_c)
 

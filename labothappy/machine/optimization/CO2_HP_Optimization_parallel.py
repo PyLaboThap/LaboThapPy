@@ -138,7 +138,7 @@ class CO2HPOptimizer:
 
         best_cost = np.inf
         no_improve_counter = 0
-        patience = 10
+        patience = 5
         tol = 1e-3
         max_iter = 30
 

@@ -443,3 +443,13 @@ task: <Task pending name='Task-2' coro=<Kernel.poll_control_queue() running at C
 2025-09-01 11:00:37,272 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
 2025-09-01 11:00:37,384 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
 2025-09-01 11:00:37,493 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-10-13 15:22:24,903 - pyswarms.backend.generators - ERROR - Bounds and/or init_pos should be of size (4,)
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pyswarms\backend\generators.py", line 81, in generate_swarm
+    pos = center * np.random.uniform(
+                   ^^^^^^^^^^^^^^^^^^
+  File "numpy\\random\\mtrand.pyx", line 1171, in numpy.random.mtrand.RandomState.uniform
+  File "_common.pyx", line 600, in numpy.random._common.cont
+  File "_common.pyx", line 517, in numpy.random._common.cont_broadcast_2
+  File "__init__.cython-30.pxd", line 780, in numpy.PyArray_MultiIterNew3
+ValueError: shape mismatch: objects cannot be broadcast to a single shape.  Mismatch is between arg 0 with shape (10, 4) and arg 1 with shape (10, 5).

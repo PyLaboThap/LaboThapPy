@@ -65,7 +65,7 @@ def system_RC_parallel(x, input_data):
         eta_pp = 0.8
         pp_power = DP * mdot / (rho * eta_pp)
 
-        W_dot_net = RC.components['Expander'].model.W_exp.W_dot - RC.components['Pump'].model.W_pp.W_dot - pp_power
+        W_dot_net = RC.components['Expander'].model.W_exp.W_dot*0.95 - RC.components['Pump'].model.W_pp.W_dot/0.95 - pp_power/0.95
         eta = W_dot_net / RC.components['GasHeater'].model.Q_dot.Q_dot
 
         Th_out = RC.components['GasHeater'].model.ex_H.T
@@ -206,8 +206,8 @@ class CO2RCOptimizer:
             W_dot_fan = 0.2 * Q_dot_req
             W_dot_pp = DP * mdot / (rho * 0.8)
     
-            W_net = self.RC.components['Expander'].model.W_exp.W_dot - \
-                    self.RC.components['Pump'].model.W_pp.W_dot - W_dot_pp
+            W_net = self.RC.components['Expander'].model.W_exp.W_dot*0.95 - \
+                    self.RC.components['Pump'].model.W_pp.W_dot/0.95 - W_dot_pp/0.95
     
             eta_final = W_net / self.RC.components['GasHeater'].model.Q_dot.Q_dot
     
@@ -240,7 +240,8 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     
     # Define temperature sweep (°C to K)
-    T_vec = np.linspace(100, 150, 6) + 273.15
+    # T_vec = np.linspace(100, 150, 6) + 273.15
+    T_vec = np.array([130])+273.15
     
     # Output vectors
     eta_vec = []
@@ -279,6 +280,24 @@ if __name__ == "__main__":
             m_dot_min=20,
             m_dot_max=70
         )
+    
+        # Optimizer.set_parameters(
+        #     RC_ARCH= 'REC', # 'REC', # 
+        #     eta_pp=0.86,
+        #     eta_gh=0.95,
+        #     eta_rec=0.8,
+        #     eta_exp=0.94,
+        #     PP_cd=5,
+        #     PP_gh=5,
+        #     PP_rec=0,
+        #     SC_cd=0.1,
+        #     P_high_min=P_high_min[i],
+        #     P_high_max=P_high_max[i],
+        #     m_dot_HS_fact_min=m_dot_HS_fact_min[i],
+        #     m_dot_HS_fact_max=m_dot_HS_fact_max[i],
+        #     m_dot_min=20,
+        #     m_dot_max=70
+        # )
     
         # Initial guess
         Optimizer.set_it_var(

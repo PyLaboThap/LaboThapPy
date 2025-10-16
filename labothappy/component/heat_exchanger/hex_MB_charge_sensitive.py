@@ -1663,14 +1663,14 @@ class HeatExchangerMB(BaseComponent):
                 C_max = max(C_c,C_h)
                 C_r = C_min/C_max
                 
-                # if self.params['n_series'] > 1:
-                #     self.R = (Thi - Tho)/(Tco - Tci)
-                #     self.P = (Tco - Tci)/(Thi - Tci)
-                # else:
+                if self.params['n_series'] > 1:
+                    self.R = (Thi - Tho)/(Tco - Tci)
+                    self.P = (Tco - Tci)/(Thi - Tci)
+                else:
                     
-                self.R = (self.Tvec_h[-1] - self.Tvec_h[0])/(self.Tvec_c[-1] - self.Tvec_c[0])
-                self.P = (self.Tvec_c[-1] - self.Tvec_c[0])/(self.Tvec_h[-1] - self.Tvec_c[0])                    
-                                
+                    self.R = (self.Tvec_h[-1] - self.Tvec_h[0])/(self.Tvec_c[-1] - self.Tvec_c[0])
+                    self.P = (self.Tvec_c[-1] - self.Tvec_c[0])/(self.Tvec_h[-1] - self.Tvec_c[0])                    
+                                    
                 if self.params['Flow_Type'] == 'Shell&Tube':
                     
                     if self.P < 0.1 or self.R > 10 or self.R < 0.4:
@@ -1678,10 +1678,10 @@ class HeatExchangerMB(BaseComponent):
                     elif self.P > 0.99:
                         self.F[k] = 0
                     else:
-                        if np.mod(self.params['Tube_pass'],2) == 0:
-                            self.F[k] = F_shell_and_tube(self.R,self.P,self.params['n_series'])
-                        else:
-                            self.F[k] = f_lmtd2(self.R, self.P, self.params, C_r)
+                        # if np.mod(self.params['Tube_pass'],2) == 0:
+                        #     self.F[k] = F_shell_and_tube(self.R,self.P,self.params['n_series'])
+                        # else:
+                        self.F[k] = f_lmtd2(self.R, self.P, self.params, C_r)
                 else:    
                     self.F[k] = f_lmtd2(self.R, self.P, self.params, C_r)
                     
@@ -1794,9 +1794,9 @@ class HeatExchangerMB(BaseComponent):
                 fact_cond_2 = 2*np.pi*self.params['Tube_cond']*self.params['Tube_L']*self.params['n_tubes']*self.params['n_series']
                 R_cond = fact_cond_1/fact_cond_2                      
                 
-                self.A_in_tubes = self.params['Tube_L']*self.params['n_tubes']*np.pi*((self.params['Tube_OD'] - 2*self.params['Tube_t'])) # *self.geom.Tube_pass 
+                self.A_in_tubes =  self.params['A_finned'] # self.params['Tube_L']*self.params['n_tubes']*np.pi*((self.params['Tube_OD'] - 2*self.params['Tube_t'])) # *self.geom.Tube_pass 
                 self.A_out_tubes = self.params['A_finned']
-                                        
+                
                 R_fouling = 0 # self.geom.fouling / self.A_out_tubes             
                         
                 # In the equation below, thickness resistance is given with respect to A_h arbitrarely

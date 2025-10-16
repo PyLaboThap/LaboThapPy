@@ -35,16 +35,16 @@ HX = HeatExchangerMB('Tube&Fins')
 
 HX.set_inputs(
     # First fluid
-    Hsu_fluid = 'Cyclopentane',
-    Hsu_T = 133.8 + 273.15, # K
-    Hsu_p = 0.9*1e5, # Pa
-    Hsu_m_dot = 13.8, # kg/s
+    fluid_H = 'Cyclopentane',
+    T_su_H = 133.8 + 273.15, # K
+    P_su_H = 0.8*1e5, # Pa
+    m_dot_H = 13.76, # kg/s
 
     # Second fluid
-    Csu_fluid = 'Cyclopentane',
-    Csu_T = 35.1 + 273.15, # K
-    Csu_p = 31.5*1e5, # Pa
-    Csu_m_dot = 13.8, # kg/s  # Make sure to include fluid information
+    fluid_C = 'Cyclopentane',
+    T_su_C = 35.1 + 273.15, # K
+    P_su_C = 31.5*1e5, # Pa
+    m_dot_C = 13.76, # kg/s  # Make sure to include fluid information
 )
 
 "Geometry Loading"
@@ -62,14 +62,14 @@ Corr_C = {"1P" : "Gnielinski", "2P" : "Boiling_curve"}
 
 # -------------------------------------------------------------------------------------------------------------
 
-# # DECAGONE ACC HTX case
+# DECAGONE ACC HTX case
 
 # HX.set_inputs(
 #     # First fluid
-#     Hsu_fluid = 'Cyclopentane',
-#     Hsu_T = 53.6 + 273.15, # K
-#     Hsu_p = 0.7*1e5, # Pa
-#     Hsu_m_dot = 13.8/2, # kg/s
+#     fluid_H = 'Cyclopentane',
+#     T_su_H = 53.6 + 273.15, # K
+#     P_su_H = 0.7*1e5, # Pa
+#     m_dot_H = 13.8/2, # kg/s
 
 #     # Second fluid
 #     Csu_fluid = 'Air',
@@ -106,26 +106,28 @@ HX.set_parameters(
 
     Flow_Type = 'CrossFlow', H_DP_ON = True, C_DP_ON = True, n_disc = 50) # 32
 
-# Shell&Tube
+# User defined values
 
-# UD_H_HTC = {'Liquid':100,
-#             'Vapor' : 100,
-#             'Two-Phase' : 1000,
-#             'Vapor-wet' : 100,
-#             'Dryout' : 1000,
-#             'Transcritical' : 200}
+# UD_H_HTC = {'Liquid':29,
+#             'Vapor' : 29,
+#             'Two-Phase' : 29,
+#             'Vapor-wet' : 29,
+#             'Dryout' : 29,
+#             'Transcritical' : 29}
 
-# UD_C_HTC = {'Liquid':100,
-#             'Vapor' : 100,
-#             'Two-Phase' : 1000,
-#             'Vapor-wet' : 100,
+# UD_C_HTC = {'Liquid':10000,
+#             'Vapor' : 10000,
+#             'Two-Phase' : 10000,
+#             'Vapor-wet' : 10000,
 #             'Dryout' : 10000,
-#             'Transcritical' : 200}
+#             'Transcritical' : 10000}
 
 # HX.set_HTC(htc_type = 'User-Defined', UD_H_HTC = UD_H_HTC, UD_C_HTC = UD_C_HTC) # 'User-Defined' or 'Correlation'
 HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation' # 33
-HX.set_DP(DP_type="User-Defined", UD_H_DP = 5*1e3, UD_C_DP = 10*1e3)
+# HX.set_htc(htc_type = "User-Defined", UD_H_HTC = UD_H_HTC, UD_C_HTC = UD_C_HTC) # 'User-Defined' or 'Correlation' # 33
+HX.set_DP(DP_type="User-Defined", UD_H_DP = 10*1e3, UD_C_DP = 50*1e3)
 # HX.set_DP()
 
 "Solve the component"
 HX.solve()
+HX.plot_cells()
