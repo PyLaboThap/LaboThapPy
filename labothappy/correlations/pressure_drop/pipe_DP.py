@@ -10,7 +10,7 @@ from CoolProp.CoolProp import PropsSI
 from scipy.optimize import fsolve
 
 #%%
-def gnielinski_pipe_DP(mu, rho, G, Dh, L):
+def gnielinski_pipe_DP(mu, rho, G, Dh, L, type_HX = 'pipe'):
     """
     For  1 phase flow
     
@@ -43,7 +43,13 @@ def gnielinski_pipe_DP(mu, rho, G, Dh, L):
     Re = G*Dh/mu
 
     #-------------------------------------------------------------------------
-    f = (1.8*log10(Re) - 1.5)**(-2)
+    if type_HX == 'pipe':
+        f = (1.8*log10(Re) - 1.5)**(-2)
+    elif type_HX == 'PCHE':
+        f = 0.2515*Re**(-0.2031)
+    else: 
+        print("This type of HTX is not supported for Gnielinski DP.")
+        
     v_flow = G/rho
     
     DP = f*L*rho*v_flow**2/(2*Dh)    

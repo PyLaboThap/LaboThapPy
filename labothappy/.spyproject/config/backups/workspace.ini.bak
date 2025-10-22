@@ -4,7 +4,7 @@ save_data_on_exit = True
 save_history = True
 save_non_project_files = False
 project_type = 'empty-project-type'
-recent_files = ['machine\\optimization\\CO2_RC_Optimization_parallel.py', 'component\\pump\\pump_extrapolation.py', 'component\\examples\\pump\\example_pump_extrapolation.py', 'component\\examples\\pump\\pump_similarity_law_example.py']
+recent_files = ['component\\heat_exchanger\\hex_MB_charge_sensitive.py', 'component\\examples\\heat_exchanger\\hex_PCHE_MB_charge_sensitive_example.py', 'correlations\\convection\\printed_circuit_htc.py', 'correlations\\convection\\pipe_htc.py']
 
 [main]
 version = 0.2.0

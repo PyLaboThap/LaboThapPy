@@ -10,7 +10,7 @@ def Internal_Max_P_carbon_steel(D_o,t,T_tube):
     ----------
         - D_o : Input outer diameter [m]
         - t : Tube Thickness [m]
-        - T_tube : Input tube temperature [K]s
+        - T_tube : Input tube temperature [K]
     
     Outputs
     -------
@@ -162,3 +162,70 @@ def carbon_steel_pipe_thickness(D_o_vect, tube_T, ext_p, int_p):
         thickness_dic[str(D_o)] = min(thickness_df.loc[D_o].values)
 
     return thickness_dic
+
+def carbon_steel_pipe_thickness_mm(D_o, tube_T, ext_p, int_p):    
+    # ASTM A179 standard (BWG for thickness)
+    D_o_choices = np.array([0.25, 0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5])*25.4*1e-3
+    
+    # Define BWG and corresponding thickness (in mm)
+    schedules_BWG = [str(int(x)) for x in np.linspace(0, 26, 27)]
+    thickness = [0.34, 0.3, 0.284, 0.259, 0.238, 0.22, 0.203, 0.18, 0.165, 0.148, 0.134,
+                 0.12, 0.109, 0.095, 0.083, 0.072, 0.065, 0.058, 0.049, 0.042, 0.035,
+                 0.032, 0.028, 0.025, 0.022, 0.02, 0.018]
+    
+    BWG_dict = dict(zip(schedules_BWG, thickness))
+    
+    # Define pipe size thickness lists (in mm)
+    list_1_4 = [BWG_dict['22'], BWG_dict['24'], BWG_dict['26']] 
+    list_3_8 = [BWG_dict['18'], BWG_dict['20'], BWG_dict['22'], BWG_dict['24']]
+    list_1_2 = [BWG_dict['16'], BWG_dict['18'], BWG_dict['20'], BWG_dict['22']]
+    list_5_8 = [BWG_dict[x] for x in schedules_BWG[12:21]]     # 0.109 to 0.035
+    list_3_4 = [BWG_dict[x] for x in schedules_BWG[12:21]]
+    list_1   = [BWG_dict[x] for x in schedules_BWG[8:21]]      # 0.165 to 0.035
+    list_5_4 = [BWG_dict[x] for x in schedules_BWG[7:21]]      # 0.18 to 0.035
+    list_3_2 = [BWG_dict[x] for x in schedules_BWG[10:17]]     # 0.134 to 0.058
+    
+    # Pad lists to match length of full thickness list
+    def pad_list(lst, target_len):
+        return lst + [max(lst)] * (target_len - len(lst))
+
+    list_1_4 = pad_list(list_1_4, len(thickness))    
+    list_3_8 = pad_list(list_3_8, len(thickness))
+    list_1_2 = pad_list(list_1_2, len(thickness))
+    list_5_8 = pad_list(list_5_8, len(thickness))
+    list_3_4 = pad_list(list_3_4, len(thickness))
+    list_1   = pad_list(list_1, len(thickness))
+    list_5_4 = pad_list(list_5_4, len(thickness))
+    list_3_2 = pad_list(list_3_2, len(thickness))
+    
+    # Create final thickness array (in meters)
+    thickness_array = np.array([
+        list_1_4,
+        list_3_8,
+        list_1_2,
+        list_5_8,
+        list_3_4,
+        list_1,
+        list_5_4,
+        list_3_2
+    ]) * 25.4e-3  # Convert mm to meters
+
+    idx = np.argmin(np.abs(D_o_choices - D_o))
+    
+    t_list = np.sort(thickness_array[idx])
+        
+    for t in t_list:
+        
+        P_max_int = Internal_Max_P_carbon_steel(D_o, t, tube_T)
+        P_max_ext = External_Max_P_carbon_steel(D_o, t, tube_T)
+        
+        if P_max_int >= int_p and P_max_ext >= ext_p:
+            t_min = t
+            return t_min
+                
+    return 1000
+
+if __name__ == "__main__":
+    
+    t_test = carbon_steel_pipe_thickness_mm(1.5*25.4*1e-3, 273.15+26, 100*1e5, 100*1e5)
+
