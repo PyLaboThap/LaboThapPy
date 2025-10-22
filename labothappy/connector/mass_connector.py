@@ -8,6 +8,7 @@ Created on Wed Jan 10 14:09:18 2024
 """
 
 from CoolProp.CoolProp import PropsSI
+import CoolProp.CoolProp as CP
 import warnings
 
 class MassConnector:
@@ -115,6 +116,24 @@ class MassConnector:
         self.D = None               # Mass density [kg/m^3]
         self.x = None               # Quality [kg/kg]
         self.cp = None              # Specific heat capacity [J/kg/K]
+        
+        self.CP_map = {
+            # --- Mass-based inputs ---
+            ('D', 'H'): CP.DmassHmass_INPUTS, ('D', 'P'): CP.DmassP_INPUTS, ('D', 'Q'): CP.DmassQ_INPUTS, ('D', 'S'): CP.DmassSmass_INPUTS, ('D', 'T'): CP.DmassT_INPUTS, ('D', 'U'): CP.DmassUmass_INPUTS,
+        
+            ('H', 'P'): CP.HmassP_INPUTS, ('H', 'Q'): CP.HmassQ_INPUTS, ('H', 'S'): CP.HmassSmass_INPUTS, ('H', 'T'): CP.HmassT_INPUTS,
+        
+            ('P', 'Q'): CP.PQ_INPUTS, ('P', 'S'): CP.PSmass_INPUTS, ('P', 'T'): CP.PT_INPUTS, ('P', 'U'): CP.PUmass_INPUTS,
+        
+            ('Q', 'S'): CP.QSmass_INPUTS, ('Q', 'T'): CP.QT_INPUTS, ('S', 'T'): CP.SmassT_INPUTS, ('S', 'U'): CP.SmassUmass_INPUTS, ('T', 'U'): CP.TUmass_INPUTS,
+        
+            # --- Molar-based inputs ---
+            ('Dmolar', 'Hmolar'): CP.DmolarHmolar_INPUTS, ('Dmolar', 'P'): CP.DmolarP_INPUTS, ('Dmolar', 'Q'): CP.DmolarQ_INPUTS, ('Dmolar', 'Smolar'): CP.DmolarSmolar_INPUTS, ('Dmolar', 'T'): CP.DmolarT_INPUTS, ('Dmolar', 'Umolar'): CP.DmolarUmolar_INPUTS,
+        
+            ('Hmolar', 'P'): CP.HmolarP_INPUTS, ('Hmolar', 'Q'): CP.HmolarQ_INPUTS, ('Hmolar', 'Smolar'): CP.HmolarSmolar_INPUTS, ('Hmolar', 'T'): CP.HmolarT_INPUTS,
+        
+            ('P', 'Smolar'): CP.PSmolar_INPUTS, ('P', 'Umolar'): CP.PUmolar_INPUTS, ('Q', 'Smolar'): CP.QSmolar_INPUTS, ('Smolar', 'T'): CP.SmolarT_INPUTS, ('Smolar', 'Umolar'): CP.SmolarUmolar_INPUTS, ('T', 'Umolar'): CP.TUmolar_INPUTS,
+            }
 
     def reset(self):
         self.completely_known = False
@@ -148,44 +167,45 @@ class MassConnector:
         else:
             pass
 
-    def calculate_properties(self):
-        if 'INCOMP' in self.fluid: # If the fluid is incompressible, the quality makes no sense
-            try:
-                self.T = PropsSI('T', self.variables_input[0][0], self.variables_input[0][1], self.variables_input[1][0], self.variables_input[1][1], self.fluid)
-                self.p = PropsSI('P', self.variables_input[0][0], self.variables_input[0][1], self.variables_input[1][0], self.variables_input[1][1], self.fluid)
-                self.h = PropsSI('H', self.variables_input[0][0], self.variables_input[0][1], self.variables_input[1][0], self.variables_input[1][1], self.fluid)
-                self.s = PropsSI('S', self.variables_input[0][0], self.variables_input[0][1], self.variables_input[1][0], self.variables_input[1][1], self.fluid)
-                self.D = PropsSI('D', self.variables_input[0][0], self.variables_input[0][1], self.variables_input[1][0], self.variables_input[1][1], self.fluid)
-                self.cp = PropsSI('CPMASS', self.variables_input[0][0], self.variables_input[0][1], self.variables_input[1][0], self.variables_input[1][1], self.fluid)
-                self.state_known = True
-            except:
-                warnings.warn("Error: This pair of inputs is not yet supported.")
+    def get_AS_inputs(self, key1, key2):
+        """
+        Return:
+            - The appropriate CoolProp AbstractState INPUT constant.
+            - A flag (0 if original order kept, 1 if reversed).
+        
+        Example:
+            self.get_AS_inputs('P', 'T')  ->  (CP.PT_INPUTS, 0)
+            self.get_AS_inputs('T', 'P')  ->  (CP.PT_INPUTS, 1)
+        """
+        # Determine if we reversed key order during sorting
+        pair_sorted = tuple(sorted([key1, key2]))
+        reversed_flag = int(pair_sorted != (key1, key2))  # 1 if reversed
+    
+        if pair_sorted not in self.CP_map:
+            raise ValueError(f"Unsupported input pair: {pair_sorted}. "
+                             f"Valid keys: {list(self.CP_map.keys())}")
+    
+        return self.CP_map[pair_sorted], reversed_flag
 
-        else:
-            try:
-                self.x = PropsSI('Q', self.variables_input[0][0], self.variables_input[0][1], self.variables_input[1][0], self.variables_input[1][1], self.fluid)
-                self.T = PropsSI('T', self.variables_input[0][0], self.variables_input[0][1], self.variables_input[1][0], self.variables_input[1][1], self.fluid)
-                self.p = PropsSI('P', self.variables_input[0][0], self.variables_input[0][1], self.variables_input[1][0], self.variables_input[1][1], self.fluid)
-                self.h = PropsSI('H', self.variables_input[0][0], self.variables_input[0][1], self.variables_input[1][0], self.variables_input[1][1], self.fluid)
-                self.s = PropsSI('S', self.variables_input[0][0], self.variables_input[0][1], self.variables_input[1][0], self.variables_input[1][1], self.fluid)
-                self.D = PropsSI('D', self.variables_input[0][0], self.variables_input[0][1], self.variables_input[1][0], self.variables_input[1][1], self.fluid)
-                self.cp = PropsSI('CPMASS', self.variables_input[0][0], self.variables_input[0][1], self.variables_input[1][0], self.variables_input[1][1], self.fluid)
-                self.state_known = True
-            except:
-                try:
-                    if self.is_two_phase_PT():
-                        warnings.warn('Cannot use the temperature and the pressure to calculate the properties in two-phase.')
-                    else:
-                        self.x = PropsSI('Q', self.variables_input[0][0], self.variables_input[0][1], self.variables_input[1][0], self.variables_input[1][1], self.fluid)
-                        self.h = PropsSI('H', self.variables_input[0][0], self.variables_input[0][1], self.variables_input[1][0], self.variables_input[1][1], self.fluid)
-                        self.p = PropsSI('P', 'Q', self.x, 'H', self.h, self.fluid)
-                        self.T = PropsSI('T', 'Q', self.x, 'H', self.h, self.fluid)
-                        self.s = PropsSI('S', 'Q', self.x, 'H', self.h, self.fluid)
-                        self.D = PropsSI('D', 'Q', self.x, 'H', self.h, self.fluid)
-                        self.cp = PropsSI('CPMASS', self.variables_input[0][0], self.variables_input[0][1], self.variables_input[1][0], self.variables_input[1][1], self.fluid)
-                        self.state_known = True
-                except:
-                    warnings.warn("Error: This pair of inputs is not yet supported.")
+    def calculate_properties(self):
+        
+        AS_inputs, reversed_flag = self.get_AS_inputs(self.variables_input[0][0], self.variables_input[1][0])
+             
+        try:
+            if not reversed_flag:
+                self.AS.update(AS_inputs, self.variables_input[0][1], self.variables_input[1][1])
+            else:
+                self.AS.update(AS_inputs, self.variables_input[1][1], self.variables_input[0][1])
+
+            self.T = self.AS.T()
+            self.p = self.AS.p()
+            self.h = self.AS.hmass()
+            self.s = self.AS.smass()
+            self.D = self.AS.rhomass()
+            self.cp = self.AS.cpmass()
+            self.state_known = True
+        except:
+            warnings.warn("Error: This pair of inputs is not yet supported.")
     
     def set_properties(self, **kwargs):
         for key, value in kwargs.items():
@@ -217,17 +237,17 @@ class MassConnector:
             pass
         elif self.fluid == None:
             try:
-                if 'INCOMP' in value:
-                    # Check if the fluid name is correct for incompressible fluids
-                    PropsSI('D', 'T', 300.0, 'P', 101325, value)
-                else:
-                    # Check if the fluid name is correct for compressible fluids
-                    PropsSI('M', value)
-                self.fluid = value
+                try: 
+                    self.AS = CP.AbstractState("BICUBIC&HEOS", value) 
+                    self.fluid = value
+                except:
+                    if "INCOMP" in value:
+                        value = value.split(":")[-1]
+                    self.AS = CP.AbstractState("INCOMP", value)
+                    self.fluid = value
             except:
                 warnings.warn("Error: Incorrect fluid name:", value)
         self.check_completely_known()
-
 
     def set_m_dot(self, value):
         self.m_dot = value

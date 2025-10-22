@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-from scipy.interpolate import interp1d
 
 #%% PIPE THICKNESS RELATED FUN
 
@@ -30,8 +29,10 @@ def Internal_Max_P_carbon_steel(D_o,t,T_tube):
     S_interp = np.array([158.57942, 158.57942, 158.57942,
                         134.44777, 131.00039, 103.42136, 82.737088])
     
-    S_fun = interp1d(T_S_interp, S_interp, kind='linear')
-
+    def S_fun(T):
+        """Linear interpolation using fixed lookup table."""
+        return np.interp(T, T_S_interp, S_interp)
+    
     "Compute P_max for inputs"
     
     S_tube_calc = S_fun(T_tube)*1e6  # [Pa]

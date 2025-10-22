@@ -65,7 +65,7 @@ from toolbox.heat_exchangers.shell_and_tubes.tubesheet_toolbox import tube_sheet
 from toolbox.heat_exchangers.shell_and_tubes.baffle_toolbox import baffle_thickness, find_divisors_between_bounds
 
 # Piping toolbox
-from toolbox.piping.pipe_thickness import carbon_steel_pipe_thickness 
+from toolbox.piping.pipe_thickness import carbon_steel_pipe_thickness_mm
 
 # External imports
 from CoolProp.CoolProp import PropsSI
@@ -162,9 +162,14 @@ class ShellAndTubeSizingOpt(BaseComponent):
             Cross_Passes = round(self.position['L_shell']/self.position['Central_spac']) - 1
 
             D_o = self.position['D_o_inch']*25.4*1e-3
+            
             # Pipe Thickness
-            pipe_thickness = carbon_steel_pipe_thickness(self.choice_vectors['D_o_inch'], self.T_max_cycle, self.su_S.p, self.P_max_cycle)
-            Tube_t = pipe_thickness[str(self.position['D_o_inch'])]
+            Tube_t = carbon_steel_pipe_thickness_mm(self.position['D_o_inch']*25.4/1e3, self.T_max_cycle, self.su_S.p, self.P_max_cycle)
+                        
+            # if self.position['D_o_inch'] == 1:
+            #     Tube_t = pipe_thickness['1']
+            # else:
+            #     Tube_t = pipe_thickness[str(self.position['D_o_inch'])]
             self.Tube_t = Tube_t
             # Tube_t = D_o /10
             
@@ -313,7 +318,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
                 self.DP_c = 0
                 return 0, 0, 0
 
-    def __init__(self):
+    def __init__(self, seed = None):
         super().__init__()
 
         self.params = {}
@@ -347,7 +352,51 @@ class ShellAndTubeSizingOpt(BaseComponent):
 
         self.H_DP_Corr = None
         self.C_DP_Corr = None        
+        
+        if seed == None: # random seed // Input a chosen seed for replicability
+            import os
+            seed = int.from_bytes(os.urandom(4), "little")
+            
+        self.rng = np.random.default_rng(seed)   # one RNG for the whole optimizer
+        
+        self.seen = {}       # cache of previous positions
+        from threading import RLock
+        self.seen_lock = RLock()
 
+    #%% 
+    
+    def pos_key(self, pos):
+        # quantize helper
+        def q(x, step):  # snap to a step (e.g., 1e-3 m)
+            return float(round(float(x) / step) * step)
+    
+        # quantize continuous vars
+        cs = q(pos['Central_spac'], 1e-2)   # 1 mm
+        L  = q(pos['L_shell'],    1e-2)     # 1 mm
+    
+        # derived integer feature
+        cross = int(round(L / cs)) - 1
+    
+        return (
+            round(float(pos['D_o_inch']), 6),
+            round(float(pos['Shell_ID_inch']), 6),
+            int(round(float(pos['Tube_pass']))),
+            int(round(float(pos['tube_layout']))),
+            round(float(pos['Baffle_cut']), 1),  # 0.1% step
+            cs,
+            L,
+            cross,
+            # include knobs that change physics (optional but recommended):
+            self.params.get('Shell_Side', 'H'),
+            tuple(sorted((self.H_htc_Corr or {}).items())),
+            tuple(sorted((self.C_htc_Corr or {}).items())),
+            self.H_DP_Corr,
+            self.C_DP_Corr,
+        )
+
+
+    #%% SETTERS
+    
     def set_opt_vars(self, opt_vars):
         for opt_var in opt_vars:
             self.opt_vars[opt_var] = None 
@@ -400,6 +449,73 @@ class ShellAndTubeSizingOpt(BaseComponent):
         self.C_DP_Corr = C_DP  
         return
 
+    #%%
+    
+    def random_multiple(self, lower_bound, upper_bound, multiple):
+        """
+        Generate a random number that is a multiple of `multiple` within the range [lower_bound, upper_bound].
+
+        Parameters:
+        - lower_bound: The lower bound of the range.
+        - upper_bound: The upper bound of the range.
+        - multiple: The number which the generated number must be a multiple of.
+
+        Returns:
+        - A random number between lower_bound and upper_bound that is a multiple of `multiple`.
+        """
+
+        # L_shell shall be a multiple of the central spacing to get an integer value of cross_passes as a simplification 
+
+        # Find the smallest multiple within the range
+        start = np.ceil(lower_bound / multiple) * multiple
+        end   = np.floor(upper_bound / multiple) * multiple
+        
+        if start > end:
+            print(f"No multiples of {multiple} in the range [{lower_bound}, {upper_bound}]")
+            return 0.0
+        num = int(round((end - start) / multiple)) + 1
+        k = self.rng.integers(0, num)  # [0, num-1]
+        
+        return float(start + k * multiple)
+
+    #%% PARTICLE MANAGEMENT
+
+    def init_particle(self, particle):
+    
+        particle_position = {}
+        particle_velocity = {}
+    
+        for opt_var in self.opt_vars:
+            particle_velocity[opt_var] = float(np.round(self.rng.uniform(-1, 1), 2))
+            
+        for key, vec in self.choice_vectors.items():
+            vec = np.asarray(vec)
+            if isinstance(vec[0], str):
+                particle_position[key] = float(pd.to_numeric(self.rng.choice(vec)))
+            else:
+                particle_position[key] = float(self.rng.choice(vec))
+        
+        low_bound_central_spac = (particle_position['Shell_ID_inch']/5)*25.4*1e-3 # [m]
+        high_bound_central_spac = (74*particle_position['D_o_inch']**(0.75))*25.4*1e-3 # [m]
+        
+        low_bound_L_shell = max(self.bounds['L_shell'][0], particle_position['Shell_ID_inch']*25.4*1e-3*3)
+        high_bound_L_shell = min(self.bounds['L_shell'][-1], particle_position['Shell_ID_inch']*25.4*1e-3*15)
+        
+        particle_position['Central_spac'] = float(np.round(self.rng.uniform(low_bound_central_spac, high_bound_central_spac), 2))
+        particle_position['L_shell'] = float(np.round(self.random_multiple(low_bound_L_shell, high_bound_L_shell, particle_position['Central_spac']), 2))
+        particle_position['Baffle_cut'] = float(np.round(self.rng.uniform(self.bounds['Baffle_cut'][0], self.bounds['Baffle_cut'][1]), 2))
+    
+    
+        # Put these positions in the particles 
+    
+        particle.set_position(particle_position)
+        particle.set_velocity(particle_velocity)
+    
+        for opt_var in particle.position.keys():
+            particle.unmoved[opt_var] = 0
+    
+        return 
+
     def clone_Particle(self, particle):
         # Create a new Particle instance
         new_particle = self.Particle(
@@ -423,6 +539,8 @@ class ShellAndTubeSizingOpt(BaseComponent):
         
         return new_particle
 
+    #%% SCORE RELATED
+    
     def HX_Mass(self, HX_params):
         
         rho_carbon_steel = 7850 # kg/m^3
@@ -479,82 +597,25 @@ class ShellAndTubeSizingOpt(BaseComponent):
         else:
             return max(DP_c_particle - self.DP_c_constr,0) # [Pa]
 
-    def random_multiple(self, lower_bound, upper_bound, multiple):
-        """
-        Generate a random number that is a multiple of `multiple` within the range [lower_bound, upper_bound].
-
-        Parameters:
-        - lower_bound: The lower bound of the range.
-        - upper_bound: The upper bound of the range.
-        - multiple: The number which the generated number must be a multiple of.
-
-        Returns:
-        - A random number between lower_bound and upper_bound that is a multiple of `multiple`.
-        """
-
-        # L_shell shall be a multiple of the central spacing to get an integer value of cross_passes as a simplification 
-
-        # Find the smallest multiple within the range
-        start = (lower_bound + multiple) // multiple * multiple
-
-        # Find the largest multiple within the range
-        end = upper_bound // multiple * multiple
-
-        if start > end:
-            print("No multiples of {} in the range [{}, {}]".format(multiple, lower_bound, upper_bound))
-            return 0
-
-        # Generate a random multiple within the range
-        num_multiples = (end - start) // multiple + 1
-
-        random_multiple = random.randint(0, int(num_multiples) - 1) * multiple + start
-
-        return random_multiple
-
-    def init_particle(self, particle):
-
-        particle_position = {}
-        particle_velocity = {}
-
-        for opt_var in self.opt_vars:
-            particle_position[opt_var] = None
-            particle_velocity[opt_var] = round(random.uniform(-1, 1),2)
-
-            # Choose values randomly from choice vectors
-
-        for choice_vector_key in self.choice_vectors:
-            if isinstance(self.choice_vectors[choice_vector_key][0], str):    
-                particle_position[choice_vector_key] = pd.to_numeric(random.choice(self.choice_vectors[choice_vector_key]))
-            else:
-                particle_position[choice_vector_key] = random.choice(self.choice_vectors[choice_vector_key])
-
-            # Compute values of central spacing, then of L_shell 
-
-        low_bound_central_spac = (particle_position['Shell_ID_inch']/5)*25.4*1e-3 # [m]
-        high_bound_central_spac = (74*particle_position['D_o_inch']**(0.75))*25.4*1e-3 # [m]
-        
-        low_bound_L_shell = max(self.bounds['L_shell'][0], particle_position['Shell_ID_inch']*25.4*1e-3*3)
-        high_bound_L_shell = min(self.bounds['L_shell'][-1], particle_position['Shell_ID_inch']*25.4*1e-3*15)
-        
-        particle_position['Central_spac'] = round(random.uniform(low_bound_central_spac, high_bound_central_spac),2)
-        particle_position['L_shell'] = round(self.random_multiple(lower_bound = low_bound_L_shell, upper_bound = high_bound_L_shell, multiple = particle_position['Central_spac']),2)
-        particle_position['Baffle_cut'] = round(random.uniform(self.bounds['Baffle_cut'][0], self.bounds['Baffle_cut'][1]),2)
-
-        # Put these positions in the particles 
-
-        particle.set_position(particle_position)
-        particle.set_velocity(particle_velocity)
-
-        for opt_var in particle.position.keys():
-            particle.unmoved[opt_var] = 0
-
-        return 
-
     def evaluate_with_penalty(self, objective_function, particle, constraints, penalty_factor,i):
         """
         Evaluates the objective function with a penalty for constraint violations.
         """
+        
+        key = self.pos_key(particle.position)
 
+        # fast path: seen already
+        with self.seen_lock:
+            hit = self.seen.get(key)
+        if hit is not None:
+            Q, DP_h, DP_c, total, masses = hit
+            particle.Q, particle.DP_h, particle.DP_c = Q, DP_h, DP_c
+            particle.masses = masses
+            particle.set_score(total)
+            return total
+        
+        particle.HeatTransferRate()
+        
         score, S_mass, T_mass, TS_mass, B_mass = objective_function(particle.HX.params)
         particle.masses = {'Shell' : S_mass,
                            'Tubes' : T_mass,
@@ -586,8 +647,14 @@ class ShellAndTubeSizingOpt(BaseComponent):
         if penalty == 0 and particle.params not in self.suitable_param_set:
             self.suitable_param_set.append(copy.deepcopy(particle.params))
             self.suitable_param_set[-1]['score'] = particle.score
-    
+        
+        # store for reuse
+        with self.seen_lock:
+            self.seen[key] = (particle.Q, particle.DP_h, particle.DP_c, total_score, particle.masses)
+                
         return total_score
+
+    #%%
 
     def particle_swarm_optimization(self, objective_function, bounds, num_particles=30, num_dimensions=2, max_iterations=50, 
                                 inertia_weight=0.4, cognitive_constant=1.5, social_constant=1.5, constraints = None,
@@ -629,11 +696,6 @@ class ShellAndTubeSizingOpt(BaseComponent):
 
         for i in range(len(self.particles)):
             self.init_particle(self.particles[i])
-
-        # Compute particle geometry
-        for i in range(len(self.particles)):
-            # print(i)
-            self.particles[i].HeatTransferRate()
             score = self.evaluate_with_penalty(objective_function, self.particles[i], constraints, penalty_factor,i)
 
         # Get scores for sorting
@@ -660,36 +722,6 @@ class ShellAndTubeSizingOpt(BaseComponent):
         self.global_best_DP_c = self.best_particle.DP_c     
 
         self.best_particle.compute_geom()
-
-        self.cost_calculator = HeatExchangerCost(
-            D_S_i=self.best_particle.HX.params['Shell_ID'],  
-            t_S=self.best_particle.HX.params['t_S'], 
-            r=self.best_particle.HX.params['n_series'], 
-            L_B=self.best_particle.HX.params['central_spacing'], 
-            t_B=self.best_particle.HX.params['t_B'], 
-            B_c = self.best_particle.HX.params['Baffle_cut']/100, 
-            N_TS=2, 
-            D_r=2*0.05/self.best_particle.HX.params['Shell_ID'], 
-            L_T=self.best_particle.HX.params['Tube_L'], 
-            D_T_o=self.best_particle.HX.params['Tube_OD'], 
-            D_T_i=self.best_particle.HX.params['Tube_OD']-2*self.best_particle.Tube_t, 
-            N_T=self.best_particle.HX.params['n_tubes'],
-            pitch_r=self.best_particle.HX.params['pitch_ratio'], 
-            L_CH=0.3, 
-            N_CH=self.best_particle.HX.params['n_series']*2, 
-            t_TS=self.best_particle.HX.params['t_TS'], 
-            N_FL=self.best_particle.HX.params['n_series']*2, 
-            t_FL=0.015, 
-            t_RC=self.best_particle.HX.params['t_S']*2,
-            D_SP_e=0.006*2, 
-            D_SP_i=0.006, 
-            N_TR=self.best_particle.HX.params['Tube_L']/0.72, 
-            D_TR=0.006, 
-            L_TR=self.best_particle.HX.params['Tube_L'], 
-            N_Bt=100
-        )
-
-        self.CAPEX,_,_ = self.cost_calculator.calculate_total_cost()
 
         # Initialize velocities and positions as dictionaries
         cognitive_velocity = {}
@@ -731,25 +763,24 @@ class ShellAndTubeSizingOpt(BaseComponent):
                     global_best_position_val = self.global_best_position[opt_var]
 
                     self.particles_all_pos[opt_var][-1][iteration] = global_best_position_val
-                
-                    # Update velocity for each optimization variable (opt_var)
+    
+                    u1 = self.rng.random()
+                    u2 = self.rng.random()
+                    
                     if opt_var in self.choice_vectors.keys():
-                        if opt_var == 'D_o_inch':
-                            r1 = np.random.rand()*self.choice_vectors[opt_var][0]#/3
-                            r2 = np.random.rand()*self.choice_vectors[opt_var][0]#/3
-                        else:
-                            r1 = np.random.rand()*self.choice_vectors[opt_var][0]#/10
-                            r2 = np.random.rand()*self.choice_vectors[opt_var][0]#/10
+                        scale = self.choice_vectors[opt_var][0]
+                        r1 = u1 * scale
+                        r2 = u2 * scale
                     elif opt_var in self.bounds.keys():
                         if opt_var == 'L_shell':
-                            r1 = np.random.rand()*self.bounds[opt_var][0]*5#/3
-                            r2 = np.random.rand()*self.bounds[opt_var][0]*5#/3
+                            scale = self.bounds[opt_var][0] * 5
                         elif opt_var == 'Baffle_cut':
-                            r1 = np.random.rand()*self.bounds[opt_var][0]/5 #/3
-                            r2 = np.random.rand()*self.bounds[opt_var][0]/5 #/3
+                            scale = 0.02
                         else:
-                            r1 = np.random.rand()*self.bounds[opt_var][0]*3#/10
-                            r2 = np.random.rand()*self.bounds[opt_var][0]*3#/10                            
+                            scale = self.bounds[opt_var][0] * 3
+                        
+                        r1 = u1 * scale
+                        r2 = u2 * scale
     
                     cognitive_fact = cognitive_constant
                     social_fact = social_constant
@@ -759,13 +790,12 @@ class ShellAndTubeSizingOpt(BaseComponent):
                     
                     # if L_flag == 1:
                     # Update velocity with inertia term
-                    self.particles[i].velocity[opt_var] = (inertia_weight * self.particles[i].velocity[opt_var] +
-                                                        cognitive_velocity[opt_var] + 
-                                                        social_velocity[opt_var])
+                    self.particles[i].velocity[opt_var] = (inertia_weight * self.particles[i].velocity[opt_var] + cognitive_velocity[opt_var] + social_velocity[opt_var])
 
                     # Update the position of the particle
                     self.particles[i].position[opt_var] += round(self.particles[i].velocity[opt_var],3)
                     
+                        
                     if opt_var == 'Central_spac':
                         low_bound_central_spac = (self.particles[i].position['Shell_ID_inch']/5)*25.4*1e-3 # [m]
                         high_bound_central_spac = (74*self.particles[i].position['D_o_inch']**(0.75))*25.4*1e-3 # [m]
@@ -803,33 +833,32 @@ class ShellAndTubeSizingOpt(BaseComponent):
                             if low_bound_L_shell == self.particles[i].position['Shell_ID_inch']*25.4*1e-3*3:
                                 index = np.where(np.array(self.choice_vectors['Shell_ID_inch']) == self.particles[i].position['Shell_ID_inch'])[0]
                                 self.particles[i].position['Shell_ID_inch'] = self.choice_vectors['Shell_ID_inch'][int(index-1)]
-                                self.particles[i].velocity[bound_key] = -self.particles[i].velocity[bound_key]
+                                self.particles[i].velocity[bound_key] = -0.5*self.particles[i].velocity[bound_key]
                             else:
-                                self.particles[i].velocity[bound_key] = -self.particles[i].velocity[bound_key]
+                                self.particles[i].velocity[bound_key] = -0.5*self.particles[i].velocity[bound_key]
                                 
                             bound_flag = 1
                             
                         if self.particles[i].position[bound_key] > high_bound_L_shell:
                             self.particles[i].position[bound_key] = high_bound_L_shell
-                            self.particles[i].velocity[bound_key] = -self.particles[i].velocity[bound_key]
+                            self.particles[i].velocity[bound_key] = -0.5*self.particles[i].velocity[bound_key]
                             bound_flag = 1
                     
                     else:
                         # Bound constraints
                         if self.particles[i].position[bound_key] < self.bounds[bound_key][0]:
                             self.particles[i].position[bound_key] = self.bounds[bound_key][0]
-                            self.particles[i].velocity[bound_key] = -self.particles[i].velocity[bound_key] #self.particles[i].velocity[bound_key]
+                            self.particles[i].velocity[bound_key] = -0.5*self.particles[i].velocity[bound_key] #self.particles[i].velocity[bound_key]
                             bound_flag = 1
     
                         if self.particles[i].position[bound_key] > self.bounds[bound_key][1]:
                             self.particles[i].position[bound_key] = self.bounds[bound_key][1]
-                            self.particles[i].velocity[bound_key] = -self.particles[i].velocity[bound_key] # self.particles[i].velocity[bound_key]
+                            self.particles[i].velocity[bound_key] = -0.5*self.particles[i].velocity[bound_key] # self.particles[i].velocity[bound_key]
                             bound_flag = 1
 
                 # Evaluate the new position with penalty for constraint violation
                 
                 # self.particles[i].compute_geom()
-                self.particles[i].HeatTransferRate()
                 
                 if bound_flag == 1:
                     new_score = self.evaluate_with_penalty(objective_function, self.particles[i], constraints, penalty_factor,i) + 1e6
@@ -855,43 +884,12 @@ class ShellAndTubeSizingOpt(BaseComponent):
 
                 self.best_particle.compute_geom()
 
-                self.cost_calculator = HeatExchangerCost(
-                    D_S_i=self.best_particle.HX.params['Shell_ID'],  
-                    t_S=self.best_particle.HX.params['t_S'], 
-                    r=self.best_particle.HX.params['n_series'], 
-                    L_B=self.best_particle.HX.params['central_spacing'], 
-                    t_B=self.best_particle.HX.params['t_B'], 
-                    B_c = self.best_particle.HX.params['Baffle_cut']/100, 
-                    N_TS=2, 
-                    D_r=2*0.05/self.best_particle.HX.params['Shell_ID'], 
-                    L_T=self.best_particle.HX.params['Tube_L'], 
-                    D_T_o=self.best_particle.HX.params['Tube_OD'], 
-                    D_T_i=self.best_particle.HX.params['Tube_OD']-2*self.best_particle.Tube_t, 
-                    N_T=self.best_particle.HX.params['n_tubes'],
-                    pitch_r=self.best_particle.HX.params['pitch_ratio'], 
-                    L_CH=0.3, 
-                    N_CH=self.best_particle.HX.params['n_series']*2, 
-                    t_TS=self.best_particle.HX.params['t_TS'], 
-                    N_FL=self.best_particle.HX.params['n_series']*2, 
-                    t_FL=0.015, 
-                    t_RC=self.best_particle.HX.params['t_S']*2,
-                    D_SP_e=0.006*2, 
-                    D_SP_i=0.006, 
-                    N_TR=self.best_particle.HX.params['Tube_L']/0.72, 
-                    D_TR=0.006, 
-                    L_TR=self.best_particle.HX.params['Tube_L'], 
-                    N_Bt=100
-                )
-    
-                self.CAPEX,_,_ = self.cost_calculator.calculate_total_cost()
-
             # Optionally, print progress
             print("===========================")
             print(f"Iteration {iteration+1}/{max_iterations}, Global Best Score: {self.global_best_score}, Related Q: {self.global_best_Q}")
             print(f"Related DP_h: {self.global_best_DP_h}, Related DP_c: {self.global_best_DP_c}")
             print(f"Best Position : {self.global_best_position}")
             print(f"Best Part Velocity : {self.best_particle.velocity}")
-            
             
         return self.global_best_position, self.global_best_score, self.best_particle
     
@@ -900,7 +898,39 @@ class ShellAndTubeSizingOpt(BaseComponent):
         self.particle_swarm_optimization(objective_function = self.HX_Mass , bounds = self.bounds, num_particles = 50, num_dimensions = len(self.opt_vars), max_iterations = 50, inertia_weight = 0.5,
                                           cognitive_constant = 0.5, social_constant = 0.5, constraints = [self.constraint_Q_dot, self.constraint_DP_h, self.constraint_DP_c], penalty_factor = 1)
 
+        self.best_particle.compute_geom()
 
+
+        self.cost_calculator = HeatExchangerCost(
+            D_S_i=self.best_particle.HX.params['Shell_ID'],  
+            t_S=self.best_particle.HX.params['t_S'], 
+            r=self.best_particle.HX.params['n_series'], 
+            L_B=self.best_particle.HX.params['central_spacing'], 
+            t_B=self.best_particle.HX.params['t_B'], 
+            B_c = self.best_particle.HX.params['Baffle_cut']/100, 
+            N_TS=2, 
+            D_r=2*0.05/self.best_particle.HX.params['Shell_ID'], 
+            L_T=self.best_particle.HX.params['Tube_L'], 
+            D_T_o=self.best_particle.HX.params['Tube_OD'], 
+            D_T_i=self.best_particle.HX.params['Tube_OD']-2*self.best_particle.Tube_t, 
+            N_T=self.best_particle.HX.params['n_tubes'],
+            pitch_r=self.best_particle.HX.params['pitch_ratio'], 
+            L_CH=0.3, 
+            N_CH=self.best_particle.HX.params['n_series']*2, 
+            t_TS=self.best_particle.HX.params['t_TS'], 
+            N_FL=self.best_particle.HX.params['n_series']*2, 
+            t_FL=0.015, 
+            t_RC=self.best_particle.HX.params['t_S']*2,
+            D_SP_e=0.006*2, 
+            D_SP_i=0.006, 
+            N_TR=self.best_particle.HX.params['Tube_L']/0.72, 
+            D_TR=0.006, 
+            L_TR=self.best_particle.HX.params['Tube_L'], 
+            N_Bt=100
+        )
+
+        self.CAPEX,_,_ = self.cost_calculator.calculate_total_cost()
+        
         return self.global_best_position, self.global_best_score, self.best_particle
 """
 Instanciate Optimizer and test case choice
@@ -908,7 +938,6 @@ Instanciate Optimizer and test case choice
 
 HX_test = ShellAndTubeSizingOpt()
 test_case = "R134a"
-
 
 if test_case == "Methanol":
 
@@ -1039,7 +1068,7 @@ elif test_case == "R134a":
     """
     
     # Worst Case
-    P_max_cycle = 10*1e5 # Pa
+    P_max_cycle = 5*1e5 # Pa
     T_max_cycle = 273.15+110 # K 
     
     HX_test.set_max_cycle_prop(T_max_cycle = T_max_cycle, p_max_cycle = P_max_cycle)
@@ -1099,7 +1128,7 @@ elif test_case == "R134a":
                             Flow_Type = 'Shell&Tube',
                             H_DP_ON = True,
                             C_DP_ON = True,
-                            n_disc = 30
+                            n_disc = 50
                           )
 
     H_Corr = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
@@ -1133,16 +1162,16 @@ HX_test.set_constraints(Q_dot = Q_dot_cstr, DP_h = DP_h_cstr, DP_c = DP_c_cstr)
 import time
 time_1 = []
 
-for i in range(10):
-    t0 = time.perf_counter()
+# for i in range(10):
+t0 = time.perf_counter()
 
-    global_best_position, global_best_score, best_particle = HX_test.opt_size()
+global_best_position, global_best_score, best_particle = HX_test.opt_size()
 
-    elapsed = time.perf_counter() - t0
+elapsed = time.perf_counter() - t0
 
-    print(f"Optimization completed in {elapsed:.2f} s")
-    
-    time_1.append(elapsed)
+print(f"Optimization completed in {elapsed:.2f} s")
+
+time_1.append(elapsed)
 
 def HX_price(T_mass, Shell_mass, Baffle_mass, TS_mass):
     """

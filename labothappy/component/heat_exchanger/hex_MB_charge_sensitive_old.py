@@ -617,10 +617,6 @@ class HeatExchangerMB(BaseComponent):
         # Complementary cell boundaries serve to keep heat balances in check
         # Start at the first element in the vector
         k = 0
-        
-        EPS_REL = 1e-8     # relative tol
-        EPS_ABS = 1e-3     # absolute tol in Watts (tune if needed)
-        
         while k < len(self.hvec_c)-1 or k < len(self.hvec_h)-1:
             if len(self.hvec_c) == 2 and len(self.hvec_h) == 2: # If there is only one cell
                 break
@@ -630,25 +626,22 @@ class HeatExchangerMB(BaseComponent):
             Qcell_ck = self.mdot_c*(self.hvec_c[k+1]-self.hvec_c[k])
 
             if debug:
-              print("k+1 Hot Enthalpy:", self.hvec_h[k+1], "\n")
-              print("k Hot Enthalpy:", self.hvec_h[k],"\n")
-              print("mdot_h = ", self.mdot_h, "\n")
-              print("Qcell_hk =", Qcell_hk, "\n-------\n")
-              print("k+1 Cold Enthalpy:", self.hvec_c[k+1], "\n")
-              print("k Cold Enthalpy:", self.hvec_c[k],"\n")
-              print("mdot_c = ", self.mdot_c, "\n")
-              print("Qcell_hk =", Qcell_ck, "\n-------\n")
-            
-            diff = Qcell_hk - Qcell_ck
-            tol  = max(EPS_ABS, EPS_REL * max(abs(Qcell_hk), abs(Qcell_ck)))
-            
-            if diff > tol:
-                # hot has more heat -> add boundary on hot
-                self.hvec_h.insert(k+1, self.hvec_h[k] + Qcell_ck / self.mdot_h)
-            
-            elif diff < -tol:
-                # cold has more capacity -> add boundary on cold
-                self.hvec_c.insert(k+1, self.hvec_c[k] + Qcell_hk / self.mdot_c)
+                print("k+1 Hot Enthalpy:", self.hvec_h[k+1], "\n")
+                print("k Hot Enthalpy:", self.hvec_h[k],"\n")
+                print("mdot_h = ", self.mdot_h, "\n")
+                print("Qcell_hk =", Qcell_hk, "\n-------\n")
+                print("k+1 Cold Enthalpy:", self.hvec_c[k+1], "\n")
+                print("k Cold Enthalpy:", self.hvec_c[k],"\n")
+                print("mdot_c = ", self.mdot_c, "\n")
+                print("Qcell_hk =", Qcell_ck, "\n-------\n")
+
+            if round(Qcell_hk, 4) > round(Qcell_ck, 4):
+                # Hot stream needs a complementary cell boundary as the available heat is higher than the cold cell heat absorption
+                np.insert(self.hvec_h, k+1, self.hvec_h[k] + Qcell_ck/self.mdot_h)
+                
+            elif round(Qcell_hk, 4) < round(Qcell_ck, 4):
+                # Cold stream needs a complementary cell boundary as the available heat absoprtion is higher than the hot cell heat 
+                np.insert(self.hvec_c, k+1, self.hvec_c[k] + Qcell_hk/self.mdot_c)
 
             if debug:
                 print(k,len(self.hvec_c),len(self.hvec_h),Qcell_hk, Qcell_ck)
@@ -849,7 +842,7 @@ class HeatExchangerMB(BaseComponent):
         elif self.H.Correlation_1phase == "Shell_Bell_Delaware_HTC":
             alpha_h = shell_bell_delaware_htc(self.mdot_h, Th_mean, T_wall_h, p_h_mean, self.H_su.fluid, self.params)
         elif self.H.Correlation_1phase == 'Shell_Kern_HTC':
-            alpha_h, self.Re_h[k], self.Pr_h[k] = shell_htc_kern(self.mdot_h, T_wall_h, Th_mean, p_h_mean, self.AS_H, self.params)      
+            alpha_h, self.Re_h[k], self.Pr_h[k] = shell_htc_kern(self.mdot_h, T_wall_h, Th_mean, p_h_mean, self.H_su.fluid, self.params)      
         elif self.H.Correlation_1phase == 'Tube_And_Fins':
             alpha_h = htc_tube_and_fins(self.H_su.fluid, self.params, p_h_mean, havg_h, self.mdot_h, self.params['Fin_type'])[0]
         elif self.H.Correlation_1phase == 'water_plate_HTC':
@@ -882,7 +875,7 @@ class HeatExchangerMB(BaseComponent):
         elif self.C.Correlation_1phase == 'Shell_Bell_Delaware_HTC':
             alpha_c = shell_bell_delaware_htc(self.mdot_c, Tc_mean, T_wall_c, p_c_mean, self.C_su.fluid, self.params)
         elif self.C.Correlation_1phase == 'Shell_Kern_HTC':
-            alpha_c, self.Re_c[k], self.Pr_c[k] = shell_htc_kern(self.mdot_c, T_wall_c, Tc_mean, p_c_mean, self.AS_C, self.params)
+            alpha_c, self.Re_c[k], self.Pr_c[k] = shell_htc_kern(self.mdot_c, T_wall_c, Tc_mean, p_c_mean, self.C_su.fluid, self.params)
         elif self.C.Correlation_1phase == 'Tube_And_Fins':
             alpha_c = htc_tube_and_fins(self.C_su.fluid, self.params, p_c_mean, havg_c, self.mdot_c, self.params['Fin_type'])[0]
         elif self.C.Correlation_1phase == 'thonon_plate_HTC':
@@ -1033,9 +1026,9 @@ class HeatExchangerMB(BaseComponent):
             
             if self.H.Correlation_1phase == "Shell_Kern_HTC":
                 try: 
-                    alpha_h, self.Re_h[k], self.Pr_h[k] = shell_htc_kern(self.mdot_h, T_wall_h, Th_mean, p_h_mean, self.AS_H, self.params) 
+                    alpha_h, self.Re_h[k], self.Pr_h[k] = shell_htc_kern(self.mdot_h, T_wall_h, Th_mean, p_h_mean, self.H_su.fluid, self.params) 
                 except:
-                    alpha_h, self.Re_h[k], self.Pr_h[k] = shell_htc_kern(self.mdot_h, T_wall_h, Th_mean-0.1, p_h_mean, self.AS_H, self.params)       
+                    alpha_h, self.Re_h[k], self.Pr_h[k] = shell_htc_kern(self.mdot_h, T_wall_h, Th_mean-0.1, p_h_mean, self.H_su.fluid, self.params)       
             
             elif self.H.Correlation_1phase == 'Tube_And_Fins':
                 alpha_h = htc_tube_and_fins(self.H_su.fluid, self.params, p_h_mean, havg_h, self.mdot_h, self.params['Fin_type'])[0]
@@ -1137,7 +1130,7 @@ class HeatExchangerMB(BaseComponent):
             q = self.Qvec_c[k]/(self.params['A_eff']*self.w[k])
             D_in = self.params['Tube_OD']-2*self.params['Tube_t']
             
-            alpha_c_2phase = horizontal_flow_boiling(self.AS_C, G_c, p_c_mean, x_c, D_in, q)
+            alpha_c_2phase = horizontal_flow_boiling(self.su_C.fluid, G_c, p_c_mean, x_c, D_in, q)
         
         elif self.C.Correlation_2phase == "Flow_boiling_gungor_winterton":
             q = self.Qvec_c[k]/(self.params['A_eff']*self.w[k])
@@ -1157,7 +1150,7 @@ class HeatExchangerMB(BaseComponent):
 
         return alpha_c
 
-    #%% PRESSURE DROP CORRELATION CHOOSING RELATED METHODS
+    #%% PRESSUR DROP CORRELATION CHOOSING RELATED METHODS
 
     def compute_H_DP(self):
         
@@ -1276,7 +1269,6 @@ class HeatExchangerMB(BaseComponent):
         return G_c, G_h
 
     def solve(self, only_external = False, and_solve = True):
-        # OK
         """
         Parameters
         ----------
@@ -1375,7 +1367,7 @@ class HeatExchangerMB(BaseComponent):
                 
         "2) Determine if the streams come in at a higher pressure than the transcritical pressure"
         
-        # Initialization of the flags:    
+        # Initialization of the flags:
         self.Transcritical_c = False
         self.Transcritical_h = False
         
@@ -1734,10 +1726,10 @@ class HeatExchangerMB(BaseComponent):
                     elif self.P > 0.99:
                         self.F[k] = 0
                     else:
-                        if np.mod(self.params['Tube_pass'],2) == 0:
-                            self.F[k] = F_shell_and_tube(self.R,self.P,self.params['n_series'])
-                        else:
-                            self.F[k] = f_lmtd2(self.R, self.P, self.params, C_r)
+                        # if np.mod(self.params['Tube_pass'],2) == 0:
+                        #     self.F[k] = F_shell_and_tube(self.R,self.P,self.params['n_series'])
+                        # else:
+                        self.F[k] = f_lmtd2(self.R, self.P, self.params, C_r)
                 else:    
                     self.F[k] = f_lmtd2(self.R, self.P, self.params, C_r)
                     

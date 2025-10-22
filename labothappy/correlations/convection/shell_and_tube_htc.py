@@ -140,7 +140,7 @@ def d_h(Tube_OD, pitch_ratio, tube_layout): # Hydraulic diameter (m)
 
 #%%
 
-def shell_htc_kern(m_dot, T_wall, T_in, P_in, fluid, params):
+def shell_htc_kern(m_dot, T_wall, T_in, P_in, AS, params):
     """
     Inputs
     ----------
@@ -164,12 +164,6 @@ def shell_htc_kern(m_dot, T_wall, T_in, P_in, fluid, params):
     """
     
     "1) HTC"
-    
-    if 'INCOMP' in fluid:
-        rest, fluid_name = fluid.split("::")
-        AS = CP.AbstractState("INCOMP", fluid_name)
-    else:
-        AS = CP.AbstractState("BICUBIC&HEOS", fluid)
     
     AS.update(CP.PT_INPUTS, P_in, T_in)
     

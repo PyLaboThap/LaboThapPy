@@ -327,7 +327,7 @@ def steiner_taborek_internal_boiling(fluid,Q_act,A,m_dot,P_sat,h_in,T_w,D_in,L):
 
     return h_tp
 
-def horizontal_flow_boiling(fluid, G, P_sat, x, D_in, q):
+def horizontal_flow_boiling(AS, G, P_sat, x, D_in, q):
     """
     Inputs
     ------
@@ -348,6 +348,8 @@ def horizontal_flow_boiling(fluid, G, P_sat, x, D_in, q):
     ---------
     VDI Heat Atlas 2010 
     """
+    
+    fluid = AS.fluid_names()[0]
     
     if fluid == 'Helium' or fluid == "He":
         q_0 = 1000
@@ -413,8 +415,6 @@ def horizontal_flow_boiling(fluid, G, P_sat, x, D_in, q):
     
     a_0 = a_0_dict[fluid]
         
-    AS = CP.AbstractState("BICUBIC&HEOS", fluid)
-
     P_crit = AS.p_critical()    
     P_01 = 0.1*P_crit
 
@@ -470,18 +470,6 @@ def horizontal_flow_boiling(fluid, G, P_sat, x, D_in, q):
     
     # Heat transfer coefficient
     alpha = a_0*C_F*(q/q_0)**n * F_p * F_d * F_W * F_G * F_x # W/(m*2 * K)
-    
-    # print(f"a_0 : {a_0}")
-    # print(f"C_F : {C_F}")
-    # print(f"q : {q}")
-    # print(f"q_0 : {q_0}")
-    # print(f"n : {n}")
-    # print(f"F_p : {F_p}")
-    # print(f"F_d : {F_d}")
-    # print(f"F_W : {F_W}")
-    # print(f"F_G : {F_G}")
-    # print(f"F_x : {F_x}")
-    # print("-----------------")
     
     return alpha
 

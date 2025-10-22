@@ -40,34 +40,6 @@ def tqdm_joblib(tqdm_object):
 
 _SOLVER = None  # cached per-process
 
-# --- worker for joblib ---
-def _eval_particle(x, cls, fluid, params, stage_params, inputs):
-    """Evaluate one particle using a per-process cached solver."""
-    os.environ.setdefault("OMP_NUM_THREADS", "1")
-    os.environ.setdefault("MKL_NUM_THREADS", "1")
-    os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
-    os.environ.setdefault("NUMEXPR_MAX_THREADS", "1")
-
-    warnings.filterwarnings("ignore")      # <- suppress in this child process
-    np.seterr(all="ignore")                # <- silence NumPy runtime warnings (optional)
-
-    global _SOLVER
-    if _SOLVER is None:
-        s = cls()
-        s.set_parameters(**params)
-        if stage_params:
-            s.set_stage_parameters(**stage_params)
-        s.set_inputs(**inputs)
-        _SOLVER = s
-
-    # Re-apply inputs every call to avoid cross-particle contamination
-    _SOLVER.set_inputs(**inputs)
-    _SOLVER.W_dot = 0  # start clean for this evaluation
-
-    x = np.asarray(x, dtype=float)
-    cost = float(_SOLVER.design_system(x))
-    return cost
-
 #%%
 
 class PCHESizingOpt(BaseComponent):
