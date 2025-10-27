@@ -1082,44 +1082,50 @@ if __name__ == "__main__":
             R_c_R = [0.01657872114, 0.01772155179, 0.01914958914, 0.02090755531, 0.02304935574, 0.02564128287, 0.0287675548, None],
             )
         
-    df_map = generate_map_processes(
-        Turb_OD,
-        m_grid=np.linspace(0.6*Turb_OD.params['mdot_rated'], 1.4*Turb_OD.params['mdot_rated'], 60),
-        N_grid=np.linspace(0.3*Turb_OD.params['N_rot_rated'], 1.5*Turb_OD.params['N_rot_rated'], 60),
-        max_workers=-2
-    )
+    map_case = 1
     
-    df_clean = filter_sparse_by_proximity(df_map, rp_col=None, group_by='N_rot',
-                                          rp_tol_rel=0.6, m_tol_rel=0.6, min_neighbors=2)
+    if map_case == 1:
+        
+        df_map = generate_map_processes(
+            Turb_OD,
+            m_grid=np.linspace(0.6*Turb_OD.params['mdot_rated'], 1.4*Turb_OD.params['mdot_rated'], 60),
+            N_grid=np.linspace(0.3*Turb_OD.params['N_rot_rated'], 1.5*Turb_OD.params['N_rot_rated'], 60),
+            max_workers=-2
+        )
+        
+        df_clean = filter_sparse_by_proximity(df_map, rp_col=None, group_by='N_rot',
+                                              rp_tol_rel=0.6, m_tol_rel=0.6, min_neighbors=2)
+        
+        fig, ax = map_plot(
+            df_clean, rp_col='RP_calc',
+            use_grid=True, nx=600, ny=600,
+            # triangulation cleaning
+            min_circle_ratio=0.01,   # less aggressive
+            max_area_factor=50.0,     # allow larger cells before masking
+            long_edge_q=1,         # drop triangles that bridge big gaps
+            # hole filling + smoothing
+            fill_holes=True, hole_method='nearest', hole_smooth_sigma=0.8,
+            smooth_sigma=0.6,         # gentle overall blur
+            # cosmetics
+            show_points=True,        # hide all raw dots (see patch below for "used" only)
+            levels=24, focus_high=True, max_iso_speeds=4,
+            figsize=(9,6), dpi=220
+        )
+        plt.show()
     
-    fig, ax = map_plot(
-        df_clean, rp_col='RP_calc',
-        use_grid=True, nx=600, ny=600,
-        # triangulation cleaning
-        min_circle_ratio=0.01,   # less aggressive
-        max_area_factor=50.0,     # allow larger cells before masking
-        long_edge_q=1,         # drop triangles that bridge big gaps
-        # hole filling + smoothing
-        fill_holes=True, hole_method='nearest', hole_smooth_sigma=0.8,
-        smooth_sigma=0.6,         # gentle overall blur
-        # cosmetics
-        show_points=True,        # hide all raw dots (see patch below for "used" only)
-        levels=24, focus_high=True, max_iso_speeds=4,
-        figsize=(9,6), dpi=220
-    )
-    plt.show()
-
-    # fig, ax = map_plot_clean(
-    #     df_clean,
-    #     rp_col='RP_calc',          # or 'RP_calc' if that’s your chosen column
-    #     levels=24,
-    #     nx=500, ny=500,
-    #     min_circle_ratio=0.01,
-    #     long_edge_q=0.92,     # tighten to 0.90 if you still see bridging
-    #     smooth_sigma=0.6      # small smoothing of the gridded field
-    # )
-    # plt.show()
+        # fig, ax = map_plot_clean(
+        #     df_clean,
+        #     rp_col='RP_calc',          # or 'RP_calc' if that’s your chosen column
+        #     levels=24,
+        #     nx=500, ny=500,
+        #     min_circle_ratio=0.01,
+        #     long_edge_q=0.92,     # tighten to 0.90 if you still see bridging
+        #     smooth_sigma=0.6      # small smoothing of the gridded field
+        # )
+        # plt.show()
+        
+        _ = plot_power_eta_vs_mdot(df_map, speeds=None, max_lines=5)  # auto-picks up to 5 speeds
+        plt.show()
     
-    _ = plot_power_eta_vs_mdot(df_map, speeds=None, max_lines=5)  # auto-picks up to 5 speeds
-    plt.show()
-    
+    else: 
+        Turb_OD.solve()

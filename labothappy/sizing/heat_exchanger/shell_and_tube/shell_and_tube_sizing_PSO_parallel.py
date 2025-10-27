@@ -394,6 +394,13 @@ class ShellAndTubeSizingOpt(BaseComponent):
         self.H_DP_Corr = None
         self.C_DP_Corr = None        
         
+        self.global_patience_iter = 15     # stop/refresh if no improvement for N iterations
+        self.global_min_delta = 1e-1       # improvement threshold to count as progress
+        self._global_no_improve = 0        # internal counter
+        
+        # self.global_action = "refresh"     # "refresh" or "stop"
+        # self.global_refresh_frac = 0.3     # when refreshing, fraction of worst particles to reinit
+
         if seed == None: # random seed // Input a chosen seed for replicability
             import os
             seed = int.from_bytes(os.urandom(4), "little")
@@ -664,7 +671,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
         particle.HeatTransferRate(self.inputs, self.params)
     
         score, S_mass, T_mass, TS_mass, B_mass = objective_function(particle.HX.params, particle.HX)
-        masses = {'Shell': S_mass, 'Tubes': T_mass, 'Tubesheet': TS_mass, 'Baffles': B_mass}
+        masses = {'Shell': S_mass, 'Tubes': T_mass, 'Tubesheet': TS_mass, 'Baffles': B_mass, 'Total': B_mass+TS_mass+T_mass+S_mass}
     
         pen  = max(self.Q_dot_constr - particle.Q, 0.0)
         pen += max(particle.DP_h - self.DP_h_constr, 0.0)
@@ -947,16 +954,33 @@ class ShellAndTubeSizingOpt(BaseComponent):
 
             new_pot_global_best_score = min(self.personal_best_scores)
 
-            if new_pot_global_best_score + 0.1 < self.global_best_score:
-                # print("BEST SCORE BEATEN")
+            new_pot_global_best_score = min(self.personal_best_scores)
+
+            # check if we have a meaningful global improvement
+            if (self.global_best_score is None) or \
+               ((self.global_best_score - new_pot_global_best_score) > self.global_min_delta):
+                # update global best
                 self.global_best_score = new_pot_global_best_score
                 self.best_particle = self.clone_Particle(self.particles[np.argmin(self.personal_best_scores)])
                 self.global_best_position = self.best_particle.position
-                self.global_best_Q = self.best_particle.Q
+                self.global_best_Q  = self.best_particle.Q
                 self.global_best_DP_h = self.best_particle.DP_h
                 self.global_best_DP_c = self.best_particle.DP_c
-
                 self.best_particle.compute_geom(self.inputs)
+            
+                # reset global patience counter
+                self._global_no_improve = 0
+            else:
+                # no meaningful improvement this iteration
+                self._global_no_improve += 1
+            
+            # --- GLOBAL PATIENCE TRIGGER ---
+            if self._global_no_improve >= self.global_patience_iter:
+                print("===========================")
+                print(f"[PSO] Early stop at iteration {iteration+1}: "
+                      f"no global improvement > {self.global_min_delta} for "
+                      f"{self.global_patience_iter} iterations.")
+                break
 
             # Optionally, print progress
             print("===========================")
@@ -1004,13 +1028,34 @@ class ShellAndTubeSizingOpt(BaseComponent):
 
         self.CAPEX,_,_ = self.cost_calculator.calculate_total_cost()
         
+        print("\n")
+        print(f"Best Position")
+        print(f"-------------")
+        print(f"D_tube_o : {round(self.best_particle.HX.params['Tube_OD']*1e3,2)} [mm]")
+        print(f"D_shell : {round(self.best_particle.HX.params['Shell_ID'],3)} [m]") 
+        print(f"Tube_pass : {self.best_particle.HX.params['Tube_pass']} [-]") 
+        print(f"Tube_layout : {self.best_particle.HX.params['tube_layout']} [°]")
+        print(f"Baffle Distance : {round(self.best_particle.HX.params['central_spacing'],3)} [m]")
+        print(f"Shell/Tube length : {round(self.best_particle.HX.params['Tube_L'],3)} [m]")
+        print(f"Baffle cut : {round(self.best_particle.HX.params['Baffle_cut'],1)} [%]")
+        
+        print("\n")
+        print(f"Results")
+        print(f"-------------")
+        print(f"A_HX : {round(self.best_particle.HX.params['A_eff'],2)} [m^2]")
+        print(f"Q_dot : {round(self.best_particle.HX.Q,1)} [W]") 
+        print(f"DP_c : {round(self.best_particle.HX.DP_c,1)} [Pa]")
+        print(f"DP_h : {round(self.best_particle.HX.DP_h,1)} [Pa]")
+        print(f"m_HX : {round(self.best_particle.masses['Total'],1)} [kg]")
+        print(f"Manufacturing costs est. : {round(self.CAPEX,1)} [€ (2015)]")
+        
         return self.global_best_position, self.global_best_score, self.best_particle
 """
 Instanciate Optimizer and test case choice
 """
 
 HX_test = ShellAndTubeSizingOpt()
-test_case = "R134a"
+test_case = "Methanol"
 
 if test_case == "Methanol":
 
@@ -1050,33 +1095,19 @@ if test_case == "Methanol":
     Thermodynamical parameters : Inlet and Outlet Design States
     """
 
-    su_S = MassConnector()
-    su_S.set_properties(T = 273.15 + 95, # K
-                        P = 10*1e5, # 5*1e5, # Pa
-                        m_dot = 27.8, # kg/s
-                        fluid = 'Methanol'
-                        )
+    HX_test.set_inputs(
+        # First fluid
+        fluid_H = 'Methanol',
+        T_su_H = 273.15 + 95, # K
+        P_su_H = 10*1e5, # Pa
+        m_dot_H = 27.8, # kg/s
 
-    ex_S = MassConnector()
-    ex_S.set_properties(T = 273.15 + 40, # K
-                        P = 10*1e5, # 4.5*1e5, # Pa
-                        m_dot = 27.8, # kg/s
-                        fluid = 'Methanol'
-                        )
-
-    su_T = MassConnector()
-    su_T.set_properties(T = 273.15 + 25, # K
-                        P = 5*1e5, # 51.75*1e3, # Pa
-                        m_dot = 68.9, # kg/s
-                        fluid = 'Water'
-                        )
-
-    ex_T = MassConnector()
-    ex_T.set_properties(T = 273.15 + 40, # K
-                        P = 5*1e5, # Pa
-                        m_dot = 68.9, # kg/s
-                        fluid = 'Water'
-                        )
+        # Second fluid
+        fluid_C = 'Water',
+        T_su_C = 273.15 + 25, # K
+        P_su_C = 5*1e5, # Pa
+        m_dot_C = 68.9, # kg/s  # Make sure to include fluid information
+        )
 
     "Constraints Values"
     Q_dot_cstr = 4.34*1e6
@@ -1159,7 +1190,7 @@ elif test_case == "R134a":
 
         # Second fluid
         fluid_C = 'R134a',
-        h_su_C = PropsSI('H','T', 273.15+7,'Q',0,'R134a')+1, # K
+        h_su_C = PropsSI('H','T', 273.15+7,'Q',0,'R134a')+1, # J/kg
         P_su_C = PropsSI('P','T', 273.15+7,'Q',0,'R134a'), # Pa
         m_dot_C = 1.62, # kg/s  # Make sure to include fluid information
         )
