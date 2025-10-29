@@ -9,44 +9,36 @@ import numpy as np
 #Exo ORC M&S
 HTX = HXEffCstDisc()
 
-HTX.set_inputs(
-    Csu_fluid = 'Water',
-    Csu_T = 273.15 + 15,
-    Csu_m_dot = 0.1,
-    Csu_p = 10e5,
+# HTX.set_inputs(
+#     fluid_C = 'Water',
+#     T_su_C = 273.15 + 15,
+#     m_dot_C = 0.1,
+#     P_su_C = 10e5,
 
-    Hsu_fluid = 'CO2',
-    Hsu_T = 450,
-    Hsu_m_dot = 0.16,
-    Hsu_p = 140*1e5,
+#     fluid_H = 'CO2',
+#     T_su_H = 450,
+#     m_dot_H = 0.16,
+#     P_su_H = 140*1e5,
+# )
+
+HTX.set_inputs(
+    fluid_C = 'CO2',
+    T_su_C = 270.15,
+    m_dot_C = 0.16,
+    P_su_C = 2963161,
+
+    fluid_H = 'CO2',
+    T_su_H = 314.75,
+    m_dot_H = 0.16,
+    P_su_H = 120*1e5,
 )
 
-# HTX.set_inputs(
-#     Csu_fluid = 'Water',
-#     Csu_T = 273.15 + 15,
-#     Csu_m_dot = 0.1,
-#     Csu_p = 10e5,
-
-#     Hsu_fluid = 'CO2',
-#     Hsu_T = 450,
-#     Hsu_m_dot = 0.16,
-#     Hsu_p = 140*1e5,
-# )
-
-# HTX.set_inputs(
-#     Csu_fluid = 'CO2',
-#     Csu_T = 270.15,
-#     Csu_m_dot = 0.16,
-#     Csu_p = 2963161,
-
-#     Hsu_fluid = 'CO2',
-#     Hsu_T = 314.75,
-#     Hsu_m_dot = 0.16,
-#     Hsu_p = 120*1e5,
-# )
-
 HTX.set_parameters(**{
-    'eta': 0.9, 'n_disc' : 100, 'Pinch_min' : 5
+    'eta': 0.9, 
+    'n_disc' : 100, 
+    'Pinch_min' : 5,
+    'DP_c' : 50*1e3,
+    'DP_h' : 50*1e3,    
 })
 
 HTX.solve()

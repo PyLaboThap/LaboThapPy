@@ -4,8 +4,9 @@
 
 from connector.mass_connector import MassConnector
 from correlations.turbomachinery.aungier_axial_turbine import aungier_loss_model
-
 from component.expander.turbine_mean_line_Aungier import AxialTurbineMeanLine
+from toolbox.economics.cpi_data import actualize_price
+
 from CoolProp.CoolProp import PropsSI
 from scipy.optimize import brentq, root_scalar
 import pyswarms as ps
@@ -130,6 +131,7 @@ class AxialTurbineMeanLineDesign(object):
                 'A': np.empty(3, dtype=np.float64),
                 'V': np.empty(3, dtype=np.float64),
             }
+            
             self.static_states = {
                 k: np.empty(3, dtype=np.float64) for k in self.total_states
             }
@@ -1101,7 +1103,12 @@ class AxialTurbineMeanLineDesign(object):
                 f = 1
         
             W_dot_MW = self.W_dot/1e6
-            self.CAPEX_turb = 182600*W_dot_MW**0.5561 * f
+            
+            self.CAPEX_original = 182600*W_dot_MW**0.5561 * f
+            CAPEX_value = actualize_price(self.CAPEX_original, 2017, "USD")
+            
+            self.CAPEX = {'Turbine' : CAPEX_value,
+                          'Currency' : "USD"}
         
         else:
             """
@@ -1128,7 +1135,11 @@ class AxialTurbineMeanLineDesign(object):
             
             fact_3 = (rho_out/rho0_air)**(-n)
             
-            self.CAPEX_turb = fact_1*fact_2*fact_3
+            self.CAPEX_original = fact_1*fact_2*fact_3
+            CAPEX_value = actualize_price(self.CAPEX_original, 1995, "USD")
+            
+            self.CAPEX = {'Turbine' : CAPEX_value,
+                          'Currency' : "USD"}
             
         # Generator Costs
         
@@ -1144,15 +1155,15 @@ class AxialTurbineMeanLineDesign(object):
         
         self.eta_alt = 0.97
         self.W_dot_el = self.W_dot*self.eta_alt
-        
         W_dot_el_MW = self.W_dot_el/1e6
         
-        self.CAPEX_alt = 108900 * W_dot_el_MW**0.5463
+        CAPEX_alt = 108900 * W_dot_el_MW**0.5463
+        self.CAPEX["Alternator"] = actualize_price(CAPEX_alt, 2017, "USD")
         
         self.f_install = 0.35 
-        self.CAPEX_install = self.f_install*(self.CAPEX_alt + self.CAPEX_turb)
+        self.CAPEX["Install"] = self.f_install*(self.CAPEX["Alternator"] + self.CAPEX["Turbine"])
         
-        self.CAPEX_tot = self.CAPEX_turb + self.CAPEX_alt + self.CAPEX_install
+        self.CAPEX["Total"] = self.CAPEX["Turbine"] + self.CAPEX["Alternator"] + self.CAPEX["Install"]
             
         return
     
@@ -1524,6 +1535,7 @@ class AxialTurbineMeanLineDesign(object):
         print("\n")
         print(f"Results")
         print(f"-------------")
+        print(f"Number of Stages : {self.nStages} [-]")
         print(f"P_in : {round(self.stages[0].get_static_prop('P',1),2)} [Pa]")
         print(f"P_out: {round(self.stages[-1].get_static_prop('P',2),2)} [Pa]")
         print(f"Omega: {round(self.params['Omega'])} [RPM]")
@@ -1688,7 +1700,6 @@ best_pos = Turb.design_parallel(n_jobs=-1)
 elapsed = time.perf_counter() - t0
 print(f"Optimization completed in {elapsed:.2f} s")
 time_1.append(elapsed)
-
 
 # Turb.plot_geometry()
 # Turb.plot_n_blade()

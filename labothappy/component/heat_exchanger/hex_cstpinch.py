@@ -101,66 +101,16 @@ class HXPinchCst(BaseComponent):
         self.ex_C = MassConnector()
         self.ex_H = MassConnector()
 
+        self.DP_h = 0
+        self.DP_c = 0 
+        
         self.Q_dot = HeatConnector()
         self.guesses = {}
 
     def get_required_inputs(self): # Used in check_calculablle to see if all of the required inputs are set
         self.sync_inputs()
         # Return a list of required inputs
-        return ['su_C_fluid', 'su_C_h', 'su_C_p', 'su_C_m_dot', 'su_H_fluid', 'su_H_h', 'su_H_p', 'su_H_m_dot']
-    
-    def sync_inputs(self):
-        """Synchronize the inputs dictionary with the connector states."""
-        if self.su_C.fluid is not None:
-            self.inputs['su_C_fluid'] = self.su_C.fluid
-        if self.su_C.h is not None:
-            self.inputs['su_C_h'] = self.su_C.h
-        if self.su_C.T is not None:
-            self.inputs['su_C_T'] = self.su_C.T
-        if self.su_C.m_dot is not None:
-            self.inputs['su_C_m_dot'] = self.su_C.m_dot
-        if self.su_C.p is not None:
-            self.inputs['su_C_p'] = self.su_C.p
-            
-        if self.su_H.fluid is not None:
-            self.inputs['su_H_fluid'] = self.su_H.fluid
-        if self.su_H.T is not None:
-            self.inputs['su_H_T'] = self.su_H.T
-        if self.su_H.h is not None:
-            self.inputs['su_H_h'] = self.su_H.h
-        if self.su_H.m_dot is not None:
-            self.inputs['su_H_m_dot'] = self.su_H.m_dot
-        if self.su_H.p is not None:
-            self.inputs['su_H_p'] = self.su_H.p
-
-    def set_inputs(self, **kwargs):
-        """Set inputs directly through a dictionary and update connector properties."""
-        self.inputs.update(kwargs) # This line merges the keyword arguments ('kwargs') passed to the 'set_inputs()' method into the eisting 'self.inputs' dictionary.
-
-        # Update the connectors based on the new inputs
-        if 'su_C_fluid' in self.inputs:
-            self.su_C.set_fluid(self.inputs['su_C_fluid'])
-        if 'su_C_h' in self.inputs:
-            self.su_C.set_h(self.inputs['su_C_h'])
-        if 'su_C_m_dot' in self.inputs:
-            self.su_C.set_m_dot(self.inputs['su_C_m_dot'])
-        if 'su_C_p' in self.inputs:
-            self.su_C.set_p(self.inputs['su_C_p'])
-        if 'su_C_T' in self.inputs:
-            self.su_C.set_T(self.inputs['su_C_T'])
-            
-        if 'su_H_fluid' in self.inputs:
-            self.su_H.set_fluid(self.inputs['su_H_fluid'])
-        if 'su_H_T' in self.inputs:
-            self.su_H.set_T(self.inputs['su_H_T'])
-        if 'su_H_p' in self.inputs:
-            self.su_H.set_p(self.inputs['su_H_p'])
-        if 'su_H_h' in self.inputs:
-            self.su_H.set_h(self.inputs['su_H_h'])
-        if 'su_H_m_dot' in self.inputs:
-            self.su_H.set_m_dot(self.inputs['su_H_m_dot'])
-
-        return ['su_C_fluid', 'su_C_h', 'su_C_p', 'su_C_m_dot', 'su_H_fluid', 'su_H_h', 'su_H_p', 'su_H_m_dot']
+        return['P_su_H', 'T_su_H', 'm_dot_H', 'fluid_H', 'P_su_C', 'T_su_C', 'm_dot_C', 'fluid_C']
     
     def get_required_parameters(self):
         return [
@@ -384,8 +334,15 @@ class HXPinchCst(BaseComponent):
             print("HTX IS NOT CALCULABLE")
             return
 
+        if 'DP_h' in self.params:
+            self.DP_h = self.params['DP_h']
+
+        if 'DP_c' in self.params:
+            self.DP_c = self.params['DP_c']
+
         # Determine the type of heat exchanger and set the initial guess for pressure
         if self.params['type_HX'] == 'evaporator':
+
             guess_T_sat = self.su_H.T - self.params['Pinch'] - self.params['Delta_T_sh_sc']
             
             # print(f"guess_T_sat: {guess_T_sat}")
@@ -418,19 +375,19 @@ class HXPinchCst(BaseComponent):
             P_cd_guess = PropsSI('P', 'T', guess_T_sat, 'Q', 0.5, self.su_H.fluid)   # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
             x = [P_cd_guess]
 
-            try:
-                """CONDENSER MODEL"""
-                fsolve(self.system_cond, x)
+            # try:
+            """CONDENSER MODEL"""
+            fsolve(self.system_cond, x)
 
-                """Update connectors after the calculations"""
-                self.update_connectors()
+            """Update connectors after the calculations"""
+            self.update_connectors()
 
-                # Mark the model as solved if successful
-                self.solved = True
-            except Exception as e:
-                # Handle any errors that occur during solving
-                self.solved = False
-                print(f"Convergence problem in condenser model: {e}")
+            # Mark the model as solved if successful
+            self.solved = True
+            # except Exception as e:
+            #     # Handle any errors that occur during solving
+            #     self.solved = False
+            #     print(f"Convergence problem in condenser model: {e}")
 
 
     def update_connectors(self):
@@ -443,11 +400,12 @@ class HXPinchCst(BaseComponent):
 
             self.ex_C.set_fluid(self.su_C.fluid)
             self.ex_C.set_T(self.T_C_ex)
-            self.ex_C.set_p(self.P_sat)
+            self.ex_C.set_p(self.P_sat - self.DP_c)
             self.ex_C.set_m_dot(self.su_C.m_dot)
 
             self.ex_H.set_fluid(self.su_H.fluid)
             self.ex_H.set_m_dot(self.su_H.m_dot)
+            self.ex_H.set_p(self.su_H.p - self.DP_h)
             self.ex_H.set_T(self.T_H_ex)
             
             "Heat conector"
@@ -459,11 +417,12 @@ class HXPinchCst(BaseComponent):
 
             self.ex_H.set_fluid(self.su_H.fluid)
             self.ex_H.set_T(self.T_H_ex)
-            self.ex_H.set_p(self.P_sat)
+            self.ex_H.set_p(self.P_sat - self.DP_h)
             self.ex_H.set_m_dot(self.su_H.m_dot)
 
             self.ex_C.set_fluid(self.su_C.fluid)
             self.ex_C.set_m_dot(self.su_C.m_dot)
+            self.ex_C.set_p(self.su_C.p - self.DP_c)
             self.ex_C.set_T(self.T_C_ex)
             
             "Heat conector"

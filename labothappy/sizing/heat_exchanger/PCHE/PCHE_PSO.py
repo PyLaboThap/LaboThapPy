@@ -6,6 +6,7 @@ from component.base_component import BaseComponent
 from component.heat_exchanger.hex_MB_charge_sensitive import HeatExchangerMB
 
 from toolbox.heat_exchangers.PCHE.thicknesses import PCHE_thicknesses
+from toolbox.economics.cpi_data import actualize_price
 
 import pyswarms as ps
 import numpy as np
@@ -21,6 +22,8 @@ from contextlib import contextmanager
 from tqdm import tqdm
 import joblib
 from joblib.parallel import BatchCompletionCallBack
+
+warnings.filterwarnings('ignore')
 
 @contextmanager
 def tqdm_joblib(tqdm_object):
@@ -151,7 +154,10 @@ class PCHESizingOpt(BaseComponent):
         self.U = sum((self.HX.Qvec_h/self.HX.LMTD)*self.HX.w)
         self.UA = self.U*(1/(1/self.HX.A_h + 1/self.HX.A_c))
         
-        self.CAPEX = C_UA*self.UA
+        self.CAPEX = {"HX" : actualize_price(C_UA*self.UA, 2018, "USD"),
+                      "Currency" : "USD"}
+        self.CAPEX["Install"] = self.CAPEX["HX"]*0.35
+        self.CAPEX["Total"] = self.CAPEX["HX"] + self.CAPEX["Install"]
         
         return
     
@@ -159,6 +165,7 @@ class PCHESizingOpt(BaseComponent):
     
     def simulate_HX(self, x):
         
+        warnings.filterwarnings('ignore')
         
         self.params['alpha'] = x[0]
         self.params['D_c'] = x[1]
@@ -318,7 +325,7 @@ class PCHESizingOpt(BaseComponent):
         print(f"DP_c : {round(self.HX.DP_c,1)} [Pa]")
         print(f"DP_h : {round(self.HX.DP_h,1)} [Pa]")
         print(f"m_HX : {round(self.m_HX,1)} [kg]")
-        print(f"CAPEX est. : {round(self.CAPEX,1)} [$ (2018)]")
+        print(f"CAPEX est. : {round(self.CAPEX['Total'],1)} [$ (2025)]")
 
         return best_pos
     

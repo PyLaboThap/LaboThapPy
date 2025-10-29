@@ -108,6 +108,9 @@ class HXEffCstDisc(BaseComponent):
         self.guesses = {}
         self.DT_pinch = -1
         
+        self.DP_h = 0
+        self.DP_c = 0
+        
         self.h_hot = None
         self.h_cold = None
         self.T_hot = None
@@ -116,64 +119,7 @@ class HXEffCstDisc(BaseComponent):
     def get_required_inputs(self): # Used in check_calculablle to see if all of the required inputs are set
         self.sync_inputs()
         # Return a list of required inputs
-        return['Csu_fluid', 'Csu_h', 'Csu_p', 'Csu_m_dot', 'Hsu_fluid', 'Hsu_h', 'Hsu_p', 'Hsu_m_dot']
-    
-    def sync_inputs(self):
-        """Synchronize the inputs dictionary with the connector states."""
-        if self.su_C.fluid is not None:
-            self.inputs['Csu_fluid'] = self.su_C.fluid
-        if self.su_C.h is not None:
-            self.inputs['Csu_h'] = self.su_C.h
-        if self.su_C.T is not None:
-            self.inputs['Csu_T'] = self.su_C.T
-        if self.su_C.m_dot is not None:
-            self.inputs['Csu_m_dot'] = self.su_C.m_dot
-        if self.su_C.p is not None:
-            self.inputs['Csu_p'] = self.su_C.p
-
-        if self.su_H.fluid is not None:
-            self.inputs['Hsu_fluid'] = self.su_H.fluid
-        if self.su_H.T is not None:
-            self.inputs['Hsu_T'] = self.su_H.T
-        if self.su_H.h is not None:
-            self.inputs['Hsu_h'] = self.su_H.h
-        if self.su_H.cp is not None:
-            self.inputs['Hsu_cp'] = self.su_H.cp
-        if self.su_H.m_dot is not None:
-            self.inputs['Hsu_m_dot'] = self.su_H.m_dot
-        if self.su_H.p is not None:
-            self.inputs['Hsu_p'] = self.su_H.p
-
-    def set_inputs(self, **kwargs):
-        """Set inputs directly through a dictionary and update connector properties."""
-        self.inputs.update(kwargs) # This line merges the keyword arguments ('kwargs') passed to the 'set_inputs()' method into the eisting 'self.inputs' dictionary.
-
-        # Update the connectors based on the new inputs
-        if 'Csu_fluid' in self.inputs:
-            self.su_C.set_fluid(self.inputs['Csu_fluid'])
-        if 'Csu_T' in self.inputs:
-            self.su_C.set_T(self.inputs['Csu_T'])
-        if 'Csu_h' in self.inputs:
-            self.su_C.set_h(self.inputs['Csu_h'])
-        if 'Csu_m_dot' in self.inputs:
-            self.su_C.set_m_dot(self.inputs['Csu_m_dot'])
-        if 'Csu_p' in self.inputs:
-            self.su_C.set_p(self.inputs['Csu_p'])
-
-        if 'Hsu_fluid' in self.inputs:
-            self.su_H.set_fluid(self.inputs['Hsu_fluid'])
-        if 'Hsu_T' in self.inputs:
-            self.su_H.set_T(self.inputs['Hsu_T'])
-        if 'Hsu_h' in self.inputs:
-            self.su_H.set_h(self.inputs['Hsu_h'])
-        if 'Hsu_cp' in self.inputs:
-            self.su_H.set_cp(self.inputs['Hsu_cp'])
-        if 'Hsu_m_dot' in self.inputs:
-            self.su_H.set_m_dot(self.inputs['Hsu_m_dot'])
-        if 'Hsu_p' in self.inputs:
-            self.su_H.set_p(self.inputs['Hsu_p'])
-
-        return['Csu_fluid', 'Csu_h', 'Csu_p', 'Csu_m_dot', 'Hsu_fluid', 'Hsu_h', 'Hsu_p', 'Hsu_m_dot']
+        return['P_su_H', 'T_su_H', 'm_dot_H', 'fluid_H', 'P_su_C', 'T_su_C', 'm_dot_C', 'fluid_C']
     
     def get_required_parameters(self):
         return [
@@ -241,11 +187,11 @@ class HXEffCstDisc(BaseComponent):
         for i in range(self.params['n_disc']):
             # Hot side: forward direction
             self.h_hot[i+1] = self.h_hot[i] - Q_dot_seg / self.su_H.m_dot
-            self.T_hot[i+1] = PropsSI('T', 'H', self.h_hot[i+1], 'P', self.su_H.p, self.su_H.fluid)
+            self.T_hot[i+1] = PropsSI('T', 'H', self.h_hot[i+1], 'P', self.p_hot[i+1], self.su_H.fluid)
             
             # Cold side: reverse direction
             self.h_cold[i+1] = self.h_cold[i] - Q_dot_seg / self.su_C.m_dot
-            self.T_cold[i+1] = PropsSI('T', 'H', self.h_cold[i+1], 'P', self.su_C.p, self.su_C.fluid)
+            self.T_cold[i+1] = PropsSI('T', 'H', self.h_cold[i+1], 'P', self.p_cold[i+1], self.su_C.fluid)
         
         self.DT_pinch = min(self.T_hot - self.T_cold)
         
@@ -263,6 +209,12 @@ class HXEffCstDisc(BaseComponent):
         self.check_calculable()
         self.check_parametrized()
 
+        if 'DP_h' in self.params:
+            self.DP_h = self.params['DP_h']
+            
+        if 'DP_c' in self.params:
+            self.DP_c = self.params['DP_c']
+
         if not self.calculable:
             print("HTX IS NOT CALCULABLE")
             return
@@ -278,7 +230,21 @@ class HXEffCstDisc(BaseComponent):
             self.T_hot = np.zeros(self.params['n_disc']+1)
             self.T_cold = np.zeros(self.params['n_disc']+1)
 
-        self.DT_pinch = -1 
+            self.p_hot = np.zeros(self.params['n_disc']+1)
+            self.p_cold = np.zeros(self.params['n_disc']+1)
+                
+            # Establish pressure drops 
+            DP_h_disc = self.DP_h/self.params['n_disc']
+            DP_c_disc = self.DP_c/self.params['n_disc']
+            
+            self.p_hot[0] = self.su_H.p
+            self.p_cold[0] = self.su_C.p
+            
+            for i in range(self.params['n_disc']):
+                self.p_hot[i+1] = self.p_hot[i] - DP_h_disc
+                self.p_cold[i+1] = self.p_cold[i] - DP_c_disc
+            
+        self.DT_pinch = -1
 
         while self.DT_pinch <= self.params['Pinch_min']:
             self.counterflow_discretized()
