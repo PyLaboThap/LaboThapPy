@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 #import component.Examples.solar.parabolictroughcollector_example as parabolictroughcollector_example
 # Muted by Titouan, do not work without this line on Elise computer 
-from geometries.solar.parabolictrough_geometry import PT_Collector_Geom
+from toolbox.geometries.solar.parabolictrough_geometry import PT_Collector_Geom
 from component.solar.parabolictroughcollector import PT_collector
 
 PT_geom = PT_Collector_Geom()

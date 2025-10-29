@@ -8,6 +8,7 @@ source :
 Semi-empirical correlation to model heat losses 
 along solar parabolic trough collectors 
 Rémi Dickes, Vincent Lemort and Sylvain Quoilin 
+https://hdl.handle.net/2268/182680
 
 """
 
@@ -15,14 +16,107 @@ import __init__
 #import component.solar.parabolictroughcollector as parabolictroughcollector
 from CoolProp.CoolProp import PropsSI
 import numpy as np
-from geometries.solar.parabolictrough_geometry import PT_Collector_Geom
 from component.base_component import BaseComponent
 
 from connector.mass_connector import MassConnector
-from connector.work_connector import WorkConnector
 from connector.heat_connector import HeatConnector
 
+
 class PT_collector(BaseComponent):
+    """
+    Component: Parabolic Trough Collector
+    
+    Model: Semi empirical
+    
+    **Description**
+    
+    This model determines the thermal power absorbed by a parabolic trough collector and its heat transfer fluid exhaust specific enthalpy .
+
+    
+    **Assumptions**:
+        - Heat losses to the ambiant are considered.
+
+    **Connectors**:
+    
+        su (MassConnector): Mass connector for the suction side.
+
+        ex (MassConnector): Mass connector for the exhaust side.
+
+        Q_amb (HeatConnector): Heat connector to the ambiant.
+        
+    **Parameters**:
+        
+        coll_eff: Collector efficieny [-]
+        
+        a [1..9]: semi empirical parameters 
+            
+        n_disc: number of discretisations in the lenght of the heat collection element. [-]
+        
+        envel_tau: transmittance of the heat collection element envelop [-]
+        
+        alpha_r: Receiver absorptivity. [-]
+        
+        refl_m: Mirror reflectivity. [-]
+        
+        epsilon_r: Receiver emittance @ 400°C. [-]
+        
+        eta_opt: Overall Optical Efficiency. [-]
+
+        V_w_max_tr: maximum wind speed (stowed). [m/s]
+        
+        V_w_max_st: minimum wind speed (stowed). [m/s]
+        
+        Vdot_min: minimum recommended flowrate. [m^3/s]
+        
+        Vdot_max: maximum recommended flowrate. [m^3/s]
+        
+        T_f_min: Minimum operating fluid temperature. [K]
+        
+        T_f_max: Maximum operating fluid temperature. [K]
+        
+        Geometrical parameters:
+            
+            L: length of the parabolic trough collector. [m]
+            
+            W: Width of the parabolic trough collector. [m]
+            
+            A: Area of the parabolic trough collector. [m^2]
+            
+            A_r: Reflective area. [m^2]
+            
+            m: Collector weight. [kg]
+            
+            L_f: Focal Length. [m]
+            
+            Tube_OD: Tube external diameter. [m]
+            
+            Tube_V: Tube volume. [m^3]
+            
+    **Inputs**:
+        
+        su_fluid: Fluid at the suction of the PT collector. [-]
+        
+        su_m_dot: Mass flow rate in the PT collector (at suction). [kg/s]
+        
+        su_T: Temperature at the suction. [K]
+        
+        su_p: Pressure at the suction. [Pa]
+        
+        v_wind: Wind speed on the PT collector's heat collection element. [m/s]
+        
+        T_amb: Ambiant temperature. [K]
+        
+        Theta: Incidence angle. [rad]
+        
+        DNI: Direct Normal Irradiance. [W/m^2]
+        
+    **Ouputs**:
+
+        h_ex: Exhaust side specific enthalpy. [J/kg] 
+
+        Q_dot: Thermal Power absorbed by the PT collector. [W]
+
+    """
     def __init__(self):
         super().__init__()
         self.su = MassConnector()
