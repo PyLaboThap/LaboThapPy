@@ -15,6 +15,7 @@ https://hdl.handle.net/2268/182680
 import __init__
 #import component.solar.parabolictroughcollector as parabolictroughcollector
 from CoolProp.CoolProp import PropsSI
+import CoolProp.CoolProp as CP
 import numpy as np
 from component.base_component import BaseComponent
 
@@ -52,7 +53,7 @@ class PT_collector(BaseComponent):
             
         n_disc: number of discretisations in the lenght of the heat collection element. [-]
         
-        envel_tau: transmittance of the heat collection element envelop [-]
+        envel_tau: transmittance of the heat collection element envelop. [-]
         
         alpha_r: Receiver absorptivity. [-]
         
@@ -94,13 +95,13 @@ class PT_collector(BaseComponent):
             
     **Inputs**:
         
-        su_fluid: Fluid at the suction of the PT collector. [-]
+        fluid: Fluid at the suction of the PT collector. [-]
         
-        su_m_dot: Mass flow rate in the PT collector (at suction). [kg/s]
+        m_dot: Mass flow rate in the PT collector (at suction). [kg/s]
         
-        su_T: Temperature at the suction. [K]
+        T_su: Temperature at the suction. [K]
         
-        su_p: Pressure at the suction. [Pa]
+        p_su: Pressure at the suction. [Pa]
         
         v_wind: Wind speed on the PT collector's heat collection element. [m/s]
         
@@ -131,18 +132,18 @@ class PT_collector(BaseComponent):
             # Return a list of required inputs
             # DNI : Direct Natural Irradiation
             # Incidence angle
-            return ['su_p', 'su_m_dot', 'su_T', 'T_amb', 'DNI', 'Theta', 'v_wind', 'su_fluid']
+            return ['P_su', 'm_dot', 'T_su', 'T_amb', 'DNI', 'Theta', 'v_wind', 'fluid']
     
     def sync_inputs(self):
         """Synchronize the inputs dictionary with the connector states."""
         if self.su.fluid is not None:
-            self.inputs['su_fluid'] = self.su.fluid
+            self.inputs['fluid'] = self.su.fluid
         if self.su.m_dot is not None:
-            self.inputs['su_m_dot'] = self.su.m_dot
+            self.inputs['m_dot'] = self.su.m_dot
         if self.su.T is not None:
-            self.inputs['su_T'] = self.su.T
+            self.inputs['T_su'] = self.su.T
         if self.su.p is not None:
-            self.inputs['su_p'] = self.su.p
+            self.inputs['P_su'] = self.su.p
         if self.v_wind is not None:
             self.inputs['v_wind'] = self.v_wind
         if self.Q_amb.T_cold is not None:
@@ -158,14 +159,14 @@ class PT_collector(BaseComponent):
         self.inputs.update(kwargs)
 
         # Update the connectors based on the new inputs
-        if 'su_fluid' in self.inputs:
-            self.su.set_fluid(self.inputs['su_fluid'])
-        if 'su_m_dot' in self.inputs:
-            self.su.set_m_dot(self.inputs['su_m_dot'])
-        if 'su_T' in self.inputs:
-            self.su.set_T(self.inputs['su_T'])
-        if 'su_p' in self.inputs:
-            self.su.set_p(self.inputs['su_p'])
+        if 'fluid' in self.inputs:
+            self.su.set_fluid(self.inputs['fluid'])
+        if 'm_dot' in self.inputs:
+            self.su.set_m_dot(self.inputs['m_dot'])
+        if 'T_su' in self.inputs:
+            self.su.set_T(self.inputs['T_su'])
+        if 'P_su' in self.inputs:
+            self.su.set_p(self.inputs['P_su'])
         if 'v_wind' in self.inputs:
             self.v_wind = self.inputs['v_wind']
         if 'T_amb' in self.inputs:
@@ -175,6 +176,172 @@ class PT_collector(BaseComponent):
         if 'DNI' in self.inputs:
             self.DNI = self.inputs['DNI']
 
+
+
+    # def set_inputs(self, **kwargs):
+    #     """Set inputs directly through a dictionary and update connector properties."""
+    #     self.inputs.update(kwargs)
+
+    #     # Define mappings from input keys to methods
+    #     input_methods = {
+    #         # su connector inputs
+    #         'fluid':     lambda val: self.su.set_fluid(val),
+    #         'x_su':      lambda val: self.su.set_x(val),
+    #         'T_su':      lambda val: self.su.set_T(val),
+    #         'h_su':      lambda val: self.su.set_h(val),
+    #         'P_su':      lambda val: self.su.set_p(val),
+    #         'm_dot':     lambda val: self.su.set_m_dot(val),
+
+    #         # su_1 connector inputs
+    #         'fluid_su_1': lambda val: self.su_1.set_fluid(val),
+    #         'T_su_1':    lambda val: self.su_1.set_T(val),
+    #         'h_su_1':    lambda val: self.su_1.set_h(val),
+    #         'P_su_1':    lambda val: self.su_1.set_p(val),
+    #         'm_dot_su_1': lambda val: self.su_1.set_m_dot(val),
+
+    #         # su_2 connector inputs
+    #         'fluid_su_2': lambda val: self.su_2.set_fluid(val),
+    #         'T_su_2':    lambda val: self.su_2.set_T(val),
+    #         'h_su_2':    lambda val: self.su_2.set_h(val),
+    #         'P_su_2':    lambda val: self.su_2.set_p(val),
+    #         'm_dot_su_2': lambda val: self.su_2.set_m_dot(val),
+
+    #         # su_H connector inputs
+    #         'fluid_H': lambda val: self.su_H.set_fluid(val),
+    #         'T_su_H':    lambda val: self.su_H.set_T(val),
+    #         'h_su_H':    lambda val: self.su_H.set_h(val),
+    #         'P_su_H':    lambda val: self.su_H.set_p(val),
+    #         'm_dot_H':   lambda val: self.su_H.set_m_dot(val),
+
+    #         # su_C connector inputs
+    #         'fluid_C': lambda val: self.su_C.set_fluid(val),
+    #         'T_su_C':    lambda val: self.su_C.set_T(val),
+    #         'h_su_C':    lambda val: self.su_C.set_h(val),
+    #         'P_su_C':    lambda val: self.su_C.set_p(val),
+    #         'm_dot_C':   lambda val: self.su_C.set_m_dot(val),
+
+    #         # ex connector inputs
+    #         'P_ex':      lambda val: self.ex.set_p(val),
+    #         'T_ex':      lambda val: self.ex.set_T(val),
+    #         'h_ex':      lambda val: self.ex.set_h(val),
+    #         'x_ex':      lambda val: self.ex.set_x(val),
+
+    #         # ex_1 connector inputs
+    #         'P_ex_1':    lambda val: self.ex_1.set_p(val),
+    #         'T_ex_1':    lambda val: self.ex_1.set_T(val),
+    #         'h_ex_1':    lambda val: self.ex_1.set_h(val),
+
+    #         # ex_2 connector inputs
+    #         'P_ex_2':    lambda val: self.ex_2.set_p(val),
+    #         'T_ex_2':    lambda val: self.ex_2.set_T(val),
+    #         'h_ex_2':    lambda val: self.ex_2.set_h(val),         
+
+    #         # ex_H connector inputs
+    #         'P_ex_H':    lambda val: self.ex_H.set_p(val),
+    #         'T_ex_H':    lambda val: self.ex_H.set_T(val),
+    #         'h_ex_H':    lambda val: self.ex_H.set_h(val),
+
+    #         # ex_C connector inputs
+    #         'P_ex_C':    lambda val: self.ex_C.set_p(val),
+    #         'T_ex_C':    lambda val: self.ex_C.set_T(val),
+    #         'h_ex_C':    lambda val: self.ex_C.set_h(val),
+
+    #         # W connector inputs
+    #         'N_rot':     lambda val: self.W.set_N(val),
+
+    #         # Q_amb connector inputs
+    #         'T_amb':     lambda val: self.Q_amb.set_T_cold(val),
+    #         'DNI':       lambda val: self.Q_amb.set_DNI(val),
+    #         'Theta':     lambda val: self.Q_amb.set_Theta(val), "Irradiance angle"
+    #         'v_wind':    lambda val: self.solar.set_v_wind(val),
+
+    #     }
+
+    #     unknown_keys = []  # To collect any keys that do not match the input methods
+
+    #     for key, value in self.inputs.items():
+    #         method = input_methods.get(key)
+    #         if method:
+    #             try:
+    #                 method(value)
+    #             except Exception as e:
+    #                 # Optionally log the exception or raise with more context
+    #                 pass  # Replace with logging if desired
+    #         else:
+    #             unknown_keys.append(key)
+
+    #     if unknown_keys:
+    #         raise ValueError(f"Unrecognized input keys: {', '.join(unknown_keys)}")
+    #     return
+
+
+    # def sync_inputs(self):
+    #     """Synchronize the inputs dictionary with the connector states."""
+
+    #     # Lazy getters: only access if the connector exists
+    #     attribute_map = {
+    #         # su connectors
+    #         'fluid':     lambda: self.su.fluid if hasattr(self,'su') else None,
+    #         'T_su':      lambda: self.su.T if hasattr(self,'su') else None,
+    #         'h_su':      lambda: self.su.h if hasattr(self,'su') else None,
+    #         'P_su':      lambda: self.su.p if hasattr(self,'su') else None,
+    #         'm_dot':     lambda: self.su.m_dot if hasattr(self, 'su') else None,
+
+    #         # su_H connector
+    #         'fluid_H':   lambda: self.su_H.fluid if hasattr(self,'su_H') else None,
+    #         'T_su_H':    lambda: self.su_H.T if hasattr(self,'su_H') else None,
+    #         'h_su_H':    lambda: self.su_H.h if hasattr(self,'su_H') else None,
+    #         'P_su_H':    lambda: self.su_H.p if hasattr(self,'su_H') else None,
+    #         'm_dot_H':   lambda: self.su_H.m_dot if hasattr(self,'su_H') else None,
+
+    #         # su_C connector
+    #         'fluid_C':   lambda: self.su_C.fluid if hasattr(self,'su_C') else None,
+    #         'T_su_C':    lambda: self.su_C.T if hasattr(self,'su_C') else None,
+    #         'h_su_C':    lambda: self.su_C.h if hasattr(self,'su_C') else None,
+    #         'P_su_C':    lambda: self.su_C.p if hasattr(self,'su_C') else None,
+    #         'm_dot_C':   lambda: self.su_C.m_dot if hasattr(self,'su_C') else None,
+
+    #         # ex connector
+    #         'P_ex':      lambda: self.ex.p if hasattr(self,'ex') else None,
+    #         'T_ex':      lambda: self.ex.T if hasattr(self,'ex') else None,
+    #         'h_ex':      lambda: self.ex.h if hasattr(self,'ex') else None,
+
+    #         # ex_C connector
+    #         'P_ex_C':    lambda: self.ex_C.p if hasattr(self,'ex_C') else None,
+    #         'T_ex_C':    lambda: self.ex_C.T if hasattr(self,'ex_C') else None,
+    #         'h_ex_C':    lambda: self.ex_C.h if hasattr(self,'ex_C') else None,
+
+    #         # ex_H connector
+    #         'P_ex_H':    lambda: self.ex_H.p if hasattr(self,'ex_H') else None,
+    #         'T_ex_H':    lambda: self.ex_H.T if hasattr(self,'ex_H') else None,
+    #         'h_ex_H':    lambda: self.ex_H.h if hasattr(self,'ex_H') else None,
+
+    #         # W connector
+    #         'N_rot':     lambda: self.W.N if hasattr(self,'W') else None,
+
+    #         # Q_amb connector
+    #         'T_amb':     lambda: self.Q_amb.T_cold if hasattr(self,'Q_amb') else None,
+    #         'DNI':       lambda: self.Q_amb.DNI if hasattr(self,'Q_amb') else None,
+    #         'Theta':       lambda: self.Q_amb.Theta if hasattr(self,'Q_amb') else None,
+    #         'v_wind':       lambda: self.solar.v_wind if hasattr(self,'Q_amb') else None,
+    #     }
+
+    #     self.inputs = getattr(self,'inputs',{})
+
+    #     for key, getter in attribute_map.items():
+    #         try:
+    #             value = getter()
+    #             if value is not None:
+    #                 self.inputs[key] = value
+    #         except Exception:
+    #             pass  # Optional: add logging for debugging
+
+    #     return
+    
+    
+    
+    
+    
     def get_required_parameters(self):
         return [
                 'coll_eff', 'L', 'W', 'A', 'A_r', 'm', 'L_f',
@@ -253,6 +420,7 @@ class PT_collector(BaseComponent):
         self.check_calculable()
         self.check_parametrized()
 
+        self.AS = CP.AbstractState('HEOS', self.su.fluid)
         if self.calculable and self.parametrized:
             
             self.T = np.zeros(self.params['n_disc']+1)
@@ -275,7 +443,8 @@ class PT_collector(BaseComponent):
 
                 self.h[i+1] = self.h[i] + self.Q_dot_abs_disc[i]/self.su.m_dot
                 self.p[i+1] = self.p[i]
-                self.T[i+1] = PropsSI('T','H',self.h[i+1],'P',self.p[i+1],self.su.fluid)
+                self.AS.update(CP.HmassP_INPUTS, self.h[i+1], self.p[i+1])               
+                self.T[i+1] = self.AS.T()
 
             self.Q_dot = sum(self.Q_dot_abs_disc)
 

@@ -35,10 +35,10 @@ if case == "study_disc":
                             a = PT_geom.a, n_disc = int(n_disc_vec[i])
         )
 
-        PT.set_inputs(su_fluid = 'Water',
-                    su_m_dot = 0.6, # kg/s
-                    su_p = 5*1e5, # Pa
-                    su_T = 100 + 273.15, # K
+        PT.set_inputs(fluid = 'Water',
+                    m_dot = 0.6, # kg/s
+                    P_su = 5*1e5, # Pa
+                    T_su = 100 + 273.15, # K
                     T_amb = 25 + 273.15, # K
                     DNI = 900, # W/m^2
                     Theta = 10*np.pi/180, # rad
@@ -102,10 +102,10 @@ if case == "plant_sizing":
         n_series += 1
 
         PT.set_inputs(
-                su_fluid = 'Water',
-                su_m_dot = m_dot_max_coll, # kg/s
-                su_p = p_circ, # Pa
-                su_T = T_in_coll, # K
+                fluid = 'Water',
+                m_dot = m_dot_max_coll, # kg/s
+                P_su = p_circ, # Pa
+                T_su = T_in_coll, # K
                 T_amb = 20 + 273.15, # K
                 DNI = 600, # W/m^2
                 Theta = 10*np.pi/180, # rad
