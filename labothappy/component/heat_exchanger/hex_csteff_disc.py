@@ -108,6 +108,9 @@ class HXEffCstDisc(BaseComponent):
         self.guesses = {}
         self.DT_pinch = -1
         
+        self.DP_h = 0
+        self.DP_c = 0
+        
         self.h_hot = None
         self.h_cold = None
         self.T_hot = None
@@ -116,7 +119,7 @@ class HXEffCstDisc(BaseComponent):
     def get_required_inputs(self): # Used in check_calculablle to see if all of the required inputs are set
         self.sync_inputs()
         # Return a list of required inputs
-        return['fluid_C', 'h_su_C', 'P_su_C', 'm_dot_C', 'fluid_H', 'h_su_H', 'P_su_H', 'm_dot_H']
+        return['P_su_H', 'T_su_H', 'm_dot_H', 'fluid_H', 'P_su_C', 'T_su_C', 'm_dot_C', 'fluid_C']
     
     def get_required_parameters(self):
         return [
@@ -184,11 +187,11 @@ class HXEffCstDisc(BaseComponent):
         for i in range(self.params['n_disc']):
             # Hot side: forward direction
             self.h_hot[i+1] = self.h_hot[i] - Q_dot_seg / self.su_H.m_dot
-            self.T_hot[i+1] = PropsSI('T', 'H', self.h_hot[i+1], 'P', self.su_H.p, self.su_H.fluid)
+            self.T_hot[i+1] = PropsSI('T', 'H', self.h_hot[i+1], 'P', self.p_hot[i+1], self.su_H.fluid)
             
             # Cold side: reverse direction
             self.h_cold[i+1] = self.h_cold[i] - Q_dot_seg / self.su_C.m_dot
-            self.T_cold[i+1] = PropsSI('T', 'H', self.h_cold[i+1], 'P', self.su_C.p, self.su_C.fluid)
+            self.T_cold[i+1] = PropsSI('T', 'H', self.h_cold[i+1], 'P', self.p_cold[i+1], self.su_C.fluid)
         
         self.DT_pinch = min(self.T_hot - self.T_cold)
         
@@ -206,6 +209,12 @@ class HXEffCstDisc(BaseComponent):
         self.check_calculable()
         self.check_parametrized()
 
+        if 'DP_h' in self.params:
+            self.DP_h = self.params['DP_h']
+            
+        if 'DP_c' in self.params:
+            self.DP_c = self.params['DP_c']
+
         if not self.calculable:
             print("HTX IS NOT CALCULABLE")
             return
@@ -221,7 +230,21 @@ class HXEffCstDisc(BaseComponent):
             self.T_hot = np.zeros(self.params['n_disc']+1)
             self.T_cold = np.zeros(self.params['n_disc']+1)
 
-        self.DT_pinch = -1 
+            self.p_hot = np.zeros(self.params['n_disc']+1)
+            self.p_cold = np.zeros(self.params['n_disc']+1)
+                
+            # Establish pressure drops 
+            DP_h_disc = self.DP_h/self.params['n_disc']
+            DP_c_disc = self.DP_c/self.params['n_disc']
+            
+            self.p_hot[0] = self.su_H.p
+            self.p_cold[0] = self.su_C.p
+            
+            for i in range(self.params['n_disc']):
+                self.p_hot[i+1] = self.p_hot[i] - DP_h_disc
+                self.p_cold[i+1] = self.p_cold[i] - DP_c_disc
+            
+        self.DT_pinch = -1
 
         while self.DT_pinch <= self.params['Pinch_min']:
             self.counterflow_discretized()

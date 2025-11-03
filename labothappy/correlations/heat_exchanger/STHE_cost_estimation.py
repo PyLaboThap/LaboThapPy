@@ -15,6 +15,8 @@ Antonio C. Caputo, Pacifico M. Pelagagge, Paolo Salini
 import numpy as np
 import matplotlib.pyplot as plt
 
+from toolbox.economics.cpi_data import actualize_price
+
 class EconomicParameters:
     """Economic parameters for cost calculations"""
     def __init__(self):
@@ -747,7 +749,13 @@ class HeatExchangerCost:
         # print(f"Total material costs [€] : {total_material_cost}")
         # print(f"Total operation costs [€] : {total_operation_cost}")
         
-        return total_material_cost + total_operation_cost, total_material_cost, total_operation_cost
+        total_costs = total_material_cost + total_operation_cost
+        
+        total_costs_actual = actualize_price(total_costs, 2015, "EUR")
+        self.total_material_cost = actualize_price(total_material_cost, 2015, "EUR")
+        self.total_operation_cost = actualize_price(total_operation_cost, 2015, "EUR")
+        
+        return total_costs_actual
 
     def print_cost_breakdown(self):
         """Print cost breakdown by component and operation with labeled plots"""

@@ -242,14 +242,82 @@ class ShellAndTubeSizingOpt(BaseComponent):
 
             # Set HX params
             self.HX.set_parameters(**opt_params)
+        
+            # if self.params['Shell_Side'] == 'C':
+
+            #     self.HX.set_inputs(
+            #         # First fluid
+            #         fluid_H = self.su_T.fluid,
+            #         m_dot_H = self.su_T.m_dot, # kg/s
+
+            #         # Second fluid
+            #         fluid_C = self.su_S.fluid,
+            #         m_dot_C = self.su_S.m_dot, # kg/s  # Make sure to include fluid information
+            #     )
+                
+            #     HX_req_inputs = self.HX.get_required_inputs()
+
+            #     for input_var in self.su_S.variables_input:
+            #         input_str = input_var[0] + '_su_C'
+            #         if input_str in HX_req_inputs:    
+            #             self.HX.set_inputs(**{input_str: input_var[1]})
+            #         else:
+            #             input_str = input_var[0].lower() + '_su_C'
+            #             self.HX.set_inputs(**{input_str: input_var[1]})
+
+            #     for input_var in self.su_T.variables_input:
+            #         input_str = input_var[0] + '_su_H'
+            #         if input_str in HX_req_inputs:    
+            #             self.HX.set_inputs(**{input_str: input_var[1]})
+            #         else:
+            #             input_str = input_var[0].lower() + '_su_H'
+            #             self.HX.set_inputs(**{input_str: input_var[1]})
+
+            # else:
+            #     self.HX.set_inputs(
+            #         # First fluid
+            #         fluid_H = self.su_S.fluid,
+            #         m_dot_H = self.su_S.m_dot, # kg/s
+
+            #         # Second fluid
+            #         fluid_C = self.su_T.fluid,
+            #         m_dot_C = self.su_T.m_dot, # kg/s  # Make sure to include fluid information
+            #     )    
+                
+            #     HX_req_inputs = self.HX.get_required_inputs()
+
+            #     for input_var in self.su_T.variables_input:
+            #         input_str = input_var[0] + '_su_C'
+            #         if input_str in HX_req_inputs:    
+            #             self.HX.set_inputs(**{input_str: input_var[1]})
+            #         else:
+            #             input_str = input_var[0].lower() + '_su_C'
+            #             self.HX.set_inputs(**{input_str: input_var[1]})
+
+            #     for input_var in self.su_S.variables_input:
+            #         input_str = input_var[0] + '_su_H'
+            #         if input_str in HX_req_inputs:    
+            #             self.HX.set_inputs(**{input_str: input_var[1]})
+            #         else:
+            #             input_str = input_var[0].lower() + '_su_H'
+            #             self.HX.set_inputs(**{input_str: input_var[1]})
 
             "Correlation Loading And Setting"
 
             Corr_H = self.H_htc_Corr
             Corr_C = self.C_htc_Corr
+
+            # Corr_H = {"1P" : "Gnielinski", "2P" : "Flow_boiling", "SC" : "Liu_sCO2"}
+            # Corr_C = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
             
             Corr_H_DP = self.H_DP_Corr 
             Corr_C_DP = self.C_DP_Corr # "Gnielinski_DP"
+            
+            # Corr_H_DP = "Shell_Kern_DP"
+            # Corr_C_DP = "Muller_Steinhagen_Heck_DP"
+
+            # Corr_H_DP = "Cheng_CO2_DP"
+            # Corr_C_DP = "Shell_Kern_DP"
 
             self.HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation' # 31
 
@@ -489,7 +557,6 @@ class ShellAndTubeSizingOpt(BaseComponent):
         particle_position['L_shell'] = float(np.round(self.random_multiple(low_bound_L_shell, high_bound_L_shell, particle_position['Central_spac']), 2))
         particle_position['Baffle_cut'] = float(np.round(self.rng.uniform(self.bounds['Baffle_cut'][0], self.bounds['Baffle_cut'][1]), 2))
     
-    
         # Put these positions in the particles 
     
         particle.set_position(particle_position)
@@ -653,6 +720,40 @@ class ShellAndTubeSizingOpt(BaseComponent):
     
         return results
 
+    def cost_estimation(self):
+        """
+        Technoeconomic optimization of superalloy supercritical CO2 microtube
+        shell-and-tube-heat exchangers
+        
+        Akshay Bharadwaj Krishna, Kaiyuan Jin, Portonovo S. Ayyaswamy, Ivan Catton,
+        Timothy S. Fisher
+        
+        Cost in $ of 2023
+        """
+        
+        A = 1.2 # [$/kg] : For carbon steel pipes // 255 for superalloy piping
+        B = 5 # [$ * m]
+        C = 14 # [$]
+        D = 2 # [$*m]
+        E = 2 # [$]
+        F = 4000 # [$]
+        
+        BP = self.best_particle
+        HX_params = BP.HX.params
+        
+        n_U_tubes = HX_params['n_tubes']/HX_params['Tube_pass']
+        
+        A_term = A*BP.masses['Total']
+        B_term = B*n_U_tubes/(HX_params['Tube_OD']*1000)
+        C_term = C*n_U_tubes
+        D_term = D*n_U_tubes/HX_params['Tube_L']
+        E_term = E*(HX_params['Tube_L']/HX_params['central_spacing'])*n_U_tubes
+        
+        self.CAPEX = {'HX' : A_term + B_term + C_term + D_term + E_term + F}
+        self.CAPEX['Install'] = self.CAPEX['HX']*0.35
+        self.CAPEX['Total'] = self.CAPEX['HX'] + self.CAPEX['Install']
+
+        return
 
     #%%
 
@@ -924,6 +1025,20 @@ class ShellAndTubeSizingOpt(BaseComponent):
         return self.global_best_position, self.global_best_score, self.best_particle
     
     def opt_size(self):
+        
+        import numexpr as ne
+        import os, multiprocessing
+        
+        # Detect number of CPU cores
+        num_cores = multiprocessing.cpu_count()
+        
+        # Choose a safe dynamic cap (e.g., min(physical cores, 16))
+        # You can tune this — often 50–75% of total cores is optimal for large data
+        num_threads = min(num_cores, 16)
+        
+        # Apply to NumExpr
+        ne.set_num_threads(num_threads)
+        os.environ["NUMEXPR_MAX_THREADS"] = str(num_threads)        
 
         self.particle_swarm_optimization(objective_function = self.HX_Mass , bounds = self.bounds, num_particles = 50, num_dimensions = len(self.opt_vars), max_iterations = 50, inertia_weight = 0.5,
                                           cognitive_constant = 0.5, social_constant = 0.5, constraints = [self.constraint_Q_dot, self.constraint_DP_h, self.constraint_DP_c], penalty_factor = 1)
@@ -958,7 +1073,8 @@ class ShellAndTubeSizingOpt(BaseComponent):
             N_Bt=100
         )
 
-        self.CAPEX,_,_ = self.cost_calculator.calculate_total_cost()
+        self.costs = self.cost_calculator.calculate_total_cost()
+        self.cost_estimation()
         
         print("\n")
         print(f"Best Position")
@@ -979,10 +1095,11 @@ class ShellAndTubeSizingOpt(BaseComponent):
         print(f"DP_c : {round(self.best_particle.HX.DP_c,1)} [Pa]")
         print(f"DP_h : {round(self.best_particle.HX.DP_h,1)} [Pa]")
         print(f"m_HX : {round(self.best_particle.masses['Total'],1)} [kg]")
-        print(f"Manufacturing costs est. : {round(self.CAPEX,1)} [€ (2015)]")
+        print(f"Manufacturing costs est. : {round(self.costs,1)} [€ (2025)]")
+        print(f"CAPEX : {round(self.CAPEX['Total'],1)} [$ (2025)]")
         
         return self.global_best_position, self.global_best_score, self.best_particle
-
+    
 """
 Instanciate Optimizer and test case choice
 """
