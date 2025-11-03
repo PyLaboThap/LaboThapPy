@@ -106,7 +106,21 @@ class MassConnector:
         self.state_known = False      # True if all the properties are known
         self.variables_input = []     # List of the variables used to define the state of the fluid
         
-        self.fluid = fluid           # Fluid name
+        if fluid != None:
+            try:
+                try: 
+                    self.AS = CP.AbstractState("BICUBIC&HEOS", fluid) 
+                    self.fluid = fluid
+                except:
+                    if "INCOMP" in fluid:
+                        fluid = fluid.split(":")[-1]
+                    self.AS = CP.AbstractState("INCOMP", fluid)
+                    self.fluid = fluid
+            except:
+                warnings.warn("Error: Incorrect fluid name:", fluid)
+        else:
+            self.fluid = None       # Fluid name
+            
         self.m_dot = None           # Mass flow rate [kg/s]
         self.V_dot = None           # Volume flow rate [m^3/s]
         self.T = None               # Temperature [K]
@@ -196,7 +210,7 @@ class MassConnector:
                 self.AS.update(AS_inputs, self.variables_input[0][1], self.variables_input[1][1])
             else:
                 self.AS.update(AS_inputs, self.variables_input[1][1], self.variables_input[0][1])
-
+    
             self.T = self.AS.T()
             self.p = self.AS.p()
             self.h = self.AS.hmass()
@@ -208,6 +222,10 @@ class MassConnector:
             warnings.warn("Error: This pair of inputs is not yet supported.")
     
     def set_properties(self, **kwargs):
+        
+        if 'fluid' in kwargs:
+            self.set_fluid(kwargs['fluid'])
+        
         for key, value in kwargs.items():
             if key.lower() == 'fluid':
                 self.set_fluid(value)

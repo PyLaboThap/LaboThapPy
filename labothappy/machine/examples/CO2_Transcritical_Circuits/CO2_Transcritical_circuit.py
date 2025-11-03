@@ -207,6 +207,9 @@ if __name__ == "__main__":
     PPTD_cd = 5
     SC_cd = 5
 
+    Pinch_min_GH = 3
+    Pinch_min_REC = 3
+
     P_high = 140*1e5
     P_sat_T_CSource = PropsSI('P', 'T', T_cold_source,'Q',0.5,'CO2')
     P_crit_CO2 = PropsSI('PCRIT','CO2')
@@ -233,7 +236,7 @@ if __name__ == "__main__":
         CSource = MassConnector()
         CSource.set_properties(fluid = 'R22', T = T_cold_source, p = 5e5, m_dot = 1)
         
-        CO2_TC = REC_CO2_TC(HSource, CSource, eta_is_pp, eta_is_exp, eta_gh, eta_rec, PPTD_cd, SC_cd, P_low_guess, P_high, m_dot)
-        
+        CO2_TC = REC_CO2_TC(HSource, T_cold_source, Pinch_min_GH, Pinch_min_REC, eta_is_pp, eta_is_exp, eta_gh, eta_rec, PPTD_cd, SC_cd, P_low_guess, P_high, m_dot, mute_print_flag = 0)
+                
         CO2_TC.solve()
         

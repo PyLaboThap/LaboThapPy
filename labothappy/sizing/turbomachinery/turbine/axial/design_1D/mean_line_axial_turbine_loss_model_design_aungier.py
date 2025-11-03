@@ -1022,7 +1022,6 @@ class AxialTurbineMeanLineDesign(object):
             stage.xhi_R2 = self.Vel_Tri['beta3'] - stage.delta_R
                         
             # print(f'Y_R : {stage.Y_vec_R}')
-
         return
             
     def computeRepeatingStages(self):
@@ -1474,7 +1473,7 @@ class AxialTurbineMeanLineDesign(object):
     
         # --- PSO optimizer ---
         optimizer = ps.single.GlobalBestPSO(
-            n_particles=40, dimensions=dimensions,
+            n_particles=50, dimensions=dimensions,
             options={'c1': 1.5, 'c2': 2.0, 'w': 0.7},
             bounds=bounds
         )
@@ -1500,8 +1499,13 @@ class AxialTurbineMeanLineDesign(object):
                 best_cost, no_improve = cur, 0
             else:
                 no_improve += 1
+                
             print(f"[{i+1}] Best cost: {best_cost:.6f}")
-            if no_improve >= patience:
+            if no_improve >= patience and best_cost < 0:
+                print("Stopping early due to stagnation.")
+                break
+            
+            if no_improve >= 2*patience:
                 print("Stopping early due to stagnation.")
                 break
     
@@ -1605,12 +1609,42 @@ elif case_study == 'TCO2_ORC':
 
     Turb = AxialTurbineMeanLineDesign('CO2')
 
+    # Turb.set_inputs(
+    #     mdot = 5*100, # kg/s
+    #     W_dot = 5*4.69*1e6, # W : 
+    #     p0_su = 140*1e5, # Pa
+    #     T0_su = 273.15 + 121, # K
+    #     p_ex = 39.8*1e5, # Pa
+    #     )
+
+    # Turb.set_parameters(
+    #     Zweifel = 0.8, # [-]
+    #     AR_min = 0.8, # [-]
+    #     r_hub_tip_max = 0.95, # [-]
+    #     r_hub_tip_min = 0.6, # [-]
+    #     Re_bounds = [3*1e6,8*1e6], # [-]
+    #     psi_bounds = [1,1.9], # [-]
+    #     phi_bounds = [0.5,0.8], # [-]
+    #     R_bounds = [0.45,0.55], # [-]
+    #     M_1st_bounds = [0.3, 0.5], # [-]
+    #     r_m_bounds = [0.15, 0.6], # [m]
+    #     # Omega_choices = [500,750,1000,1500,3000], # [RPM] : [500,750,1000,1500,3000]
+    #     damping = 0.3, # [-]
+    #     p_rel_tol = 0.05, # [-]
+    #     delta_tip = 0.4*1e-3, # [m] : tip clearance
+    #     N_lw = 0, # [-] : Number of lashing wires
+    #     D_lw = 0, # [m] : Diameter of lashing wires
+    #     e_blade = 0.002*1e-3, # [m] : blade roughness
+    #     t_TE_o = 0.05, # [-] : trailing edge to throat opening ratio
+    #     t_TE_min = 5*1e-4, # [m]
+    #     )
+
     Turb.set_inputs(
-        mdot = 5*100, # kg/s
-        W_dot = 5*4.69*1e6, # W : 
-        p0_su = 140*1e5, # Pa
-        T0_su = 273.15 + 121, # K
-        p_ex = 39.8*1e5, # Pa
+        mdot = 415.93, # kg/s
+        W_dot = 16537693, # W : 
+        p0_su = 14153425, # Pa
+        T0_su = 395.88, # K
+        p_ex = 5742510, # Pa
         )
     
     Turb.set_parameters(
@@ -1618,12 +1652,12 @@ elif case_study == 'TCO2_ORC':
         AR_min = 0.8, # [-]
         r_hub_tip_max = 0.95, # [-]
         r_hub_tip_min = 0.6, # [-]
-        Re_bounds = [3*1e6,8*1e6], # [-]
-        psi_bounds = [1,1.9], # [-]
-        phi_bounds = [0.5,0.8], # [-]
+        Re_bounds = [1*1e6,8*1e6], # [-]
+        psi_bounds = [0.5,1.9], # [-]
+        phi_bounds = [0.4,0.8], # [-]
         R_bounds = [0.45,0.55], # [-]
-        M_1st_bounds = [0.3, 0.5], # [-]
-        r_m_bounds = [0.15, 0.6], # [m]
+        M_1st_bounds = [0.2, 0.5], # [-]
+        r_m_bounds = [0.05, 0.6], # [m]
         # Omega_choices = [500,750,1000,1500,3000], # [RPM] : [500,750,1000,1500,3000]
         damping = 0.3, # [-]
         p_rel_tol = 0.05, # [-]
@@ -1667,32 +1701,33 @@ elif case_study == 'Salah_Case':
         t_TE_min = 5*1e-4, # [m]
         )
 
-# profiling mode switch
-PROFILE = True  # set False for normal runs
-
-if PROFILE:
-    os.environ["OMP_NUM_THREADS"] = "1"
-    os.environ["MKL_NUM_THREADS"] = "1"
-    os.environ["OPENBLAS_NUM_THREADS"] = "1"
-    os.environ["NUMEXPR_MAX_THREADS"] = "1"
-
-import time
-time_1 = []
-
-# for i in range(10):
-t0 = time.perf_counter()
-
-# best_pos = Turb.design()
-best_pos = Turb.design_parallel(n_jobs=-1)
-
-elapsed = time.perf_counter() - t0
-print(f"Optimization completed in {elapsed:.2f} s")
-time_1.append(elapsed)
-
-
-# Turb.plot_geometry()
-# Turb.plot_n_blade()
-# Turb.plot_radius_verif()
-# Turb.plot_Mollier()
-
-# (1.4528688807250987, 0.4939933148314975, 0.42406128096733176, 6364578.748939947, 0.4557043394023795)
+if __name__ == "__main__":
+    # profiling mode switch
+    PROFILE = True  # set False for normal runs
+    
+    if PROFILE:
+        os.environ["OMP_NUM_THREADS"] = "1"
+        os.environ["MKL_NUM_THREADS"] = "1"
+        os.environ["OPENBLAS_NUM_THREADS"] = "1"
+        os.environ["NUMEXPR_MAX_THREADS"] = "1"
+    
+    import time
+    time_1 = []
+    
+    # for i in range(10):
+    t0 = time.perf_counter()
+    
+    # best_pos = Turb.design()
+    best_pos = Turb.design_parallel(n_jobs=-1)
+    
+    elapsed = time.perf_counter() - t0
+    print(f"Optimization completed in {elapsed:.2f} s")
+    time_1.append(elapsed)
+    
+    
+    Turb.plot_geometry()
+    Turb.plot_n_blade()
+    Turb.plot_radius_verif()
+    Turb.plot_Mollier()
+    
+    # (1.4528688807250987, 0.4939933148314975, 0.42406128096733176, 6364578.748939947, 0.4557043394023795)

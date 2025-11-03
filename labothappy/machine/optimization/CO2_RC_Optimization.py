@@ -116,7 +116,6 @@ class CO2RCOptimizer(object):
             return 1000
               
         if not CO2_RC.converged:
-            print("OUCH")
             return 1000  
               
         self.penalty_1 = 0
@@ -193,7 +192,7 @@ class CO2RCOptimizer(object):
 
 Optimizer = CO2RCOptimizer('CO2')
 
-T = 130
+T = 95
 
 if T == 95:
     Optimizer.set_parameters(

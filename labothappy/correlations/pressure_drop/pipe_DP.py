@@ -46,7 +46,9 @@ def gnielinski_pipe_DP(mu, rho, G, Dh, L, type_HX = 'pipe'):
     if type_HX == 'pipe':
         f = (1.8*log10(Re) - 1.5)**(-2)
     elif type_HX == 'PCHE':
-        f = 0.2515*Re**(-0.2031)
+        # f = 0.2515*Re**(-0.2031)
+        f = (0.79*np.log(Re) - 1.64)**(-2)
+
     else: 
         print("This type of HTX is not supported for Gnielinski DP.")
         
@@ -64,6 +66,19 @@ def gnielinski_pipe_DP(mu, rho, G, Dh, L, type_HX = 'pipe'):
     # print(f"DP : {DP}")
     # print(f"rho : {rho}")
         
+    return DP
+
+def Darcy_Weisbach(mu, rho, G, Dh, L):
+    
+    e = 45*1e-6 # roughness for steel - 1.5*1e-6 for Copper and aluminum
+    Re = G*Dh/mu
+
+    v_flow = G/rho
+
+    f = (1/(-1.8*np.log10((e/(2.7*Dh))**1.11 + 6.9/Re)))**2
+
+    DP = f*L*rho*v_flow**2/(2*Dh) 
+    
     return DP
 
 from CoolProp.CoolProp import PropsSI

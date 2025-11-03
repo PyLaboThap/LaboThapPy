@@ -264,7 +264,7 @@ if __name__ == "__main__":
     for i in range(len(T_vec)):
         # Set model parameters
         Optimizer.set_parameters(
-            RC_ARCH= 'REC', # 'REC', # 
+            RC_ARCH= 'REC', # 'REC'
             eta_pp=0.8,
             eta_gh=0.95,
             eta_rec=0.8,
@@ -280,24 +280,6 @@ if __name__ == "__main__":
             m_dot_min=20,
             m_dot_max=70
         )
-    
-        # Optimizer.set_parameters(
-        #     RC_ARCH= 'REC', # 'REC', # 
-        #     eta_pp=0.86,
-        #     eta_gh=0.95,
-        #     eta_rec=0.8,
-        #     eta_exp=0.94,
-        #     PP_cd=5,
-        #     PP_gh=5,
-        #     PP_rec=0,
-        #     SC_cd=0.1,
-        #     P_high_min=P_high_min[i],
-        #     P_high_max=P_high_max[i],
-        #     m_dot_HS_fact_min=m_dot_HS_fact_min[i],
-        #     m_dot_HS_fact_max=m_dot_HS_fact_max[i],
-        #     m_dot_min=20,
-        #     m_dot_max=70
-        # )
     
         # Initial guess
         Optimizer.set_it_var(

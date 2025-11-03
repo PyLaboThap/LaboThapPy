@@ -242,82 +242,14 @@ class ShellAndTubeSizingOpt(BaseComponent):
 
             # Set HX params
             self.HX.set_parameters(**opt_params)
-        
-            # if self.params['Shell_Side'] == 'C':
-
-            #     self.HX.set_inputs(
-            #         # First fluid
-            #         fluid_H = self.su_T.fluid,
-            #         m_dot_H = self.su_T.m_dot, # kg/s
-
-            #         # Second fluid
-            #         fluid_C = self.su_S.fluid,
-            #         m_dot_C = self.su_S.m_dot, # kg/s  # Make sure to include fluid information
-            #     )
-                
-            #     HX_req_inputs = self.HX.get_required_inputs()
-
-            #     for input_var in self.su_S.variables_input:
-            #         input_str = input_var[0] + '_su_C'
-            #         if input_str in HX_req_inputs:    
-            #             self.HX.set_inputs(**{input_str: input_var[1]})
-            #         else:
-            #             input_str = input_var[0].lower() + '_su_C'
-            #             self.HX.set_inputs(**{input_str: input_var[1]})
-
-            #     for input_var in self.su_T.variables_input:
-            #         input_str = input_var[0] + '_su_H'
-            #         if input_str in HX_req_inputs:    
-            #             self.HX.set_inputs(**{input_str: input_var[1]})
-            #         else:
-            #             input_str = input_var[0].lower() + '_su_H'
-            #             self.HX.set_inputs(**{input_str: input_var[1]})
-
-            # else:
-            #     self.HX.set_inputs(
-            #         # First fluid
-            #         fluid_H = self.su_S.fluid,
-            #         m_dot_H = self.su_S.m_dot, # kg/s
-
-            #         # Second fluid
-            #         fluid_C = self.su_T.fluid,
-            #         m_dot_C = self.su_T.m_dot, # kg/s  # Make sure to include fluid information
-            #     )    
-                
-            #     HX_req_inputs = self.HX.get_required_inputs()
-
-            #     for input_var in self.su_T.variables_input:
-            #         input_str = input_var[0] + '_su_C'
-            #         if input_str in HX_req_inputs:    
-            #             self.HX.set_inputs(**{input_str: input_var[1]})
-            #         else:
-            #             input_str = input_var[0].lower() + '_su_C'
-            #             self.HX.set_inputs(**{input_str: input_var[1]})
-
-            #     for input_var in self.su_S.variables_input:
-            #         input_str = input_var[0] + '_su_H'
-            #         if input_str in HX_req_inputs:    
-            #             self.HX.set_inputs(**{input_str: input_var[1]})
-            #         else:
-            #             input_str = input_var[0].lower() + '_su_H'
-            #             self.HX.set_inputs(**{input_str: input_var[1]})
 
             "Correlation Loading And Setting"
 
             Corr_H = self.H_htc_Corr
             Corr_C = self.C_htc_Corr
-
-            # Corr_H = {"1P" : "Gnielinski", "2P" : "Flow_boiling", "SC" : "Liu_sCO2"}
-            # Corr_C = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
             
             Corr_H_DP = self.H_DP_Corr 
             Corr_C_DP = self.C_DP_Corr # "Gnielinski_DP"
-            
-            # Corr_H_DP = "Shell_Kern_DP"
-            # Corr_C_DP = "Muller_Steinhagen_Heck_DP"
-
-            # Corr_H_DP = "Cheng_CO2_DP"
-            # Corr_C_DP = "Shell_Kern_DP"
 
             self.HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation' # 31
 
@@ -1050,6 +982,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
         print(f"Manufacturing costs est. : {round(self.CAPEX,1)} [€ (2015)]")
         
         return self.global_best_position, self.global_best_score, self.best_particle
+
 """
 Instanciate Optimizer and test case choice
 """

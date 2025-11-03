@@ -370,7 +370,7 @@ class RecursiveCircuit(BaseCircuit):
         component = self.get_component(component_name)
         
         component.set_properties(connector_name, **kwargs)
-
+        
         component.model.check_calculable()
 
         return
@@ -665,8 +665,9 @@ class RecursiveCircuit(BaseCircuit):
         # plt.figure()
         # plt.plot(res_ev, 'r',  marker='o')                            
         # plt.show()
-
-        print(f"Solver failed to converge in {n_it_max} iterations.")
+        
+        if self.print_flag:
+            print(f"Solver failed to converge in {n_it_max} iterations.")
         
         # self.print_res_vars()
         

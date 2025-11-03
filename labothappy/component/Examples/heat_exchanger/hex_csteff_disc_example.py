@@ -50,5 +50,4 @@ HTX.set_parameters(**{
 })
 
 HTX.solve()
-
 HTX.plot_disc()

@@ -21,13 +21,15 @@ from toolbox.geometries.heat_exchanger.geometry_plate_hx_swep import PlateGeomSW
 #%%
 
 # import time
-# start_time = time.time()   
+# start_time = time.time()
 
 # "------------ Plate HX -------------------------------------------------------------------------------------------------"
 
 "HTX Instanciation"
 
 HX = HeatExchangerMB('PCHE')
+
+test_case = "TCO2_recup"
 
 # # "Setting inputs"
 
@@ -37,49 +39,98 @@ HX = HeatExchangerMB('PCHE')
 # Numerical modelling and transient analysis of a printed circuit heat exchanger 
 # used as recuperator for supercritical CO2 heat to power conversion systems
 
-HX.set_inputs(
-    # First fluid
-    fluid_H = 'CO2',
-    T_su_H = 249 + 273.15, # K
-    P_su_H = 96.4*1e5, # Pa
-    m_dot_H = 5.35, # kg/s
-
-    # Second fluid
-    fluid_C = 'CO2',
-    T_su_C = 52.77 + 273.15, # K
-    P_su_C = 165.4*1e5, # Pa
-    m_dot_C = 5.35, # kg/s  # Make sure to include fluid information
-)
-
-"Geometry Loading"
-params = {'alpha': 40, # Channel zigzag angle
-          'D_c': 2*1e-3, # Channel diameter
-          'C_V_tot' : 1, 
-          'H_V_tot' : 1, 
-          'k_cond': 60, # plate conductivity
-          'L_c': 1.5, # channel length
-          'N_c': 112, # n channels per plate
-          'N_p': 256, # n plates
-          'R_p': 1, # n_hot_channel_row / n_cold_channel_row
-          't_2': 0.63*1e-3, # Horizontal pitch
-          't_3': 1*1e-3} # Plate_thickness
-
-Corr_H = {"SC" : "Gnielinski", "1P" : "Gnielinski"}
-Corr_C = {"SC" : "Gnielinski", "1P" : "Gnielinski"}
-
-H_DP = "Gnielinski_DP"
-C_DP = "Gnielinski_DP"
+if test_case == "test_CO2":
+    HX.set_inputs(
+        # First fluid
+        fluid_H = 'CO2',
+        T_su_H = 249 + 273.15, # K
+        P_su_H = 96.4*1e5, # Pa
+        m_dot_H = 5.35, # kg/s
     
-# # ---------------------------------------------------------------------------------------------------------
-
-# "Parameters Setting"
-
-HX.set_parameters(
-    alpha = params['alpha'], C_V_tot = params['C_V_tot'], H_V_tot = params['H_V_tot'], D_c = params['D_c'], k_cond = params['k_cond'], L_c = params['L_c'], 
-    N_c = params['N_c'], N_p = params['N_p'], R_p = params['R_p'], t_2 = params['t_2'], t_3 = params['t_3'],
+        # Second fluid
+        fluid_C = 'CO2',
+        T_su_C = 52.77 + 273.15, # K
+        P_su_C = 165.4*1e5, # Pa
+        m_dot_C = 5.35, # kg/s  # Make sure to include fluid information
+    )
     
-    Flow_Type = 'CounterFlow', H_DP_ON = True, C_DP_ON = True, n_disc = 50) # 27
+    "Geometry Loading"
+    params = {'alpha': 40, # Channel zigzag angle
+              'D_c': 2*1e-3, # Channel diameter
+              'C_V_tot' : 1, 
+              'H_V_tot' : 1, 
+              'k_cond': 60, # plate conductivity
+              'L_c': 1.5, # channel length
+              'N_c': 112, # n channels per plate
+              'N_p': 256, # n plates
+              'R_p': 1, # n_hot_channel_row / n_cold_channel_row
+              't_2': 0.63*1e-3, # Horizontal pitch
+              't_3': 1*1e-3,
+              'type_channel' : 'Zigzag'} # Plate_thickness
+    
+    Corr_H = {"SC" : "Gnielinski", "1P" : "Gnielinski"}
+    Corr_C = {"SC" : "Gnielinski", "1P" : "Gnielinski"}
 
+    H_DP = "Darcy_Weisbach"
+    C_DP = "Darcy_Weisbach"    
+    # H_DP = "Gnielinski_DP"
+    # C_DP = "Gnielinski_DP"
+    # ---------------------------------------------------------------------------------------------------------
+    # "Parameters Setting"
+    
+    HX.set_parameters(
+        alpha = params['alpha'], C_V_tot = params['C_V_tot'], H_V_tot = params['H_V_tot'], D_c = params['D_c'], k_cond = params['k_cond'], L_c = params['L_c'], 
+        N_c = params['N_c'], N_p = params['N_p'], R_p = params['R_p'], t_2 = params['t_2'], t_3 = params['t_3'], type_channel = params['type_channel'],
+        
+        Flow_Type = 'CounterFlow', H_DP_ON = True, C_DP_ON = True, n_disc = 50) # 27
+
+if test_case == "TCO2_recup":
+
+    HX.set_inputs(
+        # First fluid
+        fluid_H = 'CO2',
+        T_su_H = 321.88, # K
+        P_su_H = 5742510, # Pa
+        m_dot_H = 415.93, # kg/s
+    
+        # Second fluid
+        fluid_C = 'CO2',
+        T_su_C = 305.61, # K
+        P_su_C = 14153425, # Pa
+        m_dot_C = 415.93, # kg/s  # Make sure to include fluid information
+    )
+    
+    "Geometry Loading"
+    params = {'alpha': 32.62, # Channel zigzag angle
+              'D_c': 2.42*1e-3, # Channel diameter
+              'C_V_tot' : 1, 
+              'H_V_tot' : 1, 
+              'k_cond': 60, # plate conductivity
+              'L_c': 0.7432303013776589, # channel length
+              'N_c': 736, # n channels per plate
+              'N_p': 563, # n plates
+              'R_p': 1, # n_hot_channel_row / n_cold_channel_row
+              't_2': 0.0012282802564224898, # Horizontal pitch
+              't_3': 0.0009428803890487963} # Plate_thickness
+
+    Corr_H = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
+    Corr_C = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
+    
+    # H_DP = "Gnielinski_DP"
+    # C_DP = "Gnielinski_DP"    
+    
+    H_DP = None
+    C_DP = None
+    
+    # ---------------------------------------------------------------------------------------------------------
+    # "Parameters Setting"
+    
+    HX.set_parameters(
+        alpha = params['alpha'], C_V_tot = params['C_V_tot'], H_V_tot = params['H_V_tot'], D_c = params['D_c'], k_cond = params['k_cond'], L_c = params['L_c'], 
+        N_c = params['N_c'], N_p = params['N_p'], R_p = params['R_p'], t_2 = params['t_2'], t_3 = params['t_3'],
+        
+        Flow_Type = 'CounterFlow', H_DP_ON = True, C_DP_ON = True, n_disc = 50) # 27
+    
 # UD_H_HTC = {'Liquid':100,
 #             'Vapor' : 100,
 #             'Two-Phase' : 1000,
