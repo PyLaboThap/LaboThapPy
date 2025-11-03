@@ -147,15 +147,21 @@ class PCHESizingOpt(BaseComponent):
         
         Kyle R. Zada, Ryan Kim, Aaron Wildberger, Carl P. Schalansky
         """
-        C_m = 4 # €/kg : https://mepsinternational.com/gb/en/products/europe-stainless-steel-prices for 316L plates
+        
+        C_m = 40 # €/kg : Cost per kg 
+        # Value from Evaluation of thermal-hydraulic performance and economics of
+        # Printed Circuit Heat Exchanger (PCHE) for recuperators of Sodiumcooled Fast Reactors 
+        # (SFRs) using CO2 and N2 as working fluids (2022)
+        # Su Won Lee, Seong Min Shin, SungKun Chung, HangJin Jo
         
         C_UA = 1.77 # $/UA : 
         
         self.U = sum((self.HX.Qvec_h/self.HX.LMTD)*self.HX.w)
         self.UA = self.U*(1/(1/self.HX.A_h + 1/self.HX.A_c))
         
-        self.CAPEX = {"HX" : actualize_price(C_UA*self.UA, 2018, "USD"),
+        self.CAPEX = {"HX" : actualize_price(C_m*self.m_HX, 2022, "USD"),
                       "Currency" : "USD"}
+        
         self.CAPEX["Install"] = self.CAPEX["HX"]*0.35
         self.CAPEX["Total"] = self.CAPEX["HX"] + self.CAPEX["Install"]
         
@@ -191,7 +197,6 @@ class PCHESizingOpt(BaseComponent):
         
         # Score
         score = self.compute_score()
-        self.cost_estimation()
         
         return score
     
@@ -252,31 +257,24 @@ class PCHESizingOpt(BaseComponent):
         # Final evaluation
         self.simulate_HX(best_pos)  # or best_params if simulateHX expects dict
     
+        self.cost_estimation()
+    
         return best_pos  # or return best_params
     
     #%%
     
     def design_parallel(self, n_jobs=-1, backend="loky", chunksize="auto"):
-        # Choose a fixed order for variables
+        # ---- fixed order + bounds ----
         ORDER = ['alpha', 'D_c', 'L_x', 'L_y', 'L_z']
-        
         def bounds_dict_to_arrays(bounds_dict, order=ORDER):
             lb = np.array([bounds_dict[k][0] for k in order], dtype=float)
             ub = np.array([bounds_dict[k][1] for k in order], dtype=float)
             if np.any(lb > ub):
                 raise ValueError("Lower bound > upper bound for at least one variable.")
             return lb, ub
-        
-        lb, ub = bounds_dict_to_arrays(self.bounds)
-        D = lb.size
     
-        def objective_wrapper(X):
-            Xp = [np.clip(xi, lb, ub) for xi in np.asarray(X)]
-            with tqdm_joblib(tqdm(total=len(X), desc="Particles", unit="pt")):
-                costs = Parallel(n_jobs=n_jobs, backend=backend, batch_size=chunksize)(
-                    delayed(self.simulate_HX)(xi) for xi in Xp
-                )
-            return np.asarray(costs, dtype=float)
+        lb, ub = bounds_dict_to_arrays(self.bounds, ORDER)   # <-- pass ORDER
+        D = lb.size
     
         optimizer = ps.single.GlobalBestPSO(
             n_particles=100, dimensions=D,
@@ -285,50 +283,75 @@ class PCHESizingOpt(BaseComponent):
         )
     
         patience, tol = 10, 1e-3
-        max_iter = patience*10
+        max_iter = patience * 10
+
+        # after creating `optimizer`
+        try:
+            n_particles = int(optimizer.swarm.n_particles)
+        except AttributeError:
+            # fallback if API differs
+            n_particles = int(getattr(optimizer, "n_particles", len(optimizer.swarm.position)))
         
+        total_evals = n_particles * int(max_iter)
+        # pbar = tqdm(total=total_evals, desc="Function evaluations", unit="eval")
+    
+        def objective_wrapper(X):
+            Xp = [np.clip(xi, lb, ub) for xi in np.asarray(X)]
+            costs = Parallel(n_jobs=n_jobs, backend=backend, batch_size=chunksize)(
+                delayed(self.simulate_HX)(xi) for xi in Xp
+            )
+            # one update per PSO iteration
+            pbar.update(len(Xp))
+            return np.asarray(costs, dtype=float)
+    
         no_improve, best_cost = 0, np.inf
-        
+    
+        pbar = tqdm(total=total_evals, unit="eval", dynamic_ncols=True)
+
         for i in range(max_iter):
             optimizer.optimize(objective_wrapper, iters=1, verbose=False)
             curr = optimizer.swarm.best_cost
+        
+            pbar.clear()   # remove previous bar
+            pbar.set_description(f"Iter {i+1} | Best: {curr:.3f}")
+            pbar.refresh()
+        
             if curr < best_cost - tol:
-                best_cost, no_improve = curr, 0
+                best_cost = curr
+                no_improve = 0
             else:
                 no_improve += 1
-            print(f"[{i+1}] Best cost: {best_cost:.6f}")
-            if no_improve >= patience:
-                print("Stopping early due to stagnation.")
-                break
-    
-        best_pos = optimizer.swarm.best_pos 
-    
-        self.simulate_HX(best_pos)
         
+            if no_improve >= patience:
+                break
+        
+        best_pos = optimizer.swarm.best_pos
+        self.simulate_HX(best_pos)
+        self.cost_estimation()
+    
         self.HX.plot_cells()
         
-        print("\n")
-        print(f"Best Position")
-        print(f"-------------")
-        print(f"alpha : {round(self.params['alpha'],2)} [°]")
-        print(f"D_c : {round(self.params['D_c']*1e3,2)} [mm]") 
-        print(f"L_x : {round(self.params['L_x'],3)} [m]") 
-        print(f"L_y : {round(self.params['L_y'],3)} [m]")
-        print(f"L_z : {round(self.params['L_z'],3)} [m]")
+        if __name__ == "__main__":
+            print("\nBest Position")
+            print("-------------")
+            print(f"alpha : {round(self.params['alpha'],2)} [°]")
+            print(f"D_c : {round(self.params['D_c']*1e3,2)} [mm]")
+            print(f"L_x : {round(self.params['L_x'],3)} [m]")
+            print(f"L_y : {round(self.params['L_y'],3)} [m]")
+            print(f"L_z : {round(self.params['L_z'],3)} [m]")
         
-        print("\n")
-        print(f"Results")
-        print(f"-------------")
-        print(f"A_h : {round(self.HX.A_h,2)} [m^2]")
-        print(f"A_c : {round(self.HX.A_c,2)} [m^2]")
-        print(f"Q_dot : {round(self.HX.Q,1)} [W]") 
-        print(f"DP_c : {round(self.HX.DP_c,1)} [Pa]")
-        print(f"DP_h : {round(self.HX.DP_h,1)} [Pa]")
-        print(f"m_HX : {round(self.m_HX,1)} [kg]")
-        print(f"CAPEX est. : {round(self.CAPEX['Total'],1)} [$ (2025)]")
-
-        return best_pos
+            print("\nResults")
+            print("-------------")
+            print(f"A_h : {round(self.HX.A_h,2)} [m^2]")
+            print(f"A_c : {round(self.HX.A_c,2)} [m^2]")
+            print(f"Q_dot : {round(self.HX.Q,1)} [W]")
+            print(f"DP_c : {round(self.HX.DP_c,1)} [Pa]")
+            print(f"DP_h : {round(self.HX.DP_h,1)} [Pa]")
+            print(f"m_HX : {round(self.m_HX,1)} [kg]")
+            print(f"CAPEX est. : {round(self.CAPEX['Total'],1)} [$ (2025)]")
     
+        return best_pos
+
 #%%
 
 if __name__ == "__main__":

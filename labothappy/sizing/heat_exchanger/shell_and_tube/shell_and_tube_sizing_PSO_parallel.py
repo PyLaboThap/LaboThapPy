@@ -74,6 +74,7 @@ import pandas as pd
 import random
 import numpy as np
 import copy
+import sys
 
 # Ignore convergence warnings
 import warnings
@@ -710,7 +711,6 @@ class ShellAndTubeSizingOpt(BaseComponent):
                 delayed(self._eval_particle_pure)(particles[i], objective_function, penalty_factor)
                 for i in misses
             )
-            
             for idx, out in zip(misses, outs):
                 results[idx] = out
     
@@ -718,7 +718,9 @@ class ShellAndTubeSizingOpt(BaseComponent):
         for i, p in enumerate(particles):
             self._apply_eval(p, results[i])
     
-        return results
+        # NEW: return number of new evaluations so we can display it
+        return results, len(misses)
+
 
     def cost_estimation(self):
         """
@@ -757,123 +759,91 @@ class ShellAndTubeSizingOpt(BaseComponent):
 
     #%%
 
+
+    
     def particle_swarm_optimization(self, objective_function, bounds, num_particles=30, num_dimensions=2, max_iterations=50, 
-                                inertia_weight=0.4, cognitive_constant=1.5, social_constant=1.5, constraints = None,
+                                inertia_weight=0.4, cognitive_constant=1.5, social_constant=1.5, constraints=None,
                                 penalty_factor=1000):
-        """
-        Perform Particle Swarm Optimization (PSO) to minimize the given objective function with constraints.
-        
-        Parameters:
-        - objective_function: Function to be minimized. Should take a particle position (array-like) as input.
-        - bounds: List of tuples specifying (min, max) for each dimension.
-        - num_particles: Number of particles in the swarm (default 30).
-        - num_dimensions: Number of dimensions of the search space (default 2).
-        - max_iterations: Maximum number of iterations (default 100).
-        - inertia_weight: Inertia weight to balance exploration and exploitation (default 0.7).
-        - cognitive_constant: Constant to control personal best influence (default 1.5).
-        - social_constant: Constant to control global best influence (default 1.5).
-        - discrete_indices: List of indices of variables that should be discrete.
-        - discrete_values: Dictionary specifying allowed discrete values for each index.
-        - constraints: List of constraint functions. Each should return a value, where negative or zero indicates that the constraint is satisfied.
-        - penalty_factor: Factor to penalize constraint violations (default 1000).
-        
-        Returns:
-        - global_best_position: Position of the best solution found.
-        - global_best_score: Value of the objective function at the best solution.
-        """
 
-        # Initialize particle positions
-
-        self.particles = [self.Particle(params = self.params, su_S = self.su_S, ex_S = self.ex_S, su_T = self.su_T, ex_T = self.ex_T, choice_vectors = self.choice_vectors, 
-                                        P_max_cycle = self.P_max_cycle, T_max_cycle = self.T_max_cycle, H_htc_Corr=self.H_htc_Corr, C_htc_Corr = self.C_htc_Corr,
-                                        H_DP_Corr = self.H_DP_Corr, C_DP_Corr = self.C_DP_Corr) for _ in range(num_particles*3)]
-
+        # --- initialization (unchanged) ---
+        self.particles = [self.Particle(params=self.params, su_S=self.su_S, ex_S=self.ex_S,
+                                        su_T=self.su_T, ex_T=self.ex_T, choice_vectors=self.choice_vectors,
+                                        P_max_cycle=self.P_max_cycle, T_max_cycle=self.T_max_cycle,
+                                        H_htc_Corr=self.H_htc_Corr, C_htc_Corr=self.C_htc_Corr,
+                                        H_DP_Corr=self.H_DP_Corr, C_DP_Corr=self.C_DP_Corr)
+                          for _ in range(num_particles*3)]
+    
         self.all_scores = np.zeros((num_particles, max_iterations+1))
-
-        self.particles_all_pos = {}
-
-        for opt_var in self.opt_vars:
-            self.particles_all_pos[opt_var] = np.zeros((num_particles + 1, max_iterations))
-
-        # Initialize particle positions & velocities
+        self.particles_all_pos = {opt_var: np.zeros((num_particles + 1, max_iterations)) for opt_var in self.opt_vars}
+    
         for p in self.particles:
             self.init_particle(p)
-
-        self.evaluate_population_parallel(self.particles, objective_function, penalty_factor, desc="init")
-                
-        # Get scores for sorting
+    
+        # initial evaluation
+        _, n_new = self.evaluate_population_parallel(self.particles, objective_function, penalty_factor, desc="init")
+    
         particle_scores = np.array([particle.personnal_best_score for particle in self.particles])
-        
-        # Get indices of 50 best particles (sorted in ascending order)
         best_particle_indices = np.argsort(particle_scores)[:num_particles]
-        
-        # Keep only the top 50 particles
         self.particles = [self.particles[i] for i in best_particle_indices]
-        
-        # Update personal best positions and scores accordingly
+    
         self.personal_best_positions = np.array([self.particles[i].personnal_best_position for i in range(len(self.particles))])
         self.personal_best_scores = np.array([self.particles[i].personnal_best_score for i in range(len(self.particles))])
-
+    
         for i in range(len(self.particles)):
-            self.all_scores[i][0] = self.personal_best_scores[i]       
-
+            self.all_scores[i][0] = self.personal_best_scores[i]
+    
         self.global_best_score = min(self.personal_best_scores)
         self.best_particle = self.clone_Particle(self.particles[np.argmin(self.personal_best_scores)])
         self.global_best_position = self.best_particle.position
-        self.global_best_Q = self.best_particle.Q
+        self.global_best_Q  = self.best_particle.Q
         self.global_best_DP_h = self.best_particle.DP_h
-        self.global_best_DP_c = self.best_particle.DP_c     
-
+        self.global_best_DP_c = self.best_particle.DP_c
         self.best_particle.compute_geom(self.inputs)
-
-        # Initialize velocities and positions as dictionaries
+    
         cognitive_velocity = {}
         social_velocity = {}
-
-        # PSO loop
+    
+        # --- ONE progress bar only ---
+        pbar = tqdm(
+            total=max_iterations,
+            desc="PSO",
+            unit="iter",
+            dynamic_ncols=True,
+            leave=False,              # bar disappears after close()
+            file=sys.stdout,
+            mininterval=0.1
+        )
+    
+        total_new_evals = 0
+    
         for iteration in range(max_iterations):
-
-            # print("==============================")
-            # print(f"Iteration {iteration + 1}")
-
             for i in range(num_particles):
-
+    
                 flag = self.particles[i].check_reinit()
                 if flag:
-                    # print("Particle Reinitialized")
                     self.init_particle(self.particles[i])
-
+    
                 for opt_var in self.opt_vars:
                     self.particles_all_pos[opt_var][i][iteration] = self.particles[i].position[opt_var]
                     if iteration > 1:
-                        pos = round(self.particles_all_pos[opt_var][i][iteration],2)
-                        pos_previous = round(self.particles_all_pos[opt_var][i][iteration-1],2)
-                        
-                        if opt_var == 'L_shell' or opt_var == 'Central_spac':
-                            if abs(pos - pos_previous) < 0.3:
-                                self.particles[i].unmoved[opt_var] += 1
-                            else:
-                                self.particles[i].unmoved[opt_var] = 0
+                        pos = round(self.particles_all_pos[opt_var][i][iteration], 2)
+                        pos_prev = round(self.particles_all_pos[opt_var][i][iteration-1], 2)
+                        if opt_var in ('L_shell', 'Central_spac'):
+                            self.particles[i].unmoved[opt_var] = (self.particles[i].unmoved[opt_var] + 1) if abs(pos - pos_prev) < 0.3 else 0
                         else:
-                            if abs(pos - pos_previous) < 0.03:
-                                self.particles[i].unmoved[opt_var] += 1
-                            else:
-                                self.particles[i].unmoved[opt_var] = 0                            
-
-                    # Extract the positions from dictionaries
+                            self.particles[i].unmoved[opt_var] = (self.particles[i].unmoved[opt_var] + 1) if abs(pos - pos_prev) < 0.03 else 0
+    
                     personal_best_position_val = self.particles[i].personnal_best_position[opt_var]
                     current_position_val = self.particles[i].position[opt_var]
                     global_best_position_val = self.global_best_position[opt_var]
-
+    
                     self.particles_all_pos[opt_var][-1][iteration] = global_best_position_val
     
-                    u1 = self.rng.random()
-                    u2 = self.rng.random()
-                    
+                    u1 = self.rng.random(); u2 = self.rng.random()
+    
                     if opt_var in self.choice_vectors.keys():
                         scale = self.choice_vectors[opt_var][0]
-                        r1 = u1 * scale
-                        r2 = u2 * scale
+                        r1 = u1 * scale; r2 = u2 * scale
                     elif opt_var in self.bounds.keys():
                         if opt_var == 'L_shell':
                             scale = self.bounds[opt_var][0] * 5
@@ -881,149 +851,123 @@ class ShellAndTubeSizingOpt(BaseComponent):
                             scale = self.bounds[opt_var][0] / 5
                         else:
                             scale = self.bounds[opt_var][0] * 3
-                        
-                        r1 = u1 * scale
-                        r2 = u2 * scale
+                        r1 = u1 * scale; r2 = u2 * scale
     
-                    cognitive_fact = cognitive_constant
-                    social_fact = social_constant
-
-                    cognitive_velocity[opt_var] = cognitive_fact * r1 * (personal_best_position_val - current_position_val)
-                    social_velocity[opt_var] = social_fact * r2 * (global_best_position_val - current_position_val)
-                    
-                    # if L_flag == 1:
-                    # Update velocity with inertia term
-                    self.particles[i].velocity[opt_var] = (inertia_weight * self.particles[i].velocity[opt_var] + cognitive_velocity[opt_var] + social_velocity[opt_var])
-
-                    # Update the position of the particle
-                    self.particles[i].position[opt_var] += round(self.particles[i].velocity[opt_var],3)
-                    
-                        
+                    cognitive_velocity[opt_var] = cognitive_constant * r1 * (personal_best_position_val - current_position_val)
+                    social_velocity[opt_var]    = social_constant    * r2 * (global_best_position_val - current_position_val)
+    
+                    self.particles[i].velocity[opt_var] = (
+                        inertia_weight * self.particles[i].velocity[opt_var] +
+                        cognitive_velocity[opt_var] + social_velocity[opt_var]
+                    )
+                    self.particles[i].position[opt_var] += round(self.particles[i].velocity[opt_var], 3)
+    
                     if opt_var == 'Central_spac':
-                        low_bound_central_spac = (self.particles[i].position['Shell_ID_inch']/5)*25.4*1e-3 # [m]
-                        high_bound_central_spac = (74*self.particles[i].position['D_o_inch']**(0.75))*25.4*1e-3 # [m]
-                        
-                        L_shell_divisors = find_divisors_between_bounds(self.particles[i].position['L_shell'],low_bound_central_spac,high_bound_central_spac)
-
-                        if len(L_shell_divisors) == 0:
-                            self.particles[i].position[opt_var] = round(low_bound_central_spac,2)
+                        low_bound_central_spac = (self.particles[i].position['Shell_ID_inch']/5)*25.4*1e-3
+                        high_bound_central_spac = (74*self.particles[i].position['D_o_inch']**0.75)*25.4*1e-3
+                        L_shell_divs = find_divisors_between_bounds(self.particles[i].position['L_shell'],
+                                                                    low_bound_central_spac, high_bound_central_spac)
+                        if len(L_shell_divs) == 0:
+                            self.particles[i].position[opt_var] = round(low_bound_central_spac, 2)
                         else:
-                            self.particles[i].position[opt_var] = min(L_shell_divisors, key=lambda x: abs(x - self.particles[i].position[opt_var]))
-                        
-                    # Handle discrete variables if needed (apply rounding or snapping to discrete values)
+                            self.particles[i].position[opt_var] = min(L_shell_divs, key=lambda x: abs(x - self.particles[i].position[opt_var]))
+    
+                    # snap discrete variables
                     if self.choice_vectors and opt_var in self.choice_vectors.keys():
-
-                        if isinstance(self.choice_vectors[opt_var][0],str):
-                            allowed_values = pd.to_numeric(self.choice_vectors[opt_var])
-                            new_position_value = min(allowed_values, key=lambda x: abs(x - pd.to_numeric(self.particles[i].position[opt_var])))
-                            self.particles[i].position[opt_var] = str(new_position_value)
-                        else: 
-                            allowed_values = self.choice_vectors[opt_var]
-                            new_position_value = min(allowed_values, key=lambda x: abs(x - self.particles[i].position[opt_var]))
-                            self.particles[i].position[opt_var] = new_position_value
-
+                        if isinstance(self.choice_vectors[opt_var][0], str):
+                            allowed = pd.to_numeric(self.choice_vectors[opt_var])
+                            new_val = min(allowed, key=lambda x: abs(x - pd.to_numeric(self.particles[i].position[opt_var])))
+                            self.particles[i].position[opt_var] = str(new_val)
+                        else:
+                            allowed = self.choice_vectors[opt_var]
+                            new_val = min(allowed, key=lambda x: abs(x - self.particles[i].position[opt_var]))
+                            self.particles[i].position[opt_var] = new_val
+    
                 bound_flag = 0
-
-                # Enforce boundary conditions and handle discrete variables
                 for bound_key in self.bounds:
-                    
                     if bound_key == 'L_shell':
-                        low_bound_L_shell = max(self.bounds['L_shell'][0], self.particles[i].position['Shell_ID_inch']*25.4*1e-3*3)
-                        high_bound_L_shell = min(self.bounds['L_shell'][-1], self.particles[i].position['Shell_ID_inch']*25.4*1e-3*15)
-                    
-                        if self.particles[i].position[bound_key] < low_bound_L_shell:
-                            self.particles[i].position[bound_key] = low_bound_L_shell
-                            if low_bound_L_shell == self.particles[i].position['Shell_ID_inch']*25.4*1e-3*3:
+                        lowL = max(self.bounds['L_shell'][0], self.particles[i].position['Shell_ID_inch']*25.4*1e-3*3)
+                        highL = min(self.bounds['L_shell'][-1], self.particles[i].position['Shell_ID_inch']*25.4*1e-3*15)
+                        if self.particles[i].position[bound_key] < lowL:
+                            self.particles[i].position[bound_key] = lowL
+                            if lowL == self.particles[i].position['Shell_ID_inch']*25.4*1e-3*3:
                                 index = np.where(np.array(self.choice_vectors['Shell_ID_inch']) == self.particles[i].position['Shell_ID_inch'])[0]
                                 self.particles[i].position['Shell_ID_inch'] = self.choice_vectors['Shell_ID_inch'][int(index-1)]
-                                self.particles[i].velocity[bound_key] = -0.5*self.particles[i].velocity[bound_key]
-                            else:
-                                self.particles[i].velocity[bound_key] = -0.5*self.particles[i].velocity[bound_key]
-                                
-                            bound_flag = 1
-                            
-                        if self.particles[i].position[bound_key] > high_bound_L_shell:
-                            self.particles[i].position[bound_key] = high_bound_L_shell
-                            self.particles[i].velocity[bound_key] = -0.5*self.particles[i].velocity[bound_key]
-                            bound_flag = 1
-                    
+                            self.particles[i].velocity[bound_key] *= -0.5; bound_flag = 1
+                        if self.particles[i].position[bound_key] > highL:
+                            self.particles[i].position[bound_key] = highL
+                            self.particles[i].velocity[bound_key] *= -0.5; bound_flag = 1
                     else:
-                        # Bound constraints
                         if self.particles[i].position[bound_key] < self.bounds[bound_key][0]:
                             self.particles[i].position[bound_key] = self.bounds[bound_key][0]
-                            self.particles[i].velocity[bound_key] = -0.5*self.particles[i].velocity[bound_key] #self.particles[i].velocity[bound_key]
-                            bound_flag = 1
-    
+                            self.particles[i].velocity[bound_key] *= -0.5; bound_flag = 1
                         if self.particles[i].position[bound_key] > self.bounds[bound_key][1]:
                             self.particles[i].position[bound_key] = self.bounds[bound_key][1]
-                            self.particles[i].velocity[bound_key] = -0.5*self.particles[i].velocity[bound_key] # self.particles[i].velocity[bound_key]
-                            bound_flag = 1
-
-                # Evaluate the new position with penalty for constraint violation
-                
-                # self.particles[i].compute_geom()
-                
+                            self.particles[i].velocity[bound_key] *= -0.5; bound_flag = 1
+    
+            # mark bound violations (penalize after eval)
             if bound_flag == 1:
-                # mark this particle for penalty after evaluation
                 self.particles[i].bound_violated = True
             else:
                 self.particles[i].bound_violated = False
-            
-            self.evaluate_population_parallel(self.particles[:num_particles],
-                                  objective_function, penalty_factor,
-                                  desc=f"it{iteration+1}")
+    
+            # evaluate this iteration
+            (_, n_new) = self.evaluate_population_parallel(
+                self.particles[:num_particles],
+                objective_function, penalty_factor, desc=f"it{iteration+1}"
+            )
+            total_new_evals += n_new
 
-            # Apply penalty to out-of-bounds particles
             for p in self.particles[:num_particles]:
                 if getattr(p, "bound_violated", False):
                     p.score += 1e6
                     p.personnal_best_score = min(p.personnal_best_score, p.score)
-
+    
             for i in range(num_particles):
                 self.all_scores[i][iteration + 1] = self.particles[i].score
-
+    
             self.personal_best_positions = np.array([self.particles[i].personnal_best_position for i in range(len(self.particles))])
             self.personal_best_scores = np.array([self.particles[i].personnal_best_score for i in range(len(self.particles))])
-
-            new_pot_global_best_score = min(self.personal_best_scores)
-
-            new_pot_global_best_score = min(self.personal_best_scores)
-
-            # check if we have a meaningful global improvement
-            if (self.global_best_score is None) or \
-               ((self.global_best_score - new_pot_global_best_score) > self.global_min_delta):
-                # update global best
-                self.global_best_score = new_pot_global_best_score
+    
+            new_best = min(self.personal_best_scores)
+    
+            if (self.global_best_score is None) or ((self.global_best_score - new_best) > self.global_min_delta):
+                self.global_best_score = new_best
                 self.best_particle = self.clone_Particle(self.particles[np.argmin(self.personal_best_scores)])
                 self.global_best_position = self.best_particle.position
                 self.global_best_Q  = self.best_particle.Q
                 self.global_best_DP_h = self.best_particle.DP_h
                 self.global_best_DP_c = self.best_particle.DP_c
                 self.best_particle.compute_geom(self.inputs)
-            
-                # reset global patience counter
                 self._global_no_improve = 0
             else:
-                # no meaningful improvement this iteration
                 self._global_no_improve += 1
-            
-            # --- GLOBAL PATIENCE TRIGGER ---
-            if self._global_no_improve >= self.global_patience_iter:
-                print("===========================")
-                print(f"[PSO] Early stop at iteration {iteration+1}: "
-                      f"no global improvement > {self.global_min_delta} for "
-                      f"{self.global_patience_iter} iterations.")
-                break
-
-            # Optionally, print progress
-            print("===========================")
-            print(f"Iteration {iteration+1}/{max_iterations}, Global Best Score: {self.global_best_score}, Related Q: {self.global_best_Q}")
-            print(f"Related DP_h: {self.global_best_DP_h}, Related DP_c: {self.global_best_DP_c}")
-            print(f"Best Position : {self.global_best_position}")
-            print(f"Best Part Velocity : {self.best_particle.velocity}")
-            
-        return self.global_best_position, self.global_best_score, self.best_particle
     
+            # ---- update the single bar IN-PLACE (no prints) ----
+            pbar.update(1)
+            pbar.set_description(f"PSO {iteration+1}/{max_iterations}")
+            pbar.set_postfix(
+                best=f"{self.global_best_score:.3f}",
+                Q=f"{self.global_best_Q:.1f}",
+                DP_h=f"{self.global_best_DP_h:.0f}",
+                DP_c=f"{self.global_best_DP_c:.0f}",
+                new=n_new,
+                total=total_new_evals
+            )
+    
+            # early stop -> finish bar cleanly (no extra bars)
+            if self._global_no_improve >= self.global_patience_iter:
+                tqdm.write(
+                    f"[PSO] Early stop at iteration {iteration+1}: "
+                    f"no improvement > {self.global_min_delta} for "
+                    f"{self.global_patience_iter} iterations."
+                )
+                break
+    
+        pbar.close()  # <- only once
+    
+        return self.global_best_position, self.global_best_score, self.best_particle
+
     def opt_size(self):
         
         import numexpr as ne

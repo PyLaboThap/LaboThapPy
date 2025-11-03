@@ -29,7 +29,7 @@
     "2022": 116.82,
     "2023": 123.15,
     "2024": 126.07,
-    "2025": 128.49
+    "2025": 128.62
   },
   "USD": {
     "1990": 103.43,
@@ -67,21 +67,21 @@
     "2022": 138.01,
     "2023": 142.34,
     "2024": 151.95,
-    "2025": 156.33
+    "2025": 156.27
   },
   "meta": {
     "base": "2015=100",
-    "eur_latest_month": "2025-09",
+    "eur_latest_month": "2025-10",
     "eur_source": "ECB: ICP.M.U2.N.000000.4.INX (monthly -> annual avg)",
     "include_partial_latest": true,
-    "last_checked_utc": "2025-10-27T14:29:48Z",
-    "last_update_date": "27/10/2025",
-    "last_updated_utc": "2025-10-27T14:29:48Z",
+    "last_checked_utc": "2025-11-03T08:45:14Z",
+    "last_update_date": "03/11/2025",
+    "last_updated_utc": "2025-11-03T08:45:14Z",
     "range": {
       "end": 2025,
       "start": 1990
     },
     "usd_latest_month": "2024-12",
-    "usd_source": "World Bank: FP.CPI.TOTL (rebased to 2015=100)"
+    "usd_source": "OECD: USA.CPALTT01.IXOB.M (monthly -> annual avg, 2015=100)"
   }
 }
