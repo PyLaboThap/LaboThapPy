@@ -78,7 +78,7 @@ class PT_Collector_Geom(object):
             self.refl_m = 0.91 # [-] : Mirror reflectivity
             self.epsilon_r = 0.23 # [-] : Receiver emittance @ 400°C
             self.envel_tau = 0.95 # [-] : Enveloppe transmitivity
-            self.eta_opt = 0.89 # [-] : Overall Optical Efficiency
+            self.eta_other = 0.89 # [-] : Overall Optical Efficiency
 
             # Operational limits
             self.Vdot_min = 22.7/(60*1000) # [m^3/s] : minimum recommended flowrate
