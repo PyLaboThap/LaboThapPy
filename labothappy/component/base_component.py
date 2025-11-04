@@ -149,6 +149,11 @@ class BaseComponent:
 
             # Q_amb connector inputs
             'T_amb':     lambda val: self.Q_amb.set_T_cold(val),
+            
+            # Solar
+            'DNI':       lambda val:val,
+            'Theta':     lambda val:val,
+            'v_wind':    lambda val:val,
         }
 
         unknown_keys = []  # To collect any keys that do not match the input methods
@@ -214,6 +219,11 @@ class BaseComponent:
 
             # Q_amb connector
             'T_amb':     lambda: self.Q_amb.T_cold if hasattr(self,'Q_amb') else None,
+            
+            # Solar
+            'DNI':       lambda: self.DNI if hasattr(self,'DNI') else None,
+            'Theta':     lambda: self.Theta if hasattr(self,'Theta') else None,
+            'v_wind':    lambda: self.v_wind if hasattr(self,'v_wind') else None,
         }
 
         self.inputs = getattr(self,'inputs',{})
