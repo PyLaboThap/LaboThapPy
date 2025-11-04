@@ -17,9 +17,14 @@ from pyswarms.single import GlobalBestPSO
 from tqdm import tqdm
 from joblib import Parallel, delayed
 
+import warnings
+warnings.filterwarnings('ignore')
+
 #%% Define parallel system evaluation outside the class
 
 def system_RC_parallel(x, input_data):
+    warnings.filterwarnings('ignore')
+
     fluid = input_data['fluid']
     params = input_data['params']
     obj = input_data['obj']
@@ -153,20 +158,25 @@ class CO2RCOptimizer:
         tol = 1e-3
         max_iter = 30
     
-        for i in tqdm(range(max_iter), desc="Optimizing", ncols=80):
+        pbar = tqdm(total=max_iter, desc="Optimizing", ncols=80)
+        for i in range(max_iter):
             self.optimizer.optimize(objective_wrapper, iters=1, verbose=False)
             current_best = self.optimizer.swarm.best_cost
-    
+        
             if current_best < best_cost - tol:
                 best_cost = current_best
                 no_improve_counter = 0
             else:
                 no_improve_counter += 1
-    
-            print(f"[{i+1:03}] Best cost: {best_cost:.6f}")
+        
+            pbar.set_postfix(best_cost=f"{best_cost:.6f}")
+            pbar.update(1)
+        
             if no_improve_counter >= patience:
-                print("Stopping early due to stagnation.")
+                pbar.set_description("Stopped (no improvement)")
                 break
+        
+        pbar.close()
     
         # Recompute system with best parameters
         best_P_high, best_m_dot, best_m_dot_HS_fact = self.optimizer.swarm.best_pos

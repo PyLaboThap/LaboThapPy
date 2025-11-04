@@ -95,7 +95,10 @@ def basic_CO2_TC(HSource, T_cold_source, Pinch_min_GH, Pinch_min_REC, eta_pp, et
     
     return CO2_TC
 
-def REC_CO2_TC(HSource, T_cold_source, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, eta_gh, eta_rec, PP_cd, SC_cd, P_low, P_high, m_dot, mute_print_flag):
+def REC_CO2_TC(HSource, T_cold_source, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, eta_gh, 
+               eta_rec, PP_cd, SC_cd, P_low, P_high, m_dot, DP_h_rec = 0, DP_c_rec = 0, 
+               DP_h_gh = 0, DP_c_gh = 0, DP_h_cond = 0, DP_c_cond = 0 ,mute_print_flag=1):
+    
     CO2_TC = RecursiveCircuit('CO2')
     
     # Create components
@@ -116,13 +119,13 @@ def REC_CO2_TC(HSource, T_cold_source, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_
     #%% Recuperator PARAMETERS
     
     Rec.set_parameters(**{
-        'eta': eta_rec, 'n_disc' : 20, 'Pinch_min' : Pinch_min_REC
+        'eta': eta_rec, 'n_disc' : 20, 'Pinch_min' : Pinch_min_REC, 'DP_h' : DP_h_rec, 'DP_c' : DP_c_rec,
     })    
     
     #%% GASCOOLER PARAMETERS
     
     GasHeater.set_parameters(**{
-        'eta': eta_gh, 'n_disc' : 20, 'Pinch_min' : Pinch_min_GH
+        'eta': eta_gh, 'n_disc' : 20, 'Pinch_min' : Pinch_min_GH, 'DP_h' : DP_h_gh, 'DP_c' : DP_c_gh,
     })
     
     #%% EVAPORATOR PARAMETERS
@@ -135,6 +138,8 @@ def REC_CO2_TC(HSource, T_cold_source, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_
         'Pinch': PP_cd,
         'Delta_T_sh_sc': SC_cd,
         'T_sto' : T_cold_source,
+        'DP_h' : DP_h_cond, 
+        'DP_c' : DP_c_cond,
     })
     
     #%% ADD AND LINK COMPONENTS
@@ -236,7 +241,8 @@ if __name__ == "__main__":
         CSource = MassConnector()
         CSource.set_properties(fluid = 'R22', T = T_cold_source, p = 5e5, m_dot = 1)
         
-        CO2_TC = REC_CO2_TC(HSource, T_cold_source, Pinch_min_GH, Pinch_min_REC, eta_is_pp, eta_is_exp, eta_gh, eta_rec, PPTD_cd, SC_cd, P_low_guess, P_high, m_dot, mute_print_flag = 0)
+        CO2_TC = REC_CO2_TC(HSource, T_cold_source, Pinch_min_GH, Pinch_min_REC, eta_is_pp, eta_is_exp, eta_gh, eta_rec, PPTD_cd, SC_cd, P_low_guess, P_high, m_dot,
+                            DP_h_rec = 1*1e3, DP_c_rec = 1*1e3, DP_h_gh = 1*1e3, DP_c_gh = 1*1e3, DP_h_cond = 0, DP_c_cond = 0 ,mute_print_flag=0)
                 
         CO2_TC.solve()
         

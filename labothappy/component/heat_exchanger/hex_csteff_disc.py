@@ -271,13 +271,13 @@ class HXEffCstDisc(BaseComponent):
         self.ex_C.set_fluid(self.su_C.fluid)
         self.ex_C.set_m_dot(self.su_C.m_dot)
         self.ex_C.set_h(self.su_C.h + self.Q/self.su_C.m_dot)
-        self.ex_C.set_p(self.su_C.p)
+        self.ex_C.set_p(self.p_cold[-1])
         self.ex_C.set_T(PropsSI("T", "H", self.ex_C.h, "P", self.ex_C.p, self.su_C.fluid))
 
         self.ex_H.set_fluid(self.su_H.fluid)
         self.ex_H.set_m_dot(self.su_H.m_dot)
         self.ex_H.set_h(self.su_H.h - self.Q/self.su_H.m_dot)
-        self.ex_H.set_p(self.su_H.p)
+        self.ex_H.set_p(self.p_hot[-1])
         self.ex_H.set_T(PropsSI("T", "H", self.ex_H.h, "P", self.ex_H.p, self.su_H.fluid))
 
         "Heat conector"
