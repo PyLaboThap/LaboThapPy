@@ -7,6 +7,7 @@ Created on Fri May 10 14:31:24 2024
 
 from connector.mass_connector import MassConnector
 from CoolProp.CoolProp import PropsSI
+
 from component.base_component import BaseComponent
 import numpy as np         
             
@@ -115,10 +116,10 @@ class Mixer(BaseComponent):
         
         for i in range(self.n_inlets):
             inlet_num = i + 1 
-            required_inputs.append(f"su_{inlet_num}_p")
-            required_inputs.append(f"su_{inlet_num}_T")
-            required_inputs.append(f"su_{inlet_num}_m_dot")
-            required_inputs.append(f"su_{inlet_num}_fluid")
+            required_inputs.append(f"p_su_{inlet_num}")
+            required_inputs.append(f"T_su_{inlet_num}")
+            required_inputs.append(f"m_dot_su_{inlet_num}")
+            required_inputs.append(f"fluid_su_{inlet_num}")
         
         return required_inputs
     
@@ -131,15 +132,15 @@ class Mixer(BaseComponent):
             inlet_num = i + 1 
             
             if getattr(self, f"su_{inlet_num}").T is not None:
-                self.inputs[f"su_{inlet_num}_T"] = getattr(self, f"su_{inlet_num}").T 
+                self.inputs[f"T_su_{inlet_num}"] = getattr(self, f"su_{inlet_num}").T 
             elif getattr(self, f"su_{inlet_num}").h is not None:
-                self.inputs[f"su_{inlet_num}_h"] = getattr(self, f"su_{inlet_num}").h
+                self.inputs[f"h_su_{inlet_num}"] = getattr(self, f"su_{inlet_num}").h
             if getattr(self, f"su_{inlet_num}").p is not None:
-                self.inputs[f"su_{inlet_num}_p"] = getattr(self, f"su_{inlet_num}").p
+                self.inputs[f"p_su_{inlet_num}"] = getattr(self, f"su_{inlet_num}").p
             if getattr(self, f"su_{inlet_num}").fluid is not None:
-                self.inputs[f"su_{inlet_num}_fluid"] = getattr(self, f"su_{inlet_num}").fluid
+                self.inputs[f"fluid_su_{inlet_num}"] = getattr(self, f"su_{inlet_num}").fluid
             if getattr(self, f"su_{inlet_num}").m_dot is not None:
-                self.inputs[f"su_{inlet_num}_m_dot"] = getattr(self, f"su_{inlet_num}").m_dot
+                self.inputs[f"m_dot_su_{inlet_num}"] = getattr(self, f"su_{inlet_num}").m_dot
 
     def set_inputs(self, **kwargs):
         """Set inputs directly through a dictionary and update connector properties."""
@@ -150,16 +151,16 @@ class Mixer(BaseComponent):
             inlet_num = i + 1 
             connector = getattr(self, f"su_{inlet_num}")
             # Update the connectors based on the new inputs
-            if f"su_{inlet_num}_fluid" in self.inputs:   
-                connector.set_fluid(self.inputs[f"su_{inlet_num}_fluid"])
-            if f"su_{inlet_num}_T" in self.inputs:
-                connector.set_T(self.inputs[f"su_{inlet_num}_T"])
-            elif f"su_{inlet_num}_h" in self.inputs:
-                connector.set_h(self.inputs[f"su_{inlet_num}_h"])
-            if f"su_{inlet_num}_p" in self.inputs:
-                connector.set_p(self.inputs[f"su_{inlet_num}_p"])
-            if f"su_{inlet_num}_m_dot" in self.inputs:
-                connector.set_m_dot(self.inputs[f"su_{inlet_num}_m_dot"])
+            if f"fluid_su_{inlet_num}" in self.inputs:   
+                connector.set_fluid(self.inputs[f"fluid_su_{inlet_num}"])
+            if f"T_su_{inlet_num}" in self.inputs:
+                connector.set_T(self.inputs[f"T_su_{inlet_num}"])
+            elif f"h_su_{inlet_num}" in self.inputs:
+                connector.set_h(self.inputs[f"h_su_{inlet_num}"])
+            if f"p_su_{inlet_num}" in self.inputs:
+                connector.set_p(self.inputs[f"p_su_{inlet_num}"])
+            if f"m_dot_su_{inlet_num}" in self.inputs:
+                connector.set_m_dot(self.inputs[f"m_dot_su_{inlet_num}"])
 
     def get_required_parameters(self):
         
@@ -226,7 +227,8 @@ class Mixer(BaseComponent):
                 
         self.check_calculable()
         self.check_parametrized()
-                
+                        
+        
         if not self.calculable:
             print("Component not calculable, check input")
             
@@ -247,13 +249,19 @@ class Mixer(BaseComponent):
             m_dot[i] = connector.m_dot
             fluids.append(connector.fluid)
             
-            if connector.h is not None:
-                mean_h += connector.h * connector.m_dot
-            elif connector.T is not None and connector.p is not None:
-                h = PropsSI('H', 'T', connector.T, 'P', connector.p, connector.fluid)
-                mean_h += h * connector.m_dot
-            else:
-                raise ValueError(f"Missing enthalpy or temperature/pressure for inlet {inlet_num}")
+            # if connector.h is not None:
+            #     mean_h += connector.h * connector.m_dot
+            # elif connector.T is not None and connector.p is not None:
+            #     h = PropsSI('H', 'T', connector.T, 'P', connector.p, connector.fluid)
+            #     mean_h += h * connector.m_dot
+            # else:
+            #     raise ValueError(f"Missing enthalpy or temperature/pressure for inlet {inlet_num}")
+            
+            if connector.h is None:
+                raise ValueError(f"Missing enthalpy for inlet {inlet_num}")
+            mean_h += connector.h * connector.m_dot
+
+
                 
         # Final enthalpy and pressure computation
         mean_h = mean_h/(sum(m_dot))

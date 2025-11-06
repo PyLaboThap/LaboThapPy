@@ -7,9 +7,7 @@ import numpy as np
 
 "Evaporator test"
 
-# -------------------------------------------------------------------------------------------------------------
-
-# Exo ORC M&S
+# # Exo ORC M&S
 # EVAP = HXPinchCst()
 
 # EVAP.set_inputs(
@@ -27,7 +25,7 @@ import numpy as np
 # EVAP.set_parameters(**{
 #     'Pinch': 4,
 #     'Delta_T_sh_sc': 10,
-#     'type_HX': 'evaporator'
+#     'HX_type': 'evaporator'
 # })
 
 # EVAP.solve()
@@ -35,56 +33,48 @@ import numpy as np
 # EVAP.print_states_connectors()
 # EVAP.plot_disc()
 
-# -------------------------------------------------------------------------------------------------------------
-
-"Condenser test"
-
-# COND = HXPinchCst()
-
-# COND.set_inputs(
-#     fluid_H = 'Cyclopentane',
-#     T_su_H = 41.2+273.15,
-#     P_su_H = 68.3*1e3,
-#     m_dot_H = 46.18,
-    
-#     fluid_C = 'Air',
-#     T_su_C = 20+273.15,
-#     P_su_C = 1e5,
-#     m_dot_C = 1911
-# )
-
-# COND.set_parameters(**{
-#     'Pinch': 5,
-#     'Delta_T_sh_sc': 5,
-#     'type_HX': 'condenser'
-# })
-
-# -------------------------------------------------------------------------------------------------------------
+# "Condenser test"
 
 COND = HXPinchCst()
 
 COND.set_inputs(
-    fluid_H = 'Water',
-    T_su_H = 130+273.15,
-    P_su_H = 5*1e5,
-    m_dot_H = 0.16,
+    fluid_H = 'Cyclopentane',
+    T_su_H = 41.2+273.15,
+    P_su_H = 68.3*1e3,
+    m_dot_H = 46.18,
     
-    fluid_C = 'Water',
-    T_su_C = 90+273.15,
-    P_su_C = 100e5,
-    m_dot_C = 1000
-    
+    fluid_C = 'Air',
+    T_su_C = 20+273.15,
+    P_su_C = 1e5,
+    m_dot_C = 1911
 )
+
+COND.set_parameters(**{
+    'Pinch': 5,
+    'Delta_T_sh_sc': 5,
+    'HX_type': 'condenser'
+})
+
+# COND = HXPinchCst()
+
+# COND.set_inputs(
+#     fluid_H = 'Water',
+#     T_su_H = 130+273.15,
+#     P_su_H = 5*1e5,
+#     m_dot_H = 0.16,
+    
+#     fluid_C = 'Water',
+#     T_su_C = 90+273.15,
+#     P_su_C = 100e5,
+#     m_dot_C = 1000
+    
+# )
 
 COND.set_parameters(**{
     'Pinch': 10,
     'Delta_T_sh_sc': 10,
-    'type_HX': 'condenser',
-    'DP_c': 10*1e3,
-    'DP_h': 10*1e3
+    'HX_type': 'condenser'
 })
-
-# -------------------------------------------------------------------------------------------------------------
 
 COND.solve()
 COND.print_results()

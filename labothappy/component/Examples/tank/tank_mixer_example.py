@@ -16,15 +16,15 @@ from CoolProp.CoolProp import PropsSI
 Mixer = Mixer(n_inlets = 2)
  
 Mixer.set_inputs(
-    su_1_T = 50 + 273.15, # K
-    su_1_p = 2*1e5, # Pa
-    su_1_m_dot = 1, # kg/s
-    su_1_fluid = 'Water',
+    T_su_1 = 50 + 273.15, # K
+    p_su_1 = 2*1e5, # Pa
+    m_dot_su_1 = 1, # kg/s
+    fluid_su_1 = 'Water',
     
-    su_2_T = 100 + 273.15, # K
-    su_2_p = 2*1e5, # Pa
-    su_2_m_dot = 1, # kg/s
-    su_2_fluid = 'Water'
+    T_su_2 = 100 + 273.15, # K
+    p_su_2 = 2*1e5, # Pa
+    m_dot_su_2 = 1, # kg/s
+    fluid_su_2 = 'Water'
     )
 
 "--------- 2) Solve ------------------------------------------------------------------------------------------"

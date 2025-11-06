@@ -8,16 +8,16 @@ HX = HXeNTU()
 
 HX.set_inputs(
     # First fluid
-    Hsu_fluid = 'Cyclopentane',
-    Hsu_T = 205 + 273.15, # K
-    Hsu_p = 1*1e5, # Pa
-    Hsu_m_dot = 0.014, # kg/s
+    fluid_H = 'Cyclopentane',
+    T_su_H = 205 + 273.15, # K
+    p_su_H = 1*1e5, # Pa
+    m_dot_su_H = 0.014, # kg/s
 
     # Second fluid
-    Csu_fluid = 'Water',
-    Csu_T = 12 + 273.15, # K
-    Csu_p = 4*1e5, # Pa
-    Csu_m_dot = 0.08, # kg/s  # Make sure to include fluid information
+    fluid_C = 'Water',
+    T_su_C = 12 + 273.15, # K
+    p_su_C = 4*1e5, # Pa
+    m_dot_su_C = 0.08, # kg/s  # Make sure to include fluid information
 )
  
 A_htx = 0.752 # m^2

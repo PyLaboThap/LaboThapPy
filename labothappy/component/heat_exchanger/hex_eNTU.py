@@ -15,7 +15,7 @@ from connector.work_connector import WorkConnector
 from connector.heat_connector import HeatConnector
 
 from CoolProp.CoolProp import PropsSI
-
+import CoolProp.CoolProp as CP
 
 class HXeNTU(BaseComponent):
     
@@ -105,52 +105,52 @@ class HXeNTU(BaseComponent):
         if self.inputs == {}:
             # Hot Fluid
             if self.su_hot.T is not None:
-                self.inputs['Hsu_T'] = self.su_hot.T
+                self.inputs['T_su_H'] = self.su_hot.T
             elif self.su_hot.h is not None:
-                self.inputs['Hsu_h'] = self.su_hot.h
+                self.inputs['h_su_H'] = self.su_hot.h
             if self.su_hot.p is not None:
-                self.inputs['Hsu_p'] = self.su_hot.p
+                self.inputs['p_su_H'] = self.su_hot.p
             if self.su_hot.fluid is not None:
-                self.inputs['Hsu_fluid'] = self.su_hot.fluid
+                self.inputs['fluid_H'] = self.su_hot.fluid
             if self.su_hot.m_dot is not None:
-                self.inputs['Hsu_m_dot'] = self.su_hot.m_dot
+                self.inputs['m_dot_su_H'] = self.su_hot.m_dot
                 
             # Cold Fluid                
             if self.su_cold.T is not None:
-                self.inputs['Csu_T'] = self.su_cold.T
+                self.inputs['T_su_C'] = self.su_cold.T
             elif self.su_cold.h is not None:
-                self.inputs['Csu_h'] = self.su_cold.h
+                self.inputs['h_su_C'] = self.su_cold.h
             if self.su_cold.p is not None:
-                self.inputs['Csu_p'] = self.su_cold.p
+                self.inputs['p_su_C'] = self.su_cold.p
             if self.su_cold.fluid is not None:
-                self.inputs['Csu_fluid'] = self.su_cold.fluid
+                self.inputs['fluid_C'] = self.su_cold.fluid
             if self.su_cold.m_dot is not None:
-                self.inputs['Csu_m_dot'] = self.su_cold.m_dot
+                self.inputs['m_dot_su_C'] = self.su_cold.m_dot
                 
         if self.inputs != {}:
             # Hot Fluid
-            self.su_hot.set_fluid(self.inputs['Hsu_fluid'])
-            if 'Hsu_T' in self.inputs:
-                self.su_hot.set_T(self.inputs['Hsu_T'])
-            elif 'Hsu_h' in self.inputs:
-                self.su_hot.set_h(self.inputs['Hsu_h'])
-            if 'Hsu_p' in self.inputs:
-                self.su_hot.set_p(self.inputs['Hsu_p'])
-            if 'Hsu_m_dot' in self.inputs:
-                self.su_hot.set_m_dot(self.inputs['Hsu_m_dot'])
+            self.su_hot.set_fluid(self.inputs['fluid_H'])
+            if 'T_su_H' in self.inputs:
+                self.su_hot.set_T(self.inputs['T_su_H'])
+            elif 'h_su_H' in self.inputs:
+                self.su_hot.set_h(self.inputs['h_su_H'])
+            if 'p_su_H' in self.inputs:
+                self.su_hot.set_p(self.inputs['p_su_H'])
+            if 'm_dot_su_H' in self.inputs:
+                self.su_hot.set_m_dot(self.inputs['m_dot_su_H'])
 
             # Cold Fluid
-            self.su_cold.set_fluid(self.inputs['Csu_fluid'])
-            if 'Csu_T' in self.inputs:
-                self.su_cold.set_T(self.inputs['Csu_T'])
-            elif 'Csu_h' in self.inputs:
-                self.su_cold.set_h(self.inputs['Csu_h'])
-            if 'Csu_p' in self.inputs:
-                self.su_cold.set_p(self.inputs['Csu_p'])
-            if 'Csu_m_dot' in self.inputs:
-                self.su_cold.set_m_dot(self.inputs['Csu_m_dot'])
+            self.su_cold.set_fluid(self.inputs['fluid_C'])
+            if 'T_su_C' in self.inputs:
+                self.su_cold.set_T(self.inputs['T_su_C'])
+            elif 'h_su_C' in self.inputs:
+                self.su_cold.set_h(self.inputs['h_su_C'])
+            if 'p_su_C' in self.inputs:
+                self.su_cold.set_p(self.inputs['p_su_C'])
+            if 'm_dot_su_C' in self.inputs:
+                self.su_cold.set_m_dot(self.inputs['m_dot_su_C'])
 
-        return ['Hsu_p', 'Hsu_T', 'Hsu_m_dot', 'Hsu_fluid', 'Csu_p', 'Csu_T', 'Csu_m_dot', 'Csu_fluid']
+        return ['p_su_H', 'T_su_H', 'm_dot_su_H', 'fluid_H', 'p_su_C', 'T_su_C', 'm_dot_su_C', 'fluid_C']
 
     def get_required_parameters(self):
         """ Returns the list of required parameters to describe the geometry and physical configuration """
@@ -185,15 +185,27 @@ class HXeNTU(BaseComponent):
     def solve(self):
         self.check_calculable()
         self.check_parametrized()
-
+        
+        self.AS_H = CP.AbstractState('HEOS', self.su_hot.fluid)
+        self.AS_C = CP.AbstractState('HEOS', self.su_cold.fluid)
+        
+        
         if self.calculable and self.parametrized:
             
             # Detect Phase change
             # self.detect_phase_change()
             
             # Calcul de C_r
-            cp_h = PropsSI('C', 'H', self.su_hot.h, 'P', self.su_hot.p, self.su_hot.fluid)
-            cp_c = PropsSI('C', 'H', self.su_cold.h, 'P', self.su_cold.p, self.su_cold.fluid)
+            # cp_h = PropsSI('C', 'H', self.su_hot.h, 'P', self.su_hot.p, self.su_hot.fluid)
+            # cp_c = PropsSI('C', 'H', self.su_cold.h, 'P', self.su_cold.p, self.su_cold.fluid)
+            
+            self.AS_H.update(CP.HmassP_INPUTS, self.su_hot.h, self.su_hot.p)
+            cp_h = self.AS_H.cpmass()
+            
+            self.AS_C.update(CP.HmassP_INPUTS, self.su_cold.h, self.su_cold.p)
+            cp_c = self.AS_C.cpmass()
+
+            
             
             C_h = cp_h*self.su_hot.m_dot #Heat capacity rate
             C_c = cp_c*self.su_cold.m_dot
@@ -206,8 +218,20 @@ class HXeNTU(BaseComponent):
             T_w = (self.su_hot.T + self.su_cold.T)/2
             
             # --- Heat transfer coefficient estimation using Gnielinski correlation ---
-            mu_h, Pr_h, k_h = PropsSI(('V','PRANDTL','L'), 'H', self.su_hot.h, 'P', self.su_hot.p, self.su_hot.fluid)
-            mu_c, Pr_c, k_c = PropsSI(('V','PRANDTL','L'), 'H', self.su_cold.h, 'P', self.su_cold.p, self.su_cold.fluid)
+            # mu_h, Pr_h, k_h = PropsSI(('V','PRANDTL','L'), 'H', self.su_hot.h, 'P', self.su_hot.p, self.su_hot.fluid)
+            # mu_c, Pr_c, k_c = PropsSI(('V','PRANDTL','L'), 'H', self.su_cold.h, 'P', self.su_cold.p, self.su_cold.fluid)
+            
+            self.AS_H.update(CP.HmassP_INPUTS, self.su_hot.h, self.su_hot.p)
+            mu_h = self.AS_H.viscosity()
+            Pr_h = self.AS_H.Prandtl()
+            k_h = self.AS_H.conductivity()
+            
+            self.AS_C.update(CP.HmassP_INPUTS, self.su_cold.h, self.su_cold.p)
+            mu_c = self.AS_C.viscosity()
+            Pr_c = self.AS_C.Prandtl()
+            k_c = self.AS_C.conductivity()
+
+
             
             G_h = self.su_hot.m_dot/self.params['A_canal_h']
             G_c = self.su_cold.m_dot/self.params['A_canal_c']
@@ -224,16 +248,44 @@ class HXeNTU(BaseComponent):
 
                         
             # --- Estimate maximum heat transfer Q(ideal case with infinite area) ---
-            h_c_Th = PropsSI('H','T',self.su_hot.T,'P',self.su_cold.p,self.su_cold.fluid)
-            h_h_Tc = PropsSI('H','T',self.su_cold.T,'P',self.su_hot.p,self.su_hot.fluid)
+            # h_c_Th = PropsSI('H','T',self.su_hot.T,'P',self.su_cold.p,self.su_cold.fluid)
+            # h_h_Tc = PropsSI('H','T',self.su_cold.T,'P',self.su_hot.p,self.su_hot.fluid)
             
-            DH_pc_c = PropsSI('H','Q',1,'P',self.su_cold.p,self.su_cold.fluid) - PropsSI('H','Q',0,'P',self.su_cold.p,self.su_cold.fluid)
+            self.AS_C.update(CP.PT_INPUTS, self.su_cold.p, self.su_hot.T)
+            h_c_Th = self.AS_C.hmass()
+            
+            self.AS_H.update(CP.PT_INPUTS, self.su_hot.p, self.su_cold.T)
+            h_h_Tc = self.AS_H.hmass()
+
+            
+            
+            # DH_pc_c = PropsSI('H','Q',1,'P',self.su_cold.p,self.su_cold.fluid) - PropsSI('H','Q',0,'P',self.su_cold.p,self.su_cold.fluid)
+            
+            self.AS_C.update(CP.PQ_INPUTS, self.su_cold.p, 0)
+            h_l_cold = self.AS_C.hmass()
+            
+            self.AS_C.update(CP.PQ_INPUTS, self.su_cold.p, 1)
+            h_v_cold = self.AS_C.hmass()
+            
+            DH_pc_c = h_v_cold - h_l_cold
+
 
             # Special case for incompressibles
             if "INCOMP" not in self.su_hot.fluid:
-                DH_pc_h = PropsSI('H','Q',1,'P',self.su_hot.p,self.su_hot.fluid) - PropsSI('H','Q',0,'P',self.su_hot.p,self.su_hot.fluid)
+                # DH_pc_h = PropsSI('H','Q',1,'P',self.su_hot.p,self.su_hot.fluid) - PropsSI('H','Q',0,'P',self.su_hot.p,self.su_hot.fluid)
+                
+                self.AS_H.update(CP.PQ_INPUTS, self.su_hot.p, 0)
+                h_l_hot = self.AS_H.hmass()
+                
+                self.AS_H.update(CP.PQ_INPUTS, self.su_hot.p, 1)
+                h_v_hot = self.AS_H.hmass()
+                
+                DH_pc_h = h_v_hot - h_l_hot
+
             else:
                 DH_pc_h = 0
+            
+            
             
             Qmax_c = self.su_cold.m_dot*((h_c_Th - self.su_cold.h))
             Qmax_h = self.su_hot.m_dot*((self.su_hot.h - h_h_Tc))
@@ -272,4 +324,3 @@ class HXeNTU(BaseComponent):
 
         else:
             print("Heat Exchanger component is not defined. Ensure it is solved first.")
-
