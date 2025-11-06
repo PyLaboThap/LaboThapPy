@@ -139,7 +139,7 @@ def REC_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, e
     Condenser.set_parameters(**{
         'Pinch': PP_cd,
         'Delta_T_sh_sc': SC_cd,
-        'type_HX': 'condenser',
+        'HX_type': 'condenser',
         'DP_h' : DP_h_cond, 
         'DP_c' : DP_c_cond, 
     })

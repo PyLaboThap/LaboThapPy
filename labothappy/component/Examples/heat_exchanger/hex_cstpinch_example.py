@@ -35,25 +35,25 @@ import numpy as np
 
 # "Condenser test"
 
-COND = HXPinchCst()
+# COND = HXPinchCst()
 
-COND.set_inputs(
-    fluid_H = 'Cyclopentane',
-    T_su_H = 41.2+273.15,
-    P_su_H = 68.3*1e3,
-    m_dot_H = 46.18,
+# COND.set_inputs(
+#     fluid_H = 'Cyclopentane',
+#     T_su_H = 41.2+273.15,
+#     P_su_H = 68.3*1e3,
+#     m_dot_H = 46.18,
     
-    fluid_C = 'Air',
-    T_su_C = 20+273.15,
-    P_su_C = 1e5,
-    m_dot_C = 1911
-)
+#     fluid_C = 'Air',
+#     T_su_C = 20+273.15,
+#     P_su_C = 1e5,
+#     m_dot_C = 1911
+# )
 
-COND.set_parameters(**{
-    'Pinch': 5,
-    'Delta_T_sh_sc': 5,
-    'HX_type': 'condenser'
-})
+# COND.set_parameters(**{
+#     'Pinch': 5,
+#     'Delta_T_sh_sc': 5,
+#     'HX_type': 'condenser'
+# })
 
 # COND = HXPinchCst()
 
@@ -70,11 +70,13 @@ COND.set_parameters(**{
     
 # )
 
-COND.set_parameters(**{
-    'Pinch': 10,
-    'Delta_T_sh_sc': 10,
-    'HX_type': 'condenser'
-})
+# COND.set_parameters(**{
+#     'Pinch': 10,
+#     'Delta_T_sh_sc': 10,
+#     'HX_type': 'condenser',
+#     'DP_c' : 10*1e3,
+#     'DP_h' : 10*1e3
+# })
 
 COND.solve()
 COND.print_results()

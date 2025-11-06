@@ -101,6 +101,9 @@ class HXPinchCst(BaseComponent):
         self.ex_C = MassConnector()
         self.ex_H = MassConnector()
 
+        self.DP_c = 0
+        self.DP_h = 0
+
         self.Q_dot = HeatConnector()
         self.guesses = {}
 
@@ -356,6 +359,12 @@ class HXPinchCst(BaseComponent):
         fluid_H = self.su_H.fluid  # Extract hot fluid name
         self.AS_H = AbstractState("HEOS", fluid_H)  # Create a reusable state object
 
+        if 'DP_h' in self.params:
+            self.DP_h = self.params['DP_h']
+
+        if 'DP_c' in self.params:
+            self.DP_c = self.params['DP_c']
+
         # Determine the type of heat exchanger and set the initial guess for pressure
         if self.params['HX_type'] == 'evaporator':
             guess_T_sat = self.su_H.T - self.params['Pinch'] - self.params['Delta_T_sh_sc']
@@ -412,7 +421,7 @@ class HXPinchCst(BaseComponent):
 
         if self.params['HX_type'] == 'evaporator':
 
-            self.su_C.set_p(self.P_sat)
+            self.su_C.set_p(self.P_sat + self.DP_c)
 
             self.ex_C.set_fluid(self.su_C.fluid)
             self.ex_C.set_T(self.T_C_ex)
@@ -421,6 +430,7 @@ class HXPinchCst(BaseComponent):
 
             self.ex_H.set_fluid(self.su_H.fluid)
             self.ex_H.set_m_dot(self.su_H.m_dot)
+            self.ex_H.set_p(self.su_H.p - self.DP_h)
             self.ex_H.set_T(self.T_H_ex)
             
             "Heat conector"
@@ -428,7 +438,7 @@ class HXPinchCst(BaseComponent):
 
         else: 
 
-            self.su_H.set_p(self.P_sat)
+            self.su_H.set_p(self.P_sat + self.DP_h)
 
             self.ex_H.set_fluid(self.su_H.fluid)
             self.ex_H.set_T(self.T_H_ex)
@@ -437,11 +447,12 @@ class HXPinchCst(BaseComponent):
 
             self.ex_C.set_fluid(self.su_C.fluid)
             self.ex_C.set_m_dot(self.su_C.m_dot)
+            self.ex_C.set_p(self.su_C.p - self.DP_c)
             self.ex_C.set_T(self.T_C_ex)
             
             "Heat conector"
             self.Q_dot.set_Q_dot(self.Q)
-
+            
     def print_results(self):
         print("=== Heat Exchanger Results ===")
         print(f"Q: {self.Q_dot.Q_dot}")
