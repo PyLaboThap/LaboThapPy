@@ -4,7 +4,7 @@ save_data_on_exit = True
 save_history = True
 save_non_project_files = False
 project_type = 'empty-project-type'
-recent_files = ['machine\\optimization\\CO2_RC_Cost_Per_kW.py', 'sizing\\turbomachinery\\turbine\\axial\\design_1D\\mean_line_axial_turbine_loss_model_design_aungier.py']
+recent_files = ['machine\\optimization\\CO2_RC_Cost_Per_kW.py', 'machine\\examples\\CO2_Transcritical_Circuits\\CO2_Transcritical_circuit.py', 'component\\heat_exchanger\\hex_cstpinch.py', 'component\\examples\\heat_exchanger\\hex_cstpinch_example.py', 'machine\\base_circuit.py', 'machine\\circuit_rec.py']
 
 [main]
 version = 0.2.0

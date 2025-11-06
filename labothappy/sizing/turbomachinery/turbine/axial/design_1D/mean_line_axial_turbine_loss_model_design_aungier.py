@@ -115,6 +115,8 @@ class AxialTurbineMeanLineDesign(object):
         self.eta_blade_row = None
         self.allowable_positions = []
         self.W_dot = 0
+        
+        self.CAPEX = {}
 
     def reset(self):
 
@@ -1116,7 +1118,7 @@ class AxialTurbineMeanLineDesign(object):
                 f = 1
         
             W_dot_MW = self.W_dot/1e6
-            self.CAPEX['Total'] = 182600*W_dot_MW**0.5561 * f
+            self.CAPEX['Turbine'] = 182600*W_dot_MW**0.5561 * f
         
         else:
             """
@@ -1165,9 +1167,9 @@ class AxialTurbineMeanLineDesign(object):
         self.CAPEX['Alternator'] = 108900 * W_dot_el_MW**0.5463
         
         self.f_install = 0.35 
-        self.CAPEX['Installation'] = self.f_install*(self.CAPEX_alt + self.CAPEX_turb)
+        self.CAPEX['Installation'] = self.f_install*(self.CAPEX['Alternator'] + self.CAPEX['Turbine'])
         
-        self.CAPEX['Total'] = self.CAPEX_turb + self.CAPEX_alt + self.CAPEX_install
+        self.CAPEX['Total'] = self.CAPEX['Turbine'] + self.CAPEX['Alternator'] + self.CAPEX['Installation']
             
         return
     
@@ -1184,6 +1186,7 @@ class AxialTurbineMeanLineDesign(object):
             self.params['Re_min'] = x[3]
             self.params['Omega'] = self.params['Omega_choices'][np.abs(self.params['Omega_choices'] - x[4]).argmin()]
             self.params['M_1_st'] = x[5]
+            
         else: # Iterate on r_m
             self.psi = x[0]
             self.phi = x[1]

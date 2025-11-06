@@ -10,30 +10,30 @@ import numpy as np
 # -------------------------------------------------------------------------------------------------------------
 
 # Exo ORC M&S
-EVAP = HXPinchCst()
+# EVAP = HXPinchCst()
 
-EVAP.set_inputs(
-    fluid_C = 'Cyclopentane',
-    T_su_C = 130+273.15,
-    P_su_C = 831.8*1e3,
-    m_dot_C = 51.03,
+# EVAP.set_inputs(
+#     fluid_C = 'Cyclopentane',
+#     T_su_C = 130+273.15,
+#     P_su_C = 831.8*1e3,
+#     m_dot_C = 51.03,
 
-    fluid_H = 'Water', #Oil
-    T_su_H = 145+273.15,
-    P_su_H = 5*1e5,
-    m_dot_H = 400,
-)
+#     fluid_H = 'Water', #Oil
+#     T_su_H = 145+273.15,
+#     P_su_H = 5*1e5,
+#     m_dot_H = 400,
+# )
 
-EVAP.set_parameters(**{
-    'Pinch': 4,
-    'Delta_T_sh_sc': 10,
-    'type_HX': 'evaporator'
-})
+# EVAP.set_parameters(**{
+#     'Pinch': 4,
+#     'Delta_T_sh_sc': 10,
+#     'type_HX': 'evaporator'
+# })
 
-EVAP.solve()
-EVAP.print_results()
-EVAP.print_states_connectors()
-EVAP.plot_disc()
+# EVAP.solve()
+# EVAP.print_results()
+# EVAP.print_states_connectors()
+# EVAP.plot_disc()
 
 # -------------------------------------------------------------------------------------------------------------
 
@@ -61,32 +61,32 @@ EVAP.plot_disc()
 
 # -------------------------------------------------------------------------------------------------------------
 
-# COND = HXPinchCst()
+COND = HXPinchCst()
 
-# COND.set_inputs(
-#     fluid_H = 'Water',
-#     T_su_H = 130+273.15,
-#     P_su_H = 5*1e5,
-#     m_dot_H = 0.16,
+COND.set_inputs(
+    fluid_H = 'Water',
+    T_su_H = 130+273.15,
+    P_su_H = 5*1e5,
+    m_dot_H = 0.16,
     
-#     fluid_C = 'Water',
-#     T_su_C = 90+273.15,
-#     P_su_C = 100e5,
-#     m_dot_C = 1000
+    fluid_C = 'Water',
+    T_su_C = 90+273.15,
+    P_su_C = 100e5,
+    m_dot_C = 1000
     
-# )
+)
 
-# COND.set_parameters(**{
-#     'Pinch': 10,
-#     'Delta_T_sh_sc': 10,
-#     'type_HX': 'condenser',
-#     'DP_c': 10*1e3,
-#     'DP_h': 10*1e3
-# })
+COND.set_parameters(**{
+    'Pinch': 10,
+    'Delta_T_sh_sc': 10,
+    'type_HX': 'condenser',
+    'DP_c': 10*1e3,
+    'DP_h': 10*1e3
+})
 
 # -------------------------------------------------------------------------------------------------------------
 
-# COND.solve()
-# COND.print_results()
-# COND.print_states_connectors()
-# COND.plot_disc()
+COND.solve()
+COND.print_results()
+COND.print_states_connectors()
+COND.plot_disc()

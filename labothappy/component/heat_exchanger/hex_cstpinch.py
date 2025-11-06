@@ -396,11 +396,11 @@ class HXPinchCst(BaseComponent):
 
         if self.params['type_HX'] == 'evaporator':
 
-            self.su_C.set_p(self.P_sat)
+            self.su_C.set_p(self.P_sat + self.DP_c)
 
             self.ex_C.set_fluid(self.su_C.fluid)
             self.ex_C.set_T(self.T_C_ex)
-            self.ex_C.set_p(self.P_sat - self.DP_c)
+            self.ex_C.set_p(self.P_sat)
             self.ex_C.set_m_dot(self.su_C.m_dot)
 
             self.ex_H.set_fluid(self.su_H.fluid)
@@ -413,11 +413,11 @@ class HXPinchCst(BaseComponent):
 
         else: 
 
-            self.su_H.set_p(self.P_sat)
+            self.su_H.set_p(self.P_sat + self.DP_h)
 
             self.ex_H.set_fluid(self.su_H.fluid)
             self.ex_H.set_T(self.T_H_ex)
-            self.ex_H.set_p(self.P_sat - self.DP_h)
+            self.ex_H.set_p(self.P_sat)
             self.ex_H.set_m_dot(self.su_H.m_dot)
 
             self.ex_C.set_fluid(self.su_C.fluid)

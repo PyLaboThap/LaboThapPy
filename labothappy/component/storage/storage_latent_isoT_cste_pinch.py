@@ -85,6 +85,7 @@ class StorageLatentIsothermalCstePinch(BaseComponent):
         self.ex = MassConnector()
 
         self.sto_fluid = MassConnector()
+        self.DP = 0
 
         self.Q_dot = HeatConnector()
 
@@ -151,9 +152,11 @@ class StorageLatentIsothermalCstePinch(BaseComponent):
             self.sto_fluid.set_T(self.params['T_sto'])
         except:
             self.sto_fluid.set_T(self.AS_sto.Ttriple())
-
         
         self.sto_fluid.set_p(P_sto)
+
+        if 'DP' in self.params:
+            self.DP = self.params['DP']
 
         if self.su.T <= self.sto_fluid.T:
             if  self.su.T - (self.sto_fluid.T - self.params['Pinch'] - self.params['Delta_T_sh_sc']) <= 1e-2:
@@ -239,7 +242,7 @@ class StorageLatentIsothermalCstePinch(BaseComponent):
 
         self.ex.set_fluid(self.su.fluid)
         self.ex.set_T(self.T_ex)
-        self.ex.set_p(self.P_sat)
+        self.ex.set_p(self.P_sat - self.DP)
         self.ex.set_m_dot(self.su.m_dot)
         
         "Heat conector"

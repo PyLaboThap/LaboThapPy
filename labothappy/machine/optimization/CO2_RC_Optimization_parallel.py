@@ -46,8 +46,9 @@ def system_RC_parallel(x, input_data):
     
     if input_data['RC_ARCH'] == 'REC':
         RC = REC_CO2_TC(HSource, CSource.T, params['PP_gh'], params['PP_rec'], params['eta_pp'],
-                        params['eta_exp'], params['eta_gh'], params['eta_rec'],
-                        params['PP_cd'], params['SC_cd'], P_low_guess, x[0], x[1], mute_print_flag=1)
+                        params['eta_exp'], params['eta_gh'], params['eta_rec'], params['PP_cd'], params['SC_cd'], 
+                        P_low_guess, x[0], x[1], DP_h_rec = params['DP_h_rec'], DP_c_rec = params['DP_c_rec'], 
+                        DP_h_gh = params['DP_h_gh'], DP_c_gh = params['DP_c_gh'], DP_cond = params['DP_cond'], mute_print_flag=1)
 
     elif input_data['RC_ARCH'] == 'basic':
         RC = basic_CO2_TC(HSource, CSource.T, params['PP_gh'], params['PP_rec'], params['eta_pp'],
@@ -71,6 +72,7 @@ def system_RC_parallel(x, input_data):
         pp_power = DP * mdot / (rho * eta_pp)
 
         W_dot_net = RC.components['Expander'].model.W_exp.W_dot*0.95 - RC.components['Pump'].model.W_pp.W_dot/0.95 - pp_power/0.95
+        
         eta = W_dot_net / RC.components['GasHeater'].model.Q_dot.Q_dot
 
         Th_out = RC.components['GasHeater'].model.ex_H.T
@@ -79,7 +81,7 @@ def system_RC_parallel(x, input_data):
         penalty = 0
 
         if abs((W_dot_net - obj['W_dot'])/obj['W_dot']) > 1e-2:
-            penalty = abs((W_dot_net - obj['W_dot'])/obj['W_dot']) * 10
+            penalty = abs((W_dot_net - obj['W_dot'])/obj['W_dot']) * 100
 
         # if abs((Th_out-Th_out_obj)/Th_out_obj) > 1e-2:
         #     penalty = abs((Th_out-Th_out_obj)/Th_out_obj) * 1
@@ -119,8 +121,8 @@ class CO2RCOptimizer:
         n_cores = multiprocessing.cpu_count()
         
         bounds = (
-            np.array([self.params['P_high_min'], self.params['m_dot_min'], self.params['m_dot_HS_fact_min']]),
-            np.array([self.params['P_high_max'], self.params['m_dot_max'], self.params['m_dot_HS_fact_max']])
+            np.array([self.params['P_high_bounds'][0], self.params['m_dot_bounds'][0], self.params['m_dot_HS_fact_bounds'][0]]),
+            np.array([self.params['P_high_bounds'][1], self.params['m_dot_bounds'][1], self.params['m_dot_HS_fact_bounds'][1]])
         )
     
         input_data = {
@@ -146,7 +148,7 @@ class CO2RCOptimizer:
             ))
     
         self.optimizer = GlobalBestPSO(
-            n_particles=40,
+            n_particles=20,
             dimensions=3,
             options={'c1': 1.5, 'c2': 2.0, 'w': 0.7},
             bounds=bounds
@@ -156,9 +158,10 @@ class CO2RCOptimizer:
         no_improve_counter = 0
         patience = 5
         tol = 1e-3
-        max_iter = 30
+        max_iter = 10
     
         pbar = tqdm(total=max_iter, desc="Optimizing", ncols=80)
+        
         for i in range(max_iter):
             self.optimizer.optimize(objective_wrapper, iters=1, verbose=False)
             current_best = self.optimizer.swarm.best_cost
@@ -260,41 +263,65 @@ if __name__ == "__main__":
     m_dot_HS_vec = []
     T_h_ex_vec = []
     Q_dot_waste = []
+        
+    n_MW = 1 # W
+    W_dot_test = n_MW*1e6 # W
     
     # Create optimizer instance
     Optimizer = CO2RCOptimizer('CO2')
     
     # Sweep parameters
-    m_dot_HS_fact_min = np.array([0.5, 0.5, 0.5, 0.5, 0.5, 0.5])
-    m_dot_HS_fact_max = np.array([  1,   1,   1,   1,   1,   1])
-    P_high_min = np.array([100, 100, 110, 120, 130, 140]) * 1e5
-    P_high_max = np.array([130, 150, 160, 170, 180, 200]) * 1e5
+    m_dot_HS_fact_bounds = [0.5,1]
+    P_high_bounds = np.array([80, 180]) * 1e5
+    m_dot_bounds = np.array([30,80])*n_MW
     
     # Sweep loop
     for i in range(len(T_vec)):
         # Set model parameters
         Optimizer.set_parameters(
             RC_ARCH= 'REC', # 'REC'
+            
+            # Pump
             eta_pp=0.8,
+            
+            # GasHeater
             eta_gh=0.95,
-            eta_rec=0.8,
-            eta_exp=0.9,
-            PP_cd=5,
             PP_gh=5,
+            DP_h_gh = 50*1e3,
+            DP_c_gh = 50*1e3,
+
+            # DP_h_gh = 50*1e3,
+            # DP_c_gh = 2*1e5,
+    
+            # Recuperator
+            eta_rec=0.8,
             PP_rec=0,
+            DP_h_rec = 50*1e3,
+            DP_c_rec = 50*1e3,
+
+            # DP_h_rec = 1*1e5,
+            # DP_c_rec = 2*1e5,
+            
+            # Expander
+            eta_exp=0.9,
+            
+            # Condenser
+            PP_cd=5,
             SC_cd=0.1,
-            P_high_min=P_high_min[i],
-            P_high_max=P_high_max[i],
-            m_dot_HS_fact_min=m_dot_HS_fact_min[i],
-            m_dot_HS_fact_max=m_dot_HS_fact_max[i],
-            m_dot_min=20,
-            m_dot_max=70
+            DP_cond = 50*1e3,
+
+            # DP_cond = 1*1e5,
+            
+            # Bounds
+            P_high_bounds=P_high_bounds,
+            m_dot_HS_fact_bounds=m_dot_HS_fact_bounds,
+            m_dot_bounds = m_dot_bounds
         )
     
         # Initial guess
         Optimizer.set_it_var(
             P_high=100e5,
-            mdot=17,
+            mdot=27,
             mdot_HS=20
         )
     

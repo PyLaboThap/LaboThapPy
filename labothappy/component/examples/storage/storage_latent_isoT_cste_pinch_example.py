@@ -20,7 +20,8 @@ ICE_Storage.set_inputs(
 
 ICE_Storage.set_parameters(**{
     'Pinch': 3,
-    'Delta_T_sh_sc': 5
+    'Delta_T_sh_sc': 5,
+    'DP' : 50*1e3
     })
 
 ICE_Storage.solve()

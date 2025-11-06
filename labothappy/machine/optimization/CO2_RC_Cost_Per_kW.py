@@ -41,17 +41,18 @@ def system_RC_parallel(x, input_data):
     HSource.set_properties(
         T=hs_props['T'], P=hs_props['P'], fluid=hs_props['fluid'], m_dot=x[1]*x[2])
     CSource.set_properties(
-        T=cs_props['T'], P=cs_props['P'], fluid=cs_props['fluid'])
+        T=cs_props['T'], P=cs_props['P'], fluid=cs_props['fluid'], m_dot= cs_props['m_dot'])
 
     P_sat_T_CSource = PropsSI('P', 'T', CSource.T, 'Q', 0.5, fluid)
     P_crit_CO2 = PropsSI('PCRIT', fluid)
     P_low_guess = min(1.3*P_sat_T_CSource, 0.8*P_crit_CO2)
-
     
     if input_data['RC_ARCH'] == 'REC':
-        RC = REC_CO2_TC(HSource, CSource.T, params['PP_gh'], params['PP_rec'], params['eta_pp'],
-                        params['eta_exp'], params['eta_gh'], params['eta_rec'],
-                        params['PP_cd'], params['SC_cd'], P_low_guess, x[0], x[1], mute_print_flag=1)
+        RC = REC_CO2_TC(HSource, CSource, params['PP_gh'], params['PP_rec'], params['eta_pp'],
+                        params['eta_exp'], params['eta_gh'], params['eta_rec'], params['PP_cd'], params['SC_cd'], 
+                        P_low_guess, x[0], x[1], DP_h_rec = params['DP_h_rec'], DP_c_rec = params['DP_c_rec'], 
+                        DP_h_gh = params['DP_h_gh'], DP_c_gh = params['DP_c_gh'], DP_h_cond = params['DP_h_cond'],
+                        DP_c_cond = params['DP_c_cond'], mute_print_flag=1)
 
     elif input_data['RC_ARCH'] == 'basic':
         RC = basic_CO2_TC(HSource, CSource.T, params['PP_gh'], params['PP_rec'], params['eta_pp'],
@@ -60,6 +61,9 @@ def system_RC_parallel(x, input_data):
 
     try:
         RC.solve()
+
+        if not RC.converged:
+            return 1000
 
         DP = 50e3
         rho = RC.components['GasHeater'].model.su_H.D
@@ -139,7 +143,8 @@ class CO2RCOptimizer:
             'CSource': {
                 'T': self.CSource.T,
                 'P': self.CSource.p,
-                'fluid': self.CSource.fluid
+                'fluid': self.CSource.fluid,
+                'm_dot':self.CSource.m_dot
             },
             'RC_ARCH' : self.params['RC_ARCH']
         }
@@ -195,20 +200,29 @@ class CO2RCOptimizer:
         P_sat_T_CSource = PropsSI('P', 'T', self.CSource.T, 'Q', 0.5, self.fluid)
         P_crit_CO2 = PropsSI('PCRIT', self.fluid)
         P_low_guess = min(1.3 * P_sat_T_CSource, 0.8 * P_crit_CO2)
-    
+        
         try:
-            self.RC = REC_CO2_TC(
-                self.HSource, self.CSource.T,
-                self.params['PP_gh'], self.params['PP_rec'],
-                self.params['eta_pp'], self.params['eta_exp'],
-                self.params['eta_gh'], self.params['eta_rec'],
-                self.params['PP_cd'], self.params['SC_cd'],
-                P_low_guess, best_P_high, best_m_dot,
-                mute_print_flag=1
-            )
+            
+            if self.params['RC_ARCH'] == 'REC':
+            
+                self.RC = REC_CO2_TC(
+                    self.HSource, self.CSource, self.params['PP_gh'], self.params['PP_rec'], self.params['eta_pp'], 
+                    self.params['eta_exp'], self.params['eta_gh'], self.params['eta_rec'], self.params['PP_cd'], self.params['SC_cd'],
+                    P_low_guess, best_P_high, best_m_dot, DP_h_rec = self.params['DP_h_rec'], DP_c_rec = self.params['DP_c_rec'], 
+                    DP_h_gh = self.params['DP_h_gh'], DP_c_gh = self.params['DP_c_gh'], DP_h_cond = self.params['DP_h_cond'],
+                    DP_c_cond = self.params['DP_c_cond'], 
+                    mute_print_flag=1
+                )
     
             self.RC.solve()
             
+            return
+        except Exception as e:
+            print(f"⚠️ Failed to solve final RC circuit: {e}")
+            self.RC = None
+            self.eta = None
+
+        try:
             print("Turbine Sizing")
             
             # Turbine Sizing
@@ -248,9 +262,13 @@ class CO2RCOptimizer:
             
             Turb_sizing.design_parallel(n_jobs=-1)
             
-            # ---------------------------------------------------------------------------------------------------------------------------------
-            # Recuperator Sizing
+        except Exception as e:
+            print(f"⚠️ Failed to design the Turbine: {e}")
 
+        # ---------------------------------------------------------------------------------------------------------------------------------
+        # Recuperator Sizing
+        
+        try:
             print("Recuperator Sizing")
 
             REC_model = self.RC.components['Recuperator'].model
@@ -308,9 +326,12 @@ class CO2RCOptimizer:
             REC_sizing.set_constraints(Q_dot = Q_dot_cstr, DP_h = DP_h_cstr, DP_c = DP_c_cstr)
             REC_sizing.design_parallel()
     
-            # ---------------------------------------------------------------------------------------------------------------------------------
-            # GasHeater Sizing
-        
+        except Exception as e:
+            print(f"⚠️ Failed to design Recuperator: {e}")
+    
+        # ---------------------------------------------------------------------------------------------------------------------------------
+        # GasHeater Sizing
+        try: 
             print("GasHeater Sizing")
         
             GH_model = self.RC.components['GasHeater'].model
@@ -380,7 +401,6 @@ class CO2RCOptimizer:
             GH_sizing.set_bounds(bounds)
             GH_sizing.set_constraints(Q_dot = GH_model.Q_dot.Q_dot, DP_h = max(GH_model.DP_h, 1e6), DP_c = max(GH_model.DP_c, 1e6))
     
-    
             global_best_position, global_best_score, best_particle = GH_sizing.opt_size()
     
             # ---------------------------------------------------------------------------------------------------------------------------------
@@ -417,9 +437,7 @@ class CO2RCOptimizer:
             print(f"Best score: {-best_cost:.4f}")
     
         except Exception as e:
-            print(f"⚠️ Failed to solve final RC circuit: {e}")
-            self.RC = None
-            self.eta = None
+            print(f"⚠️ Failed to design GasHeater: {e}")
 
         return self.optimizer
 
@@ -440,7 +458,7 @@ if __name__ == "__main__":
     # Sweep parameters
     m_dot_HS_fact_bounds = [0.5,1]
     P_high_bounds = np.array([100, 180]) * 1e5
-    m_dot_bounds = np.array([20,70])*n_MW
+    m_dot_bounds = np.array([30,80])*n_MW
     
     # Set model parameters
     Optimizer.set_parameters(
@@ -452,14 +470,14 @@ if __name__ == "__main__":
         # GasHeater
         eta_gh=0.95,
         PP_gh=5,
-        DP_h_gh = 0,
-        DP_c_gh = 0,
+        DP_h_gh = 0*1e3,
+        DP_c_gh = 0*1e5,
 
         # Recuperator
         eta_rec=0.8,
         PP_rec=0,
-        DP_h_rec = 0,
-        DP_c_rec = 0,
+        DP_h_rec = 0*1e5,
+        DP_c_rec = 0*1e5,
         
         # Expander
         eta_exp=0.9,
@@ -467,8 +485,8 @@ if __name__ == "__main__":
         # Condenser
         PP_cd=5,
         SC_cd=0.1,
-        DP_h_cond = 0,
-        DP_c_cond = 0,
+        DP_h_cond = 0*1e5,
+        DP_c_cond = 0*1e3,
         
         # Bounds
         P_high_bounds=P_high_bounds,
@@ -490,7 +508,8 @@ if __name__ == "__main__":
     Optimizer.CSource.set_properties(
         T=15 + 273.15,
         P=5e5,
-        fluid='Water'
+        fluid='Water',
+        m_dot = 10000
     )
 
     Optimizer.HSource.set_properties(
