@@ -20,11 +20,335 @@ from joblib import Parallel, delayed
 from sizing.turbomachinery.turbine.axial.design_1D.mean_line_axial_turbine_loss_model_design_aungier import AxialTurbineMeanLineDesign
 from sizing.heat_exchanger.shell_and_tube.shell_and_tube_sizing_PSO_parallel import ShellAndTubeSizingOpt
 from sizing.heat_exchanger.PCHE.PCHE_PSO import PCHESizingOpt
+from sizing.turbomachinery.pump.radial.radial_pump_0D_design import RadialPumpODDesign
 
 import warnings
 warnings.filterwarnings('ignore')
 
 #%% Define parallel system evaluation outside the class
+
+def TCO2_rec_comp_sizing(RC):
+    
+    try:
+        print("Turbine Sizing")
+        
+        # Turbine Sizing
+        
+        Turb_model = RC.components['Expander'].model
+        Turb_sizing = RC.components['Expander'].sizing = AxialTurbineMeanLineDesign(RC.fluid)
+        
+        Turb_sizing.set_inputs(
+            mdot = Turb_model.su.m_dot, # kg/s
+            W_dot = Turb_model.W_exp.W_dot, # W : 
+            p0_su = Turb_model.su.p, # Pa
+            T0_su = Turb_model.su.T, # K
+            p_ex = Turb_model.ex.p, # Pa
+            )
+        
+        Turb_sizing.set_parameters(
+            Zweifel = 0.8, # [-]
+            AR_min = 0.8, # [-]
+            r_hub_tip_max = 0.95, # [-]
+            r_hub_tip_min = 0.6, # [-]
+            Re_bounds = [3*1e6,8*1e6], # [-]
+            psi_bounds = [1,1.9], # [-]
+            phi_bounds = [0.5,0.8], # [-]
+            R_bounds = [0.45,0.55], # [-]
+            M_1st_bounds = [0.3, 0.5], # [-]
+            r_m_bounds = [0.15, 0.6], # [m]
+            # Omega_choices = [500,750,1000,1500,3000], # [RPM] : [500,750,1000,1500,3000]
+            damping = 0.3, # [-]
+            p_rel_tol = 0.05, # [-]
+            delta_tip = 0.4*1e-3, # [m] : tip clearance
+            N_lw = 0, # [-] : Number of lashing wires
+            D_lw = 0, # [m] : Diameter of lashing wires
+            e_blade = 0.002*1e-3, # [m] : blade roughness
+            t_TE_o = 0.05, # [-] : trailing edge to throat opening ratio
+            t_TE_min = 5*1e-4, # [m]
+            )
+        
+        Turb_sizing.design_parallel(n_jobs=-1)
+        
+    except Exception as e:
+        print(f"⚠️ Failed to design the Turbine: {e}")
+
+    # ---------------------------------------------------------------------------------------------------------------------------------
+    # Recuperator Sizing
+    
+    try:
+        print("Recuperator Sizing")
+
+        REC_model = RC.components['Recuperator'].model
+        REC_sizing = RC.components['Recuperator'].sizing = PCHESizingOpt()
+                    
+        REC_sizing.set_inputs(
+            # First fluid
+            fluid_H = REC_model.su_H.fluid,
+            T_su_H = REC_model.su_H.T, # K
+            P_su_H = REC_model.su_H.p, # Pa
+            m_dot_H = REC_model.su_H.m_dot, # kg/s
+    
+            # Second fluid
+            fluid_C = REC_model.su_C.fluid,
+            T_su_C = REC_model.su_C.T, # K
+            P_su_C = REC_model.su_C.p, # Pa
+            m_dot_C = REC_model.su_C.m_dot, # kg/s  # Make sure to include fluid information
+            )
+    
+        REC_sizing.set_parameters(
+            k_cond = 60, # plate conductivity
+            R_p = 1, # n_hot_channel_row / n_cold_channel_row
+            
+            n_disc = 30,
+            
+            Flow_Type = 'CounterFlow', 
+            H_DP_ON = True, 
+            C_DP_ON = True,
+            )
+    
+        H_Corr = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
+        C_Corr = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
+        
+        H_DP = "Darcy_Weisbach"
+        C_DP = "Darcy_Weisbach"
+        
+        REC_sizing.set_corr(H_Corr, C_Corr, H_DP, C_DP)
+    
+        L_x_bounds = np.array([0.1, 1.5])*2
+        L_y_bounds = np.array([0.1, 2.3])*2
+        L_z_bounds = np.array([0.1, 0.6])*2
+    
+        REC_sizing.set_bounds(
+            alpha = [10,40], # [°]
+            D_c = [1*1e-3, 3*1e-3], # [m]
+            L_x = L_x_bounds, # [m] : 1.5 limit fixed by Heatric (PCHE manufacturer) : Fluid direction
+            L_y = L_y_bounds, # [m] : 2.3 limit for shipping requirements : Vertical direction
+            L_z = L_z_bounds, # [m] : 0.6 limit fixed by Heatric (PCHE manufacturer) : Width
+            )
+        
+        Q_dot_cstr = REC_model.Q_dot.Q_dot
+        DP_c_cstr = 100*1e3
+        DP_h_cstr = 200*1e3
+        
+        REC_sizing.set_constraints(Q_dot = Q_dot_cstr, DP_h = DP_h_cstr, DP_c = DP_c_cstr)
+        REC_sizing.design_parallel()
+
+    except Exception as e:
+        print(f"⚠️ Failed to design Recuperator: {e}")
+
+    # ---------------------------------------------------------------------------------------------------------------------------------
+    # GasHeater Sizing
+    try: 
+        print("GasHeater Sizing")
+    
+        GH_model = RC.components['GasHeater'].model
+        GH_sizing = RC.components['GasHeater'].sizing = ShellAndTubeSizingOpt()
+                                 
+        GH_sizing.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'Tube_pass', 'tube_layout', 'Baffle_cut'])
+    
+        choice_vectors = {
+                            'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
+                            'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
+                                29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
+                            'Tube_pass' : [2], # [1,2,4,6,8,10]
+                            'tube_layout' : [0,45,60]}
+    
+        GH_sizing.set_choice_vectors(choice_vectors)
+    
+        GH_sizing.set_max_cycle_prop(T_max_cycle = RC.sources['GH_Water'].properties.T, p_max_cycle = RC.components['Pump'].model.ex.p)
+        
+        GH_sizing.set_inputs(
+            # First fluid
+            fluid_H = GH_model.su_H.fluid,
+            T_su_H = GH_model.su_H.T, # K
+            P_su_H = GH_model.su_H.p, # Pa
+            m_dot_H = GH_model.su_H.m_dot, # kg/s
+    
+            # Second fluid
+            fluid_C = GH_model.su_C.fluid,
+            T_su_C = GH_model.su_C.T, # K
+            P_su_C = GH_model.su_C.p, # Pa
+            m_dot_C = GH_model.su_C.m_dot, # kg/s  # Make sure to include fluid information
+            )
+
+        GH_sizing.set_parameters(
+                                n_series = 1, # [-]
+                                # OPTI -> Oui (regarder le papier pour déterminer ça)
+    
+                                foul_t = 0.000176, # (m^2 * K/W)
+                                foul_s =  0.000176, # (m^2 * K/W)
+                                tube_cond = 50, # W/(m*K)
+                                Overdesign = 0,
+                                
+                                Shell_Side = 'H',
+    
+                                Flow_Type = 'Shell&Tube',
+                                H_DP_ON = True,
+                                C_DP_ON = True,
+                                n_disc = 50
+                              )
+    
+        H_Corr = {"SC" : "Shell_Kern_HTC", "1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
+        C_Corr = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Flow_boiling"}
+        
+        H_DP = "Shell_Kern_DP"
+        C_DP = "Gnielinski_DP"
+        
+        GH_sizing.set_corr(H_Corr, C_Corr, H_DP, C_DP)
+
+        bounds = {
+                    "L_shell" : [1,15], # 10],
+                    "D_o_inch" : [choice_vectors['D_o_inch'][0], choice_vectors['D_o_inch'][-1]],
+                    "Shell_ID_inch" : [choice_vectors['Shell_ID_inch'][0], choice_vectors['Shell_ID_inch'][-1]],
+                    "Tube_pass" : [choice_vectors['Tube_pass'][0], choice_vectors['Tube_pass'][-1]],
+                    "tube_layout" : [choice_vectors['tube_layout'][0], choice_vectors['tube_layout'][-1]],
+                    "Baffle_cut" : [15, 45]
+                    }
+
+        GH_sizing.set_bounds(bounds)
+        GH_sizing.set_constraints(Q_dot = GH_model.Q_dot.Q_dot, DP_h = max(GH_model.DP_h, 1e6), DP_c = max(GH_model.DP_c, 1e6))
+
+        global_best_position, global_best_score, best_particle = GH_sizing.opt_size()
+        
+    except Exception as e:
+        print(f"⚠️ Failed to design GasHeater: {e}")
+
+    # ---------------------------------------------------------------------------------------------------------------------------------
+    # Pump Sizing
+    try: 
+        print("Pump Sizing")
+    
+        Pump_model = RC.components['Pump'].model
+        Pump_sizing = RC.components['Pump'].sizing = RadialPumpODDesign(RC.fluid)
+                              
+        Pump_sizing.set_inputs(
+            P_su = Pump_model.su.p, # Pa
+            P_ex = Pump_model.ex.p, # Pa
+            T_su = Pump_model.su.T, # K
+                    
+            H1 = 0, # m
+            H2 = 0, # m
+            
+            v1 = 0, # m/s
+            v2 = 0, # m/s
+            
+            m_dot = Pump_model.su.m_dot, # kg/s
+            )
+
+        Pump_sizing.set_parameters(
+            Omega_choices = np.array([750, 1000, 1500, 3000]),
+            n_parallel_choices = np.array([1, 2, 3, 4, 5, 6, 7, 8])
+            )
+        
+        Pump_sizing.design()
+        
+        # ---------------------------------------------------------------------------------------------------------------------------------
+
+        # Fan and pump calculations
+        DP = 50e3
+        rho = RC.components['GasHeater'].model.su_H.D
+        mdot = RC.components['GasHeater'].model.su_H.m_dot
+        h_ex = RC.components['GasHeater'].model.ex_H.h
+
+        h_ex_req = PropsSI('H', 'T', 15 + 273.15, 'P', 101325, 'Water')
+        Q_dot_req = mdot * (h_ex - h_ex_req)
+        W_dot_fan = 0.2 * Q_dot_req
+        W_dot_pp = DP * mdot / (rho * 0.8)
+
+        W_net = RC.components['Expander'].model.W_exp.W_dot*0.95 - \
+                RC.components['Pump'].model.W_pp.W_dot/0.95 - W_dot_pp/0.95
+
+        eta_final = W_net / RC.components['GasHeater'].model.Q_dot.Q_dot
+
+    except Exception as e:
+        print(f"⚠️ Failed to design Pump: {e}")
+        
+    # ---------------------------------------------------------------------------------------------------------------------------------
+    # Condenser Sizing
+    try: 
+        print("Condenser Sizing")
+    
+        CD_model = RC.components['Condenser'].model
+        CD_sizing = RC.components['Condenser'].sizing = ShellAndTubeSizingOpt()
+                                 
+        CD_sizing.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'Tube_pass', 'tube_layout', 'Baffle_cut'])
+    
+        choice_vectors = {
+                            'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
+                            'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
+                                29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
+                            'Tube_pass' : [2], # [1,2,4,6,8,10]
+                            'tube_layout' : [0,45,60]}
+    
+        CD_sizing.set_choice_vectors(choice_vectors)
+    
+        CD_sizing.set_max_cycle_prop(T_max_cycle = RC.sources['CD_Water'].properties.T, p_max_cycle = RC.components['Pump'].model.ex.p)
+        
+        CD_sizing.set_inputs(
+            # First fluid
+            fluid_H = CD_model.su_H.fluid,
+            T_su_H = CD_model.su_H.T, # K
+            P_su_H = CD_model.su_H.p, # Pa
+            m_dot_H = CD_model.su_H.m_dot, # kg/s
+    
+            # Second fluid
+            fluid_C = CD_model.su_C.fluid,
+            T_su_C = CD_model.su_C.T, # K
+            P_su_C = CD_model.su_C.p, # Pa
+            m_dot_C = CD_model.su_C.m_dot, # kg/s  # Make sure to include fluid information
+            )
+
+        CD_sizing.set_parameters(
+                                n_series = 1, # [-]
+                                # OPTI -> Oui (regarder le papier pour déterminer ça)
+    
+                                foul_t = 0.000176, # (m^2 * K/W)
+                                foul_s =  0.000176, # (m^2 * K/W)
+                                tube_cond = 50, # W/(m*K)
+                                Overdesign = 0,
+                                
+                                Shell_Side = 'C',
+    
+                                Flow_Type = 'Shell&Tube',
+                                H_DP_ON = True,
+                                C_DP_ON = True,
+                                n_disc = 50
+                              )
+    
+        H_Corr = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Horizontal_Tube_Internal_Condensation"}
+        C_Corr = {"SC" : "Shell_Kern_HTC", "1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
+
+        H_DP = "Choi_DP"
+        C_DP = "Shell_Kern_DP"
+        
+        CD_sizing.set_corr(H_Corr, C_Corr, H_DP, C_DP)
+
+        bounds = {
+                    "L_shell" : [1,15], # 10],
+                    "D_o_inch" : [choice_vectors['D_o_inch'][0], choice_vectors['D_o_inch'][-1]],
+                    "Shell_ID_inch" : [choice_vectors['Shell_ID_inch'][0], choice_vectors['Shell_ID_inch'][-1]],
+                    "Tube_pass" : [choice_vectors['Tube_pass'][0], choice_vectors['Tube_pass'][-1]],
+                    "tube_layout" : [choice_vectors['tube_layout'][0], choice_vectors['tube_layout'][-1]],
+                    "Baffle_cut" : [15, 45]
+                    }
+
+        CD_sizing.set_bounds(bounds)
+        CD_sizing.set_constraints(Q_dot = CD_model.Q_dot.Q_dot, DP_h = max(CD_model.DP_h, 1e6), DP_c = max(CD_model.DP_c, 1e6))
+
+        global_best_position, global_best_score, best_particle = CD_sizing.opt_size()
+        
+    except Exception as e:
+        print(f"⚠️ Failed to design GasHeater: {e}")
+    
+    
+    RC.CAPEX = {
+        "Pump" : np.round(Pump_sizing.CAPEX['Total']),
+        "GasHeater" : np.round(GH_sizing.CAPEX['Total']),
+        "Recuperator" : np.round(REC_sizing.CAPEX['Total']),
+        "Expander" : np.round(Turb_sizing.CAPEX['Total']),            
+        }
+    
+    return RC
 
 def system_RC_parallel(x, input_data):
     warnings.filterwarnings('ignore')
@@ -109,7 +433,8 @@ class CO2RCOptimizer:
         self.obj = {}
         self.HSource = MassConnector()
         self.CSource = MassConnector()
-
+        self.CAPEX = {}
+        
     def set_inputs(self, **parameters):
         self.inputs.update(parameters)
 
@@ -216,228 +541,15 @@ class CO2RCOptimizer:
     
             self.RC.solve()
             
-            return
         except Exception as e:
             print(f"⚠️ Failed to solve final RC circuit: {e}")
             self.RC = None
             self.eta = None
 
-        try:
-            print("Turbine Sizing")
-            
-            # Turbine Sizing
-            
-            Turb_model = self.RC.components['Expander'].model
-            Turb_sizing = self.RC.components['Expander'].sizing = AxialTurbineMeanLineDesign(self.fluid)
-            
-            Turb_sizing.set_inputs(
-                mdot = Turb_model.su.m_dot, # kg/s
-                W_dot = Turb_model.W_exp.W_dot, # W : 
-                p0_su = Turb_model.su.p, # Pa
-                T0_su = Turb_model.su.T, # K
-                p_ex = Turb_model.ex.p, # Pa
-                )
-            
-            Turb_sizing.set_parameters(
-                Zweifel = 0.8, # [-]
-                AR_min = 0.8, # [-]
-                r_hub_tip_max = 0.95, # [-]
-                r_hub_tip_min = 0.6, # [-]
-                Re_bounds = [3*1e6,8*1e6], # [-]
-                psi_bounds = [1,1.9], # [-]
-                phi_bounds = [0.5,0.8], # [-]
-                R_bounds = [0.45,0.55], # [-]
-                M_1st_bounds = [0.3, 0.5], # [-]
-                r_m_bounds = [0.15, 0.6], # [m]
-                # Omega_choices = [500,750,1000,1500,3000], # [RPM] : [500,750,1000,1500,3000]
-                damping = 0.3, # [-]
-                p_rel_tol = 0.05, # [-]
-                delta_tip = 0.4*1e-3, # [m] : tip clearance
-                N_lw = 0, # [-] : Number of lashing wires
-                D_lw = 0, # [m] : Diameter of lashing wires
-                e_blade = 0.002*1e-3, # [m] : blade roughness
-                t_TE_o = 0.05, # [-] : trailing edge to throat opening ratio
-                t_TE_min = 5*1e-4, # [m]
-                )
-            
-            Turb_sizing.design_parallel(n_jobs=-1)
-            
-        except Exception as e:
-            print(f"⚠️ Failed to design the Turbine: {e}")
+        # Size Components
+        
+        self.RC = TCO2_rec_comp_sizing(self.RC)
 
-        # ---------------------------------------------------------------------------------------------------------------------------------
-        # Recuperator Sizing
-        
-        try:
-            print("Recuperator Sizing")
-
-            REC_model = self.RC.components['Recuperator'].model
-            REC_sizing = self.RC.components['Recuperator'].sizing = PCHESizingOpt()
-                        
-            REC_sizing.set_inputs(
-                # First fluid
-                fluid_H = REC_model.su_H.fluid,
-                T_su_H = REC_model.su_H.T, # K
-                P_su_H = REC_model.su_H.p, # Pa
-                m_dot_H = REC_model.su_H.m_dot, # kg/s
-        
-                # Second fluid
-                fluid_C = REC_model.su_C.fluid,
-                T_su_C = REC_model.su_C.T, # K
-                P_su_C = REC_model.su_C.p, # Pa
-                m_dot_C = REC_model.su_C.m_dot, # kg/s  # Make sure to include fluid information
-                )
-        
-            REC_sizing.set_parameters(
-                k_cond = 60, # plate conductivity
-                R_p = 1, # n_hot_channel_row / n_cold_channel_row
-                
-                n_disc = 30,
-                
-                Flow_Type = 'CounterFlow', 
-                H_DP_ON = True, 
-                C_DP_ON = True,
-                )
-        
-            H_Corr = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
-            C_Corr = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
-            
-            H_DP = "Darcy_Weisbach"
-            C_DP = "Darcy_Weisbach"
-            
-            REC_sizing.set_corr(H_Corr, C_Corr, H_DP, C_DP)
-        
-            L_x_bounds = np.array([0.1, 1.5])*2
-            L_y_bounds = np.array([0.1, 2.3])*2
-            L_z_bounds = np.array([0.1, 0.6])*2
-        
-            REC_sizing.set_bounds(
-                alpha = [10,40], # [°]
-                D_c = [1*1e-3, 3*1e-3], # [m]
-                L_x = L_x_bounds, # [m] : 1.5 limit fixed by Heatric (PCHE manufacturer) : Fluid direction
-                L_y = L_y_bounds, # [m] : 2.3 limit for shipping requirements : Vertical direction
-                L_z = L_z_bounds, # [m] : 0.6 limit fixed by Heatric (PCHE manufacturer) : Width
-                )
-            
-            Q_dot_cstr = REC_model.Q_dot.Q_dot
-            DP_c_cstr = 100*1e3
-            DP_h_cstr = 200*1e3
-            
-            REC_sizing.set_constraints(Q_dot = Q_dot_cstr, DP_h = DP_h_cstr, DP_c = DP_c_cstr)
-            REC_sizing.design_parallel()
-    
-        except Exception as e:
-            print(f"⚠️ Failed to design Recuperator: {e}")
-    
-        # ---------------------------------------------------------------------------------------------------------------------------------
-        # GasHeater Sizing
-        try: 
-            print("GasHeater Sizing")
-        
-            GH_model = self.RC.components['GasHeater'].model
-            GH_sizing = self.RC.components['GasHeater'].sizing = ShellAndTubeSizingOpt()
-                                     
-            GH_sizing.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'Tube_pass', 'tube_layout', 'Baffle_cut'])
-        
-            choice_vectors = {
-                                'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
-                                'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
-                                    29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
-                                'Tube_pass' : [2], # [1,2,4,6,8,10]
-                                'tube_layout' : [0,45,60]}
-        
-            GH_sizing.set_choice_vectors(choice_vectors)
-        
-            GH_sizing.set_max_cycle_prop(T_max_cycle = self.HSource.T, p_max_cycle = self.RC.components['Pump'].model.ex.p)
-            
-            GH_sizing.set_inputs(
-                # First fluid
-                fluid_H = GH_model.su_H.fluid,
-                T_su_H = GH_model.su_H.T, # K
-                P_su_H = GH_model.su_H.p, # Pa
-                m_dot_H = GH_model.su_H.m_dot, # kg/s
-        
-                # Second fluid
-                fluid_C = GH_model.su_C.fluid,
-                T_su_C = GH_model.su_C.T, # K
-                P_su_C = GH_model.su_C.p, # Pa
-                m_dot_C = GH_model.su_C.m_dot, # kg/s  # Make sure to include fluid information
-                )
-
-            GH_sizing.set_parameters(
-                                    n_series = 1, # [-]
-                                    # OPTI -> Oui (regarder le papier pour déterminer ça)
-        
-                                    foul_t = 0.000176, # (m^2 * K/W)
-                                    foul_s =  0.000176, # (m^2 * K/W)
-                                    tube_cond = 50, # W/(m*K)
-                                    Overdesign = 0,
-                                    
-                                    Shell_Side = 'H',
-        
-                                    Flow_Type = 'Shell&Tube',
-                                    H_DP_ON = True,
-                                    C_DP_ON = True,
-                                    n_disc = 50
-                                  )
-        
-            H_Corr = {"SC" : "Shell_Kern_HTC", "1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
-            C_Corr = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Flow_boiling"}
-            
-            H_DP = "Shell_Kern_DP"
-            C_DP = "Gnielinski_DP"
-            
-            GH_sizing.set_corr(H_Corr, C_Corr, H_DP, C_DP)
-    
-            bounds = {
-                        "L_shell" : [1,15], # 10],
-                        "D_o_inch" : [choice_vectors['D_o_inch'][0], choice_vectors['D_o_inch'][-1]],
-                        "Shell_ID_inch" : [choice_vectors['Shell_ID_inch'][0], choice_vectors['Shell_ID_inch'][-1]],
-                        "Tube_pass" : [choice_vectors['Tube_pass'][0], choice_vectors['Tube_pass'][-1]],
-                        "tube_layout" : [choice_vectors['tube_layout'][0], choice_vectors['tube_layout'][-1]],
-                        "Baffle_cut" : [15, 45]
-                        }
-    
-            GH_sizing.set_bounds(bounds)
-            GH_sizing.set_constraints(Q_dot = GH_model.Q_dot.Q_dot, DP_h = max(GH_model.DP_h, 1e6), DP_c = max(GH_model.DP_c, 1e6))
-    
-            global_best_position, global_best_score, best_particle = GH_sizing.opt_size()
-    
-            # ---------------------------------------------------------------------------------------------------------------------------------
-    
-            # Fan and pump calculations
-            DP = 50e3
-            rho = self.RC.components['GasHeater'].model.su_H.D
-            mdot = self.RC.components['GasHeater'].model.su_H.m_dot
-            h_ex = self.RC.components['GasHeater'].model.ex_H.h
-    
-            h_ex_req = PropsSI('H', 'T', 15 + 273.15, 'P', 101325, 'Water')
-            Q_dot_req = mdot * (h_ex - h_ex_req)
-            W_dot_fan = 0.2 * Q_dot_req
-            W_dot_pp = DP * mdot / (rho * 0.8)
-    
-            W_net = self.RC.components['Expander'].model.W_exp.W_dot*0.95 - \
-                    self.RC.components['Pump'].model.W_pp.W_dot/0.95 - W_dot_pp/0.95
-    
-            eta_final = W_net / self.RC.components['GasHeater'].model.Q_dot.Q_dot
-    
-            self.eta = eta_final
-            self.W_dot_net = W_net
-            self.pp_power = W_dot_pp
-            self.W_dot_fan = W_dot_fan
-            self.final_RC = self.RC
-
-            self.Q_dot_waste = self.RC.components['GasHeater'].model.ex_H.m_dot*(self.RC.components['GasHeater'].model.ex_H.h- PropsSI('H', 'T', 273.15 +15, 'P', self.RC.components['GasHeater'].model.ex_H.p, self.RC.components['GasHeater'].model.ex_H.fluid))
-    
-            print(f"\nOptimal P_high: {best_P_high:.2f} Pa")
-            print(f"Optimal m_dot: {best_m_dot:.4f} kg/s")
-            print(f"Optimal m_dot_HS: {best_m_dot_HS:.4f} kg/s")
-            print(f"Final net W: {W_net:.2f} W")
-            print(f"Final η (thermal efficiency): {eta_final:.4f}")
-            print(f"Best score: {-best_cost:.4f}")
-    
-        except Exception as e:
-            print(f"⚠️ Failed to design GasHeater: {e}")
 
         return self.optimizer
 
@@ -470,14 +582,14 @@ if __name__ == "__main__":
         # GasHeater
         eta_gh=0.95,
         PP_gh=5,
-        DP_h_gh = 0*1e3,
-        DP_c_gh = 0*1e5,
+        DP_h_gh = 50*1e3,
+        DP_c_gh = 4*1e5,
 
         # Recuperator
         eta_rec=0.8,
         PP_rec=0,
-        DP_h_rec = 0*1e5,
-        DP_c_rec = 0*1e5,
+        DP_h_rec = 4*1e5,
+        DP_c_rec = 2*1e5,
         
         # Expander
         eta_exp=0.9,
@@ -485,10 +597,10 @@ if __name__ == "__main__":
         # Condenser
         PP_cd=5,
         SC_cd=0.1,
-        DP_h_cond = 0*1e5,
-        DP_c_cond = 0*1e3,
+        DP_h_cond = 2*1e5,
+        DP_c_cond = 50*1e3,
         
-        # Bounds
+        # Bounds 
         P_high_bounds=P_high_bounds,
         m_dot_HS_fact_bounds=m_dot_HS_fact_bounds,
         m_dot_bounds = m_dot_bounds

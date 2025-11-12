@@ -4,7 +4,7 @@ save_data_on_exit = True
 save_history = True
 save_non_project_files = False
 project_type = 'empty-project-type'
-recent_files = ['component\\heat_exchanger\\hex_eNTU.py', 'component\\Examples\\heat_exchanger\\hex_eNTU_example.py', 'component\\tank\\tank_mixer.py', 'component\\Examples\\tank\\tank_mixer_example.py']
+recent_files = ['sizing\\turbomachinery\\pump\\0D\\pump_0D_design.py', 'correlations\\turbomachinery\\correlations_0D.py', 'sizing\\turbomachinery\\pump\\0D\\pump_0D_design1.py', 'sizing\\turbomachinery\\pump\\radial\\1D\\pump_mean_line_design.py', 'machine\\system.py']
 
 [main]
 version = 0.2.0

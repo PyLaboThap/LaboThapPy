@@ -228,5 +228,5 @@ def carbon_steel_pipe_thickness_mm(D_o, tube_T, ext_p, int_p):
 
 if __name__ == "__main__":
     
-    t_test = carbon_steel_pipe_thickness_mm(1.5*25.4*1e-3, 273.15+26, 100*1e5, 100*1e5)
+    t_test = carbon_steel_pipe_thickness_mm(1.5*25.4*1e-3, 273.15+26, 5*1e5, 180*1e5)
 

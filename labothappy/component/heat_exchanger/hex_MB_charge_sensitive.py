@@ -1064,10 +1064,15 @@ class HeatExchangerMB(BaseComponent):
                 cp_h = self.AS_H.cpmass()
                 Pr_h = mu_h * cp_h / k_h_l
 
-            self.AS_H.update(CP.PT_INPUTS, p_h_mean, T_wall_h)
-            Pr_h_w = self.AS_H.Prandtl()
-            mu_h_w = self.AS_H.viscosity()   
-                        
+            try: 
+                self.AS_H.update(CP.PT_INPUTS, p_h_mean, T_wall_h)
+                Pr_h_w = self.AS_H.Prandtl()
+                mu_h_w = self.AS_H.viscosity()   
+            except:
+                self.AS_H.update(CP.PT_INPUTS, p_h_mean, T_wall_h-0.1)
+                Pr_h_w = self.AS_H.Prandtl()
+                mu_h_w = self.AS_H.viscosity()      
+                
             alpha_h, self.Re_h[k], self.Pr_h[k]  = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['Tube_OD'] - 2*self.params['Tube_t'], self.params['Tube_L']*self.params["Tube_pass"])
             alpha_h_2phase = horizontal_tube_internal_condensation(self.H_su.fluid , G_h, p_h_mean, self.x_vec_h[k], T_wall_h, self.params['Tube_OD'] - 2*self.params['Tube_t'])
         if self.H.Correlation_2phase == 'shah_condensation_plate_HTC':
@@ -1200,6 +1205,19 @@ class HeatExchangerMB(BaseComponent):
             mu_h_in = CP.PropsSI('V', 'H', self.su_H.h, 'P', self.su_H.p, self.su_H.fluid)
             
             DP_H = Cheng_CO2_DP(G_h, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"], self.su_H.p, self.su_H.h, mu_h_in, self.su_H.fluid)
+        
+        elif self.H.PressureDrop_Correlation == "Choi_DP":
+
+            G_c, G_h = self.G_h_c_computation()
+            rho_out = CP.PropsSI('D', 'P', self.su_H.p, 'Q', 0, self.su_H.fluid)
+            
+            if self.su_H.x:
+                x_in = self.su_H.x
+            else:              
+                x_in = 1
+
+            DP_H = Choi_DP(self.su_H.fluid, G_c, rho_out, self.su_H.D, self.su_H.p, 0, x_in, self.params["Tube_L"]*self.params["Tube_pass"], self.params["Tube_OD"]-2*self.params["Tube_t"])
+                        
         else:
             DP_H = 0
             
@@ -1210,6 +1228,19 @@ class HeatExchangerMB(BaseComponent):
             DP_H = shell_bell_delaware_DP(self.su_H.m_dot, self.su_H.h, self.su_H.p, self.su_H.fluid, self.params)*self.params["n_series"]/self.params['n_disc']
         elif self.H.PressureDrop_Correlation == "Shell_Kern_DP":
             DP_H = shell_DP_kern(self.su_H.m_dot, (self.su_H.T + self.su_C.T)/2, self.su_H.h, self.su_H.p, self.su_H.fluid, self.params)*self.params["n_series"]/self.params['n_disc']
+                
+        elif self.H.PressureDrop_Correlation == "Choi_DP":
+
+            G_c, G_h = self.G_h_c_computation()
+            rho_out = CP.PropsSI('D', 'P', self.su_H.p, 'Q', 0, self.su_H.fluid)
+            
+            if self.su_H.x:
+                x_in = self.su_H.x
+            else:              
+                x_in = 1
+            
+            DP_H = Choi_DP(self.su_H.fluid, G_c, rho_out, self.su_H.D, self.su_H.p, 0, x_in, self.params["Tube_L"]*self.params["Tube_pass"], self.params["Tube_OD"]-2*self.params["Tube_t"])
+        
         else:
             DP_H = 0
             

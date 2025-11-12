@@ -133,7 +133,6 @@ def Muller_Steinhagen_Heck_DP(fluid, G, P_sat, x, L, D_in):
 
     return DP
 
-
 def Choi_DP(fluid, G, rho_out, rho_in, P_sat, x_o, x_i, L, D_in):
     """
     For 2 phase flow (both condensation and evaporation)
@@ -166,7 +165,7 @@ def Choi_DP(fluid, G, rho_out, rho_in, P_sat, x_o, x_i, L, D_in):
     Dh_lv = h_v - h_l
     Re_f = G*D_in/mu_l
     
-    K_f = (x_o - x_i)*Dh_lv/(g*L)
+    K_f = abs((x_o - x_i))*Dh_lv/(g*L)
     
     f_N = 0.00506*Re_f**(-0.0951) * K_f**(0.1554)
 
