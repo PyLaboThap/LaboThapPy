@@ -5,6 +5,13 @@ Created on Wed Jul 16 11:12:02 2025
 @author: Basile
 """
 
+import os
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+os.environ.setdefault("VECLIB_MAXIMUM_THREADS", "1")
+os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
+
 #%% Imports
 
 from machine.examples.CO2_Heat_Pumps.CO2_HeatPump_circuit import IHX_CO2_HP, IHX_EXP_CO2_HP
@@ -28,7 +35,6 @@ warnings.filterwarnings('ignore')
 #%% Define parallel system evaluation outside the class
 
 def TCO2_rec_comp_sizing(RC):
-    
     try:
         print("Turbine Sizing")
         
@@ -99,7 +105,7 @@ def TCO2_rec_comp_sizing(RC):
             k_cond = 60, # plate conductivity
             R_p = 1, # n_hot_channel_row / n_cold_channel_row
             
-            n_disc = 30,
+            n_disc = 10,
             
             Flow_Type = 'CounterFlow', 
             H_DP_ON = True, 
@@ -185,7 +191,7 @@ def TCO2_rec_comp_sizing(RC):
                                 Flow_Type = 'Shell&Tube',
                                 H_DP_ON = True,
                                 C_DP_ON = True,
-                                n_disc = 50
+                                n_disc = 10
                               )
     
         H_Corr = {"SC" : "Shell_Kern_HTC", "1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
@@ -312,10 +318,10 @@ def TCO2_rec_comp_sizing(RC):
                                 Flow_Type = 'Shell&Tube',
                                 H_DP_ON = True,
                                 C_DP_ON = True,
-                                n_disc = 50
+                                n_disc = 10
                               )
     
-        H_Corr = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Horizontal_Tube_Internal_Condensation"}
+        H_Corr = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Thome_Condensation"}
         C_Corr = {"SC" : "Shell_Kern_HTC", "1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
 
         H_DP = "Choi_DP"
@@ -346,7 +352,10 @@ def TCO2_rec_comp_sizing(RC):
         "GasHeater" : np.round(GH_sizing.CAPEX['Total']),
         "Recuperator" : np.round(REC_sizing.CAPEX['Total']),
         "Expander" : np.round(Turb_sizing.CAPEX['Total']),            
+        "Condenser" : np.round(CD_sizing.CAPEX['Total']),    
         }
+    
+    RC.CAPEX["Total"] = RC.CAPEX["Pump"] + RC.CAPEX["GasHeater"] + RC.CAPEX["Recuperator"] + RC.CAPEX["Expander"] + RC.CAPEX["Condenser"]
     
     return RC
 
@@ -365,7 +374,7 @@ def system_RC_parallel(x, input_data):
     HSource.set_properties(
         T=hs_props['T'], P=hs_props['P'], fluid=hs_props['fluid'], m_dot=x[1]*x[2])
     CSource.set_properties(
-        T=cs_props['T'], P=cs_props['P'], fluid=cs_props['fluid'], m_dot= cs_props['m_dot'])
+        T=cs_props['T'], P=cs_props['P'], fluid=cs_props['fluid'], m_dot=x[1]*x[3])
 
     P_sat_T_CSource = PropsSI('P', 'T', CSource.T, 'Q', 0.5, fluid)
     P_crit_CO2 = PropsSI('PCRIT', fluid)
@@ -391,7 +400,7 @@ def system_RC_parallel(x, input_data):
 
         DP = 50e3
         rho = RC.components['GasHeater'].model.su_H.D
-        mdot = RC.components['GasHeater'].model.su_H.m_dot
+        mdot = RC.components['GasHeater'].model.su_H.m_dot + RC.components['Condenser'].model.su_C.m_dot
         h_ex = RC.components['GasHeater'].model.ex_H.h
 
         T_amb = 15 + 273.15
@@ -452,8 +461,8 @@ class CO2RCOptimizer:
         n_cores = multiprocessing.cpu_count()
         
         bounds = (
-            np.array([self.params['P_high_bounds'][0], self.params['m_dot_bounds'][0], self.params['m_dot_HS_fact_bounds'][0]]),
-            np.array([self.params['P_high_bounds'][1], self.params['m_dot_bounds'][1], self.params['m_dot_HS_fact_bounds'][1]])
+            np.array([self.params['P_high_bounds'][0], self.params['m_dot_bounds'][0], self.params['m_dot_HS_fact_bounds'][0], self.params['m_dot_CS_fact_bounds'][0]]),
+            np.array([self.params['P_high_bounds'][1], self.params['m_dot_bounds'][1], self.params['m_dot_HS_fact_bounds'][1], self.params['m_dot_CS_fact_bounds'][1]])
         )
     
         input_data = {
@@ -469,7 +478,6 @@ class CO2RCOptimizer:
                 'T': self.CSource.T,
                 'P': self.CSource.p,
                 'fluid': self.CSource.fluid,
-                'm_dot':self.CSource.m_dot
             },
             'RC_ARCH' : self.params['RC_ARCH']
         }
@@ -481,7 +489,7 @@ class CO2RCOptimizer:
     
         self.optimizer = GlobalBestPSO(
             n_particles=40,
-            dimensions=3,
+            dimensions=4,
             options={'c1': 1.5, 'c2': 2.0, 'w': 0.7},
             bounds=bounds
         )
@@ -513,11 +521,12 @@ class CO2RCOptimizer:
         pbar.close()
     
         # Recompute system with best parameters
-        best_P_high, best_m_dot, best_m_dot_HS_fact = self.optimizer.swarm.best_pos
+        best_P_high, best_m_dot, best_m_dot_HS_fact, best_m_dot_CS_fact = self.optimizer.swarm.best_pos
     
         self.it_var['P_high'] = best_P_high
         self.it_var['mdot'] = best_m_dot
         self.it_var['mdot_HS'] = best_m_dot_HS = best_m_dot * best_m_dot_HS_fact
+        self.it_var['mdot_CS'] = best_m_dot_CS = best_m_dot * best_m_dot_CS_fact
     
         self.HSource.set_properties(m_dot=best_m_dot_HS)
     
@@ -550,7 +559,6 @@ class CO2RCOptimizer:
         
         self.RC = TCO2_rec_comp_sizing(self.RC)
 
-
         return self.optimizer
 
 #%% Optimizer call
@@ -561,7 +569,7 @@ if __name__ == "__main__":
     
     T_test = 130 + 273.15 # K
     
-    n_MW = 1 # W
+    n_MW = 10 # W
     W_dot_test = n_MW*1e6 # W
     
     # Create optimizer instance
@@ -571,6 +579,7 @@ if __name__ == "__main__":
     m_dot_HS_fact_bounds = [0.5,1]
     P_high_bounds = np.array([100, 180]) * 1e5
     m_dot_bounds = np.array([30,80])*n_MW
+    m_dot_CS_fact_bounds = [1,20]
     
     # Set model parameters
     Optimizer.set_parameters(
@@ -603,6 +612,7 @@ if __name__ == "__main__":
         # Bounds 
         P_high_bounds=P_high_bounds,
         m_dot_HS_fact_bounds=m_dot_HS_fact_bounds,
+        m_dot_CS_fact_bounds=m_dot_CS_fact_bounds,
         m_dot_bounds = m_dot_bounds
     )
 
@@ -610,7 +620,8 @@ if __name__ == "__main__":
     Optimizer.set_it_var(
         P_high=100e5,
         mdot=17,
-        mdot_HS=20
+        mdot_HS=20,
+        mdot_CS = 70,
     )
 
     # Objective
@@ -621,7 +632,6 @@ if __name__ == "__main__":
         T=15 + 273.15,
         P=5e5,
         fluid='Water',
-        m_dot = 10000
     )
 
     Optimizer.HSource.set_properties(

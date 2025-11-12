@@ -32,7 +32,7 @@ from correlations.heat_exchanger.find_2P_boundaries import find_2P_boundaries
 
 # HTC Correlations
 from correlations.convection.plate_htc import han_BPHEX_DP, water_plate_HTC, martin_BPHEX_HTC, muley_manglik_BPHEX_HTC, han_boiling_BPHEX_HTC, han_cond_BPHEX_HTC, thonon_plate_HTC, kumar_plate_HTC, martin_holger_plate_HTC, amalfi_plate_HTC, shah_condensation_plate_HTC
-from correlations.convection.pipe_htc import gnielinski_pipe_htc, boiling_curve, horizontal_tube_internal_condensation, horizontal_flow_boiling, flow_boiling_gungor_winterton, Liu_sCO2, Cheng_sCO2
+from correlations.convection.pipe_htc import gnielinski_pipe_htc, boiling_curve, horizontal_tube_internal_condensation, horizontal_flow_boiling, flow_boiling_gungor_winterton, Liu_sCO2, Cheng_sCO2, thome_condensation
 from correlations.convection.shell_and_tube_htc import shell_bell_delaware_htc, shell_htc_kern
 from correlations.convection.tube_bank_htc import ext_tube_film_condens
 from correlations.convection.fins_htc import htc_tube_and_fins
@@ -929,6 +929,9 @@ class HeatExchangerMB(BaseComponent):
             
             alpha_h = Liu_sCO2(G_h, p_h_mean, T_wall_h, k_h, rho_h, mu_h, cp_h, self.params['Tube_OD']-2*self.params['Tube_t'], self.H_su.fluid)
         
+        elif self.H.Correlation_1phase == 'Shell_Kern_HTC':
+            alpha_h, self.Re_h[k], self.Pr_h[k] = shell_htc_kern(self.mdot_h, T_wall_h, Th_mean, p_h_mean, self.AS_H, self.params)
+        
         elif self.H.Correlation_TC == 'Cheng_sCO2':
             q = self.Qvec_h[k]/(self.params['A_eff']*self.w[k])
             
@@ -981,6 +984,9 @@ class HeatExchangerMB(BaseComponent):
             cp_c = self.AS_C.cpmass()
             
             alpha_c = Liu_sCO2(G_c, p_c_mean, T_wall_c, k_c, rho_c, mu_c, cp_c, self.params['Tube_OD']-2*self.params['Tube_t'], self.C_su.fluid)
+        
+        elif self.C.Correlation_1phase == 'Shell_Kern_HTC':
+            alpha_c, self.Re_c[k], self.Pr_c[k] = shell_htc_kern(self.mdot_c, T_wall_c, Tc_mean, p_c_mean, self.AS_C, self.params)
         
         elif self.C.Correlation_TC == 'Cheng_sCO2':
             q = self.Qvec_c[k]/(self.params['A_eff']*self.w[k])
@@ -1074,9 +1080,13 @@ class HeatExchangerMB(BaseComponent):
                 mu_h_w = self.AS_H.viscosity()      
                 
             alpha_h, self.Re_h[k], self.Pr_h[k]  = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['Tube_OD'] - 2*self.params['Tube_t'], self.params['Tube_L']*self.params["Tube_pass"])
-            alpha_h_2phase = horizontal_tube_internal_condensation(self.H_su.fluid , G_h, p_h_mean, self.x_vec_h[k], T_wall_h, self.params['Tube_OD'] - 2*self.params['Tube_t'])
+            alpha_h_2phase = 20000 # horizontal_tube_internal_condensation(self.H_su.fluid , G_h, p_h_mean, self.x_vec_h[k], T_wall_h, self.params['Tube_OD'] - 2*self.params['Tube_t'])
         if self.H.Correlation_2phase == 'shah_condensation_plate_HTC':
             alpha_h_2phase = shah_condensation_plate_HTC(self.params['H_Dh'], self.params['l_v'], self.params['w_v'], self.params['amplitude'], self.params['phi'], self.mdot_h, p_h_mean, self.params['H_n_canals'], self.H_su.fluid)
+        
+        if self.H.Correlation_2phase == 'Thome_Condensation':
+            D_i = self.params['Tube_OD']-2*self.params['Tube_t']
+            alpha_h_2phase = thome_condensation(self.AS_H, D_i, G_h, p_h_mean, T_wall_h, x_h)
         
         if self.H.Correlation_2phase == 'Tube_And_Fins':
             alpha_h_2phase = htc_tube_and_fins(self.H_su.fluid, self.params, p_h_mean, havg_h, self.mdot_h, self.params['Fin_type'])[0]
@@ -1089,7 +1099,7 @@ class HeatExchangerMB(BaseComponent):
         #     # The line below re-calculates alpha_h in case of having a vapor-wet condition
         #     alpha_h = alpha_h_2phase - w_vap_wet*(alpha_h_2phase - alpha_h) # the last alpha_h in this equation is the 1 Phase calculation
 
-        return alpha_h
+        return alpha_h_2phase
 
     def compute_C_2P_HTC(self, k, Tc_mean, p_c_mean, T_wall_c, G_c, Tc_sat_mean, alpha_h, LMTD, havg_c):
 

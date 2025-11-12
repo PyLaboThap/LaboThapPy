@@ -4,7 +4,7 @@ save_data_on_exit = True
 save_history = True
 save_non_project_files = False
 project_type = 'empty-project-type'
-recent_files = ['sizing\\turbomachinery\\pump\\0D\\pump_0D_design.py', 'correlations\\turbomachinery\\correlations_0D.py', 'sizing\\turbomachinery\\pump\\0D\\pump_0D_design1.py', 'sizing\\turbomachinery\\pump\\radial\\1D\\pump_mean_line_design.py', 'machine\\system.py']
+recent_files = ['machine\\optimization\\CO2_RC_Cost_Per_kW.py', 'component\\heat_exchanger\\hex_MB_charge_sensitive.py', 'component\\examples\\heat_exchanger\\hex_S&T_MB_charge_sensitive_example.py', 'sizing\\heat_exchanger\\shell_and_tube\\shell_and_tube_sizing_PSO_parallel.py']
 
 [main]
 version = 0.2.0

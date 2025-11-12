@@ -2,6 +2,13 @@
 Author : Basile Chaudoir
 """
 
+import os
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+os.environ.setdefault("VECLIB_MAXIMUM_THREADS", "1")
+os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
+
 from component.base_component import BaseComponent
 from component.heat_exchanger.hex_MB_charge_sensitive import HeatExchangerMB
 
@@ -277,7 +284,7 @@ class PCHESizingOpt(BaseComponent):
         D = lb.size
     
         optimizer = ps.single.GlobalBestPSO(
-            n_particles=100, dimensions=D,
+            n_particles=30, dimensions=D,
             options={'c1': 1.5, 'c2': 2.0, 'w': 0.7},
             bounds=(lb, ub)
         )
