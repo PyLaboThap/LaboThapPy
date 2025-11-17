@@ -52,12 +52,6 @@ os.environ.setdefault("MKL_NUM_THREADS", "1")
 os.environ.setdefault("VECLIB_MAXIMUM_THREADS", "1")
 os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
 
-
-import __init__
-
-# Connector import
-from connector.mass_connector import MassConnector
-
 # Component import
 from component.base_component import BaseComponent
 from component.heat_exchanger.hex_MB_charge_sensitive import HeatExchangerMB
@@ -77,9 +71,7 @@ from toolbox.piping.pipe_thickness import carbon_steel_pipe_thickness_mm
 
 # External imports
 from CoolProp.CoolProp import PropsSI
-import CoolProp.CoolProp as CP
 import pandas as pd
-import random
 import numpy as np
 import copy
 import sys
@@ -91,7 +83,6 @@ warnings.filterwarnings('ignore')
 #%%
 
 # ---- joblib worker (process-based) ----
-import os, numpy as np
 from joblib import Parallel, delayed
 
 from contextlib import contextmanager
@@ -746,7 +737,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
         # --- ONE progress bar only ---
         pbar = tqdm(
             total=max_iterations,
-            desc="PSO",
+            desc="S&T",
             unit="iter",
             dynamic_ncols=True,
             leave=False,              # bar disappears after close()
@@ -908,7 +899,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
     
         return self.global_best_position, self.global_best_score, self.best_particle
 
-    def opt_size(self):
+    def opt_size(self, n_particles = 50, max_iter = 50):
         
         import numexpr as ne
         import os, multiprocessing
@@ -924,7 +915,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
         ne.set_num_threads(num_threads)
         os.environ["NUMEXPR_MAX_THREADS"] = str(num_threads)        
 
-        self.particle_swarm_optimization(objective_function = self.HX_Mass , bounds = self.bounds, num_particles = 30, num_dimensions = len(self.opt_vars), max_iterations = 50, inertia_weight = 0.5,
+        self.particle_swarm_optimization(objective_function = self.HX_Mass , bounds = self.bounds, num_particles = n_particles, num_dimensions = len(self.opt_vars), max_iterations = max_iter, inertia_weight = 0.5,
                                           cognitive_constant = 0.5, social_constant = 0.5, constraints = [self.constraint_Q_dot, self.constraint_DP_h, self.constraint_DP_c], penalty_factor = 1)
         
         self._eval_particle_pure(self.best_particle, self.HX_Mass, 1)

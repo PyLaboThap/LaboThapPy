@@ -313,7 +313,7 @@ class PCHESizingOpt(BaseComponent):
     
         no_improve, best_cost = 0, np.inf
     
-        pbar = tqdm(total=total_evals, unit="eval", dynamic_ncols=True)
+        pbar = tqdm(total=total_evals, unit="eval", dynamic_ncols=True, desc='PCHE')
 
         for i in range(max_iter):
             optimizer.optimize(objective_wrapper, iters=1, verbose=False)

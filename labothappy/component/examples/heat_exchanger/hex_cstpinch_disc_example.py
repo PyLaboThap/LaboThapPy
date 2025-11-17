@@ -34,12 +34,12 @@ HTX.set_inputs(
 # )
 
 HTX.set_parameters(**{
-    'eta': 0.9, 
+    'eta_max' : 0.95,
     'n_disc' : 100, 
-    'Pinch_min' : 5,
+    'Pinch_min' : 10,
     'DP_c' : 50*1e3,
     'DP_h' : 50*1e3,    
 })
 
 HTX.solve()
-HTX.plot_disc()
+# HTX.plot_disc()

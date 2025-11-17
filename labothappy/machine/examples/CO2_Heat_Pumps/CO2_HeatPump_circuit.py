@@ -39,7 +39,7 @@ def basic_CO2_HP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low, P_high):
     #%% GASCOOLER PARAMETERS
     
     GasCooler.set_parameters(**{
-        'eta': eta_gc,
+        'eta_max': eta_gc,
     })
     
     #%% EVAPORATOR PARAMETERS
@@ -119,7 +119,7 @@ def Exp_CO2_HP(HSource, CSource, eta_cp, eta_exp, eta_gc, PP_ev, SH_ev, P_low, P
     #%% GASCOOLER PARAMETERS
     
     GasCooler.set_parameters(**{
-        'eta': eta_gc,
+        'eta_max': eta_gc,
     })
     
     #%% EVAPORATOR PARAMETERS
@@ -187,13 +187,13 @@ def IHX_CO2_HP(HSource, T_cold_source, eta_cp, eta_gc, eta_IHX, PP_ev, SH_ev, P_
     #%% GASCOOLER PARAMETERS
     
     GasCooler.set_parameters(**{
-        'eta': eta_gc, 'n_disc' : n_disc_HX, 'Pinch_min' : PP_min_HX
+        'eta_max': eta_gc, 'n_disc' : n_disc_HX, 'Pinch_min' : PP_min_HX
     })
     
     #%% IHX PARAMETERS
     
     IHX.set_parameters(**{
-        'eta': eta_IHX, 'n_disc' : n_disc_HX, 'Pinch_min' : PP_min_HX
+        'eta_max': eta_IHX, 'n_disc' : n_disc_HX, 'Pinch_min' : PP_min_HX
     })
         
     #%% EVAPORATOR PARAMETERS
@@ -284,13 +284,13 @@ def IHX_EXP_CO2_HP(HSource, T_cold_source, eta_cp, eta_gc, eta_IHX, eta_exp, PP_
     #%% GASCOOLER PARAMETERS
     
     GasCooler.set_parameters(**{
-        'eta': eta_gc, 'n_disc' : n_disc_HX, 'Pinch_min' : PP_min_HX
+        'eta_max': eta_gc, 'n_disc' : n_disc_HX, 'Pinch_min' : PP_min_HX
     })
     
     #%% IHX PARAMETERS
     
     IHX.set_parameters(**{
-        'eta': eta_IHX, 'n_disc' : n_disc_HX, 'Pinch_min' : PP_min_HX
+        'eta_max': eta_IHX, 'n_disc' : n_disc_HX, 'Pinch_min' : PP_min_HX
     })
         
     #%% EXPANDER PARAMETERS
@@ -385,7 +385,7 @@ def Flash_CO2_HP_Parallel_CP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_l
     #%% GASCOOLER PARAMETERS
     
     GasCooler.set_parameters(**{
-        'eta': eta_gc,
+        'eta_max': eta_gc,
     })
     
     #%% EVAPORATOR PARAMETERS
@@ -480,7 +480,7 @@ def Flash_CO2_HP_Series_CP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low
     #%% GASCOOLER PARAMETERS
     
     GasCooler.set_parameters(**{
-        'eta': eta_gc,
+        'eta_max': eta_gc,
     })
     
     #%% EVAPORATOR PARAMETERS

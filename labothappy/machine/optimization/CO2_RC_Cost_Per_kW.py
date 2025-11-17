@@ -28,9 +28,7 @@ warnings.filterwarnings('ignore')
 
 def TCO2_rec_comp_sizing(RC):
     
-    try:
-        print("Turbine Sizing")
-        
+    try:        
         # Turbine Sizing
         
         Turb_model = RC.components['Expander'].model
@@ -66,7 +64,7 @@ def TCO2_rec_comp_sizing(RC):
             t_TE_min = 5*1e-4, # [m]
             )
         
-        Turb_sizing.design_parallel(n_jobs=-1)
+        Turb_sizing.design_parallel(n_jobs=-1, n_particles = 30, max_iter=50)
         
     except Exception as e:
         print(f"⚠️ Failed to design the Turbine: {e}")
@@ -75,7 +73,6 @@ def TCO2_rec_comp_sizing(RC):
     # Recuperator Sizing
     
     try:
-        print("Recuperator Sizing")
 
         REC_model = RC.components['Recuperator'].model
         REC_sizing = RC.components['Recuperator'].sizing = PCHESizingOpt()
@@ -126,8 +123,8 @@ def TCO2_rec_comp_sizing(RC):
             )
         
         Q_dot_cstr = REC_model.Q_dot.Q_dot
-        DP_c_cstr = 100*1e3
-        DP_h_cstr = 200*1e3
+        DP_c_cstr = REC_model.DP_c
+        DP_h_cstr = REC_model.DP_h
         
         REC_sizing.set_constraints(Q_dot = Q_dot_cstr, DP_h = DP_h_cstr, DP_c = DP_c_cstr)
         REC_sizing.design_parallel()
@@ -137,9 +134,7 @@ def TCO2_rec_comp_sizing(RC):
 
     # ---------------------------------------------------------------------------------------------------------------------------------
     # GasHeater Sizing
-    try: 
-        print("GasHeater Sizing")
-    
+    try:     
         GH_model = RC.components['GasHeater'].model
         GH_sizing = RC.components['GasHeater'].sizing = ShellAndTubeSizingOpt()
                                  
@@ -205,7 +200,7 @@ def TCO2_rec_comp_sizing(RC):
                     }
 
         GH_sizing.set_bounds(bounds)
-        GH_sizing.set_constraints(Q_dot = GH_model.Q_dot.Q_dot, DP_h = max(GH_model.DP_h, 1e6), DP_c = max(GH_model.DP_c, 1e6))
+        GH_sizing.set_constraints(Q_dot = GH_model.Q_dot.Q_dot, DP_h = max(GH_model.DP_h, 1e3), DP_c = max(GH_model.DP_c, 1e3))
 
         global_best_position, global_best_score, best_particle = GH_sizing.opt_size()
         
@@ -215,7 +210,6 @@ def TCO2_rec_comp_sizing(RC):
     # ---------------------------------------------------------------------------------------------------------------------------------
     # Pump Sizing
     try: 
-        print("Pump Sizing")
     
         Pump_model = RC.components['Pump'].model
         Pump_sizing = RC.components['Pump'].sizing = RadialPumpODDesign(RC.fluid)
@@ -265,7 +259,6 @@ def TCO2_rec_comp_sizing(RC):
     # ---------------------------------------------------------------------------------------------------------------------------------
     # Condenser Sizing
     try: 
-        print("Condenser Sizing")
     
         CD_model = RC.components['Condenser'].model
         CD_sizing = RC.components['Condenser'].sizing = ShellAndTubeSizingOpt()
@@ -332,7 +325,7 @@ def TCO2_rec_comp_sizing(RC):
                     }
 
         CD_sizing.set_bounds(bounds)
-        CD_sizing.set_constraints(Q_dot = CD_model.Q_dot.Q_dot, DP_h = max(CD_model.DP_h, 1e6), DP_c = max(CD_model.DP_c, 1e6))
+        CD_sizing.set_constraints(Q_dot = CD_model.Q_dot.Q_dot, DP_h = max(CD_model.DP_h, 1e3), DP_c = max(CD_model.DP_c, 1e3))
 
         global_best_position, global_best_score, best_particle = CD_sizing.opt_size()
         
@@ -351,6 +344,8 @@ def TCO2_rec_comp_sizing(RC):
     RC.CAPEX["Total"] = RC.CAPEX["Pump"] + RC.CAPEX["GasHeater"] + RC.CAPEX["Recuperator"] + RC.CAPEX["Expander"] + RC.CAPEX["Condenser"]
 
     return RC
+
+#%%
 
 def system_RC_parallel(x, input_data):
     warnings.filterwarnings('ignore')
@@ -396,45 +391,57 @@ def system_RC_parallel(x, input_data):
 
     try:
         RC.solve()
-
+    
         if not RC.converged:
             # cost, penalty, eta
             return 1000.0, np.inf, np.nan
-
+    
         DP = 50e3
         rho = RC.components['GasHeater'].model.su_H.D
         mdot = RC.components['GasHeater'].model.su_H.m_dot + RC.components['GasHeater'].model.su_C.m_dot
-        h_ex = RC.components['GasHeater'].model.ex_H.h
-
-        T_amb = 15 + 273.15
-        h_ex_req = PropsSI('H', 'T', T_amb, 'P', 101325, 'Water')
-        Q_dot_req = mdot * (h_ex - h_ex_req)
-        W_dot_fan = 0.2 * Q_dot_req  # currently unused but fine
-
+        
         eta_pp = 0.8
         pp_power = DP * mdot / (rho * eta_pp)
-
+    
         W_dot_net = (RC.components['Expander'].model.W_exp.W_dot * 0.95
                      - RC.components['Pump'].model.W_pp.W_dot / 0.95
                      - pp_power / 0.95)
         eta = W_dot_net / RC.components['GasHeater'].model.Q_dot.Q_dot
-
-        Th_out = RC.components['GasHeater'].model.ex_H.T
-        Th_out_obj = 15 + 273.15
-
+    
         penalty = 0.0
-
-        if abs((W_dot_net - obj['W_dot'])/obj['W_dot']) > 1e-2:
-            penalty = abs((W_dot_net - obj['W_dot'])/obj['W_dot']) * 10
-
-        cost = abs(obj['eta'] - eta) + penalty
-
+    
+        if abs((W_dot_net - obj['W_dot'])/obj['W_dot']) > 2e-2:
+            penalty += abs((W_dot_net - obj['W_dot'])/obj['W_dot']) * 10
+    
+        if abs((obj['eta'] - eta)/obj['eta']) > 2e-2:
+            penalty += abs((obj['eta'] - eta)/obj['eta']) * 10
+            
+        # objective = RC.components['GasHeater'].model.Q_dot.Q_dot
+        
+        Q_cond = RC.components['Condenser'].model.Q_dot.Q_dot
+        RC.components['Condenser'].model.equivalent_effectiveness()
+        eta_cond = RC.components['Condenser'].model.epsilon
+        
+        Q_rec = RC.components['Recuperator'].model.Q_dot.Q_dot
+        eta_rec = RC.components['Recuperator'].model.epsilon
+    
+        Q_gh = RC.components['GasHeater'].model.Q_dot.Q_dot
+        eta_gh = RC.components['GasHeater'].model.epsilon
+        
+        eps = 1e-6
+        eta_gh  = np.clip(eta_gh,  0.0, 1.0 - eps)
+        eta_rec = np.clip(eta_rec, 0.0, 1.0 - eps)
+        eta_cond= np.clip(eta_cond,0.0, 1.0 - eps)
+        
+        objective = (Q_gh*(-np.log(1-eta_gh)) + Q_rec*(-np.log(1-eta_rec)) + Q_cond*(-np.log(1-eta_cond)))/(Q_cond + Q_rec + Q_gh)
+        
+        cost = objective + penalty
+    
         # Return all three so we can use them in objective_wrapper
         return cost, penalty, eta
 
     except Exception:
         return 1000.0, np.inf, np.nan
-
 
 #%% Optimizer Class
 
@@ -466,6 +473,9 @@ class CO2RCOptimizer:
         self.obj.update(parameters)
 
     def opt_RC(self, n_jobs=None, n_particles=30, max_iter=30, patience=10, tol=1e-4):
+        
+        #%% 0) Setup
+        
         import multiprocessing, numexpr as ne
         n_cores = multiprocessing.cpu_count()
         if n_jobs is None:
@@ -533,7 +543,9 @@ class CO2RCOptimizer:
                 6: PP_cd_disc,    # PP_cd
             }
             }
-                        
+                      
+        #%% 1) Optimize with pre-set params
+        
         def objective_wrapper(X):
                 discrete_vars = input_data.get('discrete_vars', {})
         
@@ -559,18 +571,16 @@ class CO2RCOptimizer:
         
                 eta_obj = self.obj['eta']
         
-                for x_i, pen_i, eta_i in zip(X, penalties, etas):
-                    if pen_i == 0 and np.isfinite(eta_i):
-                        if abs((eta_obj - eta_i) / eta_obj) < 2e-2:
-                            x_disc = discretize(x_i)
-                            self.allowable_positions.append({
-                                'x': x_disc.copy(),
-                                'eta': float(eta_i)
-                            })
+                for x_i, pen_i, cost in zip(X, penalties, costs):
+                    if pen_i == 0 and np.isfinite(cost):
+                        x_disc = discretize(x_i)
+                        self.allowable_positions.append({
+                            'x': x_disc.copy(),
+                            'score': float(cost)
+                        })
         
                 return costs
 
-    
         self.optimizer = GlobalBestPSO(
             n_particles=n_particles,
             dimensions=len(bounds[0]),
@@ -600,7 +610,7 @@ class CO2RCOptimizer:
             pbar.update(1)
         
             if no_improve_counter >= patience:
-                pbar.set_description("Stopped (no improvement)")
+                pbar.set_description("Stopped (patience)")
                 break
         
         pbar.close()
@@ -622,7 +632,38 @@ class CO2RCOptimizer:
          best_PP_cd,
          best_m_dot_CS_fact) = best_pos
         
-        for allowable_position in self.allowable_positions:
+        # --- build unique positions with their best (lowest) score ---
+        unique_positions = {}
+        
+        for entry in self.allowable_positions:
+            x = np.array(entry['x'], dtype=float)
+            score = float(entry['score'])
+        
+            # make a hashable key (round a bit to avoid float noise)
+            key = tuple(np.round(x, 8))
+        
+            # keep the best score for each unique position
+            if key not in unique_positions or score < unique_positions[key]['score']:
+                unique_positions[key] = {
+                    'x': x,
+                    'score': score,
+                }
+        
+        #%% 2) Get best positions and size the component (better perf estiùate + CAPEX)
+        
+        # convert dict → list
+        unique_list = list(unique_positions.values())
+        
+        # sort by score (ascending = best first)
+        unique_list.sort(key=lambda e: e['score'])
+        
+        # keep only the 10 best unique positions
+        top10_positions = unique_list[:10]
+        
+        # store if you want to use them later
+        self.top10_positions = top10_positions
+        
+        for allowable_position in self.top10_positions:
         
             self.it_var['P_high'] = allowable_position['x'][0]
             self.it_var['mdot'] = allowable_position['x'][1]
@@ -657,15 +698,52 @@ class CO2RCOptimizer:
                 self.current_RC.solve()
                 
                 # Size Components
-                # self.current_RC = TCO2_rec_comp_sizing(self.current_RC)
+                self.current_RC = TCO2_rec_comp_sizing(self.current_RC)
                 
-                # self.potential_RC.append(self.current_RC)
+                self.potential_RC.append(self.current_RC)
 
             except Exception as e:
                 print(f"⚠️ Failed to solve final RC circuit: {e}")
                 self.RC = None
                 self.eta = None
 
+        #%% 3) From best position update your performance guesses
+
+        # Extract all CAPEX values
+        capex_list = [rc.CAPEX["Total"] for rc in Optimizer.potential_RC]
+        
+        # Find index of minimum CAPEX
+        idx_best = int(np.argmin(capex_list))
+        
+        # Extract the best RC
+        best_RC = Optimizer.potential_RC[idx_best]
+
+        eta_exp = best_RC.components['Expander'].sizing.eta_is
+        eta_pp = best_RC.components['Pump'].sizing.eta_is
+
+        DP_h_gh = best_RC.components['GasHeater'].sizing.best_particle.DP_h
+        DP_c_gh = best_RC.components['GasHeater'].sizing.best_particle.DP_c
+        
+        DP_h_cond = best_RC.components['Condenser'].sizing.best_particle.DP_h
+        DP_c_cond = best_RC.components['Condenser'].sizing.best_particle.DP_c
+        
+        DP_h_rec = best_RC.components['Recuperator'].sizing.HX.DP_h
+        DP_c_rec = best_RC.components['Recuperator'].sizing.HX.DP_c
+        
+        print(f"\n")
+        print(f"----------------------------------------")
+        print(f"New Values")
+        print(f"----------------------------------------")
+
+        print(f"eta_exp : {eta_exp}")
+        print(f"eta_pp : {eta_pp}")
+        print(f"DP_h_gh : {DP_h_gh}")
+        print(f"DP_c_gh : {DP_c_gh}")
+        print(f"DP_h_cond : {DP_h_cond}")
+        print(f"DP_c_cond : {DP_c_cond}")
+        print(f"DP_h_rec : {DP_h_rec}")
+        print(f"DP_c_rec : {DP_c_rec}")
+        
         return self.optimizer
 
 #%% Optimizer call
@@ -693,7 +771,7 @@ if __name__ == "__main__":
     # Discrete Variable choices
     eta_gh_disc = np.arange(0.8,0.99,0.01)
     PP_gh_disc = np.arange(1,10,1)
-    eta_rec_disc= np.arange(0.8,0.98,0.02)
+    eta_rec_disc= np.arange(0.7,0.98,0.02)
     PP_cd_disc = np.arange(1,15,1)
     
     # Set model parameters
@@ -704,11 +782,10 @@ if __name__ == "__main__":
         eta_pp=0.8,
         
         # GasHeater
-        DP_h_gh = 50*1e3,
+        DP_h_gh = 100*1e3,
         DP_c_gh = 4*1e5,
 
         # Recuperator
-        eta_rec=0.8,
         PP_rec=0,
         DP_h_rec = 4*1e5,
         DP_c_rec = 2*1e5,
@@ -717,10 +794,9 @@ if __name__ == "__main__":
         eta_exp=0.9,
         
         # Condenser
-        PP_cd=5,
         SC_cd=0.1,
         DP_h_cond = 2*1e5,
-        DP_c_cond = 50*1e3,
+        DP_c_cond = 100*1e3,
         
         # Bounds
         P_high_bounds=P_high_bounds,
@@ -775,19 +851,17 @@ if __name__ == "__main__":
     import time
     
     # --- First run (cold) ---
-    t0 = time.perf_counter()
-    Optimizer.opt_RC(n_jobs=1, n_particles=10, max_iter=5, patience=5)
-    t1 = time.perf_counter()
-    print(f"First run time (cold): {t1 - t0:.4f} s")
+    # t0 = time.perf_counter()
+    # Optimizer.opt_RC(n_particles=10, max_iter=5, patience=5)
+    # t1 = time.perf_counter()
+    # print(f"First run time (cold): {t1 - t0:.4f} s")
     
-    # --- Second run (warm) ---
-    t2 = time.perf_counter()
-    Optimizer.opt_RC(n_jobs=1, n_particles=10, max_iter=5, patience=5)
-    t3 = time.perf_counter()
-    print(f"Second run time (warm): {t3 - t2:.4f} s")
+    # # --- Second run (warm) ---
+    # t2 = time.perf_counter()
+    # Optimizer.opt_RC(n_particles=10, max_iter=5, patience=5)
+    # t3 = time.perf_counter()
+    # print(f"Second run time (warm): {t3 - t2:.4f} s")
 
-
-
-    # Optimizer.opt_RC(n_particles=10, max_iter=5, patience = 5)
+    Optimizer.opt_RC(n_jobs = 1)
 
 

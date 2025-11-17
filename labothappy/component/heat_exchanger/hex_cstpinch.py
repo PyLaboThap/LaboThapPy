@@ -147,6 +147,101 @@ class HXPinchCst(BaseComponent):
 
         print("======================")
 
+    def equivalent_effectiveness(self):
+        
+        # External Pinching (your current Q_dot_max)
+        if self.params['HX_type'] == "evaporator":
+            self.AS_H.update(CoolProp.PT_INPUTS, self.su_H.p, self.su_C.T)
+            H_h_id = self.AS_H.hmass()
+            
+            self.AS_C.update(CoolProp.PT_INPUTS, self.P_sat, self.su_H.T)
+            H_c_id = self.AS_C.hmass()
+        
+        elif self.params['HX_type'] == "condenser":
+            self.AS_H.update(CoolProp.PT_INPUTS, self.P_sat, self.su_C.T)
+            H_h_id = self.AS_H.hmass()
+            
+            self.AS_C.update(CoolProp.PT_INPUTS, self.su_C.p, self.su_H.T)
+            H_c_id = self.AS_C.hmass()
+        
+        Q_dot_maxh = self.su_H.m_dot*(self.su_H.h- H_h_id)
+        Q_dot_maxc = self.su_C.m_dot*(H_c_id-self.su_C.h)
+        self.Q_dot_max_ext = np.min([Q_dot_maxh,Q_dot_maxc])   # rename to *_ext
+
+        # ----------------------------------------------------------------------
+        # Internal Pinching: find Q_dot_max_internal by setting pinch ~ 0 K
+        # ----------------------------------------------------------------------
+        Q_dot_save = self.Q  # current duty at design pinch
+
+        # Save current state
+        Pinch_save = self.params['Pinch']
+        P_sat_save = self.P_sat
+
+        su_C_p_save = self.su_C.p
+        su_H_p_save = self.su_H.p
+        su_C_T_save = self.su_C.T
+        su_H_T_save = self.su_H.T
+        su_C_h_save = self.su_C.h
+        su_H_h_save = self.su_H.h
+
+        # Use a very small pinch as "zero" to avoid numerical issues
+        self.params['Pinch'] = 1e-2  # K
+
+        # Determine the type of heat exchanger and set the initial guess for pressure
+        if self.params['HX_type'] == 'evaporator':
+            guess_T_sat = self.su_H.T - self.params['Pinch'] - self.params['Delta_T_sh_sc']
+            
+            # print(f"guess_T_sat: {guess_T_sat}")
+            self.AS_C.update(CoolProp.QT_INPUTS,0.5,guess_T_sat)
+            P_ev_guess = self.AS_C.p() # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
+            x = [P_ev_guess]
+        
+            try:
+                """EVAPORATOR MODEL"""
+                root(self.system_evap, x, method = 'lm', tol=1e-7)
+                    
+            except Exception as e:
+                # Handle any errors that occur during solving
+                print(f"Convergence problem in pinch analysis of evaporator model: {e}")
+        
+        elif self.params['HX_type'] == 'condenser':
+            guess_T_sat = self.su_C.T + self.params['Pinch'] + self.params['Delta_T_sh_sc']
+            
+            self.AS_H.update(CoolProp.QT_INPUTS,0.5,guess_T_sat)
+            P_cd_guess = self.AS_H.p() # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
+            x = [P_cd_guess]
+        
+            try:
+                """CONDENSER MODEL"""
+                fsolve(self.system_cond, x)
+                
+            except Exception as e:
+                # Handle any errors that occur during solving
+                print(f"Convergence problem in pinch analysis of evaporator model: {e}")
+            
+        self.Q_dot_max_int = self.Q
+
+        # Restore original pinch and state by re-solving at design pinch
+        self.params['Pinch'] = Pinch_save
+
+        # Restore connector primitive states
+        self.su_C.set_p(su_C_p_save)
+        self.su_H.set_p(su_H_p_save)
+        self.su_C.set_T(su_C_T_save)
+        self.su_H.set_T(su_H_T_save)
+        self.su_C.h = su_C_h_save
+        self.su_H.h = su_H_h_save
+        self.P_sat = P_sat_save
+        
+        self.Q_dot_max = np.min([self.Q_dot_max_ext , self.Q_dot_max_int])
+
+        self.Q = Q_dot_save
+        
+        if np.isfinite(self.Q_dot_max) and self.Q_dot_max > 0:
+            self.epsilon = self.Q / self.Q_dot_max
+        else:
+            self.epsilon = np.nan
+
     def system_evap(self, x):
         P_ev = x[0]
         
@@ -415,6 +510,13 @@ class HXPinchCst(BaseComponent):
                 # Handle any errors that occur during solving
                 self.solved = False
                 print(f"Convergence problem in condenser model: {e}")
+
+        """Compute HX Equivalent Efficiency"""
+        # External Pinching
+        
+
+        # Internal Pinching
+        
 
 
     def update_connectors(self):

@@ -66,8 +66,7 @@ COND.set_inputs(
     fluid_C = 'Water',
     T_su_C = 15+273.15,
     P_su_C = 5*1e5,
-    m_dot_C = 50
-    
+    m_dot_C = 100
 )
 
 COND.set_parameters(**{
@@ -75,10 +74,15 @@ COND.set_parameters(**{
     'Delta_T_sh_sc': 0.1,
     'HX_type': 'condenser',
     'DP_c' : 10*1e3,
-    'DP_h' : 10*1e3
+    'DP_h' : 10*1e3,
 })
 
+
 COND.solve()
+
 COND.print_results()
 COND.print_states_connectors()
 COND.plot_disc()
+
+COND.equivalent_effectiveness()
+

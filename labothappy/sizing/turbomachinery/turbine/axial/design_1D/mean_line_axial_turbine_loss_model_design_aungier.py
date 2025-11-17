@@ -498,10 +498,6 @@ class AxialTurbineMeanLineDesign(object):
             return repr(v)
     
         args_str = ",\n    ".join(f"{k} = {fmt(v)}" for k, v in selected.items())
-    
-        print(f"""{turb_var_name}.set_parameters(
-        {args_str}
-        )""")
 
 
     def export_stage_vectors(self):
@@ -524,9 +520,7 @@ class AxialTurbineMeanLineDesign(object):
             if isinstance(val, float):
                 return f"{val:.10g}"
             return repr(val)
-    
-        print("# --- Stage geometry vectors ---")
-    
+        
         # Collect and print stator arrays
         for var in stator_vars:
             values = []
@@ -535,9 +529,7 @@ class AxialTurbineMeanLineDesign(object):
             if any(v is not None for v in values):  # only print if something exists
                 arr = [fmt(v) for v in values]
                 print(f"{var} = [{', '.join(arr)}],")
-    
-        print()
-    
+        
         # Collect and print rotor arrays
         for var in rotor_vars:
             values = []
@@ -1388,13 +1380,15 @@ class AxialTurbineMeanLineDesign(object):
     
         for i in range(max_iter):
 
-            print("========================")
-            print(f"Iteration: {i+1}/{max_iter}")
+            if __name__ == "__main__":
+                print("========================")
+                print(f"Iteration: {i+1}/{max_iter}")
             
             optimizer.optimize(objective_wrapper, iters=1, verbose=False)
             current_best = optimizer.swarm.best_cost
-    
-            print(f"Current Best: {current_best}")
+            
+            if __name__ == "__main__":
+                print(f"Current Best: {current_best}")
             
             # between-iteration W_dot raise
             batch_best = getattr(self, "_last_batch_max_wdot", self.inputs.get("W_dot", 0.0))
@@ -1409,7 +1403,8 @@ class AxialTurbineMeanLineDesign(object):
                 no_improve_counter += 1
             # print(f"[{i+1}] Best cost: {best_cost:.6f}")
             if no_improve_counter >= patience:
-                print("Stopping early due to stagnation.")
+                if __name__ == "__main__":
+                    print("Stopping early due to stagnation.")
                 break
     
         best_pos = optimizer.swarm.best_pos
@@ -1418,17 +1413,19 @@ class AxialTurbineMeanLineDesign(object):
         
         self.allowable_positions.sort(key=lambda x: x[0])
         
-        print(f"Parameters : {self.psi, self.phi, self.R, self.params['Re_min'], self.r_m}")
-        print(f"Turbine mean radius: {self.r_m} [m]")
-        print(f"Turbine rotation speed: {self.params['Omega']} [RPM]")
-        print(f"Turbine number of stage : {self.nStages} [-]")
-        print(f"Turbine total-to-static efficiency : {self.eta_is} [-]")
-        print(f"Turbine Generation : {self.W_dot} [W]")
+        if __name__ == "__main__":
+            print(f"Parameters : {self.psi, self.phi, self.R, self.params['Re_min'], self.r_m}")
+            print(f"Turbine mean radius: {self.r_m} [m]")
+            print(f"Turbine rotation speed: {self.params['Omega']} [RPM]")
+            print(f"Turbine number of stage : {self.nStages} [-]")
+            print(f"Turbine total-to-static efficiency : {self.eta_is} [-]")
+            print(f"Turbine Generation : {self.W_dot} [W]")
+            
         return best_pos
 
 #%% 
 
-    def design_parallel(self, n_jobs=-1, backend="loky", chunksize="auto"):
+    def design_parallel(self, n_jobs=-1, n_particles = 50, max_iter=50, backend="loky", chunksize="auto"):
         import numpy as np
         import pyswarms as ps
     
@@ -1497,18 +1494,18 @@ class AxialTurbineMeanLineDesign(object):
             return np.asarray(costs, dtype=float)
     
         optimizer = ps.single.GlobalBestPSO(
-            n_particles=50, dimensions=dimensions,
+            n_particles=n_particles, dimensions=dimensions,
             options={'c1': 1.5, 'c2': 2.0, 'w': 0.7},
             bounds=bounds
         )
         
-        patience, tol, max_iter = 5, 1e-3, 40
+        patience, tol, max_iter = 5, 1e-3, max_iter
         no_improve, best_cost = 0, float("inf")
         
         # ONE persistent bar for the whole optimization
         pbar = tqdm(
             total=optimizer.swarm.n_particles * max_iter,
-            desc="Particles",
+            desc="Turbine",
             unit="pt",
             leave=False,         # REMOVE previous bar when done
             ncols=100,

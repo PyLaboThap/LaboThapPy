@@ -48,7 +48,7 @@ def basic_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp,
     # GASCOOLER PARAMETERS
     
     GasHeater.set_parameters(**{
-        'eta': eta_gh, 'n_disc' : 20, 'Pinch_min' : 5
+        'eta_max': eta_gh, 'n_disc' : 20, 'Pinch_min' : 5
     })
     
     # EVAPORATOR PARAMETERS
@@ -103,7 +103,7 @@ def basic_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp,
 
 def REC_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, eta_gh, 
                eta_rec, PP_cd, SC_cd, P_low, P_high, m_dot, DP_h_rec = 0, DP_c_rec = 0, 
-               DP_h_gh = 0, DP_c_gh = 0, DP_h_cond = 0, DP_c_cond = 0,mute_print_flag=1):
+               DP_h_gh = 0, DP_c_gh = 0, DP_h_cond = 0, DP_c_cond = 0, mute_print_flag=1):
 
     CO2_TC = RecursiveCircuit('CO2')
     
@@ -125,13 +125,13 @@ def REC_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, e
     # Recuperator PARAMETERS
     
     Rec.set_parameters(**{
-        'eta': eta_rec, 'n_disc' : 20, 'Pinch_min' : Pinch_min_REC, 'DP_h' : DP_h_rec, 'DP_c' : DP_c_rec,
+        'eta_max': eta_rec, 'n_disc' : 20, 'Pinch_min' : Pinch_min_REC, 'DP_h' : DP_h_rec, 'DP_c' : DP_c_rec,
     })    
     
     # GASCOOLER PARAMETERS
     
     GasHeater.set_parameters(**{
-        'eta': eta_gh, 'n_disc' : 20, 'Pinch_min' : Pinch_min_GH, 'DP_h' : DP_h_gh, 'DP_c' : DP_c_gh,
+        'eta_max': eta_gh, 'n_disc' : 20, 'Pinch_min' : Pinch_min_GH, 'DP_h' : DP_h_gh, 'DP_c' : DP_c_gh,
     })
     
     # EVAPORATOR PARAMETERS
@@ -226,13 +226,13 @@ def REC_CO2_TC_sto(HSource, T_cold_source, Pinch_min_GH, Pinch_min_REC, eta_pp, 
     # Recuperator PARAMETERS
     
     Rec.set_parameters(**{
-        'eta': eta_rec, 'n_disc' : 20, 'Pinch_min' : Pinch_min_REC, 'DP_h' : DP_h_rec, 'DP_c' : DP_c_rec,
+        'eta_max': eta_rec, 'n_disc' : 20, 'Pinch_min' : Pinch_min_REC, 'DP_h' : DP_h_rec, 'DP_c' : DP_c_rec,
     })    
     
     # GASCOOLER PARAMETERS
     
     GasHeater.set_parameters(**{
-        'eta': eta_gh, 'n_disc' : 20, 'Pinch_min' : Pinch_min_GH, 'DP_h' : DP_h_gh, 'DP_c' : DP_c_gh,
+        'eta_max': eta_gh, 'n_disc' : 20, 'Pinch_min' : Pinch_min_GH, 'DP_h' : DP_h_gh, 'DP_c' : DP_c_gh,
     })
     
     # EVAPORATOR PARAMETERS
