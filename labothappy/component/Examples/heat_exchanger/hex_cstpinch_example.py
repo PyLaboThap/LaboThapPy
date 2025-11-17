@@ -12,7 +12,7 @@ import numpy as np
 
 # EVAP.set_inputs(
 #     fluid_C = 'Cyclopentane',
-#     T_su_C = 130+273.15,
+#     T_su_C = 110+273.15,
 #     P_su_C = 831.8*1e3,
 #     m_dot_C = 51.03,
 
@@ -55,28 +55,28 @@ import numpy as np
 #     'HX_type': 'condenser'
 # })
 
-# COND = HXPinchCst()
+COND = HXPinchCst()
 
-# COND.set_inputs(
-#     fluid_H = 'Water',
-#     T_su_H = 130+273.15,
-#     P_su_H = 5*1e5,
-#     m_dot_H = 0.16,
+COND.set_inputs(
+    fluid_H = 'CO2',
+    T_su_H = 30+273.15,
+    P_su_H = 55*1e5,
+    m_dot_H = 30,
     
-#     fluid_C = 'Water',
-#     T_su_C = 90+273.15,
-#     P_su_C = 100e5,
-#     m_dot_C = 1000
+    fluid_C = 'Water',
+    T_su_C = 15+273.15,
+    P_su_C = 5*1e5,
+    m_dot_C = 50
     
-# )
+)
 
-# COND.set_parameters(**{
-#     'Pinch': 10,
-#     'Delta_T_sh_sc': 10,
-#     'HX_type': 'condenser',
-#     'DP_c' : 10*1e3,
-#     'DP_h' : 10*1e3
-# })
+COND.set_parameters(**{
+    'Pinch': 5,
+    'Delta_T_sh_sc': 0.1,
+    'HX_type': 'condenser',
+    'DP_c' : 10*1e3,
+    'DP_h' : 10*1e3
+})
 
 COND.solve()
 COND.print_results()

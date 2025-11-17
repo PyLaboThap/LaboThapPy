@@ -9,29 +9,29 @@ import numpy as np
 #Exo ORC M&S
 HTX = HXEffCstDisc()
 
-# HTX.set_inputs(
-#     fluid_C = 'Water',
-#     T_su_C = 273.15 + 15,
-#     m_dot_C = 0.1,
-#     P_su_C = 10e5,
-
-#     fluid_H = 'CO2',
-#     T_su_H = 450,
-#     m_dot_H = 0.16,
-#     P_su_H = 140*1e5,
-# )
-
 HTX.set_inputs(
-    fluid_C = 'CO2',
-    T_su_C = 270.15,
-    m_dot_C = 0.16,
-    P_su_C = 2963161,
+    fluid_C = 'Water',
+    T_su_C = 273.15 + 15,
+    m_dot_C = 0.1,
+    P_su_C = 10e5,
 
     fluid_H = 'CO2',
-    T_su_H = 314.75,
+    T_su_H = 450,
     m_dot_H = 0.16,
-    P_su_H = 120*1e5,
+    P_su_H = 140*1e5,
 )
+
+# HTX.set_inputs(
+#     fluid_C = 'CO2',
+#     T_su_C = 270.15,
+#     m_dot_C = 0.16,
+#     P_su_C = 2963161,
+
+#     fluid_H = 'CO2',
+#     T_su_H = 314.75,
+#     m_dot_H = 0.16,
+#     P_su_H = 120*1e5,
+# )
 
 HTX.set_parameters(**{
     'eta': 0.9, 

@@ -23,6 +23,8 @@ from component.base_component import BaseComponent
 
 from CoolProp.CoolProp import PropsSI
 from scipy.optimize import fsolve
+
+import CoolProp.CoolProp as CP
 import numpy as np
 import math
 
@@ -152,28 +154,12 @@ class HXEffCstDisc(BaseComponent):
         print("======================")    
 
     def counterflow_discretized(self):
-        
-        "Define Q_dot_max through enthalpies"
-        
-        H_h_id = PropsSI('H', 'P', self.su_H.p, 'T', self.su_C.T, self.su_H.fluid)
-        H_c_id = PropsSI('H', 'P', self.su_C.p, 'T', self.su_H.T, self.su_C.fluid)
-        
-        Q_dot_maxh = self.su_H.m_dot*(self.su_H.h- H_h_id)
-        Q_dot_maxc = self.su_C.m_dot*(H_c_id-self.su_C.h)
-        
-        # print(f"self.su_C.T : {self.su_C.T}")
-        # print(f"self.su_H.T : {self.su_H.T}")
-        
-        # print(f"Q_dot_maxh : {Q_dot_maxh}")
-        # print(f"Q_dot_maxc : {Q_dot_maxc}")
-        
-        # print("------------------------------------------------")
-        
-        self.Q_dot_max = min(Q_dot_maxh,Q_dot_maxc)
-        
+                
         "Heat Transfer Rate"
+        n = self.params['n_disc']
+        
         self.Q = self.params['eta']*self.Q_dot_max
-        Q_dot_seg = self.Q / self.params['n_disc']
+        Q_dot_seg = self.Q / n
         
         # Set inlet enthalpies
         self.h_hot[0] = self.su_H.h
@@ -182,18 +168,23 @@ class HXEffCstDisc(BaseComponent):
         h_cold_out = self.su_C.h + self.Q/self.su_C.m_dot
         self.h_cold[0] = h_cold_out
         
-        self.T_cold[0] = PropsSI('T', 'H', h_cold_out, 'P', self.su_C.p, self.su_C.fluid)
-        
-        for i in range(self.params['n_disc']):
+        self.AS_C.update(CP.HmassP_INPUTS, h_cold_out, self.su_C.p)
+        self.T_cold[0] = self.AS_C.T()
+                
+        for i in range(n):
             # Hot side: forward direction
             self.h_hot[i+1] = self.h_hot[i] - Q_dot_seg / self.su_H.m_dot
-            self.T_hot[i+1] = PropsSI('T', 'H', self.h_hot[i+1], 'P', self.p_hot[i+1], self.su_H.fluid)
             
+            self.AS_H.update(CP.HmassP_INPUTS, self.h_hot[i+1], self.p_hot[i+1])
+            self.T_hot[i+1] = self.AS_H.T()
+                        
             # Cold side: reverse direction
             self.h_cold[i+1] = self.h_cold[i] - Q_dot_seg / self.su_C.m_dot
-            self.T_cold[i+1] = PropsSI('T', 'H', self.h_cold[i+1], 'P', self.p_cold[i+1], self.su_C.fluid)
-        
-        self.DT_pinch = min(self.T_hot - self.T_cold)
+            
+            self.AS_C.update(CP.HmassP_INPUTS, self.h_cold[i+1], self.p_cold[i+1])
+            self.T_cold[i+1] = self.AS_C.T()
+                    
+        self.DT_pinch = np.min(self.T_hot - self.T_cold)
         
         return 
 
@@ -223,6 +214,9 @@ class HXEffCstDisc(BaseComponent):
             print("HTX IS NOT PARAMETRIZED")
             return
 
+        self.AS_H = CP.AbstractState('BICUBIC&HEOS', self.su_H.fluid)
+        self.AS_C = CP.AbstractState('BICUBIC&HEOS', self.su_C.fluid)
+
         if self.T_hot is None:
             # Allocate arrays
             self.h_hot = np.zeros(self.params['n_disc']+1)
@@ -245,6 +239,27 @@ class HXEffCstDisc(BaseComponent):
                 self.p_cold[i+1] = self.p_cold[i] - DP_c_disc
             
         self.DT_pinch = -1
+
+        "Define Q_dot_max through enthalpies"
+        
+        self.AS_H.update(CP.PT_INPUTS, self.su_H.p, self.su_C.T)
+        H_h_id = self.AS_H.hmass()
+        
+        self.AS_C.update(CP.PT_INPUTS, self.su_C.p, self.su_H.T)
+        H_c_id = self.AS_C.hmass()
+        
+        Q_dot_maxh = self.su_H.m_dot*(self.su_H.h- H_h_id)
+        Q_dot_maxc = self.su_C.m_dot*(H_c_id-self.su_C.h)
+        
+        # print(f"self.su_C.T : {self.su_C.T}")
+        # print(f"self.su_H.T : {self.su_H.T}")
+        
+        # print(f"Q_dot_maxh : {Q_dot_maxh}")
+        # print(f"Q_dot_maxc : {Q_dot_maxc}")
+        
+        # print("------------------------------------------------")
+        
+        self.Q_dot_max = np.min([Q_dot_maxh,Q_dot_maxc])
 
         while self.DT_pinch <= self.params['Pinch_min']:
             self.counterflow_discretized()
@@ -272,14 +287,18 @@ class HXEffCstDisc(BaseComponent):
         self.ex_C.set_m_dot(self.su_C.m_dot)
         self.ex_C.set_h(self.su_C.h + self.Q/self.su_C.m_dot)
         self.ex_C.set_p(self.p_cold[-1])
-        self.ex_C.set_T(PropsSI("T", "H", self.ex_C.h, "P", self.ex_C.p, self.su_C.fluid))
+        
+        self.AS_C.update(CP.HmassP_INPUTS, self.ex_C.h, self.ex_C.p)
+        self.ex_C.set_T(self.AS_C.T())
 
         self.ex_H.set_fluid(self.su_H.fluid)
         self.ex_H.set_m_dot(self.su_H.m_dot)
         self.ex_H.set_h(self.su_H.h - self.Q/self.su_H.m_dot)
         self.ex_H.set_p(self.p_hot[-1])
-        self.ex_H.set_T(PropsSI("T", "H", self.ex_H.h, "P", self.ex_H.p, self.su_H.fluid))
-
+        
+        self.AS_H.update(CP.HmassP_INPUTS, self.ex_H.h, self.ex_H.p)
+        self.ex_H.set_T(self.AS_H.T())
+        
         "Heat conector"
         self.Q_dot.set_Q_dot(self.Q)
 

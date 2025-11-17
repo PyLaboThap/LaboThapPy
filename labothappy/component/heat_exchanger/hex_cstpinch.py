@@ -237,7 +237,7 @@ class HXPinchCst(BaseComponent):
 
         # PPTD = min(self.T_H_ex - self.su_C.T, self.T_H_x0 - T_sat_ev, self.T_H_x1 - T_sat_ev, self.su_H.T - self.T_C_ex)
 
-        self.res = self.PPTD - self.params['Pinch']
+        self.res = abs(self.PPTD - self.params['Pinch'])
         
         # Update the state of the working fluid
         self.Q = Q_dot_ev
@@ -331,11 +331,13 @@ class HXPinchCst(BaseComponent):
         if self.Q_dot_sc > 0:
             PP_list.append(self.T_H_ex - self.su_C.T)
                 
-        # Calculate pinch point and residual
-        PPTD = min(min(abs(np.array([PP_list]))))
+        # Calculate pinch point and residual$
+        self.PP_array = np.array(PP_list)
+        
+        self.PPTD = min(self.PP_array)
         
         # Calculate residual
-        self.res = (PPTD - self.params['Pinch'])**2
+        self.res = abs(self.PPTD  - self.params['Pinch'])
         
         # Update the state of the working fluid
         self.Q = Q_dot_cd
@@ -354,10 +356,10 @@ class HXPinchCst(BaseComponent):
             return
         
         fluid_C = self.su_C.fluid  # Extract cold fluid name
-        self.AS_C = AbstractState("HEOS", fluid_C)  # Create a reusable state object
+        self.AS_C = AbstractState("BICUBIC&HEOS", fluid_C)  # Create a reusable state object
         
         fluid_H = self.su_H.fluid  # Extract hot fluid name
-        self.AS_H = AbstractState("HEOS", fluid_H)  # Create a reusable state object
+        self.AS_H = AbstractState("BICUBIC&HEOS", fluid_H)  # Create a reusable state object
 
         if 'DP_h' in self.params:
             self.DP_h = self.params['DP_h']
