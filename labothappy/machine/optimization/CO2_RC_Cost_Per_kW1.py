@@ -7,7 +7,6 @@ Created on Wed Jul 16 11:12:02 2025
 
 #%% Imports
 
-from machine.examples.CO2_Heat_Pumps.CO2_HeatPump_circuit import IHX_CO2_HP, IHX_EXP_CO2_HP
 from machine.examples.CO2_Transcritical_Circuits.CO2_Transcritical_circuit import REC_CO2_TC, basic_CO2_TC
 from connector.mass_connector import MassConnector
 
@@ -466,15 +465,20 @@ class CO2RCOptimizer:
     def set_obj(self, **parameters):
         self.obj.update(parameters)
 
-    def opt_RC(self, n_jobs = None, n_particles = 30, max_iter = 30, patience = 10, tol = 1e-4):
-        import multiprocessing
+    def opt_RC(self, n_jobs=None, n_particles=30, max_iter=30, patience=10, tol=1e-4):
+        import multiprocessing, numexpr as ne
         n_cores = multiprocessing.cpu_count()
-        
-        if n_jobs == None:
+        if n_jobs is None:
             n_jobs = n_cores - 1
-        
-        import numexpr as ne
-        ne.set_num_threads(max(1, n_jobs))
+    
+        # keep NumExpr small-ish per process
+        ne.set_num_threads(min(2, max(1, n_jobs)))
+    
+        # create the pool ONCE
+        if n_jobs > 1:
+            parallel = Parallel(n_jobs=n_jobs, backend='loky')
+        else:
+            parallel = None
         
         # Raccourcis locaux
         eta_gh_disc   = self.params['eta_gh_disc']
@@ -529,39 +533,42 @@ class CO2RCOptimizer:
                 6: PP_cd_disc,    # PP_cd
             }
             }
-                
+                        
         def objective_wrapper(X):
-            # Discrétisation "vue" par le log aussi
-            discrete_vars = input_data.get('discrete_vars', {})
+                discrete_vars = input_data.get('discrete_vars', {})
         
-            def discretize(x):
-                x = np.array(x, dtype=float)
-                for idx, allowed_vals in discrete_vars.items():
-                    allowed_vals = np.array(allowed_vals, dtype=float)
-                    x[idx] = allowed_vals[np.argmin(np.abs(allowed_vals - x[idx]))]
-                return x
+                def discretize(x):
+                    x = np.array(x, dtype=float)
+                    for idx, allowed_vals in discrete_vars.items():
+                        allowed_vals = np.array(allowed_vals, dtype=float)
+                        x[idx] = allowed_vals[np.argmin(np.abs(allowed_vals - x[idx]))]
+                    return x
         
-            results = Parallel(n_jobs=n_jobs, backend='loky')(
-                delayed(system_RC_parallel)(x, input_data) for x in X
-            )
-            results = np.array(results)
+                if parallel is None or n_jobs == 1:
+                    # pure serial evaluation, no joblib overhead
+                    results = [system_RC_parallel(x, input_data) for x in X]
+                else:
+                    results = parallel(
+                        delayed(system_RC_parallel)(x, input_data) for x in X
+                    )
         
-            costs    = results[:, 0]
-            penalties = results[:, 1]
-            etas      = results[:, 2]
+                results = np.array(results)
+                costs    = results[:, 0]
+                penalties = results[:, 1]
+                etas      = results[:, 2]
         
-            eta_obj = self.obj['eta']
+                eta_obj = self.obj['eta']
         
-            for x_i, pen_i, eta_i in zip(X, penalties, etas):
-                if pen_i == 0 and np.isfinite(eta_i):
-                    if abs((eta_obj - eta_i) / eta_obj) < 2e-2:
-                        x_disc = discretize(x_i)
-                        self.allowable_positions.append({
-                            'x': x_disc.copy(),
-                            'eta': float(eta_i)
-                        })
+                for x_i, pen_i, eta_i in zip(X, penalties, etas):
+                    if pen_i == 0 and np.isfinite(eta_i):
+                        if abs((eta_obj - eta_i) / eta_obj) < 2e-2:
+                            x_disc = discretize(x_i)
+                            self.allowable_positions.append({
+                                'x': x_disc.copy(),
+                                'eta': float(eta_i)
+                            })
         
-            return costs
+                return costs
 
     
         self.optimizer = GlobalBestPSO(
@@ -650,9 +657,9 @@ class CO2RCOptimizer:
                 self.current_RC.solve()
                 
                 # Size Components
-                self.current_RC = TCO2_rec_comp_sizing(self.current_RC)
+                # self.current_RC = TCO2_rec_comp_sizing(self.current_RC)
                 
-                self.potential_RC.append(self.current_RC)
+                # self.potential_RC.append(self.current_RC)
 
             except Exception as e:
                 print(f"⚠️ Failed to solve final RC circuit: {e}")
@@ -765,7 +772,22 @@ if __name__ == "__main__":
     )
 
     # Prepare model and optimize
-    Optimizer.opt_RC(n_jobs=1, n_particles=10, max_iter=5, patience = 5)
+    import time
+    
+    # --- First run (cold) ---
+    t0 = time.perf_counter()
+    Optimizer.opt_RC(n_jobs=1, n_particles=10, max_iter=5, patience=5)
+    t1 = time.perf_counter()
+    print(f"First run time (cold): {t1 - t0:.4f} s")
+    
+    # --- Second run (warm) ---
+    t2 = time.perf_counter()
+    Optimizer.opt_RC(n_jobs=1, n_particles=10, max_iter=5, patience=5)
+    t3 = time.perf_counter()
+    print(f"Second run time (warm): {t3 - t2:.4f} s")
+
+
+
     # Optimizer.opt_RC(n_particles=10, max_iter=5, patience = 5)
 
 
