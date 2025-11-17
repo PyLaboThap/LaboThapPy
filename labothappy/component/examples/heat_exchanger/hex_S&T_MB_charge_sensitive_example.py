@@ -372,7 +372,7 @@ HX.set_inputs(
               # Hot Fluid
               T_su_H = 273.15 + 20, # K
               P_su_H = 5087147.357957976, # 51.75*1e3, # Pa
-              m_dot_H = 10, # kg/s
+              m_dot_H = 30, # kg/s
               fluid_H = 'CO2',
               
               # Cold Fluid
@@ -401,7 +401,7 @@ params = {'n_series': 1,
         'Tube_L': 9.21,
         'Tube_OD': 0.02,
         'Tube_t': 0.003,
-        'central_spacing': 0.5*1.43,
+        'central_spacing': 1.43,
         'Tube_pass': 1,
         'cross_passes': 12,
         'n_tubes': 1480,
@@ -423,7 +423,7 @@ HX.set_parameters(
 
 # "Correlation Loading"
 
-Corr_H = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Horizontal_Tube_Internal_Condensation"}
+Corr_H = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Thome_Condensation"}
 Corr_C = {"SC" : "Shell_Kern_HTC", "1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
 
 Corr_H_DP = "Choi_DP"

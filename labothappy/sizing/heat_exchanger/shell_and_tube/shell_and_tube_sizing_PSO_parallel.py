@@ -45,6 +45,14 @@ D_o = 1 + 1/2 [in] => Pitch_ratio = (1+7/8)/D_o
 Baffle_cut = 0.25 # Could be varied from 0.15 to 0.4 but 0.25 is usual value for liquid flow
 """
 
+import os
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+os.environ.setdefault("VECLIB_MAXIMUM_THREADS", "1")
+os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
+
+
 import __init__
 
 # Connector import
@@ -916,7 +924,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
         ne.set_num_threads(num_threads)
         os.environ["NUMEXPR_MAX_THREADS"] = str(num_threads)        
 
-        self.particle_swarm_optimization(objective_function = self.HX_Mass , bounds = self.bounds, num_particles = 50, num_dimensions = len(self.opt_vars), max_iterations = 50, inertia_weight = 0.5,
+        self.particle_swarm_optimization(objective_function = self.HX_Mass , bounds = self.bounds, num_particles = 30, num_dimensions = len(self.opt_vars), max_iterations = 50, inertia_weight = 0.5,
                                           cognitive_constant = 0.5, social_constant = 0.5, constraints = [self.constraint_Q_dot, self.constraint_DP_h, self.constraint_DP_c], penalty_factor = 1)
         
         self._eval_particle_pure(self.best_particle, self.HX_Mass, 1)
@@ -1169,7 +1177,7 @@ if __name__ == "__main__":
                             'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
                                 29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
                             'Tube_pass' : [2], # [1,2,4,6,8,10]
-                            'tube_layout' : [60]} # [0,45,60]}
+                            'tube_layout' : [0,45,60]} # [0,45,60]}
         
         """
         'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
@@ -1197,21 +1205,21 @@ if __name__ == "__main__":
         HX_test.set_inputs(
             # First fluid
             fluid_H = 'CO2',
-            T_su_H = 273.15 + 20, # K
-            P_su_H = 5087147, # Pa
-            m_dot_H = 20, # kg/s
+            T_su_H = 273.15 + 40, # K
+            P_su_H = 5050000, # Pa
+            m_dot_H = 30, # kg/s
     
             # Second fluid
             fluid_C = 'Water',
             T_su_C = 3 + 273.15, # K
             P_su_C = 5*1e5, # Pa
-            m_dot_C = 60, # kg/s  # Make sure to include fluid information
+            m_dot_C = 150, # kg/s  # Make sure to include fluid information
             )
         
         "Constraints Values"
         Q_dot_cstr = 6295150
-        DP_c_cstr = 2*1e5
-        DP_h_cstr = 50*1e3
+        DP_h_cstr = 3*1e5
+        DP_c_cstr = 100*1e3
     
         """
         Parameters Setting
@@ -1231,10 +1239,11 @@ if __name__ == "__main__":
                                 Flow_Type = 'Shell&Tube',
                                 H_DP_ON = True,
                                 C_DP_ON = True,
-                                n_disc = 50
+                                n_disc = 30
                               )
         
-        Corr_H = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Horizontal_Tube_Internal_Condensation"}
+        Corr_H = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Thome_Condensation"}
+        # Corr_H = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Gnielinski"}
         Corr_C = {"SC" : "Shell_Kern_HTC", "1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
 
         Corr_H_DP = "Choi_DP"

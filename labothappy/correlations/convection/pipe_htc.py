@@ -151,6 +151,98 @@ def dittus_boetler_cooling(mu, Pr, k, G, Dh):
     
     return h
 
+def thome_condensation(AS, D_i, G, P_sat, T_wall, x):
+    """
+    Parameters
+    ----------
+    AS : AbstractState CoolProp Object of the considered fluid
+    D_i : Internal Tube diameter
+    G : Mass Flux
+    P_sat : Saturation Pressure
+    x : Vapor Quality
+
+    Returns
+    -------
+    h_tp : Condensing heat transfer coefficient
+    """
+    from correlations.properties.void_fraction import void_fraction
+    g = 9.81 # m/s^2
+    
+    # Flow Area
+    r = D_i/2
+    A = np.pi*r**2
+    
+    # 2 phase properties
+    T_sat = AS.T()
+    sigma = PropsSI('I', 'P', P_sat, 'Q', 0.5, AS.fluid_names()[0])
+
+    # Liquid properties
+    AS.update(CP.PQ_INPUTS, P_sat, 0)
+    Pr_L = AS.Prandtl()
+    lambda_L = AS.conductivity()
+    rho_L = AS.rhomass()
+    mu_L = AS.viscosity()
+    h_L = AS.hmass()
+    
+    # Vapor properties
+    AS.update(CP.PQ_INPUTS, P_sat, 1)
+    rho_G = AS.rhomass()
+    h_G = AS.hmass()
+
+    # Void Fraction
+    eps = void_fraction(x, rho_G, rho_L)[0]
+    A_L = (1-eps)*A
+    
+    # Liquid and vapor phase flow speeds
+    if eps != 1:    
+        u_L = G*(1-x)/(rho_L*(1-eps))
+    else:
+        u_L = G/rho_L
+    
+    if eps != 0:    
+        u_G = G*x/(rho_G*eps)
+    else: 
+        u_G = G/rho_G
+    
+    # Determine Theta from flow configuration
+    # theta = 0 # !!! : assumption of annular / mist flow
+    
+    # Biberg exprssion for Theta_strat
+    theta_strat = 2*np.pi - 2*(np.pi*(1-eps) + (1.5*np.pi)**(1/3)*(1-2*(1-eps)+(1-eps)**(1/3)-eps**(1/3)) - 0.005*(1-eps)*eps*(1-2*(1-eps))*(1+4*((1-eps)**2+eps**2)) )
+    theta = theta_strat # theta_strat*((G_wavy - G)/(G_wavy - G_strat))**0.5
+    
+    # Liquid film thickness
+    if (theta - 2*np.pi)/2*np.pi >= 1e-3:
+        delta = (D_i - np.sqrt(D_i**2 - A_L/((2*np.pi - theta)/8)))/2 
+    else:
+        delta = D_i
+    
+    # Compute h_c
+    c = 0.003
+    m = 0.5
+    n = 0.74
+    
+    if eps != 1:
+        Re_L = (4*G*(1-x)*delta)/((1-eps)*mu_L)
+    else:
+        Re_L = 0
+        
+    f_i = 1 + (u_G/u_L)**0.5 * ((rho_L-rho_G)*g*delta**2 / sigma)**0.25
+    
+    if delta != 0:
+        h_c = c*(Re_L**n)*(Pr_L**m)*(lambda_L/delta)*f_i
+    else:
+        h_c = 0
+    
+    # Compute h_f
+    h_LG = h_G-h_L
+    h_f = 0.728*((rho_L*(rho_L-rho_G)*g*h_LG*lambda_L**3)/(mu_L*D_i*(T_sat - T_wall)))**0.25
+        
+    h_tp = (h_f*r*theta + (2*np.pi - theta)*r*h_c)/(2*np.pi*r)       
+        
+    return  h_tp
+
+
 def horizontal_tube_internal_condensation(fluid,m_dot,P_sat,x_in,T_w,D_in):
     """
     Inputs
