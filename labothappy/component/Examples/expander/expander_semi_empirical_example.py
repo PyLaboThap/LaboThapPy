@@ -29,6 +29,7 @@ expander.ex.set_properties(P=1.1*1e5)
 expander.ex.set_properties(P=1.1*1e5)
 
 # Set rotational speed
+
 # expander.W_mec.set_N(6000)
 expander.set_inputs(N_rot = 6000)
 
