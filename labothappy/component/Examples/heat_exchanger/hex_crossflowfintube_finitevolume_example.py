@@ -1,9 +1,8 @@
-import __init__ 
+# import __init__ 
 
 import matplotlib.pyplot as plt
-from connector.mass_connector import MassConnector
 from CoolProp.CoolProp import PropsSI
-from component.heat_exchanger.hex_crossflowfintube_finitevolume import CrossFlowTubeAndFinsHTX
+from labothappy.component.heat_exchanger.hex_crossflowfintube_finitevolume import CrossFlowTubeAndFinsHTX
 
 pressure_plot = 1
 temperature_plot = 1

@@ -28,7 +28,7 @@ class CompressorCstEff(BaseComponent):
 
         ex (MassConnector): Mass connector for the exhaust side.
 
-        W_mec (WorkConnector): Work connector for the mechanical work.
+        W (WorkConnector): Work connector for the mechanical work.
 
     **Parameters**:
 

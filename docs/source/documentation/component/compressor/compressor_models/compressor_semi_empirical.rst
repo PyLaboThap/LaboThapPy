@@ -1,17 +1,17 @@
-Semi-empirical model of a volumetric compressor
+Compressor: semi-empirical model
 ===============================================
 
 Model description
 -----------------
+
+The model is based on the XXX
 
 .. autoclass:: component.compressor.compressor_semi_empirical.CompressorSE
 
 References
 ----------
 
-Vincent Lemort et al. “Testing and modeling a scroll expander integrated into an Organic Rankine Cycle”. 
-In: Applied Thermal Engineering 29.14-15 (2009), pp. 3094–3102. issn: 13594311. 
-doi: 10.1016/j.applthermaleng. 2009.04.013. 
-url: http://dx.doi.org/10.1016/j.applthermaleng. 2009.04.013.
+V. Lemort, S. Quoilin, C. Cuevas, and J. Lebrun, ‘Testing and modeling a scroll expander integrated into an Organic Rankine Cycle’,
+ Applied Thermal Engineering, vol. 29, no. 14–15, pp. 3094–3102, Oct. 2009, doi: 10.1016/j.applthermaleng.2009.04.013.
 
 

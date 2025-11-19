@@ -8,7 +8,7 @@ Created on Tue Jul 30 2024
 "External modules"
 from CoolProp.CoolProp import AbstractState, PropsSI
 import CoolProp.CoolProp as CoolProp
-from scipy.optimize import fsolve, root
+from scipy.optimize import fsolve
 import numpy as np
 
 "Internal modules"
@@ -467,7 +467,6 @@ class ExpanderSE(BaseComponent):
         print(f"  - m_dot: {self.m_dot} [kg/s]")
         print(f"  - epsilon_v: {self.epsilon_v} [-]")
         print("=========================")
-        return
 
     def print_states_connectors(self):
         print("=== Expander Results ===")
@@ -483,4 +482,3 @@ class ExpanderSE(BaseComponent):
         print(f"  - T_hot: {self.Q_amb.T_hot} [K]")
         print(f"  - T_cold: {self.Q_amb.T_cold} [K]")
         print("=========================")
-        return
