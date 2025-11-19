@@ -4,3 +4,1920 @@
 2025-06-24 18:12:13,190 - pyswarms.single.global_best - INFO - Optimize for 30 iters with {'c1': 1.5, 'c2': 2.0, 'w': 0.7}
 2025-06-24 18:21:28,707 - pyswarms.single.global_best - INFO - Optimization finished | best cost: -0.8757372603958173, best pos: [1.32516081 0.51864225 0.50454804 0.21154337]
 2025-07-03 11:04:58,810 - pyswarms.single.global_best - INFO - Optimize for 30 iters with {'c1': 1.5, 'c2': 1.5, 'w': 0.5}
+2025-07-30 11:37:41,971 - pyswarms.backend.generators - ERROR - Bounds and/or init_pos should be of size (3,)
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pyswarms\backend\generators.py", line 81, in generate_swarm
+    pos = center * np.random.uniform(
+                   ^^^^^^^^^^^^^^^^^^
+  File "numpy\\random\\mtrand.pyx", line 1171, in numpy.random.mtrand.RandomState.uniform
+  File "_common.pyx", line 600, in numpy.random._common.cont
+  File "_common.pyx", line 517, in numpy.random._common.cont_broadcast_2
+  File "__init__.cython-30.pxd", line 780, in numpy.PyArray_MultiIterNew3
+ValueError: shape mismatch: objects cannot be broadcast to a single shape.  Mismatch is between arg 0 with shape (20, 3) and arg 1 with shape (20, 2).
+2025-07-30 14:47:15,875 - pyswarms.backend.generators - ERROR - Bounds and/or init_pos should be of size (3,)
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pyswarms\backend\generators.py", line 81, in generate_swarm
+    pos = center * np.random.uniform(
+                   ^^^^^^^^^^^^^^^^^^
+  File "numpy\\random\\mtrand.pyx", line 1171, in numpy.random.mtrand.RandomState.uniform
+  File "_common.pyx", line 600, in numpy.random._common.cont
+  File "_common.pyx", line 517, in numpy.random._common.cont_broadcast_2
+  File "__init__.cython-30.pxd", line 780, in numpy.PyArray_MultiIterNew3
+ValueError: shape mismatch: objects cannot be broadcast to a single shape.  Mismatch is between arg 0 with shape (20, 3) and arg 1 with shape (20, 2).
+2025-07-31 11:30:10,389 - pyswarms.backend.generators - ERROR - Bounds and/or init_pos should be of size (2,)
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pyswarms\backend\generators.py", line 81, in generate_swarm
+    pos = center * np.random.uniform(
+                   ^^^^^^^^^^^^^^^^^^
+  File "numpy\\random\\mtrand.pyx", line 1171, in numpy.random.mtrand.RandomState.uniform
+  File "_common.pyx", line 600, in numpy.random._common.cont
+  File "_common.pyx", line 517, in numpy.random._common.cont_broadcast_2
+  File "__init__.cython-30.pxd", line 780, in numpy.PyArray_MultiIterNew3
+ValueError: shape mismatch: objects cannot be broadcast to a single shape.  Mismatch is between arg 0 with shape (20, 2) and arg 1 with shape (20, 3).
+2025-08-07 11:13:24,681 - tornado.general - ERROR - Uncaught exception in ZMQStream callback
+Traceback (most recent call last):
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\eventloop\zmqstream.py", line 560, in _run_callback
+    f = callback(*args, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\ipykernel\iostream.py", line 170, in _handle_event
+    event_f()
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\ipykernel\iostream.py", line 276, in <lambda>
+    self.schedule(lambda: self._really_send(*args, **kwargs))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\ipykernel\iostream.py", line 287, in _really_send
+    self.socket.send_multipart(msg, *args, **kwargs)
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\sugar\socket.py", line 754, in send_multipart
+    return self.send(msg_parts[-1], flags, copy=copy, track=track)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\sugar\socket.py", line 701, in send
+    return super().send(data, flags=flags, copy=copy, track=track)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "_zmq.py", line 1092, in zmq.backend.cython._zmq.Socket.send
+  File "_zmq.py", line 1153, in zmq.backend.cython._zmq.Socket.send
+  File "_zmq.py", line 329, in zmq.backend.cython._zmq.Frame.__init__
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\utils\garbage.py", line 152, in _push_socket
+    raise RuntimeError("zmq gc socket requested during shutdown")
+RuntimeError: zmq gc socket requested during shutdown
+2025-08-07 11:13:24,764 - tornado.general - ERROR - Uncaught exception in zmqstream callback
+Traceback (most recent call last):
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\eventloop\zmqstream.py", line 610, in _handle_events
+    self._handle_recv()
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\eventloop\zmqstream.py", line 639, in _handle_recv
+    self._run_callback(callback, msg)
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\eventloop\zmqstream.py", line 560, in _run_callback
+    f = callback(*args, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\ipykernel\iostream.py", line 170, in _handle_event
+    event_f()
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\ipykernel\iostream.py", line 276, in <lambda>
+    self.schedule(lambda: self._really_send(*args, **kwargs))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\ipykernel\iostream.py", line 287, in _really_send
+    self.socket.send_multipart(msg, *args, **kwargs)
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\sugar\socket.py", line 754, in send_multipart
+    return self.send(msg_parts[-1], flags, copy=copy, track=track)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\sugar\socket.py", line 701, in send
+    return super().send(data, flags=flags, copy=copy, track=track)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "_zmq.py", line 1092, in zmq.backend.cython._zmq.Socket.send
+  File "_zmq.py", line 1153, in zmq.backend.cython._zmq.Socket.send
+  File "_zmq.py", line 329, in zmq.backend.cython._zmq.Frame.__init__
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\utils\garbage.py", line 152, in _push_socket
+    raise RuntimeError("zmq gc socket requested during shutdown")
+RuntimeError: zmq gc socket requested during shutdown
+2025-08-07 11:13:24,766 - asyncio - ERROR - Exception in callback BaseAsyncIOLoop._handle_events(2400, 1)
+handle: <Handle BaseAsyncIOLoop._handle_events(2400, 1)>
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\asyncio\events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\tornado\platform\asyncio.py", line 202, in _handle_events
+    handler_func(fileobj, events)
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\eventloop\zmqstream.py", line 610, in _handle_events
+    self._handle_recv()
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\eventloop\zmqstream.py", line 639, in _handle_recv
+    self._run_callback(callback, msg)
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\eventloop\zmqstream.py", line 560, in _run_callback
+    f = callback(*args, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\ipykernel\iostream.py", line 170, in _handle_event
+    event_f()
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\ipykernel\iostream.py", line 276, in <lambda>
+    self.schedule(lambda: self._really_send(*args, **kwargs))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\ipykernel\iostream.py", line 287, in _really_send
+    self.socket.send_multipart(msg, *args, **kwargs)
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\sugar\socket.py", line 754, in send_multipart
+    return self.send(msg_parts[-1], flags, copy=copy, track=track)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\sugar\socket.py", line 701, in send
+    return super().send(data, flags=flags, copy=copy, track=track)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "_zmq.py", line 1092, in zmq.backend.cython._zmq.Socket.send
+  File "_zmq.py", line 1153, in zmq.backend.cython._zmq.Socket.send
+  File "_zmq.py", line 329, in zmq.backend.cython._zmq.Frame.__init__
+  File "C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\zmq\utils\garbage.py", line 152, in _push_socket
+    raise RuntimeError("zmq gc socket requested during shutdown")
+RuntimeError: zmq gc socket requested during shutdown
+2025-08-15 18:01:18,645 - pyswarms.backend.generators - ERROR - Bounds and/or init_pos should be of size (5,)
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pyswarms\backend\generators.py", line 81, in generate_swarm
+    pos = center * np.random.uniform(
+                   ^^^^^^^^^^^^^^^^^^
+  File "numpy\\random\\mtrand.pyx", line 1171, in numpy.random.mtrand.RandomState.uniform
+  File "_common.pyx", line 600, in numpy.random._common.cont
+  File "_common.pyx", line 517, in numpy.random._common.cont_broadcast_2
+  File "__init__.cython-30.pxd", line 780, in numpy.PyArray_MultiIterNew3
+ValueError: shape mismatch: objects cannot be broadcast to a single shape.  Mismatch is between arg 0 with shape (10, 5) and arg 1 with shape (10, 4).
+2025-08-28 14:09:41,403 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Task-2' coro=<Kernel.poll_control_queue() running at C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\ipykernel\kernelbase.py:304> wait_for=<Future finished result=<Future at 0x...state=pending>> cb=[_chain_future.<locals>._call_set_state() at C:\Users\Basile\anaconda3\Lib\asyncio\futures.py:398]>
+2025-09-01 09:51:49,468 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 09:51:49,515 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 09:51:49,550 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 09:51:49,578 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 09:51:49,586 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 09:51:49,604 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:26,385 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:26,448 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:26,452 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:26,477 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:26,602 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:26,612 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:26,617 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:26,755 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:30,085 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:30,090 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:30,105 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:30,160 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:30,170 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:30,188 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:30,344 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:30,735 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:34,561 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:34,738 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:34,754 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:34,788 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:34,820 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:34,872 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:35,016 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:35,471 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:38,227 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:38,227 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:38,239 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:38,360 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:38,391 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:38,604 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:38,705 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:39,204 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:41,635 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:41,684 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:41,926 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:41,963 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:42,019 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:42,027 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:42,422 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:42,808 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:45,116 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:45,167 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:45,454 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:45,507 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:45,537 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:45,609 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:46,112 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:46,270 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:48,719 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:48,721 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:48,905 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:48,989 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:49,037 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:49,252 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:49,640 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:50,084 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:52,675 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:52,675 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:52,725 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:52,923 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:52,928 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:52,966 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:53,539 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:54,311 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:56,221 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:56,336 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:56,354 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:56,495 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:56,541 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:56,672 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:57,225 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:57,868 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:59,765 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:59,888 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:58:59,958 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:00,101 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:00,309 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:00,386 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:01,037 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:01,600 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:03,142 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:03,146 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:03,290 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:03,579 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:03,684 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:03,749 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:04,502 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:04,904 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:06,284 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:06,383 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:06,511 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:06,899 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:06,930 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:07,025 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:08,007 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:08,154 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:09,506 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:09,602 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:09,934 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:10,120 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:10,207 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:10,260 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:11,290 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:11,422 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:12,762 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:12,969 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:13,320 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:13,338 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:13,385 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:13,434 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:14,495 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:14,787 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:16,052 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:16,256 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:16,519 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:16,522 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:16,634 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:16,656 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:17,751 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:18,225 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:19,505 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:19,657 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:19,816 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:19,826 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:19,948 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:20,057 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:21,231 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:21,453 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:22,745 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:22,964 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:23,056 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:23,064 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:23,187 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:23,332 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:24,427 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:24,838 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:26,032 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:26,224 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:26,359 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:26,388 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:26,536 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:26,646 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:27,873 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:28,313 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:29,513 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:29,568 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:29,616 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:29,741 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:29,797 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:29,839 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:31,418 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:31,728 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:32,903 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:32,937 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:32,960 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:33,037 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:33,074 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:33,212 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:34,911 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:35,013 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:36,173 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:36,187 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:36,228 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:36,284 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:36,421 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:36,723 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:38,628 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:38,643 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:39,426 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:39,768 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:39,879 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:39,970 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:40,001 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:40,497 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:41,990 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:42,100 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:42,775 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:42,922 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:43,102 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:43,201 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:43,239 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:43,754 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:45,259 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:45,331 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:45,984 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:46,104 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:46,316 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:46,656 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:46,712 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:47,212 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:48,746 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:48,820 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:49,776 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:49,878 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:50,043 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:50,127 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:50,424 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:50,906 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:52,389 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:52,673 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:53,358 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:53,435 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:53,547 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:53,675 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:53,982 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:54,409 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:55,701 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:56,021 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:56,727 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:56,763 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:56,895 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:56,913 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:57,372 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:57,851 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:58,963 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 10:59:59,477 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:00,078 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:00,126 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:00,130 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:00,177 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:00,791 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:01,230 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:02,340 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:02,838 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:03,298 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:03,393 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:03,422 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:03,444 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:04,353 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:04,694 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:05,756 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:06,278 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:06,667 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:06,786 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:06,791 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:06,808 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:07,935 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:08,038 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:09,078 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:09,822 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:10,065 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:10,131 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:10,186 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:10,353 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:11,240 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:11,371 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:12,643 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:13,262 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:13,371 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:13,397 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:13,480 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:13,702 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:14,571 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:14,675 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:16,017 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:16,697 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:16,712 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:16,767 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:16,808 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:17,155 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:17,899 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:18,071 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:19,451 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:20,055 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:20,074 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:20,077 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:20,083 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:20,512 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:21,475 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:21,679 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:22,863 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:23,745 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:23,753 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:23,768 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:24,024 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:24,937 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:25,323 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:26,474 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:27,108 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:27,143 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:27,196 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:27,214 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:27,491 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:28,519 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:28,949 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:29,838 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:30,402 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:30,408 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:30,593 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:30,715 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:30,945 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:31,795 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:32,206 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:33,311 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:33,765 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:33,843 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:34,043 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:34,066 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:34,403 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:35,088 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:35,416 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:36,616 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:37,265 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:37,272 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:37,384 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-01 11:00:37,493 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-10-13 15:22:24,903 - pyswarms.backend.generators - ERROR - Bounds and/or init_pos should be of size (4,)
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pyswarms\backend\generators.py", line 81, in generate_swarm
+    pos = center * np.random.uniform(
+                   ^^^^^^^^^^^^^^^^^^
+  File "numpy\\random\\mtrand.pyx", line 1171, in numpy.random.mtrand.RandomState.uniform
+  File "_common.pyx", line 600, in numpy.random._common.cont
+  File "_common.pyx", line 517, in numpy.random._common.cont_broadcast_2
+  File "__init__.cython-30.pxd", line 780, in numpy.PyArray_MultiIterNew3
+ValueError: shape mismatch: objects cannot be broadcast to a single shape.  Mismatch is between arg 0 with shape (10, 4) and arg 1 with shape (10, 5).
+2025-10-21 14:32:34,259 - pyswarms.backend.generators - ERROR - Bounds and/or init_pos should be of size (5,)
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pyswarms\backend\generators.py", line 74, in generate_swarm
+    lb, ub = bounds
+    ^^^^^^
+ValueError: too many values to unpack (expected 2)
+2025-10-21 14:35:58,728 - pyswarms.backend.generators - ERROR - Bounds and/or init_pos should be of size (5,)
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pyswarms\backend\generators.py", line 74, in generate_swarm
+    lb, ub = bounds
+    ^^^^^^
+ValueError: too many values to unpack (expected 2)
+2025-10-21 16:27:40,566 - pygad.pygad - ERROR - In PyGAD 2.20.0, the fitness function must accept 3 parameters:
+1) The instance of the 'pygad.GA' class.
+2) A solution to calculate its fitness value.
+3) The solution's index within the population.
+
+The passed fitness function named 'fitness_func' accepts 2 parameter(s).
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 960, in __init__
+    raise ValueError(f"In PyGAD 2.20.0, the fitness function must accept 3 parameters:\n1) The instance of the 'pygad.GA' class.\n2) A solution to calculate its fitness value.\n3) The solution's index within the population.\n\nThe passed fitness function named '{fitness_func.__code__.co_name}' accepts {fitness_func.__code__.co_argcount} parameter(s).")
+ValueError: In PyGAD 2.20.0, the fitness function must accept 3 parameters:
+1) The instance of the 'pygad.GA' class.
+2) A solution to calculate its fitness value.
+3) The solution's index within the population.
+
+The passed fitness function named 'fitness_func' accepts 2 parameter(s).
+2025-10-21 16:30:17,294 - pygad.pygad - ERROR - When a list or tuple is assigned to the 'parallel_processing' parameter, then the second element must be an integer but the value (-1) of type <class 'int'> found.
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1271, in __init__
+    raise TypeError(f"When a list or tuple is assigned to the 'parallel_processing' parameter, then the second element must be an integer but the value ({parallel_processing[1]}) of type {type(parallel_processing[1])} found.")
+TypeError: When a list or tuple is assigned to the 'parallel_processing' parameter, then the second element must be an integer but the value (-1) of type <class 'int'> found.
+2025-10-21 16:31:49,652 - pygad.pygad - ERROR - 'T_su_C'
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 315, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 202, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 122, in compute_geom
+    T_max = max(self.inputs['T_su_H'], self.inputs['T_su_C'])*1.2
+                                       ~~~~~~~~~~~^^^^^^^^^^
+KeyError: 'T_su_C'
+2025-10-21 16:31:49,658 - pygad.pygad - ERROR - 'T_su_C'
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1765, in run
+    self.last_generation_fitness = self.cal_pop_fitness()
+                                   ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1722, in cal_pop_fitness
+    raise ex
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 315, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 202, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 122, in compute_geom
+    T_max = max(self.inputs['T_su_H'], self.inputs['T_su_C'])*1.2
+                                       ~~~~~~~~~~~^^^^^^^^^^
+KeyError: 'T_su_C'
+2025-10-21 16:43:37,801 - pygad.pygad - ERROR - 'tube_layout'
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 333, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 220, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 133, in compute_geom
+    self.params['pitch_ratio'] = pitch_ratio_fun(self.params['Tube_OD'], self.params['tube_layout'])
+                                                                         ~~~~~~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'tube_layout'
+2025-10-21 16:43:37,806 - pygad.pygad - ERROR - 'tube_layout'
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1765, in run
+    self.last_generation_fitness = self.cal_pop_fitness()
+                                   ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1722, in cal_pop_fitness
+    raise ex
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 333, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 220, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 133, in compute_geom
+    self.params['pitch_ratio'] = pitch_ratio_fun(self.params['Tube_OD'], self.params['tube_layout'])
+                                                                         ~~~~~~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'tube_layout'
+2025-10-21 16:43:48,973 - pygad.pygad - ERROR - 'central_spacing'
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 333, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 220, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 136, in compute_geom
+    self.params['cross_Passes'] = round(self.params['Tube_L']/self.params['central_spacing']) - 1
+                                                              ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+KeyError: 'central_spacing'
+2025-10-21 16:43:48,977 - pygad.pygad - ERROR - 'central_spacing'
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1765, in run
+    self.last_generation_fitness = self.cal_pop_fitness()
+                                   ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1722, in cal_pop_fitness
+    raise ex
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 333, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 220, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 136, in compute_geom
+    self.params['cross_Passes'] = round(self.params['Tube_L']/self.params['central_spacing']) - 1
+                                                              ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+KeyError: 'central_spacing'
+2025-10-21 16:52:30,272 - pygad.pygad - ERROR - 'L_shell'
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 339, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 226, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 135, in compute_geom
+    low_bound_L_shell = max(self.bounds['L_shell'][0], self.params['Shell_ID']*3)
+                            ~~~~~~~~~~~^^^^^^^^^^^
+KeyError: 'L_shell'
+2025-10-21 16:52:30,274 - pygad.pygad - ERROR - 'L_shell'
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1765, in run
+    self.last_generation_fitness = self.cal_pop_fitness()
+                                   ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1722, in cal_pop_fitness
+    raise ex
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 339, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 226, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 135, in compute_geom
+    low_bound_L_shell = max(self.bounds['L_shell'][0], self.params['Shell_ID']*3)
+                            ~~~~~~~~~~~^^^^^^^^^^^
+KeyError: 'L_shell'
+2025-10-21 16:52:58,828 - pygad.pygad - ERROR - 'Tube_L'
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 339, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 226, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 135, in compute_geom
+    low_bound_L_shell = max(self.bounds['Tube_L'][0], self.params['Shell_ID']*3)
+                            ~~~~~~~~~~~^^^^^^^^^^
+KeyError: 'Tube_L'
+2025-10-21 16:52:58,830 - pygad.pygad - ERROR - 'Tube_L'
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1765, in run
+    self.last_generation_fitness = self.cal_pop_fitness()
+                                   ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1722, in cal_pop_fitness
+    raise ex
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 339, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 226, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 135, in compute_geom
+    low_bound_L_shell = max(self.bounds['Tube_L'][0], self.params['Shell_ID']*3)
+                            ~~~~~~~~~~~^^^^^^^^^^
+KeyError: 'Tube_L'
+2025-10-21 16:53:13,309 - pygad.pygad - ERROR - invalid index to scalar variable.
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 339, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 226, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 135, in compute_geom
+    low_bound_L_shell = max(self.params['Tube_L'][0], self.params['Shell_ID']*3)
+                            ~~~~~~~~~~~~~~~~~~~~~^^^
+IndexError: invalid index to scalar variable.
+2025-10-21 16:53:13,312 - pygad.pygad - ERROR - invalid index to scalar variable.
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1765, in run
+    self.last_generation_fitness = self.cal_pop_fitness()
+                                   ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1722, in cal_pop_fitness
+    raise ex
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 339, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 226, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 135, in compute_geom
+    low_bound_L_shell = max(self.params['Tube_L'][0], self.params['Shell_ID']*3)
+                            ~~~~~~~~~~~~~~~~~~~~~^^^
+IndexError: invalid index to scalar variable.
+2025-10-21 16:53:29,540 - pygad.pygad - ERROR - 'central_spacing'
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 339, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 226, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 142, in compute_geom
+    self.params['cross_Passes'] = round(self.params['Tube_L']/self.params['central_spacing']) - 1
+                                                              ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+KeyError: 'central_spacing'
+2025-10-21 16:53:29,542 - pygad.pygad - ERROR - 'central_spacing'
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1765, in run
+    self.last_generation_fitness = self.cal_pop_fitness()
+                                   ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1722, in cal_pop_fitness
+    raise ex
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 339, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 226, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 142, in compute_geom
+    self.params['cross_Passes'] = round(self.params['Tube_L']/self.params['central_spacing']) - 1
+                                                              ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+KeyError: 'central_spacing'
+2025-10-21 17:02:18,759 - pygad.pygad - ERROR - 'central_spacing'
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 339, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 226, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 142, in compute_geom
+    self.params['cross_passes'] = round(self.params['Tube_L']/self.params['central_spacing']) - 1
+                                                              ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+KeyError: 'central_spacing'
+2025-10-21 17:02:18,763 - pygad.pygad - ERROR - 'central_spacing'
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1765, in run
+    self.last_generation_fitness = self.cal_pop_fitness()
+                                   ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1722, in cal_pop_fitness
+    raise ex
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 339, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 226, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 142, in compute_geom
+    self.params['cross_passes'] = round(self.params['Tube_L']/self.params['central_spacing']) - 1
+                                                              ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+KeyError: 'central_spacing'
+2025-10-21 17:11:18,822 - pygad.pygad - ERROR - 'ShellAndTubeSizingOpt' object has no attribute 'choice_vectors'
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 349, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 236, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 154, in compute_geom
+    pipe_thickness = carbon_steel_pipe_thickness(self.choice_vectors['D_o_inch'], self.T_max_cycle, self.su_S.p, self.P_max_cycle)
+                                                 ^^^^^^^^^^^^^^^^^^^
+AttributeError: 'ShellAndTubeSizingOpt' object has no attribute 'choice_vectors'
+2025-10-21 17:11:18,828 - pygad.pygad - ERROR - 'ShellAndTubeSizingOpt' object has no attribute 'choice_vectors'
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1765, in run
+    self.last_generation_fitness = self.cal_pop_fitness()
+                                   ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1722, in cal_pop_fitness
+    raise ex
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 349, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 236, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 154, in compute_geom
+    pipe_thickness = carbon_steel_pipe_thickness(self.choice_vectors['D_o_inch'], self.T_max_cycle, self.su_S.p, self.P_max_cycle)
+                                                 ^^^^^^^^^^^^^^^^^^^
+AttributeError: 'ShellAndTubeSizingOpt' object has no attribute 'choice_vectors'
+2025-10-21 17:13:55,725 - pygad.pygad - ERROR - 'ShellAndTubeSizingOpt' object has no attribute 'choice_vectors'
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 355, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 242, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 160, in compute_geom
+    pipe_thickness = carbon_steel_pipe_thickness(self.choice_vectors['D_o_inch'], self.T_max_cycle, self.su_S.p, self.P_max_cycle)
+                                                 ^^^^^^^^^^^^^^^^^^^
+AttributeError: 'ShellAndTubeSizingOpt' object has no attribute 'choice_vectors'
+2025-10-21 17:13:55,729 - pygad.pygad - ERROR - 'ShellAndTubeSizingOpt' object has no attribute 'choice_vectors'
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1765, in run
+    self.last_generation_fitness = self.cal_pop_fitness()
+                                   ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1722, in cal_pop_fitness
+    raise ex
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 355, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 242, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 160, in compute_geom
+    pipe_thickness = carbon_steel_pipe_thickness(self.choice_vectors['D_o_inch'], self.T_max_cycle, self.su_S.p, self.P_max_cycle)
+                                                 ^^^^^^^^^^^^^^^^^^^
+AttributeError: 'ShellAndTubeSizingOpt' object has no attribute 'choice_vectors'
+2025-10-21 17:14:04,818 - pygad.pygad - ERROR - list indices must be integers or slices, not str
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 355, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 242, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 160, in compute_geom
+    pipe_thickness = carbon_steel_pipe_thickness(self.gene_space['D_o_inch'], self.T_max_cycle, self.su_S.p, self.P_max_cycle)
+                                                 ~~~~~~~~~~~~~~~^^^^^^^^^^^^
+TypeError: list indices must be integers or slices, not str
+2025-10-21 17:14:04,822 - pygad.pygad - ERROR - list indices must be integers or slices, not str
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1765, in run
+    self.last_generation_fitness = self.cal_pop_fitness()
+                                   ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1722, in cal_pop_fitness
+    raise ex
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 355, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 242, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 160, in compute_geom
+    pipe_thickness = carbon_steel_pipe_thickness(self.gene_space['D_o_inch'], self.T_max_cycle, self.su_S.p, self.P_max_cycle)
+                                                 ~~~~~~~~~~~~~~~^^^^^^^^^^^^
+TypeError: list indices must be integers or slices, not str
+2025-10-21 17:14:39,344 - pygad.pygad - ERROR - 'ShellAndTubeSizingOpt' object has no attribute 'T_max_cycle'
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 355, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 242, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 160, in compute_geom
+    pipe_thickness = carbon_steel_pipe_thickness(self.gene_space[1], self.T_max_cycle, self.su_S.p, self.P_max_cycle)
+                                                                     ^^^^^^^^^^^^^^^^
+AttributeError: 'ShellAndTubeSizingOpt' object has no attribute 'T_max_cycle'
+2025-10-21 17:14:39,348 - pygad.pygad - ERROR - 'ShellAndTubeSizingOpt' object has no attribute 'T_max_cycle'
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1765, in run
+    self.last_generation_fitness = self.cal_pop_fitness()
+                                   ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1722, in cal_pop_fitness
+    raise ex
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 355, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 242, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 160, in compute_geom
+    pipe_thickness = carbon_steel_pipe_thickness(self.gene_space[1], self.T_max_cycle, self.su_S.p, self.P_max_cycle)
+                                                                     ^^^^^^^^^^^^^^^^
+AttributeError: 'ShellAndTubeSizingOpt' object has no attribute 'T_max_cycle'
+2025-10-21 17:17:37,112 - pygad.pygad - ERROR - 'ShellAndTubeSizingOpt' object has no attribute 'su_H'
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 363, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 250, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 160, in compute_geom
+    T_max = self.su_H.T
+            ^^^^^^^^^
+AttributeError: 'ShellAndTubeSizingOpt' object has no attribute 'su_H'
+2025-10-21 17:17:37,116 - pygad.pygad - ERROR - 'ShellAndTubeSizingOpt' object has no attribute 'su_H'
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1765, in run
+    self.last_generation_fitness = self.cal_pop_fitness()
+                                   ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1722, in cal_pop_fitness
+    raise ex
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 363, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 250, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 160, in compute_geom
+    T_max = self.su_H.T
+            ^^^^^^^^^
+AttributeError: 'ShellAndTubeSizingOpt' object has no attribute 'su_H'
+2025-10-21 17:18:56,917 - pygad.pygad - ERROR - 'ShellAndTubeSizingOpt' object has no attribute 'position'
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 456, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 363, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 250, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 174, in compute_geom
+    self.params['pitch_ratio']*self.params['Tube_OD'], self.position['tube_layout'], min_tubes_in_row)[0]
+                                                       ^^^^^^^^^^^^^
+AttributeError: 'ShellAndTubeSizingOpt' object has no attribute 'position'
+2025-10-21 17:18:56,920 - pygad.pygad - ERROR - 'ShellAndTubeSizingOpt' object has no attribute 'position'
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1765, in run
+    self.last_generation_fitness = self.cal_pop_fitness()
+                                   ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1722, in cal_pop_fitness
+    raise ex
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 456, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 363, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 250, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 174, in compute_geom
+    self.params['pitch_ratio']*self.params['Tube_OD'], self.position['tube_layout'], min_tubes_in_row)[0]
+                                                       ^^^^^^^^^^^^^
+AttributeError: 'ShellAndTubeSizingOpt' object has no attribute 'position'
+2025-10-21 17:45:40,407 - pygad.pygad - ERROR - The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 363, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 250, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 168, in compute_geom
+    pipe_thickness = carbon_steel_pipe_thickness_mm(self.gene_space[1], T_max, P_shell, P_max)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\Documents\GitHub\LaboThapPy\labothappy\toolbox\piping\pipe_thickness.py", line 219, in carbon_steel_pipe_thickness_mm
+    P_max_int = Internal_Max_P_carbon_steel(D_o, t, tube_T)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\Documents\GitHub\LaboThapPy\labothappy\toolbox\piping\pipe_thickness.py", line 41, in Internal_Max_P_carbon_steel
+    if D_o/t > 20: # Thin wall : Barlow
+       ^^^^^^^^^^
+ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()
+2025-10-21 17:45:40,411 - pygad.pygad - ERROR - The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1765, in run
+    self.last_generation_fitness = self.cal_pop_fitness()
+                                   ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1722, in cal_pop_fitness
+    raise ex
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 363, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 250, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 168, in compute_geom
+    pipe_thickness = carbon_steel_pipe_thickness_mm(self.gene_space[1], T_max, P_shell, P_max)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\Documents\GitHub\LaboThapPy\labothappy\toolbox\piping\pipe_thickness.py", line 219, in carbon_steel_pipe_thickness_mm
+    P_max_int = Internal_Max_P_carbon_steel(D_o, t, tube_T)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\Documents\GitHub\LaboThapPy\labothappy\toolbox\piping\pipe_thickness.py", line 41, in Internal_Max_P_carbon_steel
+    if D_o/t > 20: # Thin wall : Barlow
+       ^^^^^^^^^^
+ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()
+2025-10-21 17:46:12,686 - pygad.pygad - ERROR - invalid index to scalar variable.
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 363, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 250, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 169, in compute_geom
+    self.params['Tube_t'] = pipe_thickness[str(self.params['Tube_OD'])]
+                            ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+IndexError: invalid index to scalar variable.
+2025-10-21 17:46:12,688 - pygad.pygad - ERROR - invalid index to scalar variable.
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1765, in run
+    self.last_generation_fitness = self.cal_pop_fitness()
+                                   ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1722, in cal_pop_fitness
+    raise ex
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 363, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 250, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 169, in compute_geom
+    self.params['Tube_t'] = pipe_thickness[str(self.params['Tube_OD'])]
+                            ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+IndexError: invalid index to scalar variable.
+2025-10-21 17:46:28,274 - pygad.pygad - ERROR - 'ShellAndTubeSizingOpt' object has no attribute 'position'
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 362, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 249, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 173, in compute_geom
+    self.params['pitch_ratio']*self.params['Tube_OD'], self.position['tube_layout'], min_tubes_in_row)[0]
+                                                       ^^^^^^^^^^^^^
+AttributeError: 'ShellAndTubeSizingOpt' object has no attribute 'position'
+2025-10-21 17:46:28,276 - pygad.pygad - ERROR - 'ShellAndTubeSizingOpt' object has no attribute 'position'
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1765, in run
+    self.last_generation_fitness = self.cal_pop_fitness()
+                                   ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1722, in cal_pop_fitness
+    raise ex
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 362, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 249, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 173, in compute_geom
+    self.params['pitch_ratio']*self.params['Tube_OD'], self.position['tube_layout'], min_tubes_in_row)[0]
+                                                       ^^^^^^^^^^^^^
+AttributeError: 'ShellAndTubeSizingOpt' object has no attribute 'position'
+2025-10-21 17:46:44,434 - pygad.pygad - ERROR - cannot convert float NaN to integer
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 362, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 249, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 172, in compute_geom
+    self.params['n_tubes'] = estimate_number_of_tubes(self.params['Shell_ID'], self.params['Tube_OD'],
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\Documents\GitHub\LaboThapPy\labothappy\toolbox\heat_exchangers\shell_and_tubes\estimate_tube_in_shell.py", line 65, in estimate_number_of_tubes
+    tubes_in_current_row = tubes_in_row(D_main, P_h, y_pos, tube_radius)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\Documents\GitHub\LaboThapPy\labothappy\toolbox\heat_exchangers\shell_and_tubes\estimate_tube_in_shell.py", line 12, in tubes_in_row
+    tubes_per_row = int(effective_diameter // P_h)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: cannot convert float NaN to integer
+2025-10-21 17:46:44,437 - pygad.pygad - ERROR - cannot convert float NaN to integer
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1765, in run
+    self.last_generation_fitness = self.cal_pop_fitness()
+                                   ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1722, in cal_pop_fitness
+    raise ex
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 362, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 249, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 172, in compute_geom
+    self.params['n_tubes'] = estimate_number_of_tubes(self.params['Shell_ID'], self.params['Tube_OD'],
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\Documents\GitHub\LaboThapPy\labothappy\toolbox\heat_exchangers\shell_and_tubes\estimate_tube_in_shell.py", line 65, in estimate_number_of_tubes
+    tubes_in_current_row = tubes_in_row(D_main, P_h, y_pos, tube_radius)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\Documents\GitHub\LaboThapPy\labothappy\toolbox\heat_exchangers\shell_and_tubes\estimate_tube_in_shell.py", line 12, in tubes_in_row
+    tubes_per_row = int(effective_diameter // P_h)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: cannot convert float NaN to integer
+2025-10-21 17:47:32,227 - pygad.pygad - ERROR - cannot convert float NaN to integer
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 362, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 249, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 172, in compute_geom
+    self.params['n_tubes'] = estimate_number_of_tubes(self.params['Shell_ID'], self.params['Tube_OD'],
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\Documents\GitHub\LaboThapPy\labothappy\toolbox\heat_exchangers\shell_and_tubes\estimate_tube_in_shell.py", line 65, in estimate_number_of_tubes
+    tubes_in_current_row = tubes_in_row(D_main, P_h, y_pos, tube_radius)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\Documents\GitHub\LaboThapPy\labothappy\toolbox\heat_exchangers\shell_and_tubes\estimate_tube_in_shell.py", line 12, in tubes_in_row
+    tubes_per_row = int(effective_diameter // P_h)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: cannot convert float NaN to integer
+2025-10-21 17:47:32,230 - pygad.pygad - ERROR - cannot convert float NaN to integer
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1765, in run
+    self.last_generation_fitness = self.cal_pop_fitness()
+                                   ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1722, in cal_pop_fitness
+    raise ex
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 362, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 249, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 172, in compute_geom
+    self.params['n_tubes'] = estimate_number_of_tubes(self.params['Shell_ID'], self.params['Tube_OD'],
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\Documents\GitHub\LaboThapPy\labothappy\toolbox\heat_exchangers\shell_and_tubes\estimate_tube_in_shell.py", line 65, in estimate_number_of_tubes
+    tubes_in_current_row = tubes_in_row(D_main, P_h, y_pos, tube_radius)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\Documents\GitHub\LaboThapPy\labothappy\toolbox\heat_exchangers\shell_and_tubes\estimate_tube_in_shell.py", line 12, in tubes_in_row
+    tubes_per_row = int(effective_diameter // P_h)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: cannot convert float NaN to integer
+2025-10-21 17:47:33,869 - pygad.pygad - ERROR - cannot convert float NaN to integer
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 362, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 249, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 172, in compute_geom
+    self.params['n_tubes'] = estimate_number_of_tubes(self.params['Shell_ID'], self.params['Tube_OD'],
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\Documents\GitHub\LaboThapPy\labothappy\toolbox\heat_exchangers\shell_and_tubes\estimate_tube_in_shell.py", line 65, in estimate_number_of_tubes
+    tubes_in_current_row = tubes_in_row(D_main, P_h, y_pos, tube_radius)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\Documents\GitHub\LaboThapPy\labothappy\toolbox\heat_exchangers\shell_and_tubes\estimate_tube_in_shell.py", line 12, in tubes_in_row
+    tubes_per_row = int(effective_diameter // P_h)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: cannot convert float NaN to integer
+2025-10-21 17:47:33,872 - pygad.pygad - ERROR - cannot convert float NaN to integer
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1765, in run
+    self.last_generation_fitness = self.cal_pop_fitness()
+                                   ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1722, in cal_pop_fitness
+    raise ex
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 362, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 249, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 172, in compute_geom
+    self.params['n_tubes'] = estimate_number_of_tubes(self.params['Shell_ID'], self.params['Tube_OD'],
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\Documents\GitHub\LaboThapPy\labothappy\toolbox\heat_exchangers\shell_and_tubes\estimate_tube_in_shell.py", line 65, in estimate_number_of_tubes
+    tubes_in_current_row = tubes_in_row(D_main, P_h, y_pos, tube_radius)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\Documents\GitHub\LaboThapPy\labothappy\toolbox\heat_exchangers\shell_and_tubes\estimate_tube_in_shell.py", line 12, in tubes_in_row
+    tubes_per_row = int(effective_diameter // P_h)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: cannot convert float NaN to integer
+2025-10-21 17:48:07,324 - pygad.pygad - ERROR - cannot convert float NaN to integer
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 362, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 249, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 172, in compute_geom
+    self.params['n_tubes'] = estimate_number_of_tubes(self.params['Shell_ID'], self.params['Tube_OD'],
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\Documents\GitHub\LaboThapPy\labothappy\toolbox\heat_exchangers\shell_and_tubes\estimate_tube_in_shell.py", line 65, in estimate_number_of_tubes
+    tubes_in_current_row = tubes_in_row(D_main, P_h, y_pos, tube_radius)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\Documents\GitHub\LaboThapPy\labothappy\toolbox\heat_exchangers\shell_and_tubes\estimate_tube_in_shell.py", line 12, in tubes_in_row
+    tubes_per_row = int(effective_diameter // P_h)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: cannot convert float NaN to integer
+2025-10-21 17:48:07,326 - pygad.pygad - ERROR - cannot convert float NaN to integer
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1765, in run
+    self.last_generation_fitness = self.cal_pop_fitness()
+                                   ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1722, in cal_pop_fitness
+    raise ex
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 362, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 249, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 172, in compute_geom
+    self.params['n_tubes'] = estimate_number_of_tubes(self.params['Shell_ID'], self.params['Tube_OD'],
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\Documents\GitHub\LaboThapPy\labothappy\toolbox\heat_exchangers\shell_and_tubes\estimate_tube_in_shell.py", line 65, in estimate_number_of_tubes
+    tubes_in_current_row = tubes_in_row(D_main, P_h, y_pos, tube_radius)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\Documents\GitHub\LaboThapPy\labothappy\toolbox\heat_exchangers\shell_and_tubes\estimate_tube_in_shell.py", line 12, in tubes_in_row
+    tubes_per_row = int(effective_diameter // P_h)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: cannot convert float NaN to integer
+2025-10-21 17:49:39,060 - pygad.pygad - ERROR - cannot convert float NaN to integer
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 362, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 249, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 172, in compute_geom
+    self.params['n_tubes'] = estimate_number_of_tubes(self.params['Shell_ID'], self.params['Tube_OD'],
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\Documents\GitHub\LaboThapPy\labothappy\toolbox\heat_exchangers\shell_and_tubes\estimate_tube_in_shell.py", line 65, in estimate_number_of_tubes
+    tubes_in_current_row = tubes_in_row(D_main, P_h, y_pos, tube_radius)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\Documents\GitHub\LaboThapPy\labothappy\toolbox\heat_exchangers\shell_and_tubes\estimate_tube_in_shell.py", line 12, in tubes_in_row
+    tubes_per_row = int(effective_diameter // P_h)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: cannot convert float NaN to integer
+2025-10-21 17:49:39,063 - pygad.pygad - ERROR - cannot convert float NaN to integer
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1765, in run
+    self.last_generation_fitness = self.cal_pop_fitness()
+                                   ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1722, in cal_pop_fitness
+    raise ex
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pygad\pygad.py", line 1670, in cal_pop_fitness
+    for index, fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Basile\anaconda3\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 362, in fitness_func
+    cost = float(self.simulate_HX(sol))
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 249, in simulate_HX
+    self.compute_geom()
+  File "c:\users\basile\documents\github\labothappy\labothappy\sizing\heat_exchanger\shell_and_tube\shell_and_tube_sizing_pso_parallel_simple.py", line 172, in compute_geom
+    self.params['n_tubes'] = estimate_number_of_tubes(self.params['Shell_ID'], self.params['Tube_OD'],
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\Documents\GitHub\LaboThapPy\labothappy\toolbox\heat_exchangers\shell_and_tubes\estimate_tube_in_shell.py", line 65, in estimate_number_of_tubes
+    tubes_in_current_row = tubes_in_row(D_main, P_h, y_pos, tube_radius)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Basile\Documents\GitHub\LaboThapPy\labothappy\toolbox\heat_exchangers\shell_and_tubes\estimate_tube_in_shell.py", line 12, in tubes_in_row
+    tubes_per_row = int(effective_diameter // P_h)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: cannot convert float NaN to integer
+2025-11-13 09:59:41,571 - pyswarms.backend.generators - ERROR - Bounds and/or init_pos should be of size (2,)
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pyswarms\backend\generators.py", line 81, in generate_swarm
+    pos = center * np.random.uniform(
+                   ^^^^^^^^^^^^^^^^^^
+  File "numpy\\random\\mtrand.pyx", line 1171, in numpy.random.mtrand.RandomState.uniform
+  File "_common.pyx", line 600, in numpy.random._common.cont
+  File "_common.pyx", line 517, in numpy.random._common.cont_broadcast_2
+  File "__init__.cython-30.pxd", line 780, in numpy.PyArray_MultiIterNew3
+ValueError: shape mismatch: objects cannot be broadcast to a single shape.  Mismatch is between arg 0 with shape (40, 2) and arg 1 with shape (40, 7).
+2025-11-13 10:36:04,953 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Task-2' coro=<Kernel.poll_control_queue() running at C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\ipykernel\kernelbase.py:309> wait_for=<Future pending cb=[Task.task_wakeup()]> cb=[_chain_future.<locals>._call_set_state() at C:\Users\Basile\anaconda3\Lib\asyncio\futures.py:398]>
+2025-11-13 16:00:58,931 - pyswarms.backend.generators - ERROR - Bounds and/or init_pos should be of size (3,)
+Traceback (most recent call last):
+  File "C:\Users\Basile\anaconda3\Lib\site-packages\pyswarms\backend\generators.py", line 81, in generate_swarm
+    pos = center * np.random.uniform(
+                   ^^^^^^^^^^^^^^^^^^
+  File "numpy\\random\\mtrand.pyx", line 1171, in numpy.random.mtrand.RandomState.uniform
+  File "_common.pyx", line 600, in numpy.random._common.cont
+  File "_common.pyx", line 517, in numpy.random._common.cont_broadcast_2
+  File "__init__.cython-30.pxd", line 780, in numpy.PyArray_MultiIterNew3
+ValueError: shape mismatch: objects cannot be broadcast to a single shape.  Mismatch is between arg 0 with shape (40, 3) and arg 1 with shape (40, 4).

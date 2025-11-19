@@ -4,6 +4,7 @@ Created on Wed Jul 07 11:47:52 2024
     
 @author: basile chaudoir
 """
+
 from CoolProp.CoolProp import PropsSI
 
 import matplotlib.pyplot as plt
@@ -370,7 +371,7 @@ class RecursiveCircuit(BaseCircuit):
         component = self.get_component(component_name)
         
         component.set_properties(connector_name, **kwargs)
-
+        
         component.model.check_calculable()
 
         return
@@ -521,7 +522,7 @@ class RecursiveCircuit(BaseCircuit):
         self.guess_update = True
 
         i=0
-        n_it_max = 10   
+        n_it_max = 30   
         
         while i < n_it_max:
  
@@ -665,8 +666,9 @@ class RecursiveCircuit(BaseCircuit):
         # plt.figure()
         # plt.plot(res_ev, 'r',  marker='o')                            
         # plt.show()
-
-        # print(f"Solver failed to converge in {n_it_max} iterations.")
+        
+        if self.print_flag:
+            print(f"Solver failed to converge in {n_it_max} iterations.")
         
         # self.print_res_vars()
         

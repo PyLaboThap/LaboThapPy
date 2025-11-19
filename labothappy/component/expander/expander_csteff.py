@@ -1,8 +1,10 @@
 
-
+import numpy as np
 from component.base_component import BaseComponent
+from connector.heat_connector import HeatConnector
 from connector.mass_connector import MassConnector
 from connector.work_connector import WorkConnector
+from CoolProp.CoolProp import PropsSI
 import CoolProp.CoolProp as CP
 
 class ExpanderCstEff(BaseComponent):
@@ -33,7 +35,7 @@ class ExpanderCstEff(BaseComponent):
 
         ex (MassConnector): Mass connector for the exhaust side.
         
-        W (WorkConnector): Work connector.
+        W_exp (WorkConnector): Work connector.
 
 
     **Parameters**:
@@ -68,8 +70,10 @@ class ExpanderCstEff(BaseComponent):
         # Define mass flow connectors for suction and exhaust
         self.su = MassConnector()
         self.ex = MassConnector()  
+        
         # Define work connector for mechanical work output
-        self.W = WorkConnector()
+        self.W_exp = WorkConnector()
+        self.print_flag = 1
 
     def get_required_inputs(self):  # Used in check_calculablle to see if all of the required inputs are set
         # Return a list of required inputs
@@ -119,7 +123,10 @@ class ExpanderCstEff(BaseComponent):
         except Exception as e:
             # Handle any errors that occur during solving
             self.solved = False
-            print(f"Solving problem in expander model: {e}")
+            
+            if self.print_flag:
+                print(f"Solving problem in expander model: {e}")
+                
             return
 
     def update_connectors(self, h_ex, w_exp, p_ex, W_dot_exp):
@@ -128,22 +135,26 @@ class ExpanderCstEff(BaseComponent):
         self.ex.set_h(h_ex)
         self.ex.set_p(p_ex)
         self.ex.set_m_dot(self.su.m_dot)
-        self.W.set_W_dot(W_dot_exp)
+        self.W_exp.set_W_dot(W_dot_exp)
 
     def print_results(self):
         print("=== Expander Results ===")
         print(f"  - h_ex: {self.ex.h} [J/kg]")
         print(f"  - T_ex: {self.ex.T} [K]")
-        print(f"  - W_dot_exp: {self.W.W_dot} [W]")
+        print(f"  - W_dot_exp: {self.W_exp.W_dot} [W]")
         print("=========================")
 
     def print_states_connectors(self):
         print("=== Expander Results ===")
         print("Mass connectors:")
-        print(f"  - su: fluid={self.su.fluid}, T={self.su.T} [K], p={self.su.p} [Pa], h={self.su.h} [J/kg], s={self.su.s} [J/K.kg], m_dot={self.su.m_dot} [kg/s]")
-        print(f"  - ex: fluid={self.ex.fluid}, T={self.ex.T} [K], p={self.ex.p} [Pa], h={self.ex.h} [J/kg], s={self.ex.s} [J/K.kg], m_dot={self.ex.m_dot} [kg/s]")
+        print(
+            f"  - su: fluid={self.su.fluid}, T={self.su.T} [K], p={self.su.p} [Pa], h={self.su.h} [J/kg], s={self.su.s} [J/K.kg], m_dot={self.su.m_dot} [kg/s]"
+        )
+        print(
+            f"  - ex: fluid={self.ex.fluid}, T={self.ex.T} [K], p={self.ex.p} [Pa], h={self.ex.h} [J/kg], s={self.ex.s} [J/K.kg], m_dot={self.ex.m_dot} [kg/s]"
+        )
         print("=========================")
         print("Work connector:")
-        print(f"  - W_dot_exp: {self.W.W_dot} [W]")
+        print(f"  - W_dot_exp: {self.W_exp.W_dot} [W]")
         print("=========================")
 
