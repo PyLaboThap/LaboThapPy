@@ -8,5 +8,6 @@ The heat exchanger models are limited to non-humid air applications.
 .. toctree::
    :maxdepth: 1
 
-   heat_exchanger/charge_sensitive_mb_doc
+   heat_exchanger_models/hex_crossflowfintube_finitevolume
+   heat_exchanger_models/hex_csteff
 
