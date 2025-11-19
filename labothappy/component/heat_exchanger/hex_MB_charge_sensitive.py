@@ -519,6 +519,7 @@ class HeatExchangerMB(BaseComponent):
 
         self.calculate_cell_boundaries(Q_dot_max) # call calculate_cell_boundaries procedure
 
+
         return Q_dot_max
 
     def calculate_cell_boundaries(self, Q):

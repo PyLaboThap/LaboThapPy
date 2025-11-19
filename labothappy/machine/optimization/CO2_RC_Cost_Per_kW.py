@@ -219,7 +219,7 @@ def TCO2_rec_comp_sizing(RC):
                                 n_disc = 50
                               )
     
-        H_Corr = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Horizontal_Tube_Internal_Condensation"}
+        H_Corr = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Thome_Condensation"}
         C_Corr = {"SC" : "Shell_Kern_HTC", "1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
 
         H_DP = "Choi_DP"
@@ -404,6 +404,8 @@ def system_RC_parallel(x, input_data):
             penalty += abs((obj['eta'] - eta)/obj['eta']) * 10
             
         # objective = RC.components['GasHeater'].model.Q_dot.Q_dot
+        RC.eta = eta
+        RC.W_dot_net = W_dot_net
         
         Q_cond = RC.components['Condenser'].model.Q_dot.Q_dot
         RC.components['Condenser'].model.equivalent_effectiveness()
@@ -971,5 +973,4 @@ if __name__ == "__main__":
     # print(f"Second run time (warm): {t3 - t2:.4f} s")
 
     Optimizer.cycle_design(ntop = 5)
-
 

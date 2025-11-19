@@ -664,7 +664,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
         Cost in $ of 2023
         """
         
-        A = 1.2 # [$/kg] : For carbon steel pipes // 255 for superalloy piping
+        A = 4 # 1.2 # [$/kg] : 1.2 for carbon steel pipes // 255 for superalloy piping // 4 for SS316
         B = 5 # [$ * m]
         C = 14 # [$]
         D = 2 # [$*m]

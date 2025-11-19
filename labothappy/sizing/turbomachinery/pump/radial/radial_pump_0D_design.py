@@ -204,8 +204,8 @@ class RadialPumpODDesign():
         h_is = self.AS.hmass()
         h_ex = h_in + (h_is-h_in)/self.eta_is
         
-        self.W_dot = self.inputs['m_dot']*(h_is - h_ex)
-        self.W_dot_pp = self.inputs['m_dot']*(h_is - h_ex)/self.n_parallel
+        self.W_dot = self.inputs['m_dot']*(h_ex - h_is)
+        self.W_dot_pp = self.inputs['m_dot']*(h_ex - h_is)/self.n_parallel
     
     def pick_npp_by_threshold(self, eta, pp_threshold=2.0):
         """
