@@ -59,7 +59,7 @@ class CrossFlowTubeAndFinsHTX(BaseComponent):
         ex_H (MassConnector): Mass connector for the hot-side exhaust.
         ex_C (MassConnector): Mass connector for the cold-side exhaust.
         
-        Q_dot (HeatConnector): Heat connection (not actively used in current implementation).
+        Q (HeatConnector): Heat connection (not actively used in current implementation).
     
     **Parameters**:
     
@@ -163,7 +163,7 @@ class CrossFlowTubeAndFinsHTX(BaseComponent):
         self.ex_H = MassConnector()
         self.ex_C = MassConnector() # Mass_connector
         
-        self.Q_dot = HeatConnector()
+        self.Q = HeatConnector()
         self.debug = 0
 
     #%%    
