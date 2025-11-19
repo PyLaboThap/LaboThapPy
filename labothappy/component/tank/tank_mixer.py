@@ -6,7 +6,6 @@ Created on Fri May 10 14:31:24 2024
 """
 
 from connector.mass_connector import MassConnector
-from CoolProp.CoolProp import PropsSI
 
 from component.base_component import BaseComponent
 import numpy as np         

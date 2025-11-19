@@ -108,7 +108,6 @@ class HXPinchCst(BaseComponent):
         self.guesses = {}
 
     def get_required_inputs(self): # Used in check_calculablle to see if all of the required inputs are set
-        self.sync_inputs()
         # Return a list of required inputs
         return ['fluid_C', 'h_su_C', 'P_su_C', 'm_dot_C', 'fluid_H', 'h_su_H', 'P_su_H', 'm_dot_H']
     
@@ -121,31 +120,6 @@ class HXPinchCst(BaseComponent):
     
     def get_required_guesses(self):
         return [ 'P_sat' ]
-    
-    def print_setup(self):
-        print("=== Heat Exchanger Setup ===")
-        print("Connectors:")
-        print(f"  - su_C: fluid={self.su_C.fluid}, T={self.su_C.T}, p={self.su_C.p}, m_dot={self.su_C.m_dot}")
-        print(f"  - su_H: fluid={self.su_H.fluid}, T={self.su_H.T}, p={self.su_H.p}, m_dot={self.su_H.m_dot}")
-        print(f"  - ex_C: fluid={self.ex_C.fluid}, T={self.ex_C.T}, p={self.ex_C.p}, m_dot={self.ex_C.m_dot}")
-        print(f"  - ex_H: fluid={self.ex_H.fluid}, T={self.ex_H.T}, p={self.ex_H.p}, m_dot={self.ex_H.m_dot}")
-        print(f"  - Q_dot: {self.Q_dot.Q_dot}")
-
-        print("\nInputs:")
-        for input in self.get_required_inputs():
-            if input in self.inputs:
-                print(f"  - {input}: {self.inputs[input]}")
-            else:
-                print(f"  - {input}: Not set")
-
-        print("\nParameters:")
-        for param in self.get_required_parameters():
-            if param in self.params:
-                print(f"  - {param}: {self.params[param]}")
-            else:
-                print(f"  - {param}: Not set")
-
-        print("======================")
 
     def equivalent_effectiveness(self):
         

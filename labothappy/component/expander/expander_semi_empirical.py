@@ -8,7 +8,7 @@ Created on Tue Jul 30 2024
 "External modules"
 from CoolProp.CoolProp import AbstractState, PropsSI
 import CoolProp.CoolProp as CoolProp
-from scipy.optimize import fsolve, root
+from scipy.optimize import fsolve
 import numpy as np
 
 "Internal modules"
@@ -40,7 +40,7 @@ class ExpanderSE(BaseComponent):
 
         ex (MassConnector): Mass connector for the exhaust side.
 
-        W_mec (WorkConnector): Work connector.
+        W (WorkConnector): Work connector.
 
         Q_amb (HeatConnector): Heat connector for the ambient heat transfer.
 
@@ -102,20 +102,21 @@ class ExpanderSE(BaseComponent):
         super().__init__()
         self.su = MassConnector() # Suction side mass connector
         self.ex = MassConnector() # Exhaust side mass connector
-        self.W_mec = WorkConnector() # Work connector of the expander
+        self.W = WorkConnector() # Work connector of the expander
         self.Q_amb = HeatConnector() # Heat connector to the ambient
 
     def get_required_inputs(self):
         
         # Define the required inputs for the component
-        # If the mode is 'N_rot', the rotational speed of the expander is required while the mass flow rate is calculated
+        # If the mode is 'P_N', the rotational speed and the exhaust pressure of the expander is required while the mass flow rate is calculated
         if self.params['mode'] == 'P_N':
             return ['P_su', 'h_su', 'P_ex', 'N_rot', 'T_amb', 'fluid']
         
-        # If the mode is 'm_dot', the mass flow rate is required while the rotational speed of the expander is calculated
+        # If the mode is 'P_M', the mass flow rate and the exhaust pressure is required while the rotational speed of the expander is calculated
         elif self.params['mode'] == 'P_M':
             return ['P_su', 'h_su', 'P_ex', 'm_dot', 'T_amb', 'fluid']
 
+        # If the mode is 'M_N', the rotational speed and the mass flow rate of the expander is required while the exhaust pressure is calculated
         elif self.params['mode'] == 'M_N':
             return ['P_su', 'h_su', 'N_rot', 'm_dot', 'T_amb', 'fluid']
         else: 
@@ -452,8 +453,8 @@ class ExpanderSE(BaseComponent):
         self.ex.set_T(PropsSI('T', 'P', self.ex.p, 'H', self.ex.h, self.ex.fluid))
         self.ex.set_p(self.ex.p)
 
-        self.W_mec.set_W_dot(self.W_dot_exp)
-        self.W_mec.set_N(self.N_rot)
+        self.W.set_W_dot(self.W_dot_exp)
+        self.W.set_N(self.N_rot)
         self.Q_amb.set_Q_dot(self.Q_dot_amb)
         self.Q_amb.set_T_hot(self.T_w)
 
@@ -461,12 +462,11 @@ class ExpanderSE(BaseComponent):
         print("=== Expander Results ===")
         print(f"  - h_ex: {self.ex.h} [J/kg]")
         print(f"  - T_ex: {self.ex.T} [K]")
-        print(f"  - W_dot_exp: {self.W_mec.W_dot} [W]")
+        print(f"  - W_dot_exp: {self.W.W_dot} [W]")
         print(f"  - epsilon_is: {self.epsilon_is} [-]")
         print(f"  - m_dot: {self.m_dot} [kg/s]")
         print(f"  - epsilon_v: {self.epsilon_v} [-]")
         print("=========================")
-        return
 
     def print_states_connectors(self):
         print("=== Expander Results ===")
@@ -475,11 +475,10 @@ class ExpanderSE(BaseComponent):
         print(f"  - ex: fluid={self.ex.fluid}, T={self.ex.T} [K], p={self.ex.p} [Pa], h={self.ex.h} [J/kg], s={self.ex.s} [J/K.kg], m_dot={self.ex.m_dot} [kg/s]")
         print("=========================")
         print("Work connector:")
-        print(f"  - W_dot_exp: {self.W_mec.W_dot} [W]")
+        print(f"  - W_dot_exp: {self.W.W_dot} [W]")
         print("=========================")
         print("Heat connector:")
         print(f"  - Q_dot_amb: {self.Q_amb.Q_dot} [W]")
         print(f"  - T_hot: {self.Q_amb.T_hot} [K]")
         print(f"  - T_cold: {self.Q_amb.T_cold} [K]")
         print("=========================")
-        return
