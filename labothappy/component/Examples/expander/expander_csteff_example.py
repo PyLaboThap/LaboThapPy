@@ -8,8 +8,6 @@ Created on Aug 03 21:31:37 2023
 # import __init__
 from labothappy.component.expander.expander_csteff import ExpanderCstEff
 
-import numpy as np
-
 # Example usage
 EXP = ExpanderCstEff()
 EXP.print_setup()

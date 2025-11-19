@@ -123,8 +123,6 @@ class LV_Separator(BaseComponent):
             - m_dot         : Supply flow rate [kg/s]
             
         """
-        self.sync_inputs()
-
         # The inputs should be defined in order to define the state of the fluid (i.e x_su should be defined at saturation)
         return['x_su', 'T_su', 'h_su', 'P_su', 'm_dot', 'fluid'] 
     
@@ -135,26 +133,7 @@ class LV_Separator(BaseComponent):
         """
         # print ('No required parameters')
         return []
-        
-    
-    def print_setup(self): 
-        print("=== LV_Separator ===")
-        print("\nInputs:")
-        for input in self.get_required_inputs():
-            if input in self.inputs:
-                print(f"  - {input}: {self.inputs[input]}")
-            else:
-                print(f"  - {input}: Not set")
 
-
-        print("\nParameters:")
-        for param in self.get_required_parameters():
-            if param in self.params:
-                print(f"  - {param}: {self.params[param]}")
-            else:
-                print(f"  - {param}: Not set")
-
-        print("======================")
            
 
     def update_connectors(self, x_ex_l, T_ex_l, h_ex_l, p_ex_l, m_dot_l, x_ex_v, T_ex_v, h_ex_v, p_ex_v, m_dot_v):

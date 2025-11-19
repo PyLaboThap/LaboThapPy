@@ -1,8 +1,5 @@
-import __init__
-import os
-import sys
 
-from component.heat_exchanger.hex_csteff import HXEffCst
+from labothappy.component.heat_exchanger.hex_csteff import HXEffCst
 
 import numpy as np
 

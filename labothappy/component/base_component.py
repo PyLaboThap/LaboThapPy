@@ -263,7 +263,6 @@ class BaseComponent:
     def check_calculable(self):
         self.sync_inputs()
         required_inputs = self.get_required_inputs() 
-        
         self.calculable = all(self.inputs.get(inp) is not None for inp in required_inputs) # check if all required inputs are set
         if not self.calculable:
             if self.print_flag:

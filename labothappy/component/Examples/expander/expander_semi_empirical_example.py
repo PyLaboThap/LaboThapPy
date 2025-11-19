@@ -5,9 +5,8 @@ Created on Wed Nov 22 14:39:37 2023
 @author: Elise
 """
 # import __init__
-from component.expander.expander_semi_empirical import ExpanderSE
+from labothappy.component.expander.expander_semi_empirical import ExpanderSE
 
-import numpy as np
 
 "Example of a semi-empirical expander component"
 # Inputs: N_rot, T_amb, P_su, h_su, P_ex, fluid 
