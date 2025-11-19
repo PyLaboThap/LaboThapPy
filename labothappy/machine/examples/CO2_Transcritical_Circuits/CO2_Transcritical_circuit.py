@@ -131,7 +131,7 @@ def REC_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, e
     # GASCOOLER PARAMETERS
     
     GasHeater.set_parameters(**{
-        'eta_max': eta_gh, 'n_disc' : 20, 'Pinch_min' : Pinch_min_GH, 'DP_h' : DP_h_gh, 'DP_c' : DP_c_gh,
+        'eta_max': eta_gh, 'n_disc' : 50, 'Pinch_min' : Pinch_min_GH, 'DP_h' : DP_h_gh, 'DP_c' : DP_c_gh,
     })
     
     # EVAPORATOR PARAMETERS

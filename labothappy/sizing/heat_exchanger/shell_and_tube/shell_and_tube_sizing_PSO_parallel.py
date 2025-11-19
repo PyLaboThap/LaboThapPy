@@ -739,7 +739,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
             total=max_iterations,
             desc="S&T",
             unit="iter",
-            dynamic_ncols=True,
+            dynamic_ncols=False,
             leave=False,              # bar disappears after close()
             file=sys.stdout,
             mininterval=0.1
@@ -876,23 +876,17 @@ class ShellAndTubeSizingOpt(BaseComponent):
     
             # ---- update the single bar IN-PLACE (no prints) ----
             pbar.update(1)
-            pbar.set_description(f"PSO {iteration+1}/{max_iterations}")
-            pbar.set_postfix(
-                best=f"{self.global_best_score:.3f}",
-                Q=f"{self.global_best_Q:.1f}",
-                DP_h=f"{self.global_best_DP_h:.0f}",
-                DP_c=f"{self.global_best_DP_c:.0f}",
-                new=n_new,
-                total=total_new_evals
+            
+            pbar.set_postfix_str(f"PSO {iteration+1}/{max_iterations}", refresh=True)
+
+            pbar.set_postfix_str(
+                f"best={self.global_best_score:.3f}, Q={self.global_best_Q:.1f}, DP_h={self.global_best_DP_h:.0f}, DP_c={self.global_best_DP_c:.0f}",
+                refresh=True
             )
-    
+            
             # early stop -> finish bar cleanly (no extra bars)
             if self._global_no_improve >= self.global_patience_iter:
-                tqdm.write(
-                    f"[PSO] Early stop at iteration {iteration+1}: "
-                    f"no improvement > {self.global_min_delta} for "
-                    f"{self.global_patience_iter} iterations."
-                )
+                pbar.set_description("Stopped (patience)")
                 break
     
         pbar.close()  # <- only once
@@ -909,7 +903,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
         
         # Choose a safe dynamic cap (e.g., min(physical cores, 16))
         # You can tune this — often 50–75% of total cores is optimal for large data
-        num_threads = min(num_cores, 16)
+        num_threads = min(num_cores, 4)
         
         # Apply to NumExpr
         ne.set_num_threads(num_threads)
@@ -951,27 +945,28 @@ class ShellAndTubeSizingOpt(BaseComponent):
         self.costs = self.cost_calculator.calculate_total_cost()
         self.cost_estimation()
         
-        print("\n")
-        print(f"Best Position")
-        print(f"-------------")
-        print(f"D_tube_o : {round(self.best_particle.HX.params['Tube_OD']*1e3,2)} [mm]")
-        print(f"D_shell : {round(self.best_particle.HX.params['Shell_ID'],3)} [m]") 
-        print(f"Tube_pass : {self.best_particle.HX.params['Tube_pass']} [-]") 
-        print(f"Tube_layout : {self.best_particle.HX.params['tube_layout']} [°]")
-        print(f"Baffle Distance : {round(self.best_particle.HX.params['central_spacing'],3)} [m]")
-        print(f"Shell/Tube length : {round(self.best_particle.HX.params['Tube_L'],3)} [m]")
-        print(f"Baffle cut : {round(self.best_particle.HX.params['Baffle_cut'],1)} [%]")
-        
-        print("\n")
-        print(f"Results")
-        print(f"-------------")
-        print(f"A_HX : {round(self.best_particle.HX.params['A_eff'],2)} [m^2]")
-        print(f"Q_dot : {round(self.best_particle.HX.Q,1)} [W]") 
-        print(f"DP_c : {round(self.best_particle.HX.DP_c,1)} [Pa]")
-        print(f"DP_h : {round(self.best_particle.HX.DP_h,1)} [Pa]")
-        print(f"m_HX : {round(self.best_particle.masses['Total'],1)} [kg]")
-        print(f"Manufacturing costs est. : {round(self.costs,1)} [€ (2025)]")
-        print(f"CAPEX : {round(self.CAPEX['Total'],1)} [$ (2025)]")
+        if __name__ == "__main__":
+            print("\n")
+            print(f"Best Position")
+            print(f"-------------")
+            print(f"D_tube_o : {round(self.best_particle.HX.params['Tube_OD']*1e3,2)} [mm]")
+            print(f"D_shell : {round(self.best_particle.HX.params['Shell_ID'],3)} [m]") 
+            print(f"Tube_pass : {self.best_particle.HX.params['Tube_pass']} [-]") 
+            print(f"Tube_layout : {self.best_particle.HX.params['tube_layout']} [°]")
+            print(f"Baffle Distance : {round(self.best_particle.HX.params['central_spacing'],3)} [m]")
+            print(f"Shell/Tube length : {round(self.best_particle.HX.params['Tube_L'],3)} [m]")
+            print(f"Baffle cut : {round(self.best_particle.HX.params['Baffle_cut'],1)} [%]")
+            
+            print("\n")
+            print(f"Results")
+            print(f"-------------")
+            print(f"A_HX : {round(self.best_particle.HX.params['A_eff'],2)} [m^2]")
+            print(f"Q_dot : {round(self.best_particle.HX.Q,1)} [W]") 
+            print(f"DP_c : {round(self.best_particle.HX.DP_c,1)} [Pa]")
+            print(f"DP_h : {round(self.best_particle.HX.DP_h,1)} [Pa]")
+            print(f"m_HX : {round(self.best_particle.masses['Total'],1)} [kg]")
+            print(f"Manufacturing costs est. : {round(self.costs,1)} [€ (2025)]")
+            print(f"CAPEX : {round(self.CAPEX['Total'],1)} [$ (2025)]")
         
         return self.global_best_position, self.global_best_score, self.best_particle
     

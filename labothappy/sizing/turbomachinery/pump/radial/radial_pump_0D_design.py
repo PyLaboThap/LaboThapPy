@@ -196,7 +196,7 @@ class RadialPumpODDesign():
 
         # Real diameter 
         self.D = D_s*((self.Q_pp)**(1/2))/(g*self.DH)**(1/4) # [m]
-        self.eta_is = self.pump_efficiency_0D_estimation(self.Omega_s_imp, self.Q_pp * 3600)
+        self.eta_is = self.pump_efficiency_0D_estimation(self.Omega_s_imp, self.Q_pp * 3600)/100
         
         h_in = self.AS.hmass()
         

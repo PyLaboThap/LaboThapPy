@@ -199,7 +199,7 @@ class PCHESizingOpt(BaseComponent):
         try:
             self.HX.solve()
         except:
-            print("Error in Solving")
+            # print("Error in Solving")
             return 10000
         
         # Score
@@ -336,7 +336,9 @@ class PCHESizingOpt(BaseComponent):
         self.simulate_HX(best_pos)
         self.cost_estimation()
     
-        self.HX.plot_cells()
+        pbar.close()
+    
+        # self.HX.plot_cells()
         
         if __name__ == "__main__":
             print("\nBest Position")
