@@ -9,9 +9,9 @@ import CoolProp.CoolProp as CP
 
 class CompressorCstEff(BaseComponent):
     """
-    Component: Compressor
+    **Component**: Compressor
 
-    Model: Constant isentropic efficiency
+    **Model**: Constant isentropic efficiency
 
     **Descritpion**:
 

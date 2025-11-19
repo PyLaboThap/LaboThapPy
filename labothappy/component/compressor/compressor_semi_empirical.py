@@ -20,9 +20,9 @@ from connector.heat_connector import HeatConnector
 
 class CompressorSE(BaseComponent):
     """
-    Component: Volumetric compressor
+    **Component**: Volumetric compressor
 
-    Model: The model is based on the thesis of V. Lemort (2008) and is a semi-empirical model
+    **Model**: The model is based on the thesis of V. Lemort (2008) and is a semi-empirical model
 
     **Descritpion**:
 

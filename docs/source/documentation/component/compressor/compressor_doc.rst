@@ -1,5 +1,5 @@
 Compressor
-========
+==========
 
 This section describes the compressor models available in LaboThApPy. The term 'compressor' includes both turbomachinery and 
 volumetric machines.

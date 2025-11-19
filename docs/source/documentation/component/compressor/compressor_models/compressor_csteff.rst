@@ -1,5 +1,5 @@
-Compressor: constant isentropic efficiency
-===============================================
+Compressor: Constant Isentropic Efficiency Model
+================================================
 
 Model description
 -----------------
