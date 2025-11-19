@@ -29,7 +29,7 @@ expander.ex.set_properties(P=1.1*1e5)
 expander.ex.set_properties(P=1.1*1e5)
 
 # Set rotational speed
-expander.W_mec.set_N(6000)
+expander.W.set_N(6000)
 
 # Set ambient temperature
 expander.Q_amb.set_T_cold(293)
