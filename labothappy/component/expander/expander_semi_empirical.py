@@ -119,9 +119,9 @@ class ExpanderSE(BaseComponent):
         # If the mode is 'M_N', the rotational speed and the mass flow rate of the expander is required while the exhaust pressure is calculated
         elif self.params['mode'] == 'M_N':
             return ['P_su', 'h_su', 'N_rot', 'm_dot', 'T_amb', 'fluid']
+        else: 
+            raise ValueError("Specify a mode for the pump : 'P_N', 'P_M', 'M_N'")
         
-        return
-    
     def get_required_parameters(self):
         default_values = {
             'AU_amb': 0, #  Heat transfer to the ambient neglected

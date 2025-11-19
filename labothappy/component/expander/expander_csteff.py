@@ -5,7 +5,7 @@ from connector.heat_connector import HeatConnector
 from connector.mass_connector import MassConnector
 from connector.work_connector import WorkConnector
 from CoolProp.CoolProp import PropsSI
-
+import CoolProp.CoolProp as CP
 
 class ExpanderCstEff(BaseComponent):
     """
@@ -87,6 +87,9 @@ class ExpanderCstEff(BaseComponent):
         self.check_calculable()
         self.check_parametrized()
 
+        self.AS = CP.AbstractState('HEOS', self.su.fluid)
+
+
         if not (self.calculable and self.parametrized):
             self.solved = False
             print(
@@ -97,7 +100,12 @@ class ExpanderCstEff(BaseComponent):
             """EXPANDER MODEL"""
             # Calculate the outlet enthalpy based on isentropic efficiency
             
-            h_ex_is = PropsSI("H", "P", self.ex.p, "S", self.su.s, self.su.fluid) #Isentropic outlet enthalpy at exhaust pressure and suction entropy
+            # h_ex_is = PropsSI("H", "P", self.ex.p, "S", self.su.s, self.su.fluid) #Isentropic outlet enthalpy at exhaust pressure and suction entropy
+            
+            self.AS.update(CP.PSmass_INPUTS, self.ex.p, self.su.s)
+            h_ex_is = self.AS.hmass()
+            
+            
             h_ex = self.su.h - (self.su.h - h_ex_is) / self.params["eta_is"]
             w_exp = self.su.h - h_ex #Specific work 
             

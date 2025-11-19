@@ -9,10 +9,10 @@ import __init__
 
 import numpy as np
 from CoolProp.CoolProp import PropsSI
-from modules.HP_tube_model import thermosyphon_model
-from modules.Airflow import nozzle
-from modules.P_max_steel_pipes import P_max_adm
-from post_process import res_encoding
+from sizing.heat_exchanger.heat_pipe_HTX.modules.HP_tube_model import thermosyphon_model
+from sizing.heat_exchanger.heat_pipe_HTX.modules.Airflow import nozzle
+from sizing.heat_exchanger.heat_pipe_HTX.modules.P_max_steel_pipes import P_max_adm
+from sizing.heat_exchanger.heat_pipe_HTX.post_process import res_encoding
 
 """
 Code used to vary parametersf a heat pipe bank and collect results
@@ -352,26 +352,6 @@ for m in range(len(var_array_4)):
                                 continue
                         else:
                             break
-                            
-                    # except:
-                    #     Q_dot_tot[j][k][l][m] = np.nan
-                    #     Q_dot_tot_MW = np.nan
-                    #     Q_dot_tot_MW_2 = np.nan
-                    #     DP_air[j][k][l][m] = np.nan
-                    #     DP_oil[j][k][l][m] = np.nan
-                    #     u_gas_fume_vect[j][k][l][m] = np.nan
-                    #     V_max_air_vect[j][k][l][m] = np.nan
-                    #     sonic_vel_vect[j][k][l][m] = np.nan
-                    #     N_tubes_row_vect[j][k][l][m] = np.nan
-                    #     P_in_max[j][k][l][m] = np.nan
-                    #     T_in_max[j][k][l][m] = np.nan
-                    #     P_max_adm_vect[j][k][l][m] = np.nan
-                    #     R_tot_tube_vect[j][k][l][m] = np.nan
-                    #     R_e_o_vect[j][k][l][m] = np.nan
-                    #     R_c_o_vect[j][k][l][m] = np.nan
-                    #     DP_gas_nozzle_vect[j][k][l][m] = np.nan
-                    #     N_T[j][k][l][m] = np.nan
-                    #     coef_chosen[j][k][l][m] = np.nan
                 
                 print('Progress 1 :', j+1, '/', len(var_array_1))
 
