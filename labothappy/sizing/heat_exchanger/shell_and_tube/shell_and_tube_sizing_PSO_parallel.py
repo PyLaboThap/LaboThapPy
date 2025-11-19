@@ -260,7 +260,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
                 Shell_ID = self.params['Shell_ID'], T_V_tot = self.params['T_V_tot'], Tube_L = self.params['Tube_L'], 
                 Tube_OD = self.params['Tube_OD'], Tube_pass = self.params['Tube_pass'], Tube_t = self.params['Tube_t'],
                 central_spacing = self.params['central_spacing'], cross_passes = self.params['cross_passes'], foul_s = self.params['foul_s'],
-                foul_t = self.params['foul_t'], n_series = self.params['n_series'], n_tubes = self.params['n_tubes'], 
+                foul_t = self.params['foul_t'], n_series = self.params['n_series'], n_parallel = self.params['n_parallel'], n_tubes = self.params['n_tubes'], 
                 pitch_ratio = self.params['pitch_ratio'], tube_cond = self.params['tube_cond'], tube_layout = self.params['tube_layout'],
 
                 Shell_Side = self.params['Shell_Side'],
@@ -530,7 +530,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
     
     def HX_Mass(self, HX_params, HX):
         
-        rho_carbon_steel = 7850 # kg/m^3
+        rho_carbon_steel = 8000 # for SS316 : 7850 for carbon steel # kg/m^3
         
         T_shell_m = (HX.su_H.T + HX.su_C.T)/2
             
@@ -541,11 +541,11 @@ class ShellAndTubeSizingOpt(BaseComponent):
         
         Shell_OD = HX_params['Shell_ID'] + 2*shell_t       
         Shell_volume = np.pi*((Shell_OD/2)**2 - (HX_params['Shell_ID']/2)**2)*HX_params['Tube_L'] + shell_t*np.pi*Shell_OD**2/4 
-        Shell_mass = Shell_volume*rho_carbon_steel
+        Shell_mass = Shell_volume*rho_carbon_steel*HX_params['n_series']*HX_params['n_parallel']
         
         "Tube Mass"
         
-        T_mass = np.pi*((HX_params['Tube_OD']/2)**2 - ((HX_params['Tube_OD']-2*HX_params['Tube_t'])/2)**2)*HX_params['Tube_L']*HX_params['n_tubes']*rho_carbon_steel*HX_params['n_series']
+        T_mass = np.pi*((HX_params['Tube_OD']/2)**2 - ((HX_params['Tube_OD']-2*HX_params['Tube_t'])/2)**2)*HX_params['Tube_L']*HX_params['n_tubes']*rho_carbon_steel*HX_params['n_series']*HX_params['n_parallel']
 
         "Tube Sheet Mass"
         
@@ -553,7 +553,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
         Full_Tube_sheet_A = np.pi*(HX_params["Shell_ID"]/2)**2
         Tube_in_tube_sheet_A = HX_params["n_tubes"]*np.pi*(HX_params["Tube_OD"]/2)**2
         
-        TS_mass = TS_t*(Full_Tube_sheet_A - Tube_in_tube_sheet_A)*rho_carbon_steel*2*HX_params['n_series']
+        TS_mass = TS_t*(Full_Tube_sheet_A - Tube_in_tube_sheet_A)*rho_carbon_steel*2*HX_params['n_series']*HX_params['n_parallel']
         
         HX_params['t_TS'] = TS_t
         
@@ -569,7 +569,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
         Full_Baffle_A = np.pi*(HX_params["Shell_ID"]/2)**2 * (1-HX_params["Baffle_cut"]/100)
         Tube_in_Baffle_A = HX_params["n_tubes"]*(1-HX_params["Baffle_cut"]/100)*np.pi*(HX_params["Tube_OD"]/2)**2
 
-        B_mass = HX_params["cross_passes"] * B_t * (Full_Baffle_A - Tube_in_Baffle_A)*rho_carbon_steel*HX_params['n_series']
+        B_mass = HX_params["cross_passes"] * B_t * (Full_Baffle_A - Tube_in_Baffle_A)*rho_carbon_steel*HX_params['n_series']*HX_params['n_parallel']
         
         HX_params['t_B'] = B_t
         
@@ -664,17 +664,17 @@ class ShellAndTubeSizingOpt(BaseComponent):
         Cost in $ of 2023
         """
         
+        BP = self.best_particle
+        HX_params = BP.HX.params
+        
         A = 4 # 1.2 # [$/kg] : 1.2 for carbon steel pipes // 255 for superalloy piping // 4 for SS316
         B = 5 # [$ * m]
         C = 14 # [$]
         D = 2 # [$*m]
         E = 2 # [$]
-        F = 4000 # [$]
+        F = 4000*HX_params['n_parallel']*HX_params['n_series'] # [$]
         
-        BP = self.best_particle
-        HX_params = BP.HX.params
-        
-        n_U_tubes = HX_params['n_tubes']/HX_params['Tube_pass']
+        n_U_tubes = HX_params['n_parallel']*HX_params['n_series']*HX_params['n_tubes']/HX_params['Tube_pass']
         
         A_term = A*BP.masses['Total']
         B_term = B*n_U_tubes/(HX_params['Tube_OD']*1000)
@@ -1042,6 +1042,8 @@ if __name__ == "__main__":
     
         HX_test.set_parameters(
                                 n_series = 1, # [-]
+                                n_parallel = 1, # [-]
+
                                 # OPTI -> Oui (regarder le papier pour déterminer ça)
     
                                 foul_t = 0.0002, # (m^2 * K/W)
@@ -1128,6 +1130,7 @@ if __name__ == "__main__":
     
         HX_test.set_parameters(
                                 n_series = 1, # [-]
+                                n_parallel = 1, # [-]
                                 # OPTI -> Oui (regarder le papier pour déterminer ça)
     
                                 foul_t = 0.000176, # (m^2 * K/W)
@@ -1213,6 +1216,8 @@ if __name__ == "__main__":
     
         HX_test.set_parameters(
                                 n_series = 1, # [-]
+                                n_parallel = 1, # [-]
+
                                 # OPTI -> Oui (regarder le papier pour déterminer ça)
     
                                 foul_t = 0.000176, # (m^2 * K/W)
@@ -1261,7 +1266,7 @@ if __name__ == "__main__":
     # for i in range(10):
     t0 = time.perf_counter()
     
-    global_best_position, global_best_score, best_particle = HX_test.opt_size()
+    global_best_position, global_best_score, best_particle = HX_test.opt_size(n_particles = 100, max_iter = 50)
     
     elapsed = time.perf_counter() - t0
     
