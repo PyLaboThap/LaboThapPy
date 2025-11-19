@@ -1,12 +1,11 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-import __init__
-from labothappy.component.expander.turbine_polyneff import Turb_polyn_eff
+from labothappy.component.expander.turbine_polyneff import TurbinePolynEff
 
-p_in = np.array([10, 15, 20, 25, 30, 35])  # 0.8
-T_in = np.array([173, 195.6, 213.1, 227.6, 240, 250.8])
-m_dot_tune = np.array([4.74, 7.02, 9.29, 11.57, 13.855, 16.165])
+p_in = np.array([10, 15, 20])  # 0.8
+T_in = np.array([173, 195.6, 213.1])
+m_dot_tune = np.array([4.74, 7.02, 9.29])
 
 m_dot_model = np.zeros(len(T_in))
 
@@ -14,7 +13,7 @@ m_dot_model = np.zeros(len(T_in))
 "--------- 1) DECAGONE Turbine ------------------------------------------------------------------------------------------"
 
 "Create turb object"
-Turb = Turb_polyn_eff()
+Turb = TurbinePolynEff()
 
 "Set params"
 Turb.set_parameters(
@@ -34,10 +33,10 @@ for i in range(len(p_in)):  # Loop for model flowrate verification (verify the i
 
     "Set inputs"
     Turb.set_inputs(
-        su_fluid="Cyclopentane",
-        su_T=273.15 + T_in[i],
-        su_p=p_in[i] * 1e5,
-        ex_p=0.8 * 1e5,
+        fluid="Cyclopentane",
+        T_su=273.15 + T_in[i],
+        P_su=p_in[i] * 1e5,
+        P_ex=0.8 * 1e5,
         N_rot=50,
     )
 
@@ -50,7 +49,7 @@ plt.plot([0, 20], [0, 20])
 plt.grid()
 plt.show()
 
-Turb.W_turb.print_resume()
+Turb.W.print_resume()
 
 
 """
