@@ -1,4 +1,4 @@
-Expander: Semi-Empirical Model
+Expander - Semi-Empirical Model
 ==============================
 
 Model description

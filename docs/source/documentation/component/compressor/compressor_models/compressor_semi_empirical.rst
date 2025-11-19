@@ -1,4 +1,4 @@
-Compressor: Semi-Empirical Model
+Compressor - Semi-Empirical Model
 ================================
 
 Model description

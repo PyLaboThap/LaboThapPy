@@ -3,11 +3,6 @@ Heat Exchanger - Constant Efficiency Model
 
 Model description
 -----------------
-Heat Exchanger — Constant Effectiveness Model
-============================================
-
-Model description
------------------
 
 This document describes a counterflow heat exchanger model that uses a
 **constant effectiveness** approach. The user provides the heat
@@ -51,11 +46,9 @@ cold stream can accept:
   counterflow exchange (see "Ideal outlet conditions" below).
 
 **Procedure to compute heat transfer rate**:
-1. From the inlet conditions compute or obtain the inlet temperatures
-   and specific enthalpies :math:`h_{su,H}` and :math:`h_{su,C}`.
+1. From the inlet conditions compute or obtain the inlet temperatures and specific enthalpies :math:`h_{su,H}` and :math:`h_{su,C}`.
 
-2. Determine the *ideal* outlet temperatures for a perfect
-   counterflow exchanger:
+2. Determine the *ideal* outlet temperatures for a perfect counterflow exchanger:
    - The ideal cold-stream outlet temperature equals the hot-stream
      inlet temperature.
    - The ideal hot-stream outlet temperature equals the cold-stream

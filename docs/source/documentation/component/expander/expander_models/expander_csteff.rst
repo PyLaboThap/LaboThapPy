@@ -1,4 +1,4 @@
-Expander: Constant Isentropic Efficiency Model
+Expander - Constant Isentropic Efficiency Model
 ===============================================
 
 Model description

@@ -1,4 +1,4 @@
-Compressor: Constant Isentropic Efficiency Model
+Compressor - Constant Isentropic Efficiency Model
 ================================================
 
 Model description
