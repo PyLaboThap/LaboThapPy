@@ -8,6 +8,8 @@ from component.base_component import BaseComponent
 
 from CoolProp.CoolProp import PropsSI
 from scipy.optimize import fsolve
+
+import CoolProp.CoolProp as CP
 import numpy as np
 import math
 
@@ -91,78 +93,27 @@ class HXEffCstDisc(BaseComponent):
 
         self.Q_dot = HeatConnector()
         self.guesses = {}
-        self.DT_pinch = -1
+        self.DT_pinch = -2
+        
+        self.DP_h = 0
+        self.DP_c = 0
         
         self.h_hot = None
         self.h_cold = None
         self.T_hot = None
         self.T_cold = None
 
+        self.eta_pinch = 1
+        self.effectiveness = 1
+
     def get_required_inputs(self): # Used in check_calculablle to see if all of the required inputs are set
         self.sync_inputs()
         # Return a list of required inputs
-        return['Csu_fluid', 'Csu_h', 'Csu_p', 'Csu_m_dot', 'Hsu_fluid', 'Hsu_h', 'Hsu_p', 'Hsu_m_dot']
-    
-    def sync_inputs(self):
-        """Synchronize the inputs dictionary with the connector states."""
-        if self.su_C.fluid is not None:
-            self.inputs['Csu_fluid'] = self.su_C.fluid
-        if self.su_C.h is not None:
-            self.inputs['Csu_h'] = self.su_C.h
-        if self.su_C.T is not None:
-            self.inputs['Csu_T'] = self.su_C.T
-        if self.su_C.m_dot is not None:
-            self.inputs['Csu_m_dot'] = self.su_C.m_dot
-        if self.su_C.p is not None:
-            self.inputs['Csu_p'] = self.su_C.p
-
-        if self.su_H.fluid is not None:
-            self.inputs['Hsu_fluid'] = self.su_H.fluid
-        if self.su_H.T is not None:
-            self.inputs['Hsu_T'] = self.su_H.T
-        if self.su_H.h is not None:
-            self.inputs['Hsu_h'] = self.su_H.h
-        if self.su_H.cp is not None:
-            self.inputs['Hsu_cp'] = self.su_H.cp
-        if self.su_H.m_dot is not None:
-            self.inputs['Hsu_m_dot'] = self.su_H.m_dot
-        if self.su_H.p is not None:
-            self.inputs['Hsu_p'] = self.su_H.p
-
-    def set_inputs(self, **kwargs):
-        """Set inputs directly through a dictionary and update connector properties."""
-        self.inputs.update(kwargs) # This line merges the keyword arguments ('kwargs') passed to the 'set_inputs()' method into the eisting 'self.inputs' dictionary.
-
-        # Update the connectors based on the new inputs
-        if 'Csu_fluid' in self.inputs:
-            self.su_C.set_fluid(self.inputs['Csu_fluid'])
-        if 'Csu_T' in self.inputs:
-            self.su_C.set_T(self.inputs['Csu_T'])
-        if 'Csu_h' in self.inputs:
-            self.su_C.set_h(self.inputs['Csu_h'])
-        if 'Csu_m_dot' in self.inputs:
-            self.su_C.set_m_dot(self.inputs['Csu_m_dot'])
-        if 'Csu_p' in self.inputs:
-            self.su_C.set_p(self.inputs['Csu_p'])
-
-        if 'Hsu_fluid' in self.inputs:
-            self.su_H.set_fluid(self.inputs['Hsu_fluid'])
-        if 'Hsu_T' in self.inputs:
-            self.su_H.set_T(self.inputs['Hsu_T'])
-        if 'Hsu_h' in self.inputs:
-            self.su_H.set_h(self.inputs['Hsu_h'])
-        if 'Hsu_cp' in self.inputs:
-            self.su_H.set_cp(self.inputs['Hsu_cp'])
-        if 'Hsu_m_dot' in self.inputs:
-            self.su_H.set_m_dot(self.inputs['Hsu_m_dot'])
-        if 'Hsu_p' in self.inputs:
-            self.su_H.set_p(self.inputs['Hsu_p'])
-
-        return['Csu_fluid', 'Csu_h', 'Csu_p', 'Csu_m_dot', 'Hsu_fluid', 'Hsu_h', 'Hsu_p', 'Hsu_m_dot']
+        return['P_su_H', 'T_su_H', 'm_dot_H', 'fluid_H', 'P_su_C', 'T_su_C', 'm_dot_C', 'fluid_C']
     
     def get_required_parameters(self):
         return [
-            'eta', 'n_disc', 'Pinch_min' # Efficiency
+            'eta_max', 'n_disc', 'Pinch_min' # Efficiency
         ]
     
     def print_setup(self):
@@ -190,29 +141,69 @@ class HXEffCstDisc(BaseComponent):
 
         print("======================")    
 
-    def counterflow_discretized(self):
+    def pinch_residual(self, eta):
+        """Return DT_pinch(eta) so we can root-find or bisect on it."""
+        self.counterflow_discretized(eta)
+        # we want DT_pinch = target (e.g. 0 or Pinch_min)
+        return self.DT_pinch
+
+    def find_Q_dot_max(self):
+        # --- External enthalpy-based Q_dot_max ---
+        self.AS_H.update(CP.PT_INPUTS, self.su_H.p, self.su_C.T)
+        H_h_id = self.AS_H.hmass()
         
-        "Define Q_dot_max through enthalpies"
+        self.AS_C.update(CP.PT_INPUTS, self.su_C.p, self.su_H.T)
+        H_c_id = self.AS_C.hmass()
         
-        H_h_id = PropsSI('H', 'P', self.su_H.p, 'T', self.su_C.T, self.su_H.fluid)
-        H_c_id = PropsSI('H', 'P', self.su_C.p, 'T', self.su_H.T, self.su_C.fluid)
+        Q_dot_maxh = self.su_H.m_dot * (self.su_H.h - H_h_id)
+        Q_dot_maxc = self.su_C.m_dot * (H_c_id - self.su_C.h)
         
-        Q_dot_maxh = self.su_H.m_dot*(self.su_H.h- H_h_id)
-        Q_dot_maxc = self.su_C.m_dot*(H_c_id-self.su_C.h)
+        self.Q_dot_max_ext = np.min([Q_dot_maxh, Q_dot_maxc])
+        self.Q_dot_max = self.Q_dot_max_ext
         
-        # print(f"self.su_C.T : {self.su_C.T}")
-        # print(f"self.su_H.T : {self.su_H.T}")
+        # Quick check: if at eta=1 the pinch is already > 0,
+        # then internal limit = external limit and we can skip search.
+        self.pinch_residual(1.0)
+        if self.DT_pinch > 1e-3:
+            self.eta_pinch = 1.0
+            self.Q_dot_max_int = self.Q  # at eta=1
+            self.Q_dot_max = min(self.Q_dot_max_ext, self.Q_dot_max_int)
+            return
+    
+        # Otherwise, find eta_pinch where DT_pinch ~ 0 using bisection
+        eta_low, eta_high = 0.0, 1.0
+        tol_int = 1e-3
+        max_it = 30
+    
+        for _ in range(max_it):
+            eta_mid = 0.5*(eta_low + eta_high)
+            self.pinch_residual(eta_mid)
+    
+            if self.DT_pinch > tol_int:
+                # pinch OK → can increase eta
+                eta_low = eta_mid
+            else:
+                # pinch too small → decrease eta
+                eta_high = eta_mid
+    
+            if abs(eta_high - eta_low) < 1e-3:
+                break
+    
+        self.eta_pinch = eta_low
+        # one last evaluation at eta_pinch for consistency
+        self.pinch_residual(self.eta_pinch)
+        self.Q_dot_max_int = self.Q
+        self.Q_dot_max = min(self.Q_dot_max_ext, self.Q_dot_max_int)
         
-        # print(f"Q_dot_maxh : {Q_dot_maxh}")
-        # print(f"Q_dot_maxc : {Q_dot_maxc}")
-        
-        # print("------------------------------------------------")
-        
-        self.Q_dot_max = min(Q_dot_maxh,Q_dot_maxc)
-        
+        return
+
+    def counterflow_discretized(self, eta):
+                
         "Heat Transfer Rate"
-        self.Q = self.params['eta']*self.Q_dot_max
-        Q_dot_seg = self.Q / self.params['n_disc']
+        n = self.params['n_disc']
+        
+        self.Q = eta*self.Q_dot_max
+        Q_dot_seg = self.Q / n
         
         # Set inlet enthalpies
         self.h_hot[0] = self.su_H.h
@@ -221,18 +212,23 @@ class HXEffCstDisc(BaseComponent):
         h_cold_out = self.su_C.h + self.Q/self.su_C.m_dot
         self.h_cold[0] = h_cold_out
         
-        self.T_cold[0] = PropsSI('T', 'H', h_cold_out, 'P', self.su_C.p, self.su_C.fluid)
-        
-        for i in range(self.params['n_disc']):
+        self.AS_C.update(CP.HmassP_INPUTS, h_cold_out, self.su_C.p)
+        self.T_cold[0] = self.AS_C.T()
+                
+        for i in range(n):
             # Hot side: forward direction
             self.h_hot[i+1] = self.h_hot[i] - Q_dot_seg / self.su_H.m_dot
-            self.T_hot[i+1] = PropsSI('T', 'H', self.h_hot[i+1], 'P', self.su_H.p, self.su_H.fluid)
             
+            self.AS_H.update(CP.HmassP_INPUTS, self.h_hot[i+1], self.p_hot[i+1])
+            self.T_hot[i+1] = self.AS_H.T()
+                        
             # Cold side: reverse direction
             self.h_cold[i+1] = self.h_cold[i] - Q_dot_seg / self.su_C.m_dot
-            self.T_cold[i+1] = PropsSI('T', 'H', self.h_cold[i+1], 'P', self.su_C.p, self.su_C.fluid)
-        
-        self.DT_pinch = min(self.T_hot - self.T_cold)
+            
+            self.AS_C.update(CP.HmassP_INPUTS, self.h_cold[i+1], self.p_cold[i+1])
+            self.T_cold[i+1] = self.AS_C.T()
+                    
+        self.DT_pinch = np.min(self.T_hot - self.T_cold)
         
         return 
 
@@ -248,6 +244,17 @@ class HXEffCstDisc(BaseComponent):
         self.check_calculable()
         self.check_parametrized()
 
+        if self.su_H.T < self.su_C.T:
+            save = self.su_C
+            self.su_C = self.su_H
+            self.su_H = save
+
+        if 'DP_h' in self.params:
+            self.DP_h = self.params['DP_h']
+            
+        if 'DP_c' in self.params:
+            self.DP_c = self.params['DP_c']
+
         if not self.calculable:
             print("HTX IS NOT CALCULABLE")
             return
@@ -256,6 +263,9 @@ class HXEffCstDisc(BaseComponent):
             print("HTX IS NOT PARAMETRIZED")
             return
 
+        self.AS_H = CP.AbstractState('BICUBIC&HEOS', self.su_H.fluid)
+        self.AS_C = CP.AbstractState('BICUBIC&HEOS', self.su_C.fluid)
+
         if self.T_hot is None:
             # Allocate arrays
             self.h_hot = np.zeros(self.params['n_disc']+1)
@@ -263,20 +273,46 @@ class HXEffCstDisc(BaseComponent):
             self.T_hot = np.zeros(self.params['n_disc']+1)
             self.T_cold = np.zeros(self.params['n_disc']+1)
 
-        self.DT_pinch = -1 
+            self.p_hot = np.zeros(self.params['n_disc']+1)
+            self.p_cold = np.zeros(self.params['n_disc']+1)
+                
+            # Establish pressure drops 
+            DP_h_disc = self.DP_h/self.params['n_disc']
+            DP_c_disc = self.DP_c/self.params['n_disc']
+            
+            self.p_hot[0] = self.su_H.p
+            self.p_cold[0] = self.su_C.p
+            
+            for i in range(self.params['n_disc']):
+                self.p_hot[i+1] = self.p_hot[i] - DP_h_disc
+                self.p_cold[i+1] = self.p_cold[i] - DP_c_disc
+            
+        "Find Q_dot_max"
+
+        self.DT_pinch = -1
+
+        self.find_Q_dot_max()
+
+        self.DT_pinch = -1
+
+        self.epsilon = self.params['eta_max']
 
         while self.DT_pinch <= self.params['Pinch_min']:
-            self.counterflow_discretized()
+            self.counterflow_discretized(self.epsilon)
 
             if self.DT_pinch <= self.params['Pinch_min']:
-                self.params['eta'] -= 0.01
-                
-                if self.params['eta'] <= 0:
+                self.epsilon -= 0.01
+                                
+                if self.epsilon <= 0:
                     self.solved = False
-                    print("No eta satisfies Pinch_min in HXEffCstDisc")
+                    
+                    if self.print_flag:
+                        print("No eta satisfies Pinch_min in HXEffCstDisc")
+                        
                     return
 
         "Outlet states"   
+        
         self.update_connectors()
         self.solved = True
         return
@@ -287,15 +323,19 @@ class HXEffCstDisc(BaseComponent):
         self.ex_C.set_fluid(self.su_C.fluid)
         self.ex_C.set_m_dot(self.su_C.m_dot)
         self.ex_C.set_h(self.su_C.h + self.Q/self.su_C.m_dot)
-        self.ex_C.set_p(self.su_C.p)
-        self.ex_C.set_T(PropsSI("T", "H", self.ex_C.h, "P", self.ex_C.p, self.su_C.fluid))
+        self.ex_C.set_p(self.p_cold[-1])
+        
+        self.AS_C.update(CP.HmassP_INPUTS, self.ex_C.h, self.ex_C.p)
+        self.ex_C.set_T(self.AS_C.T())
 
         self.ex_H.set_fluid(self.su_H.fluid)
         self.ex_H.set_m_dot(self.su_H.m_dot)
         self.ex_H.set_h(self.su_H.h - self.Q/self.su_H.m_dot)
-        self.ex_H.set_p(self.su_H.p)
-        self.ex_H.set_T(PropsSI("T", "H", self.ex_H.h, "P", self.ex_H.p, self.su_H.fluid))
-
+        self.ex_H.set_p(self.p_hot[-1])
+        
+        self.AS_H.update(CP.HmassP_INPUTS, self.ex_H.h, self.ex_H.p)
+        self.ex_H.set_T(self.AS_H.T())
+        
         "Heat conector"
         self.Q_dot.set_Q_dot(self.Q)
 

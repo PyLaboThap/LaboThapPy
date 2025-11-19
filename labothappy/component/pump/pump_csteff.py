@@ -58,36 +58,7 @@ class PumpCstEff(BaseComponent):
     def get_required_inputs(self): # Used in check_calculablle to see if all of the required inputs are set
         self.sync_inputs()
         # Return a list of required inputs
-        return ['su_p', 'su_T', 'ex_p', 'su_fluid']
-    
-    def sync_inputs(self):
-        """Synchronize the inputs dictionary with the connector states."""
-        if self.su.fluid is not None:
-            self.inputs['su_fluid'] = self.su.fluid
-        if self.su.T is not None:
-            self.inputs['su_T'] = self.su.T
-        elif self.su.h is not None:
-            self.inputs['su_h'] = self.su.h
-        if self.su.p is not None:
-            self.inputs['su_p'] = self.su.p
-        if self.ex.p is not None:
-            self.inputs['ex_p'] = self.ex.p
-
-    def set_inputs(self, **kwargs):
-        """Set inputs directly through a dictionary and update connector properties."""
-        self.inputs.update(kwargs) # This line merges the keyword arguments ('kwargs') passed to the 'set_inputs()' method into the eisting 'self.inputs' dictionary.
-
-        # Update the connectors based on the new inputs
-        if 'su_fluid' in self.inputs:
-            self.su.set_fluid(self.inputs['su_fluid'])
-        if 'su_T' in self.inputs:
-            self.su.set_T(self.inputs['su_T'])
-        elif 'su_h' in self.inputs:
-            self.su.set_h(self.inputs['su_h'])
-        if 'su_p' in self.inputs:
-            self.su.set_p(self.inputs['su_p'])
-        if 'ex_p' in self.inputs:
-            self.ex.set_p(self.inputs['ex_p'])
+        return ['P_su', 'T_su', 'P_ex', 'fluid']
 
     def get_required_parameters(self):
         return ['eta_is']

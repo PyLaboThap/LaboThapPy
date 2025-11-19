@@ -100,8 +100,9 @@ def baffle_thickness(D_s, BC, rho_S, T_S):
     
     t_b = max(t_b, t_b_min)
 
-    return t_b
+    corrosion_allowance = 1.6*1e-3 # m
 
+    return t_b + corrosion_allowance
 
 #%% CENTRAL SPAC RELATED FUN
 
@@ -109,19 +110,21 @@ import numpy as np
 import random
 
 # Function to find divisors between bounds for floating-point numbers
-def find_divisors_between_bounds(num_to_divide, lower_bound, upper_bound, tolerance=1e-5):
-    """ Finds floating-point divisors of num_to_divide within a specific range. """
-    valid_divisors = []
-    
-    # Loop through potential divisors in small increments between lower and upper bounds
-    potential_divisors = np.arange(round(lower_bound, 2), round(upper_bound, 2), 0.001)  # Adjust step size as needed
+def find_divisors_between_bounds(num_to_divide, lower_bound, upper_bound, step=0.001, tolerance=1e-5):
+    """Vectorized, fast version — finds floating-point divisors within bounds."""
+    # Generate possible divisors
+    potential_divisors = np.arange(lower_bound, upper_bound, step)
 
-    for divisor in potential_divisors:
-        divisor_rounded = round(divisor, 3)  # Use sufficient precision
-        if abs(np.mod(num_to_divide, divisor_rounded)) < tolerance or abs(np.mod(num_to_divide, divisor_rounded) - divisor_rounded) < tolerance:  # Check if the remainder is within the tolerance
-            valid_divisors.append(divisor_rounded)
-    
-    return valid_divisors
+    # Compute remainders all at once
+    remainders = np.mod(num_to_divide, potential_divisors)
+
+    # Check near-zero or near-divisor remainders (within tolerance)
+    mask = (remainders < tolerance) | (np.abs(remainders - potential_divisors) < tolerance)
+
+    # Optionally round for readability when returning
+    valid_divisors = np.round(potential_divisors[mask], 3)
+
+    return valid_divisors.tolist()
 
 # Function to generate a random divisor between two bounds
 def random_divisor_between_bounds(num_to_divide, lower_bound, upper_bound):
