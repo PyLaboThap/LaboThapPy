@@ -9,11 +9,11 @@ import CoolProp.CoolProp as CP
 
 class ExpanderCstEff(BaseComponent):
     """
-    Component: Expander
+    **Component**: Expander
 
-    Model: Constant isentropic efficiency model
+    **Model**: Constant isentropic efficiency model
 
-    Reference: /
+    **Reference**: /
 
     **Description**:
 

@@ -2,7 +2,7 @@
 
 import matplotlib.pyplot as plt
 from CoolProp.CoolProp import PropsSI
-from labothappy.component.heat_exchanger.hex_crossflowfintube_finitevolume import CrossFlowTubeAndFinsHTX
+from labothappy.component.heat_exchanger.hex_crossflowfintube_finitevolume import HexCrossFlowTubeAndFinsFiniteVolume
 
 pressure_plot = 1
 temperature_plot = 1
@@ -10,7 +10,7 @@ temperature_plot = 1
 "--------- 1) Data ------------------------------------------------------------------------------------------"
 
 "Cyclopentane Su"
-ACC = CrossFlowTubeAndFinsHTX()
+ACC = HexCrossFlowTubeAndFinsFiniteVolume()
 
 T_in_air = 15 + 273.15
 P_in_air = 101325

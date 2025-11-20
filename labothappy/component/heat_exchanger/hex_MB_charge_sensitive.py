@@ -102,11 +102,11 @@ def propsfluid_AS(T_mean, P_mean, T_wall, fluid, incompr_flag, AS):
     
     return mu, Pr, k, mu_wall, mu_rat, Pr_wall, 0
 
-class HeatExchangerMB(BaseComponent):
+class HexMBChargeSensitive(BaseComponent):
     """
-        Component: Heat Exchanger
+        **Component**: Heat Exchanger
 
-        Model: The model is based on the the work of Ian Bell "A generalized moving-boundary algorithm to predict the heat transfer
+        **Model**: The model is based on the the work of Ian Bell "A generalized moving-boundary algorithm to predict the heat transfer
                 rate of counterflow heat exchangers for any phase configuration". 
 
         **Descritpion**:

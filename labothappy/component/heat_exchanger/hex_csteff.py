@@ -6,13 +6,13 @@ from component.base_component import BaseComponent
 
 # from component.heat_exchanger.moving_boundary.simple_model.modules.U import U_Gnielinski_calibrated, U_DittusBoelter, U_Cooper_calibrater, U_Thonon
 
-from CoolProp.CoolProp import PropsSI
+import CoolProp.CoolProp as CP
 
-class HXEffCst(BaseComponent):
+class HexCstEff(BaseComponent):
     """
-    Component: Counterflow Heat Exchanger with Constant Effectiveness (HXEffCst)
+    **Component**: Counterflow Heat Exchanger with Constant Effectiveness (HXEffCst)
     
-    Model: Simplified Heat Exchanger Model with Constant Effectiveness
+    **Model**: Simplified Heat Exchanger Model with Constant Effectiveness
     
     **Description**:
     
@@ -36,7 +36,7 @@ class HXEffCst(BaseComponent):
         
         ex_H (MassConnector): Mass connector for the hot-side exhaust.
         
-        Q_dot (HeatConnector): Heat transfer connector representing the total exchanged heat.
+        Q (HeatConnector): Heat transfer connector representing the total exchanged heat.
     
     **Parameters**:
     
@@ -44,31 +44,31 @@ class HXEffCst(BaseComponent):
     
     **Inputs**:
     
-        su_H_fluid (str): Hot-side fluid.
+        fluid_H (str): Hot-side fluid.
         
-        su_H_h (float): Hot-side inlet specific enthalpy [J/kg].
+        h_su_H (float): Hot-side inlet specific enthalpy [J/kg].
         
-        su_H_p (float): Hot-side inlet pressure [Pa].
+        P_su_H (float): Hot-side inlet pressure [Pa].
         
-        su_H_m_dot (float): Hot-side mass flow rate [kg/s].
+        m_dot_H (float): Hot-side mass flow rate [kg/s].
     
-        su_C_fluid (str): Cold-side fluid.
+        fluid_C (str): Cold-side fluid.
         
-        su_C_h (float): Cold-side inlet specific enthalpy [J/kg].
+        h_su_C (float): Cold-side inlet specific enthalpy [J/kg].
         
-        su_C_p (float): Cold-side inlet pressure [Pa].
+        P_su_C (float): Cold-side inlet pressure [Pa].
         
-        su_C_m_dot (float): Cold-side mass flow rate [kg/s].
+        m_dot_C (float): Cold-side mass flow rate [kg/s].
     
     **Outputs**:
     
-        ex_C_h: Cold-Side Exhaust specific enthalpy at outlet [J/kg].
+        h_ex_C: Cold-Side Exhaust specific enthalpy at outlet [J/kg].
         
-        ex_C_p: Cold-Side Exhaust pressure at outlet [Pa].
+        P_ex_C: Cold-Side Exhaust pressure at outlet [Pa].
                     
-        ex_C_h: Hot-Side specific enthalpy at outlet [J/kg].
+        h_ex_H: Hot-Side specific enthalpy at outlet [J/kg].
         
-        ex_C_p: Hot-Side pressure at outlet [Pa].
+        P_ex_H: Hot-Side pressure at outlet [Pa].
         
         Q_dot: Total heat transfer rate across the exchanger [W].
 
@@ -81,100 +81,13 @@ class HXEffCst(BaseComponent):
         self.ex_C = MassConnector()
         self.ex_H = MassConnector()
 
-        self.Q_dot = HeatConnector()
+        self.Q = HeatConnector()
         self.guesses = {}
 
-    def get_required_inputs(self): # Used in check_calculablle to see if all of the required inputs are set
-        self.sync_inputs()
+    def get_required_inputs(self):
         # Return a list of required inputs
-        return['Csu_fluid', 'Csu_h', 'Csu_p', 'Csu_m_dot', 'Hsu_fluid', 'Hsu_h', 'Hsu_p', 'Hsu_m_dot']
+        return['fluid_C', 'h_su_C', 'P_su_C', 'm_dot_C', 'fluid_H', 'h_su_H', 'P_su_H', 'm_dot_H']
     
-    def sync_inputs(self):
-        """Synchronize the inputs dictionary with the connector states."""
-        if self.su_C.fluid is not None:
-            self.inputs['Csu_fluid'] = self.su_C.fluid
-        if self.su_C.h is not None:
-            self.inputs['Csu_h'] = self.su_C.h
-        if self.su_C.T is not None:
-            self.inputs['Csu_T'] = self.su_C.T
-        if self.su_C.m_dot is not None:
-            self.inputs['Csu_m_dot'] = self.su_C.m_dot
-        if self.su_C.p is not None:
-            self.inputs['Csu_p'] = self.su_C.p
-
-        if self.su_H.fluid is not None:
-            self.inputs['Hsu_fluid'] = self.su_H.fluid
-        if self.su_H.T is not None:
-            self.inputs['Hsu_T'] = self.su_H.T
-        if self.su_H.h is not None:
-            self.inputs['Hsu_h'] = self.su_H.h
-        if self.su_H.cp is not None:
-            self.inputs['Hsu_cp'] = self.su_H.cp
-        if self.su_H.m_dot is not None:
-            self.inputs['Hsu_m_dot'] = self.su_H.m_dot
-        if self.su_H.p is not None:
-            self.inputs['Hsu_p'] = self.su_H.p
-
-    def set_inputs(self, **kwargs):
-        """Set inputs directly through a dictionary and update connector properties."""
-        self.inputs.update(kwargs) # This line merges the keyword arguments ('kwargs') passed to the 'set_inputs()' method into the eisting 'self.inputs' dictionary.
-
-        # Update the connectors based on the new inputs
-        if 'Csu_fluid' in self.inputs:
-            self.su_C.set_fluid(self.inputs['Csu_fluid'])
-        if 'Csu_T' in self.inputs:
-            self.su_C.set_T(self.inputs['Csu_T'])
-        if 'Csu_h' in self.inputs:
-            self.su_C.set_h(self.inputs['Csu_h'])
-        if 'Csu_m_dot' in self.inputs:
-            self.su_C.set_m_dot(self.inputs['Csu_m_dot'])
-        if 'Csu_p' in self.inputs:
-            self.su_C.set_p(self.inputs['Csu_p'])
-
-        if 'Hsu_fluid' in self.inputs:
-            self.su_H.set_fluid(self.inputs['Hsu_fluid'])
-        if 'Hsu_T' in self.inputs:
-            self.su_H.set_T(self.inputs['Hsu_T'])
-        if 'Hsu_h' in self.inputs:
-            self.su_H.set_h(self.inputs['Hsu_h'])
-        if 'Hsu_cp' in self.inputs:
-            self.su_H.set_cp(self.inputs['Hsu_cp'])
-        if 'Hsu_m_dot' in self.inputs:
-            self.su_H.set_m_dot(self.inputs['Hsu_m_dot'])
-        if 'Hsu_p' in self.inputs:
-            self.su_H.set_p(self.inputs['Hsu_p'])
-
-        return['Csu_fluid', 'Csu_h', 'Csu_p', 'Csu_m_dot', 'Hsu_fluid', 'Hsu_h', 'Hsu_p', 'Hsu_m_dot']
-    
-    def get_required_parameters(self):
-        return [
-            'eta', # Efficiency
-        ]
-    
-    def print_setup(self):
-        print("=== Heat Exchanger Setup ===")
-        print("Connectors:")
-        print(f"  - su_C: fluid={self.su_C.fluid}, T={self.su_C.T}, p={self.su_C.p}, m_dot={self.su_C.m_dot}")
-        print(f"  - su_H: fluid={self.su_H.fluid}, T={self.su_H.T}, p={self.su_H.p}, m_dot={self.su_H.m_dot}")
-        print(f"  - ex_C: fluid={self.ex_C.fluid}, T={self.ex_C.T}, p={self.ex_C.p}, m_dot={self.ex_C.m_dot}")
-        print(f"  - ex_H: fluid={self.ex_H.fluid}, T={self.ex_H.T}, p={self.ex_H.p}, m_dot={self.ex_H.m_dot}")
-        print(f"  - Q_dot: {self.Q_dot.Q_dot}")
-
-        print("\nInputs:")
-        for input in self.get_required_inputs():
-            if input in self.inputs:
-                print(f"  - {input}: {self.inputs[input]}")
-            else:
-                print(f"  - {input}: Not set")
-
-        print("\nParameters:")
-        for param in self.get_required_parameters():
-            if param in self.params:
-                print(f"  - {param}: {self.params[param]}")
-            else:
-                print(f"  - {param}: Not set")
-
-        print("======================")    
 
     def solve(self):
         # Ensure all required checks are performed
@@ -188,18 +101,15 @@ class HXEffCst(BaseComponent):
         self.check_calculable()
         self.check_parametrized()
 
-        if not self.calculable:
-            print("HTX IS NOT CALCULABLE")
-            return
-
-        if not self.parametrized:
-            print("HTX IS NOT PARAMETRIZED")
-            return
+        "Define Abstract State for property calculations"
+        self.AS_C = CP.AbstractState('HEOS', self.su_C.fluid)
+        self.AS_H = CP.AbstractState('HEOS', self.su_H.fluid)
 
         "Define Q_dot_max through enthalpies"
-        
-        H_h_id = PropsSI('H', 'P', self.su_H.p, 'T', self.su_C.T, self.su_H.fluid)
-        H_c_id = PropsSI('H', 'P', self.su_C.p, 'T', self.su_H.T, self.su_C.fluid)
+        self.AS_H.update(CP.PT_INPUTS, self.su_H.p, self.su_C.T) 
+        H_h_id = self.AS_H.hmass() # Ideal enthalpy computed based on cold side temperature
+        self.AS_C.update(CP.PT_INPUTS, self.su_C.p, self.su_H.T)
+        H_c_id = self.AS_C.hmass() # Ideal enthalpy computed based on hot side temperature
         
         Q_dot_maxh = self.su_H.m_dot*abs(H_h_id-self.su_H.h)
         Q_dot_maxc = self.su_C.m_dot*abs(H_c_id-self.su_C.h)
@@ -228,11 +138,11 @@ class HXEffCst(BaseComponent):
         self.ex_H.set_p(self.su_H.p)
 
         "Heat conector"
-        self.Q_dot.set_Q_dot(Q_dot)
+        self.Q.set_Q_dot(Q_dot)
 
     def print_results(self):
         print("=== Heat Exchanger Results ===")
-        print(f"Q: {self.Q_dot.Q_dot}")
+        print(f"Q: {self.Q.Q_dot}")
         print("======================")
 
     def print_states_connectors(self):
@@ -242,7 +152,7 @@ class HXEffCst(BaseComponent):
         print(f"  - su_H: fluid={self.su_H.fluid}, T={self.su_H.T}, p={self.su_H.p}, m_dot={self.su_H.m_dot}")
         print(f"  - ex_C: fluid={self.ex_C.fluid}, T={self.ex_C.T}, p={self.ex_C.p}, m_dot={self.ex_C.m_dot}")
         print(f"  - ex_H: fluid={self.ex_H.fluid}, T={self.ex_H.T}, p={self.ex_H.p}, m_dot={self.ex_H.m_dot}")
-        print(f"  - Q_dot: {self.Q_dot.Q_dot}")
+        print(f"  - Q_dot: {self.Q.Q_dot}")
         print("======================")
 
 

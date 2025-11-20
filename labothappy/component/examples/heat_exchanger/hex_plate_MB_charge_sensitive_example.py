@@ -15,7 +15,7 @@ Modification w/r to previous version:
 # import __init__
 
 
-from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HeatExchangerMB
+from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
 from toolbox.geometries.heat_exchanger.geometry_plate_hx_swep import PlateGeomSWEP
 
 #%%
@@ -27,7 +27,7 @@ from toolbox.geometries.heat_exchanger.geometry_plate_hx_swep import PlateGeomSW
 
 "HTX Instanciation"
 
-HX = HeatExchangerMB('Plate')
+HX = HexMBChargeSensitive('Plate')
 
 # "Setting inputs"
 

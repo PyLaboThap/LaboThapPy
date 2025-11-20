@@ -1,6 +1,6 @@
 
 import __init__
-from component.heat_exchanger.hex_cstpinch import HXPinchCst
+from component.heat_exchanger.hex_cstpinch import HexCstPinch
 
 # from simulation_model import HXPinchCst
 import numpy as np
@@ -55,7 +55,7 @@ import numpy as np
 #     'HX_type': 'condenser'
 # })
 
-COND = HXPinchCst()
+COND = HexCstPinch()
 
 COND.set_inputs(
     fluid_H = 'CO2',

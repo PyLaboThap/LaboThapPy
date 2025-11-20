@@ -1,10 +1,10 @@
-Compressor: Semi-Empirical Model
+Compressor - Semi-Empirical Model
 ================================
 
 Model description
 -----------------
 
-The model is based on the semi-empirical model proposed by Lemort et al. (2008) for scroll compressors.
+The model is based on the semi-empirical model proposed by Lemort (2008) for scroll compressors.
 
 .. autoclass:: component.compressor.compressor_semi_empirical.CompressorSE
 

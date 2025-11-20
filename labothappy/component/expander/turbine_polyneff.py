@@ -1,5 +1,6 @@
 "External modules"
 
+import CoolProp.CoolProp as CP
 import numpy as np
 from CoolProp.CoolProp import PropsSI
 
@@ -9,11 +10,11 @@ from connector.mass_connector import MassConnector
 from connector.work_connector import WorkConnector
 
 
-class Turb_polyn_eff(BaseComponent):
+class TurbinePolynEff(BaseComponent):
     """
-    Component: Turbine with choked flow and polynomial efficiency maps
+    **Component**: Turbine with choked flow and polynomial efficiency maps
 
-    Model: Steady-state turbine with polynomial-based isentropic and electrical efficiencies
+    **Model**: Steady-state turbine with polynomial-based isentropic and electrical efficiencies
 
     **Description**:
 
@@ -37,7 +38,7 @@ class Turb_polyn_eff(BaseComponent):
 
         ex (MassConnector): Exhaust (outlet) side of the turbine.
 
-        W_turb (WorkConnector): Shaft power output from the turbine.
+        W (WorkConnector): Shaft power output from the turbine.
 
     **Parameters**:
 
@@ -63,13 +64,13 @@ class Turb_polyn_eff(BaseComponent):
 
     **Inputs**:
 
-        su_p: Inlet pressure [Pa]
+        P_su: Inlet pressure [Pa]
 
-        su_T or su_h: Inlet temperature [K] or enthalpy [J/kg]
+        T_su or h_su: Inlet temperature [K] or enthalpy [J/kg]
 
-        ex_p: Outlet pressure [Pa]
+        P_ex: Outlet pressure [Pa]
 
-        su_fluid: Working fluid [-]
+        fluid: Working fluid [-]
 
         N_rot: Actual shaft rotational speed [rpm]
 
@@ -100,50 +101,18 @@ class Turb_polyn_eff(BaseComponent):
         # Define connectors: suction (su), exhaust (ex), and work (W_turb)
         self.su = MassConnector()
         self.ex = MassConnector()
-        self.W_turb = WorkConnector()
+        self.W = WorkConnector()
 
     def get_required_inputs(self):
         """
-        Determines and sets the required input values from connected components.
-        Returns the list of all required input labels.
+        Returns a list of required input variable names.
+        Used to check if the model has enough data to run.
         """
-
-        if self.inputs == {}:
-            # Populate inputs dictionary with known inlet conditions
-            if self.su.T is not None:
-                self.inputs["su_T"] = self.su.T
-            elif self.su.h is not None:
-                self.inputs["su_h"] = self.su.h
-            if self.su.p is not None:
-                self.inputs["su_p"] = self.su.p
-            if self.ex.p is not None:
-                self.inputs["ex_p"] = self.ex.p
-            if self.W_turb.N is not None:
-                self.inputs["N_rot"] = self.W_turb.N
-            if self.su.fluid is not None:
-                self.inputs["su_fluid"] = self.su.fluid
-
-        if self.inputs != {}:
-            # Set connector values from the inputs dictionary
-            self.su.set_fluid(self.inputs["su_fluid"])
-            if "su_T" in self.inputs:
-                self.su.set_T(self.inputs["su_T"])
-            elif "su_h" in self.inputs:
-                self.su.set_h(self.inputs["su_h"])
-            if "su_p" in self.inputs:
-                self.su.set_p(self.inputs["su_p"])
-            if "ex_p" in self.inputs:
-                self.ex.set_p(self.inputs["ex_p"])
-            if "N_rot" in self.inputs:
-                self.W_turb.set_N(self.inputs["N_rot"])
-            if "su_fluid" in self.inputs:
-                self.su.set_fluid(self.inputs["su_fluid"])
-
-        return ["su_p", "su_T", "ex_p", "N_rot", "su_fluid"]
+        return ["P_su", "T_su", "P_ex", "N_rot", "fluid"]
 
     def get_required_parameters(self):
         """
-        Returns a list of parameter names that must be defined to perform calculations.
+        Returns a list of required parameters needed for model execution.
         """
         return [
             "D_inlet",  # Inlet hydraulic diameter
@@ -157,36 +126,6 @@ class Turb_polyn_eff(BaseComponent):
             "eta_is_coefs_red",  # (Unused here but listed)
             "A_th",  # Turbine throat area
         ]
-
-    def print_setup(self):
-        """
-        Prints the current configuration of the turbine component, including connectors, inputs, and parameters.
-        """
-        print("=== Turbine Setup ===")
-        print("Connectors:")
-        print(
-            f"  - su: fluid={self.su.fluid}, T={self.su.T}, p={self.su.p}, m_dot={self.su.m_dot}"
-        )
-        print(
-            f"  - ex: fluid={self.ex.fluid}, T={self.ex.T}, p={self.ex.p}, m_dot={self.ex.m_dot}"
-        )
-        print(f"  - W_dot: speed={self.W_turb.N}")
-
-        print("\nInputs:")
-        for input in self.get_required_inputs():
-            if input in self.inputs:
-                print(f"  - {input}: {self.inputs[input]}")
-            else:
-                print(f"  - {input}: Not set")
-
-        print("\nParameters:")
-        for param in self.get_required_parameters():
-            if param in self.params:
-                print(f"  - {param}: {self.params[param]}")
-            else:
-                print(f"  - {param}: Not set")
-
-        print("======================")
 
     def eta_el_fun(self, P_ratio):
         """
@@ -258,14 +197,17 @@ class Turb_polyn_eff(BaseComponent):
         self.check_calculable()
         self.check_parametrized()
 
+        self.AS = CP.AbstractState("HEOS", self.su.fluid)
+
         if self.calculable and self.parametrized:
 
             # Calculate speed of sound at inlet using ideal gas approximation
             R = 8.3144
             R_M = R / PropsSI("M", self.su.fluid)
-            cp_in, cv_in = PropsSI(
-                ("C", "CVMASS"), "T", self.su.T, "P", self.su.p, self.su.fluid
-            )
+
+            self.AS.update(CP.PT_INPUTS, self.su.p, self.su.T)
+            cp_in = self.AS.cpmass()
+            cv_in = self.AS.cvmass()
             gamma = cp_in / cv_in
             self.a = np.sqrt(gamma * R_M * self.su.T)
 
@@ -277,7 +219,8 @@ class Turb_polyn_eff(BaseComponent):
             self.eta_is = self.eta_is_turb()
 
             # Compute isentropic enthalpy at exhaust pressure and entropy
-            h_ex_is = PropsSI("H", "P", self.ex.p, "S", self.su.s, self.su.fluid)
+            self.AS.update(CP.PSmass_INPUTS, self.ex.p, self.su.s)
+            h_ex_is = self.AS.hmass()
 
             # Actual enthalpy based on isentropic efficiency
             h_ex = self.su.h - (self.eta_is / 100) * (self.su.h - h_ex_is)
@@ -296,7 +239,7 @@ class Turb_polyn_eff(BaseComponent):
             self.W_el = self.W_dot * self.eta_el
 
             # Set mechanical output in the work connector
-            self.W_turb.set_W_dot(self.W_dot)
+            self.W.set_W_dot(self.W_dot)
 
             self.defined = True
 

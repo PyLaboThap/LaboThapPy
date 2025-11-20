@@ -17,7 +17,7 @@ from component.heat_exchanger.hex_csteff import HXEffCst
 from component.heat_exchanger.hex_csteff_disc import HXEffCstDisc
 from component.storage.storage_latent_isoT_cste_pinch import StorageLatentIsothermalCstePinch
 from component.compressor.compressor_csteff import CompressorCstEff 
-from component.valve.isenthalpic_valve_P_ex import IsenthalpicValve_P_ex
+from labothappy.component.valve.valve_isenthalpic import IsenthalpicValve_P_ex
 from component.expander.expander_csteff import ExpanderCstEff
 from component.tank.tank_mixer import Mixer
 from component.tank.tank_LV_separator import LV_Separator

@@ -18,11 +18,11 @@ from correlations.heat_pipe.HP_h_coeffs import fg_radiative_htc_corr, radiative_
 
 from component.base_component import BaseComponent
 
-class HP_HTX(BaseComponent):
+class HexThermosyphon(BaseComponent):
     """
-    Component: Heat Pipe Heat Exchanger (HP_HTX)
+    **Component**: Heat Pipe Heat Exchanger (HP_HTX)
     
-    Model: Thermosyphon-Based Heat Pipe Heat Exchanger with Detailed Thermal and Fluid Dynamics
+    **Model**: Thermosyphon-Based Heat Pipe Heat Exchanger with Detailed Thermal and Fluid Dynamics
     
     **Description**:
     

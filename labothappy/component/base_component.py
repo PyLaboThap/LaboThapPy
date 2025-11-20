@@ -144,14 +144,16 @@ class BaseComponent:
             'T_ex_C':    lambda val: self.ex_C.set_T(val),
             'h_ex_C':    lambda val: self.ex_C.set_h(val),
 
-            # Storage connector related inputs
-            'sto_fluid': lambda val: self.sto_fluid.set_fluid(val),
-
             # W connector inputs
-            'N_rot':     lambda val: self.W.set_N(val),
+            'N_rot':     lambda val: self.W.set_N_rot(val),
 
             # Q_amb connector inputs
             'T_amb':     lambda val: self.Q_amb.set_T_cold(val),
+            
+            # Solar
+            'DNI':       lambda val:val,
+            'Theta':     lambda val:val,
+            'v_wind':    lambda val:val,
         }
 
         unknown_keys = []  # To collect any keys that do not match the input methods
@@ -173,72 +175,67 @@ class BaseComponent:
 
     def sync_inputs(self):
         """Synchronize the inputs dictionary with the connector states."""
-        inputs = getattr(self, "inputs", {})
-        
-        # su connector
-        su = getattr(self, "su", None)
-        if su is not None:
-            inputs["fluid"] = su.fluid
-            inputs["T_su"]  = su.T
-            inputs["h_su"]  = su.h
-            inputs["P_su"]  = su.p
-            inputs["m_dot"] = su.m_dot
-    
-        # su_H connector
-        su_H = getattr(self, "su_H", None)
-        if su_H is not None:
-            inputs["fluid_H"] = su_H.fluid
-            inputs["T_su_H"]  = su_H.T
-            inputs["h_su_H"]  = su_H.h
-            inputs["P_su_H"]  = su_H.p
-            inputs["m_dot_H"] = su_H.m_dot
-    
-        # su_C connector
-        su_C = getattr(self, "su_C", None)
-        if su_C is not None:
-            inputs["fluid_C"] = su_C.fluid
-            inputs["T_su_C"]  = su_C.T
-            inputs["h_su_C"]  = su_C.h
-            inputs["P_su_C"]  = su_C.p
-            inputs["m_dot_C"] = su_C.m_dot
-    
-        # ex connector
-        ex = getattr(self, "ex", None)
-        if ex is not None:
-            inputs["P_ex"] = ex.p
-            inputs["T_ex"] = ex.T
-            inputs["h_ex"] = ex.h
-    
-        # ex_C connector
-        ex_C = getattr(self, "ex_C", None)
-        if ex_C is not None:
-            inputs["P_ex_C"] = ex_C.p
-            inputs["T_ex_C"] = ex_C.T
-            inputs["h_ex_C"] = ex_C.h
-    
-        # ex_H connector
-        ex_H = getattr(self, "ex_H", None)
-        if ex_H is not None:
-            inputs["P_ex_H"] = ex_H.p
-            inputs["T_ex_H"] = ex_H.T
-            inputs["h_ex_H"] = ex_H.h
-    
-        # sto_fluid
-        sto_fluid = getattr(self, "sto_fluid", None)
-        if sto_fluid is not None:
-            inputs["sto_fluid"] = sto_fluid.fluid
-    
-        # W connector
-        W = getattr(self, "W", None)
-        if W is not None:
-            inputs["N_rot"] = W.N
-    
-        # Q_amb connector
-        Q_amb = getattr(self, "Q_amb", None)
-        if Q_amb is not None:
-            inputs["T_amb"] = Q_amb.T_cold
-    
-        self.inputs = inputs
+
+        # Lazy getters: only access if the connector exists
+        attribute_map = {
+            # su connectors
+            'fluid':     lambda: self.su.fluid if hasattr(self,'su') else None,
+            'T_su':      lambda: self.su.T if hasattr(self,'su') else None,
+            'h_su':      lambda: self.su.h if hasattr(self,'su') else None,
+            'P_su':      lambda: self.su.p if hasattr(self,'su') else None,
+            'm_dot':     lambda: self.su.m_dot if hasattr(self, 'su') else None,
+
+            # su_H connector
+            'fluid_H':   lambda: self.su_H.fluid if hasattr(self,'su_H') else None,
+            'T_su_H':    lambda: self.su_H.T if hasattr(self,'su_H') else None,
+            'h_su_H':    lambda: self.su_H.h if hasattr(self,'su_H') else None,
+            'P_su_H':    lambda: self.su_H.p if hasattr(self,'su_H') else None,
+            'm_dot_H':   lambda: self.su_H.m_dot if hasattr(self,'su_H') else None,
+
+            # su_C connector
+            'fluid_C':   lambda: self.su_C.fluid if hasattr(self,'su_C') else None,
+            'T_su_C':    lambda: self.su_C.T if hasattr(self,'su_C') else None,
+            'h_su_C':    lambda: self.su_C.h if hasattr(self,'su_C') else None,
+            'P_su_C':    lambda: self.su_C.p if hasattr(self,'su_C') else None,
+            'm_dot_C':   lambda: self.su_C.m_dot if hasattr(self,'su_C') else None,
+
+            # ex connector
+            'P_ex':      lambda: self.ex.p if hasattr(self,'ex') else None,
+            'T_ex':      lambda: self.ex.T if hasattr(self,'ex') else None,
+            'h_ex':      lambda: self.ex.h if hasattr(self,'ex') else None,
+
+            # ex_C connector
+            'P_ex_C':    lambda: self.ex_C.p if hasattr(self,'ex_C') else None,
+            'T_ex_C':    lambda: self.ex_C.T if hasattr(self,'ex_C') else None,
+            'h_ex_C':    lambda: self.ex_C.h if hasattr(self,'ex_C') else None,
+
+            # ex_H connector
+            'P_ex_H':    lambda: self.ex_H.p if hasattr(self,'ex_H') else None,
+            'T_ex_H':    lambda: self.ex_H.T if hasattr(self,'ex_H') else None,
+            'h_ex_H':    lambda: self.ex_H.h if hasattr(self,'ex_H') else None,
+
+            # W connector
+            'N_rot':     lambda: self.W.N_rot if hasattr(self,'W') else None,
+
+            # Q_amb connector
+            'T_amb':     lambda: self.Q_amb.T_cold if hasattr(self,'Q_amb') else None,
+            
+            # Solar
+            'DNI':       lambda: self.DNI if hasattr(self,'DNI') else None,
+            'Theta':     lambda: self.Theta if hasattr(self,'Theta') else None,
+            'v_wind':    lambda: self.v_wind if hasattr(self,'v_wind') else None,
+        }
+
+        self.inputs = getattr(self,'inputs',{})
+
+        for key, getter in attribute_map.items():
+            try:
+                value = getter()
+                if value is not None:
+                    self.inputs[key] = value
+            except Exception:
+                pass  # Optional: add logging for debugging
+
         return
 
     def mute_print(self):
@@ -276,6 +273,7 @@ class BaseComponent:
     def check_calculable(self):
         self.sync_inputs()
         required_inputs = self.get_required_inputs() 
+        
         self.calculable = all(self.inputs.get(inp) is not None for inp in required_inputs) # check if all required inputs are set
         if not self.calculable:
             if self.print_flag:
