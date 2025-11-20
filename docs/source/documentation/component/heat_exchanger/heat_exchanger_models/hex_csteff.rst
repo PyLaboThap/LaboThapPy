@@ -30,8 +30,7 @@ cold stream can accept:
      \; \dot{m}_C \cdot (h_{ex,id,C} - h_{su,C})
    \right)
 
-Definitions
------------
+**Definitions:**
 
 - :math:`\dot{m}_H`, :math:`\dot{m}_C`  
   Mass flow rates of the hot and cold streams, respectively (kg/s).
@@ -44,8 +43,7 @@ Definitions
   Specific enthalpies at the **outlets** of the hot and cold streams
   in an **ideal** heat exchanger (i.e., infinite area / infinite NTU).
 
-Procedure to compute heat transfer rate
----------------------------------------
+**Procedure to compute heat transfer rate:**
 
 1. Compute or obtain the inlet temperatures and specific enthalpies  
    :math:`h_{su,H}` and :math:`h_{su,C}`.
@@ -85,8 +83,7 @@ Outlet enthalpies are computed as:
 
    h_{out,C} = h_{su,C} + \frac{\dot{Q}}{\dot{m}_C}
 
-Assumptions
------------
+**Assumptions:**
 
 - Counterflow geometry.
 - User-specified constant effectiveness :math:`\varepsilon`,  
@@ -95,7 +92,8 @@ Assumptions
 - No heat losses to the environment.
 - No pressure drop inside the heat exchanger.
 
-
+Class description
+-----------------
 .. autoclass:: component.heat_exchanger.hex_csteff.HXCstEff
 
 References

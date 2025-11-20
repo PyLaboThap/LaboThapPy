@@ -1,5 +1,12 @@
 Solar
-===============
+=====
 
-This sections provides information about the heat exchanger models available in the LaboThapPy library.
-The heat exchanger models are limited to non-humid air applications.
+This sections provides information about solar PV models available in the LaboThapPy library.
+
+
+
+.. toctree::
+   :maxdepth: 1
+
+   solar_models/parabolic_trough_collector
+

@@ -145,7 +145,7 @@ class BaseComponent:
             'h_ex_C':    lambda val: self.ex_C.set_h(val),
 
             # W connector inputs
-            'N_rot':     lambda val: self.W.set_N(val),
+            'N_rot':     lambda val: self.W.set_N_rot(val),
 
             # Q_amb connector inputs
             'T_amb':     lambda val: self.Q_amb.set_T_cold(val),
@@ -215,7 +215,7 @@ class BaseComponent:
             'h_ex_H':    lambda: self.ex_H.h if hasattr(self,'ex_H') else None,
 
             # W connector
-            'N_rot':     lambda: self.W.N if hasattr(self,'W') else None,
+            'N_rot':     lambda: self.W.N_rot if hasattr(self,'W') else None,
 
             # Q_amb connector
             'T_amb':     lambda: self.Q_amb.T_cold if hasattr(self,'Q_amb') else None,

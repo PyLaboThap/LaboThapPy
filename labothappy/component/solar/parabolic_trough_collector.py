@@ -100,7 +100,7 @@ class PTCollector(BaseComponent):
         
         T_su: Temperature at the suction. [K]
         
-        p_su: Pressure at the suction. [Pa]
+        P_su: Pressure at the suction. [Pa]
         
         v_wind: Wind speed on the PT collector's heat collection element. [m/s]
         
