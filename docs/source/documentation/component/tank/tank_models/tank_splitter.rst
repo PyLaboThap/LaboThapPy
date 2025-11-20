@@ -1,4 +1,4 @@
-Tank - Splitter
+Tank - Spliter
 ==========================================
 
 Model description
@@ -8,7 +8,7 @@ The component models a tank that splits a single incoming fluid stream into mult
 
 Class description
 -----------------
-.. autoclass:: component.tank.tank_splitter.TankSplitter
+.. autoclass:: component.tank.tank_spliter.TankSpliter
 
 References
 ----------

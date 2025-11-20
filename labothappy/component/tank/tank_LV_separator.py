@@ -25,68 +25,64 @@ import __init__
 "INTERNAL IMPORTS"
 
 from connector.mass_connector import MassConnector
-from connector.work_connector import WorkConnector
-from connector.heat_connector import HeatConnector
 from component.base_component import BaseComponent
 
 # !!! Put what you need to import here from the library
 
 
-#%% CLASS DEFINITION : # !!! The name of the class shall be written in the same fashion as hereunder
-
 class TankLVSeparator(BaseComponent):
     """
-        **Component**: Tank separator
+    **Component**: Tank separator
 
-        **Model**:  Classical way to model a LV separator 
-        
-        **Reference**: /
-
-        **Descritpion**:
-
-            - Method of modeling: This code defines an LV Separator that takes an input stream and splits it into liquid and vapor components based on quality (x) and temperature.
-            - Use of the model: The model can used in thermodynamic cycle
-            - Specific outputs: mass flow rate in both liquid and vapor state and exhaust conditions for both lines 
-            - Pressure drop not modeled
-            - Geometry not required
-            - Rating of the models level of complexity, precision, robustness, adaptability : simple
-                    
-        **Assumptions**:
-
-            - No work, no heat losses
-                    
-        **Connectors**:
-            su (MassConnector): Mass connector for the supply conditions
-            ex_v (MassConnector): Mass connector for the vapor line
-            ex_l (MassConnector): Mass connector for the liquid line
-
-
-        **Parameters**:
-            
-            No parameters are expected
-
-        **Inputs**:    
-            
-            x_su          : Supply quality [-]
-            T_su or h_su  : Supply temperature or enthalpy [K] or [J/kg]
-            P_su          : Supply pressure [Pa]
-            fluid         : Supply fluid [string]
-            m_dot         : Supply flow rate [kg/s]
-                
-        **Ouputs**:
-            
-            Vapor line
-            h_ex_v       : Exhaust enthalpy at the vapor line [J/kg]
-            P_ex_v       : Exhaust pressure at the vapor line [Pa]
-            fluid_v      : Exhaust fluid at the vapor line [string]
-            m_dot_v      : Exhaust flow rate at the vapor line [kg/s]
-            
-            Vapor line
-            h_ex_l       : Exhaust enthalpy at the liquid line [J/kg]
-            P_ex_l       : Exhaust pressure at the liquid line [Pa]
-            fluid_l      : Exhaust fluid at the liquid line [string]
-            m_dot_l      : Exhaust flow rate at the liquid line [kg/s]
+    **Model**:  Classical way to model a LV separator 
     
+    **Reference**: /
+
+    **Descritpion**:
+
+        - Method of modeling: This code defines an LV Separator that takes an input stream and splits it into liquid and vapor components based on quality (x) and temperature.
+        - Use of the model: The model can used in thermodynamic cycle
+        - Specific outputs: mass flow rate in both liquid and vapor state and exhaust conditions for both lines 
+        - Pressure drop not modeled
+        - Geometry not required
+        - Rating of the models level of complexity, precision, robustness, adaptability : simple
+                
+    **Assumptions**:
+
+        - No work, no heat losses
+                
+    **Connectors**:
+        su (MassConnector): Mass connector for the supply conditions
+        ex_v (MassConnector): Mass connector for the vapor line
+        ex_l (MassConnector): Mass connector for the liquid line
+
+
+    **Parameters**:
+        
+        No parameters are expected
+
+    **Inputs**:    
+        
+        x_su          : Supply quality [-]
+        T_su or h_su  : Supply temperature or enthalpy [K] or [J/kg]
+        P_su          : Supply pressure [Pa]
+        fluid         : Supply fluid [string]
+        m_dot         : Supply flow rate [kg/s]
+            
+    **Ouputs**:
+        
+        Vapor line
+        h_ex_v       : Exhaust enthalpy at the vapor line [J/kg]
+        P_ex_v       : Exhaust pressure at the vapor line [Pa]
+        fluid_v      : Exhaust fluid at the vapor line [string]
+        m_dot_v      : Exhaust flow rate at the vapor line [kg/s]
+        
+        Vapor line
+        h_ex_l       : Exhaust enthalpy at the liquid line [J/kg]
+        P_ex_l       : Exhaust pressure at the liquid line [Pa]
+        fluid_l      : Exhaust fluid at the liquid line [string]
+        m_dot_l      : Exhaust flow rate at the liquid line [kg/s]
+
     """
 
     def __init__(self):

@@ -5,13 +5,10 @@ Created on Fri May 10 14:31:24 2024
 @author: Basile
 """
 
-
 from connector.mass_connector import MassConnector
 from component.base_component import BaseComponent
-import numpy as np
 
 class TankSpliter(BaseComponent):
-    
     """
     **Component**: Spliter
     

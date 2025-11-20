@@ -6,7 +6,7 @@ Model description
 
 
 The model description is available in the
-`PDF document <../_static/pdf_files/ReadTheDocs_PTcollector.pdf>`_.
+`PDF document <../../../../_static/pdf_files/ReadTheDocs_PTcollector.pdf>`_.
 
 
 Class description
