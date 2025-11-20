@@ -6,7 +6,7 @@ Model description
 
 /
 
-.. autoclass:: component.heat_exchanger.hex_cstpinch.HXPinchCst
+.. autoclass:: component.heat_exchanger.hex_cstpinch.HexCstPinch
 
 References
 ----------

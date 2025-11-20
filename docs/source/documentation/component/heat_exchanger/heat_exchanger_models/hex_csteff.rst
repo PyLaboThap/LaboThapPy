@@ -94,7 +94,7 @@ Outlet enthalpies are computed as:
 
 Class description
 -----------------
-.. autoclass:: component.heat_exchanger.hex_csteff.HXCstEff
+.. autoclass:: component.heat_exchanger.hex_csteff.HexCstEff
 
 References
 ----------

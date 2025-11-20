@@ -8,7 +8,7 @@ from component.base_component import BaseComponent
 
 import CoolProp.CoolProp as CP
 
-class HXCstEff(BaseComponent):
+class HexCstEff(BaseComponent):
     """
     **Component**: Counterflow Heat Exchanger with Constant Effectiveness (HXEffCst)
     

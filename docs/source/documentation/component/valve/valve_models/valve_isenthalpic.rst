@@ -1,4 +1,4 @@
-Valve - Isenthalpi Model
+Valve - Isenthalpic Model
 ==========================================
 
 Model description
