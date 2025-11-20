@@ -140,7 +140,110 @@ def generate_map_processes(machine, m_grid, N_grid, max_workers=-1, desc="Operat
 #%%
 
 class AxialTurbineMeanLine(BaseComponent):
+    """
+    **Component**: Mean-Line 1D Axial Turbine Model
 
+    **Model**: Steady-state multi-stage mean-line turbine model (1D) with Aungier loss model.
+
+    **Description**:
+
+        This model simulates a large-scale axial flow turbine operating under steady-state conditions.
+        It computes the isentropic efficiency, the shaft power and the outlet pressure based on inlet 
+        conditions (flow rate included) and an imposed rotational speed. Performance maps can be 
+        approximated from this model with a built-in method (CFD is however advised for more precision).
+        Parameters for this model can be generated from the AxialTurbineMeanLineDesign sizing model.
+
+    **Assumptions**:
+
+        - Steady-state, one-dimensional flow.
+        - Losses expressed using the Aungier model.
+        - CoolProp is used for accurate fluid property evaluation.
+        - No heat losses to surroundings.
+
+    **Connectors**:
+
+        su (MassConnector): Supply (inlet) side of the turbine.
+
+        ex (MassConnector): Exhaust (outlet) side of the turbine.
+
+        W (WorkConnector): Shaft power output from the turbine.
+
+    **Parameters**:
+
+        r_m: Turbine mean radius [m]
+
+        nStages: Number of stages [-]
+
+        damping: Damping factor for stage iterations [-]
+
+        delta_tip: Blade tip clearance [m]
+
+        N_lw: Number of lashing wires [-]
+
+        D_lw: Lashing wire diameter [m]
+
+        e_blade: Blade roughness [m]
+        
+        mdot_rated: Rated mass flow rate [kg/s] (For map generation)
+
+        DP_rated: Rated pressure ratio [-] (For map generation)
+
+        N_rot_rated: Rated rotational speed [rpm] (For map generation)
+
+    **Stage Parameters (one value per stage, same parameters for rotor blades with R suffix)**:
+
+        h_blade_S: Stator Blade height [m]
+
+        chord_S: Stator chord length [m]
+
+        xhi_S1: Stator inlet blade angle [rad]
+
+        xhi_S2: Stator outlet blade angle [rad]
+
+        pitch_S: Stator blade pitch [m]
+            
+        o_S: Stator throat opening [m]
+        
+        A_th: Throat flow area [m²]
+        
+        t_TE_S: Stator blade trailing edge thickness [m]
+
+        t_blade_S: Stator blade thickness [m]
+
+        n_blade_S: Stator blade number [-]
+        
+        R_c_S = Stator blade suction side radius of curvature [m]        
+
+    **Inputs**:
+
+        m_dot: Mass flow rate [kg/s]
+        
+        P_su: Inlet pressure [Pa]
+
+        T_su or h_su: Inlet temperature [K] or enthalpy [J/kg]
+
+        fluid: Working fluid [-]
+
+        N_rot: Actual shaft rotational speed [rpm]
+
+        P_ex: Outlet pressure [Pa] (For map generation)
+
+    **Outputs**:
+
+        h_ex: Outlet enthalpy [J/kg]
+
+        eta_is: Isentropic efficiency [-]
+
+        W_dot: Shaft work output [W]
+
+        P_ex: Exhaust pressure [Pa] (Except for map generation)
+
+    **Notes**:
+
+        - Outlet State is the total state.
+        - No dynamic behavior is included; suitable for steady-state energy system simulations.
+        
+    """
     def __init__(self, fluid):
         super().__init__()
         
@@ -164,6 +267,34 @@ class AxialTurbineMeanLine(BaseComponent):
         self.ex = MassConnector()
         
         self.Dh0_stage_guess = 0
+
+    def get_required_inputs(self):
+        """
+        Returns a list of required input variable names.
+        Used to check if the model has enough data to run.
+        """
+        return ["P_su", "T_su", "m_dot", "N_rot", "fluid"]
+
+    def get_map_required_inputs(self):
+        """
+        Returns a list of required input variable names.
+        Used to check if the model has enough data to run.
+        """
+        return ["P_su", "P_ex", "T_su", "m_dot", "N_rot", "fluid"]
+
+    def get_required_parameters(self):
+        """
+        Returns a list of required parameters needed for model execution.
+        """
+        return ["r_m", "nStages", "damping", "delta_tip", "N_lw", "D_lw", "e_blade"]
+
+    def get_map_required_parameters(self):
+        """
+        Returns a list of required parameters needed for model execution.
+        """
+        return ["r_m", "nStages", "mdot_rated", "DP_rated",
+            "N_rot_rated", "damping", "delta_tip", "N_lw", 
+            "D_lw", "e_blade"]
 
     # ---------------- Stage Sub Class ----------------------------------------------------------------------
     
@@ -580,8 +711,11 @@ class AxialTurbineMeanLine(BaseComponent):
             
             # print("Stator")
         
-            RP_1_row = (self.inputs['P_su']/self.inputs['P_ex'])**(1/(2*self.nStages))
-            
+            if 'P_ex' in self.inputs:
+                RP_1_row = (self.inputs['P_su']/self.inputs['P_ex'])**(1/(2*self.nStages))
+            else:
+                RP_1_row = 5**(1/(2*self.nStages))      
+                
             if self.Dh0_stage_guess !=0:
                 h_out_guess = stage.static_states['H'][1] - self.Dh0_stage_guess/2    
             else:
@@ -598,7 +732,7 @@ class AxialTurbineMeanLine(BaseComponent):
             
             c = 0
             
-            while res > 1e-8:
+            while res > 1e-6:
                 
                 if c > 1000:
                     raise RuntimeError("Max iterations exceeded in computeBladeRow (stator/rotor/last stage).")
@@ -626,7 +760,10 @@ class AxialTurbineMeanLine(BaseComponent):
 
             # print("Rotor")
 
-            RP_1_row = (self.inputs['P_su']/self.inputs['P_ex'])**(1/(2*self.nStages))
+            if 'P_ex' in self.inputs:
+                RP_1_row = (self.inputs['P_su']/self.inputs['P_ex'])**(1/(2*self.nStages))
+            else:
+                RP_1_row = 5**(1/(2*self.nStages))   
             
             if self.Dh0_stage_guess !=0:
                 h_out_guess = stage.static_states['H'][2] - self.Dh0_stage_guess/2    
@@ -644,7 +781,7 @@ class AxialTurbineMeanLine(BaseComponent):
             
             c = 0
             
-            while res > 1e-8:
+            while res > 1e-6:
 
                 if c > 1000:
                     raise RuntimeError("Max iterations exceeded in computeBladeRow (stator/rotor/last stage).")
@@ -704,7 +841,10 @@ class AxialTurbineMeanLine(BaseComponent):
         
         stage.static_states.loc[1] = self.stages[-2].static_states.loc[3]
         
-        RP_1_row = (self.inputs['P_su']/self.inputs['P_ex'])**(1/(2*self.nStages))     
+        if 'P_ex' in self.inputs:
+            RP_1_row = (self.inputs['P_su']/self.inputs['P_ex'])**(1/(2*self.nStages))
+        else:
+            RP_1_row = 5**(1/(2*self.nStages))   
         
         h_out_guess = stage.static_states['H'][1] - self.Dh0_stage_guess/2  
         pout_guess = stage.static_states['P'][1]/RP_1_row
@@ -786,6 +926,7 @@ class AxialTurbineMeanLine(BaseComponent):
             ['m_dot','N_rot','P_su','T_su','P_ex_target','P_ex_calc',
              'PR','W_dot','eta_is','converged','mach_warn','pressure_warn','notes']
         """
+        
         import numpy as _np
         import pandas as _pd
         
@@ -953,8 +1094,18 @@ class AxialTurbineMeanLine(BaseComponent):
         df.sort_values(by=['N_rot','m_dot'], inplace=True, ignore_index=True)
         return df
 
-    
     def solve(self):
+        
+        self.check_calculable()
+        self.check_parametrized()
+        
+        if not self.calculable:
+            print("Component is not calculable. Check inputs.")
+            return
+        
+        if not self.parametrized:
+            print("Component is not parametrized. Check parameters.")
+            return
         
         self.omega_rads = 2*np.pi*self.inputs['N_rot']/60
         self.u = self.omega_rads*self.params['r_m']*2
@@ -977,13 +1128,24 @@ class AxialTurbineMeanLine(BaseComponent):
                 
         self.eta_is = (hin - hout)/(hin - hout_s)
         
+        self.update_connectors()
+        self.solved = True
         return 
+
+    def update_connectors(self):
+
+        self.ex.set_fluid(self.su.fluid)        
+        self.ex.set_p(self.stages[-1].total_states['P'][2])
+        self.ex.set_h(self.stages[-1].total_states['H'][2])
+        self.ex.set_m_dot(self.su.m_dot)
+        
+        return
 
 #%%
 
 if __name__ == "__main__":
     
-    case_study = "TCO2_ORC"
+    case_study = "Salah_Case"
     
     if case_study == "Salah_Case":
         Turb_OD = AxialTurbineMeanLine('CO2')
@@ -1083,14 +1245,14 @@ if __name__ == "__main__":
             R_c_R = [0.01657872114, 0.01772155179, 0.01914958914, 0.02090755531, 0.02304935574, 0.02564128287, 0.0287675548, None],
             )
         
-    map_case = 1
+    map_case = 0
     
     if map_case == 1:
         
         df_map = generate_map_processes(
             Turb_OD,
-            m_grid=np.linspace(0.6*Turb_OD.params['mdot_rated'], 1.4*Turb_OD.params['mdot_rated'], 60),
-            N_grid=np.linspace(0.3*Turb_OD.params['N_rot_rated'], 1.5*Turb_OD.params['N_rot_rated'], 60),
+            m_grid=np.linspace(0.6*Turb_OD.params['mdot_rated'], 1.4*Turb_OD.params['mdot_rated'], 30),
+            N_grid=np.linspace(0.3*Turb_OD.params['N_rot_rated'], 1.5*Turb_OD.params['N_rot_rated'], 30),
             max_workers=-2
         )
         
