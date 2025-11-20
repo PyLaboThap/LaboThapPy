@@ -29,7 +29,7 @@ from scipy.optimize import fsolve, root, minimize
 import numpy as np
 import math
 
-class HXPinchCst(BaseComponent):
+class HexCstPinch(BaseComponent):
     """
     Component: Heat Exchanger with constant pinch point.
 

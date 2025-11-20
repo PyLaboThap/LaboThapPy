@@ -1,4 +1,4 @@
-Compressor - Constant Isentropic Efficiency Model
+Pump - Constant Isentropic Efficiency Model
 ================================================
 
 Model description

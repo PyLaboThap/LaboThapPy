@@ -1,11 +1,11 @@
 
-from labothappy.component.heat_exchanger.hex_csteff import HXCstEff
+from labothappy.component.heat_exchanger.hex_csteff import HexCstEff
 
 import numpy as np
 
 "Simple test - Model for recuperators in simple thermodynamic studies "
 
-HTX = HXCstEff()
+HTX = HexCstEff()
 
 # Set input conditions
 HTX.set_inputs(

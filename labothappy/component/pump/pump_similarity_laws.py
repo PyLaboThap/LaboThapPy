@@ -15,9 +15,9 @@ GRAVITY = 9.81  # m/s², Gravitational acceleration constant
 
 class PumpSimilarityLaws(BaseComponent):
     """
-    Component: Pump with a characteristic curve associated
-
-    Model: Model using characteristic curves for head and power and similarity laws
+    **Component**: Pump with a characteristic curve associated
+    
+    **Model**: Model using characteristic curves for head and power and similarity laws
     to calculate the pump performance at different speeds.
 
     Description:

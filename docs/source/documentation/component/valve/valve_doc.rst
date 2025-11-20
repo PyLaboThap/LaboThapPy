@@ -1,4 +1,11 @@
 Valve
 ========
 
-The compressor models are composed of volumetric machines as well as turbines.
+This section describes the different valve models available in LaboThapPy.
+
+
+.. toctree::
+   :maxdepth: 1
+
+   valve_models/valve_isenthalpic
+

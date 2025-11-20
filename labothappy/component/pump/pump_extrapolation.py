@@ -1,7 +1,6 @@
 "External modules"
 
 import CoolProp.CoolProp as CP
-from CoolProp.CoolProp import PropsSI
 from scipy.interpolate import interp1d
 
 "Internal modules"
@@ -10,11 +9,11 @@ from connector.mass_connector import MassConnector
 from connector.work_connector import WorkConnector
 
 
-class PumpExtrapolationModel(BaseComponent):
+class PumpExtrapolation(BaseComponent):
     """
-    Component: Pump with extrapolated performance curves
+    **Component**: Pump with extrapolated performance curves
 
-    Model: Empirical extrapolation-based pump model
+    **Model**: Empirical extrapolation-based pump model
 
     **Description**:
 
@@ -35,7 +34,7 @@ class PumpExtrapolationModel(BaseComponent):
 
         ex (MassConnector): Exhaust (outlet) side of the pump.
 
-        W_pp (WorkConnector): Mechanical power input to the pump shaft.
+        W (WorkConnector): Mechanical power input to the pump shaft.
 
     **Parameters**:
 
@@ -130,33 +129,6 @@ class PumpExtrapolationModel(BaseComponent):
             "eta_max_motor",
             "W_dot_el_rated",
         ]
-
-    def print_setup(self):
-        """
-        Print current configuration of inputs, connectors, and parameters.
-        Useful for debugging or inspection.
-        """
-        print("=== Pump Setup ===")
-        print("Connectors:")
-        print(
-            f"  - su: fluid={self.su.fluid}, T={self.su.T}, p={self.su.p}, m_dot={self.su.m_dot}"
-        )
-        print(
-            f"  - ex: fluid={self.ex.fluid}, T={self.ex.T}, p={self.ex.p}, m_dot={self.ex.m_dot}"
-        )
-        print("\nInputs:")
-        for input_name in self.get_required_inputs():
-            if input_name in self.input_values:
-                print(f"  - {input_name}: {self.input_values[input_name]}")
-            else:
-                print(f"  - {input_name}: Not set")
-        print("\nParameters:")
-        for param in self.get_required_parameters():
-            if param in self.params:
-                print(f"  - {param}: {self.params[param]}")
-            else:
-                print(f"  - {param}: Not set")
-        print("======================")
 
     def eta_el(self, P_ratio):
         """

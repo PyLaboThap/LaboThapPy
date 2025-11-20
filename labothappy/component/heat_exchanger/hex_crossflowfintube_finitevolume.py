@@ -32,9 +32,9 @@ from correlations.properties.void_fraction import void_fraction
 # Component base frame
 from component.base_component import BaseComponent
 
-class CrossFlowTubeAndFinsHTX(BaseComponent):
+class HexCrossFlowTubeAndFinsFiniteVolume(BaseComponent):
     """
-    Component: Cross-Flow Tube-and-Fins Heat Exchanger (HTX)
+    Component: Cross-Flow Tube-and-Fins Heat Exchanger (Hex)
     
     Model: Discretized Cross-Flow Heat Exchanger with Fin Efficiency and Pressure Drop
     

@@ -1,8 +1,8 @@
-import __init__
-from component.pump.pump_extrapolation import PumpExtrapolationModel
+# import __init__
+from labothappy.component.pump.pump_extrapolation import PumpExtrapolation
 
 # Instantiate Pump
-Pump = PumpExtrapolationModel()
+Pump = PumpExtrapolation()
 
 # Set Input
 Pump.set_inputs(

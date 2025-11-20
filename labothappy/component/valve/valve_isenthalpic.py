@@ -2,11 +2,11 @@ from component.base_component import BaseComponent
 from connector.mass_connector import MassConnector
 
 
-class IsenthalpicValve_P_ex(BaseComponent):
+class ValveIsenthalpic(BaseComponent):
     """
-    Component: Valve
+    **Component**: Valve
 
-    Model: Isenthalpic
+    **Model**: Isenthalpic
 
     **Descritpion**:
 
@@ -57,7 +57,7 @@ class IsenthalpicValve_P_ex(BaseComponent):
 
         if not (self.calculable and self.parametrized):
             self.solved = False
-            print("IsenthalpicValve_P_ex could not be solved. It is not calculable and/or not parametrized")
+            print("IsenthalpicValve could not be solved. It is not calculable and/or not parametrized")
             return
         try:
             
@@ -76,7 +76,7 @@ class IsenthalpicValve_P_ex(BaseComponent):
         self.ex.set_m_dot(self.su.m_dot)
 
     def print_results(self):
-        print("=== Expander Results ===")
+        print("=== Expansion Valve Results ===")
         print("Connectors:")
         print(f"  - su: fluid={self.su.fluid}, T={self.su.T}, p={self.su.p}, m_dot={self.su.m_dot}")
         print(f"  - ex: fluid={self.ex.fluid}, T={self.ex.T}, p={self.ex.p}, m_dot={self.ex.m_dot}")
@@ -87,7 +87,6 @@ class IsenthalpicValve_P_ex(BaseComponent):
         print("=========================")
 
     def print_states_connectors(self):
-        print("=== Expander Results ===")
         print("Mass connectors:")
         print(f"  - su: fluid={self.su.fluid}, T={self.su.T} [K], p={self.su.p} [Pa], h={self.su.h} [J/kg], s={self.su.s} [J/K.kg], m_dot={self.su.m_dot} [kg/s]")
         print(f"  - ex: fluid={self.ex.fluid}, T={self.ex.T} [K], p={self.ex.p} [Pa], h={self.ex.h} [J/kg], s={self.ex.s} [J/K.kg], m_dot={self.ex.m_dot} [kg/s]")

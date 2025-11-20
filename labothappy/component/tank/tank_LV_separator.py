@@ -25,74 +25,65 @@ import __init__
 "INTERNAL IMPORTS"
 
 from connector.mass_connector import MassConnector
-from connector.work_connector import WorkConnector
-from connector.heat_connector import HeatConnector
 from component.base_component import BaseComponent
 
 # !!! Put what you need to import here from the library
 
 
-#%% CLASS DEFINITION : # !!! The name of the class shall be written in the same fashion as hereunder
-
-class LV_Separator(BaseComponent):
-    
-#%% DOCSTRING : #!!! IMPORTANT AS IT AUTOMATIZES PART OF THE DOCUMENTATION
-
+class TankLVSeparator(BaseComponent):
     """
-        Component: Tank
+    **Component**: Tank separator
 
-        Model:  Classical way to model a LV separator 
-        Reference: /
+    **Model**:  Classical way to model a LV separator 
+    
+    **Reference**: /
 
-        **Descritpion**:
+    **Descritpion**:
 
-            - Method of modeling: This code defines an LV Separator that takes an input stream and splits it into liquid and vapor components based on quality (x) and temperature.
-            - Use of the model: The model can used in thermodynamic cycle
-            - Specific outputs: mass flow rate in both liquid and vapor state and exhaust conditions for both lines 
-            - Pressure drop not modeled
-            - Geometry not required
-            - Rating of the models level of complexity, precision, robustness, adaptability : simple
-                    
-        **Assumptions**:
-
-            - No work, no heat losses
-                    
-        **Connectors**:
-            su (MassConnector): Mass connector for the supply conditions
-            ex_v (MassConnector): Mass connector for the vapor line
-            ex_l (MassConnector): Mass connector for the liquid line
-
-
-
-        **Parameters**:
-            
-            No parameters are expected
-
-        **Inputs**:    
-            
-            - su_x          : Supply quality [-]
-            - su_T or su_h  : Supply temperature or enthalpy [K] or [J/kg]
-            - su_p          : Supply pressure [Pa]
-            - su_fluid      : Supply fluid [string]
-            - su_m_dot      : Supply flow rate [kg/s]
+        - Method of modeling: This code defines an LV Separator that takes an input stream and splits it into liquid and vapor components based on quality (x) and temperature.
+        - Use of the model: The model can used in thermodynamic cycle
+        - Specific outputs: mass flow rate in both liquid and vapor state and exhaust conditions for both lines 
+        - Pressure drop not modeled
+        - Geometry not required
+        - Rating of the models level of complexity, precision, robustness, adaptability : simple
                 
-        **Ouputs**:
+    **Assumptions**:
+
+        - No work, no heat losses
+                
+    **Connectors**:
+        su (MassConnector): Mass connector for the supply conditions
+        ex_v (MassConnector): Mass connector for the vapor line
+        ex_l (MassConnector): Mass connector for the liquid line
+
+
+    **Parameters**:
+        
+        No parameters are expected
+
+    **Inputs**:    
+        
+        x_su          : Supply quality [-]
+        T_su or h_su  : Supply temperature or enthalpy [K] or [J/kg]
+        P_su          : Supply pressure [Pa]
+        fluid         : Supply fluid [string]
+        m_dot         : Supply flow rate [kg/s]
             
-            Vapor line
-            - ex_v_h       : Exhaust enthalpy at the vapor line [J/kg]
-            - ex_v_p       : Exhaust pressure at the vapor line [Pa]
-            - ex_v_fluid   : Exhaust fluid at the vapor line [string]
-            - ex_v_m_dot   : Exhaust flow rate at the vapor line [kg/s]
-            
-            Vapor line
-            - ex_l_h       : Exhaust enthalpy at the liquid line [J/kg]
-            - ex_l_p       : Exhaust pressure at the liquid line [Pa]
-            - ex_l_fluid   : Exhaust fluid at the liquid line [string]
-            - ex_l_m_dot   : Exhaust flow rate at the liquid line [kg/s]
-    
+    **Ouputs**:
+        
+        Vapor line
+        h_ex_v       : Exhaust enthalpy at the vapor line [J/kg]
+        P_ex_v       : Exhaust pressure at the vapor line [Pa]
+        fluid_v      : Exhaust fluid at the vapor line [string]
+        m_dot_v      : Exhaust flow rate at the vapor line [kg/s]
+        
+        Vapor line
+        h_ex_l       : Exhaust enthalpy at the liquid line [J/kg]
+        P_ex_l       : Exhaust pressure at the liquid line [Pa]
+        fluid_l      : Exhaust fluid at the liquid line [string]
+        m_dot_l      : Exhaust flow rate at the liquid line [kg/s]
+
     """
-    
-#%% INIT METHODD: # !!! WRITE A SHORT DOCSTRING 
 
     def __init__(self):
         """
@@ -109,9 +100,6 @@ class LV_Separator(BaseComponent):
         self.ex_l = MassConnector()
         self.ex_v = MassConnector () 
             
-
-#%% INPUTS AND PARAMETERS HANDLING METHODS
-
     def get_required_inputs(self): # Used in check_calculable (in BaseComponent) to see if all of the required inputs are set
         """
         Supply required inputs : 
@@ -152,9 +140,6 @@ class LV_Separator(BaseComponent):
         self.ex_v.set_p(p_ex_v)
         self.ex_v.set_m_dot(m_dot_v)  
 
-
-#%% SOLVE METHOD # !!! DON'T FORGET DOCSTRINGS
-    
     def solve(self):    
         """
         Solve the LV Separator model.
@@ -174,7 +159,6 @@ class LV_Separator(BaseComponent):
         self.AS=CP.AbstractState('HEOS', self.su.fluid) 
         
         # Extract input properties
-        fluid = self.su.fluid
         x_su = self.su.x  # Quality (0 = liquid, 1 = vapor)
         P_su = self.su.p
         T_su = self.su.T
@@ -213,8 +197,6 @@ class LV_Separator(BaseComponent):
         self.update_connectors(x_ex_l, T_ex_l, h_ex_l, P_ex_l, m_dot_l, x_ex_v, T_ex_v, h_ex_v, P_ex_v, m_dot_v)
         self.solved = True  # Mark as solved
         
-#%% PRINT THE RESULTS 
-
     # !!! These shall fit the output of your model
     def print_results(self):
         print("=== Liquid vapor separator ===")

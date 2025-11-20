@@ -8,7 +8,7 @@ Model description
    :alt: Scheme of the heat exchanger discretization.
    :width: 100%
 
-.. autoclass:: component.heat_exchanger.hex_crossflowfintube_finitevolume.CrossFlowTubeAndFinsHTX
+.. autoclass:: component.heat_exchanger.hex_crossflowfintube_finitevolume.HexCrossFlowTubeAndFinsFiniteVolume
 
 References
 ----------

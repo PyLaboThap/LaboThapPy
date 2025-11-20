@@ -5,7 +5,7 @@ Created on Wed June 04 14:42:00 2024
 @author: Elise
 """
 
-from labothappy.component.valve.isenthalpic_valve_P_ex import IsenthalpicValve_P_ex 
+from labothappy.component.valve.valve_isenthalpic import ValveIsenthalpic 
 from CoolProp.CoolProp import PropsSI
 
 
@@ -13,7 +13,7 @@ from CoolProp.CoolProp import PropsSI
 
 "Instanciation"
 
-Valve = IsenthalpicValve_P_ex()
+Valve = ValveIsenthalpic ()
 
 Valve.set_inputs(
     T_su = 50 + 273.15, # K
