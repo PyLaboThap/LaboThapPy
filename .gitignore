@@ -20,3 +20,5 @@ geometry*.py
 
 # Ignore Spyder Workspaces
 *.bak
+
+.spyproject/
