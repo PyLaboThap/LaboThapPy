@@ -4,7 +4,7 @@ save_data_on_exit = True
 save_history = True
 save_non_project_files = False
 project_type = 'empty-project-type'
-recent_files = ['machine\\optimization\\CO2_RC_Cost_Per_kW.py']
+recent_files = ['component\\heat_exchanger\\hex_thermosyphon.py', 'component\\examples\\heat_exchanger\\hex_thermosyphon_example.py', 'correlations\\heat_pipe\\HP_h_coeffs.py']
 
 [main]
 version = 0.2.0

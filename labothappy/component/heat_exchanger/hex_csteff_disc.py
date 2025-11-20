@@ -6,11 +6,14 @@ from component.base_component import BaseComponent
 
 # from component.heat_exchanger.moving_boundary.simple_model.modules.U import U_Gnielinski_calibrated, U_DittusBoelter, U_Cooper_calibrater, U_Thonon
 
+from CoolProp.CoolProp import PropsSI
+from scipy.optimize import fsolve
+
 import CoolProp.CoolProp as CP
 import numpy as np
+import math
 
-
-class HexCstEffDisc(BaseComponent):
+class HXEffCstDisc(BaseComponent):
     """
     Component: Counterflow Heat Exchanger with Constant Effectiveness (HXEffCstDisc)
     
@@ -34,7 +37,7 @@ class HexCstEffDisc(BaseComponent):
         su_H (MassConnector): Mass connector for the hot-side supply.
         ex_C (MassConnector): Mass connector for the cold-side exhaust.
         ex_H (MassConnector): Mass connector for the hot-side exhaust.
-        Q (HeatConnector): Heat transfer connector for the total exchanged heat.
+        Q_dot (HeatConnector): Heat transfer connector for the total exchanged heat.
     
     **Parameters**:
     
@@ -68,9 +71,9 @@ class HexCstEffDisc(BaseComponent):
         
         P_ex_C: Cold-Side Exhaust pressure at outlet [Pa].
                     
-        h_ex_C: Hot-Side specific enthalpy at outlet [J/kg].
+        h_ex_H: Hot-Side specific enthalpy at outlet [J/kg].
         
-        P_ex_C: Hot-Side pressure at outlet [Pa].
+        P_ex_H: Hot-Side pressure at outlet [Pa].
         
         Q_dot: Total heat transfer rate across the exchanger [W].
         
@@ -83,12 +86,12 @@ class HexCstEffDisc(BaseComponent):
     
     def __init__(self):
         super().__init__()
-        self.su_C = MassConnector()
-        self.su_H = MassConnector()
+        self.su_C = MassConnector() # Working fluid supply
+        self.su_H = MassConnector() # Secondary fluid supply
         self.ex_C = MassConnector()
         self.ex_H = MassConnector()
 
-        self.Q_hex = HeatConnector()
+        self.Q_dot = HeatConnector()
         self.guesses = {}
         self.DT_pinch = -2
         
@@ -104,6 +107,7 @@ class HexCstEffDisc(BaseComponent):
         self.effectiveness = 1
 
     def get_required_inputs(self): # Used in check_calculablle to see if all of the required inputs are set
+        self.sync_inputs()
         # Return a list of required inputs
         return['P_su_H', 'T_su_H', 'm_dot_H', 'fluid_H', 'P_su_C', 'T_su_C', 'm_dot_C', 'fluid_C']
     
@@ -111,6 +115,31 @@ class HexCstEffDisc(BaseComponent):
         return [
             'eta_max', 'n_disc', 'Pinch_min' # Efficiency
         ]
+    
+    def print_setup(self):
+        print("=== Heat Exchanger Setup ===")
+        print("Connectors:")
+        print(f"  - su_C: fluid={self.su_C.fluid}, T={self.su_C.T}, p={self.su_C.p}, m_dot={self.su_C.m_dot}")
+        print(f"  - su_H: fluid={self.su_H.fluid}, T={self.su_H.T}, p={self.su_H.p}, m_dot={self.su_H.m_dot}")
+        print(f"  - ex_C: fluid={self.ex_C.fluid}, T={self.ex_C.T}, p={self.ex_C.p}, m_dot={self.ex_C.m_dot}")
+        print(f"  - ex_H: fluid={self.ex_H.fluid}, T={self.ex_H.T}, p={self.ex_H.p}, m_dot={self.ex_H.m_dot}")
+        print(f"  - Q_dot: {self.Q_dot.Q_dot}")
+
+        print("\nInputs:")
+        for input in self.get_required_inputs():
+            if input in self.inputs:
+                print(f"  - {input}: {self.inputs[input]}")
+            else:
+                print(f"  - {input}: Not set")
+
+        print("\nParameters:")
+        for param in self.get_required_parameters():
+            if param in self.params:
+                print(f"  - {param}: {self.params[param]}")
+            else:
+                print(f"  - {param}: Not set")
+
+        print("======================")    
 
     def pinch_residual(self, eta):
         """Return DT_pinch(eta) so we can root-find or bisect on it."""
@@ -308,13 +337,13 @@ class HexCstEffDisc(BaseComponent):
         self.ex_H.set_T(self.AS_H.T())
         
         "Heat conector"
-        self.Q_hex.set_Q_dot(self.Q)
+        self.Q_dot.set_Q_dot(self.Q)
 
         return
 
     def print_results(self):
         print("=== Heat Exchanger Results ===")
-        print(f"Q_dot: {self.Q_hex.Q_dot}")
+        print(f"Q: {self.Q_dot.Q_dot}")
         print("======================")
 
     def print_states_connectors(self):
@@ -324,7 +353,7 @@ class HexCstEffDisc(BaseComponent):
         print(f"  - su_H: fluid={self.su_H.fluid}, T={self.su_H.T}, p={self.su_H.p}, m_dot={self.su_H.m_dot}")
         print(f"  - ex_C: fluid={self.ex_C.fluid}, T={self.ex_C.T}, p={self.ex_C.p}, m_dot={self.ex_C.m_dot}")
         print(f"  - ex_H: fluid={self.ex_H.fluid}, T={self.ex_H.T}, p={self.ex_H.p}, m_dot={self.ex_H.m_dot}")
-        print(f"  - Q_dot: {self.Q_hex.Q_dot}")
+        print(f"  - Q_dot: {self.Q_dot.Q_dot}")
         print("======================")
 
     def plot_disc(self):
