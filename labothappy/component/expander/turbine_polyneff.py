@@ -131,6 +131,8 @@ class TurbinePolynEff(BaseComponent):
         """
         Computes the electrical efficiency as a function of normalized power output (P_ratio).
         Uses two separate polynomial fits depending on the magnitude of P_ratio.
+        
+        
         """
 
         # Polynomial coefficients for high and low power ranges

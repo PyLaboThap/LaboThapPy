@@ -51,7 +51,7 @@ def TCO2_rec_comp_sizing(RC):
             )
     
         REC_sizing.set_parameters(
-            k_cond = 60, # plate conductivity
+            k_cond = 20, # plate conductivity
             R_p = 1, # n_hot_channel_row / n_cold_channel_row
             
             n_disc = 30,
@@ -102,8 +102,9 @@ def TCO2_rec_comp_sizing(RC):
     
         choice_vectors = {
                             'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
-                            'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
-                                29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
+                            # 'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
+                            #     29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
+                            'Shell_ID_inch' : [25, 27, 29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
                             'Tube_pass' : [2], # [1,2,4,6,8,10]
                             'tube_layout' : [0,45,60]}
     
@@ -127,11 +128,12 @@ def TCO2_rec_comp_sizing(RC):
 
         GH_sizing.set_parameters(
                                 n_series = 1, # [-]
+                                n_parallel = 1, # [-]
                                 # OPTI -> Oui (regarder le papier pour déterminer ça)
     
                                 foul_t = 0.000176, # (m^2 * K/W)
                                 foul_s =  0.000176, # (m^2 * K/W)
-                                tube_cond = 50, # W/(m*K)
+                                tube_cond = 20, # W/(m*K)
                                 Overdesign = 0,
                                 
                                 Shell_Side = 'H',
@@ -160,7 +162,7 @@ def TCO2_rec_comp_sizing(RC):
                     }
 
         GH_sizing.set_bounds(bounds)
-        GH_sizing.set_constraints(Q_dot = GH_model.Q_dot.Q_dot, DP_h = max(GH_model.DP_h, 1e3), DP_c = max(GH_model.DP_c, 1e3))
+        GH_sizing.set_constraints(Q_dot = GH_model.Q, DP_h = max(GH_model.DP_h, 1e3), DP_c = max(GH_model.DP_c, 1e3))
 
         global_best_position, global_best_score, best_particle = GH_sizing.opt_size()
         
@@ -179,8 +181,9 @@ def TCO2_rec_comp_sizing(RC):
     
         choice_vectors = {
                             'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
-                            'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
-                                29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
+                            # 'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
+                            #     29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
+                            'Shell_ID_inch' : [25, 27, 29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
                             'Tube_pass' : [2], # [1,2,4,6,8,10]
                             'tube_layout' : [0,45,60]}
     
@@ -204,11 +207,12 @@ def TCO2_rec_comp_sizing(RC):
 
         CD_sizing.set_parameters(
                                 n_series = 1, # [-]
+                                n_parallel = 1, # [-]
                                 # OPTI -> Oui (regarder le papier pour déterminer ça)
     
                                 foul_t = 0.000176, # (m^2 * K/W)
                                 foul_s =  0.000176, # (m^2 * K/W)
-                                tube_cond = 50, # W/(m*K)
+                                tube_cond = 20, # W/(m*K)
                                 Overdesign = 0,
                                 
                                 Shell_Side = 'C',
