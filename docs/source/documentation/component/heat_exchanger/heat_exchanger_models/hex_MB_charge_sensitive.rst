@@ -4,9 +4,9 @@ Heat Exchanger - Moving Boundary Charge Sensitive Model
 Model description
 -----------------
 
-The model implemented is based on the moving boundary approach as described in [1]_. 
+The model implemented is based on the moving boundary approach as described in [1]. 
 
-.. autoclass:: component.heat_exchanger.hex_MB_charge_sensitive.HeatExchangerMB
+.. autoclass:: component.heat_exchanger.hex_MB_charge_sensitive.HexMBChargeSensitive
 
 References
 ----------
