@@ -96,7 +96,7 @@ Assumptions
 - No pressure drop inside the heat exchanger.
 
 
-.. autoclass:: component.heat_exchanger.hex_csteff_disc.HXEffCstDisc
+.. autoclass:: component.heat_exchanger.hex_csteff_disc.HexCstEffDisc
 
 References
 ----------

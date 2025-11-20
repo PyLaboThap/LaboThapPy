@@ -1,13 +1,12 @@
-import __init__
+# import __init__
 
-from component.heat_exchanger.hex_csteff_disc import HXEffCstDisc
+from labothappy.component.heat_exchanger.hex_csteff_disc import HexCstEffDisc
 
-import numpy as np
 
 "Simple test - CO2 HTHP GasCooler"
 
 #Exo ORC M&S
-HTX = HXEffCstDisc()
+HTX = HexCstEffDisc()
 
 HTX.set_inputs(
     fluid_C = 'Water',
@@ -42,4 +41,4 @@ HTX.set_parameters(**{
 })
 
 HTX.solve()
-# HTX.plot_disc()
+HTX.plot_disc()
