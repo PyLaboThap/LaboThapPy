@@ -1,7 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from labothappy.component.expander.turbine_polyneff import TurbinePolynEff
+import __init__
+from component.expander.turbine_polyneff import TurbinePolynEff
 
 p_in = np.array([10, 15, 20])  # 0.8
 T_in = np.array([173, 195.6, 213.1])
@@ -29,7 +30,9 @@ Turb.set_parameters(
     A_th=0.05,
 )
 
-for i in range(len(p_in)):  # Loop for model flowrate verification (verify the input vs the ouput flowrate)
+for i in range(
+    len(p_in)
+):  # Loop for model flowrate verification (verify the input vs the ouput flowrate)
 
     "Set inputs"
     Turb.set_inputs(
@@ -50,10 +53,3 @@ plt.grid()
 plt.show()
 
 Turb.W.print_resume()
-
-
-"""
-
-Outputs shall be : 
-
-"""

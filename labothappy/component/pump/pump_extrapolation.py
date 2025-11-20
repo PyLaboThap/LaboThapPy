@@ -1,5 +1,6 @@
 "External modules"
 
+import CoolProp.CoolProp as CP
 from CoolProp.CoolProp import PropsSI
 from scipy.interpolate import interp1d
 
@@ -38,7 +39,7 @@ class PumpExtrapolationModel(BaseComponent):
 
     **Parameters**:
 
-        Omega_rated: Rated pump speed [rpm]
+        N_rot_rated: Rated pump speed [rpm]
 
         min_flowrate: Minimum valid flowrate [m³/h]
 
@@ -66,15 +67,15 @@ class PumpExtrapolationModel(BaseComponent):
 
     **Inputs**:
 
-        su_p: Inlet pressure [Pa]
+        P_su: Inlet pressure [Pa]
 
-        su_T: Inlet temperature [K]
+        T_su: Inlet temperature [K]
 
-        ex_p: Outlet pressure [Pa]
+        P_ex: Outlet pressure [Pa]
 
-        su_fluid: Working fluid [-]
+        fluid: Working fluid [-]
 
-        Omega_pp: Actual rotational speed [rpm]
+        N_rot: Actual rotational speed [rpm]
 
     **Outputs**:
 
@@ -100,60 +101,22 @@ class PumpExtrapolationModel(BaseComponent):
         super().__init__()
         self.su = MassConnector()  # Inlet side connector
         self.ex = MassConnector()  # Outlet side connector
-        self.W_pp = WorkConnector()  # Mechanical shaft power connector
+        self.W = WorkConnector()  # Mechanical shaft power connector
 
     def get_required_inputs(self):
         """
-        Return a list of required input variable names.
+        Returns a list of required input variable names.
         Used to check if the model has enough data to run.
         """
-        self.sync_inputs()  # Ensure connector values are reflected in the inputs dict
-        return ["su_p", "su_T", "ex_p", "su_fluid", "Omega_pp"]
-
-    def sync_inputs(self):
-        """
-        Synchronize the internal `inputs` dictionary with values from the connectors.
-        """
-        if self.su.fluid is not None:
-            self.inputs["su_fluid"] = self.su.fluid
-        if self.su.T is not None:
-            self.inputs["su_T"] = self.su.T
-        elif self.su.h is not None:
-            self.inputs["su_h"] = self.su.h
-        if self.su.p is not None:
-            self.inputs["su_p"] = self.su.p
-        if self.ex.p is not None:
-            self.inputs["ex_p"] = self.ex.p
-        if self.W_pp.N is not None:
-            self.inputs["Omega_pp"] = self.W_pp.N * 60
-
-    def set_inputs(self, **kwargs):
-        """
-        Set inputs via keyword arguments and update connector states accordingly.
-        """
-        self.inputs.update(kwargs)
-
-        # Push inputs into connector objects
-        if "su_fluid" in self.inputs:
-            self.su.set_fluid(self.inputs["su_fluid"])
-        if "su_T" in self.inputs:
-            self.su.set_T(self.inputs["su_T"])
-        elif "su_h" in self.inputs:
-            self.su.set_h(self.inputs["su_h"])
-        if "su_p" in self.inputs:
-            self.su.set_p(self.inputs["su_p"])
-        if "ex_p" in self.inputs:
-            self.ex.set_p(self.inputs["ex_p"])
-        if "Omega_pp" in self.inputs:
-            self.W_pp.set_N(self.inputs["Omega_pp"] / 60)
-            self.Omega_pp = self.inputs["Omega_pp"]
+        # self.sync_inputs()  # Ensure connector values are reflected in the inputs dict
+        return ["P_su", "T_su", "P_ex", "fluid", "N_rot"]
 
     def get_required_parameters(self):
         """
-        Return a list of required parameters needed for model execution.
+        Returns a list of required parameters needed for model execution.
         """
         return [
-            "Omega_rated",
+            "N_rot_rated",
             "min_flowrate",
             "rated_flowrate",
             "max_flowrate",
@@ -204,7 +167,7 @@ class PumpExtrapolationModel(BaseComponent):
 
         Returns:
             eta_el (float): Estimated electrical efficiency (fraction)
-            
+
         References:
             Kostas
         """
@@ -241,15 +204,17 @@ class PumpExtrapolationModel(BaseComponent):
         self.check_calculable()
         self.check_parametrized()
 
+        self.AS = CP.AbstractState("HEOS", self.su.fluid)
+
         g = 9.81  # Gravity [m/s²]
 
         if not self.calculable or not self.parametrized:
             print("Component is not calculable or not parametrized")
             return
 
-        if self.su.p > self.ex.p or self.Omega_pp < 0:
+        if self.su.p > self.ex.p or self.W.N < 0:
             print(
-                "Supply pressure is higher than exhaust pressure or rotation speed is negative"
+                "Supply pressure is higher than exhaust pressure or rotational speed is negative"
             )
             return
 
@@ -257,16 +222,14 @@ class PumpExtrapolationModel(BaseComponent):
 
         # Scale curves with respect to current speed
         self.V_dot_curve = self.params["V_dot_curve"] * (
-            self.Omega_pp / self.params["Omega_rated"]
+            self.W.N / self.params["N_rot_rated"]
         )
         self.DH_curve = (
-            self.params["Delta_H_curve"]
-            * (self.Omega_pp / self.params["Omega_rated"]) ** 2
+            self.params["Delta_H_curve"] * (self.W.N / self.params["N_rot_rated"]) ** 2
         )
         self.eta_is_curve = self.params["eta_is_curve"]
         self.NPSH_r_curve = (
-            self.params["NPSH_r_curve"]
-            * (self.Omega_pp / self.params["Omega_rated"]) ** 2
+            self.params["NPSH_r_curve"] * (self.W.N / self.params["N_rot_rated"]) ** 2
         )
 
         # Create interpolation functions for extrapolated performance
@@ -303,7 +266,8 @@ class PumpExtrapolationModel(BaseComponent):
         self.NPSH_r = V_NPSH_r(self.V_dot)
 
         # Isentropic outlet enthalpy
-        h_ex_s = PropsSI("H", "P", self.ex.p, "S", self.su.s, self.su.fluid)
+        self.AS.update(CP.PSmass_INPUTS, self.ex.p, self.su.s)
+        h_ex_s = self.AS.hmass()
 
         # Actual outlet enthalpy
         h_ex = self.su.h + (h_ex_s - self.su.h) / self.eta_is
@@ -327,7 +291,7 @@ class PumpExtrapolationModel(BaseComponent):
         self.W_dot_el = self.W_dot_wf / (self.params["eta_m"] * self.eta_el)
 
         # Set output to connector
-        self.W_pp.set_W_dot(self.W_dot_wf)
+        self.W.set_W_dot(self.W_dot_wf)
 
         if self.V_dot_flag:
             print("Flowrate outside possible range. Impossible operation.")
