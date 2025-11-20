@@ -1,27 +1,23 @@
-import __init__
-import os
-import sys
 
-from component.heat_exchanger.hex_csteff import HXEffCst
+from labothappy.component.heat_exchanger.hex_csteff import HXCstEff
 
 import numpy as np
 
 "Simple test - Model for recuperators in simple thermodynamic studies "
 
-#Exo ORC M&S
-HTX = HXEffCst()
+HTX = HXCstEff()
 
 # Set input conditions
 HTX.set_inputs(
-    Csu_fluid='Water',
-    Csu_T=273.15 + 60,
-    Csu_m_dot=1,
-    Csu_p=3e5,
+    fluid_C='Water',
+    T_su_C=273.15 + 60,
+    m_dot_C=1,
+    P_su_C=3e5,
 
-    Hsu_fluid='Water',
-    Hsu_T=273.15 + 110,
-    Hsu_m_dot=0.3,
-    Hsu_p=10e5,
+    fluid_H='Water',
+    T_su_H=273.15 + 110,
+    m_dot_H=0.3,
+    P_su_H=10e5,
 )
 
 # Set heat exchanger parameters

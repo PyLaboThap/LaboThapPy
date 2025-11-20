@@ -11,11 +11,11 @@ Modification w/r to previous version:
     - x_di_c correct calculation.
 """
 
-# from __future__ import division, print_function
-import __init__
+# # from __future__ import division, print_function
+# import __init__
 
 
-from component.heat_exchanger.hex_MB_charge_sensitive import HeatExchangerMB
+from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HeatExchangerMB
 from toolbox.geometries.heat_exchanger.geometry_plate_hx_swep import PlateGeomSWEP
 
 #%%
@@ -61,16 +61,16 @@ HX = HeatExchangerMB('Plate')
 # # Evaporator Case
 HX.set_inputs(
     # First fluid
-    Hsu_fluid = 'INCOMP::T66',
-    Hsu_T = 243 + 273.15, # K
-    Hsu_p = 5*1e5, # Pa
-    Hsu_m_dot = 0.4, # kg/s
+    fluid_H = 'INCOMP::T66',
+    T_su_H = 243 + 273.15, # K
+    P_su_H = 5*1e5, # Pa
+    m_dot_H = 0.4, # kg/s
 
     # Second fluid
-    Csu_fluid = 'Cyclopentane',
-    Csu_T = 41 + 273.15, # K
-    Csu_p = 31.5*1e5, # Pa
-    Csu_m_dot = 0.014, # kg/s  # Make sure to include fluid information
+    fluid_C = 'Cyclopentane',
+    T_su_C = 41 + 273.15, # K
+    P_su_C = 31.5*1e5, # Pa
+    m_dot_C = 0.014, # kg/s  # Make sure to include fluid information
 )
 
 "Geometry Loading"

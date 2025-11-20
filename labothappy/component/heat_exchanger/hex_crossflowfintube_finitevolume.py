@@ -59,7 +59,7 @@ class CrossFlowTubeAndFinsHTX(BaseComponent):
         ex_H (MassConnector): Mass connector for the hot-side exhaust.
         ex_C (MassConnector): Mass connector for the cold-side exhaust.
         
-        Q_dot (HeatConnector): Heat connection (not actively used in current implementation).
+        Q (HeatConnector): Heat connection (not actively used in current implementation).
     
     **Parameters**:
     
@@ -163,7 +163,7 @@ class CrossFlowTubeAndFinsHTX(BaseComponent):
         self.ex_H = MassConnector()
         self.ex_C = MassConnector() # Mass_connector
         
-        self.Q_dot = HeatConnector()
+        self.Q = HeatConnector()
         self.debug = 0
 
     #%%    
@@ -210,31 +210,6 @@ class CrossFlowTubeAndFinsHTX(BaseComponent):
                                'Tube_cond', 'Tube_L', 'Tube_OD', 'Tube_t', 'w', 'Fin_Side']
         
         return general_parameters + geometry_parameters
-
-#%%
-            
-    def print_setup(self):
-        print("=== Heat Exchanger Setup ===")
-        print("Connectors:")
-        print(f"  - H_su: fluid={self.su_H.fluid}, T={self.su_H.T}, p={self.su_H.p}, m_dot={self.su_H.m_dot}")
-        print(f"  - C_su: fluid={self.su_C.fluid}, T={self.su_C.T}, p={self.su_C.p}, m_dot={self.su_C.m_dot}")
-
-        print("\nInputs:")
-        for input in self.get_required_inputs():
-            if input in self.inputs:
-                print(f"  - {input}: {self.inputs[input]}")
-            else:
-                print(f"  - {input}: Not set")
-
-
-        print("\nParameters:")
-        for param in self.get_required_parameters():
-            if param in self.params:
-                print(f"  - {param}: {self.params[param]}")
-            else:
-                print(f"  - {param}: Not set")
-
-        print("======================")
 
 #%%
     def set_debug(self):

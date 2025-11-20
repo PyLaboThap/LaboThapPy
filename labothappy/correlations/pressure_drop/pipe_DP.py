@@ -10,7 +10,7 @@ from CoolProp.CoolProp import PropsSI
 from scipy.optimize import fsolve
 
 #%%
-def gnielinski_pipe_DP(mu, rho, G, Dh, L):
+def gnielinski_pipe_DP(mu, rho, G, Dh, L, type_HX = 'pipe'):
     """
     For  1 phase flow
     
@@ -43,7 +43,15 @@ def gnielinski_pipe_DP(mu, rho, G, Dh, L):
     Re = G*Dh/mu
 
     #-------------------------------------------------------------------------
-    f = (1.8*log10(Re) - 1.5)**(-2)
+    if type_HX == 'pipe':
+        f = (1.8*log10(Re) - 1.5)**(-2)
+    elif type_HX == 'PCHE':
+        # f = 0.2515*Re**(-0.2031)
+        f = (0.79*np.log(Re) - 1.64)**(-2)
+
+    else: 
+        print("This type of HTX is not supported for Gnielinski DP.")
+        
     v_flow = G/rho
     
     DP = f*L*rho*v_flow**2/(2*Dh)    
@@ -58,6 +66,19 @@ def gnielinski_pipe_DP(mu, rho, G, Dh, L):
     # print(f"DP : {DP}")
     # print(f"rho : {rho}")
         
+    return DP
+
+def Darcy_Weisbach(mu, rho, G, Dh, L):
+    
+    e = 45*1e-6 # roughness for steel - 1.5*1e-6 for Copper and aluminum
+    Re = G*Dh/mu
+
+    v_flow = G/rho
+
+    f = (1/(-1.8*np.log10((e/(2.7*Dh))**1.11 + 6.9/Re)))**2
+
+    DP = f*L*rho*v_flow**2/(2*Dh) 
+    
     return DP
 
 from CoolProp.CoolProp import PropsSI
@@ -112,7 +133,6 @@ def Muller_Steinhagen_Heck_DP(fluid, G, P_sat, x, L, D_in):
 
     return DP
 
-
 def Choi_DP(fluid, G, rho_out, rho_in, P_sat, x_o, x_i, L, D_in):
     """
     For 2 phase flow (both condensation and evaporation)
@@ -145,7 +165,7 @@ def Choi_DP(fluid, G, rho_out, rho_in, P_sat, x_o, x_i, L, D_in):
     Dh_lv = h_v - h_l
     Re_f = G*D_in/mu_l
     
-    K_f = (x_o - x_i)*Dh_lv/(g*L)
+    K_f = abs((x_o - x_i))*Dh_lv/(g*L)
     
     f_N = 0.00506*Re_f**(-0.0951) * K_f**(0.1554)
 

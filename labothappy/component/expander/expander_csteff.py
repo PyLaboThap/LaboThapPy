@@ -9,11 +9,11 @@ import CoolProp.CoolProp as CP
 
 class ExpanderCstEff(BaseComponent):
     """
-    Component: Expander
+    **Component**: Expander
 
-    Model: Constant isentropic efficiency model
+    **Model**: Constant isentropic efficiency model
 
-    Reference: /
+    **Reference**: /
 
     **Description**:
 
@@ -73,6 +73,7 @@ class ExpanderCstEff(BaseComponent):
         
         # Define work connector for mechanical work output
         self.W_exp = WorkConnector()
+        self.print_flag = 1
 
     def get_required_inputs(self):  # Used in check_calculablle to see if all of the required inputs are set
         # Return a list of required inputs
@@ -122,7 +123,10 @@ class ExpanderCstEff(BaseComponent):
         except Exception as e:
             # Handle any errors that occur during solving
             self.solved = False
-            print(f"Solving problem in expander model: {e}")
+            
+            if self.print_flag:
+                print(f"Solving problem in expander model: {e}")
+                
             return
 
     def update_connectors(self, h_ex, w_exp, p_ex, W_dot_exp):

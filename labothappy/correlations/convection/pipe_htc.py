@@ -53,6 +53,7 @@ def gnielinski_pipe_htc(mu, Pr, mu_w, k, G, Dh, L):
     def sieder_tate(Re, Pr):
         Nu = 0.027*Re**0.8*Pr**(1/3)*(mu/mu_w)**0.14
         return Nu
+    
     #-------------------------------------------------------------------------
     Re_min = 0
     Re_max = 1e06
@@ -150,7 +151,99 @@ def dittus_boetler_cooling(mu, Pr, k, G, Dh):
     
     return h
 
-def horizontal_tube_internal_condensation(fluid,m_dot,P_sat,h_in,T_w,D_in):
+def thome_condensation(AS, D_i, G, P_sat, T_wall, x):
+    """
+    Parameters
+    ----------
+    AS : AbstractState CoolProp Object of the considered fluid
+    D_i : Internal Tube diameter
+    G : Mass Flux
+    P_sat : Saturation Pressure
+    x : Vapor Quality
+
+    Returns
+    -------
+    h_tp : Condensing heat transfer coefficient
+    """
+    from correlations.properties.void_fraction import void_fraction
+    g = 9.81 # m/s^2
+    
+    # Flow Area
+    r = D_i/2
+    A = np.pi*r**2
+    
+    # 2 phase properties
+    T_sat = AS.T()
+    sigma = PropsSI('I', 'P', P_sat, 'Q', 0.5, AS.fluid_names()[0])
+
+    # Liquid properties
+    AS.update(CP.PQ_INPUTS, P_sat, 0)
+    Pr_L = AS.Prandtl()
+    lambda_L = AS.conductivity()
+    rho_L = AS.rhomass()
+    mu_L = AS.viscosity()
+    h_L = AS.hmass()
+    
+    # Vapor properties
+    AS.update(CP.PQ_INPUTS, P_sat, 1)
+    rho_G = AS.rhomass()
+    h_G = AS.hmass()
+
+    # Void Fraction
+    eps = void_fraction(x, rho_G, rho_L)[0]
+    A_L = (1-eps)*A
+    
+    # Liquid and vapor phase flow speeds
+    if eps != 1:    
+        u_L = G*(1-x)/(rho_L*(1-eps))
+    else:
+        u_L = G/rho_L
+    
+    if eps != 0:    
+        u_G = G*x/(rho_G*eps)
+    else: 
+        u_G = G/rho_G
+    
+    # Determine Theta from flow configuration
+    # theta = 0 # !!! : assumption of annular / mist flow
+    
+    # Biberg exprssion for Theta_strat
+    theta_strat = 2*np.pi - 2*(np.pi*(1-eps) + (1.5*np.pi)**(1/3)*(1-2*(1-eps)+(1-eps)**(1/3)-eps**(1/3)) - 0.005*(1-eps)*eps*(1-2*(1-eps))*(1+4*((1-eps)**2+eps**2)) )
+    theta = theta_strat # theta_strat*((G_wavy - G)/(G_wavy - G_strat))**0.5
+    
+    # Liquid film thickness
+    if (theta - 2*np.pi)/2*np.pi >= 1e-3:
+        delta = (D_i - np.sqrt(D_i**2 - A_L/((2*np.pi - theta)/8)))/2 
+    else:
+        delta = D_i
+    
+    # Compute h_c
+    c = 0.003
+    m = 0.5
+    n = 0.74
+    
+    if eps != 1:
+        Re_L = (4*G*(1-x)*delta)/((1-eps)*mu_L)
+    else:
+        Re_L = 0
+        
+    f_i = 1 + (u_G/u_L)**0.5 * ((rho_L-rho_G)*g*delta**2 / sigma)**0.25
+    
+    if delta != 0:
+        h_c = c*(Re_L**n)*(Pr_L**m)*(lambda_L/delta)*f_i
+    else:
+        h_c = 0
+    
+    # Compute h_f
+    h_LG = h_G-h_L
+    h_f = 0.728*((rho_L*(rho_L-rho_G)*g*h_LG*lambda_L**3)/(mu_L*D_i*(T_sat - T_wall)))**0.25
+        
+    h_tp = (h_f*r*theta + (2*np.pi - theta)*r*h_c)/(2*np.pi*r)       
+        
+    return  h_tp
+
+
+def horizontal_tube_internal_condensation(fluid,m_dot,P_sat,x_in,T_w,D_in):
     """
     Inputs
     ------
@@ -158,7 +251,7 @@ def horizontal_tube_internal_condensation(fluid,m_dot,P_sat,h_in,T_w,D_in):
     fluid : fluid name [-]
     m_dot : Flowrate [kg/s]
     P_sat : Saturation pressure [Pa]
-    h_in  : Inlet enthalpy [J/kg]
+    x_in  : Inlet quality [-]
     T_w   : Wall temperature [K]
     D_in  : Pipe internal diameter [m]
     
@@ -177,7 +270,6 @@ def horizontal_tube_internal_condensation(fluid,m_dot,P_sat,h_in,T_w,D_in):
     g = 9.81 # gravity acceleration constant m/s^2
 
     # 2 phase properties
-    x = PropsSI('Q','H',h_in,'P',P_sat,fluid)
     h_fg = PropsSI('H','Q',1,'P',P_sat,fluid) - PropsSI('H','Q',0,'P',P_sat,fluid)
     T_sat = PropsSI('T','Q',0.5,'P',P_sat,fluid)
     
@@ -203,13 +295,21 @@ def horizontal_tube_internal_condensation(fluid,m_dot,P_sat,h_in,T_w,D_in):
         Nu = C*((rho_l*g*(rho_l - rho_v)*h_2_fg*D_in**3)/(mu_l*k_l*(T_sat - T_w)))**(0.25)
     else:
         # Liquid and Reynolds and Prandtl numbers
-        Re_Dl = 4*m_dot*(1-x)/(np.pi*D_in*mu_l)
+        Re_Dl = 4*m_dot*(1-x_in)/(np.pi*D_in*mu_l)
         
         # Martinelli parameter
-        x_tt = ((1-x)/x)**(0.9)*(rho_v/rho_l)**(0.5)*(mu_l/mu_v)**(0.1)
+        if x_in != 0:
+            x_tt = ((1-x_in)/x_in)**(0.9)*(rho_v/rho_l)**(0.5)*(mu_l/mu_v)**(0.1)
+        else:
+            x_tt = 0
         
-        # Nusselt
-        Nu = 0.023*Re_Dl**0.8 * Pr_l **0.4 * (1 + (2.22/x_tt**(0.89)))
+        if x_tt != 0:
+            # Nusselt
+            Nu = 0.023*Re_Dl**0.8 * Pr_l **0.4 * (1 + (2.22/x_tt**(0.89)))
+        else:
+            C = 0.555    
+            h_2_fg = h_fg + 0.375*cp_l*(T_sat - T_w)
+            Nu = C*((rho_l*g*(rho_l - rho_v)*h_2_fg*D_in**3)/(mu_l*k_l*(T_sat - T_w)))**(0.25)
     
     h = Nu*k_l/D_in
         
@@ -326,7 +426,7 @@ def steiner_taborek_internal_boiling(fluid,Q_act,A,m_dot,P_sat,h_in,T_w,D_in,L):
 
     return h_tp
 
-def horizontal_flow_boiling(fluid, G, P_sat, x, D_in, q):
+def horizontal_flow_boiling(AS, G, P_sat, x, D_in, q):
     """
     Inputs
     ------
@@ -347,6 +447,8 @@ def horizontal_flow_boiling(fluid, G, P_sat, x, D_in, q):
     ---------
     VDI Heat Atlas 2010 
     """
+    
+    fluid = AS.fluid_names()[0]
     
     if fluid == 'Helium' or fluid == "He":
         q_0 = 1000
@@ -412,8 +514,6 @@ def horizontal_flow_boiling(fluid, G, P_sat, x, D_in, q):
     
     a_0 = a_0_dict[fluid]
         
-    AS = CP.AbstractState("BICUBIC&HEOS", fluid)
-
     P_crit = AS.p_critical()    
     P_01 = 0.1*P_crit
 
@@ -434,7 +534,7 @@ def horizontal_flow_boiling(fluid, G, P_sat, x, D_in, q):
     if fluid == 'R134a':
         sigma_01 = 0.010449499360652493
     else:
-        sigma_01 = PropsSI('I', 'P', P_01, 'Q', 0.5, fluid)
+        sigma_01 = PropsSI('I', 'P', P_01, 'Q', 0.5, fluid) # !!! try to use AS instead
     
     # n exponent
     P_star = P_sat/P_crit
@@ -470,103 +570,7 @@ def horizontal_flow_boiling(fluid, G, P_sat, x, D_in, q):
     # Heat transfer coefficient
     alpha = a_0*C_F*(q/q_0)**n * F_p * F_d * F_W * F_G * F_x # W/(m*2 * K)
     
-    # print(f"a_0 : {a_0}")
-    # print(f"C_F : {C_F}")
-    # print(f"q : {q}")
-    # print(f"q_0 : {q_0}")
-    # print(f"n : {n}")
-    # print(f"F_p : {F_p}")
-    # print(f"F_d : {F_d}")
-    # print(f"F_W : {F_W}")
-    # print(f"F_G : {F_G}")
-    # print(f"F_x : {F_x}")
-    # print("-----------------")
-    
     return alpha
-
-# def flow_boiling_gungor_winterton(fluid, G, P_sat, x, D_in, q, mu_l, Pr_l, k_l):
-#     """
-#     Inputs
-#     ------
-    
-#     fluid : fluid name [-]
-#     G     : Flowrate per area unit [kg/(m**2 * s)]
-#     P_sat : Saturation pressure [Pa]
-#     x     : Vapor mass fraction [-]
-#     D_in  : Pipe internal diameter [m]
-#     q     : Heat flux [W/(m**2 * K)]
-
-#     Outputs
-#     -------
-    
-#     h_tp : Evaporation heat transfer coeffieicnt [W/(m^2 * K)]
-    
-#     Reference
-#     ---------
-    
-#     """
-    
-#     # Pipe roughness    
-#     h_f = dittus_boetler_heating(mu_l, Pr_l, k_l, G, D_in)
-#     h_lv = PropsSI('H', 'P', P_sat, 'Q', 1, fluid) - PropsSI('H', 'P', P_sat, 'Q', 0, fluid)
-    
-#     rho_v, mu_v = PropsSI(('D','V'), 'P', P_sat, 'Q', 1, fluid)
-#     rho_l, mu_l = PropsSI(('D','V'), 'P', P_sat, 'Q', 0, fluid)
-
-#     mu_tp = PropsSI('V', 'P', P_sat, 'Q', x, fluid)
-
-    
-#     P_crit = PropsSI('PCRIT', fluid)
-#     MM = PropsSI('M', fluid)
-    
-#     # Froude Number
-#     g = 9.81 # m/s^2
-#     v_l = G/rho_l
-#     Fr = (v_l/(g*D_in)**0.5)
-    
-#     # print(Fr)
-    
-#     # Reduced pressure
-#     P_r = P_sat/P_crit
-    
-#     # Lockhart-Martinelli parameter
-#     X_tt = ((1-x)/x)**0.9 * (rho_v/rho_l)**0.5 * (mu_l/mu_v)**0.1
-    
-#     # Boiling number
-#     Bo = q/(G*h_lv)
-        
-#     if Fr <= 0.05:
-#         E_2 = Fr**(0.1 - 2*Fr)
-#         S_2 = Fr**0.5
-#     else:
-#         E_2 = 1
-#         S_2 = 1
-        
-#     # Convection enhancement factor
-#     E = E_2*(1 + 24000*Bo**1.16 + 1.23 * (1/X_tt)**0.86)
-    
-#     # Boiling suppression factor
-#     A_in = (np.pi/4)*D_in**2
-#     P_wet = np.pi*D_in
-#     D_e = 4*A_in/P_wet
-    
-#     # Re_l = G*(1-x)*D_e/mu_l
-#     # S = S_2*((1 + 0.00000253 * Re_l**1.17)**(-1))
-
-#     Re_tp = G*D_e/mu_tp
-#     S = S_2*((1 + 0.00000253 * Re_tp**1.17)**(-1))
-    
-#     # Nucleate Bpiling : Cooper Correlation
-#     h_nb = 55*P_r**(0.12)  * (-np.log10(P_r))**(-0.55) * (MM*1e3)**(-0.5) * q**0.67 # - 0.2*np.log(Ra)
-    
-#     h_tp = E*h_f + S*h_nb
-    
-#     # print(f"E : {E}")
-#     # print(f"h_f : {h_f}")
-#     # print(f"S : {S}")
-#     # print(f"h_nb : {h_nb}")
-    
-#     return h_tp
 
 def flow_boiling_gungor_winterton(fluid, G, P_sat, x, D_in, q, mu_l, Pr_l, k_l):
     """

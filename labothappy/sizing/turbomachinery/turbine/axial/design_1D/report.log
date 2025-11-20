@@ -1,0 +1,50 @@
+2025-10-23 11:04:34,053 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-10-23 13:55:58,382 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-10-23 14:24:33,466 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-10-23 14:33:52,875 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-10-23 15:30:48,812 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-10-23 15:38:48,574 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-10-23 15:43:22,901 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-10-23 15:49:37,260 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-10-23 16:05:11,020 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-10-27 13:37:46,141 - yfinance - ERROR - 
+1 Failed download:
+2025-10-27 13:37:46,141 - yfinance - ERROR - ['EURUSD=X']: YFPricesMissingError('possibly delisted; no price data found  (1d 1990-01-01 -> 1991-01-01) (Yahoo error = "Data doesn\'t exist for startDate = 631152000, endDate = 662688000")')
+2025-10-27 13:37:52,738 - yfinance - ERROR - 
+1 Failed download:
+2025-10-27 13:37:52,738 - yfinance - ERROR - ['EURUSD=X']: YFPricesMissingError('possibly delisted; no price data found  (1d 2002-01-01 -> 2003-01-01) (Yahoo error = "Data doesn\'t exist for startDate = 1009843200, endDate = 1041379200")')
+2025-10-27 13:42:22,051 - yfinance - ERROR - 
+1 Failed download:
+2025-10-27 13:42:22,051 - yfinance - ERROR - ['EURUSD=X']: YFPricesMissingError('possibly delisted; no price data found  (1d 2026-01-01 -> 2027-01-01) (Yahoo error = "Data doesn\'t exist for startDate = 1767225600, endDate = 1798761600")')
+2025-10-27 13:50:47,565 - yfinance - ERROR - HTTP Error 404: {"quoteSummary":{"result":null,"error":{"code":"Not Found","description":"Quote not found for symbol: CPIAUCSL"}}}
+2025-10-27 13:50:47,767 - yfinance - ERROR - 
+1 Failed download:
+2025-10-27 13:50:47,767 - yfinance - ERROR - ['CPIAUCSL']: YFTzMissingError('possibly delisted; no timezone found')
+2025-10-27 13:50:48,332 - yfinance - ERROR - HTTP Error 404: {"quoteSummary":{"result":null,"error":{"code":"Not Found","description":"Quote not found for symbol: CPIAUCSL"}}}
+2025-10-27 13:50:48,393 - yfinance - ERROR - 
+1 Failed download:
+2025-10-27 13:50:48,393 - yfinance - ERROR - ['CPIAUCSL']: YFTzMissingError('possibly delisted; no timezone found')
+2025-10-27 13:50:55,694 - yfinance - ERROR - 
+1 Failed download:
+2025-10-27 13:50:55,694 - yfinance - ERROR - ['CPIAUCSL']: YFTzMissingError('possibly delisted; no timezone found')
+2025-10-27 13:50:55,707 - yfinance - ERROR - 
+1 Failed download:
+2025-10-27 13:50:55,708 - yfinance - ERROR - ['CPIAUCSL']: YFTzMissingError('possibly delisted; no timezone found')
+2025-10-27 13:57:39,986 - yfinance - ERROR - 
+1 Failed download:
+2025-10-27 13:57:39,986 - yfinance - ERROR - ['CPIAUCSL']: YFTzMissingError('possibly delisted; no timezone found')
+2025-10-27 13:57:39,999 - yfinance - ERROR - 
+1 Failed download:
+2025-10-27 13:57:39,999 - yfinance - ERROR - ['CPIAUCSL']: YFTzMissingError('possibly delisted; no timezone found')
+2025-10-27 13:57:46,306 - yfinance - ERROR - 
+1 Failed download:
+2025-10-27 13:57:46,306 - yfinance - ERROR - ['CPIAUCSL']: YFTzMissingError('possibly delisted; no timezone found')
+2025-10-27 13:57:46,319 - yfinance - ERROR - 
+1 Failed download:
+2025-10-27 13:57:46,319 - yfinance - ERROR - ['CPIAUCSL']: YFTzMissingError('possibly delisted; no timezone found')
+2025-10-27 14:00:32,517 - yfinance - ERROR - 
+1 Failed download:
+2025-10-27 14:00:32,518 - yfinance - ERROR - ['CPIAUCSL']: YFTzMissingError('possibly delisted; no timezone found')
+2025-10-27 14:00:32,531 - yfinance - ERROR - 
+1 Failed download:
+2025-10-27 14:00:32,531 - yfinance - ERROR - ['CPIAUCSL']: YFTzMissingError('possibly delisted; no timezone found')

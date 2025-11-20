@@ -32,14 +32,15 @@ from correlations.heat_exchanger.find_2P_boundaries import find_2P_boundaries
 
 # HTC Correlations
 from correlations.convection.plate_htc import han_BPHEX_DP, water_plate_HTC, martin_BPHEX_HTC, muley_manglik_BPHEX_HTC, han_boiling_BPHEX_HTC, han_cond_BPHEX_HTC, thonon_plate_HTC, kumar_plate_HTC, martin_holger_plate_HTC, amalfi_plate_HTC, shah_condensation_plate_HTC
-from correlations.convection.pipe_htc import gnielinski_pipe_htc, boiling_curve, horizontal_tube_internal_condensation, horizontal_flow_boiling, flow_boiling_gungor_winterton, Liu_sCO2, Cheng_sCO2
+from correlations.convection.pipe_htc import gnielinski_pipe_htc, boiling_curve, horizontal_tube_internal_condensation, horizontal_flow_boiling, flow_boiling_gungor_winterton, Liu_sCO2, Cheng_sCO2, thome_condensation
 from correlations.convection.shell_and_tube_htc import shell_bell_delaware_htc, shell_htc_kern
 from correlations.convection.tube_bank_htc import ext_tube_film_condens
 from correlations.convection.fins_htc import htc_tube_and_fins
+from correlations.convection.printed_circuit_htc import PCHE_Lee, PCHE_conv
 
 # DP Correlations 
 from correlations.pressure_drop.shell_and_tube_DP import shell_DP_kern, shell_DP_donohue, shell_bell_delaware_DP
-from correlations.pressure_drop.pipe_DP import gnielinski_pipe_DP , Churchill_DP, Choi_DP, Muller_Steinhagen_Heck_DP, Cheng_CO2_DP
+from correlations.pressure_drop.pipe_DP import gnielinski_pipe_DP , Churchill_DP, Choi_DP, Muller_Steinhagen_Heck_DP, Cheng_CO2_DP, Darcy_Weisbach
 
 # Fluid Correlations
 from correlations.properties.thermal_conductivity import conducticity_R1233zd
@@ -250,7 +251,7 @@ class HeatExchangerMB(BaseComponent):
         self.AS_C = None
         self.AS_H = None
         
-        if HTX_Type == 'Plate' or HTX_Type == 'Shell&Tube' or HTX_Type == 'Tube&Fins':
+        if HTX_Type == 'Plate' or HTX_Type == 'Shell&Tube' or HTX_Type == 'Tube&Fins' or HTX_Type == 'PCHE':
             self.HTX_Type = HTX_Type
         else:
             print("Heat exchanger types implemented for this model are : 'Plate', 'Shell&Tube', 'Tube&Fins'.")
@@ -261,8 +262,6 @@ class HeatExchangerMB(BaseComponent):
     #%% INPUTS AND PARAMETERS RELATED METHODS
     
     def get_required_inputs(self): # Used in check_calculable to see if all of the required inputs are set
-
-        self.sync_inputs()
         # Return a list of required inputs
         return['P_su_H', 'T_su_H', 'm_dot_H', 'fluid_H', 'P_su_C', 'T_su_C', 'm_dot_C', 'fluid_C']
 
@@ -279,7 +278,7 @@ class HeatExchangerMB(BaseComponent):
         Geometry Parameters depend on specific geometry python files.
             
         """
-        general_parameters = ['Flow_Type','htc_type', 'H_DP_ON', 'C_DP_ON','n_disc']
+        general_parameters = ['Flow_Type', 'htc_type', 'H_DP_ON', 'C_DP_ON','n_disc']
         geometry_parameters = []
 
         if self.HTX_Type == 'Plate':     
@@ -315,33 +314,12 @@ class HeatExchangerMB(BaseComponent):
                                    'Tube_pass', 'n_rows', 'n_tubes', 'pitch', 'pitch_ratio', 'tube_arrang',
                                    'w','Fin_Side']
                 
+        elif self.HTX_Type == 'PCHE':
+            
+            geometry_parameters = ['alpha', 'D_c', 'H_V_tot', 'C_V_tot', 'k_cond', 'L_c', 'N_c', 'N_p', 'R_p', 't_2', 't_3']
+            
         return general_parameters + geometry_parameters
     
-    #%% PRINT RELATED METHODS
-
-    def print_setup(self):
-        print("=== Heat Exchanger Setup ===")
-        print("Connectors:")
-        print(f"  - H_su: fluid={self.su_H.fluid}, T={self.su_H.T}, p={self.su_H.p}, m_dot={self.su_H.m_dot}")
-        print(f"  - C_su: fluid={self.su_C.fluid}, T={self.su_C.T}, p={self.su_C.p}, m_dot={self.su_C.m_dot}")
-
-        print("\nInputs:")
-        for input in self.get_required_inputs():
-            if input in self.inputs:
-                print(f"  - {input}: {self.inputs[input]}")
-            else:
-                print(f"  - {input}: Not set")
-
-
-        print("\nParameters:")
-        for param in self.get_required_parameters():
-            if param in self.params:
-                print(f"  - {param}: {self.params[param]}")
-            else:
-                print(f"  - {param}: Not set")
-
-        print("======================")
-
     #%% CORRELATION RELATED METHODS
 
     def set_htc(self, htc_type = "Correlation", Corr_H = None, Corr_C = None, UD_H_HTC = None, UD_C_HTC = None):
@@ -364,7 +342,7 @@ class HeatExchangerMB(BaseComponent):
             self.H.HeatExchange_Correlation = "User-Defined"
             self.C.HeatExchange_Correlation = "User-Defined"
             
-            # !!! User-Defined Heat Transfer Coefficients (hot):
+            # User-Defined Heat Transfer Coefficients (hot):
             self.H.h_liq = UD_H_HTC['Liquid']
             self.H.h_vap = UD_H_HTC['Vapor']
             self.H.h_twophase = UD_H_HTC['Two-Phase']
@@ -372,7 +350,7 @@ class HeatExchangerMB(BaseComponent):
             self.H.h_tpdryout = UD_H_HTC['Dryout']
             self.H.h_transcrit = UD_H_HTC['Transcritical']
         
-            # !!! User-Defined Heat Transfer Coefficients (cold):
+            # User-Defined Heat Transfer Coefficients (cold):
             self.C.h_liq = UD_C_HTC['Liquid']
             self.C.h_vap = UD_C_HTC['Vapor']
             self.C.h_twophase = UD_C_HTC['Two-Phase']
@@ -380,13 +358,12 @@ class HeatExchangerMB(BaseComponent):
             self.C.h_tpdryout = UD_C_HTC['Dryout']
             self.C.h_transcrit = UD_C_HTC['Transcritical']
         
-        # IL FAUT CHANGER ICI!!!
         else: 
             # Type 
             self.H.HeatExchange_Correlation = "Correlation"
             self.C.HeatExchange_Correlation = "Correlation"
             
-            if self.HTX_Type == 'Plate' or self.HTX_Type == 'Shell&Tube' or self.HTX_Type == 'Tube&Fins':
+            if self.HTX_Type == 'Plate' or self.HTX_Type == 'Shell&Tube' or self.HTX_Type == 'Tube&Fins' or self.HTX_Type == 'PCHE':
                 
                 self.H.Correlation_1phase = Corr_H["1P"]
                 if "2P" in Corr_H:
@@ -443,7 +420,7 @@ class HeatExchangerMB(BaseComponent):
                 self.H.PressureDrop_Correlation = "User-Defined"            
                 self.H.DP_val = UD_H_DP
             elif self.params['DP_type'] == "Correlation":
-                if self.HTX_Type == 'Plate' or self.HTX_Type == 'Shell&Tube' or self.HTX_Type == 'Tube&Fins':
+                if self.HTX_Type == 'Plate' or self.HTX_Type == 'Shell&Tube' or self.HTX_Type == 'Tube&Fins' or self.HTX_Type == 'PCHE':
                     self.H.PressureDrop_Correlation = Corr_H
                 else:
                     print("No Pressure drop correlation for that HTX Type.")
@@ -458,7 +435,7 @@ class HeatExchangerMB(BaseComponent):
                 self.C.PressureDrop_Correlation = "User-Defined"
                 self.C.DP_val = UD_C_DP
             elif self.params['DP_type'] == "Correlation":
-                if self.HTX_Type == 'Plate' or self.HTX_Type == 'Shell&Tube' or self.HTX_Type == 'Tube&Fins':
+                if self.HTX_Type == 'Plate' or self.HTX_Type == 'Shell&Tube' or self.HTX_Type == 'Tube&Fins' or self.HTX_Type == 'PCHE':
                     self.C.PressureDrop_Correlation = Corr_C
                 else:
                     print("No Pressure drop correlation for that HTX Type.")
@@ -514,6 +491,7 @@ class HeatExchangerMB(BaseComponent):
             print('Qmax (external pinching) is', Q_dot_max)
 
         self.calculate_cell_boundaries(Q_dot_max) # call calculate_cell_boundaries procedure
+
 
         return Q_dot_max
 
@@ -613,6 +591,10 @@ class HeatExchangerMB(BaseComponent):
         # Complementary cell boundaries serve to keep heat balances in check
         # Start at the first element in the vector
         k = 0
+        
+        EPS_REL = 1e-8     # relative tol
+        EPS_ABS = 1e-3     # absolute tol in Watts (tune if needed)
+        
         while k < len(self.hvec_c)-1 or k < len(self.hvec_h)-1:
             if len(self.hvec_c) == 2 and len(self.hvec_h) == 2: # If there is only one cell
                 break
@@ -630,14 +612,17 @@ class HeatExchangerMB(BaseComponent):
               print("k Cold Enthalpy:", self.hvec_c[k],"\n")
               print("mdot_c = ", self.mdot_c, "\n")
               print("Qcell_hk =", Qcell_ck, "\n-------\n")
-
-            if round(Qcell_hk, 4) > round(Qcell_ck, 4):
-                # Hot stream needs a complementary cell boundary as the available heat is higher than the cold cell heat absorption
-                self.hvec_h.insert(k+1, self.hvec_h[k] + Qcell_ck/self.mdot_h)
-                
-            elif round(Qcell_hk, 4) < round(Qcell_ck, 4):
-                # Cold stream needs a complementary cell boundary as the available heat absoprtion is higher than the hot cell heat 
-                self.hvec_c.insert(k+1, self.hvec_c[k] + Qcell_hk/self.mdot_c)
+            
+            diff = Qcell_hk - Qcell_ck
+            tol  = max(EPS_ABS, EPS_REL * max(abs(Qcell_hk), abs(Qcell_ck)))
+            
+            if diff > tol:
+                # hot has more heat -> add boundary on hot
+                self.hvec_h.insert(k+1, self.hvec_h[k] + Qcell_ck / self.mdot_h)
+            
+            elif diff < -tol:
+                # cold has more capacity -> add boundary on cold
+                self.hvec_c.insert(k+1, self.hvec_c[k] + Qcell_hk / self.mdot_c)
 
             if debug:
                 print(k,len(self.hvec_c),len(self.hvec_h),Qcell_hk, Qcell_ck)
@@ -835,10 +820,13 @@ class HeatExchangerMB(BaseComponent):
                 alpha_h, self.Re_h[k], self.Pr_h[k] = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']*self.params['Tube_pass']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
             elif self.HTX_Type == 'Tube&Fins':
                 alpha_h, self.Re_h[k], self.Pr_h[k] = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']*self.params['Tube_pass']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
+            elif self.HTX_Type == 'PCHE':
+                Dh = np.pi*self.params['D_c']/(2+np.pi)
+                alpha_h, self.Re_h[k], self.Pr_h[k] = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, Dh, self.params['L_c']) 
         elif self.H.Correlation_1phase == "Shell_Bell_Delaware_HTC":
             alpha_h = shell_bell_delaware_htc(self.mdot_h, Th_mean, T_wall_h, p_h_mean, self.H_su.fluid, self.params)
         elif self.H.Correlation_1phase == 'Shell_Kern_HTC':
-            alpha_h, self.Re_h[k], self.Pr_h[k] = shell_htc_kern(self.mdot_h, T_wall_h, Th_mean, p_h_mean, self.H_su.fluid, self.params)      
+            alpha_h, self.Re_h[k], self.Pr_h[k] = shell_htc_kern(self.mdot_h, T_wall_h, Th_mean, p_h_mean, self.AS_H, self.params)      
         elif self.H.Correlation_1phase == 'Tube_And_Fins':
             alpha_h = htc_tube_and_fins(self.H_su.fluid, self.params, p_h_mean, havg_h, self.mdot_h, self.params['Fin_type'])[0]
         elif self.H.Correlation_1phase == 'water_plate_HTC':
@@ -868,10 +856,13 @@ class HeatExchangerMB(BaseComponent):
                 alpha_c, self.Re_c[k], self.Pr_c[k]  = gnielinski_pipe_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']**self.params['Tube_pass']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
             elif self.HTX_Type == 'Tube&Fins':
                 alpha_c, self.Re_c[k], self.Pr_c[k]  = gnielinski_pipe_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']*self.params['Tube_pass']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
+            elif self.HTX_Type == 'PCHE':
+                Dh = np.pi*self.params['D_c']/(2+np.pi)
+                alpha_c, self.Re_c[k], self.Pr_c[k]  = gnielinski_pipe_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, Dh, self.params['L_c']) 
         elif self.C.Correlation_1phase == 'Shell_Bell_Delaware_HTC':
             alpha_c = shell_bell_delaware_htc(self.mdot_c, Tc_mean, T_wall_c, p_c_mean, self.C_su.fluid, self.params)
         elif self.C.Correlation_1phase == 'Shell_Kern_HTC':
-            alpha_c, self.Re_c[k], self.Pr_c[k] = shell_htc_kern(self.mdot_c, T_wall_c, Tc_mean, p_c_mean, self.C_su.fluid, self.params)
+            alpha_c, self.Re_c[k], self.Pr_c[k] = shell_htc_kern(self.mdot_c, T_wall_c, Tc_mean, p_c_mean, self.AS_C, self.params)
         elif self.C.Correlation_1phase == 'Tube_And_Fins':
             alpha_c = htc_tube_and_fins(self.C_su.fluid, self.params, p_c_mean, havg_c, self.mdot_c, self.params['Fin_type'])[0]
         elif self.C.Correlation_1phase == 'thonon_plate_HTC':
@@ -901,12 +892,19 @@ class HeatExchangerMB(BaseComponent):
                 alpha_h, self.Re_h[k], self.Pr_h[k] = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']*self.params['Tube_pass']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
             elif self.HTX_Type == 'Tube&Fins':
                 alpha_h, self.Re_h[k], self.Pr_h[k] = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']*self.params['Tube_pass']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
+            elif self.HTX_Type == 'PCHE':
+                Dh = np.pi*self.params['D_c']/(2+np.pi)
+                alpha_h, self.Re_h[k], self.Pr_h[k] = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, Dh, self.params['L_c']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
+
         elif self.H.Correlation_TC == 'Liu_sCO2':
             self.AS_H.update(CP.PT_INPUTS, p_h_mean, Th_mean)
             rho_h = self.AS_H.rhomass()
             cp_h = self.AS_H.cpmass()
             
             alpha_h = Liu_sCO2(G_h, p_h_mean, T_wall_h, k_h, rho_h, mu_h, cp_h, self.params['Tube_OD']-2*self.params['Tube_t'], self.H_su.fluid)
+        
+        elif self.H.Correlation_1phase == 'Shell_Kern_HTC':
+            alpha_h, self.Re_h[k], self.Pr_h[k] = shell_htc_kern(self.mdot_h, T_wall_h, Th_mean, p_h_mean, self.AS_H, self.params)
         
         elif self.H.Correlation_TC == 'Cheng_sCO2':
             q = self.Qvec_h[k]/(self.params['A_eff']*self.w[k])
@@ -922,6 +920,14 @@ class HeatExchangerMB(BaseComponent):
             alpha_h = Cheng_sCO2(G_h, q, T_wall_h, p_h_mean, self.hvec_h[k], h_next, mu_h, k_h, self.params['Tube_OD']-2*self.params['Tube_t'], self.H_su.fluid)
             
             # print(f"-----------------")
+            
+        elif self.H.Correlation_TC == 'Lee':
+            self.AS_H.update(CP.PT_INPUTS, p_h_mean, Th_mean)
+            rho_h = self.AS_H.rhomass()
+            alpha_h = PCHE_Lee(self.params['alpha'], self.params['D_c'], G_h, k_h, self.params['L_c'], mu_h, Pr_h, rho_h)
+
+        elif self.H.Correlation_TC == "PCHE_Lee":
+            alpha_h = PCHE_conv(self.params['alpha'], self.params['D_c'], G_h, k_h, self.params['L_c'], mu_h, mu_h_w, Pr_h, Th_mean, self.params['type_channel'])
 
         return alpha_h
 
@@ -942,12 +948,19 @@ class HeatExchangerMB(BaseComponent):
                 alpha_c, self.Re_c[k], self.Pr_c[k]  = gnielinski_pipe_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']**self.params['Tube_pass']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
             elif self.HTX_Type == 'Tube&Fins':
                 alpha_c, self.Re_c[k], self.Pr_c[k]  = gnielinski_pipe_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']*self.params['Tube_pass']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
+            elif self.HTX_Type == 'PCHE':
+                Dh = np.pi*self.params['D_c']/(2+np.pi)
+                alpha_c, self.Re_c[k], self.Pr_c[k] = gnielinski_pipe_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, Dh, self.params['L_c']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
+ 
         elif self.C.Correlation_TC == 'Liu_sCO2':
             self.AS_C.update(CP.PT_INPUTS, p_c_mean, Tc_mean)
             rho_c = self.AS_C.rhomass()
             cp_c = self.AS_C.cpmass()
             
             alpha_c = Liu_sCO2(G_c, p_c_mean, T_wall_c, k_c, rho_c, mu_c, cp_c, self.params['Tube_OD']-2*self.params['Tube_t'], self.C_su.fluid)
+        
+        elif self.C.Correlation_1phase == 'Shell_Kern_HTC':
+            alpha_c, self.Re_c[k], self.Pr_c[k] = shell_htc_kern(self.mdot_c, T_wall_c, Tc_mean, p_c_mean, self.AS_C, self.params)
         
         elif self.C.Correlation_TC == 'Cheng_sCO2':
             q = self.Qvec_c[k]/(self.params['A_eff']*self.w[k])
@@ -958,6 +971,14 @@ class HeatExchangerMB(BaseComponent):
                 h_next = self.hvec_c[k]                
                 
             alpha_c = Cheng_sCO2(G_c, q, T_wall_c, p_c_mean, self.hvec_c[k], h_next, mu_c, k_c, self.params['Tube_OD']-2*self.params['Tube_t'], self.C_su.fluid)
+        
+        elif self.C.Correlation_TC == 'Lee':
+            self.AS_C.update(CP.PT_INPUTS, p_c_mean, Tc_mean)
+            rho_c = self.AS_C.rhomass()
+            alpha_c = PCHE_Lee(self.params['alpha'], self.params['D_c'], G_c, k_c, self.params['L_c'], mu_c, Pr_c, rho_c)
+        
+        elif self.H.Correlation_TC == "PCHE_Lee":
+            alpha_c = PCHE_conv(self.params['alpha'], self.params['D_c'], G_c, k_c, self.params['L_c'], mu_c, mu_c_w, Pr_c, Tc_mean, self.params['type_channel'])
         
         return alpha_c
 
@@ -1004,9 +1025,9 @@ class HeatExchangerMB(BaseComponent):
             
             if self.H.Correlation_1phase == "Shell_Kern_HTC":
                 try: 
-                    alpha_h, self.Re_h[k], self.Pr_h[k] = shell_htc_kern(self.mdot_h, T_wall_h, Th_mean, p_h_mean, self.H_su.fluid, self.params) 
+                    alpha_h, self.Re_h[k], self.Pr_h[k] = shell_htc_kern(self.mdot_h, T_wall_h, Th_mean, p_h_mean, self.AS_H, self.params) 
                 except:
-                    alpha_h, self.Re_h[k], self.Pr_h[k] = shell_htc_kern(self.mdot_h, T_wall_h, Th_mean-0.1, p_h_mean, self.H_su.fluid, self.params)       
+                    alpha_h, self.Re_h[k], self.Pr_h[k] = shell_htc_kern(self.mdot_h, T_wall_h, Th_mean-0.1, p_h_mean, self.AS_H, self.params)       
             
             elif self.H.Correlation_1phase == 'Tube_And_Fins':
                 alpha_h = htc_tube_and_fins(self.H_su.fluid, self.params, p_h_mean, havg_h, self.mdot_h, self.params['Fin_type'])[0]
@@ -1023,14 +1044,23 @@ class HeatExchangerMB(BaseComponent):
                 cp_h = self.AS_H.cpmass()
                 Pr_h = mu_h * cp_h / k_h_l
 
-            self.AS_H.update(CP.PT_INPUTS, p_h_mean, T_wall_h)
-            Pr_h_w = self.AS_H.Prandtl()
-            mu_h_w = self.AS_H.viscosity()   
-                        
+            try: 
+                self.AS_H.update(CP.PT_INPUTS, p_h_mean, T_wall_h)
+                Pr_h_w = self.AS_H.Prandtl()
+                mu_h_w = self.AS_H.viscosity()   
+            except:
+                self.AS_H.update(CP.PT_INPUTS, p_h_mean, T_wall_h-0.1)
+                Pr_h_w = self.AS_H.Prandtl()
+                mu_h_w = self.AS_H.viscosity()      
+                
             alpha_h, self.Re_h[k], self.Pr_h[k]  = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['Tube_OD'] - 2*self.params['Tube_t'], self.params['Tube_L']*self.params["Tube_pass"])
-            alpha_h_2phase = horizontal_tube_internal_condensation(self.H_su.fluid , G_h, p_h_mean, self.x_vec_h[k], T_wall_h, self.params['Tube_OD'] - 2*self.params['Tube_t'])
+            alpha_h_2phase = 20000 # horizontal_tube_internal_condensation(self.H_su.fluid , G_h, p_h_mean, self.x_vec_h[k], T_wall_h, self.params['Tube_OD'] - 2*self.params['Tube_t'])
         if self.H.Correlation_2phase == 'shah_condensation_plate_HTC':
             alpha_h_2phase = shah_condensation_plate_HTC(self.params['H_Dh'], self.params['l_v'], self.params['w_v'], self.params['amplitude'], self.params['phi'], self.mdot_h, p_h_mean, self.params['H_n_canals'], self.H_su.fluid)
+        
+        if self.H.Correlation_2phase == 'Thome_Condensation':
+            D_i = self.params['Tube_OD']-2*self.params['Tube_t']
+            alpha_h_2phase = thome_condensation(self.AS_H, D_i, G_h, p_h_mean, T_wall_h, x_h)
         
         if self.H.Correlation_2phase == 'Tube_And_Fins':
             alpha_h_2phase = htc_tube_and_fins(self.H_su.fluid, self.params, p_h_mean, havg_h, self.mdot_h, self.params['Fin_type'])[0]
@@ -1043,7 +1073,7 @@ class HeatExchangerMB(BaseComponent):
         #     # The line below re-calculates alpha_h in case of having a vapor-wet condition
         #     alpha_h = alpha_h_2phase - w_vap_wet*(alpha_h_2phase - alpha_h) # the last alpha_h in this equation is the 1 Phase calculation
 
-        return alpha_h
+        return alpha_h_2phase
 
     def compute_C_2P_HTC(self, k, Tc_mean, p_c_mean, T_wall_c, G_c, Tc_sat_mean, alpha_h, LMTD, havg_c):
 
@@ -1108,7 +1138,7 @@ class HeatExchangerMB(BaseComponent):
             q = self.Qvec_c[k]/(self.params['A_eff']*self.w[k])
             D_in = self.params['Tube_OD']-2*self.params['Tube_t']
             
-            alpha_c_2phase = horizontal_flow_boiling(self.su_C.fluid, G_c, p_c_mean, x_c, D_in, q)
+            alpha_c_2phase = horizontal_flow_boiling(self.AS_C, G_c, p_c_mean, x_c, D_in, q)
         
         elif self.C.Correlation_2phase == "Flow_boiling_gungor_winterton":
             q = self.Qvec_c[k]/(self.params['A_eff']*self.w[k])
@@ -1128,7 +1158,7 @@ class HeatExchangerMB(BaseComponent):
 
         return alpha_c
 
-    #%% PRESSUR DROP CORRELATION CHOOSING RELATED METHODS
+    #%% PRESSURE DROP CORRELATION CHOOSING RELATED METHODS
 
     def compute_H_DP(self):
         
@@ -1139,13 +1169,39 @@ class HeatExchangerMB(BaseComponent):
         elif self.H.PressureDrop_Correlation == "Gnielinski_DP":
             mu_h_in = CP.PropsSI('V', 'H', self.su_H.h, 'P', self.su_H.p, self.su_H.fluid)
             G_c, G_h = self.G_h_c_computation()
-            
-            DP_H = gnielinski_pipe_DP(mu_h_in, self.su_H.D, G_h, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"])  
+
+            if self.HTX_Type == 'PCHE':
+                Dh = np.pi*self.params['D_c']/(2+np.pi)
+                DP_H = gnielinski_pipe_DP(mu_h_in, self.su_H.D, G_h, Dh, self.params["L_c"], type_HX= 'PCHE')  
+            else:
+                DP_H = gnielinski_pipe_DP(mu_h_in, self.su_H.D, G_h, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"])  
+
+        elif self.H.PressureDrop_Correlation == 'Darcy_Weisbach':
+            mu_h_in = CP.PropsSI('V', 'H', self.su_H.h, 'P', self.su_H.p, self.su_H.fluid)
+            G_c, G_h = self.G_h_c_computation()
+        
+            Dh = np.pi*self.params['D_c']/(2+np.pi)
+            DP_H = Darcy_Weisbach(mu_h_in, self.su_H.D, G_h, Dh, self.params["L_c"])  
+
+
         elif self.H.PressureDrop_Correlation == "Cheng_CO2_DP":
             G_c, G_h = self.G_h_c_computation()
             mu_h_in = CP.PropsSI('V', 'H', self.su_H.h, 'P', self.su_H.p, self.su_H.fluid)
             
             DP_H = Cheng_CO2_DP(G_h, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"], self.su_H.p, self.su_H.h, mu_h_in, self.su_H.fluid)
+        
+        elif self.H.PressureDrop_Correlation == "Choi_DP":
+
+            G_c, G_h = self.G_h_c_computation()
+            rho_out = CP.PropsSI('D', 'P', self.su_H.p, 'Q', 0, self.su_H.fluid)
+            
+            if self.su_H.x:
+                x_in = self.su_H.x
+            else:              
+                x_in = 1
+
+            DP_H = Choi_DP(self.su_H.fluid, G_c, rho_out, self.su_H.D, self.su_H.p, 0, x_in, self.params["Tube_L"]*self.params["Tube_pass"], self.params["Tube_OD"]-2*self.params["Tube_t"])
+                        
         else:
             DP_H = 0
             
@@ -1156,6 +1212,19 @@ class HeatExchangerMB(BaseComponent):
             DP_H = shell_bell_delaware_DP(self.su_H.m_dot, self.su_H.h, self.su_H.p, self.su_H.fluid, self.params)*self.params["n_series"]/self.params['n_disc']
         elif self.H.PressureDrop_Correlation == "Shell_Kern_DP":
             DP_H = shell_DP_kern(self.su_H.m_dot, (self.su_H.T + self.su_C.T)/2, self.su_H.h, self.su_H.p, self.su_H.fluid, self.params)*self.params["n_series"]/self.params['n_disc']
+                
+        elif self.H.PressureDrop_Correlation == "Choi_DP":
+
+            G_c, G_h = self.G_h_c_computation()
+            rho_out = CP.PropsSI('D', 'P', self.su_H.p, 'Q', 0, self.su_H.fluid)
+            
+            if self.su_H.x:
+                x_in = self.su_H.x
+            else:              
+                x_in = 1
+            
+            DP_H = Choi_DP(self.su_H.fluid, G_c, rho_out, self.su_H.D, self.su_H.p, 0, x_in, self.params["Tube_L"]*self.params["Tube_pass"], self.params["Tube_OD"]-2*self.params["Tube_t"])
+        
         else:
             DP_H = 0
             
@@ -1179,7 +1248,20 @@ class HeatExchangerMB(BaseComponent):
             # print(f"L : {self.params['Tube_L']*self.params['Tube_pass']}")
             # print(f"Fluid : {self.su_C.fluid}")
             
-            DP_C = gnielinski_pipe_DP(mu_c_in, self.su_C.D, G_c, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"])   
+            if self.HTX_Type == 'PCHE':
+                Dh = np.pi*self.params['D_c']/(2+np.pi)
+                DP_C = gnielinski_pipe_DP(mu_c_in, self.su_C.D, G_c, Dh, self.params["L_c"], type_HX= 'PCHE')   
+            else:
+                DP_C = gnielinski_pipe_DP(mu_c_in, self.su_C.D, G_c, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"])   
+        
+        elif self.H.PressureDrop_Correlation == 'Darcy_Weisbach':
+            mu_c_in = CP.PropsSI('V', 'H', self.su_C.h, 'P', self.su_C.p, self.su_C.fluid)
+            G_c, G_h = self.G_h_c_computation()
+        
+            Dh = np.pi*self.params['D_c']/(2+np.pi)
+            DP_C = Darcy_Weisbach(mu_c_in, self.su_C.D, G_c, Dh, self.params["L_c"])  
+
+        
         elif self.C.PressureDrop_Correlation == "Choi_DP":
 
             G_c, G_h = self.G_h_c_computation()
@@ -1230,6 +1312,10 @@ class HeatExchangerMB(BaseComponent):
             A_in_one_tube = np.pi*((self.params['Tube_OD']-2*self.params['Tube_t'])/2)**2
             G_h = (self.params["Tube_pass"]/self.params["n_series"])*(self.mdot_h/self.params['n_tubes'])/A_in_one_tube
             G_c = (self.params["Tube_pass"]/self.params["n_series"])*(self.mdot_c/self.params['n_tubes'])/A_in_one_tube
+        elif self.HTX_Type == 'PCHE': 
+            A_in_one_channel = np.pi*(self.params['D_c']**2)/8
+            G_h = self.mdot_h/(A_in_one_channel*self.params['N_c']*self.params['N_p']*(self.params['R_p']/(1+self.params['R_p'])))
+            G_c = self.mdot_c/(A_in_one_channel*self.params['N_c']*self.params['N_p']*(1/(1+self.params['R_p'])))
             
         return G_c, G_h
 
@@ -1339,6 +1425,9 @@ class HeatExchangerMB(BaseComponent):
         
         if not self.h_incomp_flag and (self.p_hi - self.AS_H.p_critical()) >= 1e-06:
             self.Transcritical_h = True
+
+        if not self.c_incomp_flag and (self.p_ci - self.AS_C.p_critical()) >= 1e-06:
+            self.Transcritical_c = True
 
         "3) Calculate the ideal bubble and dew temperatures/enthalpies for each stream IF the fluid is not transcritical"
         
@@ -1490,6 +1579,10 @@ class HeatExchangerMB(BaseComponent):
                 else:
                     self.Vvec_h = self.params['T_V_tot']*np.array(self.w) # !!! Attention to this assumption
                     self.Vvec_c = self.params['B_V_tot']*np.array(self.w) 
+            
+            elif self.HTX_Type == 'PCHE':
+                self.Vvec_h = self.params['H_V_tot']*np.array(self.w) # !!! Attention to this assumption
+                self.Vvec_c = self.params['C_V_tot']*np.array(self.w)
                 
             # Initiates the mass vectors # !!! (for each cell ?)
             self.Mvec_h = np.empty(len(self.hvec_h)-1)
@@ -1637,13 +1730,20 @@ class HeatExchangerMB(BaseComponent):
                     else:
                         self.phases_c.append("two-phase-dryout")
                         self.dry_out_c = True
-                        
+            
+            elif self.c_incomp_flag:
+                self.phases_c.append('liquid')
+                T_wall_c = T_wall
+                havg_c = (self.hvec_c[k] + self.hvec_c[k+1])/2.0 # Average cell enthalpy over the cell
+                
             elif self.Transcritical_c:
-                self.phase_c.append('transcritical')
+                self.phases_c.append('transcritical')
+                T_wall_c = T_wall
+                havg_c = (self.hvec_c[k] + self.hvec_c[k+1])/2.0 # Average cell enthalpy over the cell
                             
             p_c_mean = 0.5*(self.pvec_c[k] + self.pvec_c[k+1]) # mean pressure over the cell
             p_h_mean = 0.5*(self.pvec_h[k] + self.pvec_h[k+1]) # mean pressure over the cell
-                
+
             G_c, G_h = self.G_h_c_computation()
             
             # F correction factor for LMTD method:
@@ -1663,14 +1763,14 @@ class HeatExchangerMB(BaseComponent):
                 C_max = max(C_c,C_h)
                 C_r = C_min/C_max
                 
-                # if self.params['n_series'] > 1:
-                #     self.R = (Thi - Tho)/(Tco - Tci)
-                #     self.P = (Tco - Tci)/(Thi - Tci)
-                # else:
+                if self.params['n_series'] > 1:
+                    self.R = (Thi - Tho)/(Tco - Tci)
+                    self.P = (Tco - Tci)/(Thi - Tci)
+                else:
                     
-                self.R = (self.Tvec_h[-1] - self.Tvec_h[0])/(self.Tvec_c[-1] - self.Tvec_c[0])
-                self.P = (self.Tvec_c[-1] - self.Tvec_c[0])/(self.Tvec_h[-1] - self.Tvec_c[0])                    
-                                
+                    self.R = (self.Tvec_h[-1] - self.Tvec_h[0])/(self.Tvec_c[-1] - self.Tvec_c[0])
+                    self.P = (self.Tvec_c[-1] - self.Tvec_c[0])/(self.Tvec_h[-1] - self.Tvec_c[0])                    
+                                    
                 if self.params['Flow_Type'] == 'Shell&Tube':
                     
                     if self.P < 0.1 or self.R > 10 or self.R < 0.4:
@@ -1794,9 +1894,9 @@ class HeatExchangerMB(BaseComponent):
                 fact_cond_2 = 2*np.pi*self.params['Tube_cond']*self.params['Tube_L']*self.params['n_tubes']*self.params['n_series']
                 R_cond = fact_cond_1/fact_cond_2                      
                 
-                self.A_in_tubes = self.params['Tube_L']*self.params['n_tubes']*np.pi*((self.params['Tube_OD'] - 2*self.params['Tube_t'])) # *self.geom.Tube_pass 
+                self.A_in_tubes =  self.params['A_finned'] # self.params['Tube_L']*self.params['n_tubes']*np.pi*((self.params['Tube_OD'] - 2*self.params['Tube_t'])) # *self.geom.Tube_pass 
                 self.A_out_tubes = self.params['A_finned']
-                                        
+                
                 R_fouling = 0 # self.geom.fouling / self.A_out_tubes             
                         
                 # In the equation below, thickness resistance is given with respect to A_h arbitrarely
@@ -1806,6 +1906,24 @@ class HeatExchangerMB(BaseComponent):
                 else: 
                     UA_avail =  1/(1/(alpha_h*self.A_in_tubes) + 1/(alpha_c*self.A_out_tubes) + R_fouling + R_cond) # 1/((1+self.geom.fooling)/(alpha_h*self.geom.A_h) + 1/(alpha_c*self.geom.A_c) + t/(self.geom.tube_cond)) 
 
+            elif self.HTX_Type == 'PCHE':
+                
+                if 'foul' in self.params:
+                    R_fouling = self.params['foul'] / self.A_in_tubes
+                else: 
+                    R_fouling = 0
+                
+                self.A_c = 1/(1+self.params['R_p'])*self.params['N_c']*self.params['N_p']*(np.pi/2)*self.params['D_c']*self.params['L_c']
+                self.A_h = self.params['R_p']/(1+self.params['R_p'])*self.params['N_c']*self.params['N_p']*(np.pi/2)*self.params['D_c']*self.params['L_c']
+                
+                # self.t_e = ((self.params['D_c'] + self.params['t_3'])*(self.params['D_c']/2 + self.params['t_2']) - (1/8*np.pi*self.params['D_c']**2))/(self.params['D_c'] + self.params['t_3'])
+                self.t_e = self.params['t_3'] - np.pi*self.params['D_c']/8
+                
+                R_cond = self.t_e/self.params['k_cond']
+                
+                UA_avail =  1/(1/(alpha_h*self.A_h) + 1/(alpha_c*self.A_c) + R_fouling + R_cond)
+
+                
             "5) Calculate w, the main objective of this function. This variable serves for residual minimization in the solver"      
 
             if k > len(self.w)- 1:
@@ -1826,7 +1944,10 @@ class HeatExchangerMB(BaseComponent):
 
             if self.HTX_Type == 'Tube&Fins':
                 self.Avec_h.append(w[k]*self.params['A_finned'])
-            
+     
+            if self.HTX_Type == 'PCHE':
+                self.Avec_h.append(w[k]*self.A_h)       
+     
             "5.1) Calculate dryout incipience only if subcritical"
             if not self.dry_out_c and self.phases_h[k] == "two-phase" and not self.Transcritical_c:
                     if not self.ColdSide_Props_Calculated:
@@ -1861,7 +1982,7 @@ class HeatExchangerMB(BaseComponent):
                         
         if debug:
             print(Q, 1-sum(w))
-                        
+                
         return 1-sum(w)
 
 #%% 
