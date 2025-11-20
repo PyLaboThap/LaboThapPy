@@ -1,5 +1,5 @@
 Heat Exchanger - Constant Efficiency Model
-==================================================================
+==========================================
 
 Model description
 -----------------
@@ -25,48 +25,57 @@ cold stream can accept:
 
 .. math::
 
-   \dot{Q}_{\max} = \min\!\left(
-     \dot{m}_H \cdot \bigl(h_{su,H} - h_{ex,id,H}\bigr),
-     \; \dot{m}_C \cdot \bigl(h_{ex,id,C} - h_{su,C}\bigr)
+   \dot{Q}_{\max} = \min \left(
+     \dot{m}_H \cdot (h_{su,H} - h_{ex,id,H}),
+     \; \dot{m}_C \cdot (h_{ex,id,C} - h_{su,C})
    \right)
 
-**Definitions**:
+Definitions
+-----------
 
 - :math:`\dot{m}_H`, :math:`\dot{m}_C`  
-  Mass flow rates of the hot and cold streams, respectively (units: kg/s).
+  Mass flow rates of the hot and cold streams, respectively (kg/s).
 
 - :math:`h_{su,H}`, :math:`h_{su,C}`  
-  Specific enthalpies at the **inlets** of the hot and cold streams,
-  respectively (units: J/kg).
+  Specific enthalpies at the **inlets** of the hot and cold streams
+  (J/kg).
 
 - :math:`h_{ex,id,H}`, :math:`h_{ex,id,C}`  
   Specific enthalpies at the **outlets** of the hot and cold streams
   in an **ideal** heat exchanger (i.e., infinite area / infinite NTU).
-  These are computed from the inlet temperatures assuming complete
-  counterflow exchange (see "Ideal outlet conditions" below).
 
-**Procedure to compute heat transfer rate**:
-1. From the inlet conditions compute or obtain the inlet temperatures and specific enthalpies :math:`h_{su,H}` and :math:`h_{su,C}`.
+Procedure to compute heat transfer rate
+---------------------------------------
+
+1. Compute or obtain the inlet temperatures and specific enthalpies  
+   :math:`h_{su,H}` and :math:`h_{su,C}`.
 
 2. Determine the *ideal* outlet temperatures for a perfect counterflow exchanger:
-   - The ideal cold-stream outlet temperature equals the hot-stream
-     inlet temperature.
-   - The ideal hot-stream outlet temperature equals the cold-stream
-     inlet temperature.
 
-   Convert those ideal outlet temperatures to enthalpies to obtain
-   :math:`h_{ex,id,C}` and :math:`h_{ex,id,H}` (using the fluid property
-   relations appropriate for each stream).
+   - The ideal cold-stream outlet temperature equals the hot-stream inlet temperature.
+   - The ideal hot-stream outlet temperature equals the cold-stream inlet temperature.
 
-3. Compute the two candidate heat transfer rates:
+   Convert these ideal temperatures to enthalpies:
+   :math:`h_{ex,id,C}` and :math:`h_{ex,id,H}`.
+
+3. Compute the two candidate maximum heat transfer rates:
+
    - Hot-limited: :math:`\dot{Q}_{H,\max} = \dot{m}_H \cdot (h_{su,H} - h_{ex,id,H})`
    - Cold-limited: :math:`\dot{Q}_{C,\max} = \dot{m}_C \cdot (h_{ex,id,C} - h_{su,C})`
 
-4. Take :math:`\dot{Q}_{\max} = \min(\dot{Q}_{H,\max}, \dot{Q}_{C,\max})`.
+4. Compute:
 
-5. Multiply by the specified effectiveness to get the actual heat
-   transfer rate:
-   :math:`\dot{Q} = \varepsilon \cdot \dot{Q}_{\max}`.
+   .. math::
+
+      \dot{Q}_{\max} = \min(\dot{Q}_{H,\max}, \dot{Q}_{C,\max})
+
+5. The actual heat transfer rate is then:
+
+   .. math::
+
+      \dot{Q} = \varepsilon \cdot \dot{Q}_{\max}
+
+Outlet enthalpies are computed as:
 
 .. math::
 
@@ -76,16 +85,15 @@ cold stream can accept:
 
    h_{out,C} = h_{su,C} + \frac{\dot{Q}}{\dot{m}_C}
 
-**Assumptions:**
+Assumptions
+-----------
 
-- The model assumes **counterflow** geometry.
-- Effectiveness :math:`\varepsilon` is supplied by the user and is
-  treated as constant (0 < :math:`\varepsilon` \le 1).
-- The ideal outlet enthalpies are computed by assuming that the
-  maximum possible temperature difference is the inlet temperature of
-  the opposing stream (i.e., ideal counterflow limit).
-- No heat losses to the environment are considered.
-- No pressure drops are considered in the heat exchanger.
+- Counterflow geometry.
+- User-specified constant effectiveness :math:`\varepsilon`,  
+  with :math:`0 < \varepsilon \le 1`.
+- Ideal outlet enthalpies computed using the ideal counterflow limit.
+- No heat losses to the environment.
+- No pressure drop inside the heat exchanger.
 
 
 .. autoclass:: component.heat_exchanger.hex_csteff.HXCstEff
