@@ -49,21 +49,21 @@ class HXEffCstDisc(BaseComponent):
     
     **Inputs**:
     
-        su_H_fluid (str): Hot-side fluid.
+        fluid_H (str): Hot-side fluid.
         
-        su_H_h (float): Hot-side inlet specific enthalpy [J/kg].
+        h_su_H (float): Hot-side inlet specific enthalpy [J/kg].
         
-        su_H_p (float): Hot-side inlet pressure [Pa].
+        P_su_H (float): Hot-side inlet pressure [Pa].
         
-        su_H_m_dot (float): Hot-side mass flow rate [kg/s].
+        m_dot_H (float): Hot-side mass flow rate [kg/s].
     
-        su_C_fluid (str): Cold-side fluid.
+        fluid_C (str): Cold-side fluid.
         
-        su_C_h (float): Cold-side inlet specific enthalpy [J/kg].
+        h_su_C (float): Cold-side inlet specific enthalpy [J/kg].
         
-        su_C_p (float): Cold-side inlet pressure [Pa].
+        P_su_C (float): Cold-side inlet pressure [Pa].
         
-        su_C__m_dot (float): Cold-side mass flow rate [kg/s].
+        m_dot_C (float): Cold-side mass flow rate [kg/s].
     
     **Outputs**:
     

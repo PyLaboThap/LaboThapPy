@@ -604,7 +604,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
         score, S_mass, T_mass, TS_mass, B_mass = objective_function(particle.HX.params, particle.HX)
         masses = {'Shell': S_mass, 'Tubes': T_mass, 'Tubesheet': TS_mass, 'Baffles': B_mass, 'Total': B_mass+TS_mass+T_mass+S_mass}
     
-        pen  = max(self.Q_dot_constr - particle.Q, 0.0)
+        pen  = max(self.Q_dot_constr - particle.Q, 0.0)*100
         pen += max(particle.DP_h - self.DP_h_constr, 0.0)
         pen += max(particle.DP_c - self.DP_c_constr, 0.0)
     
@@ -694,7 +694,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
     
     def particle_swarm_optimization(self, objective_function, bounds, num_particles=30, num_dimensions=2, max_iterations=50, 
                                 inertia_weight=0.4, cognitive_constant=1.5, social_constant=1.5, constraints=None,
-                                penalty_factor=1000):
+                                penalty_factor=100, n_jobs = -1):
 
         # --- initialization (unchanged) ---
         self.particles = [self.Particle(params=self.params, su_S=self.su_S, ex_S=self.ex_S,
@@ -711,7 +711,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
             self.init_particle(p)
     
         # initial evaluation
-        _, n_new = self.evaluate_population_parallel(self.particles, objective_function, penalty_factor, desc="init")
+        _, n_new = self.evaluate_population_parallel(self.particles, objective_function, penalty_factor, desc="init", n_jobs=n_jobs)
     
         particle_scores = np.array([particle.personnal_best_score for particle in self.particles])
         best_particle_indices = np.argsort(particle_scores)[:num_particles]
@@ -845,7 +845,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
             # evaluate this iteration
             (_, n_new) = self.evaluate_population_parallel(
                 self.particles[:num_particles],
-                objective_function, penalty_factor, desc=f"it{iteration+1}"
+                objective_function, penalty_factor, desc=f"it{iteration+1}", n_jobs=n_jobs
             )
             total_new_evals += n_new
 
@@ -893,7 +893,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
     
         return self.global_best_position, self.global_best_score, self.best_particle
 
-    def opt_size(self, n_particles = 50, max_iter = 50):
+    def opt_size(self, n_particles = 50, max_iter = 50, n_jobs = -1):
         
         import numexpr as ne
         import os, multiprocessing
@@ -910,7 +910,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
         os.environ["NUMEXPR_MAX_THREADS"] = str(num_threads)        
 
         self.particle_swarm_optimization(objective_function = self.HX_Mass , bounds = self.bounds, num_particles = n_particles, num_dimensions = len(self.opt_vars), max_iterations = max_iter, inertia_weight = 0.5,
-                                          cognitive_constant = 0.5, social_constant = 0.5, constraints = [self.constraint_Q_dot, self.constraint_DP_h, self.constraint_DP_c], penalty_factor = 1)
+                                          cognitive_constant = 0.5, social_constant = 0.5, constraints = [self.constraint_Q_dot, self.constraint_DP_h, self.constraint_DP_c], penalty_factor = 100, n_jobs = n_jobs)
         
         self._eval_particle_pure(self.best_particle, self.HX_Mass, 1)
 
@@ -977,7 +977,7 @@ if __name__ == "__main__":
     """
     
     HX_test = ShellAndTubeSizingOpt()
-    test_case = "CO2_CD"
+    test_case = "CO2_GH"
     
     if test_case == "Methanol":
     
@@ -1206,7 +1206,7 @@ if __name__ == "__main__":
             )
         
         "Constraints Values"
-        Q_dot_cstr = 6295150
+        Q_dot_cstr = 7500000 # 6295150
         DP_h_cstr = 3*1e5
         DP_c_cstr = 100*1e3
     
@@ -1242,6 +1242,93 @@ if __name__ == "__main__":
         
         HX_test.set_corr(Corr_H, Corr_C, Corr_H_DP, Corr_C_DP)
     
+    elif test_case == "CO2_GH":
+        """
+        Optimization related parameters/variables
+        """
+        
+        HX_test.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'Tube_pass', 'tube_layout', 'Baffle_cut'])
+        
+        choice_vectors = {
+                            'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
+                            'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
+                                29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
+                            'Tube_pass' : [2], # [1,2,4,6,8,10]
+                            'tube_layout' : [0,45,60]} # [0,45,60]}
+        
+        """
+        'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
+        'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
+                                29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78,
+                                84, 90, 96, 108, 120]
+        """
+        
+        HX_test.set_choice_vectors(choice_vectors)
+        
+        """
+        Max T and P for pipe thickness computation
+        """
+        
+        # Worst Case
+        P_max_cycle = 160*1e5 # Pa
+        T_max_cycle = 273.15+140 # K 
+        
+        HX_test.set_max_cycle_prop(T_max_cycle = T_max_cycle, p_max_cycle = P_max_cycle)
+        
+        """
+        Thermodynamical parameters : Inlet and Outlet Design States
+        """
+        
+        HX_test.set_inputs(
+            # First fluid
+            fluid_C = 'CO2',
+            T_su_C = 316.5, # K
+            P_su_C = 12822693, # Pa
+            m_dot_C = 41.85, # kg/s
+    
+            # Second fluid
+            fluid_H = 'Water',
+            T_su_H = 403.15, # K
+            P_su_H = 5*1e5, # Pa
+            m_dot_H = 38.85, # kg/s  # Make sure to include fluid information
+            )
+        
+        "Constraints Values"
+        Q_dot_cstr = 8417198 # 6295150
+        DP_h_cstr = 112284
+        DP_c_cstr = 205160.5
+    
+        """
+        Parameters Setting
+        """
+    
+        HX_test.set_parameters(
+                                n_series = 1, # [-]
+                                n_parallel = 1, # [-]
+
+                                # OPTI -> Oui (regarder le papier pour déterminer ça)
+    
+                                foul_t = 0.000176, # (m^2 * K/W)
+                                foul_s =  0.000176, # (m^2 * K/W)
+                                tube_cond = 50, # W/(m*K)
+                                Overdesign = 0,
+                                
+                                Shell_Side = 'H',
+    
+                                Flow_Type = 'Shell&Tube',
+                                H_DP_ON = True,
+                                C_DP_ON = True,
+                                n_disc = 30
+                              )
+        
+        Corr_H = {"SC" : "Shell_Kern_HTC", "1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
+        Corr_C = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Flow_boiling"}
+        
+        Corr_H_DP = "Shell_Kern_DP"
+        Corr_C_DP = "Gnielinski_DP"
+        
+        HX_test.set_corr(Corr_H, Corr_C, Corr_H_DP, Corr_C_DP)
+    
     """
     Bounds and Constraints
     """
@@ -1266,7 +1353,7 @@ if __name__ == "__main__":
     # for i in range(10):
     t0 = time.perf_counter()
     
-    global_best_position, global_best_score, best_particle = HX_test.opt_size(n_particles = 100, max_iter = 50)
+    global_best_position, global_best_score, best_particle = HX_test.opt_size(n_jobs = -1, n_particles = 50, max_iter = 50)
     
     elapsed = time.perf_counter() - t0
     

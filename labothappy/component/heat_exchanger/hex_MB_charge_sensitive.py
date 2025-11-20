@@ -1347,6 +1347,12 @@ class HeatExchangerMB(BaseComponent):
             - Q : Exchanged heat rate [W]
         """
         
+        if not "n_parallel" in self.params:
+            self.set_parameters(n_parallel = 1)
+        
+        if not "n_series" in self.params:
+            self.set_parameters(n_series = 1)
+        
         self.check_calculable()
         self.check_parametrized()
                 
@@ -1789,6 +1795,13 @@ class HeatExchangerMB(BaseComponent):
                     else:
                         if np.mod(self.params['Tube_pass'],2) == 0:
                             self.F[k] = F_shell_and_tube(self.R,self.P,self.params['n_series'])
+                            
+                            if self.F[k] == 0 and self.P < 0.9 and self.R < 10:
+                                self.F[k] = f_lmtd2(self.R, self.P, self.params, C_r)
+                            
+                                if self.F[k] == 1:
+                                    self.F[k] = 0.9
+                            
                         else:
                             self.F[k] = f_lmtd2(self.R, self.P, self.params, C_r)
                 else:    

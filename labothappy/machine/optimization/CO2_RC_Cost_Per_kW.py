@@ -51,7 +51,7 @@ def TCO2_rec_comp_sizing(RC):
             )
     
         REC_sizing.set_parameters(
-            k_cond = 60, # plate conductivity
+            k_cond = 20, # plate conductivity
             R_p = 1, # n_hot_channel_row / n_cold_channel_row
             
             n_disc = 30,
@@ -128,11 +128,12 @@ def TCO2_rec_comp_sizing(RC):
 
         GH_sizing.set_parameters(
                                 n_series = 1, # [-]
+                                n_parallel = 1, # [-]
                                 # OPTI -> Oui (regarder le papier pour déterminer ça)
     
                                 foul_t = 0.000176, # (m^2 * K/W)
                                 foul_s =  0.000176, # (m^2 * K/W)
-                                tube_cond = 50, # W/(m*K)
+                                tube_cond = 20, # W/(m*K)
                                 Overdesign = 0,
                                 
                                 Shell_Side = 'H',
@@ -161,7 +162,7 @@ def TCO2_rec_comp_sizing(RC):
                     }
 
         GH_sizing.set_bounds(bounds)
-        GH_sizing.set_constraints(Q_dot = GH_model.Q_dot.Q_dot, DP_h = max(GH_model.DP_h, 1e3), DP_c = max(GH_model.DP_c, 1e3))
+        GH_sizing.set_constraints(Q_dot = GH_model.Q, DP_h = max(GH_model.DP_h, 1e3), DP_c = max(GH_model.DP_c, 1e3))
 
         global_best_position, global_best_score, best_particle = GH_sizing.opt_size()
         
@@ -206,11 +207,12 @@ def TCO2_rec_comp_sizing(RC):
 
         CD_sizing.set_parameters(
                                 n_series = 1, # [-]
+                                n_parallel = 1, # [-]
                                 # OPTI -> Oui (regarder le papier pour déterminer ça)
     
                                 foul_t = 0.000176, # (m^2 * K/W)
                                 foul_s =  0.000176, # (m^2 * K/W)
-                                tube_cond = 50, # W/(m*K)
+                                tube_cond = 20, # W/(m*K)
                                 Overdesign = 0,
                                 
                                 Shell_Side = 'C',

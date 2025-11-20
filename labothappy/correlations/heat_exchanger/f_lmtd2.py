@@ -48,8 +48,7 @@ def F_shell_and_tube(R1,P1,N):
         S = np.sqrt(R1**2 + 1) / (R1 - 1)
         W = ((1 - P1 * R1) / (1 - P1))**(1 / N)
         F = S * np.log(W) / np.log((1 + W - S + S * W) / (1 + W + S - S * W))
-        
-
+    
     if np.isnan(F):
         F = 0
     
@@ -167,3 +166,28 @@ def f_lmtd2(R,P,params,C_r):
             F = 1
         
     return F
+
+if __name__ == "__main__":
+    
+    params = {
+        'Flow_Type' : 'Shell&Tube',
+        'Tube_pass' : 2,
+        'n_series' : 1
+        }
+    
+    F = F_shell_and_tube(0.2,10,1)
+    F2 = f_lmtd2(0.6490414360002104,0.8000269409831248,params,1)
+
+    print(F)
+
+    print(F2)
+
+    R_vec = np.arange(0.1, 10, 0.1)
+    P_vec = np.arange(0.1, 1, 0.01)
+
+    F_mat = np.zeros([len(R_vec), len(P_vec)])
+
+    for i in range(len(R_vec)):
+        for j in range(len(P_vec)):
+            F_mat[i][j] = F = F_shell_and_tube(R_vec[i],P_vec[j],1)
+            
