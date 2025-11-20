@@ -38,7 +38,7 @@ class PumpExtrapolation(BaseComponent):
 
     **Parameters**:
 
-        Omega_rated: Rated pump speed [rpm]
+        N_rot_rated: Rated pump speed [rpm]
 
         min_flowrate: Minimum valid flowrate [m³/h]
 
@@ -100,15 +100,19 @@ class PumpExtrapolation(BaseComponent):
         super().__init__()
         self.su = MassConnector()  # Inlet side connector
         self.ex = MassConnector()  # Outlet side connector
-        self.W = WorkConnector()  # Work connector
+        self.W = WorkConnector()  # Mechanical shaft power connector
 
     def get_required_inputs(self):
-        # Return a list of required inputs
+        """
+        Returns a list of required input variable names.
+        Used to check if the model has enough data to run.
+        """
+        # self.sync_inputs()  # Ensure connector values are reflected in the inputs dict
         return ["P_su", "T_su", "P_ex", "fluid", "N_rot"]
 
     def get_required_parameters(self):
         """
-        Return a list of required parameters needed for model execution.
+        Returns a list of required parameters needed for model execution.
         """
         return [
             "N_rot_rated",
@@ -135,7 +139,7 @@ class PumpExtrapolation(BaseComponent):
 
         Returns:
             eta_el (float): Estimated electrical efficiency (fraction)
-            
+
         References:
             Kostas
         """
@@ -172,15 +176,17 @@ class PumpExtrapolation(BaseComponent):
         self.check_calculable()
         self.check_parametrized()
 
+        self.AS = CP.AbstractState("HEOS", self.su.fluid)
+
         g = 9.81  # Gravity [m/s²]
 
         if not self.calculable or not self.parametrized:
             print("Component is not calculable or not parametrized")
             return
 
-        if self.su.p > self.ex.p or self.W.N_rot < 0:
+        if self.su.p > self.ex.p or self.W.N < 0:
             print(
-                "Supply pressure is higher than exhaust pressure or rotation speed is negative"
+                "Supply pressure is higher than exhaust pressure or rotational speed is negative"
             )
             return
 
@@ -188,16 +194,14 @@ class PumpExtrapolation(BaseComponent):
 
         # Scale curves with respect to current speed
         self.V_dot_curve = self.params["V_dot_curve"] * (
-            self.W.N_rot / self.params["N_rot_rated"]
+            self.W.N / self.params["N_rot_rated"]
         )
         self.DH_curve = (
-            self.params["Delta_H_curve"]
-            * (self.W.N_rot / self.params["N_rot_rated"]) ** 2
+            self.params["Delta_H_curve"] * (self.W.N / self.params["N_rot_rated"]) ** 2
         )
         self.eta_is_curve = self.params["eta_is_curve"]
         self.NPSH_r_curve = (
-            self.params["NPSH_r_curve"]
-            * (self.W.N_rot / self.params["N_rot_rated"]) ** 2
+            self.params["NPSH_r_curve"] * (self.W.N / self.params["N_rot_rated"]) ** 2
         )
 
         # Create interpolation functions for extrapolated performance
@@ -234,7 +238,6 @@ class PumpExtrapolation(BaseComponent):
         self.NPSH_r = V_NPSH_r(self.V_dot)
 
         # Isentropic outlet enthalpy
-        self.AS = CP.AbstractState('HEOS', self.su.fluid)
         self.AS.update(CP.PSmass_INPUTS, self.ex.p, self.su.s)
         h_ex_s = self.AS.hmass()
 

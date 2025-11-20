@@ -1,5 +1,6 @@
 "External modules"
 
+import CoolProp.CoolProp as CP
 import numpy as np
 from CoolProp.CoolProp import PropsSI
 
@@ -103,11 +104,16 @@ class TurbinePolynEff(BaseComponent):
         self.W = WorkConnector()
 
     def get_required_inputs(self):
-        # Return a list of required inputs
+        """
+        Returns a list of required input variable names.
+        Used to check if the model has enough data to run.
+        """
         return ["P_su", "T_su", "P_ex", "N_rot", "fluid"]
 
     def get_required_parameters(self):
-        # Return a list of model parameters required for solving
+        """
+        Returns a list of required parameters needed for model execution.
+        """
         return [
             "D_inlet",  # Inlet hydraulic diameter
             "N_turb_rated",  # Rated turbine speed
@@ -189,17 +195,17 @@ class TurbinePolynEff(BaseComponent):
         self.check_calculable()
         self.check_parametrized()
 
+        self.AS = CP.AbstractState("HEOS", self.su.fluid)
+
         if self.calculable and self.parametrized:
 
             # Calculate speed of sound at inlet using ideal gas approximation
             R = 8.3144
             R_M = R / PropsSI("M", self.su.fluid)
-            print('T_su:', self.su.T)
-            print('P_su:', self.su.p)
-            print('fluid:', self.su.fluid)
-            cp_in, cv_in = PropsSI(
-                ("C", "CVMASS"), "T", self.su.T, "P", self.su.p, self.su.fluid
-            )
+
+            self.AS.update(CP.PT_INPUTS, self.su.p, self.su.T)
+            cp_in = self.AS.cpmass()
+            cv_in = self.AS.cvmass()
             gamma = cp_in / cv_in
             self.a = np.sqrt(gamma * R_M * self.su.T)
 
@@ -211,7 +217,8 @@ class TurbinePolynEff(BaseComponent):
             self.eta_is = self.eta_is_turb()
 
             # Compute isentropic enthalpy at exhaust pressure and entropy
-            h_ex_is = PropsSI("H", "P", self.ex.p, "S", self.su.s, self.su.fluid)
+            self.AS.update(CP.PSmass_INPUTS, self.ex.p, self.su.s)
+            h_ex_is = self.AS.hmass()
 
             # Actual enthalpy based on isentropic efficiency
             h_ex = self.su.h - (self.eta_is / 100) * (self.su.h - h_ex_is)
