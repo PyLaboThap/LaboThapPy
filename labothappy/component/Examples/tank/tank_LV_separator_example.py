@@ -10,11 +10,11 @@ Created on Tue Dec 19 14:43:39 2023
 import numpy as np
 from CoolProp.CoolProp import PropsSI
 
-from component.tank.tank_LV_separator import LV_Separator
+from component.tank.tank_LV_separator import TankLVSeparator
 
 "-----------------------------------------------------------  TEST   ----------------------------------------------------------------"
 
-LV_Separator = LV_Separator()
+LV_Separator = TankLVSeparator()
 
 # Inputs
 LV_Separator.set_inputs(

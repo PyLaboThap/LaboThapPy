@@ -5,28 +5,19 @@ Created on Fri May 10 14:42:00 2024
 @author: Basile
 """
 
-import os
-import sys
-
-# Add labohappy root to the path
-current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.abspath(os.path.join(current_dir, "..", ".."))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
-from component.tank.tank_spliter import Spliter
+from labothappy.component.tank.tank_spliter import TankSpliter
 
 # 1) Data ------------------------------------------------------------------------------------------
 
 # Create splitter with specified outlet repartition
-spliter = Spliter(outlet_repartition=[0.3, 0.4, 0.3])
+spliter = TankSpliter(outlet_repartition=[0.3, 0.4, 0.3])
 
 # Set inputs
 spliter.set_inputs(
-    su_T=10 + 273.15,        # Temperature in Kelvin
-    su_m_dot=13.8,           # Mass flow rate in kg/s
-    su_p=0.8 * 1e5,          # Pressure in Pa
-    su_fluid="Cyclopentane"  # Working fluid
+    T_su=10 + 273.15,        # Temperature in Kelvin
+    m_dot=13.8,           # Mass flow rate in kg/s
+    P_su=0.8 * 1e5,          # Pressure in Pa
+    fluid="Cyclopentane"  # Working fluid
 )
 
 # Solve

@@ -4,31 +4,18 @@ Created on Fri May 10 14:31:24 2024
 
 @author: Basile
 """
-import sys
-import os
 
-# Get the absolute path of the directory that contains the script (simulation_model.py)
-current_dir = os.path.dirname(os.path.abspath(__file__))
-
-# Determine the project root directory (which contains both 'connector' and 'component')
-project_root = os.path.abspath(os.path.join(current_dir, '..', '..', '..'))
-
-# Add the project root to sys.path if it's not already there
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-###########################################
 
 from connector.mass_connector import MassConnector
-from CoolProp.CoolProp import PropsSI
 from component.base_component import BaseComponent
 import numpy as np
 
-class Spliter(BaseComponent):
+class TankSpliter(BaseComponent):
     
     """
-    Component: Spliter
+    **Component**: Spliter
     
-    Model: Mass Flow Splitting Model
+    **Model**: Mass Flow Splitting Model
     
     **Description**:
     
@@ -52,17 +39,17 @@ class Spliter(BaseComponent):
     
     **Inputs**:
     
-        su_fluid (str): Inlet fluid.
-        su_T (float): Inlet temperature [K].
-        su_h (float): Inlet specific enthalpy [J/kg].
-        su_p (float): Inlet pressure [Pa].
-        su_m_dot (float): Inlet mass flow rate [kg/s].
+        fluid (str): Inlet fluid.
+        T_su (float): Inlet temperature [K].
+        h_su (float): Inlet specific enthalpy [J/kg].
+        P_su (float): Inlet pressure [Pa].
+        m_dot (float): Inlet mass flow rate [kg/s].
     
     **Outputs**:
     
         For each outlet connector (ex_1, ex_2, ..., ex_n):
             - fluid: Same as inlet fluid.
-            - p: Same as inlet pressure [Pa].
+            - P: Same as inlet pressure [Pa].
             - h: Same as inlet enthalpy [J/kg].
             - m_dot: Mass flow rate for the outlet, computed as `su_m_dot * outlet_repartition[i]` [kg/s].
     
@@ -97,66 +84,15 @@ class Spliter(BaseComponent):
             outlet_num = i + 1
             setattr(self, f"ex_{outlet_num}", MassConnector())
                 
-#%%    
+  
 
     def get_required_inputs(self):
-            self.sync_inputs()
-            # Return a list of required inputs
-            return ['su_p', 'su_T', 'su_m_dot', 'su_fluid']
-    
-    def sync_inputs(self):
-        """Synchronize the inputs dictionary with the connector states."""
-        if self.su.fluid is not None:
-            self.inputs['su_fluid'] = self.su.fluid
-        if self.su.T is not None:
-            self.inputs['su_T'] = self.su.T
-        if self.su.h is not None:
-            self.inputs['su_h'] = self.su.h
-        if self.su.p is not None:
-            self.inputs['su_p'] = self.su.p
-        if self.su.m_dot is not None:
-            self.inputs['su_m_dot'] = self.su.m_dot
+        # Return a list of required inputs
+        return ['P_su', 'T_su', 'm_dot', 'fluid']
 
-    def set_inputs(self, **kwargs):
-        """Set inputs directly through a dictionary and update connector properties."""
-        self.inputs.update(kwargs)
-
-        # Update the connectors based on the new inputs
-        if 'su_fluid' in self.inputs:
-            self.su.set_fluid(self.inputs['su_fluid'])
-        if 'su_T' in self.inputs:
-            self.su.set_T(self.inputs['su_T'])
-        if 'su_h' in self.inputs:
-            self.su.set_T(self.inputs['su_h'])
-        if 'su_p' in self.inputs:
-            self.su.set_p(self.inputs['su_p'])
-        if 'su_m_dot' in self.inputs:
-            self.su.set_m_dot(self.inputs['su_m_dot'])
 
     def get_required_parameters(self):
-        return [
-        ]
-    
-    def print_setup(self):
-        print("=== Pump Setup ===")
-       
-        print("\nInputs:")
-        for input in self.get_required_inputs():
-            if input in self.inputs:
-                print(f"  - {input}: {self.inputs[input]}")
-            else:
-                print(f"  - {input}: Not set")
-
-
-        print("\nParameters:")
-        for param in self.get_required_parameters():
-            if param in self.params:
-                print(f"  - {param}: {self.params[param]}")
-            else:
-                print(f"  - {param}: Not set")
-
-        print("======================")
-#%%
+        return []
 
     def solve(self):
         

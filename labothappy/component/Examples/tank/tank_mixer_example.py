@@ -5,7 +5,7 @@ Created on Fri May 10 14:42:00 2024
 @author: Basile
 """
 
-from component.tank.tank_mixer import Mixer 
+from labothappy.component.tank.tank_mixer import TankMixer 
 from CoolProp.CoolProp import PropsSI
 
 
@@ -13,16 +13,16 @@ from CoolProp.CoolProp import PropsSI
 
 "Instanciation"
 
-Mixer = Mixer(n_inlets = 2)
+Mixer = TankMixer(n_inlets = 2)
  
 Mixer.set_inputs(
     T_su_1 = 50 + 273.15, # K
-    p_su_1 = 2*1e5, # Pa
+    P_su_1 = 2*1e5, # Pa
     m_dot_su_1 = 1, # kg/s
     fluid_su_1 = 'Water',
     
     T_su_2 = 100 + 273.15, # K
-    p_su_2 = 2*1e5, # Pa
+    P_su_2 = 2*1e5, # Pa
     m_dot_su_2 = 1, # kg/s
     fluid_su_2 = 'Water'
     )
