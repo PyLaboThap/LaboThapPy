@@ -67,13 +67,13 @@ class HXEffCstDisc(BaseComponent):
     
     **Outputs**:
     
-        ex_C_h: Cold-Side Exhaust specific enthalpy at outlet [J/kg].
+        h_ex_C: Cold-Side Exhaust specific enthalpy at outlet [J/kg].
         
-        ex_C_p: Cold-Side Exhaust pressure at outlet [Pa].
+        P_ex_C: Cold-Side Exhaust pressure at outlet [Pa].
                     
-        ex_C_h: Hot-Side specific enthalpy at outlet [J/kg].
+        h_ex_H: Hot-Side specific enthalpy at outlet [J/kg].
         
-        ex_C_p: Hot-Side pressure at outlet [Pa].
+        P_ex_H: Hot-Side pressure at outlet [Pa].
         
         Q_dot: Total heat transfer rate across the exchanger [W].
         

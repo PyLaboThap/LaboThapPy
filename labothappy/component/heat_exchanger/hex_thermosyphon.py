@@ -6,14 +6,15 @@ Created on Fri Dec 15 09:59:44 2023
 """
 
 import numpy as np
-from CoolProp.CoolProp import PropsSI
-from scipy.optimize import fsolve, minimize
+import CoolProp.CoolProp as CP
+import matplotlib.pyplot as plt
+from scipy.optimize import fsolve
 
 from connector.mass_connector import MassConnector
 from connector.heat_connector import HeatConnector
 
 from toolbox.nozzle.airflow import nozzle
-from correlations.heat_pipe.HP_h_coeffs import fg_radiative_htc_corr, radiative_htc_fg, external_flow_inline_bank, pool_boiling, external_flow_staggered_bank, ext_conv_boil #, h_cond_Th66, external_flow_finnedtubebank
+from correlations.heat_pipe.HP_h_coeffs import fg_radiative_htc_corr, radiative_htc_fg, external_flow_inline_bank, external_flow_staggered_bank, ext_conv_boil #, h_cond_Th66, external_flow_finnedtubebank
 
 from component.base_component import BaseComponent
 
@@ -64,31 +65,31 @@ class HP_HTX(BaseComponent):
     
     **Inputs**:
 
-        su_H_p: Hot suction side pressure. [Pa]
+        P_su_H: Hot suction side pressure. [Pa]
 
-        su_H_h: Hot suction side enthalpy. [J/kg]
+        h_su_H: Hot suction side enthalpy. [J/kg]
 
-        su_H_fluid: Hot suction side fluid. [-]
+        fluid_H: Hot suction side fluid. [-]
 
-        su_H_m_dot: Hot suction side mass flowrate. [kg/s]
+        m_dot_H: Hot suction side mass flowrate. [kg/s]
 
-        su_C_p: Cold suction side pressure. [Pa]
+        P_su_C: Cold suction side pressure. [Pa]
 
-        su_C_h: Cold suction side enthalpy. [J/kg]
+        h_su_C: Cold suction side enthalpy. [J/kg]
 
-        su_C_fluid: Cold suction side fluid. [-]
+        fluid_C: Cold suction side fluid. [-]
 
-        su_C_m_dot: Cold suction side mass flowrate. [kg/s]
+        m_dot_C: Cold suction side mass flowrate. [kg/s]
 
     **Ouputs**:
 
-        ex_H_h: Hot exhaust side specific enthalpy. [J/kg]
+        h_ex_H: Hot exhaust side specific enthalpy. [J/kg]
 
-        ex_H_p: Hot exhaust side pressure. [Pa]
+        P_ex_H: Hot exhaust side pressure. [Pa]
 
-        ex_C_h: Cold exhaust side specific enthalpy. [J/kg]
+        h_ex_C: Cold exhaust side specific enthalpy. [J/kg]
 
-        ex_C_p: Cold exhaust side pressure. [Pa]
+        P_ex_C: Cold exhaust side pressure. [Pa]
     
         Q_dot: Total heat transfer rate across the exchanger [W].
         
@@ -131,63 +132,12 @@ class HP_HTX(BaseComponent):
     def get_required_inputs(self): # Used in check_calculablle to see if all of the required inputs are set
         self.sync_inputs()
         # Return a list of required inputs
-        return['su_C_fluid', 'su_C_h', 'su_C_m_dot', 'su_H_fluid', 'su_H_T', 'su_H_m_dot']
-    
-    def sync_inputs(self):
-        """Synchronize the inputs dictionary with the connector states."""
-        if self.su_C.fluid is not None:
-            self.inputs['su_C_fluid'] = self.su_C.fluid
-        if self.su_C.h is not None:
-            self.inputs['su_C_h'] = self.su_C.h
-        if self.su_C.T is not None:
-            self.inputs['su_C_T'] = self.su_C.T
-        if self.su_C.m_dot is not None:
-            self.inputs['su_C_m_dot'] = self.su_C.m_dot
-
-        if self.su_H.fluid is not None:
-            self.inputs['su_H_fluid'] = self.su_H.fluid
-        if self.su_H.h is not None:
-            self.inputs['su_H_h'] = self.su_H.h
-        if self.su_H.T is not None:
-            self.inputs['su_H_T'] = self.su_H.T
-        if self.su_H.m_dot is not None:
-            self.inputs['su_H_m_dot'] = self.su_H.m_dot
-
-    def set_inputs(self, **kwargs):
-        """Set inputs directly through a dictionary and update connector properties."""
-        self.inputs.update(kwargs) # This line merges the keyword arguments ('kwargs') passed to the 'set_inputs()' method into the eisting 'self.inputs' dictionary.
-
-        # Update the connectors based on the new inputs
-        if 'su_C_fluid' in self.inputs:
-            self.su_C.set_fluid(self.inputs['su_C_fluid'])
-        if 'su_C_T' in self.inputs:
-            self.su_C.set_T(self.inputs['su_C_T'])
-        if 'su_C_h' in self.inputs:
-            self.su_C.set_h(self.inputs['su_C_h'])
-        if 'su_C_m_dot' in self.inputs:
-            self.su_C.set_m_dot(self.inputs['su_C_m_dot'])
-        if 'su_C_p' in self.inputs:
-            self.su_C.set_p(self.inputs['su_C_p'])
-
-        if 'su_H_fluid' in self.inputs:
-            self.su_H.set_fluid(self.inputs['su_H_fluid'])
-        if 'su_H_T' in self.inputs:
-            self.su_H.set_T(self.inputs['su_H_T'])
-        if 'su_H_h' in self.inputs:
-            self.su_H.set_h(self.inputs['su_H_h'])
-        if 'su_H_m_dot' in self.inputs:
-            self.su_H.set_m_dot(self.inputs['su_H_m_dot'])
-        if 'su_H_p' in self.inputs:
-            self.su_H.set_p(self.inputs['su_H_p'])
-
-        return['su_C_fluid', 'su_C_h', 'su_C_m_dot', 'su_C_p', 'su_H_fluid', 'su_H_h', 'su_H_m_dot', 'su_H_p']
-
-#%%
+        return['fluid_C', 'h_su_C', 'P_su_C', 'm_dot_C', 'h_su_H', 'P_su_H', 'm_dot_H']
 
     def get_required_parameters(self):
         return [
             'p_CO2', 'p_H2O', 'beta', 'D_o', 't', 'F_r', 'k_pipe', 'geo', 'H_core', 'L_core', 'W_core',
-            'coef_evap', 'foul', 'arrang', 'pitch_T', 'pitch_L', 'D_chimney', 'Bank_side'
+            'coef_evap', 'foul', 'arrang', 'pitch_T', 'pitch_L', 'D_chimney', 'Bank_side', 'HP_fluid'
         ]
 
     def print_setup(self):
@@ -252,10 +202,21 @@ class HP_HTX(BaseComponent):
         "1) Get fluid data"
         
         # Liquid properties
-        (P_sat, k_l, rho_l, mu_l, cp_l) = PropsSI(('P','L','D','V','C'), 'T', T_sat, 'Q', 0, fluid) # Sat Pressure, thermal conductivity, density, viscosity, spec. heat capacity
+        self.AS_HP.update(CP.QT_INPUTS, 0, T_sat)
+        
+        P_sat = self.AS_HP.p()
+        k_l = self.AS_HP.conductivity()
+        rho_l = self.AS_HP.rhomass()
+        mu_l = self.AS_HP.viscosity()
+        cp_l = self.AS_HP.cpmass()
+        h_l = self.AS_HP.hmass()
+        
         # Gaseous properties
-        rho_v = PropsSI('D', 'T', T_sat, 'Q', 1, fluid) # density
-        Dh_evap = PropsSI('H','T',T_sat,'Q',1,fluid) - PropsSI('H','T',T_sat,'Q',0,fluid) # Evaporation specific enthalpy J/kg
+        self.AS_HP.update(CP.QT_INPUTS, 1, T_sat)
+        rho_v = self.AS_HP.rhomass()
+        h_v = self.AS_HP.hmass()
+
+        Dh_evap = h_v - h_l # Evaporation specific enthalpy J/kg
         
         "2) Compute figures of merit"
         
@@ -297,8 +258,16 @@ class HP_HTX(BaseComponent):
         
         "1) Fluid properties"
     
-        mu_l = PropsSI('V', 'T', T_sat, 'Q', 1, fluid) # liquid viscosity [Pa*s]
-        Dh_evap = PropsSI('H','T',T_sat,'Q',1,fluid) - PropsSI('H','T',T_sat,'Q',0,fluid) # Evaporation specific enthalpy J/kg
+        # Liquid properties
+        self.AS_HP.update(CP.QT_INPUTS, 0, T_sat)
+        mu_l = self.AS_HP.viscosity()
+        h_l = self.AS_HP.hmass()
+        
+        # Gaseous properties
+        self.AS_HP.update(CP.QT_INPUTS, 1, T_sat)
+        h_v = self.AS_HP.hmass()
+ 
+        Dh_evap = h_v - h_l # Evaporation specific enthalpy J/kg
     
         # Reynolds number
         Re_f = 4*Q_dot_radial/(Dh_evap*mu_l*np.pi*D_i)
@@ -334,7 +303,7 @@ class HP_HTX(BaseComponent):
         
         return (R_cond, R_evap, R_pool, R_film, Re_f)
     
-    def Delta_P_v(self, fluid, D_v, L_eff, Q_dot_radial, T_sat):
+    def Delta_P_v(self, D_v, L_eff, Q_dot_radial, T_sat):
         """
         ---- Inputs : -------- 
             
@@ -359,8 +328,17 @@ class HP_HTX(BaseComponent):
         
         "1) Get fluid data"
         
-        (P_sat, rho_v, mu_v) = PropsSI(('P','D','V'),'T',T_sat,'Q',0,fluid) # Gas : (Pressure : Pa, density : kg/m^3, viscosity : Pa*s) 
-        Dh_evap = PropsSI('H','T',T_sat,'Q',1,fluid) - PropsSI('H','T',T_sat,'Q',0,fluid) # Evaporation specific enthalpy J/kg
+        # Liquid properties
+        self.AS_HP.update(CP.QT_INPUTS, 0, T_sat)   
+        h_l = self.AS_HP.hmass()
+        
+        # Gaseous properties
+        self.AS_HP.update(CP.QT_INPUTS, 1, T_sat)
+        rho_v = self.AS_HP.rhomass()
+        h_v = self.AS_HP.hmass()
+        mu_v = self.AS_HP.viscosity()
+        
+        Dh_evap = h_v - h_l # Evaporation specific enthalpy J/kg
     
         A_v = (np.pi*D_v**2)/4 # vapour cross section area
         # u_v = Q_dot_radial/(A_v*Dh_evap*rho_v)
@@ -432,9 +410,26 @@ class HP_HTX(BaseComponent):
         
         "1) Get fluid data"
         
-        (P_sat, rho_v, mu_v, sigma) = PropsSI(('P','D','V','I'),'T',T_sat,'Q',0,fluid) # Gas : (Pressure : Pa, density : kg/m^3, viscosity : Pa*s, surface tension : N/m) 
-        (rho_l, mu_l) = PropsSI(('D','V'),'T',T_sat,'Q',1,fluid) # Liquid : (Density : kg/m^3, viscosity : Pa*s)
-        Dh_evap = PropsSI('H','T',T_sat,'Q',1,fluid) - PropsSI('H','T',T_sat,'Q',0,fluid) # Evaporation specific enthalpy J/kg
+                
+        # Liquid properties
+        self.AS_HP.update(CP.QT_INPUTS, 0, T_sat)
+        
+        P_sat = self.AS_HP.p()
+        rho_l = self.AS_HP.rhomass()
+        mu_l = self.AS_HP.viscosity()
+        h_l = self.AS_HP.hmass()
+        
+        # Gaseous properties
+        self.AS_HP.update(CP.QT_INPUTS, 1, T_sat)
+        rho_v = self.AS_HP.rhomass()
+        h_v = self.AS_HP.hmass()
+        mu_v = self.AS_HP.viscosity()
+        
+        # 2-Phase Properties
+        self.AS_HP.update(CP.QT_INPUTS, 0.5, T_sat)
+        sigma = self.AS_HP.surface_tension()
+        
+        Dh_evap = h_v - h_l # Evaporation specific enthalpy J/kg
             
         "2) Parameter F_1"
         
@@ -503,8 +498,8 @@ class HP_HTX(BaseComponent):
         "System to be solved using fsolve in the thermosyphon_model function, look there for variable descriptions"
     
         # Unknowns and parameters
-        (P_v_c, P_v_e, Q_dot_axial, Q_dot_radial, T_v_c, T_v_e, T_wc, T_wc_i, T_wc_o, T_we, T_we_i, T_we_o, DP_v, T_c_o_su, T_e_o_ex, P_evap_ex, R_tube_tot) = p # Unknowns
-        (fluid, fluid_cd, F_r, D_i, L_e, L_c, L_eff, T_e_o_su, T_c_o_ex, R_axial, A_c_o, A_e_o, R_wc, R_we, S_T, S_L, P_cond_ex, u_wf_in, N_col, D_o, M_dot_wf, L_M, p_CO2, p_H2O, P_evap_su, M_dot_g, u_gas_fume, h_wf, foul, arrang, f_0, f_1, f_2, f_3) = param # Parameters
+        (P_HP_c, P_HP_h, Q_dot_axial, Q_dot_radial, T_HP_c, T_HP_h, T_wc, T_wc_i, T_wc_o, T_we, T_we_i, T_we_o, DP_v, T_c_o_su, T_e_o_ex, P_evap_ex, R_tube_tot) = p # Unknowns
+        (fluid, su_C_fluid, F_r, D_i, L_e, L_c, L_eff, T_e_o_su, T_c_o_ex, R_axial, A_c_o, A_e_o, R_wc, R_we, S_T, S_L, P_cond_ex, u_wf_in, N_col, D_o, M_dot_wf, L_M, p_CO2, p_H2O, P_evap_su, M_dot_g, u_h, h_wf, foul, arrang, f_0, f_1, f_2, f_3) = param # Parameters
     
         if np.isnan(T_e_o_ex) or np.isnan(T_we_o): # or np.isnan(h_e_o):
             print("NAN_in")
@@ -514,19 +509,18 @@ class HP_HTX(BaseComponent):
         # heat coefficients and resistances for the condenser  
     
         try: 
-            h_wf = PropsSI('H', 'P',P_cond_ex,'T',T_c_o_ex,fluid_cd)    
+            self.AS_C.update(CP.PT_INPUTS, P_cond_ex, T_c_o_ex)
             flag_1_phase = 1
         except:
             flag_1_phase = 0
     
         if flag_1_phase == 1:        
             if arrang == 'Inline':
-                (h_c_o,DP_cond,Nu_cond,Re_cond,V_max_oil) = external_flow_inline_bank(fluid_cd, T_c_o_su, T_c_o_ex, T_wc_o, P_cond_ex, u_wf_in, N_col, D_o, S_T, S_L)[0:5]
-                h_wf_ex = PropsSI('H', 'P',P_cond_ex,'T',T_c_o_ex,fluid_cd)
+                (h_c_o,DP_cond,Nu_cond,Re_cond,V_max_oil) = external_flow_inline_bank(self.AS_C, T_c_o_su, T_c_o_ex, T_wc_o, P_cond_ex, u_wf_in, N_col, D_o, S_T, S_L)[0:5]                
             else:
-                (h_c_o,DP_cond,Nu_cond,Re_cond,V_max_oil) = external_flow_staggered_bank(fluid_cd, T_c_o_su, T_c_o_ex, T_wc_o, P_cond_ex, u_wf_in, N_col, D_o, S_T, S_L)[0:5]
+                (h_c_o,DP_cond,Nu_cond,Re_cond,V_max_oil) = external_flow_staggered_bank(self.AS_C, T_c_o_su, T_c_o_ex, T_wc_o, P_cond_ex, u_wf_in, N_col, D_o, S_T, S_L)[0:5]
         else: 
-            h_c_o = ext_conv_boil(D_o, fluid_cd, T_c_o_ex, T_wc_o, u_wf_in)        
+            h_c_o = ext_conv_boil(D_o, self.AS_C, T_c_o_ex, T_wc_o, u_wf_in)        
         
         R_c_o = (1+foul)/(A_c_o*h_c_o) # condenser external thermal resistance : takes into account the fouling factor
         
@@ -534,34 +528,38 @@ class HP_HTX(BaseComponent):
         h_r_e_o = radiative_htc_fg(p_CO2, p_H2O, (T_e_o_su + T_e_o_ex)/2, T_we_o, L_M,f_0,f_1,f_2,f_3)
         
         if arrang == 'Inline':
-            (h_c_e_o, DP_evap, Nu_evap, Re_evap,V_max_air) = external_flow_inline_bank('Air', T_e_o_su, T_e_o_ex, T_we_o, P_evap_su, u_gas_fume, N_col, D_o, S_T, S_L)[0:5]
+            (h_c_e_o, DP_evap, Nu_evap, Re_evap, V_max_air) = external_flow_inline_bank(self.AS_H, T_e_o_su, T_e_o_ex, T_we_o, P_evap_su, u_h, N_col, D_o, S_T, S_L)[0:5]
         else: 
-            (h_c_e_o, DP_evap, Nu_evap, Re_evap,V_max_air) = external_flow_staggered_bank('Air', T_e_o_su, T_e_o_ex, T_we_o, P_evap_su, u_gas_fume, N_col, D_o, S_T, S_L)[0:5]
+            (h_c_e_o, DP_evap, Nu_evap, Re_evap, V_max_air) = external_flow_staggered_bank(self.AS_H, T_e_o_su, T_e_o_ex, T_we_o, P_evap_su, u_h, N_col, D_o, S_T, S_L)[0:5]
     
         h_e_o = h_r_e_o + h_c_e_o
         R_e_o = (1+foul)/(A_e_o*h_e_o) # condenser external thermal resistance : takes into account the fouling factor
         
         # Pressure drop
-    
-        f1 = PropsSI('P', 'T', T_v_e, 'Q', 1, fluid) - P_v_e # Saturation temperature at evaporator
-        f2 = self.Delta_P_v(fluid, D_i, L_eff, Q_dot_radial, T_v_e) - DP_v
         
-        f3 = P_v_e - DP_v - P_v_c # Pressure at condenser side => Impacts condenser saturation temperaturee
-        f4 = PropsSI('T', 'P', P_v_c, 'Q', 1, fluid) - T_v_c
+        self.AS_HP.update(CP.QT_INPUTS, 1, T_HP_h)
+        
+        f1 = self.AS_HP.p() - P_HP_h # Saturation temperature at evaporator
+        f2 = self.Delta_P_v(D_i, L_eff, Q_dot_radial, T_HP_h) - DP_v
+
+        self.AS_HP.update(CP.PQ_INPUTS, P_HP_c, 1)
+        
+        f3 = P_HP_h - DP_v - P_HP_c # Pressure at condenser side => Impacts condenser saturation temperaturee
+        f4 = self.AS_HP.T() - T_HP_c
         
         # Thermosiphon internal sides thermal resistances
         
-        (R_cond_i, R_evap_i, R_pool, R_film, Re_f) = self.thermal_res_esdu(fluid, F_r, D_i, L_c, L_e, Q_dot_radial, T_v_e)
+        (R_cond_i, R_evap_i, R_pool, R_film, Re_f) = self.thermal_res_esdu(fluid, F_r, D_i, L_c, L_e, Q_dot_radial, T_HP_h)
         
         # Heat balances
         
         # Evaporator
         f5 = (T_e_o_su - T_we_o)/R_e_o - Q_dot_axial - Q_dot_radial # Heat transfer from outside fluid to evap wall
         f6 = (T_we_o - T_we_i)/R_we - Q_dot_radial # Heat transfer through evap wall
-        f7 = (T_we_i - T_v_e)/R_evap_i - Q_dot_radial # Heat transfer from evap wall to thermosyphon fluid
+        f7 = (T_we_i - T_HP_h)/R_evap_i - Q_dot_radial # Heat transfer from evap wall to thermosyphon fluid
         
         # Condenser
-        f8 = (T_v_c - T_wc_i)/R_cond_i - Q_dot_radial # Heat transfer from thermosyphon fluid to cond wall 
+        f8 = (T_HP_c - T_wc_i)/R_cond_i - Q_dot_radial # Heat transfer from thermosyphon fluid to cond wall 
         f9 = (T_wc_i - T_wc_o)/R_wc - Q_dot_radial # Heat transfer through cond wall
         f10 = (T_wc_o - T_c_o_su)/R_c_o - Q_dot_axial - Q_dot_radial # Heat transfer from cond wall to outside fluid 
     
@@ -572,24 +570,26 @@ class HP_HTX(BaseComponent):
         f13 = (T_we - T_wc)/R_axial - Q_dot_axial
         
         if flag_1_phase == 1:
-            cp_wf = PropsSI('C', 'P', P_cond_ex, 'T', T_c_o_su, fluid_cd) # [J/(kg*K)]
+            self.AS_C.update(CP.PT_INPUTS, P_cond_ex, T_c_o_su)
+            
+            cp_wf = self.AS_C.cpmass()
             f14 = T_c_o_su + (Q_dot_axial + Q_dot_radial)/(M_dot_wf*cp_wf) - T_c_o_ex
         else:
             f14 = T_c_o_su - T_c_o_ex        
         
-        cp_g = PropsSI('C', 'P', P_evap_su,'T',(T_e_o_ex + T_e_o_su)/2,'Air')
+        self.AS_C.update(CP.PT_INPUTS, P_evap_su, (T_e_o_ex + T_e_o_su)/2)
+        cp_H = self.AS_H.cpmass() # PrI('C', 'P', P_evap_su,'T',(T_e_o_ex + T_e_o_su)/2,'Air')
         
-        f15 = T_e_o_su - (Q_dot_axial + Q_dot_radial)/(M_dot_g*cp_g) - T_e_o_ex
+        f15 = T_e_o_su - (Q_dot_axial + Q_dot_radial)/(M_dot_g*cp_H) - T_e_o_ex
         f16 = P_evap_su - DP_evap - P_evap_ex  
         
-        R_DP = abs((T_v_e - T_v_c)/Q_dot_radial)
-        A_in = (np.pi/4)*D_i**2
+        R_DP = abs((T_HP_h - T_HP_c)/Q_dot_radial)
         
         f17 = ((R_we + R_evap_i+ R_DP + R_cond_i + R_wc)**(-1) + R_axial**(-1))**(-1) - R_tube_tot
     
-        return (f1, f2, f3, f4, f5[0], f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17)
+        return (f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17)
 
-    def thermosyphon_model(self, vect_init, T_e_o_su, T_c_o_ex, P_evap_su, P_cond_ex, u_gas_fume, M_dot_g, u_wf_in, M_dot_wf, h_wf):
+    def thermosyphon_model(self, vect_init, T_e_o_su, T_c_o_ex, P_evap_su, P_cond_ex, u_h, M_dot_g, u_wf_in, M_dot_wf, h_wf):
     
         """
         ---- Inputs : -------- 
@@ -616,7 +616,7 @@ class HP_HTX(BaseComponent):
         S_T : Tranversal pitch [m]
         T_c_o : Temperature of the fluid supply outside the condenser [K]
         T_e_o : Temperature of the fluid supply outside the evaporator (fume gases) [K]
-        u_gas_fume : Flow speed of fume gases in the evaporator [m/s]
+        u_h : Flow speed of hot fluid [m/s]
         u_wf_in : Flow speed of oil in the condenser [m/s]
         A_casing : Casing area [m^2]
         W_casing : Casing width [m]
@@ -629,8 +629,8 @@ class HP_HTX(BaseComponent):
         
         Q_dot : Heat transfer rate through the thermpsyphon [W]
         T_we_o : Surface temperature at the outside of the evaporator [K]
-        P_v_e : Pressure in the evaporation zone [Pa] 
-        T_v_e : Temperature in the evaporation zone [K]
+        P_HP_h : Pressure in the evaporation zone [Pa] 
+        T_HP_h : Temperature in the evaporation zone [K]
         m_dot_v : Gas mass flowrate in the thermosyphon [kg/s]
         P_cond_ex : Pressure of oil after the tube [Pa]
         P_evap_ex : Pressure of fume gases after the tube [Pa]
@@ -645,14 +645,14 @@ class HP_HTX(BaseComponent):
             
         T_we_o : Surface temperature at the outside of the evaporator [K]
         T_we_i : Surface temperature at the inside of the evaporator [K]
-        T_v_e : Temperature in the evaporation zone [K]
+        T_HP_h : Temperature in the evaporation zone [K]
         T_wc_o : Surface temperature at the outside of the condenser [K]
         T_wc_i : Surface temperature at the outside of the condenser [K]
-        T_v_c : Temperature in the condensing zone [K]
+        T_HP_c : Temperature in the condensing zone [K]
         Q_dot_axial : Heat transfer rate in the thermosyphon wall in the axial direction [K]
         R_axial : Heat transfer resistance of the thermosyphon wall in the axial direction [W/K]
-        P_v_e : Pressure in the evaporation zone [Pa]
-        P_v_c : Pressure in the condensing zone [Pa]
+        P_HP_h : Pressure in the evaporation zone [Pa]
+        P_HP_c : Pressure in the condensing zone [Pa]
         m_dot_v : Gas mass flowrate in the thermosyphon [kg/s]
         V_dot_v : Gas volume flowrate in the thermosyphon [m^3/s]
         V_v : Gas velocity in the thermosyphon [m/s]
@@ -672,10 +672,7 @@ class HP_HTX(BaseComponent):
         L_eff = self.L_a + (self.L_e + self.L_c)/2 # Thermosyphon effective length
         
         A_e_o = np.pi*self.L_e*self.params['D_o'] # evaporator ext area
-        A_e_i = np.pi*self.L_e*self.D_i # evaporator int area
-        A_c_o = np.pi*self.L_c*self.params['D_o'] 
-            
-        A_c_i = np.pi*self.L_c*self.D_i # condenser int area
+        A_c_o = np.pi*self.L_c*self.params['D_o']        
         A_axial = (np.pi/4)*(self.params['D_o']**2 - self.D_i**2) # tube annuli cross section area
         
         "2) Determine thermal resistances"
@@ -687,42 +684,37 @@ class HP_HTX(BaseComponent):
         "3) System of equations : determine temperatures and heat rates"
         
         x_init = vect_init
-        syst_param = (self.HP_fluid, self.su_C.fluid, self.params['F_r'], self.D_i, self.L_e, self.L_c, L_eff, T_e_o_su, T_c_o_ex, R_axial, A_c_o, A_e_o, R_wc, R_we, self.S_T, self.S_L, P_cond_ex, u_wf_in, self.N_col, self.params['D_o'], M_dot_wf, self.L_M, self.params['p_CO2'], self.params['p_H2O'], P_evap_su, M_dot_g, u_gas_fume, h_wf, self.params['foul'], self.params['arrang'], self.f_0, self.f_1, self.f_2, self.f_3)
+        syst_param = (self.AS_HP.fluid_names()[0], self.su_C.fluid, self.params['F_r'], self.D_i, self.L_e, self.L_c, L_eff, T_e_o_su, T_c_o_ex, R_axial, A_c_o, A_e_o, R_wc, R_we, self.S_T, self.S_L, P_cond_ex, u_wf_in, self.N_col, self.params['D_o'], M_dot_wf, self.L_M, self.params['p_CO2'], self.params['p_H2O'], P_evap_su, M_dot_g, u_h, h_wf, self.params['foul'], self.params['arrang'], self.f_0, self.f_1, self.f_2, self.f_3)
     
         (sol) = fsolve(self.equ_syst, x0 = x_init, args = syst_param)
         
-        (P_v_c, P_v_e, Q_dot_axial, Q_dot_radial, T_v_c, T_v_e, T_wc, T_wc_i, T_wc_o, T_we, T_we_i, T_we_o, DP_v, T_c_o_su, T_e_o_ex, P_evap_ex, R_tube_tot) = sol
+        (P_HP_c, P_HP_h, Q_dot_axial, Q_dot_radial, T_HP_c, T_HP_h, T_wc, T_wc_i, T_wc_o, T_we, T_we_i, T_we_o, DP_v, T_c_o_su, T_e_o_ex, P_evap_ex, R_tube_tot) = sol
     
         # Compute air velocities
-        V_max_air, a_gas_fume = external_flow_inline_bank('Air', T_e_o_su, T_e_o_ex, T_we_o, P_evap_su, u_gas_fume, self.N_col, self.params['D_o'], self.S_T, self.S_L)[4:6]
+        V_max_air, a_gas_fume = external_flow_inline_bank(self.AS_H, T_e_o_su, T_e_o_ex, T_we_o, P_evap_su, u_h, self.N_col, self.params['D_o'], self.S_T, self.S_L)[4:6]
         
         "4) Results computation"
-        
-        # Phase change heats at both thermosyphon ends
-        Dh_evap_e = PropsSI('H', 'P', P_v_e, 'Q', 1, self.HP_fluid)-PropsSI('H', 'P', P_v_e, 'Q', 0, self.HP_fluid)
-        Dh_evap_c = PropsSI('H', 'P', P_v_c, 'Q', 1, self.HP_fluid)-PropsSI('H', 'P', P_v_c, 'Q', 0, self.HP_fluid)
-        
+                        
         # heat transfer coefficients
         try: 
-            h_wf = PropsSI('H', 'P',P_cond_ex,'T',T_c_o_ex,self.su_C.fluid)    
+            self.AS_C.update(CP.PT_INPUTS, P_cond_ex, T_c_o_ex)
             flag_1_phase = 1
         except:
             flag_1_phase = 0
         
         if flag_1_phase == 1:        
             if self.params['arrang'] == 'Inline':
-                (h_c_o,DP_cond,Nu_cond,Re_cond,V_max_oil) = external_flow_inline_bank(self.su_C.fluid, T_c_o_su, T_c_o_ex, T_wc_o, P_cond_ex, u_wf_in, self.N_col, self.params['D_o'], self.S_T, self.S_L)[0:5]
-                h_wf_ex = PropsSI('H', 'P',P_cond_ex,'T',T_c_o_ex,self.su_C.fluid)
+                (h_c_o,DP_cond,Nu_cond,Re_cond,V_max_oil) = external_flow_inline_bank(self.AS_C, T_c_o_su, T_c_o_ex, T_wc_o, P_cond_ex, u_wf_in, self.N_col, self.params['D_o'], self.S_T, self.S_L)[0:5]
             else:
-                (h_c_o,DP_cond,Nu_cond,Re_cond,V_max_oil) = external_flow_staggered_bank(self.su_C.fluid, T_c_o_su, T_c_o_ex, T_wc_o, P_cond_ex, u_wf_in, self.N_col, self.params['D_o'], self.S_T, self.S_L)[0:5]
+                (h_c_o,DP_cond,Nu_cond,Re_cond,V_max_oil) = external_flow_staggered_bank(self.AS_C, T_c_o_su, T_c_o_ex, T_wc_o, P_cond_ex, u_wf_in, self.N_col, self.params['D_o'], self.S_T, self.S_L)[0:5]
         
         else: 
-            h_c_o = ext_conv_boil(self.params['D_o'], self.su_C.fluid, T_c_o_ex, T_wc_o, u_wf_in)        
+            h_c_o = ext_conv_boil(self.params['D_o'], self.AS_C, T_c_o_ex, T_wc_o, u_wf_in)        
             
         if self.params['arrang'] == 'Inline':
-            (h_e_o, DP_evap, Nu_evap, Re_evap,V_max_air) = external_flow_inline_bank(self.su_H.fluid, T_e_o_su, T_e_o_ex, T_we_o, P_evap_su, u_gas_fume, self.N_col, self.params['D_o'], self.S_T, self.S_L)[0:5]
+            (h_e_o, DP_evap, Nu_evap, Re_evap,V_max_air) = external_flow_inline_bank(self.AS_H, T_e_o_su, T_e_o_ex, T_we_o, P_evap_su, u_h, self.N_col, self.params['D_o'], self.S_T, self.S_L)[0:5]
         else: 
-            (h_e_o, DP_evap, Nu_evap, Re_evap,V_max_air) = external_flow_staggered_bank(self.su_H.fluid, T_e_o_su, T_e_o_ex, T_we_o, P_evap_su, u_gas_fume, self.N_col, self.params['D_o'], self.S_T, self.S_L)[0:5]
+            (h_e_o, DP_evap, Nu_evap, Re_evap,V_max_air) = external_flow_staggered_bank(self.AS_H, T_e_o_su, T_e_o_ex, T_we_o, P_evap_su, u_h, self.N_col, self.params['D_o'], self.S_T, self.S_L)[0:5]
         
         R_c_o = 1/(A_c_o*h_c_o)
         R_e_o = 1/(A_e_o*h_e_o)
@@ -730,19 +722,11 @@ class HP_HTX(BaseComponent):
         # Results
         
         Q_dot = Q_dot_radial + Q_dot_axial
-        
-        m_dot_v = Q_dot_radial/Dh_evap_e # gas mass flow rate
-        V_dot_v = m_dot_v/PropsSI('D', 'P', P_v_e, 'Q', 1, self.HP_fluid) # gas volumic flow rate
-        V_v = V_dot_v/((np.pi*self.D_i**2)/4) # gas velocity in thermosyphon
-        
-        m_dot_l = Q_dot_radial/Dh_evap_c # gas mass flow rate
-        V_dot_l = m_dot_l/PropsSI('D', 'P', P_v_c, 'Q', 0, self.HP_fluid) # gas volumic flow rate
-        V_l = V_dot_l/((np.pi*self.D_i**2)/4) # gas velocity in thermosyphon
-        
+                
         "5) Operating limits"
-        (Q_dot_ent, Q_dot_boil, Q_dot_son, Q_dot_dry, Q_dot_vap) = self.operating_limits(self.HP_fluid, self.params['F_r'], self.D_i, self.L_e, self.params['beta'], self.params['geo'], T_v_e)
+        (Q_dot_ent, Q_dot_boil, Q_dot_son, Q_dot_dry, Q_dot_vap) = self.operating_limits(self.AS_HP.fluid_names()[0], self.params['F_r'], self.D_i, self.L_e, self.params['beta'], self.params['geo'], T_HP_h)
     
-        return (Q_dot, T_wc_o, T_we_o, P_v_e, T_v_e, m_dot_v, P_evap_ex, V_max_air, a_gas_fume, R_tube_tot, R_e_o, R_c_o)  
+        return (Q_dot, T_wc_o, T_we_o, P_HP_h, T_HP_h, P_evap_ex, V_max_air, a_gas_fume, R_tube_tot, R_e_o, R_c_o)  
 
 
 #%%            
@@ -778,58 +762,53 @@ class HP_HTX(BaseComponent):
         self.A_casing = self.W_casing*self.h_casing  # m^2 : cross-section area of thermosyphon evaporator
         
         # Vector for containing
-        T_fg = np.zeros(self.N_col+1)
-        P_fg = np.zeros(self.N_col+1)
+        self.T_h = np.zeros(self.N_col+1)
+        self.P_h = np.zeros(self.N_col+1)
         
-        T_wf = np.zeros(self.N_col+1)
-        h_wf = np.zeros(self.N_col+1)
+        self.T_c = np.zeros(self.N_col+1)
+        self.h_c = np.zeros(self.N_col+1)
         
-        Q_dot_row = np.zeros(self.N_col)
+        self.Q_dot_row = np.zeros(self.N_col)
         Q_dot_tube = np.zeros(self.N_col)
-        T_v_e = np.zeros(self.N_col)
+        self.T_HP_h = np.zeros(self.N_col)
         
-        T_wc_o = np.zeros(self.N_col)
-        T_we_o = np.zeros(self.N_col)
+        self.T_wc_o = np.zeros(self.N_col)
+        self.T_we_o = np.zeros(self.N_col)
         
-        P_v_e = np.zeros(self.N_col)
-        
-        m_dot_v = np.zeros(self.N_col)
-        
-        R_tot_tube = np.zeros(self.N_col)  
-        R_c_o = np.zeros(self.N_col)  
-        R_e_o = np.zeros(self.N_col)  
+        self.P_HP_h = np.zeros(self.N_col)
+                
+        self.R_tot_tube = np.zeros(self.N_col)  
+        self.R_c_o = np.zeros(self.N_col)  
+        self.R_e_o = np.zeros(self.N_col)  
         
         "2) External fluids data"
-    
-        self.HP_fluid = "Water"
-    
+        
         "2.1) Flue gases"
     
         A_chimney = (np.pi/4)*self.params['D_chimney']**2
     
         # Thermo state related :
-        cp_fg_in = PropsSI('C', 'T', self.su_H.T,'P', self.su_H.p, self.su_H.fluid)
+        self.AS_H.update(CP.HmassP_INPUTS, self.su_H.h, self.su_H.p)
+        cp_h_in = self.AS_H.cpmass()
     
         # Flow rate related
-        V_dot_gas_fume = self.su_H.m_dot / PropsSI('D', 'T', self.su_H.T, 'P', self.su_H.p, self.su_H.fluid)
-        u_fg_chimney = V_dot_gas_fume/A_chimney
+        V_dot_h = self.su_H.m_dot / self.su_H.D
+        u_h_chimney = V_dot_h/A_chimney
     
         "Nozzle computation - HTX Inlet"
-        (u_gas_fume, T_fg[0], P_fg[0]) = nozzle(self.su_H.m_dot, self.su_H.T, cp_fg_in, u_fg_chimney, self.su_H.p, A_chimney, self.A_casing)
+        (u_h, self.T_h[0], self.P_h[0]) = nozzle(self.su_H.m_dot, self.su_H.T, cp_h_in, u_h_chimney, self.su_H.p, A_chimney, self.A_casing)
             
-        DP_gas_nozzle = self.su_H.p - P_fg[0]
+        DP_gas_nozzle = self.su_H.p - self.P_h[0]
         DP_gas_nozzle_vect = DP_gas_nozzle
         
-        "2.3) Evaporating Working Fluid"
-    
-        T_sat_wf = PropsSI('T','P',self.su_C.p,'Q',0,self.su_C.fluid)
-        
-        T_wf[0] = PropsSI('T', 'P',self.su_C.p,'H',h_wf_out_guess, self.su_C.fluid) # [K]
+        "2.3) Evaporating Working Fluid"     
+        self.AS_C.update(CP.HmassP_INPUTS, h_wf_out_guess, self.su_C.p)
+        self.T_c[0] = self.AS_C.T()
             
         H_casing = self.L_c + 0.02  # [m] height of oil divergent
         self.A_casing = H_casing*self.W_casing
     
-        rho_wf_in = PropsSI('D', 'P',self.su_C.p,'H',h_wf_out_guess,self.su_C.fluid)  # [kg/m^3] : oil density at 110°C
+        rho_wf_in = self.AS_C.rhomass()  # [kg/m^3] : oil density at 110°C
         V_dot_wf = self.su_C.m_dot/rho_wf_in  # [m^3/s] : Oil volumetric flow rate
     
         u_wf_in = V_dot_wf/self.A_casing  # [m/s] : Oil velocity in the casing
@@ -837,54 +816,65 @@ class HP_HTX(BaseComponent):
         "3) Thermosyphon Simulation"
             
         vect_init = (7*101325, 7*101325, 1000, 1000, 635.15, 635.15, 635.15, 635.15, 635.15, 635.15, 635.15, 635.15, 0, 513.15, 635.15, 101325,50) # First initial conditions
-        # P_v_c, P_v_e, Q_dot_axial, Q_dot_radial, T_v_c, T_v_e, T_wc, T_wc_i, T_wc_o, T_we, T_we_i, T_we_o, DP_v, T_c_o_ex, T_e_o_ex, P_evap_ex, R_tube_tot
-        DP_air = 0
+        # P_HP_c, P_HP_h, Q_dot_axial, Q_dot_radial, T_HP_c, T_HP_h, T_wc, T_wc_i, T_wc_o, T_we, T_we_i, T_we_o, DP_v, T_c_o_ex, T_e_o_ex, P_evap_ex, R_tube_tot
+        DP_h = 0
         
         for i in range(self.N_col):
             R_tot_tube_mean = 0
             R_e_o_mean = 0
             R_c_o_mean = 0
             
-            (Q_dot_tube[i], T_wc_o[i], T_we_o[i], P_v_e[i], T_v_e[i], m_dot_v[i], P_fg[i+1], V_max_air, a_gf, R_tot_tube[i], R_e_o[i], R_c_o[i]) = self.thermosyphon_model(vect_init, T_fg[i], T_wf[i], P_fg[i], self.su_C.p, u_gas_fume, self.su_H.m_dot, u_wf_in, self.su_C.m_dot, h_wf)  # call of the model for one tube
+            (Q_dot_tube[i], self.T_wc_o[i], self.T_we_o[i], self.P_HP_h[i], self.T_HP_h[i], self.P_h[i+1], V_max_air, a_gf, self.R_tot_tube[i], self.R_e_o[i], self.R_c_o[i]) = self.thermosyphon_model(vect_init, self.T_h[i], self.T_c[i], self.P_h[i], self.su_C.p, u_h, self.su_H.m_dot, u_wf_in, self.su_C.m_dot, self.h_c)  # call of the model for one tube
                         
-            DP_air = DP_air + P_fg[i]-P_fg[i+1]
+            DP_h = DP_h + self.P_h[i]-self.P_h[i+1]
     
-            Q_dot_row[i] = Q_dot_tube[i]*self.N_tubes_row
+            self.Q_dot_row[i] = Q_dot_tube[i]*self.N_tubes_row
     
-            cp_g = PropsSI('C', 'P', P_fg[i], 'T', T_fg[i], self.su_H.fluid)
-            T_fg[i+1] = T_fg[i] - Q_dot_row[i]/(cp_g*self.su_H.m_dot)
+            self.AS_H.update(CP.PT_INPUTS, self.P_h[i], self.T_h[i])
+    
+            cp_h = self.AS_H.cpmass()
+            self.T_h[i+1] = self.T_h[i] - self.Q_dot_row[i]/(cp_h*self.su_H.m_dot)
             
             if i == 0:
-                h_wf[i] = PropsSI('H', 'P', self.su_C.p, 'T', T_wf[i], self.su_C.fluid)
+                self.AS_C.update(CP.PT_INPUTS, self.su_C.p, self.T_c[i])
+                self.h_c[i] = self.AS_C.hmass()
                 
-            h_wf_row = h_wf[i] - Q_dot_row[i]/self.su_C.m_dot
-            h_wf[i+1] = h_wf_row
+            self.h_c[i+1] = self.h_c[i] - self.Q_dot_row[i]/self.su_C.m_dot
             
-            T_wf[i+1] = PropsSI('T', 'P', self.su_C.p, 'H', h_wf_row, self.su_C.fluid)
+            try:
+                self.AS_C.update(CP.HmassP_INPUTS, self.h_c[i+1], self.su_C.p)
+                self.T_c[i+1] = self.AS_C.T()
+            except:
+                self.AS_C.update(CP.HmassP_INPUTS, self.h_c[i+1]-10, self.su_C.p)
+                self.T_c[i+1] = self.AS_C.T()
+                
+            R_tot_tube_mean = R_tot_tube_mean + self.R_tot_tube[i]
+            R_e_o_mean = R_e_o_mean + self.R_e_o[i]
+            R_c_o_mean = R_c_o_mean + self.R_c_o[i]
             
-            R_tot_tube_mean = R_tot_tube_mean + R_tot_tube[i]
-            R_e_o_mean = R_e_o_mean + R_e_o[i]
-            R_c_o_mean = R_c_o_mean + R_c_o[i]
-            
-            vect_init = (P_v_e[i],P_v_e[i],1000,Q_dot_tube[i],T_v_e[i],T_v_e[i],T_wc_o[i],T_wc_o[i],T_wc_o[i],T_we_o[i],T_we_o[i],T_we_o[i], 0, T_wf[i+1], T_fg[i+1], P_fg[i+1],R_tot_tube[i])
-                        # P_v_c, P_v_e, Q_dot_axial, Q_dot_radial, T_v_c, T_v_e, T_wc, T_wc_i, T_wc_o, T_we, T_we_i, T_we_o, DP_v, T_c_o_ex, T_e_o_ex, P_evap_ex, R_tube_tot
-            
-        rho_fg_out = PropsSI('D', 'T',T_fg[-1],'P',P_fg[-1],'air')
+            vect_init = (self.P_HP_h[i],self.P_HP_h[i],1000,Q_dot_tube[i],self.T_HP_h[i],self.T_HP_h[i],self.T_wc_o[i],self.T_wc_o[i],self.T_wc_o[i],self.T_we_o[i],self.T_we_o[i],self.T_we_o[i], 0, self.T_c[i+1], self.T_h[i+1], self.P_h[i+1], self.R_tot_tube[i])
+                        # P_HP_c, P_HP_h, Q_dot_axial, Q_dot_radial, T_HP_c, T_HP_h, T_wc, T_wc_i, T_wc_o, T_we, T_we_i, T_we_o, DP_v, T_c_o_ex, T_e_o_ex, P_evap_ex, R_tube_tot
+                
+        self.AS_H.update(CP.PT_INPUTS, self.P_h[-1], self.T_h[-1])
+        rho_h_out = self.AS_H.rhomass()
         
-        V_dot_gas_fume_out = self.su_H.m_dot/rho_fg_out
-        u_gas_fume_out = V_dot_gas_fume_out/self.A_casing
+        V_dot_h_out = self.su_H.m_dot/rho_h_out
+        u_h_out = V_dot_h_out/self.A_casing
         
         "Nozzle computation - HTX Inlet"
-        (u_fg_out, T_fg_out, P_fg_out) = nozzle(self.su_H.m_dot, T_fg[-1], cp_g, u_gas_fume_out, P_fg[-1], self.A_casing, A_chimney)
+        (u_h_out, T_h_out, P_h_out) = nozzle(self.su_H.m_dot, self.T_h[-1], cp_h, u_h_out, self.P_h[-1], self.A_casing, A_chimney)
         
         # print((P_gas_fume_out - P_gas_fume[-1]))
         
-        DP_gas_nozzle_vect = DP_gas_nozzle_vect + (P_fg_out - P_fg[-1])
+        DP_gas_nozzle_vect = DP_gas_nozzle_vect + (P_h_out - self.P_h[-1])
             
-        return T_wf[-1], h_wf[-1], h_wf[0], P_fg_out, T_fg_out
+        return self.T_c[-1], self.h_c[-1], self.h_c[0], P_h_out, T_h_out
            
-    #------------------------------------------------------------------------
-    def solve(self, n_it_max, res_tol, C_T_out_guess_1, C_T_out_guess_2):
+#%%
+
+    def solve(self, Tc_out_guess_1, Tc_out_guess_2, res_tol = 1e-3, n_it_max = 20, print_flag = 0):        
+        
+        # ---- Initialize -------------
         
         self.check_calculable()
         self.check_parametrized()
@@ -897,10 +887,14 @@ class HP_HTX(BaseComponent):
             print("Heat Exchanger Parameters not fully known.")
             return    
       
-        if C_T_out_guess_1 > C_T_out_guess_2:
-            temp = C_T_out_guess_1
-            C_T_out_guess_2 = C_T_out_guess_1
-            C_T_out_guess_2 = temp
+        self.AS_H  = CP.AbstractState('HEOS', self.su_H.fluid)
+        self.AS_C  = CP.AbstractState('HEOS', self.su_C.fluid)
+        self.AS_HP = CP.AbstractState('HEOS', self.params['HP_fluid']) 
+        
+        if Tc_out_guess_1 > Tc_out_guess_2:
+            temp = Tc_out_guess_1
+            Tc_out_guess_2 = Tc_out_guess_1
+            Tc_out_guess_2 = temp
         
         if self.params['arrang'] == "inline":
             self.set_parameters(arrang = "Inline")
@@ -910,18 +904,20 @@ class HP_HTX(BaseComponent):
         
         [self.f_0, self.f_1, self.f_2, self.f_3] = fg_radiative_htc_corr()
         
-        C_h_in = PropsSI('H','P', self.su_C.p,'T', self.su_C.T,self.su_C.fluid)
-        
-        C_T_out_guess = (C_T_out_guess_1 + C_T_out_guess_2)/2
-        C_h_out_guess = PropsSI('H','P', self.su_C.p,'T', C_T_out_guess, self.su_C.fluid)    
-    
         n_it = 0
         self.res = 10000
-    
+            
         import warnings
-    
-        # Ignore all RuntimeWarnings
         warnings.filterwarnings("ignore", category=RuntimeWarning)
+        
+        # ---- Guess cold outlet state -------------
+        
+        Tc_out_guess = (Tc_out_guess_1 + Tc_out_guess_2)/2
+        
+        self.AS_C.update(CP.PT_INPUTS, self.su_C.p, Tc_out_guess)
+        hc_out_guess = self.AS_C.hmass() 
+    
+        # ---- Bisection Iteration to find cold outlet -------------
     
         while abs(self.res) > res_tol:
                     
@@ -929,47 +925,71 @@ class HP_HTX(BaseComponent):
                 print("No convergence in the fixed number of iterations")
                 return
                 
-            (C_T_in, C_h_it, C_h_out, H_P_out, H_T_out) = self.System(C_h_out_guess, C_T_out_guess)
+            (Tc_in, hc_it, hc_out, Ph_out, Th_out) = self.System(hc_out_guess, Tc_out_guess)
             
             "Compute residuals"
                         
-            self.res = C_h_in - C_h_it
+            self.res = (self.su_C.h - hc_it)/self.su_C.h
+
+            self.AS_C.update(CP.HmassP_INPUTS, hc_out, self.su_C.p)
     
-            if self.res > 0: # h_real > h_est => T_in > T_in,est => T_out > T_out_est => Rise the value of T_out_guess_1
-                C_T_out_guess_1 = PropsSI('T', 'P', self.su_C.p,'H',C_h_out,self.su_C.fluid)
-    
+            if self.res > 0: # h_real > h_est => T_in > T_in,est => T_out > T_out_est => Rise the value of T_out_guess_1            
+                Tc_out_guess_1 = self.AS_C.T()
             else:
-                C_T_out_guess_2 = PropsSI('T', 'P', self.su_C.p,'H',C_h_out,self.su_C.fluid)
+                Tc_out_guess_2 = self.AS_C.T()
                 
-            C_T_out_guess = (C_T_out_guess_1 + C_T_out_guess_2)/2
-            C_h_out_guess = PropsSI('H', 'P', self.su_C.p, 'T', C_T_out_guess,self.su_C.fluid)
+            Tc_out_guess = (Tc_out_guess_1 + Tc_out_guess_2)/2
+            
+            self.AS_C.update(CP.PT_INPUTS, self.su_C.p, Tc_out_guess)
+
+            hc_out_guess = self.AS_C.hmass()
     
             n_it = n_it + 1
-            
-            # if n_it%5 == 0:
-            print("-------------------------")
-            print("Iteration : ",n_it, " / ", n_it_max)
-            print("T_in_guess :", C_T_in)
-            print("T_out_guess :", C_T_out_guess)
-            print("C_T_out_guesses : [", C_T_out_guess_1, " ; ", C_T_out_guess_2, "]")
-                    
-        self.ex_H.set_fluid(self.su_H.fluid)
-        self.ex_H.set_m_dot(self.su_H.m_dot)  # Example mass flow rate [kg]
-        self.ex_H.set_T(H_T_out) # Example temperature [K]
-        self.ex_H.set_p(H_P_out)  # Example Pressure [Pa]
-    
-        self.ex_C.set_fluid(self.su_C.fluid)
-        self.ex_C.set_m_dot(self.su_C.m_dot)  # Example mass flow rate [kg]
-        self.ex_C.set_T(C_T_in) # Example temperature [K]
-        self.ex_C.set_p(self.su_C.p)  # Example Pressure [Pa]
+
+            if print_flag == 1:
+                print("-------------------------")
+                print("Iteration : ",n_it, " / ", n_it_max)
+                print("T_in_guess :", Tc_in)
+                print("T_out_guess :", Tc_out_guess)
+                print("Tc_out_guesses : [", Tc_out_guess_1, " ; ", Tc_out_guess_2, "]")
         
-        if abs(self.res) < res_tol:
+        self.update_connectors(Th_out, Ph_out, Tc_in)
+        
+        if abs(self.res) < res_tol and print_flag == 1:
                 print("-------------------------")
                 print("Success !")
                 print("-------------------------")                
                 print("Iteration : ",n_it, " / ", n_it_max)
                 print("T_in_input :", self.su_C.T)
-                print("T_in_final :", C_T_in)
-                print("T_out_final :", C_T_out_guess)
-                print("-------------------------")                
+                print("T_in_final :", Tc_in)
+                print("T_out_final :", Tc_out_guess)
+                print("-------------------------")    
+    #%%  
+    
+    def update_connectors(self, Th_out, Ph_out, Tc_in):
+    
+        self.ex_H.set_fluid(self.su_H.fluid)
+        self.ex_H.set_m_dot(self.su_H.m_dot)  # Example mass flow rate [kg]
+        self.ex_H.set_T(Th_out) # Example temperature [K]
+        self.ex_H.set_p(Ph_out)  # Example Pressure [Pa]
+    
+        self.ex_C.set_fluid(self.su_C.fluid)
+        self.ex_C.set_m_dot(self.su_C.m_dot)  # Example mass flow rate [kg]
+        self.ex_C.set_T(Tc_in) # Example temperature [K]
+        self.ex_C.set_p(self.su_C.p)  # Example Pressure [Pa]
+    
+    def plot_disc(self):
+        
+        plt.plot(self.T_c, 'b', label='Cold fluid')
+        plt.plot(self.T_h, 'r', label='Hot fluid')
+        
+        plt.grid()
+        plt.xlabel("Row number")
+        plt.ylabel("Temperature [K]")
+        plt.legend(loc='best')  # automatically picks a good position
+        
+        plt.show()
+
+        
+        
 
