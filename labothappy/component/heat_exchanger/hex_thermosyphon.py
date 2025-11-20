@@ -19,9 +19,9 @@ from component.base_component import BaseComponent
 
 class HP_HTX(BaseComponent):
     """
-    Component: Heat Pipe Heat Exchanger (HP_HTX)
+    **Component**: Heat Pipe Heat Exchanger (HP_HTX)
     
-    Model: Thermosyphon-Based Heat Pipe Heat Exchanger with Detailed Thermal and Fluid Dynamics
+    **Model**: Thermosyphon-Based Heat Pipe Heat Exchanger with Detailed Thermal and Fluid Dynamics
     
     **Description**:
     
