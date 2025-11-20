@@ -4,10 +4,9 @@ from CoolProp.CoolProp import PropsSI
 import numpy as np
 import matplotlib.pyplot as plt
 
-#import component.Examples.solar.parabolictroughcollector_example as parabolictroughcollector_example
-# Muted by Titouan, do not work without this line on Elise computer 
+
 from toolbox.geometries.solar.parabolictrough_geometry import PT_Collector_Geom
-from component.solar.parabolictroughcollector import PT_collector
+from component.solar.parabolic_trough_collector import PTCollector
 
 PT_geom = PT_Collector_Geom()
 PT_geom.set_parameters("Soponova_MicroCSP")
@@ -20,7 +19,7 @@ if case == "study_disc":
 
     for i in range(len(n_disc_vec)):
 
-        PT = PT_collector()
+        PT = PTCollector()
 
         PT.set_parameters(coll_eff = PT_geom.coll_eff, L = 10*PT_geom.L, W = PT_geom.W, A = PT_geom.A, 
                             A_r = PT_geom.A_r, m = PT_geom.m, L_f = PT_geom.L_f,
@@ -84,7 +83,7 @@ if case == "plant_sizing":
 
     while T_ex < T_in_HX:
         
-        PT = PT_collector()
+        PT = PTCollector()
 
         PT.set_parameters(coll_eff = PT_geom.coll_eff, L = 10*PT_geom.L, W = PT_geom.W, A = PT_geom.A, 
                             A_r = PT_geom.A_r, m = PT_geom.m, L_f = PT_geom.L_f,

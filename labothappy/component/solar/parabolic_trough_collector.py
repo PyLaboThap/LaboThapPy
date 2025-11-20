@@ -14,7 +14,6 @@ https://hdl.handle.net/2268/182680
 
 import __init__
 #import component.solar.parabolictroughcollector as parabolictroughcollector
-from CoolProp.CoolProp import PropsSI
 import CoolProp.CoolProp as CP
 import numpy as np
 from component.base_component import BaseComponent
@@ -23,11 +22,11 @@ from connector.mass_connector import MassConnector
 from connector.heat_connector import HeatConnector
 
 
-class PT_collector(BaseComponent):
+class PTCollector(BaseComponent):
     """
-    Component: Parabolic Trough Collector
+    **Component**: Parabolic Trough Collector
     
-    Model: Semi empirical
+    **Model**: Semi empirical
     
     **Description**
     
@@ -148,30 +147,7 @@ class PT_collector(BaseComponent):
 
                 'a', 'n_disc'
         ]
-    
-    def print_setup(self):
-        print("=== Heat Exchanger Setup ===")
-        print("Connectors:")
-        print(f"  - H_su: fluid={self.su['H'].fluid}, T={self.su['H'].T}, p={self.su['H'].p}, m_dot={self.su['H'].m_dot}")
-        print(f"  - C_su: fluid={self.su['C'].fluid}, T={self.su['C'].T}, p={self.su['C'].p}, m_dot={self.su['C'].m_dot}")
 
-        print("\nInputs:")
-        for input in self.get_required_inputs():
-            if input in self.inputs:
-                print(f"  - {input}: {self.inputs[input]}")
-            else:
-                print(f"  - {input}: Not set")
-
-
-        print("\nParameters:")
-        for param in self.get_required_parameters():
-            if param in self.params:
-                print(f"  - {param}: {self.params[param]}")
-            else:
-                print(f"  - {param}: Not set")
-        print("======================")
-
-#%%
     def heat_losses(self, k):
         "Calibrated for soponova_microcsp collector"        
 
