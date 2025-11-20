@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 #import component.Examples.solar.parabolictroughcollector_example as parabolictroughcollector_example
 # Muted by Titouan, do not work without this line on Elise computer 
-from geometries.solar.parabolictrough_geometry import PT_Collector_Geom
+from toolbox.geometries.solar.parabolictrough_geometry import PT_Collector_Geom
 from component.solar.parabolictroughcollector import PT_collector
 
 PT_geom = PT_Collector_Geom()
@@ -27,7 +27,7 @@ if case == "study_disc":
 
                             Tube_OD = PT_geom.Tube_OD, Tube_V = PT_geom.Tube_V,
 
-                            alpha_r = PT_geom.alpha_r, refl_m = PT_geom.refl_m, epsilon_r = PT_geom.epsilon_r, envel_tau = PT_geom.envel_tau, eta_opt = PT_geom.eta_opt,
+                            alpha_r = PT_geom.alpha_r, refl_m = PT_geom.refl_m, epsilon_r = PT_geom.epsilon_r, envel_tau = PT_geom.envel_tau, eta_other = PT_geom.eta_other,
                             
                             V_w_max_tr = PT_geom.V_w_max_tr, V_w_max_st = PT_geom.V_w_max_st, Vdot_min = PT_geom.Vdot_min,
                             Vdot_max = PT_geom.Vdot_max, T_f_min = PT_geom.T_f_min, T_f_max = PT_geom.T_f_max,
@@ -35,10 +35,10 @@ if case == "study_disc":
                             a = PT_geom.a, n_disc = int(n_disc_vec[i])
         )
 
-        PT.set_inputs(su_fluid = 'Water',
-                    su_m_dot = 0.6, # kg/s
-                    su_p = 5*1e5, # Pa
-                    su_T = 100 + 273.15, # K
+        PT.set_inputs(fluid = 'Water',
+                    m_dot = 0.6, # kg/s
+                    P_su = 5*1e5, # Pa
+                    T_su = 100 + 273.15, # K
                     T_amb = 25 + 273.15, # K
                     DNI = 900, # W/m^2
                     Theta = 10*np.pi/180, # rad
@@ -79,46 +79,47 @@ if case == "plant_sizing":
 
     print(f"nb_coll_parallel : {nb_coll_parallel}")
 
-    PT = PT_collector()
-
-    PT.set_parameters(coll_eff = PT_geom.coll_eff, L = 10*PT_geom.L, W = PT_geom.W, A = PT_geom.A, 
-                        A_r = PT_geom.A_r, m = PT_geom.m, L_f = PT_geom.L_f,
-
-                        Tube_OD = PT_geom.Tube_OD, Tube_V = PT_geom.Tube_V,
-
-                        alpha_r = PT_geom.alpha_r, refl_m = PT_geom.refl_m, epsilon_r = PT_geom.epsilon_r, envel_tau = PT_geom.envel_tau, eta_opt = PT_geom.eta_opt,
-                        
-                        V_w_max_tr = PT_geom.V_w_max_tr, V_w_max_st = PT_geom.V_w_max_st, Vdot_min = PT_geom.Vdot_min,
-                        Vdot_max = PT_geom.Vdot_max, T_f_min = PT_geom.T_f_min, T_f_max = PT_geom.T_f_max,
-
-                        a = PT_geom.a, n_disc = 20
-    )
-
     T_ex = T_out_HX
     n_series = 0
 
     while T_ex < T_in_HX:
+        
+        PT = PT_collector()
+
+        PT.set_parameters(coll_eff = PT_geom.coll_eff, L = 10*PT_geom.L, W = PT_geom.W, A = PT_geom.A, 
+                            A_r = PT_geom.A_r, m = PT_geom.m, L_f = PT_geom.L_f,
+
+                            Tube_OD = PT_geom.Tube_OD, Tube_V = PT_geom.Tube_V,
+
+                            alpha_r = PT_geom.alpha_r, refl_m = PT_geom.refl_m, epsilon_r = PT_geom.epsilon_r, envel_tau = PT_geom.envel_tau, eta_other = PT_geom.eta_other,
+                            
+                            V_w_max_tr = PT_geom.V_w_max_tr, V_w_max_st = PT_geom.V_w_max_st, Vdot_min = PT_geom.Vdot_min,
+                            Vdot_max = PT_geom.Vdot_max, T_f_min = PT_geom.T_f_min, T_f_max = PT_geom.T_f_max,
+
+                            a = PT_geom.a, n_disc = 20
+        )
+        
         T_in_coll = T_ex
         n_series += 1
-
+    
         PT.set_inputs(
-                su_fluid = 'Water',
-                su_m_dot = m_dot_max_coll, # kg/s
-                su_p = p_circ, # Pa
-                su_T = T_in_coll, # K
+                fluid = 'Water',
+                m_dot = m_dot_max_coll, # kg/s
+                P_su = p_circ, # Pa
+                T_su = T_in_coll, # K
                 T_amb = 20 + 273.15, # K
                 DNI = 600, # W/m^2
                 Theta = 10*np.pi/180, # rad
                 v_wind = 5 # m/s
                 )
-
+    
         PT.solve()
         T_ex = PT.ex.T
         print(f"Q_dot {PT.Q_dot}")
         print(f"T_ex {T_ex}")
 
     print(f"n_series {n_series}")
-
+    
     Filling_factor = 0.6
     A = np.ceil(nb_coll_parallel)*(np.ceil(n_series))*PT.params['W']*PT.params['L']/Filling_factor
     print(f"Required solar field : {A} [m^2]")

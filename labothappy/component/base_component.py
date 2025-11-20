@@ -144,15 +144,12 @@ class BaseComponent:
             'T_ex_C':    lambda val: self.ex_C.set_T(val),
             'h_ex_C':    lambda val: self.ex_C.set_h(val),
 
-            # Storage connector related inputs
-            'sto_fluid': lambda val: self.sto_fluid.set_fluid(val),
-
             # W connector inputs
             'N_rot':     lambda val: self.W.set_N(val),
 
             # Q_amb connector inputs
             'T_amb':     lambda val: self.Q_amb.set_T_cold(val),
-
+            
             # Solar
             'DNI':       lambda val:val,
             'Theta':     lambda val:val,
@@ -276,6 +273,7 @@ class BaseComponent:
     def check_calculable(self):
         self.sync_inputs()
         required_inputs = self.get_required_inputs() 
+        
         self.calculable = all(self.inputs.get(inp) is not None for inp in required_inputs) # check if all required inputs are set
         if not self.calculable:
             if self.print_flag:

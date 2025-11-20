@@ -8,21 +8,116 @@ source :
 Semi-empirical correlation to model heat losses 
 along solar parabolic trough collectors 
 Rémi Dickes, Vincent Lemort and Sylvain Quoilin 
+https://hdl.handle.net/2268/182680
 
 """
 
 import __init__
 #import component.solar.parabolictroughcollector as parabolictroughcollector
 from CoolProp.CoolProp import PropsSI
+import CoolProp.CoolProp as CP
 import numpy as np
-from geometries.solar.parabolictrough_geometry import PT_Collector_Geom
 from component.base_component import BaseComponent
 
 from connector.mass_connector import MassConnector
-from connector.work_connector import WorkConnector
 from connector.heat_connector import HeatConnector
 
+
 class PT_collector(BaseComponent):
+    """
+    Component: Parabolic Trough Collector
+    
+    Model: Semi empirical
+    
+    **Description**
+    
+    This model determines the thermal power absorbed by a parabolic trough collector and its heat transfer fluid exhaust specific enthalpy .
+
+    
+    **Assumptions**:
+        - Heat losses to the ambiant are considered.
+
+    **Connectors**:
+    
+        su (MassConnector): Mass connector for the suction side.
+
+        ex (MassConnector): Mass connector for the exhaust side.
+
+        Q_amb (HeatConnector): Heat connector to the ambiant.
+        
+    **Parameters**:
+        
+        coll_eff: Collector efficieny [-]
+        
+        a [1..9]: semi empirical parameters 
+            
+        n_disc: number of discretisations in the lenght of the heat collection element. [-]
+        
+        envel_tau: transmittance of the heat collection element envelop. [-]
+        
+        alpha_r: Receiver absorptivity. [-]
+        
+        refl_m: Mirror reflectivity. [-]
+        
+        epsilon_r: Receiver emittance @ 400°C. [-]
+        
+        eta_other: Other efficiency to be accounted for in the calculation of the overall optical efficiency, different than the transmittance and absorbtivity of the receiver and the mirror reflectivity. [-]
+
+        V_w_max_tr: maximum wind speed (stowed). [m/s]
+        
+        V_w_max_st: minimum wind speed (stowed). [m/s]
+        
+        Vdot_min: minimum recommended flowrate. [m^3/s]
+        
+        Vdot_max: maximum recommended flowrate. [m^3/s]
+        
+        T_f_min: Minimum operating fluid temperature. [K]
+        
+        T_f_max: Maximum operating fluid temperature. [K]
+        
+        Geometrical parameters:
+            
+            L: length of the parabolic trough collector. [m]
+            
+            W: Width of the parabolic trough collector. [m]
+            
+            A: Area of the parabolic trough collector. [m^2]
+            
+            A_r: Reflective area. [m^2]
+            
+            m: Collector weight. [kg]
+            
+            L_f: Focal Length. [m]
+            
+            Tube_OD: Tube external diameter. [m]
+            
+            Tube_V: Tube volume. [m^3]
+            
+    **Inputs**:
+        
+        fluid: Fluid at the suction of the PT collector. [-]
+        
+        m_dot: Mass flow rate in the PT collector (at suction). [kg/s]
+        
+        T_su: Temperature at the suction. [K]
+        
+        p_su: Pressure at the suction. [Pa]
+        
+        v_wind: Wind speed on the PT collector's heat collection element. [m/s]
+        
+        T_amb: Ambiant temperature. [K]
+        
+        Theta: Incidence angle. [rad]
+        
+        DNI: Direct Normal Irradiance. [W/m^2]
+        
+    **Ouputs**:
+
+        h_ex: Exhaust side specific enthalpy. [J/kg] 
+
+        Q_dot: Thermal Power absorbed by the PT collector. [W]
+
+    """
     def __init__(self):
         super().__init__()
         self.su = MassConnector()
@@ -37,57 +132,17 @@ class PT_collector(BaseComponent):
             # Return a list of required inputs
             # DNI : Direct Natural Irradiation
             # Incidence angle
-            return ['su_p', 'su_m_dot', 'su_T', 'T_amb', 'DNI', 'Theta', 'v_wind', 'su_fluid']
+            return ['P_su', 'm_dot', 'T_su', 'T_amb', 'DNI', 'Theta', 'v_wind', 'fluid']
     
-    def sync_inputs(self):
-        """Synchronize the inputs dictionary with the connector states."""
-        if self.su.fluid is not None:
-            self.inputs['su_fluid'] = self.su.fluid
-        if self.su.m_dot is not None:
-            self.inputs['su_m_dot'] = self.su.m_dot
-        if self.su.T is not None:
-            self.inputs['su_T'] = self.su.T
-        if self.su.p is not None:
-            self.inputs['su_p'] = self.su.p
-        if self.v_wind is not None:
-            self.inputs['v_wind'] = self.v_wind
-        if self.Q_amb.T_cold is not None:
-            self.inputs['T_amb'] = self.Q_amb.T_cold
-        if self.Theta is not None:
-            self.inputs['Theta'] = self.Theta
-        if self.DNI is not None:
-            self.inputs['DNI'] = self.DNI
-
-
-    def set_inputs(self, **kwargs):
-        """Set inputs directly through a dictionary and update connector properties."""
-        self.inputs.update(kwargs)
-
-        # Update the connectors based on the new inputs
-        if 'su_fluid' in self.inputs:
-            self.su.set_fluid(self.inputs['su_fluid'])
-        if 'su_m_dot' in self.inputs:
-            self.su.set_m_dot(self.inputs['su_m_dot'])
-        if 'su_T' in self.inputs:
-            self.su.set_T(self.inputs['su_T'])
-        if 'su_p' in self.inputs:
-            self.su.set_p(self.inputs['su_p'])
-        if 'v_wind' in self.inputs:
-            self.v_wind = self.inputs['v_wind']
-        if 'T_amb' in self.inputs:
-            self.Q_amb.set_T_cold(self.inputs['T_amb'])
-        if 'Theta' in self.inputs:
-            self.Theta = self.inputs['Theta']
-        if 'DNI' in self.inputs:
-            self.DNI = self.inputs['DNI']
-
+    
+    
     def get_required_parameters(self):
         return [
                 'coll_eff', 'L', 'W', 'A', 'A_r', 'm', 'L_f',
 
                 'Tube_OD', 'Tube_V',
 
-                'alpha_r', 'refl_m', 'epsilon_r', 'envel_tau', 'eta_opt',
+                'alpha_r', 'refl_m', 'epsilon_r', 'envel_tau', 'eta_other',
                     
                 'V_w_max_tr', 'V_w_max_st', 'Vdot_min', 'Vdot_max', 'T_f_min', 'T_f_max',
 
@@ -122,7 +177,7 @@ class PT_collector(BaseComponent):
 
         T_amb = self.Q_amb.T_cold - 273.15 # °C
         T_htf = self.T[k] - 273.15 # °C
-
+        
         Terms = []
         Terms.append(self.params['a'][0]) 
         Terms.append(self.params['a'][1]*(T_htf - T_amb))
@@ -142,7 +197,7 @@ class PT_collector(BaseComponent):
     def Q_dot_abs(self, k):
 
             # Sun absorbed power
-            eta_opt = self.params['eta_opt']*self.params['alpha_r']*self.params['refl_m']*self.params['envel_tau']
+            eta_opt = self.params['eta_other']*self.params['alpha_r']*self.params['refl_m']*self.params['envel_tau']
             Q_dot_sun_raw = self.DNI*np.cos(self.Theta)*self.params['W']# *eta_opt # self.L_disc
             Q_dot_sun = Q_dot_sun_raw*eta_opt
             Opt_losses = Q_dot_sun_raw*(1-eta_opt)
@@ -158,8 +213,16 @@ class PT_collector(BaseComponent):
     def solve(self):
         self.check_calculable()
         self.check_parametrized()
+        
 
+        self.AS = CP.AbstractState('HEOS', self.su.fluid)
+        
         if self.calculable and self.parametrized:
+            
+            self.v_wind = self.inputs['v_wind']
+            self.Theta = self.inputs['Theta']
+            self.DNI = self.inputs['DNI']
+            
             
             self.T = np.zeros(self.params['n_disc']+1)
             self.p = np.zeros(self.params['n_disc']+1)
@@ -175,13 +238,15 @@ class PT_collector(BaseComponent):
             self.L_disc = self.params['L']/self.params['n_disc']
 
             for i in range(len(self.Q_dot_disc)):
+                
                 self.Q_dot_disc[i] = self.DNI*np.cos(self.Theta)*self.L_disc*self.params['W']
                 self.Q_dot_abs_disc[i] = self.Q_dot_disc[i]*self.params['coll_eff'](self.DNI, (self.T[i] - self.Q_amb.T_cold))
                 self.eta_coll[i] = self.params['coll_eff'](self.DNI, (self.T[i] - self.Q_amb.T_cold))
 
                 self.h[i+1] = self.h[i] + self.Q_dot_abs_disc[i]/self.su.m_dot
                 self.p[i+1] = self.p[i]
-                self.T[i+1] = PropsSI('T','H',self.h[i+1],'P',self.p[i+1],self.su.fluid)
+                self.AS.update(CP.HmassP_INPUTS, self.h[i+1], self.p[i+1])               
+                self.T[i+1] = self.AS.T()
 
             self.Q_dot = sum(self.Q_dot_abs_disc)
 
@@ -189,6 +254,8 @@ class PT_collector(BaseComponent):
             self.ex.set_m_dot(self.su.m_dot)
             self.ex.set_h(self.h[-1])
             self.ex.set_p(self.p[-1])
+            
+            self.solved = True
 
             return
         
