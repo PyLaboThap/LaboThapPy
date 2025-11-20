@@ -53,7 +53,7 @@ class HXPinchCst(BaseComponent):
         ex_H (MassConnector): Mass connector for the hot exhaust side.
         ex_C (MassConnector): Mass connector for the cold exhaust side.
 
-        Q_dot (HeatConnector): Heat connector for the heat transfer between the fluids
+        Q (HeatConnector): Heat connector for the heat transfer between the fluids
 
     **Parameters**:
 
@@ -104,10 +104,10 @@ class HXPinchCst(BaseComponent):
         self.DP_c = 0
         self.DP_h = 0
 
-        self.Q_dot = HeatConnector()
+        self.Q = HeatConnector()
         self.guesses = {}
 
-    def get_required_inputs(self): # Used in check_calculablle to see if all of the required inputs are set
+    def get_required_inputs(self):
         # Return a list of required inputs
         return ['fluid_C', 'h_su_C', 'P_su_C', 'm_dot_C', 'fluid_H', 'h_su_H', 'P_su_H', 'm_dot_H']
     
@@ -512,7 +512,7 @@ class HXPinchCst(BaseComponent):
             self.ex_H.set_T(self.T_H_ex)
             
             "Heat conector"
-            self.Q_dot.set_Q_dot(self.Q)
+            self.Q.set_Q_dot(self.Q)
 
         else: 
 
@@ -529,11 +529,11 @@ class HXPinchCst(BaseComponent):
             self.ex_C.set_T(self.T_C_ex)
             
             "Heat conector"
-            self.Q_dot.set_Q_dot(self.Q)
+            self.Q.set_Q_dot(self.Q)
             
     def print_results(self):
         print("=== Heat Exchanger Results ===")
-        print(f"Q: {self.Q_dot.Q_dot}")
+        print(f"Q: {self.Q.Q_dot}")
 
         if self.params['HX_type'] == 'evaporator':
             print(f"P_sat: {self.su_C.p}")
@@ -549,7 +549,7 @@ class HXPinchCst(BaseComponent):
         print(f"  - su_H: fluid={self.su_H.fluid}, T={self.su_H.T}, P={self.su_H.p}, m_dot={self.su_H.m_dot}")
         print(f"  - ex_C: fluid={self.ex_C.fluid}, T={self.ex_C.T}, P={self.ex_C.p}, m_dot={self.ex_C.m_dot}")
         print(f"  - ex_H: fluid={self.ex_H.fluid}, T={self.ex_H.T}, P={self.ex_H.p}, m_dot={self.ex_H.m_dot}")
-        print(f"  - Q_dot: {self.Q_dot.Q_dot}")
+        print(f"  - Q_dot: {self.Q.Q_dot}")
         print("======================")
 
     def plot_disc(self):
