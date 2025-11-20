@@ -4,8 +4,8 @@ Heat Exchanger - Discretized Constant Efficiency Model
 Model description
 -----------------
 
-This document describes a counterflow heat exchanger model that uses a
-**constant effectiveness** approach. The user provides the heat
+This document describes a discretized counterflow heat exchanger model that both a
+**constant effectiveness** and a **Minimum Pinch** approach. The user provides the heat
 exchanger effectiveness, denoted :math:`\varepsilon` (epsilon), as a
 model parameter.
 
@@ -17,18 +17,24 @@ The heat transfer rate is computed as:
 
 where :math:`\dot{Q}` is the actual heat transfer rate and
 :math:`\dot{Q}_{\max}` is the **maximum possible heat transfer rate**
-(based on the inlet conditions and an ideal exchanger).
+(based on an external and internal pinching analysis and an ideal exchanger 
+assumption).
 
-The maximum possible heat transfer rate is the smaller of the maximum
-energy that the hot stream can give up and the maximum energy that the
-cold stream can accept:
+The maximum possible heat transfer rate is the one that corresponds to a 
+temperature pinch (\Delta T_{pp}) equal to zero. It is determined before 
+solving by varying a fictive heat exchanger effectiveness from 1 to 0 to by 
+increment of 1% until a pinch larger than zero is obtained.
 
 .. math::
 
-   \dot{Q}_{\max} = \min \left(
-     \dot{m}_H \cdot (h_{su,H} - h_{ex,id,H}),
-     \; \dot{m}_C \cdot (h_{ex,id,C} - h_{su,C})
-   \right)
+   \dot{Q}_{\max} = \dot{Q} such that \Delta T_{pp} = 0
+
+Then, the heat exchanger is solved by decrementing its efficiency (starting 
+from the user-defined value acting as a maximum efficiency : \varepsilon) 
+until the imposed minimum temperature pinch (\Delta T_{pp,min}) is satisfied.
+
+Pressure drops can be imposed on both sides of the heat exchanger, these are
+equally distributed over the discretizations.
 
 Definitions
 -----------
@@ -50,30 +56,21 @@ Procedure to compute heat transfer rate
 1. Compute or obtain the inlet temperatures and specific enthalpies  
    :math:`h_{su,H}` and :math:`h_{su,C}`.
 
-2. Determine the *ideal* outlet temperatures for a perfect counterflow exchanger:
+2. Impose and distribute the pressure drops.  
 
-   - The ideal cold-stream outlet temperature equals the hot-stream inlet temperature.
-   - The ideal hot-stream outlet temperature equals the cold-stream inlet temperature.
+3. Determine \dot{Q}_{max} by decrementing a fictive heat exchanger 
+effectiveness (starting from 1 and down 1% per iteration). \dot{Q}_{max} is the
+heat rate value when the minimum pinch (at every discretization) becomes larger 
+or equal to 0.
 
-   Convert these ideal temperatures to enthalpies:
-   :math:`h_{ex,id,C}` and :math:`h_{ex,id,H}`.
-
-3. Compute the two candidate maximum heat transfer rates:
-
-   - Hot-limited: :math:`\dot{Q}_{H,\max} = \dot{m}_H \cdot (h_{su,H} - h_{ex,id,H})`
-   - Cold-limited: :math:`\dot{Q}_{C,\max} = \dot{m}_C \cdot (h_{ex,id,C} - h_{su,C})`
-
-4. Compute:
-
-   .. math::
-
-      \dot{Q}_{\max} = \min(\dot{Q}_{H,\max}, \dot{Q}_{C,\max})
-
-5. The actual heat transfer rate is then:
-
-   .. math::
+4. Compute \dot{Q} from \dot{Q}_{max} in a similar way: by decrementing the 
+heat exchanger effectiveness (starting from the user-defined maximum value) 
+until the imposed minimum temperature pinch is satisfied at every 
+discretization.
 
       \dot{Q} = \varepsilon \cdot \dot{Q}_{\max}
+
+5. Compute outlet conditions 
 
 Outlet enthalpies are computed as:
 
@@ -89,12 +86,13 @@ Assumptions
 -----------
 
 - Counterflow geometry.
-- User-specified constant effectiveness :math:`\varepsilon`,  
+- User-specified maximum effectiveness :math:`\varepsilon`,  
   with :math:`0 < \varepsilon \le 1`.
-- Ideal outlet enthalpies computed using the ideal counterflow limit.
+- Ideal outlet enthalpies computed using an iterative method for internal 
+pinching (a solving method could be employed but proved to be slower for 
+efficient heat exchangers).
 - No heat losses to the environment.
-- No pressure drop inside the heat exchanger.
-
+- Pressure drop equally distributed along the heat exchanger discretizations.
 
 .. autoclass:: component.heat_exchanger.hex_csteff_disc.HexCstEffDisc
 

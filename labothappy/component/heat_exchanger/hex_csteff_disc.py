@@ -13,7 +13,7 @@ import CoolProp.CoolProp as CP
 import numpy as np
 import math
 
-class HXEffCstDisc(BaseComponent):
+class HexCstEffDisc(BaseComponent):
     """
     Component: Counterflow Heat Exchanger with Constant Effectiveness (HXEffCstDisc)
     
