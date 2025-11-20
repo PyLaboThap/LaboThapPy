@@ -104,7 +104,6 @@ class HexCstEffDisc(BaseComponent):
         self.effectiveness = 1
 
     def get_required_inputs(self): # Used in check_calculablle to see if all of the required inputs are set
-        self.sync_inputs()
         # Return a list of required inputs
         return['P_su_H', 'T_su_H', 'm_dot_H', 'fluid_H', 'P_su_C', 'T_su_C', 'm_dot_C', 'fluid_C']
     

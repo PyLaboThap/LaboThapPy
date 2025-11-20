@@ -1,23 +1,23 @@
 
-import __init__
+# import __init__
 import numpy as np
 
-from component.heat_exchanger.hex_eNTU import HXeNTU 
+from labothappy.component.heat_exchanger.hex_eNTU import HexeNTU
 
-HX = HXeNTU()
+HX = HexeNTU()
 
 HX.set_inputs(
     # First fluid
     fluid_H = 'Cyclopentane',
     T_su_H = 205 + 273.15, # K
-    p_su_H = 1*1e5, # Pa
-    m_dot_su_H = 0.014, # kg/s
+    P_su_H = 1*1e5, # Pa
+    m_dot_H = 0.014, # kg/s
 
     # Second fluid
     fluid_C = 'Water',
     T_su_C = 12 + 273.15, # K
-    p_su_C = 4*1e5, # Pa
-    m_dot_su_C = 0.08, # kg/s  # Make sure to include fluid information
+    P_su_C = 4*1e5, # Pa
+    m_dot_C = 0.08, # kg/s  # Make sure to include fluid information
 )
  
 A_htx = 0.752 # m^2

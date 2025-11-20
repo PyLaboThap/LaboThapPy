@@ -13,4 +13,5 @@ The heat exchanger models are limited to non-humid air applications.
    heat_exchanger_models/hex_cstpinch
    heat_exchanger_models/hex_MB_charge_sensitive
    heat_exchanger_models/hex_csteff_disc
+   heat_exchanger_models/hex_eNTU
 
