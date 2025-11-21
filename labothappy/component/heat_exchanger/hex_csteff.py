@@ -88,6 +88,8 @@ class HexCstEff(BaseComponent):
         # Return a list of required inputs
         return['fluid_C', 'h_su_C', 'P_su_C', 'm_dot_C', 'fluid_H', 'h_su_H', 'P_su_H', 'm_dot_H']
     
+    def get_required_parameters(self):
+        return ['eta']
 
     def solve(self):
         # Ensure all required checks are performed
