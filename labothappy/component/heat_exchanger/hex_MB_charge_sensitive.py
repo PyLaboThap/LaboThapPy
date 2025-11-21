@@ -1371,8 +1371,18 @@ class HexMBChargeSensitive(BaseComponent):
         self.C_ex = self.ex_C
         
         # Incompressible fluid tag setting
-        self.h_incomp_flag = (self.H_su.fluid.find("INCOMP") != -1)
-        self.c_incomp_flag = (self.C_su.fluid.find("INCOMP") != -1)
+        if self.H_su.AS.backend_name() == 'IncompressibleBackend':
+            self.h_incomp_flag = 1
+        else:
+            self.h_incomp_flag = 0
+
+        if self.C_su.AS.backend_name() == 'IncompressibleBackend':
+            self.c_incomp_flag = 1
+        else:
+            self.c_incomp_flag = 0
+
+        # self.h_incomp_flag = (self.H_su.fluid.find("INCOMP") != -1)
+        # self.c_incomp_flag = (self.C_su.fluid.find("INCOMP") != -1)
 
         # Hot fluid
         self.mdot_h = self.H_su.m_dot
@@ -1386,14 +1396,12 @@ class HexMBChargeSensitive(BaseComponent):
         
         # Instantiate the abstractstates
         if self.h_incomp_flag:
-            rest, fluid_name = self.H_su.fluid.split("::")
-            self.AS_H = CP.AbstractState("INCOMP", fluid_name)
+            self.AS_H = CP.AbstractState("INCOMP", self.H_su.fluid)
         else:
             self.AS_H = CP.AbstractState("BICUBIC&HEOS", self.H_su.fluid)  
             
         if self.c_incomp_flag:
-            rest, fluid_name = self.C_su.fluid.split("::")
-            self.AS_C = CP.AbstractState("INCOMP", fluid_name)
+            self.AS_C = CP.AbstractState("INCOMP", self.C_su.fluid)
         else:
             self.AS_C = CP.AbstractState("BICUBIC&HEOS", self.C_su.fluid)    
 
