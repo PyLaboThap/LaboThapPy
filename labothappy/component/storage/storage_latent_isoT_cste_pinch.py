@@ -16,7 +16,7 @@ import math
 
 class StorageLatentIsothermalCstePinch(BaseComponent):
     """
-    Component: Heat Exchanger with constant pinch point.
+    **Component**: Heat Exchanger with constant pinch point.
 
     **Description**:
     
@@ -50,35 +50,26 @@ class StorageLatentIsothermalCstePinch(BaseComponent):
 
     **Inputs**:
         
-        su_C_fluid: Cold suction side fluid. [-]
+        fluid: Working fluid. [-]
 
-        su_C_h: Cold suction side enthalpy. [J/kg]
+        h_su: Suction side enthalpy. [J/kg]
 
-        su_C_p: Cold suction side pressure. [Pa]
+        T_su: Suction side temperature. [K]
 
-        su_C_m_dot: Cold suction side mass flow rate. [kg/s]
-
-        su_H_fluid: Hot suction side fluid. [-]
-
-        su_H_h: Hot suction side enthalpy. [J/kg]
-
-        su_H_p: Hot suction side pressure. [Pa]
-
-        su_H_m_dot: Hot suction side mass flow rate. [kg/s]
+        m_dot: Mass flow rate of working fluid. [kg/s]
 
     **Outputs**:
 
-        ex_C_h: Cold exhaust side enthalpy. [J/kg]
+        h_ex: Exhaust side enthalpy. [J/kg]
 
-        ex_C_p: Cold exhaust side pressure. [Pa]
+        T_ex: Exhaust side temperature. [K]
 
-        ex_H_h: Hot exhaust side enthalpy. [J/kg]
+        P_sat: Saturation pressure at T_ex. [Pa]
 
-        ex_H_p: Hot exhaust side pressure. [Pa]
+        Q_dot: Heat transfer rate. [W]
 
-        Q_dot: Heat Exchanger's heat duty. [W]
-    """
-
+    """ 
+        
     def __init__(self):
         super().__init__()
         self.su = MassConnector() # Working fluid supply
@@ -89,8 +80,7 @@ class StorageLatentIsothermalCstePinch(BaseComponent):
 
         self.Q_dot = HeatConnector()
 
-    def get_required_inputs(self): # Used in check_calculablle to see if all of the required inputs are set
-        self.sync_inputs()
+    def get_required_inputs(self): 
         # Return a list of required inputs
         return ['fluid', 'sto_fluid', 'h_su', 'T_su', 'm_dot']
     
@@ -102,31 +92,6 @@ class StorageLatentIsothermalCstePinch(BaseComponent):
     
     def get_required_guesses(self):
         return []
-    
-    def print_setup(self):
-        print("=== Heat Exchanger Setup ===")
-        print("Connectors:")
-        print(f"  - su_C: fluid={self.su_C.fluid}, T={self.su_C.T}, p={self.su_C.p}, m_dot={self.su_C.m_dot}")
-        print(f"  - su_H: fluid={self.su_H.fluid}, T={self.su_H.T}, p={self.su_H.p}, m_dot={self.su_H.m_dot}")
-        print(f"  - ex_C: fluid={self.ex_C.fluid}, T={self.ex_C.T}, p={self.ex_C.p}, m_dot={self.ex_C.m_dot}")
-        print(f"  - ex_H: fluid={self.ex_H.fluid}, T={self.ex_H.T}, p={self.ex_H.p}, m_dot={self.ex_H.m_dot}")
-        print(f"  - Q_dot: {self.Q_dot.Q_dot}")
-
-        print("\nInputs:")
-        for input in self.get_required_inputs():
-            if input in self.inputs:
-                print(f"  - {input}: {self.inputs[input]}")
-            else:
-                print(f"  - {input}: Not set")
-
-        print("\nParameters:")
-        for param in self.get_required_parameters():
-            if param in self.params:
-                print(f"  - {param}: {self.params[param]}")
-            else:
-                print(f"  - {param}: Not set")
-
-        print("======================")
 
     def solve(self):
         # Ensure all required checks are performed
