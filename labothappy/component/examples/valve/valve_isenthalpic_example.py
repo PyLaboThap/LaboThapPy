@@ -13,7 +13,7 @@ from CoolProp.CoolProp import PropsSI
 
 "Instanciation"
 
-Valve = ValveIsenthalpic ()
+Valve = ValveIsenthalpic()
 
 Valve.set_inputs(
     T_su = 50 + 273.15, # K

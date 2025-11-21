@@ -426,7 +426,7 @@ class RecursiveCircuit(BaseCircuit):
         # Set parameters for the cycle
         self.parameters.update(kwargs)
         
-    def set_residual_variable(self, target, variable, tolerance):
+    def set_residual_variable(self, target, variable, tolerance= 1e-3):
         res_var = RecursiveCircuit.Residual_variable(target, variable, tolerance)
         self.res_vars[res_var.name] = res_var
         return

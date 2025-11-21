@@ -145,7 +145,7 @@ class HexCstPinch(BaseComponent):
         # ----------------------------------------------------------------------
         # Internal Pinching: find Q_dot_max_internal by setting pinch ~ 0 K
         # ----------------------------------------------------------------------
-        Q_dot_save = self.Q  # current duty at design pinch
+        Q_dot_save = self.Q_dot  # current duty at design pinch
 
         # Save current state
         Pinch_save = self.params['Pinch']
@@ -193,7 +193,7 @@ class HexCstPinch(BaseComponent):
                 # Handle any errors that occur during solving
                 print(f"Convergence problem in pinch analysis of evaporator model: {e}")
             
-        self.Q_dot_max_int = self.Q
+        self.Q_dot_max_int = self.Q_dot
 
         # Restore original pinch and state by re-solving at design pinch
         self.params['Pinch'] = Pinch_save
@@ -209,10 +209,10 @@ class HexCstPinch(BaseComponent):
         
         self.Q_dot_max = np.min([self.Q_dot_max_ext , self.Q_dot_max_int])
 
-        self.Q = Q_dot_save
+        self.Q_dot = Q_dot_save
         
         if np.isfinite(self.Q_dot_max) and self.Q_dot_max > 0:
-            self.epsilon = self.Q / self.Q_dot_max
+            self.epsilon = self.Q_dot / self.Q_dot_max
         else:
             self.epsilon = np.nan
 
@@ -309,7 +309,7 @@ class HexCstPinch(BaseComponent):
         self.res = abs(self.PPTD - self.params['Pinch'])
         
         # Update the state of the working fluid
-        self.Q = Q_dot_ev
+        self.Q_dot = Q_dot_ev
         self.P_sat = P_ev
         
         return self.res
@@ -409,7 +409,7 @@ class HexCstPinch(BaseComponent):
         self.res = abs(self.PPTD  - self.params['Pinch'])
         
         # Update the state of the working fluid
-        self.Q = Q_dot_cd
+        self.Q_dot = Q_dot_cd
         self.P_sat = P_cd
         
         return self.res
@@ -512,7 +512,7 @@ class HexCstPinch(BaseComponent):
             self.ex_H.set_T(self.T_H_ex)
             
             "Heat conector"
-            self.Q.set_Q_dot(self.Q)
+            self.Q.set_Q_dot(self.Q_dot)
 
         else: 
 
@@ -529,7 +529,7 @@ class HexCstPinch(BaseComponent):
             self.ex_C.set_T(self.T_C_ex)
             
             "Heat conector"
-            self.Q.set_Q_dot(self.Q)
+            self.Q.set_Q_dot(self.Q_dot)
             
     def print_results(self):
         print("=== Heat Exchanger Results ===")
@@ -560,11 +560,11 @@ class HexCstPinch(BaseComponent):
             
             plt.plot([0, self.Q_dot_sh]                          , [self.su_H.T, self.T_sat_cd]  , 'r', label='H')
             plt.plot([self.Q_dot_sh, self.Q_dot_sh+self.Q_dot_tp], [self.T_sat_cd, self.T_sat_cd], 'r')
-            plt.plot([self.Q_dot_sh+self.Q_dot_tp, self.Q]       , [self.T_sat_cd, self.ex_H.T], 'r')
+            plt.plot([self.Q_dot_sh+self.Q_dot_tp, self.Q_dot]       , [self.T_sat_cd, self.ex_H.T], 'r')
 
             plt.plot([0, self.Q_dot_sh]                          , [self.ex_C.T, self.T_C_x1], 'b', label='C')
             plt.plot([self.Q_dot_sh, self.Q_dot_sh+self.Q_dot_tp], [self.T_C_x1, self.T_C_x0], 'b')
-            plt.plot([self.Q_dot_sh+self.Q_dot_tp, self.Q]       , [self.T_C_x0, self.su_C.T], 'b')
+            plt.plot([self.Q_dot_sh+self.Q_dot_tp, self.Q_dot]       , [self.T_C_x0, self.su_C.T], 'b')
 
             plt.grid()
             plt.legend()
@@ -575,11 +575,11 @@ class HexCstPinch(BaseComponent):
             
             plt.plot([0, self.Q_dot_sc]                          , [self.su_C.T, self.T_sat_ev]  , 'b', label='C')
             plt.plot([self.Q_dot_sc, self.Q_dot_sc+self.Q_dot_tp], [self.T_sat_ev, self.T_sat_ev], 'b')
-            plt.plot([self.Q_dot_sc+self.Q_dot_tp, self.Q]       , [self.T_sat_ev, self.ex_C.T]  , 'b')
+            plt.plot([self.Q_dot_sc+self.Q_dot_tp, self.Q_dot]       , [self.T_sat_ev, self.ex_C.T]  , 'b')
 
             plt.plot([0, self.Q_dot_sc]                          , [self.ex_H.T, self.T_H_x0], 'r', label='H')
             plt.plot([self.Q_dot_sc, self.Q_dot_sc+self.Q_dot_tp], [self.T_H_x0, self.T_H_x1], 'r')
-            plt.plot([self.Q_dot_sc+self.Q_dot_tp, self.Q]       , [self.T_H_x1, self.su_H.T], 'r')
+            plt.plot([self.Q_dot_sc+self.Q_dot_tp, self.Q_dot]       , [self.T_H_x1, self.su_H.T], 'r')
 
             plt.grid()
             plt.legend()
