@@ -6,11 +6,11 @@ Created on Tue Dec 19 14:43:39 2023
 """
 
 import numpy as np
-from component.heat_exchanger.hex_thermosyphon import HP_HTX
+from labothappy.component.heat_exchanger.hex_thermosyphon import HexThermosyphon
 
 "-----------------------------------------------------------  TEST   ----------------------------------------------------------------"
 
-HP_HTX = HP_HTX()
+HP_HTX = HexThermosyphon()
 
 # Inputs
 HP_HTX.set_inputs(
