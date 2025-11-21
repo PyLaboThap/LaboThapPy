@@ -208,7 +208,7 @@ if __name__ == "__main__":
     SH_ev = 3
     
     # Hot Source
-    T_HS = 50 + 273.15
+    T_HS = 40 + 273.15
     p_HS = 3e5
     fluid_HS = 'Water'
     m_dot_HS = 2
@@ -217,13 +217,13 @@ if __name__ == "__main__":
     T_CS = 20 + 273.15
     fluid_CS = 'Water'
     p_CS = 3e5
-    m_dot_CS = 2
+    m_dot_CS = 100
 
     # Pressure Guesses
     P_high_guess = PropsSI('P', 'T', T_HS, 'Q', 0.5, fluid)
-    P_low_guess  = PropsSI('P', 'T', T_CS, 'Q', 0.5, fluid)
+    P_low_guess  = PropsSI('P', 'T', T_CS-5, 'Q', 0.5, fluid)
     
-    mdot = 0.3
+    mdot = 0.1
     
     if study_case == "Simple":
 
