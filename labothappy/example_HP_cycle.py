@@ -19,17 +19,16 @@ Evaporator = HexCstPinch()
 Recuperator = HexCstEff()
 
 # Set component parameters
-eta_is_cp = 0.8
+eta_is_cp = 0.7
 Pinch_cd = 3  # K
 SC_cd = 3  # K
 Pinch_ev = 3  # K
 SH_ev = 3  # K
 eta_rec = 0.8
-Compressor.set_parameters(eta_is=0.8)
+Compressor.set_parameters(eta_is=eta_is_cp)
 Condenser.set_parameters(Pinch=Pinch_cd, Delta_T_sh_sc=SC_cd, HX_type="condenser")
 Evaporator.set_parameters(Pinch=Pinch_ev, Delta_T_sh_sc=SH_ev, HX_type="evaporator")
 Recuperator.set_parameters(eta=eta_rec)
-
 
 # Add components to circuit
 HP.add_component(Compressor, "Compressor")
@@ -45,7 +44,6 @@ HP.link_components("Recuperator", "m-ex_H", "ExpansionValve", "m-su")
 HP.link_components("ExpansionValve", "m-ex", "Evaporator", "m-su_C")
 HP.link_components("Evaporator", "m-ex_C", "Recuperator", "m-su_C")
 HP.link_components("Recuperator", "m-ex_C", "Compressor", "m-su")
-
 
 # Inputs
 T_HS = 40 + 273.15  # K
@@ -65,7 +63,6 @@ HP.set_source_properties(T=T_HS, P=P_HS, m_dot=m_dot_HS, fluid='Water', target="
 HP.add_source("EV_Water", EV_source, HP.components["Evaporator"], "m-su_H")
 HP.set_source_properties(T=T_CS, P=P_CS, m_dot=m_dot_CS, fluid='Water', target="EV_Water")
 
-# Evaporator.print_setup()
 # Cycle guess values
 P_low = PropsSI("P", "T", T_CS-5, "Q", 1, fluid)
 P_high = PropsSI("P", "T", T_HS+5, "Q", 0, fluid)
@@ -77,7 +74,7 @@ HP.set_cycle_guess(target="Recuperator:su_C", p=P_low, m_dot=m_dot_ref, T=T_CS+5
 
 HP.set_cycle_guess(target="ExpansionValve:su", p=P_high)
 HP.set_cycle_guess(target="ExpansionValve:ex", p=P_low)
-# Compressor.print_setup()
+
 # Set residual variables
 HP.set_residual_variable(target="Compressor:ex", variable="h", tolerance=1e3)
 HP.set_residual_variable(target="Compressor:ex", variable="p", tolerance=1e3)
@@ -94,4 +91,13 @@ HP.set_residual_variable(target="ExpansionValve:ex", variable="p", tolerance=1e3
 
 HP.solve()
 
+W_dot_cp = HP.components['Compressor'].model.W.W_dot
+Q_dot_cd = HP.components['Condenser'].model.Q.Q_dot
+Q_dot_ev = HP.components['Evaporator'].model.Q.Q_dot
+
+print(f"Compressor power: {W_dot_cp/1e3:.2f} kW")
+print(f"Condenser heat output: {Q_dot_cd/1e3:.2f} kW")
+print(f"Evaporator heat input: {Q_dot_ev/1e3:.2f} kW")
+print(f"Cycle COP_c: {Q_dot_ev/W_dot_cp:.2f}")
+print(f"Cycle COP_h: {Q_dot_cd/W_dot_cp:.2f}")
 
