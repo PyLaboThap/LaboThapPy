@@ -16,7 +16,13 @@ the exhaust outlet.
 
 Based on the isentropic efficiency definition, the exhaust specific enthalpy can be calculated and thus also the exhaust temperature.
 
+Class description
+-----------------
 .. autoclass:: component.compressor.compressor_csteff.CompressorCstEff
+
+Example of use
+-----------------
+.. literalinclude:: ../../../examples/component/compressor/compressor_csteff_example.py
 
 References
 ----------
