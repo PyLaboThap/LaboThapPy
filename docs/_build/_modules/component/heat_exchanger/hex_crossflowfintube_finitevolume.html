@@ -1,0 +1,920 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../../../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../genindex.html"><link rel="search" title="Search" href="../../../search.html">
+
+    <!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
+        <title>component.heat_exchanger.hex_crossflowfintube_finitevolume - LaboThApPy Documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo.css?v=580074bf" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/custom.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../../../index.html"><div class="brand">LaboThApPy Documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../index.html">
+  
+  <span class="sidebar-brand-text">LaboThApPy Documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../../../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../user_guide/installation_and_setup.html">Installation and Setup</a><input aria-label="Toggle navigation of Installation and Setup" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../documentation/documentation_doc.html">LaboThApPy Documentation</a><input aria-label="Toggle navigation of LaboThApPy Documentation" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../documentation/connector/connector_doc.html">Connector</a><input aria-label="Toggle navigation of Connector" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../documentation/connector/mass_connector/mass_connector_doc.html">Mass Connector</a><input aria-label="Toggle navigation of Mass Connector" class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" role="switch" type="checkbox"/><label for="toctree-checkbox-4"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../notebooks/mass_connector_demo.html">Example of Mass Connector</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../documentation/connector/heat_connector/heat_connector_doc.html">Heat Connector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../documentation/connector/work_connector/work_connector_doc.html">Work Connector</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../documentation/component/component_doc.html">Component</a><input aria-label="Toggle navigation of Component" class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../documentation/component/compressor/compressor_doc.html">Compressor</a><input aria-label="Toggle navigation of Compressor" class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" role="switch" type="checkbox"/><label for="toctree-checkbox-6"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../documentation/component/compressor/compressor_models/compressor_csteff.html">Compressor - Constant Isentropic Efficiency Model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../documentation/component/compressor/compressor_models/compressor_semi_empirical.html">Compressor - Semi-Empirical Model</a></li>
+</ul>
+</li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../documentation/component/expander/expander_doc.html">Expander</a><input aria-label="Toggle navigation of Expander" class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../documentation/component/expander/expander_models/expander_csteff.html">Expander - Constant Isentropic Efficiency Model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../documentation/component/expander/expander_models/expander_semi_empirical.html">Expander - Semi-Empirical Model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../documentation/component/expander/expander_models/turbine_polyneff.html">Turbine - Polynomial Efficiency Model</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../documentation/component/ha_heat_exchanger/ha_heat_exchanger_doc.html">Humid Air Heat Exchanger</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../documentation/component/heat_exchanger/heat_exchanger_doc.html">Heat Exchanger</a><input aria-label="Toggle navigation of Heat Exchanger" class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" role="switch" type="checkbox"/><label for="toctree-checkbox-8"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../documentation/component/heat_exchanger/heat_exchanger_models/hex_crossflowfintube_finitevolume.html">Crossflow Fin and Tube Heat Exchanger - Finite Volume Model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../documentation/component/heat_exchanger/heat_exchanger_models/hex_csteff.html">Heat Exchanger - Constant Efficiency Model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../documentation/component/heat_exchanger/heat_exchanger_models/hex_cstpinch.html">Heat Exchanger - Constant Pinch Model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../documentation/component/heat_exchanger/heat_exchanger_models/hex_MB_charge_sensitive.html">Heat Exchanger - Moving Boundary Charge Sensitive Model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../documentation/component/heat_exchanger/heat_exchanger_models/hex_csteff_disc.html">Heat Exchanger - Discretized Constant Efficiency Model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../documentation/component/heat_exchanger/heat_exchanger_models/hex_eNTU.html">Heat Exchanger - Epsilon NTU Model</a></li>
+</ul>
+</li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../documentation/component/pump/pump_doc.html">Pump</a><input aria-label="Toggle navigation of Pump" class="toctree-checkbox" id="toctree-checkbox-9" name="toctree-checkbox-9" role="switch" type="checkbox"/><label for="toctree-checkbox-9"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../documentation/component/pump/pump_models/pump_csteff.html">Pump - Constant Isentropic Efficiency Model</a></li>
+</ul>
+</li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../documentation/component/solar/solar_doc.html">Solar</a><input aria-label="Toggle navigation of Solar" class="toctree-checkbox" id="toctree-checkbox-10" name="toctree-checkbox-10" role="switch" type="checkbox"/><label for="toctree-checkbox-10"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../documentation/component/solar/solar_models/parabolic_trough_collector.html">Solar - Parabolic Trough Collector</a></li>
+</ul>
+</li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../documentation/component/tank/tank_doc.html">Tank</a><input aria-label="Toggle navigation of Tank" class="toctree-checkbox" id="toctree-checkbox-11" name="toctree-checkbox-11" role="switch" type="checkbox"/><label for="toctree-checkbox-11"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../documentation/component/tank/tank_models/tank_LV_separator.html">Tank - Separator Liquid-Vapor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../documentation/component/tank/tank_models/tank_mixer.html">Tank - Mixer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../documentation/component/tank/tank_models/tank_splitter.html">Tank - Spliter</a></li>
+</ul>
+</li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../../documentation/component/valve/valve_doc.html">Valve</a><input aria-label="Toggle navigation of Valve" class="toctree-checkbox" id="toctree-checkbox-12" name="toctree-checkbox-12" role="switch" type="checkbox"/><label for="toctree-checkbox-12"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../documentation/component/valve/valve_models/valve_isenthalpic.html">Valve - Isenthalpic Model</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../notebooks/compressor_model_example.html">Compressor Model Example</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <h1>Source code for component.heat_exchanger.hex_crossflowfintube_finitevolume</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Created on Wed May  8 09:38:42 2024</span>
+
+<span class="sd">@author: Basile &amp; Sam</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">__init__</span>
+
+<span class="c1"># External Toolbox </span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.optimize</span><span class="w"> </span><span class="kn">import</span> <span class="n">fsolve</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">CoolProp.CoolProp</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">CP</span>
+
+<span class="c1"># Connectors</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">connector.mass_connector</span><span class="w"> </span><span class="kn">import</span> <span class="n">MassConnector</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">connector.heat_connector</span><span class="w"> </span><span class="kn">import</span> <span class="n">HeatConnector</span>
+
+<span class="c1"># HTC correlations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">correlations.convection.fins_htc</span><span class="w"> </span><span class="kn">import</span> <span class="n">htc_tube_and_fins</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">correlations.convection.pipe_htc</span><span class="w"> </span><span class="kn">import</span> <span class="n">gnielinski_pipe_htc</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">correlations.convection.pipe_htc</span><span class="w"> </span><span class="kn">import</span> <span class="n">horizontal_tube_internal_condensation</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">correlations.convection.pipe_htc</span><span class="w"> </span><span class="kn">import</span> <span class="n">horizontal_flow_boiling</span>
+
+<span class="c1">#Pressure drop correlations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">correlations.pressure_drop.fins_DP</span><span class="w"> </span><span class="kn">import</span> <span class="n">DP_tube_and_fins</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">correlations.pressure_drop.pipe_DP</span><span class="w"> </span><span class="kn">import</span> <span class="n">gnielinski_pipe_DP</span><span class="p">,</span> <span class="n">Muller_Steinhagen_Heck_DP</span>
+
+
+<span class="c1"># Phase related import</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">correlations.properties.void_fraction</span><span class="w"> </span><span class="kn">import</span> <span class="n">void_fraction</span>
+
+<span class="c1"># Component base frame</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">component.base_component</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseComponent</span>
+
+<div class="viewcode-block" id="HexCrossFlowTubeAndFinsFiniteVolume">
+<a class="viewcode-back" href="../../../documentation/component/heat_exchanger/heat_exchanger_models/hex_crossflowfintube_finitevolume.html#component.heat_exchanger.hex_crossflowfintube_finitevolume.HexCrossFlowTubeAndFinsFiniteVolume">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">HexCrossFlowTubeAndFinsFiniteVolume</span><span class="p">(</span><span class="n">BaseComponent</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Component: Cross-Flow Tube-and-Fins Heat Exchanger (Hex)</span>
+<span class="sd">    </span>
+<span class="sd">    Model: Discretized Cross-Flow Heat Exchanger with Fin Efficiency and Pressure Drop</span>
+<span class="sd">    </span>
+<span class="sd">    **Description**:</span>
+<span class="sd">    </span>
+<span class="sd">        This model simulates a cross-flow heat exchanger with tube-and-fins geometry, suitable for systems where one fluid flows through tubes and the other over an external finned surface. The model uses detailed correlations for heat transfer coefficients and pressure drops, accounting for phase change phenomena (condensation and evaporation). It is designed for steady-state, on-design simulations.</span>
+<span class="sd">        The model uses a finite volume discretization to take into consideration the fluid properties evolution accross the heat exchanger.</span>
+<span class="sd">    </span>
+<span class="sd">    **Assumptions**:</span>
+<span class="sd">    </span>
+<span class="sd">        - Steady-state operation.</span>
+<span class="sd">        - Uniform flow distribution across tubes and fins.</span>
+<span class="sd">        - Correlations used for heat transfer and pressure drop calculations (e.g., Gnielinski, Müller-Steinhagen-Heck).</span>
+<span class="sd">        - Two-phase flow effects are considered where applicable.</span>
+<span class="sd">        - Fluid properties are retrieved from CoolProp.</span>
+<span class="sd">    </span>
+<span class="sd">    **Connectors**:</span>
+<span class="sd">    </span>
+<span class="sd">        su_H (MassConnector): Mass connector for the hot-side supply (tube or fin side depending on configuration).</span>
+<span class="sd">        su_C (MassConnector): Mass connector for the cold-side supply (tube or fin side depending on configuration).</span>
+<span class="sd">        </span>
+<span class="sd">        ex_H (MassConnector): Mass connector for the hot-side exhaust.</span>
+<span class="sd">        ex_C (MassConnector): Mass connector for the cold-side exhaust.</span>
+<span class="sd">        </span>
+<span class="sd">        Q (HeatConnector): Heat connection (not actively used in current implementation).</span>
+<span class="sd">    </span>
+<span class="sd">    **Parameters**:</span>
+<span class="sd">    </span>
+<span class="sd">        H_DP_ON (bool): Flag to enable pressure drop calculation on hot side.</span>
+<span class="sd">        C_DP_ON (bool): Flag to enable pressure drop calculation on cold side.</span>
+<span class="sd">        n_disc (int): Number of discretization segments along the heat exchanger length.</span>
+<span class="sd">        Fin_Side (str): Specifies which side has fins (&#39;H&#39; for hot side, &#39;C&#39; for cold side).</span>
+<span class="sd">        </span>
+<span class="sd">        Geometry Parameters:</span>
+<span class="sd">            </span>
+<span class="sd">            Fin_OD : Fin diameter/length [m]</span>
+<span class="sd">            </span>
+<span class="sd">            Fin_per_m : Fin density per m [1/m]</span>
+<span class="sd">            </span>
+<span class="sd">            Fin_t : Fin Thickness : [m]</span>
+<span class="sd">            </span>
+<span class="sd">            Fin_type : &#39;Annular&#39; or &#39;Square&#39;</span>
+<span class="sd">            </span>
+<span class="sd">            fouling : Global fouling resistance [K/W] </span>
+<span class="sd">            </span>
+<span class="sd">            h : Bundle height [m]</span>
+<span class="sd">            </span>
+<span class="sd">            k_fin : Fin thermal conductivity [W/(m*K)]</span>
+<span class="sd">            </span>
+<span class="sd">            pitch_V : Vertical Pitch [m]</span>
+<span class="sd">            </span>
+<span class="sd">            pitch_H : Horizontal Pitch [m]</span>
+<span class="sd">            </span>
+<span class="sd">            tube_arrang : Tube arrangement &#39;Inline&#39; or &#39;Staggered&#39;</span>
+<span class="sd">            </span>
+<span class="sd">            Tube_cond : Tube material conductivity [W/(m*K)]</span>
+<span class="sd">            </span>
+<span class="sd">            Tube_L : Tube length [m]</span>
+<span class="sd">            </span>
+<span class="sd">            Tube_OD : Tube outer diameter [m]</span>
+<span class="sd">            </span>
+<span class="sd">            Tube_t : Tube thickness [m]</span>
+<span class="sd">            </span>
+<span class="sd">            w : Bundle width [m]</span>
+<span class="sd">            </span>
+<span class="sd">            Fin_Side : Fin side &#39;H&#39; or &#39;C&#39;</span>
+<span class="sd">    </span>
+<span class="sd">    **Inputs**:</span>
+<span class="sd">    </span>
+<span class="sd">        fluid_H (str): Hot-side fluid.</span>
+<span class="sd">        </span>
+<span class="sd">        h_su_H (float): Hot-side inlet specific enthalpy [J/kg].</span>
+<span class="sd">        </span>
+<span class="sd">        P_su_H (float): Hot-side inlet pressure [Pa].</span>
+<span class="sd">        </span>
+<span class="sd">        m_dot_H (float): Hot-side mass flow rate [kg/s].</span>
+<span class="sd">    </span>
+<span class="sd">        fluid_C (str): Cold-side fluid.</span>
+<span class="sd">        </span>
+<span class="sd">        h_su_C (float): Cold-side inlet specific enthalpy [J/kg].</span>
+<span class="sd">        </span>
+<span class="sd">        P_su_C (float): Cold-side inlet pressure [Pa].</span>
+<span class="sd">        </span>
+<span class="sd">        m_dot_C (float): Cold-side mass flow rate [kg/s].</span>
+<span class="sd">    </span>
+<span class="sd">    **Outputs**:</span>
+
+<span class="sd">        h_ex_C: Cold exhaust side enthalpy. [J/kg]</span>
+
+<span class="sd">        P_ex_C: Cold exhaust side pressure. [Pa]</span>
+
+<span class="sd">        h_ex_H: Hot exhaust side enthalpy. [J/kg]</span>
+
+<span class="sd">        P_ex_H: Hot exhaust side pressure. [Pa]</span>
+
+<span class="sd">        Q_dot: Heat Exchanger&#39;s heat duty. [W]</span>
+<span class="sd">        </span>
+<span class="sd">        M_tube: Total mass inventory in the tube-side [kg].</span>
+<span class="sd">        </span>
+<span class="sd">        M_bank: Total mass inventory in the fin-side (bundle side) [kg].</span>
+<span class="sd">        </span>
+<span class="sd">        T_matrix, H_matrix, P_matrix, x_matrix: Discretized distributions of temperature, enthalpy, pressure, and vapor quality within the heat exchanger.</span>
+<span class="sd">    </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        su : Supply - &#39;H&#39; : hot</span>
+<span class="sd">                    - &#39;C&#39; : cold</span>
+
+<span class="sd">        ex : Exhaust - &#39;H&#39; : hot</span>
+<span class="sd">                     - &#39;C&#39; : cold</span>
+<span class="sd">                    </span>
+<span class="sd">        Q_dot : Heat connection to the ambient</span>
+<span class="sd">        </span>
+<span class="sd">        HTX_Type : Type of HTX - Plate </span>
+<span class="sd">                               - Shell and Tube</span>
+<span class="sd">                               - Tube and Fins</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">su_H</span> <span class="o">=</span> <span class="n">MassConnector</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">su_C</span> <span class="o">=</span> <span class="n">MassConnector</span><span class="p">()</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">ex_H</span> <span class="o">=</span> <span class="n">MassConnector</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ex_C</span> <span class="o">=</span> <span class="n">MassConnector</span><span class="p">()</span> <span class="c1"># Mass_connector</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">Q</span> <span class="o">=</span> <span class="n">HeatConnector</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="c1">#%%    </span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_required_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> <span class="c1"># Used in check_calculable to see if all of the required inputs are set</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Hot side required inputs :</span>
+<span class="sd">            </span>
+<span class="sd">            - T_su_H or h_su_H : Hot supply temperature or enthalpy</span>
+<span class="sd">            - P_su_H          : Hot supply pressure</span>
+<span class="sd">            - Fluid_H     : Hot supply fluid</span>
+<span class="sd">            - m_dot_H      : Hot supply flow rate</span>
+<span class="sd">            </span>
+<span class="sd">        Cold side required inputs : </span>
+<span class="sd">            </span>
+<span class="sd">            - T_su_C or h_su_C  : Cold supply temperature or enthalpy</span>
+<span class="sd">            - P_su_C          : Cold supply pressure</span>
+<span class="sd">            - Fluid_C      : Cold supply fluid</span>
+<span class="sd">            - m_dot_C      : Cold supply flow rate</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sync_inputs</span><span class="p">()</span>
+        <span class="c1"># Return a list of required inputs</span>
+        <span class="k">return</span><span class="p">[</span><span class="s1">&#39;P_su_H&#39;</span><span class="p">,</span> <span class="s1">&#39;T_su_H&#39;</span><span class="p">,</span> <span class="s1">&#39;m_dot_H&#39;</span><span class="p">,</span> <span class="s1">&#39;fluid_H&#39;</span><span class="p">,</span> <span class="s1">&#39;P_su_C&#39;</span><span class="p">,</span> <span class="s1">&#39;T_su_C&#39;</span><span class="p">,</span> <span class="s1">&#39;m_dot_C&#39;</span><span class="p">,</span> <span class="s1">&#39;fluid_C&#39;</span><span class="p">]</span>
+    
+<span class="c1">#%%</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_required_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        General Parameters : </span>
+<span class="sd">            </span>
+<span class="sd">            - htc_type  : Heat Transfer coefficient type (&#39;User-Defined&#39; or &#39;Correlation&#39;)</span>
+<span class="sd">            - H_DP_ON   : Hot side pressure drop considered or not</span>
+<span class="sd">            - C_DP_ON   : Cold side pressure drop considered or not</span>
+<span class="sd">            - n_disc    : number of discretizations</span>
+<span class="sd">        </span>
+<span class="sd">        Geometry Parameters depend on specific geometry python files.</span>
+<span class="sd">            </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">general_parameters</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;H_DP_ON&#39;</span><span class="p">,</span> <span class="s1">&#39;C_DP_ON&#39;</span><span class="p">,</span><span class="s1">&#39;n_disc&#39;</span><span class="p">]</span>
+            
+        <span class="n">geometry_parameters</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Fin_OD&#39;</span><span class="p">,</span> <span class="s1">&#39;Fin_per_m&#39;</span><span class="p">,</span> <span class="s1">&#39;Fin_t&#39;</span><span class="p">,</span> <span class="s1">&#39;Fin_type&#39;</span><span class="p">,</span> <span class="s1">&#39;fouling&#39;</span><span class="p">,</span> 
+                               <span class="s1">&#39;h&#39;</span><span class="p">,</span> <span class="s1">&#39;k_fin&#39;</span><span class="p">,</span> <span class="s1">&#39;pitch_V&#39;</span><span class="p">,</span> <span class="s1">&#39;pitch_H&#39;</span><span class="p">,</span> <span class="s1">&#39;tube_arrang&#39;</span><span class="p">,</span>  
+                               <span class="s1">&#39;Tube_cond&#39;</span><span class="p">,</span> <span class="s1">&#39;Tube_L&#39;</span><span class="p">,</span> <span class="s1">&#39;Tube_OD&#39;</span><span class="p">,</span> <span class="s1">&#39;Tube_t&#39;</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">,</span> <span class="s1">&#39;Fin_Side&#39;</span><span class="p">]</span>
+        
+        <span class="k">return</span> <span class="n">general_parameters</span> <span class="o">+</span> <span class="n">geometry_parameters</span>
+
+<span class="c1">#%%</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_debug</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">return</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">compute_detailed_geom</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        
+        <span class="c1"># Computation - n_tubes - n_row</span>
+        <span class="n">n_row_1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;h&#39;</span><span class="p">]</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;pitch_V&#39;</span><span class="p">])</span>
+        <span class="n">n_col</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;w&#39;</span><span class="p">]</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;pitch_H&#39;</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;tube_arrang&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;Inline&#39;</span><span class="p">:</span>
+            <span class="n">n_row</span> <span class="o">=</span> <span class="n">n_row_1</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_tubes&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">n_col</span><span class="o">*</span><span class="n">n_row</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;tube_arrang&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;Staggered&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">mod</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">n_col</span><span class="p">),</span><span class="mi">2</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">n_row</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">n_row_1</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="mi">2</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_tubes&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">n_col</span><span class="o">*</span><span class="n">n_row</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">n_row</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">n_col</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span><span class="o">*</span><span class="n">n_row_1</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">n_col</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="n">n_row_1</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span><span class="o">/</span><span class="n">n_col</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_tubes&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">n_col</span><span class="o">*</span><span class="n">n_row</span><span class="p">)</span>   
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Tube Arrangement is not &#39;Inline&#39; or &#39;Staggered&#39;.&quot;</span><span class="p">)</span>
+          
+        <span class="c1"># n_rows</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_rows&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">n_row</span><span class="p">))</span>
+        
+        <span class="c1"># A_flow</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;A_flow&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_L&#39;</span><span class="p">]</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;h&#39;</span><span class="p">]</span>
+        
+        <span class="c1"># Heat Transfer Area</span>
+        <span class="n">N_fins</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_L&#39;</span><span class="p">]</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Fin_per_m&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;A_unfinned&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_OD&#39;</span><span class="p">]</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_tubes&#39;</span><span class="p">]</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_L&#39;</span><span class="p">]</span>
+
+        <span class="n">A_out_tube</span> <span class="o">=</span> <span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_OD&#39;</span><span class="p">]</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_tubes&#39;</span><span class="p">]</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_L&#39;</span><span class="p">]</span><span class="o">-</span> <span class="n">N_fins</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Fin_t&#39;</span><span class="p">])</span>
+        <span class="n">A_out_fin</span> <span class="o">=</span> <span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Fin_OD&#39;</span><span class="p">]</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Fin_t&#39;</span><span class="p">]</span><span class="o">*</span><span class="n">N_fins</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_tubes&#39;</span><span class="p">]</span>
+        <span class="n">A_out_plate_fin</span> <span class="o">=</span> <span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">*</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Fin_OD&#39;</span><span class="p">]</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_OD&#39;</span><span class="p">]</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">*</span><span class="n">N_fins</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_tubes&#39;</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;A_finned&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">A_out_tube</span> <span class="o">+</span> <span class="n">A_out_fin</span> <span class="o">+</span> <span class="n">A_out_plate_fin</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;A_in_tot&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_L&#39;</span><span class="p">]</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_tubes&#39;</span><span class="p">]</span><span class="o">*</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_OD&#39;</span><span class="p">]</span><span class="o">/</span><span class="mi">2</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_t&#39;</span><span class="p">])</span>
+        
+        <span class="c1"># B_V_tot and T_V_tot computation</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;B_V_tot&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_L&#39;</span><span class="p">]</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;w&#39;</span><span class="p">]</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;h&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;T_V_tot&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;A_in_tot&#39;</span><span class="p">]</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_L&#39;</span><span class="p">]</span>
+                
+        <span class="k">return</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">compute_cell</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">T_b_in</span><span class="p">,</span> <span class="n">p_b_in</span><span class="p">,</span> <span class="n">h_b_in</span><span class="p">,</span> <span class="n">m_dot_b_in_all</span><span class="p">,</span> <span class="n">T_t_in</span><span class="p">,</span> <span class="n">p_t_in</span><span class="p">,</span> <span class="n">h_t_in</span><span class="p">,</span> <span class="n">m_dot_1_tube_in</span><span class="p">,</span><span class="n">j</span><span class="p">):</span>    
+<span class="w">              </span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        T_b_in, p_b_in, h_b_in: Inlet state of the bundle side (fin side).</span>
+<span class="sd">        T_t_in, p_t_in, h_t_in: Inlet state of the tube side.</span>
+<span class="sd">        m_dot_b_in_all: Total bundle-side mass flow.</span>
+<span class="sd">        m_dot_1_tube_in: Flow rate in one tube.</span>
+<span class="sd">        j: index for discretization segment.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">debug</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-----------------&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;h_b_in&quot;</span><span class="p">,</span><span class="n">h_b_in</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;h_t_in&quot;</span><span class="p">,</span><span class="n">h_t_in</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;p_b_in&quot;</span><span class="p">,</span><span class="n">p_b_in</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;p_t_in&quot;</span><span class="p">,</span><span class="n">p_t_in</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;T_b_in&quot;</span><span class="p">,</span><span class="n">T_b_in</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;T_t_in&quot;</span><span class="p">,</span><span class="n">T_t_in</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-----&quot;</span><span class="p">)</span>
+        
+        <span class="s2">&quot;1) Heat Transfer Coefficients&quot;</span>
+    
+        <span class="n">T_wall</span> <span class="o">=</span> <span class="p">(</span><span class="n">T_b_in</span> <span class="o">+</span> <span class="n">T_t_in</span><span class="p">)</span><span class="o">/</span><span class="mi">2</span>
+    
+        <span class="c1"># Initialize AbstractStates</span>
+        <span class="n">AS_b</span> <span class="o">=</span> <span class="n">CP</span><span class="o">.</span><span class="n">AbstractState</span><span class="p">(</span><span class="s2">&quot;HEOS&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">B_su</span><span class="o">.</span><span class="n">fluid</span><span class="p">)</span>
+        <span class="n">AS_b</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">CP</span><span class="o">.</span><span class="n">HmassP_INPUTS</span><span class="p">,</span> <span class="n">h_b_in</span><span class="p">,</span> <span class="n">p_b_in</span><span class="p">)</span>
+    
+        <span class="n">AS_t</span> <span class="o">=</span> <span class="n">CP</span><span class="o">.</span><span class="n">AbstractState</span><span class="p">(</span><span class="s2">&quot;HEOS&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">T_su</span><span class="o">.</span><span class="n">fluid</span><span class="p">)</span>
+        <span class="n">AS_t</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">CP</span><span class="o">.</span><span class="n">HmassP_INPUTS</span><span class="p">,</span> <span class="n">h_t_in</span><span class="p">,</span> <span class="n">p_t_in</span><span class="p">)</span>
+        
+        <span class="c1"># Tube Bank</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">alpha_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">2</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_rows&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_disc&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="n">alpha_b</span> <span class="o">=</span> <span class="n">htc_tube_and_fins</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">B_su</span><span class="o">.</span><span class="n">fluid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">,</span> <span class="n">p_b_in</span><span class="p">,</span> <span class="n">h_b_in</span><span class="p">,</span> <span class="n">m_dot_b_in_all</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Fin_type&#39;</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+        
+        <span class="n">A_in_one_tube</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">/</span><span class="mi">4</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_OD&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="mi">2</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_t&#39;</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span>
+        <span class="n">P_in_one_tube</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_OD&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="mi">2</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_t&#39;</span><span class="p">])</span>
+        <span class="n">D_h_one_tube</span> <span class="o">=</span> <span class="mi">4</span><span class="o">*</span><span class="n">A_in_one_tube</span><span class="o">/</span><span class="n">P_in_one_tube</span>
+        <span class="n">G_1t</span> <span class="o">=</span> <span class="n">m_dot_1_tube_in</span><span class="o">/</span><span class="n">A_in_one_tube</span>
+    
+        <span class="n">x</span> <span class="o">=</span> <span class="n">AS_t</span><span class="o">.</span><span class="n">Q</span><span class="p">()</span>
+        
+        <span class="k">if</span> <span class="n">x</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span> <span class="c1"># 1 phase case</span>
+            <span class="c1"># Tube</span>
+            <span class="n">mu</span> <span class="o">=</span> <span class="n">AS_t</span><span class="o">.</span><span class="n">viscosity</span><span class="p">()</span>
+            <span class="n">Pr</span> <span class="o">=</span> <span class="n">AS_t</span><span class="o">.</span><span class="n">Prandtl</span><span class="p">()</span>
+            <span class="n">k</span> <span class="o">=</span> <span class="n">AS_t</span><span class="o">.</span><span class="n">conductivity</span><span class="p">()</span>
+            <span class="n">rho</span> <span class="o">=</span> <span class="n">AS_t</span><span class="o">.</span><span class="n">rhomass</span><span class="p">()</span>
+    
+            <span class="n">AS_t</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">CP</span><span class="o">.</span><span class="n">PT_INPUTS</span><span class="p">,</span> <span class="n">p_t_in</span><span class="p">,</span> <span class="n">T_wall</span><span class="p">)</span>
+            <span class="n">Pr_w</span> <span class="o">=</span> <span class="n">AS_t</span><span class="o">.</span><span class="n">Prandtl</span><span class="p">()</span>     
+    
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">debug</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Pr&quot;</span><span class="p">,</span><span class="n">Pr</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Pr_w&quot;</span><span class="p">,</span><span class="n">Pr_w</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;ratio&quot;</span><span class="p">,(</span><span class="n">Pr</span><span class="o">/</span><span class="n">Pr_w</span><span class="p">)</span><span class="o">**</span><span class="mf">0.11</span><span class="p">)</span>
+                        
+            <span class="n">alpha_t</span> <span class="o">=</span> <span class="n">gnielinski_pipe_htc</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="n">Pr</span><span class="p">,</span> <span class="n">Pr_w</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">G_1t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_OD&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_t&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_L&#39;</span><span class="p">]</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_disc&#39;</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">DP_t</span> <span class="o">=</span> <span class="n">gnielinski_pipe_DP</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">G_1t</span><span class="p">,</span> <span class="n">D_h_one_tube</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_L&#39;</span><span class="p">]</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_disc&#39;</span><span class="p">])</span>
+            
+        <span class="k">else</span><span class="p">:</span> <span class="c1"># 2 phase flow</span>
+            <span class="n">AS_t</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">CP</span><span class="o">.</span><span class="n">PQ_INPUTS</span><span class="p">,</span> <span class="n">p_t_in</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">P_sat</span> <span class="o">=</span> <span class="n">p_t_in</span>
+            <span class="n">DP_t</span> <span class="o">=</span> <span class="n">Muller_Steinhagen_Heck_DP</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">T_su</span><span class="o">.</span><span class="n">fluid</span><span class="p">,</span> <span class="n">G_1t</span><span class="p">,</span> <span class="n">P_sat</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_L&#39;</span><span class="p">]</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_disc&#39;</span><span class="p">],</span> <span class="n">D_h_one_tube</span><span class="p">)</span>           
+            <span class="k">if</span> <span class="n">T_wall</span> <span class="o">&lt;=</span> <span class="n">T_t_in</span><span class="p">:</span> <span class="c1"># Condensation</span>
+                <span class="n">alpha_t</span> <span class="o">=</span> <span class="n">horizontal_tube_internal_condensation</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">T_su</span><span class="o">.</span><span class="n">fluid</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">T_su</span><span class="o">.</span><span class="n">m_dot</span><span class="p">,</span><span class="n">P_sat</span><span class="p">,</span><span class="n">h_t_in</span><span class="p">,</span><span class="n">T_wall</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_OD&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_t&#39;</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span> <span class="c1"># Evaporation</span>
+                <span class="n">x_t</span> <span class="o">=</span> <span class="n">x</span>
+                <span class="k">def</span><span class="w"> </span><span class="nf">equation</span><span class="p">(</span><span class="n">q</span><span class="p">):</span>
+                    <span class="n">alpha_t_local</span> <span class="o">=</span> <span class="n">horizontal_flow_boiling</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">T_su</span><span class="o">.</span><span class="n">fluid</span><span class="p">,</span> <span class="n">G_1t</span><span class="p">,</span> <span class="n">P_sat</span><span class="p">,</span> <span class="n">x_t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_OD&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_t&#39;</span><span class="p">],</span> <span class="n">q</span><span class="p">)</span>
+                    <span class="n">AU</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="n">alpha_t_local</span> <span class="o">*</span> <span class="n">A_in_one_tube</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="n">alpha_b</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;A_finned&#39;</span><span class="p">]</span><span class="o">/</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_tubes&#39;</span><span class="p">]</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_disc&#39;</span><span class="p">])))</span>
+                    <span class="n">C_b</span> <span class="o">=</span> <span class="n">m_dot_b_in_all</span> <span class="o">*</span> <span class="n">AS_b</span><span class="o">.</span><span class="n">cpmass</span><span class="p">()</span>
+                    <span class="n">C_t</span> <span class="o">=</span> <span class="mi">20000</span>
+                    <span class="n">C_min</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">C_b</span><span class="p">,</span> <span class="n">C_t</span><span class="p">)</span>
+                    <span class="n">C_max</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">C_b</span><span class="p">,</span> <span class="n">C_t</span><span class="p">)</span>
+                    <span class="n">NTU</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">AU</span> <span class="o">/</span> <span class="n">C_min</span><span class="p">)</span>
+                    <span class="n">eps</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">((</span><span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="n">C_min</span><span class="o">/</span><span class="n">C_max</span><span class="p">))</span> <span class="o">*</span> <span class="n">NTU</span><span class="o">**</span><span class="mf">0.22</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">C_min</span><span class="o">/</span><span class="n">C_max</span><span class="p">)</span> <span class="o">*</span> <span class="n">NTU</span><span class="o">**</span><span class="mf">0.78</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span>
+                    <span class="n">Q_dot_max</span> <span class="o">=</span> <span class="n">C_min</span> <span class="o">*</span> <span class="nb">abs</span><span class="p">(</span><span class="n">T_b_in</span> <span class="o">-</span> <span class="n">T_t_in</span><span class="p">)</span>
+                    <span class="n">Q_dot_1_tube</span> <span class="o">=</span> <span class="n">Q_dot_max</span> <span class="o">*</span> <span class="n">eps</span>
+                    <span class="k">return</span> <span class="n">q</span> <span class="o">-</span> <span class="n">Q_dot_1_tube</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;A_in_tot&#39;</span><span class="p">]</span><span class="o">/</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_tubes&#39;</span><span class="p">]</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_disc&#39;</span><span class="p">]))</span>
+    
+                <span class="n">q_solution</span> <span class="o">=</span> <span class="n">fsolve</span><span class="p">(</span><span class="n">equation</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    
+                <span class="c1"># Use q_solution in place of q</span>
+                <span class="n">alpha_t</span> <span class="o">=</span> <span class="n">horizontal_flow_boiling</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">T_su</span><span class="o">.</span><span class="n">fluid</span><span class="p">,</span> <span class="n">G_1t</span><span class="p">,</span> <span class="n">P_sat</span><span class="p">,</span> <span class="n">x_t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_OD&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_t&#39;</span><span class="p">],</span> <span class="n">q_solution</span><span class="p">)</span>
+                
+        <span class="n">A_out_1_tube</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;A_finned&#39;</span><span class="p">]</span><span class="o">/</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_tubes&#39;</span><span class="p">]</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_disc&#39;</span><span class="p">])</span> 
+        <span class="n">A_in_1_tube</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;A_unfinned&#39;</span><span class="p">]</span><span class="o">/</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_tubes&#39;</span><span class="p">]</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_disc&#39;</span><span class="p">])</span> 
+        
+        <span class="n">AU</span> <span class="o">=</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="n">alpha_t</span><span class="o">*</span><span class="n">A_in_1_tube</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="n">alpha_b</span><span class="o">*</span><span class="n">A_out_1_tube</span><span class="p">))</span>
+        
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">debug</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;alpha_b&quot;</span><span class="p">,</span><span class="n">alpha_b</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;alpha_t&quot;</span><span class="p">,</span><span class="n">alpha_t</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-----&quot;</span><span class="p">)</span>
+            
+        <span class="s2">&quot;2) Q_dot_cell : e-NTU method&quot;</span>
+        
+        <span class="n">m_dot_b_in</span> <span class="o">=</span> <span class="n">m_dot_b_in_all</span><span class="o">/</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_disc&#39;</span><span class="p">]</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_tubes&#39;</span><span class="p">]</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_rows&#39;</span><span class="p">]))</span>
+        <span class="n">m_dot_t_in</span> <span class="o">=</span> <span class="n">m_dot_1_tube_in</span>
+        
+        <span class="n">C_b</span> <span class="o">=</span> <span class="n">m_dot_b_in</span> <span class="o">*</span> <span class="n">AS_b</span><span class="o">.</span><span class="n">cpmass</span><span class="p">()</span>
+        
+        <span class="k">if</span> <span class="n">x</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span> <span class="c1"># 1 phase case</span>
+            <span class="n">C_t</span> <span class="o">=</span> <span class="n">m_dot_t_in</span> <span class="o">*</span> <span class="n">AS_t</span><span class="o">.</span><span class="n">cpmass</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span> <span class="c1"># 2 phase case</span>
+            <span class="n">C_t</span> <span class="o">=</span> <span class="mi">20000</span>
+        
+        <span class="n">C_min</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">C_b</span><span class="p">,</span> <span class="n">C_t</span><span class="p">)</span>
+        <span class="n">C_max</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">C_b</span><span class="p">,</span> <span class="n">C_t</span><span class="p">)</span>
+            
+        <span class="n">C_r</span> <span class="o">=</span> <span class="n">C_min</span><span class="o">/</span><span class="n">C_max</span>
+            
+        <span class="n">NTU</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="n">AU</span><span class="o">/</span><span class="n">C_min</span><span class="p">)</span>
+            
+        <span class="c1"># CrossFlow, both unmixed</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">((</span><span class="mi">1</span><span class="o">/</span><span class="n">C_r</span><span class="p">)</span><span class="o">*</span><span class="n">NTU</span><span class="o">**</span><span class="mf">0.22</span><span class="o">*</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">C_r</span><span class="o">*</span><span class="n">NTU</span><span class="o">**</span><span class="mf">0.78</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+            
+        <span class="n">Q_dot_max</span> <span class="o">=</span> <span class="n">C_min</span><span class="o">*</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">T_b_in</span> <span class="o">-</span> <span class="n">T_t_in</span><span class="p">))</span>
+        <span class="n">Q_dot_1_tube</span> <span class="o">=</span> <span class="n">Q_dot_max</span><span class="o">*</span><span class="n">eps</span>
+        
+        <span class="n">Q_dot_1_row</span> <span class="o">=</span> <span class="n">Q_dot_1_tube</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_tubes&#39;</span><span class="p">]</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_rows&#39;</span><span class="p">])</span>
+    
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">debug</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;AU&quot;</span><span class="p">,</span> <span class="n">AU</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;C_r&quot;</span><span class="p">,</span> <span class="n">C_r</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;NTU&quot;</span><span class="p">,</span> <span class="n">NTU</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;eps&quot;</span><span class="p">,</span> <span class="n">eps</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Q_dot_max&quot;</span><span class="p">,</span> <span class="n">Q_dot_max</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Q_dot_1_tube&quot;</span><span class="p">,</span> <span class="n">Q_dot_1_tube</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Q_dot_1_row&quot;</span><span class="p">,</span> <span class="n">Q_dot_1_row</span><span class="p">)</span>
+        
+        <span class="s2">&quot;3) Outlet Conditions&quot;</span>
+        
+        <span class="k">if</span> <span class="n">T_b_in</span> <span class="o">&lt;</span> <span class="n">T_t_in</span><span class="p">:</span> 
+            <span class="n">h_b_out</span> <span class="o">=</span> <span class="p">(</span><span class="n">h_b_in</span><span class="o">*</span><span class="n">m_dot_b_in</span> <span class="o">+</span> <span class="n">Q_dot_1_tube</span><span class="p">)</span><span class="o">/</span><span class="n">m_dot_b_in</span>
+            <span class="n">h_t_out</span> <span class="o">=</span> <span class="p">(</span><span class="n">h_t_in</span><span class="o">*</span><span class="n">m_dot_t_in</span> <span class="o">-</span> <span class="n">Q_dot_1_tube</span><span class="p">)</span><span class="o">/</span><span class="n">m_dot_t_in</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">h_t_out</span> <span class="o">=</span> <span class="p">(</span><span class="n">h_t_in</span><span class="o">*</span><span class="n">m_dot_t_in</span> <span class="o">+</span> <span class="n">Q_dot_1_tube</span><span class="p">)</span><span class="o">/</span><span class="n">m_dot_t_in</span>
+            <span class="n">h_b_out</span> <span class="o">=</span> <span class="p">(</span><span class="n">h_b_in</span><span class="o">*</span><span class="n">m_dot_b_in</span> <span class="o">-</span> <span class="n">Q_dot_1_tube</span><span class="p">)</span><span class="o">/</span><span class="n">m_dot_b_in</span>  
+        
+        <span class="n">DP_b</span> <span class="o">=</span> <span class="n">DP_tube_and_fins</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">B_su</span><span class="o">.</span><span class="n">fluid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">,</span> <span class="n">p_b_in</span><span class="p">,</span> <span class="n">T_b_in</span><span class="p">,</span> <span class="n">m_dot_b_in</span><span class="p">)</span>
+        <span class="n">p_b_out</span> <span class="o">=</span> <span class="n">p_b_in</span><span class="o">-</span><span class="n">DP_b</span>
+        <span class="n">p_t_out</span> <span class="o">=</span> <span class="n">p_t_in</span><span class="o">-</span><span class="n">DP_t</span>
+    
+        <span class="n">AS_b</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">CP</span><span class="o">.</span><span class="n">HmassP_INPUTS</span><span class="p">,</span> <span class="n">h_b_out</span><span class="p">,</span> <span class="n">p_b_out</span><span class="p">)</span>
+        <span class="n">AS_t</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">CP</span><span class="o">.</span><span class="n">HmassP_INPUTS</span><span class="p">,</span> <span class="n">h_t_out</span><span class="p">,</span> <span class="n">p_t_out</span><span class="p">)</span>
+    
+        <span class="n">T_b_out</span> <span class="o">=</span> <span class="n">AS_b</span><span class="o">.</span><span class="n">T</span><span class="p">()</span>
+        <span class="n">T_t_out</span> <span class="o">=</span> <span class="n">AS_t</span><span class="o">.</span><span class="n">T</span><span class="p">()</span>
+    
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">debug</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-----------------&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;h_b_out&quot;</span><span class="p">,</span> <span class="n">h_b_out</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;h_t_out&quot;</span><span class="p">,</span> <span class="n">h_t_out</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;p_b_out&quot;</span><span class="p">,</span> <span class="n">p_b_out</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;p_t_out&quot;</span><span class="p">,</span> <span class="n">p_t_out</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;T_b_out&quot;</span><span class="p">,</span> <span class="n">T_b_out</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;T_t_out&quot;</span><span class="p">,</span> <span class="n">T_t_out</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;---------&quot;</span><span class="p">)</span>
+            
+        <span class="k">return</span> <span class="n">h_b_out</span><span class="p">,</span> <span class="n">h_t_out</span><span class="p">,</span> <span class="n">p_b_out</span><span class="p">,</span> <span class="n">p_t_out</span><span class="p">,</span> <span class="n">T_b_out</span><span class="p">,</span> <span class="n">T_t_out</span><span class="p">,</span> <span class="n">Q_dot_1_row</span>
+        
+    <span class="k">def</span><span class="w"> </span><span class="nf">compute_mass</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">H_vec</span><span class="p">,</span> <span class="n">P_vec</span><span class="p">,</span> <span class="n">fluid</span><span class="p">,</span> <span class="n">i</span><span class="p">):</span>
+        <span class="n">D_vec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">H_vec</span><span class="p">))</span>
+        <span class="n">M_vec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">H_vec</span><span class="p">))</span>
+        <span class="n">x_vec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">H_vec</span><span class="p">))</span>
+
+        <span class="c1"># Determine segment volume</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">mod</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">Volume</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;B_V_tot&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_disc&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_rows&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">N_tpr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_tubes&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_rows&#39;</span><span class="p">]</span>
+            <span class="n">Tube_vol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_L&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_OD&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Tube_t&#39;</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+            <span class="n">Volume</span> <span class="o">=</span> <span class="n">N_tpr</span> <span class="o">*</span> <span class="n">Tube_vol</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_disc&#39;</span><span class="p">]</span>
+
+        <span class="c1"># Initialize AbstractState</span>
+        <span class="n">AS</span> <span class="o">=</span> <span class="n">CP</span><span class="o">.</span><span class="n">AbstractState</span><span class="p">(</span><span class="s2">&quot;HEOS&quot;</span><span class="p">,</span> <span class="n">fluid</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">H_vec</span><span class="p">)):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">AS</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">CP</span><span class="o">.</span><span class="n">HmassP_INPUTS</span><span class="p">,</span> <span class="n">H_vec</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">P_vec</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="n">AS</span><span class="o">.</span><span class="n">Q</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>  <span class="c1"># Single-phase fallback if not two-phase</span>
+
+            <span class="n">x_vec</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span>
+
+            <span class="k">if</span> <span class="n">x</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">x</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">rho</span> <span class="o">=</span> <span class="n">AS</span><span class="o">.</span><span class="n">rhomass</span><span class="p">()</span>
+                <span class="n">D_vec</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">rho</span>
+                <span class="n">M_vec</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">rho</span> <span class="o">*</span> <span class="n">Volume</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">AS</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">CP</span><span class="o">.</span><span class="n">PQ_INPUTS</span><span class="p">,</span> <span class="n">P_vec</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="n">rho_g</span> <span class="o">=</span> <span class="n">AS</span><span class="o">.</span><span class="n">rhomass</span><span class="p">()</span>
+                <span class="n">AS</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">CP</span><span class="o">.</span><span class="n">PQ_INPUTS</span><span class="p">,</span> <span class="n">P_vec</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="mi">0</span><span class="p">)</span>
+                <span class="n">rho_l</span> <span class="o">=</span> <span class="n">AS</span><span class="o">.</span><span class="n">rhomass</span><span class="p">()</span>
+
+                <span class="n">eps_void</span><span class="p">,</span> <span class="n">rho_avg</span> <span class="o">=</span> <span class="n">void_fraction</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">rho_g</span><span class="p">,</span> <span class="n">rho_l</span><span class="p">)</span>
+                <span class="n">D_vec</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">rho_avg</span>
+                <span class="n">M_vec</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">rho_avg</span> <span class="o">*</span> <span class="n">Volume</span>
+
+        <span class="k">return</span> <span class="p">[</span><span class="n">D_vec</span><span class="p">,</span> <span class="n">M_vec</span><span class="p">,</span> <span class="n">x_vec</span><span class="p">]</span>
+
+
+<span class="c1">#%%</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">solve</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_calculable</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_parametrized</span><span class="p">()</span>   
+        <span class="bp">self</span><span class="o">.</span><span class="n">compute_detailed_geom</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">calculable</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">parametrized</span><span class="p">:</span>        
+
+            <span class="s2">&quot;------- 1) Create Finite Difference matrices ------------------------&quot;</span>
+            
+            <span class="bp">self</span><span class="o">.</span><span class="n">T_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">2</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_rows&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_disc&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="c1"># self.create_matrix(self.n_disc, self.geom.n_rows)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">P_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">2</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_rows&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_disc&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="c1"># self.create_matrix(self.n_disc, self.geom.n_rows)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">H_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">2</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_rows&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_disc&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="c1"># self.create_matrix(self.n_disc, self.geom.n_rows)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">D_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">2</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_rows&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_disc&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="c1"># self.create_matrix(self.n_disc, self.geom.n_rows)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">M_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">2</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_rows&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_disc&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="c1"># self.create_matrix(self.n_disc, self.geom.n_rows)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">x_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">2</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_rows&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_disc&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="c1"># self.create_matrix(self.n_disc, self.geom.n_rows)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">Q_dot_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">2</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_rows&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_disc&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="c1"># self.create_matrix(self.n_disc, self.geom.n_rows)</span>
+            
+            <span class="bp">self</span><span class="o">.</span><span class="n">M_tube</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">M_bank</span> <span class="o">=</span> <span class="mi">0</span>
+
+            <span class="s2">&quot;------- 2) Determine Which Side is Fin Side ------------------------&quot;</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Fin_Side&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;C&#39;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">B_su</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">su_C</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">T_su</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">su_H</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Fin_Side&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;H&#39;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">B_su</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">su_H</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">T_su</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">su_C</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Fin_Side shall either be &#39;C&#39; or &#39;H&#39;&quot;</span><span class="p">)</span>
+            
+            <span class="s2">&quot;------- 2) Initialize the input values ------------------------&quot;</span>
+            
+            <span class="c1"># Bundle Fluid</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">T_matrix</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">fill</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">B_su</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">P_matrix</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">fill</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">B_su</span><span class="o">.</span><span class="n">p</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">H_matrix</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">fill</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">B_su</span><span class="o">.</span><span class="n">h</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">Q_dot_matrix</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">fill</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">B_su</span><span class="o">.</span><span class="n">h</span><span class="p">)</span>
+            
+            <span class="c1"># Tube Fluid</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">T_matrix</span><span class="p">[:,</span><span class="mi">0</span><span class="p">])):</span>
+                <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">mod</span><span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">T_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">T_su</span><span class="o">.</span><span class="n">T</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">P_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">T_su</span><span class="o">.</span><span class="n">p</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">H_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">T_su</span><span class="o">.</span><span class="n">h</span>
+                    
+            <span class="s2">&quot;------- 3) Compute Heat transfer over rows ------------------------&quot;</span>
+            
+            <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">j</span> <span class="o">=</span> <span class="mi">0</span>
+            
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">T_matrix</span><span class="p">[:,</span><span class="mi">0</span><span class="p">])</span><span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">mod</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">T_matrix</span><span class="p">[</span><span class="mi">0</span><span class="p">])):</span>
+                        
+                        <span class="k">if</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">T_matrix</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">H_matrix</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">2</span><span class="p">,</span><span class="n">j</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">H_matrix</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">P_matrix</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">2</span><span class="p">,</span><span class="n">j</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">P_matrix</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">T_matrix</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">2</span><span class="p">,</span><span class="n">j</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">T_matrix</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">Q_dot_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_cell</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">T_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">P_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">H_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">B_su</span><span class="o">.</span><span class="n">m_dot</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">T_matrix</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="n">j</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">P_matrix</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="n">j</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">H_matrix</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="n">j</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">T_su</span><span class="o">.</span><span class="n">m_dot</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_tubes&#39;</span><span class="p">],</span><span class="n">j</span><span class="p">)</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">H_matrix</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">2</span><span class="p">,</span><span class="n">j</span><span class="p">],</span> <span class="n">_</span> <span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">P_matrix</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">2</span><span class="p">,</span><span class="n">j</span><span class="p">],</span> <span class="n">_</span> <span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">T_matrix</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">2</span><span class="p">,</span><span class="n">j</span><span class="p">],</span> <span class="n">_</span> <span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Q_dot_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_cell</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">T_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">P_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">H_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">B_su</span><span class="o">.</span><span class="n">m_dot</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">T_matrix</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="n">j</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">P_matrix</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="n">j</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">H_matrix</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="n">j</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">T_su</span><span class="o">.</span><span class="n">m_dot</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_tubes&#39;</span><span class="p">],</span><span class="n">j</span><span class="p">)</span>
+
+            <span class="s2">&quot;------- 4) Compute Mass ------------------------&quot;</span>
+            
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">T_matrix</span><span class="p">[:,</span><span class="mi">0</span><span class="p">])):</span>
+                <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">mod</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span> <span class="c1"># Bank Fluid</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">D_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,:],</span> <span class="bp">self</span><span class="o">.</span><span class="n">M_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,:],</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,:]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_mass</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">H_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,:],</span> <span class="bp">self</span><span class="o">.</span><span class="n">P_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,:],</span> <span class="bp">self</span><span class="o">.</span><span class="n">B_su</span><span class="o">.</span><span class="n">fluid</span><span class="p">,</span><span class="n">i</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">M_bank</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">M_bank</span> <span class="o">+</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">M_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,:])</span>
+                <span class="k">else</span><span class="p">:</span> <span class="c1"># Internal Fluid</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">D_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,:],</span> <span class="bp">self</span><span class="o">.</span><span class="n">M_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,:],</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,:]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_mass</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">H_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,:],</span> <span class="bp">self</span><span class="o">.</span><span class="n">P_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,:],</span> <span class="bp">self</span><span class="o">.</span><span class="n">T_su</span><span class="o">.</span><span class="n">fluid</span><span class="p">,</span><span class="n">i</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">M_tube</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">M_tube</span> <span class="o">+</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">M_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,:])</span>
+                
+            <span class="s2">&quot;------- 5) Compute Outputs ------------------------&quot;</span>
+            
+            <span class="s2">&quot;4.1) Heat Rate and Mass&quot;</span>
+            
+            <span class="bp">self</span><span class="o">.</span><span class="n">Q_dot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Q_dot_matrix</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+            <span class="s2">&quot;4.2) Outlet Conditions - Bundle Side&quot;</span>
+            
+            <span class="n">h_out_mean_bundle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">H_matrix</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,:]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+            <span class="n">p_out_mean_bundle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">P_matrix</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,:]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+            <span class="n">T_out_mean_bundle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">T_matrix</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,:]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+            
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Fin_Side&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;C&#39;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">B_ex</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ex_C</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">T_ex</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ex_H</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Fin_Side&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;H&#39;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">B_ex</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ex_H</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">T_ex</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ex_C</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Fin_Side shall either be &#39;C&#39; or &#39;H&#39;&quot;</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">B_ex</span><span class="o">.</span><span class="n">set_fluid</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">B_su</span><span class="o">.</span><span class="n">fluid</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">B_ex</span><span class="o">.</span><span class="n">set_m_dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">B_su</span><span class="o">.</span><span class="n">m_dot</span><span class="p">)</span>
+            
+            <span class="bp">self</span><span class="o">.</span><span class="n">B_ex</span><span class="o">.</span><span class="n">set_h</span><span class="p">(</span><span class="n">h_out_mean_bundle</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">B_ex</span><span class="o">.</span><span class="n">set_p</span><span class="p">(</span><span class="n">p_out_mean_bundle</span><span class="p">)</span>
+           
+            
+            <span class="s2">&quot;4.3) Outlet Conditions - Tube Side&quot;</span>
+
+            <span class="n">p_out_tube</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">P_matrix</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="c1">#This assumes the pressure at the outlet of the first tube row represents the overall tube-side outlet pressure</span>
+            
+            <span class="n">h_out_mean_tube</span> <span class="o">=</span> <span class="mi">0</span>
+            
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">H_matrix</span><span class="p">[:,</span><span class="mi">0</span><span class="p">])</span><span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">mod</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">h_out_mean_tube</span> <span class="o">=</span> <span class="n">h_out_mean_tube</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">H_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                    
+            <span class="n">h_out_mean_tube</span> <span class="o">=</span> <span class="n">h_out_mean_tube</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;n_rows&#39;</span><span class="p">]</span>
+            <span class="c1">#By assuming an homogeneous repartition of the total flow rate over the tubes</span>
+            
+                      
+            <span class="bp">self</span><span class="o">.</span><span class="n">T_ex</span><span class="o">.</span><span class="n">set_fluid</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">T_su</span><span class="o">.</span><span class="n">fluid</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">T_ex</span><span class="o">.</span><span class="n">set_m_dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">T_su</span><span class="o">.</span><span class="n">m_dot</span><span class="p">)</span>
+            
+            <span class="bp">self</span><span class="o">.</span><span class="n">T_ex</span><span class="o">.</span><span class="n">set_h</span><span class="p">(</span><span class="n">h_out_mean_tube</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">T_ex</span><span class="o">.</span><span class="n">set_p</span><span class="p">(</span><span class="n">p_out_tube</span><span class="p">)</span>
+            <span class="n">T_out_mean_tube</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">T_ex</span><span class="o">.</span><span class="n">T</span>
+                       
+            <span class="bp">self</span><span class="o">.</span><span class="n">solved</span> <span class="o">=</span> <span class="kc">True</span>
+            
+            
+        <span class="k">return</span></div>
+
+</pre></div>
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2024, Basile Chaudoir, Elise Neven
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer no-toc">
+      
+      
+      
+    </aside>
+  </div>
+</div><script src="../../../_static/documentation_options.js?v=f2a433a1"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    </body>
+</html>
