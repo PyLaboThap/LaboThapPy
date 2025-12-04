@@ -5,7 +5,6 @@ import CoolProp.CoolProp as CP
 import numpy as np
 from scipy.optimize import root_scalar
 
-import __init__
 from component.base_component import BaseComponent
 from connector.mass_connector import MassConnector
 from connector.work_connector import WorkConnector
@@ -20,69 +19,117 @@ class PumpSimilarityLaws(BaseComponent):
     **Model**: Model using characteristic curves for head and power and similarity laws
     to calculate the pump performance at different speeds.
 
-    Description:
+    **Description**:
+
         Simulates a pump using head and power performance curves (vs flow and speed).
         Uses the similarity laws to calculate the pump performance at different speeds.
 
-    Assumptions:
+    **Assumptions**:
+
         - Steady-state
         - Incompressible fluid approximation for head calculation
 
-    Connectors:
-        - su: Suction side (MassConnector)
-        - ex: Exhaust side (MassConnector)
-        - W_mec: Work connector (WorkConnector)
+    **Connectors**:
+        su (MassConnector): Supply (inlet) side of the turbine.
 
-    Required Parameters:
-        - curves_head: Dict = List[(flow, head)] dicionary of head curves
-        - curves_power: Dict = List[(flow, power)] dictionary of power curves
-        - curves_fluid: Fluid used for the characteristic curves
-        - speed_ref: Reference speed for the curves (RPM)
+        ex (MassConnector): Exhaust (outlet) side of the turbine.
 
-    Required Inputs:
-        - P_su: Suction pressure [Pa]
-        - T_su: Suction temperature [K]
-        - P_ex: Exhaust pressure [Pa]
-        - N_rot: Rotational speed [RPM]
-        - fluid: Actual working fluid
+        W (WorkConnector): Shaft power output from the turbine.
 
-    Outputs:
-        - V_dot_pp: Volumetric flow rate [m³/h]
-        - m_dot_pp: Mass flow rate [kg/s]
-        - W_dot_pp: Shaft power required by the pump [W]
+    **Parameters**:
+
+        curves_head: Dict = List[(flow, head)] dicionary of head curves ([m^3/h], [m])
+
+        curves_power: Dict = List[(flow, power)] dictionary of power curves ([m^3/h], [W])
+
+        curves_fluid: Fluid used for the characteristic curves 
+
+        curves_rho : Density of the fluid used for the characteristic curves (kg/m^3)
+
+        speed_ref: Reference speed for the curves (RPM)
+
+        mode: Operation mode of the pump ('P_N', 'M_N', 'P_M')
+
+    **Inputs**:
+
+        *mode = P_N:*
+
+        P_su: Suction pressure [Pa]
+
+        T_su: Suction temperature [K]
+
+        P_ex: Exhaust pressure [Pa]
+
+        N_rot: Rotational speed [RPM]
+
+        fluid: Actual working fluid
+
+        *mode = P_M:*
+
+        P_su: Suction pressure [Pa]
+
+        T_su: Suction temperature [K]
+
+        P_ex: Exhaust pressure [Pa]
+
+        m_dot: Mass flow rate [kg/s]
+
+        fluid: Actual working fluid
+
+        *mode = M_N:*
+
+        P_su: Suction pressure [Pa]
+
+        T_su: Suction temperature [K]
+
+        N_rot: Rotational speed [RPM]
+
+        m_dot: Mass flow rate [kg/s]
+
+        fluid: Actual working fluid
+
+    **Outputs**:
+
+        V_dot: Volumetric flow rate [m³/h]
+
+        W_dot: Shaft power required by the pump [W]
+
+        m_dot: Mass flow rate [kg/s] or P_ex: Exhaust pressure [Pa] or N_rot: Rotational speed [RPM], depending on the mode
+
+
+    **Notes**:
+        - Three modes of operation are available:
+            - 'P_N': Given suction and exhaust pressures and rotational speed, calculates flow and power
+            - 'M_N': Given suction pressure, temperature, rotational speed, and mass flow rate, calculates exhaust pressure and power
+            - 'P_M': Given suction and exhaust pressures and mass flow rate, calculates rotational speed and power
     """
 
     def __init__(self):
-        """
-        Initializes the class and sets up connectors for mass flow and work.
-        """
+        # Initialize the base component class 
         super().__init__()
         self.su = MassConnector()  # Suction connector
         self.ex = MassConnector()  # Exhaust connector
-        self.W_mec = WorkConnector()  # Mechanical work connector
+        self.W = WorkConnector()  # Mechanical work connector
 
     def get_required_inputs(self):
-        """
-        Returns a list of required input variable names.
-        Used to check if the model has enough data to run.
-        """
-        if self.params["mode"] == "P_N":
+        # Returns a list of required input variable names. Used to check if the model has enough data to run.
+
+        if self.params["mode"] == "P_N": # If the mode is 'P_N', the rotational speed and exhaust pressure are required while the mass flow rate of the expander is calculated
             return ["P_su", "T_su", "P_ex", "N_rot", "fluid"]
-        # If the mode is 'm_dot', the mass flow rate is required while the rotational speed of the expander is calculated
-        elif self.params["mode"] == "P_M":
+
+        elif self.params["mode"] == "P_M": # If the mode is 'P_M', the mass flow rate and exhaust pressure are required while the rotational speed of the expander is calculated
             return ["P_su", "T_su", "P_ex", "m_dot", "fluid"]
 
-        elif self.params["mode"] == "M_N":
+        elif self.params["mode"] == "M_N": # If the mode is 'M_N', the rotational speed and mass flow rate are required while the exhaust pressure of the expander is calculated
             return ["P_su", "T_su", "N_rot", "m_dot", "fluid"]
 
         else:
             raise ValueError("Specify a mode for the pump : 'P_N', 'P_M', 'M_N'")
 
     def get_required_parameters(self):
-        """
-        Returns a list of required parameters needed for model execution.
-        """
-        return ["curves_head", "curves_power", "speed_ref", "curves_fluid", "mode"]
+        # Returns a list of required parameters needed for model execution.
+
+        return ["curves_head", "curves_power", "speed_ref", "curves_rho", "curves_fluid", "mode"]
 
     def _prepare_interpolators(self):
         """
@@ -115,35 +162,23 @@ class PumpSimilarityLaws(BaseComponent):
 
     def _similarity_fluid(self):
         """
-        Calculates head and power for a different fluid by adjusting based on density differences
+        Calculates head for a different fluid by adjusting based on density differences
         between the curve fluid and the actual operating fluid.
         """
 
         # Calculate the density ratio between the actual fluid and the curve fluid
 
-        self.AS_actual.update(CP.PT_INPUTS, self.inputs["T_su"], self.inputs["P_su"])
-        rho_actual = self.AS_actual.rhomass()
-        self.AS_curve.update(CP.PT_INPUTS, 2e5, 20 + 273.15)
-        rho_curve = self.AS_curve.rhomass()
-        density_ratio = (
-            rho_curve / rho_actual
-        )  # The ratio of the reference fluid's density to the actual fluid
-
+        # rho_actual = CP.PropsSI("D", "T", self.inputs["T_su"], "P", self.inputs["P_su"], self.su.fluid)
+        rho_actual = self.su.D  # Density of the actual fluid at suction conditions
+        rho_curve = self.params["curves_rho"]
+        density_ratio = rho_curve / rho_actual # The ratio of the reference fluid's density to the actual fluid
         # Calculate pressure difference (Delta P) for both fluids
-        DeltaP_actual = (
-            self.inputs["P_ex"] - self.inputs["P_su"]
-        )  # Pressure difference across the pump
-        DeltaP_curve = (
-            DeltaP_actual * density_ratio
-        )  # Pressure difference for the curve fluid (adjusted by density)
+        DeltaP_actual = self.inputs["P_ex"] - self.inputs["P_su"] # Pressure difference across the pump
+        DeltaP_curve = DeltaP_actual * density_ratio # Pressure difference for the curve fluid (adjusted by density)
 
         # Calculate head values for both the actual and curve fluids
-        head_actual = DeltaP_actual / (
-            rho_curve * GRAVITY
-        )  # Head for the actual fluid (converted to meters)
-        head_curve = DeltaP_curve / (
-            rho_curve * GRAVITY
-        )  # Head for the curve fluid (converted to meters)
+        head_actual = DeltaP_actual / (rho_actual * GRAVITY) # Head for the actual fluid (converted to meters)
+        head_curve = DeltaP_curve / (rho_curve * GRAVITY) # Head for the curve fluid (converted to meters)
 
         return head_curve, head_actual
 
@@ -173,16 +208,6 @@ class PumpSimilarityLaws(BaseComponent):
 
         return res.root  # Return the calculated flow value
 
-    def _similarity_flow(self, flow_curve):
-        """
-        Calculate flow using the affinity laws.
-        This method scales the flow curve to the new speed.
-        """
-        flow = flow_curve * (
-            self.inputs["N_rot"] / self.params["speed_ref"]
-        )  # Apply the affinity law for flow scaling
-        return flow
-
     def _flow_in_curve_from_m_dot(self):
         """
         Calculate flow using the affinity laws.
@@ -194,8 +219,28 @@ class PumpSimilarityLaws(BaseComponent):
             self.inputs["N_rot"] / self.params["speed_ref"]
         )  # Apply the affinity law for flow scaling
         return flow
+    
+    def _similarity_flow(self, flow_curve):
+        """
+        Calculate flow using the affinity laws.
+        This method scales the flow curve to the new speed.
+        """
+        flow = flow_curve * (self.inputs["N_rot"] / self.params["speed_ref"])  # Apply the affinity law for flow scaling
+        return flow
+    
+    def _similarity_speed(self, flow_curve):
+        """
+        Calculate speed using the affinity laws.
+        This method scales the speed based on the flow curve.
+        """
 
-    def _similarity_power(self, flow_curve):
+        # Apply the affinity law for speed scaling
+        flow_actual = self.inputs["m_dot"] * 3600 / self.su.D  # m^3/h
+        speed = self.params["speed_ref"] * (flow_actual / flow_curve)
+
+        return speed
+
+    def _similarity_power(self, flow_curve, speed_actual):
         """
         Calculate power using the affinity laws.
         This method scales the power curve to the new speed, and adjusts for fluid differences.
@@ -204,7 +249,7 @@ class PumpSimilarityLaws(BaseComponent):
         # Apply the affinity law for power scaling
         power = (
             self.power_poly(flow_curve)
-            * (self.inputs["N_rot"] / self.params["speed_ref"]) ** 3
+            * (speed_actual/ self.params["speed_ref"]) ** 3
         )
 
         # Density correction: scale power based on the actual fluid density
@@ -215,7 +260,7 @@ class PumpSimilarityLaws(BaseComponent):
         density_ratio = rho_actual / rho_curve  # Ratio of densities for scaling
 
         # Scale the power for the actual fluid density
-        power = power * density_ratio  # Power in kW (after density correction)
+        power = power * density_ratio  # Power in W (after density correction)
 
         return power
 
@@ -230,17 +275,13 @@ class PumpSimilarityLaws(BaseComponent):
         self.AS_curve = CP.AbstractState("HEOS", self.params["curves_fluid"])
         self.AS_actual = CP.AbstractState("HEOS", self.su.fluid)
 
-        if (
-            not self.calculable
-        ):  # If the component is not calculable and/or not parametrized
+        if (not self.calculable):  # If the component is not calculable and/or not parametrized
             self.solved = False
             print("PumpSimilarityLaws could not be solved. It is not calculable.")
             self.print_setup()
             return
 
-        elif (
-            not self.parametrized
-        ):  # If the component is not calculable and/or not parametrized
+        elif (not self.parametrized):  # If the component is not calculable and/or not parametrized
             self.solved = False
             print("PumpSimilarityLaws could not be solved. It is not parametrized.")
             self.print_setup()
@@ -253,23 +294,25 @@ class PumpSimilarityLaws(BaseComponent):
             head_curve, head_actual = self._similarity_fluid()
 
             # Calculate the flow corresponding to the computed head
-            flow_curve = self._flow_from_head(head_curve)
-            self.flow_actual = self._similarity_flow(
-                flow_curve
-            )  # Scale flow to the new speed
+            flow_curve = self._flow_from_head(head_curve) # Flow in the curve fluid at reference speed corresponding to the head
+            self.flow_actual = self._similarity_flow(flow_curve)  # Scale flow to the new speed
 
             # Calculate the power based on the scaled flow and speed
-            self.power_actual = (
-                self._similarity_power(flow_curve) * 1000
-            )  # Power in watts
+            self.power_actual = self._similarity_power(flow_curve, self.inputs['N_rot'])  # Power in watts
+
+        elif self.params["mode"] == "P_M":
+            # Compute the head values for both the actual fluid and the curve fluid
+            head_curve, head_actual = self._similarity_fluid()
+
+            # Calculate the flow corresponding to the computed head
+            flow_curve = self._flow_from_head(head_curve) # Flow in the curve fluid at reference speed corresponding to the head
+            self.speed_actual = self._similarity_speed(flow_curve)  # Scale speed to the new flow
+
+            # Calculate the power based on the scaled flow and speed
+            self.power_actual = self._similarity_power(flow_curve, self.speed_actual)  # Power in watts
 
         elif self.params["mode"] == "M_N":
-            fluid_curve = self.params[
-                "curves_fluid"
-            ]  # Reference fluid used for the characteristic curves
-            self.AS_curve.update(CP.PT_INPUTS, 2e5, 20 + 273.15)
-            rho_curve = self.AS_curve.rhomass()
-
+            rho_curve = self.params["curves_rho"]
             flow_curve = self._flow_in_curve_from_m_dot()
             head_curve = self.head_poly(flow_curve)
 
@@ -279,46 +322,61 @@ class PumpSimilarityLaws(BaseComponent):
                 * rho_curve
                 * (self.inputs["N_rot"] / self.params["speed_ref"]) ** 2
             )
-            density_ratio = (
-                rho_curve / self.su.D
-            )  # The ratio of the reference fluid's density to the actual fluid
+            density_ratio = (rho_curve / self.su.D)  # The ratio of the reference fluid's density to the actual fluid
 
             self.DP_actual = DP_curve / density_ratio
-            self.power_actual = (
-                self._similarity_power(flow_curve) * 1000
-            )  # Power in watts
+            self.power_actual = self._similarity_power(flow_curve, self.inputs['N_rot'])  # Power in watts
 
         self.update_connectors()  # Update the connectors with the calculated values
 
     def update_connectors(self):
         if self.params["mode"] == "P_N":
-            self.su.set_m_dot(
-                self.flow_actual * self.su.D / 3600
-            )  # Update the mass flow rate for the suction connector
-            self.ex.set_m_dot(
-                self.su.m_dot
-            )  # Update the mass flow rate for the exhaust connector
+            self.su.set_m_dot(self.flow_actual * self.su.D / 3600)  # Update the mass flow rate for the suction connector
+            self.su.set_V_dot(self.flow_actual)  # Update the volumetric flow rate for the suction connector
+            self.ex.set_m_dot(self.su.m_dot)  # Update the mass flow rate for the exhaust connector
+            self.W.set_N_rot(self.inputs["N_rot"])  # Update the rotational speed for the work connector
+            self.ex.set_p(self.inputs["P_ex"])  # Update the exhaust pressure for the exhaust connector
+
+        elif self.params["mode"] == "P_M":
+            self.ex.set_m_dot(self.su.m_dot)  # Update the mass flow rate for the exhaust connector
+            self.su.set_V_dot(self.su.m_dot * 3600 / self.su.D)  # Update the mass flow rate for the suction connector
+            self.ex.set_m_dot(self.su.m_dot)  # Update the mass flow rate for the exhaust connector
+            self.W.set_N_rot(self.speed_actual)  # Update the rotational speed for the work connector
+            self.ex.set_p(self.inputs["P_ex"])  # Update the exhaust pressure for the exhaust connector
 
         elif self.params["mode"] == "M_N":
-            self.ex.set_m_dot(
-                self.su.m_dot
-            )  # Update the mass flow rate for the exhaust connector
-            self.ex.set_p(
-                self.su.p + self.DP_actual
-            )  # Update the work connector with the calculated power
+            self.ex.set_m_dot(self.su.m_dot)  # Update the mass flow rate for the exhaust connector
+            self.su.set_V_dot(self.su.m_dot * 3600 / self.su.D)  # Update the mass flow rate for the suction connector
+            self.ex.set_V_dot(self.su.m_dot * 3600 / self.su.D)  # Update the mass flow rate for the exhaust connector
+            self.ex.set_p(self.su.p + self.DP_actual)  # Update the work connector with the calculated power
 
-        self.W_mec.set_W_dot(
-            self.power_actual
-        )  # Update the work connector with the calculated power
+        self.W.set_W_dot_el(self.power_actual)  # Update the work connector with the calculated power
 
         # Calculate the exhaust enthalpy
-        self.h_ex = self.su.h + (
-            self.power_actual / self.su.m_dot
-        )  # Calculate the exhaust enthalpy based on the power and mass flow rate
+        self.h_ex = self.su.h + (self.power_actual / self.su.m_dot)  # Calculate the exhaust enthalpy based on the power and mass flow rate
         self.ex.set_h(self.h_ex)  # Set the exhaust enthalpy for the exhaust connector
         self.ex.set_fluid(self.su.fluid)  # Set the fluid type for the exhaust connector
 
         self.solved = True
+
+    def print_results(self):
+        """
+        Prints the results of the pump simulation, including flow rate, power, and other relevant parameters.
+        """
+        if not self.solved:
+            print("PumpSimilarityLaws has not been solved yet.")
+            return
+
+        print("---- Pump Similarity Laws Results ----")
+        print(f"Mode: {self.params['mode']}")
+        print(f"Suction Pressure (P_su): {self.su.p:.2f} Pa")
+        print(f"Suction Temperature (T_su): {self.su.T:.2f} K")
+        print(f"Exhaust Pressure (P_ex): {self.ex.p:.2f} Pa")
+        print(f"Mass Flow Rate (m_dot): {self.su.m_dot:.4f} kg/s")
+        print(f"Volumetric Flow Rate (V_dot): {self.su.V_dot:.4f} m³/h")
+        print(f"Rotational Speed (N_rot): {self.W.N_rot} RPM")
+        print(f"Electrical consumption (W_dot_el): {self.W.W_dot_el:.2f} W")
+        print("--------------------------------------")
 
     def plot_characteristic_curves(
         self, speeds_to_plot=None, flow_range=None, n_points=100
@@ -343,10 +401,8 @@ class PumpSimilarityLaws(BaseComponent):
         base_flows = np.linspace(flow_min, flow_max, n_points)
 
         # Retrieve fluid densities
-        self.AS_actual.update(CP.PT_INPUTS, self.inputs["T_su"], self.inputs["P_su"])
-        rho_actual = self.AS_actual.rhomass()
-        self.AS_curve.update(CP.PT_INPUTS, 2e5, 20 + 273.15)
-        rho_curve = self.AS_curve.rhomass()
+        rho_actual = self.su.D
+        rho_curve = self.params["curves_rho"]
         density_ratio = rho_actual / rho_curve
 
         # Start plotting
@@ -379,7 +435,7 @@ class PumpSimilarityLaws(BaseComponent):
 
         plt.title("Power vs Flow Rate (density-corrected)")
         plt.xlabel("Flow Rate [m³/h]")
-        plt.ylabel("Power [kW]")
+        plt.ylabel("Power [W]")
         plt.grid(True)
         plt.legend()
 
