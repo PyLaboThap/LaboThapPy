@@ -46,8 +46,10 @@ class WorkConnector:
         self.variables_input = []
         
         self.W_dot = None          # Work power [W]
+        self.w = None              # Specific work [J/kg]
         self.N_rot = None              # Speed [rpm]
         self.C = None            # Torque [Nm]
+        self.W_dot_el = None       # Electrical power [W]
 
 
     def calculate_properties(self):
@@ -73,11 +75,18 @@ class WorkConnector:
         self.variables_input = self.variables_input + [['C', value]]
         self.calculate_properties()
 
+    def set_W_dot_el(self, value):
+        self.W_dot_el = value
+        self.variables_input = self.variables_input + [['W_dot_el', value]]
+        self.calculate_properties()
+
 
     def print_resume(self):
         """
         Print a summary of the work connector properties
         """
         print("Work power: " + str(self.W_dot) + " [W]")
+        print("Specific work: " + str(self.w) + " [J/kg]")
         print("Speed: " + str(self.N_rot) + " [rpm]")
         print("Torque: " + str(self.C) + " [Nm]")
+        print("Electrical power: " + str(self.W_dot_el) + " [W]")
