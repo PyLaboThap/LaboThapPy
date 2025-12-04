@@ -12,7 +12,7 @@ Class description
 
 Example of use
 -----------------
-.. literalinclude:: ../../../../../../labothappy/component/examples/compressor/compressor_semi_empirical_example.py
+.. literalinclude:: ../../examples/compressor/compressor_semi_empirical_example.py
    :language: python
 
 References

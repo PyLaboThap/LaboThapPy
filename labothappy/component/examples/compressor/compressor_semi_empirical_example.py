@@ -1,5 +1,4 @@
-# import __init__
-from component.compressor.compressor_semi_empirical import CompressorSE
+from labothappy.component.compressor.compressor_semi_empirical import CompressorSE
 
 "Example of the semi-empirical model compressor component"
 # Inputs: N_rot, T_amb, P_su, h_su, P_ex, fluid 
@@ -59,7 +58,7 @@ compressor.ex.set_properties(P=606240.1433176235)
 compressor.Q_amb.set_T_cold(293)
 
 # Set rotational speed
-compressor.W_mec.set_N(6000)
+compressor.W.set_N_rot(6000)
 
 
 
