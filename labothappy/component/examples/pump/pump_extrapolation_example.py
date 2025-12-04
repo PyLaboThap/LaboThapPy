@@ -1,4 +1,3 @@
-# import __init__
 from labothappy.component.pump.pump_extrapolation import PumpExtrapolation
 
 # Instantiate Pump
@@ -7,10 +6,10 @@ Pump = PumpExtrapolation()
 # Set Input
 Pump.set_inputs(
     fluid="Cyclopentane",
-    T_su=32 + 273.15,
-    P_su=1 * 1e5,
-    P_ex=31.5 * 1e5,
-    N_rot=3000,
+    T_su=32 + 273.15, # K
+    P_su=1 * 1e5, # Pa
+    P_ex=31.5 * 1e5, # Pa
+    N_rot=3000, # rpm
 )
 
 import numpy as np
