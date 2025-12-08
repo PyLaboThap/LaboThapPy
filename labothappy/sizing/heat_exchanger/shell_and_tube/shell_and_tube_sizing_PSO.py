@@ -52,7 +52,7 @@ from connector.mass_connector import MassConnector
 
 # Component import
 from component.base_component import BaseComponent
-from component.heat_exchanger.hex_MB_charge_sensitive import HeatExchangerMB
+from component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
 
 # Cost model import
 from correlations.heat_exchanger.STHE_cost_estimation import HeatExchangerCost
@@ -147,7 +147,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
                     return re_init_flag
             return re_init_flag
 
-        def compute_geom(self):
+        def compute_geom(self, opt_inputs):
             """
             Compute rest of geometry
             """
@@ -163,8 +163,13 @@ class ShellAndTubeSizingOpt(BaseComponent):
 
             D_o = self.position['D_o_inch']*25.4*1e-3
             
+            if self.params['Shell_Side'] == 'H':
+                p_shell = opt_inputs['P_su_H']
+            else:
+                p_shell = opt_inputs['P_su_C']
+            
             # Pipe Thickness
-            Tube_t = carbon_steel_pipe_thickness_mm(self.position['D_o_inch']*25.4/1e3, self.T_max_cycle, self.su_S.p, self.P_max_cycle)
+            Tube_t = carbon_steel_pipe_thickness_mm(self.position['D_o_inch']*25.4/1e3, self.T_max_cycle, p_shell, self.P_max_cycle)
                         
             # if self.position['D_o_inch'] == 1:
             #     Tube_t = pipe_thickness['1']
@@ -196,70 +201,72 @@ class ShellAndTubeSizingOpt(BaseComponent):
                         
             return
 
-        def HeatTransferRate(self):
-            
-            self.compute_geom()
-            
-            self.HX = HeatExchangerMB('Shell&Tube')
+        def HeatTransferRate(self, opt_inputs, opt_params):
+                        
+            self.HX = HexMBChargeSensitive('Shell&Tube')
 
-            if self.params['Shell_Side'] == 'C':
+            self.HX.set_inputs(**opt_inputs)
 
-                self.HX.set_inputs(
-                    # First fluid
-                    fluid_H = self.su_T.fluid,
-                    m_dot_H = self.su_T.m_dot, # kg/s
+            self.compute_geom(opt_inputs)
 
-                    # Second fluid
-                    fluid_C = self.su_S.fluid,
-                    m_dot_C = self.su_S.m_dot, # kg/s  # Make sure to include fluid information
-                )
+            # if self.params['Shell_Side'] == 'C':
+
+            #     self.HX.set_inputs(
+            #         # First fluid
+            #         fluid_H = self.su_T.fluid,
+            #         m_dot_H = self.su_T.m_dot, # kg/s
+
+            #         # Second fluid
+            #         fluid_C = self.su_S.fluid,
+            #         m_dot_C = self.su_S.m_dot, # kg/s  # Make sure to include fluid information
+            #     )
                 
-                HX_req_inputs = self.HX.get_required_inputs()
+            #     HX_req_inputs = self.HX.get_required_inputs()
 
-                for input_var in self.su_S.variables_input:
-                    input_str = input_var[0] + '_su_C'
-                    if input_str in HX_req_inputs:    
-                        self.HX.set_inputs(**{input_str: input_var[1]})
-                    else:
-                        input_str = input_var[0].lower() + '_su_C'
-                        self.HX.set_inputs(**{input_str: input_var[1]})
+            #     for input_var in self.su_S.variables_input:
+            #         input_str = input_var[0] + '_su_C'
+            #         if input_str in HX_req_inputs:    
+            #             self.HX.set_inputs(**{input_str: input_var[1]})
+            #         else:
+            #             input_str = input_var[0].lower() + '_su_C'
+            #             self.HX.set_inputs(**{input_str: input_var[1]})
 
-                for input_var in self.su_T.variables_input:
-                    input_str = input_var[0] + '_su_H'
-                    if input_str in HX_req_inputs:    
-                        self.HX.set_inputs(**{input_str: input_var[1]})
-                    else:
-                        input_str = input_var[0].lower() + '_su_H'
-                        self.HX.set_inputs(**{input_str: input_var[1]})
+            #     for input_var in self.su_T.variables_input:
+            #         input_str = input_var[0] + '_su_H'
+            #         if input_str in HX_req_inputs:    
+            #             self.HX.set_inputs(**{input_str: input_var[1]})
+            #         else:
+            #             input_str = input_var[0].lower() + '_su_H'
+            #             self.HX.set_inputs(**{input_str: input_var[1]})
 
-            else:
-                self.HX.set_inputs(
-                    # First fluid
-                    fluid_H = self.su_S.fluid,
-                    m_dot_H = self.su_S.m_dot, # kg/s
+            # else:
+            #     self.HX.set_inputs(
+            #         # First fluid
+            #         fluid_H = self.su_S.fluid,
+            #         m_dot_H = self.su_S.m_dot, # kg/s
 
-                    # Second fluid
-                    fluid_C = self.su_T.fluid,
-                    m_dot_C = self.su_T.m_dot, # kg/s  # Make sure to include fluid information
-                )    
+            #         # Second fluid
+            #         fluid_C = self.su_T.fluid,
+            #         m_dot_C = self.su_T.m_dot, # kg/s  # Make sure to include fluid information
+            #     )    
                 
-                HX_req_inputs = self.HX.get_required_inputs()
+            #     HX_req_inputs = self.HX.get_required_inputs()
 
-                for input_var in self.su_T.variables_input:
-                    input_str = input_var[0] + '_su_C'
-                    if input_str in HX_req_inputs:    
-                        self.HX.set_inputs(**{input_str: input_var[1]})
-                    else:
-                        input_str = input_var[0].lower() + '_su_C'
-                        self.HX.set_inputs(**{input_str: input_var[1]})
+            #     for input_var in self.su_T.variables_input:
+            #         input_str = input_var[0] + '_su_C'
+            #         if input_str in HX_req_inputs:    
+            #             self.HX.set_inputs(**{input_str: input_var[1]})
+            #         else:
+            #             input_str = input_var[0].lower() + '_su_C'
+            #             self.HX.set_inputs(**{input_str: input_var[1]})
 
-                for input_var in self.su_S.variables_input:
-                    input_str = input_var[0] + '_su_H'
-                    if input_str in HX_req_inputs:    
-                        self.HX.set_inputs(**{input_str: input_var[1]})
-                    else:
-                        input_str = input_var[0].lower() + '_su_H'
-                        self.HX.set_inputs(**{input_str: input_var[1]})
+            #     for input_var in self.su_S.variables_input:
+            #         input_str = input_var[0] + '_su_H'
+            #         if input_str in HX_req_inputs:    
+            #             self.HX.set_inputs(**{input_str: input_var[1]})
+            #         else:
+            #             input_str = input_var[0].lower() + '_su_H'
+            #             self.HX.set_inputs(**{input_str: input_var[1]})
 
             "Correlation Loading And Setting"
 
@@ -541,13 +548,15 @@ class ShellAndTubeSizingOpt(BaseComponent):
 
     #%% SCORE RELATED
     
-    def HX_Mass(self, HX_params):
+    def HX_Mass(self, HX_params, HX):
         
         rho_carbon_steel = 7850 # kg/m^3
         
+        T_shell_m = (HX.su_H.T + HX.su_C.T)/2
+        
         "Shell Mass"
                 
-        shell_t = shell_thickness(HX_params['Shell_ID'], (self.su_S.T + self.ex_S.T)/2, self.P_max_cycle)        
+        shell_t = shell_thickness(HX_params['Shell_ID'], T_shell_m, self.P_max_cycle)        
         HX_params['t_S'] = shell_t
         
         Shell_OD = HX_params['Shell_ID'] + 2*shell_t       
@@ -560,7 +569,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
 
         "Tube Sheet Mass"
         
-        TS_t = tube_sheet_thickness(HX_params['Tube_OD'],HX_params['Tube_OD']*HX_params['pitch_ratio'], self.su_S.T, self.P_max_cycle, HX_params["Shell_ID"]) # HX_params["Shell_ID"] assumed to be the gasket diameter
+        TS_t = tube_sheet_thickness(HX_params['Tube_OD'],HX_params['Tube_OD']*HX_params['pitch_ratio'], T_shell_m, self.P_max_cycle, HX_params["Shell_ID"]) # HX_params["Shell_ID"] assumed to be the gasket diameter
         Full_Tube_sheet_A = np.pi*(HX_params["Shell_ID"]/2)**2
         Tube_in_tube_sheet_A = HX_params["n_tubes"]*np.pi*(HX_params["Tube_OD"]/2)**2
         
@@ -569,7 +578,14 @@ class ShellAndTubeSizingOpt(BaseComponent):
         HX_params['t_TS'] = TS_t
         
         "Baffle Mass"
-        B_t = baffle_thickness(HX_params["Shell_ID"], HX_params["Baffle_cut"]/100, self.su_S.D, self.su_S.T)
+        if self.params['Shell_Side'] == 'H':
+            rho_shell = HX.su_H.D
+            T_shell = self.inputs['T_su_H']
+        else:
+            rho_shell = HX.su_C.D
+            T_shell = self.inputs['T_su_C']
+            
+        B_t = baffle_thickness(HX_params["Shell_ID"], HX_params["Baffle_cut"]/100, rho_shell, T_shell)
         Full_Baffle_A = np.pi*(HX_params["Shell_ID"]/2)**2 * (1-HX_params["Baffle_cut"]/100)
         Tube_in_Baffle_A = HX_params["n_tubes"]*(1-HX_params["Baffle_cut"]/100)*np.pi*(HX_params["Tube_OD"]/2)**2
 
@@ -614,9 +630,9 @@ class ShellAndTubeSizingOpt(BaseComponent):
             particle.set_score(total)
             return total
         
-        particle.HeatTransferRate()
+        particle.HeatTransferRate(self.inputs, self.params)
         
-        score, S_mass, T_mass, TS_mass, B_mass = objective_function(particle.HX.params)
+        score, S_mass, T_mass, TS_mass, B_mass = objective_function(particle.HX.params, particle.HX)
         particle.masses = {'Shell' : S_mass,
                            'Tubes' : T_mass,
                            'Tubesheet' : TS_mass,
@@ -721,7 +737,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
         self.global_best_DP_h = self.best_particle.DP_h
         self.global_best_DP_c = self.best_particle.DP_c     
 
-        self.best_particle.compute_geom()
+        self.best_particle.compute_geom(self.inputs)
 
         # Initialize velocities and positions as dictionaries
         cognitive_velocity = {}
@@ -882,7 +898,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
                 self.global_best_DP_h = self.best_particle.DP_h
                 self.global_best_DP_c = self.best_particle.DP_c
 
-                self.best_particle.compute_geom()
+                self.best_particle.compute_geom(self.inputs)
 
             # Optionally, print progress
             print("===========================")
@@ -893,12 +909,12 @@ class ShellAndTubeSizingOpt(BaseComponent):
             
         return self.global_best_position, self.global_best_score, self.best_particle
     
-    def opt_size(self):
+    def opt_size(self, n_particles = 50, max_iter = 50):
 
-        self.particle_swarm_optimization(objective_function = self.HX_Mass , bounds = self.bounds, num_particles = 50, num_dimensions = len(self.opt_vars), max_iterations = 50, inertia_weight = 0.5,
+        self.particle_swarm_optimization(objective_function = self.HX_Mass , bounds = self.bounds, num_particles = n_particles, num_dimensions = len(self.opt_vars), max_iterations = max_iter, inertia_weight = 0.5,
                                           cognitive_constant = 0.5, social_constant = 0.5, constraints = [self.constraint_Q_dot, self.constraint_DP_h, self.constraint_DP_c], penalty_factor = 1)
 
-        self.best_particle.compute_geom()
+        self.best_particle.compute_geom(self.inputs)
 
 
         self.cost_calculator = HeatExchangerCost(
@@ -929,353 +945,742 @@ class ShellAndTubeSizingOpt(BaseComponent):
             N_Bt=100
         )
 
-        self.CAPEX,_,_ = self.cost_calculator.calculate_total_cost()
+        self.CAPEX = self.cost_calculator.calculate_total_cost()
         
         return self.global_best_position, self.global_best_score, self.best_particle
-"""
-Instanciate Optimizer and test case choice
-"""
+# """
+# Instanciate Optimizer and test case choice
+# """
 
-HX_test = ShellAndTubeSizingOpt()
-test_case = "CO2_CD"
+# HX_test = ShellAndTubeSizingOpt()
+# test_case = "CO2_CD"
 
-if test_case == "Methanol":
+# if test_case == "Methanol":
 
-    """
-    Optimization related parameters/variables
-    """
+#     """
+#     Optimization related parameters/variables
+#     """
     
-    HX_test.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'Tube_pass', 'tube_layout', 'Baffle_cut'])
+#     HX_test.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'Tube_pass', 'tube_layout', 'Baffle_cut'])
     
-    choice_vectors = {
-                        'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
-                        'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
-                            29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
-                        'Tube_pass' : [2], # [1,2,4,6,8,10]
-                        'tube_layout' : [0,45,60]}
+#     choice_vectors = {
+#                         'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
+#                         'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
+#                             29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
+#                         'Tube_pass' : [2], # [1,2,4,6,8,10]
+#                         'tube_layout' : [0,45,60]}
     
-    """
-    'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
-    'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
-                            29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78,
-                            84, 90, 96, 108, 120]
-    """
+#     """
+#     'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
+#     'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
+#                             29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78,
+#                             84, 90, 96, 108, 120]
+#     """
     
-    HX_test.set_choice_vectors(choice_vectors)
+#     HX_test.set_choice_vectors(choice_vectors)
     
-    """
-    Max T and P for pipe thickness computation
-    """
+#     """
+#     Max T and P for pipe thickness computation
+#     """
     
-    # Worst Case
-    P_max_cycle = 10*1e5 # Pa
-    T_max_cycle = 273.15+110 # K 
+#     # Worst Case
+#     P_max_cycle = 10*1e5 # Pa
+#     T_max_cycle = 273.15+110 # K 
     
-    HX_test.set_max_cycle_prop(T_max_cycle = T_max_cycle, p_max_cycle = P_max_cycle)
+#     HX_test.set_max_cycle_prop(T_max_cycle = T_max_cycle, p_max_cycle = P_max_cycle)
     
-    """
-    Thermodynamical parameters : Inlet and Outlet Design States
-    """
+#     """
+#     Thermodynamical parameters : Inlet and Outlet Design States
+#     """
 
-    su_S = MassConnector()
-    su_S.set_properties(T = 273.15 + 95, # K
-                        P = 10*1e5, # 5*1e5, # Pa
-                        m_dot = 27.8, # kg/s
-                        fluid = 'Methanol'
-                        )
+#     su_S = MassConnector()
+#     su_S.set_properties(T = 273.15 + 95, # K
+#                         P = 10*1e5, # 5*1e5, # Pa
+#                         m_dot = 27.8, # kg/s
+#                         fluid = 'Methanol'
+#                         )
 
-    ex_S = MassConnector()
-    ex_S.set_properties(T = 273.15 + 40, # K
-                        P = 10*1e5, # 4.5*1e5, # Pa
-                        m_dot = 27.8, # kg/s
-                        fluid = 'Methanol'
-                        )
+#     ex_S = MassConnector()
+#     ex_S.set_properties(T = 273.15 + 40, # K
+#                         P = 10*1e5, # 4.5*1e5, # Pa
+#                         m_dot = 27.8, # kg/s
+#                         fluid = 'Methanol'
+#                         )
 
-    su_T = MassConnector()
-    su_T.set_properties(T = 273.15 + 25, # K
-                        P = 5*1e5, # 51.75*1e3, # Pa
-                        m_dot = 68.9, # kg/s
-                        fluid = 'Water'
-                        )
+#     su_T = MassConnector()
+#     su_T.set_properties(T = 273.15 + 25, # K
+#                         P = 5*1e5, # 51.75*1e3, # Pa
+#                         m_dot = 68.9, # kg/s
+#                         fluid = 'Water'
+#                         )
 
-    ex_T = MassConnector()
-    ex_T.set_properties(T = 273.15 + 40, # K
-                        P = 5*1e5, # Pa
-                        m_dot = 68.9, # kg/s
-                        fluid = 'Water'
-                        )
+#     ex_T = MassConnector()
+#     ex_T.set_properties(T = 273.15 + 40, # K
+#                         P = 5*1e5, # Pa
+#                         m_dot = 68.9, # kg/s
+#                         fluid = 'Water'
+#                         )
 
-    "Constraints Values"
-    Q_dot_cstr = 4.34*1e6
-    DP_h_cstr = 13.2*1e3
-    DP_c_cstr = 4.3*1e3
+#     "Constraints Values"
+#     Q_dot_cstr = 4.34*1e6
+#     DP_h_cstr = 13.2*1e3
+#     DP_c_cstr = 4.3*1e3
 
-    """
-    Parameters Setting
-    """
+#     """
+#     Parameters Setting
+#     """
 
-    HX_test.set_parameters(
-                            n_series = 1, # [-]
-                            # OPTI -> Oui (regarder le papier pour déterminer ça)
+#     HX_test.set_parameters(
+#                             n_series = 1, # [-]
+#                             # OPTI -> Oui (regarder le papier pour déterminer ça)
 
-                            foul_t = 0.0002, # (m^2 * K/W)
-                            foul_s = 0.00033, # (m^2 * K/W)
-                            tube_cond = 50, # W/(m*K)
-                            Overdesign = 0,
+#                             foul_t = 0.0002, # (m^2 * K/W)
+#                             foul_s = 0.00033, # (m^2 * K/W)
+#                             tube_cond = 50, # W/(m*K)
+#                             Overdesign = 0,
                             
-                            Shell_Side = 'H',
+#                             Shell_Side = 'H',
 
-                            Flow_Type = 'Shell&Tube',
-                            H_DP_ON = True,
-                            C_DP_ON = True,
-                            n_disc = 1
-                          )
+#                             Flow_Type = 'Shell&Tube',
+#                             H_DP_ON = True,
+#                             C_DP_ON = True,
+#                             n_disc = 1
+#                           )
 
-    H_Corr = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
-    C_Corr = {"1P" : "Gnielinski", "2P" : "Flow_boiling"}
+#     H_Corr = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
+#     C_Corr = {"1P" : "Gnielinski", "2P" : "Flow_boiling"}
     
-    H_DP = "Shell_Kern_DP"
-    C_DP = "Gnielinski_DP"
+#     H_DP = "Shell_Kern_DP"
+#     C_DP = "Gnielinski_DP"
     
-    HX_test.set_corr(H_Corr, C_Corr, H_DP, C_DP)
+#     HX_test.set_corr(H_Corr, C_Corr, H_DP, C_DP)
 
-elif test_case == "R134a":
+# elif test_case == "R134a":
 
-    """
-    Optimization related parameters/variables
-    """
+#     """
+#     Optimization related parameters/variables
+#     """
     
-    HX_test.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'Tube_pass', 'tube_layout', 'Baffle_cut'])
+#     HX_test.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'Tube_pass', 'tube_layout', 'Baffle_cut'])
     
-    choice_vectors = {
-                        'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
-                        'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
-                            29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
-                        'Tube_pass' : [2], # [1,2,4,6,8,10]
-                        'tube_layout' : [60]} # [0,45,60]}
+#     choice_vectors = {
+#                         'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
+#                         'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
+#                             29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
+#                         'Tube_pass' : [2], # [1,2,4,6,8,10]
+#                         'tube_layout' : [60]} # [0,45,60]}
     
-    """
-    'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
-    'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
-                            29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78,
-                            84, 90, 96, 108, 120]
-    """
+#     """
+#     'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
+#     'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
+#                             29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78,
+#                             84, 90, 96, 108, 120]
+#     """
     
-    HX_test.set_choice_vectors(choice_vectors)
+#     HX_test.set_choice_vectors(choice_vectors)
     
-    """
-    Max T and P for pipe thickness computation
-    """
+#     """
+#     Max T and P for pipe thickness computation
+#     """
     
-    # Worst Case
-    P_max_cycle = 5*1e5 # Pa
-    T_max_cycle = 273.15+110 # K 
+#     # Worst Case
+#     P_max_cycle = 5*1e5 # Pa
+#     T_max_cycle = 273.15+110 # K 
     
-    HX_test.set_max_cycle_prop(T_max_cycle = T_max_cycle, p_max_cycle = P_max_cycle)
+#     HX_test.set_max_cycle_prop(T_max_cycle = T_max_cycle, p_max_cycle = P_max_cycle)
     
-    """
-    Thermodynamical parameters : Inlet and Outlet Design States
-    """
+#     """
+#     Thermodynamical parameters : Inlet and Outlet Design States
+#     """
 
-    su_S = MassConnector()
-    su_S.set_properties(T = 273.15 + 26, # K
-                        P = 5*1e5, # 51.75*1e3, # Pa
-                        m_dot = 5.35, # kg/s
-                        fluid = 'Water'
-                        )
+#     su_S = MassConnector()
+#     su_S.set_properties(T = 273.15 + 26, # K
+#                         P = 5*1e5, # 51.75*1e3, # Pa
+#                         m_dot = 5.35, # kg/s
+#                         fluid = 'Water'
+#                         )
 
-    ex_S = MassConnector()
-    ex_S.set_properties(T = 273.15 + 11.7, # K
-                        P = 5*1e5, # Pa
-                        m_dot = 5.35, # kg/s
-                        fluid = 'Water'
-                        )
+#     ex_S = MassConnector()
+#     ex_S.set_properties(T = 273.15 + 11.7, # K
+#                         P = 5*1e5, # Pa
+#                         m_dot = 5.35, # kg/s
+#                         fluid = 'Water'
+#                         )
 
-    su_T = MassConnector()
-    su_T.set_properties(P = PropsSI('P','T', 273.15+7,'Q',0,'R134a'), # K
-                        H = PropsSI('H','T', 273.15+7,'Q',0,'R134a')+1, # Pa
-                        m_dot = 1.62, # kg/s
-                        fluid = 'R134a'
-                        )
+#     su_T = MassConnector()
+#     su_T.set_properties(P = PropsSI('P','T', 273.15+7,'Q',0,'R134a'), # K
+#                         H = PropsSI('H','T', 273.15+7,'Q',0,'R134a')+1, # Pa
+#                         m_dot = 1.62, # kg/s
+#                         fluid = 'R134a'
+#                         )
 
-    ex_T = MassConnector()
-    ex_T.set_properties(P = PropsSI('P','T', 273.15+7,'Q',1,'R134a') - 15*1e3, # K
-                        H = PropsSI('H','T', 273.15+7,'Q',1,'R134a'), # Pa
-                        m_dot = 1.62, # kg/s
-                        fluid = 'R134a'
-                        )
+#     ex_T = MassConnector()
+#     ex_T.set_properties(P = PropsSI('P','T', 273.15+7,'Q',1,'R134a') - 15*1e3, # K
+#                         H = PropsSI('H','T', 273.15+7,'Q',1,'R134a'), # Pa
+#                         m_dot = 1.62, # kg/s
+#                         fluid = 'R134a'
+#                         )
     
-    "Constraints Values"
-    Q_dot_cstr = 0.313*1e6
-    DP_h_cstr = 8.2*1e3
-    DP_c_cstr = 21.7*1e3
+#     "Constraints Values"
+#     Q_dot_cstr = 0.313*1e6
+#     DP_h_cstr = 8.2*1e3
+#     DP_c_cstr = 21.7*1e3
 
-    """
-    Parameters Setting
-    """
+#     """
+#     Parameters Setting
+#     """
 
-    HX_test.set_parameters(
-                            n_series = 1, # [-]
-                            # OPTI -> Oui (regarder le papier pour déterminer ça)
+#     HX_test.set_parameters(
+#                             n_series = 1, # [-]
+#                             # OPTI -> Oui (regarder le papier pour déterminer ça)
 
-                            foul_t = 0.000176, # (m^2 * K/W)
-                            foul_s =  0.000176, # (m^2 * K/W)
-                            tube_cond = 50, # W/(m*K)
-                            Overdesign = 0,
+#                             foul_t = 0.000176, # (m^2 * K/W)
+#                             foul_s =  0.000176, # (m^2 * K/W)
+#                             tube_cond = 50, # W/(m*K)
+#                             Overdesign = 0,
                             
-                            Shell_Side = 'H',
+#                             Shell_Side = 'H',
 
-                            Flow_Type = 'Shell&Tube',
-                            H_DP_ON = True,
-                            C_DP_ON = True,
-                            n_disc = 50
-                          )
+#                             Flow_Type = 'Shell&Tube',
+#                             H_DP_ON = True,
+#                             C_DP_ON = True,
+#                             n_disc = 50
+#                           )
 
-    H_Corr = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
-    C_Corr = {"1P" : "Gnielinski", "2P" : "Flow_boiling"}
+#     H_Corr = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
+#     C_Corr = {"1P" : "Gnielinski", "2P" : "Flow_boiling"}
     
-    H_DP = "Shell_Kern_DP"
-    C_DP = "Muller_Steinhagen_Heck_DP"
+#     H_DP = "Shell_Kern_DP"
+#     C_DP = "Muller_Steinhagen_Heck_DP"
     
-    HX_test.set_corr(H_Corr, C_Corr, H_DP, C_DP)
+#     HX_test.set_corr(H_Corr, C_Corr, H_DP, C_DP)
 
-elif test_case == "CO2_CD":
-    """
-    Optimization related parameters/variables
-    """
+# elif test_case == "CO2_CD":
+#     """
+#     Optimization related parameters/variables
+#     """
     
-    HX_test.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'Tube_pass', 'tube_layout', 'Baffle_cut'])
+#     HX_test.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'Tube_pass', 'tube_layout', 'Baffle_cut'])
     
-    choice_vectors = {
-                        'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
-                        'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
-                            29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
-                        'Tube_pass' : [2], # [1,2,4,6,8,10]
-                        'tube_layout' : [60]} # [0,45,60]}
+#     choice_vectors = {
+#                         'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
+#                         'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
+#                             29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
+#                         'Tube_pass' : [2], # [1,2,4,6,8,10]
+#                         'tube_layout' : [60]} # [0,45,60]}
     
-    """
-    'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
-    'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
-                            29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78,
-                            84, 90, 96, 108, 120]
-    """
+#     """
+#     'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
+#     'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
+#                             29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78,
+#                             84, 90, 96, 108, 120]
+#     """
     
-    HX_test.set_choice_vectors(choice_vectors)
+#     HX_test.set_choice_vectors(choice_vectors)
     
-    """
-    Max T and P for pipe thickness computation
-    """
+#     """
+#     Max T and P for pipe thickness computation
+#     """
     
-    # Worst Case
-    P_max_cycle = 160*1e5 # Pa
-    T_max_cycle = 273.15+140 # K 
+#     # Worst Case
+#     P_max_cycle = 160*1e5 # Pa
+#     T_max_cycle = 273.15+140 # K 
     
-    HX_test.set_max_cycle_prop(T_max_cycle = T_max_cycle, p_max_cycle = P_max_cycle)
+#     HX_test.set_max_cycle_prop(T_max_cycle = T_max_cycle, p_max_cycle = P_max_cycle)
     
-    """
-    Thermodynamical parameters : Inlet and Outlet Design States
-    """
+#     """
+#     Thermodynamical parameters : Inlet and Outlet Design States
+#     """
     
-    HX_test.set_inputs(
-        # First fluid
-        fluid_H = 'CO2',
-        T_su_H = 306.92, # K
-        P_su_H = 5945330, # Pa
-        m_dot_H = 33.36, # kg/s
+#     HX_test.set_inputs(
+#         # First fluid
+#         fluid_H = 'CO2',
+#         T_su_H = 306.92, # K
+#         P_su_H = 5945330, # Pa
+#         m_dot_H = 33.36, # kg/s
 
-        # Second fluid
-        fluid_C = 'Water',
-        T_su_C = 15 + 273.15, # K
-        P_su_C = 5*1e5, # Pa
-        m_dot_C = 100, # kg/s  # Make sure to include fluid information
-        )
+#         # Second fluid
+#         fluid_C = 'Water',
+#         T_su_C = 15 + 273.15, # K
+#         P_su_C = 5*1e5, # Pa
+#         m_dot_C = 100, # kg/s  # Make sure to include fluid information
+#         )
     
-    "Constraints Values"
-    Q_dot_cstr = 6295150
-    DP_h_cstr = 2*1e5
-    DP_c_cstr = 50*1e3
+#     "Constraints Values"
+#     Q_dot_cstr = 6295150
+#     DP_h_cstr = 2*1e5
+#     DP_c_cstr = 50*1e3
 
-    """
-    Parameters Setting
-    """
+#     """
+#     Parameters Setting
+#     """
 
-    HX_test.set_parameters(
-                            n_series = 1, # [-]
-                            # OPTI -> Oui (regarder le papier pour déterminer ça)
+#     HX_test.set_parameters(
+#                             n_series = 1, # [-]
+#                             # OPTI -> Oui (regarder le papier pour déterminer ça)
 
-                            foul_t = 0.000176, # (m^2 * K/W)
-                            foul_s =  0.000176, # (m^2 * K/W)
-                            tube_cond = 50, # W/(m*K)
-                            Overdesign = 0,
+#                             foul_t = 0.000176, # (m^2 * K/W)
+#                             foul_s =  0.000176, # (m^2 * K/W)
+#                             tube_cond = 50, # W/(m*K)
+#                             Overdesign = 0,
                             
-                            Shell_Side = 'C',
+#                             Shell_Side = 'C',
 
-                            Flow_Type = 'Shell&Tube',
-                            H_DP_ON = True,
-                            C_DP_ON = True,
-                            n_disc = 50
-                          )
+#                             Flow_Type = 'Shell&Tube',
+#                             H_DP_ON = True,
+#                             C_DP_ON = True,
+#                             n_disc = 50
+#                           )
 
-    H_Corr = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Horizontal_Tube_Internal_Condensation"}    
-    C_Corr = {"SC" : "Shell_Kern_HTC", "1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
+#     H_Corr = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Horizontal_Tube_Internal_Condensation"}    
+#     C_Corr = {"SC" : "Shell_Kern_HTC", "1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
     
-    H_DP = "Choi_DP"
-    C_DP = "Shell_Kern_DP"
+#     H_DP = "Choi_DP"
+#     C_DP = "Shell_Kern_DP"
     
-    HX_test.set_corr(H_Corr, C_Corr, H_DP, C_DP)
+#     HX_test.set_corr(H_Corr, C_Corr, H_DP, C_DP)
 
 
-HX_test.set_thermo_BC(su_S = su_S, ex_S = ex_S, su_T = su_T, ex_T = ex_T)
+# # HX_test.set_thermo_BC(su_S = su_S, ex_S = ex_S, su_T = su_T, ex_T = ex_T)
 
-"""
-Bounds and Constraints
-"""
+# """
+# Bounds and Constraints
+# """
 
-bounds = {
-            "L_shell" : [1,15], # 10],
-            "D_o_inch" : [choice_vectors['D_o_inch'][0], choice_vectors['D_o_inch'][-1]],
-            "Shell_ID_inch" : [choice_vectors['Shell_ID_inch'][0], choice_vectors['Shell_ID_inch'][-1]],
-            "Tube_pass" : [choice_vectors['Tube_pass'][0], choice_vectors['Tube_pass'][-1]],
-            "tube_layout" : [choice_vectors['tube_layout'][0], choice_vectors['tube_layout'][-1]],
-            "Baffle_cut" : [15, 45]
-            }
+# bounds = {
+#             "L_shell" : [1,15], # 10],
+#             "D_o_inch" : [choice_vectors['D_o_inch'][0], choice_vectors['D_o_inch'][-1]],
+#             "Shell_ID_inch" : [choice_vectors['Shell_ID_inch'][0], choice_vectors['Shell_ID_inch'][-1]],
+#             "Tube_pass" : [choice_vectors['Tube_pass'][0], choice_vectors['Tube_pass'][-1]],
+#             "tube_layout" : [choice_vectors['tube_layout'][0], choice_vectors['tube_layout'][-1]],
+#             "Baffle_cut" : [15, 45]
+#             }
 
-HX_test.set_bounds(bounds)
-HX_test.set_constraints(Q_dot = Q_dot_cstr, DP_h = DP_h_cstr, DP_c = DP_c_cstr)
+# HX_test.set_bounds(bounds)
+# HX_test.set_constraints(Q_dot = Q_dot_cstr, DP_h = DP_h_cstr, DP_c = DP_c_cstr)
+
+# # global_best_position, global_best_score, best_particle = HX_test.opt_size()
+
+# import time
+# time_1 = []
+
+# # for i in range(10):
+# t0 = time.perf_counter()
 
 # global_best_position, global_best_score, best_particle = HX_test.opt_size()
 
-import time
-time_1 = []
+# elapsed = time.perf_counter() - t0
 
-# for i in range(10):
-t0 = time.perf_counter()
+# print(f"Optimization completed in {elapsed:.2f} s")
 
-global_best_position, global_best_score, best_particle = HX_test.opt_size()
+# time_1.append(elapsed)
 
-elapsed = time.perf_counter() - t0
+# def HX_price(T_mass, Shell_mass, Baffle_mass, TS_mass):
+#     """
+#     Technoeconomic optimization of superalloy supercritical CO2 microtube
+#     shell-and-tube-heat exchangers (2023)
+    
+#     Akshay Bharadwaj Krishna, Kaiyuan Jin, Portonovo S. Ayyaswamy, Ivan Catton,
+#     Timothy S. Fisher
+#     """
+    
+#     A_pipes = 2 # €/kg : price of carbon steel seamless pipes : 
+#     A_plate = 0.5 # €/kg : price of carbon steel plate 
+    
+#     material_costs = A_pipes*T_mass + A_plate*(Shell_mass + Baffle_mass + TS_mass)
+#     print(f"mat_cost : {material_costs}")
+    
+#     # CAPEX = A*HX_Mass + B*(n_tubes/2)/tube_od_mm + C * (n_tubes/2) + D *(n_tubes/2)/tube_l_m + E*n_baffle*(n_tubes/2) + F
+    
+#     return material_costs # CAPEX
 
-print(f"Optimization completed in {elapsed:.2f} s")
-
-time_1.append(elapsed)
-
-def HX_price(T_mass, Shell_mass, Baffle_mass, TS_mass):
+if __name__ == "__main__":
+    
     """
-    Technoeconomic optimization of superalloy supercritical CO2 microtube
-    shell-and-tube-heat exchangers (2023)
-    
-    Akshay Bharadwaj Krishna, Kaiyuan Jin, Portonovo S. Ayyaswamy, Ivan Catton,
-    Timothy S. Fisher
+    Instanciate Optimizer and test case choice
     """
     
-    A_pipes = 2 # €/kg : price of carbon steel seamless pipes : 
-    A_plate = 0.5 # €/kg : price of carbon steel plate 
+    HX_test = ShellAndTubeSizingOpt()
+    test_case = "Methanol"
     
-    material_costs = A_pipes*T_mass + A_plate*(Shell_mass + Baffle_mass + TS_mass)
-    print(f"mat_cost : {material_costs}")
+    if test_case == "Methanol":
     
-    # CAPEX = A*HX_Mass + B*(n_tubes/2)/tube_od_mm + C * (n_tubes/2) + D *(n_tubes/2)/tube_l_m + E*n_baffle*(n_tubes/2) + F
+        """
+        Optimization related parameters/variables
+        """
+        
+        HX_test.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'Tube_pass', 'tube_layout', 'Baffle_cut'])
+        
+        choice_vectors = {
+                            'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
+                            'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
+                                29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
+                            'Tube_pass' : [2], # [1,2,4,6,8,10]
+                            'tube_layout' : [0,45,60]}
+        
+        """
+        'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
+        'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
+                                29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78,
+                                84, 90, 96, 108, 120]
+        """
+        
+        HX_test.set_choice_vectors(choice_vectors)
+        
+        """
+        Max T and P for pipe thickness computation
+        """
+        
+        # Worst Case
+        P_max_cycle = 10*1e5 # Pa
+        T_max_cycle = 273.15+110 # K 
+        
+        HX_test.set_max_cycle_prop(T_max_cycle = T_max_cycle, p_max_cycle = P_max_cycle)
+        
+        """
+        Thermodynamical parameters : Inlet and Outlet Design States
+        """
     
-    return material_costs # CAPEX
+        HX_test.set_inputs(
+            # First fluid
+            fluid_H = 'Methanol',
+            T_su_H = 273.15 + 95, # K
+            P_su_H = 10*1e5, # Pa
+            m_dot_H = 27.8, # kg/s
+    
+            # Second fluid
+            fluid_C = 'Water',
+            T_su_C = 273.15 + 25, # K
+            P_su_C = 5*1e5, # Pa
+            m_dot_C = 68.9, # kg/s  # Make sure to include fluid information
+            )
+    
+        "Constraints Values"
+        Q_dot_cstr = 4.34*1e6
+        DP_h_cstr = 13.2*1e3
+        DP_c_cstr = 4.3*1e3
+    
+        """
+        Parameters Setting
+        """
+    
+        HX_test.set_parameters(
+                                n_series = 1, # [-]
+                                n_parallel = 1, # [-]
 
+                                # OPTI -> Oui (regarder le papier pour déterminer ça)
+    
+                                foul_t = 0.0002, # (m^2 * K/W)
+                                foul_s = 0.00033, # (m^2 * K/W)
+                                tube_cond = 50, # W/(m*K)
+                                Overdesign = 0,
+                                
+                                Shell_Side = 'H',
+    
+                                Flow_Type = 'Shell&Tube',
+                                H_DP_ON = True,
+                                C_DP_ON = True,
+                                n_disc = 50
+                              )
+    
+        H_Corr = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
+        C_Corr = {"1P" : "Gnielinski", "2P" : "Flow_boiling"}
+        
+        H_DP = "Shell_Kern_DP"
+        C_DP = "Gnielinski_DP"
+        
+        HX_test.set_corr(H_Corr, C_Corr, H_DP, C_DP)
+    
+    elif test_case == "R134a":
+    
+        """
+        Optimization related parameters/variables
+        """
+        
+        HX_test.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'Tube_pass', 'tube_layout', 'Baffle_cut'])
+        
+        choice_vectors = {
+                            'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
+                            'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
+                                29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
+                            'Tube_pass' : [2], # [1,2,4,6,8,10]
+                            'tube_layout' : [60]} # [0,45,60]}
+        
+        """
+        'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
+        'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
+                                29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78,
+                                84, 90, 96, 108, 120]
+        """
+        
+        HX_test.set_choice_vectors(choice_vectors)
+        
+        """
+        Max T and P for pipe thickness computation
+        """
+        
+        # Worst Case
+        P_max_cycle = 5*1e5 # Pa
+        T_max_cycle = 273.15+110 # K 
+        
+        HX_test.set_max_cycle_prop(T_max_cycle = T_max_cycle, p_max_cycle = P_max_cycle)
+        
+        """
+        Thermodynamical parameters : Inlet and Outlet Design States
+        """
+        
+        HX_test.set_inputs(
+            # First fluid
+            fluid_H = 'Water',
+            T_su_H = 26 + 273.15, # K
+            P_su_H = 5*1e5, # Pa
+            m_dot_H = 5.35, # kg/s
+    
+            # Second fluid
+            fluid_C = 'R134a',
+            h_su_C = PropsSI('H','T', 273.15+7,'Q',0,'R134a')+1, # J/kg
+            P_su_C = PropsSI('P','T', 273.15+7,'Q',0,'R134a'), # Pa
+            m_dot_C = 1.62, # kg/s  # Make sure to include fluid information
+            )
+        
+        "Constraints Values"
+        Q_dot_cstr = 0.313*1e6
+        DP_h_cstr = 8.2*1e3
+        DP_c_cstr = 21.7*1e3
+    
+        """
+        Parameters Setting
+        """
+    
+        HX_test.set_parameters(
+                                n_series = 1, # [-]
+                                n_parallel = 1, # [-]
+                                # OPTI -> Oui (regarder le papier pour déterminer ça)
+    
+                                foul_t = 0.000176, # (m^2 * K/W)
+                                foul_s =  0.000176, # (m^2 * K/W)
+                                tube_cond = 50, # W/(m*K)
+                                Overdesign = 0,
+                                
+                                Shell_Side = 'H',
+    
+                                Flow_Type = 'Shell&Tube',
+                                H_DP_ON = True,
+                                C_DP_ON = True,
+                                n_disc = 1
+                              )
+    
+        H_Corr = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
+        C_Corr = {"1P" : "Gnielinski", "2P" : "Flow_boiling"}
+        
+        H_DP = "Shell_Kern_DP"
+        C_DP = "Muller_Steinhagen_Heck_DP"
+        
+        HX_test.set_corr(H_Corr, C_Corr, H_DP, C_DP)
+    
+    elif test_case == "CO2_CD":
+        """
+        Optimization related parameters/variables
+        """
+        
+        HX_test.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'Tube_pass', 'tube_layout', 'Baffle_cut'])
+        
+        choice_vectors = {
+                            'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
+                            'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
+                                29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
+                            'Tube_pass' : [2], # [1,2,4,6,8,10]
+                            'tube_layout' : [0,45,60]} # [0,45,60]}
+        
+        """
+        'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
+        'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
+                                29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78,
+                                84, 90, 96, 108, 120]
+        """
+        
+        HX_test.set_choice_vectors(choice_vectors)
+        
+        """
+        Max T and P for pipe thickness computation
+        """
+        
+        # Worst Case
+        P_max_cycle = 160*1e5 # Pa
+        T_max_cycle = 273.15+140 # K 
+        
+        HX_test.set_max_cycle_prop(T_max_cycle = T_max_cycle, p_max_cycle = P_max_cycle)
+        
+        """
+        Thermodynamical parameters : Inlet and Outlet Design States
+        """
+        
+        HX_test.set_inputs(
+            # First fluid
+            fluid_H = 'CO2',
+            T_su_H = 273.15 + 40, # K
+            P_su_H = 5050000, # Pa
+            m_dot_H = 30, # kg/s
+    
+            # Second fluid
+            fluid_C = 'Water',
+            T_su_C = 3 + 273.15, # K
+            P_su_C = 5*1e5, # Pa
+            m_dot_C = 150, # kg/s  # Make sure to include fluid information
+            )
+        
+        "Constraints Values"
+        Q_dot_cstr = 7500000 # 6295150
+        DP_h_cstr = 3*1e5
+        DP_c_cstr = 100*1e3
+    
+        """
+        Parameters Setting
+        """
+    
+        HX_test.set_parameters(
+                                n_series = 1, # [-]
+                                n_parallel = 1, # [-]
 
+                                # OPTI -> Oui (regarder le papier pour déterminer ça)
+    
+                                foul_t = 0.000176, # (m^2 * K/W)
+                                foul_s =  0.000176, # (m^2 * K/W)
+                                tube_cond = 50, # W/(m*K)
+                                Overdesign = 0,
+                                
+                                Shell_Side = 'C',
+    
+                                Flow_Type = 'Shell&Tube',
+                                H_DP_ON = True,
+                                C_DP_ON = True,
+                                n_disc = 30
+                              )
+        
+        Corr_H = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Thome_Condensation"}
+        # Corr_H = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Gnielinski"}
+        Corr_C = {"SC" : "Shell_Kern_HTC", "1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
+
+        Corr_H_DP = "Choi_DP"
+        Corr_C_DP = "Shell_Kern_DP"
+        
+        HX_test.set_corr(Corr_H, Corr_C, Corr_H_DP, Corr_C_DP)
+    
+    elif test_case == "CO2_GH":
+        """
+        Optimization related parameters/variables
+        """
+        
+        HX_test.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'Tube_pass', 'tube_layout', 'Baffle_cut'])
+        
+        choice_vectors = {
+                            'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
+                            'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
+                                29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
+                            'Tube_pass' : [2], # [1,2,4,6,8,10]
+                            'tube_layout' : [0,45,60]} # [0,45,60]}
+        
+        """
+        'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
+        'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
+                                29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78,
+                                84, 90, 96, 108, 120]
+        """
+        
+        HX_test.set_choice_vectors(choice_vectors)
+        
+        """
+        Max T and P for pipe thickness computation
+        """
+        
+        # Worst Case
+        P_max_cycle = 160*1e5 # Pa
+        T_max_cycle = 273.15+140 # K 
+        
+        HX_test.set_max_cycle_prop(T_max_cycle = T_max_cycle, p_max_cycle = P_max_cycle)
+        
+        """
+        Thermodynamical parameters : Inlet and Outlet Design States
+        """
+        
+        HX_test.set_inputs(
+            # First fluid
+            fluid_C = 'CO2',
+            T_su_C = 316.5, # K
+            P_su_C = 12822693, # Pa
+            m_dot_C = 41.85, # kg/s
+    
+            # Second fluid
+            fluid_H = 'Water',
+            T_su_H = 403.15, # K
+            P_su_H = 5*1e5, # Pa
+            m_dot_H = 38.85, # kg/s  # Make sure to include fluid information
+            )
+        
+        "Constraints Values"
+        Q_dot_cstr = 8417198 # 6295150
+        DP_h_cstr = 112284
+        DP_c_cstr = 205160.5
+    
+        """
+        Parameters Setting
+        """
+    
+        HX_test.set_parameters(
+                                n_series = 1, # [-]
+                                n_parallel = 1, # [-]
+
+                                # OPTI -> Oui (regarder le papier pour déterminer ça)
+    
+                                foul_t = 0.000176, # (m^2 * K/W)
+                                foul_s =  0.000176, # (m^2 * K/W)
+                                tube_cond = 50, # W/(m*K)
+                                Overdesign = 0,
+                                
+                                Shell_Side = 'H',
+    
+                                Flow_Type = 'Shell&Tube',
+                                H_DP_ON = True,
+                                C_DP_ON = True,
+                                n_disc = 30
+                              )
+        
+        Corr_H = {"SC" : "Shell_Kern_HTC", "1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
+        Corr_C = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Flow_boiling"}
+        
+        Corr_H_DP = "Shell_Kern_DP"
+        Corr_C_DP = "Gnielinski_DP"
+        
+        HX_test.set_corr(Corr_H, Corr_C, Corr_H_DP, Corr_C_DP)
+    
+    """
+    Bounds and Constraints
+    """
+    
+    bounds = {
+                "L_shell" : [1,15], # 10],
+                "D_o_inch" : [choice_vectors['D_o_inch'][0], choice_vectors['D_o_inch'][-1]],
+                "Shell_ID_inch" : [choice_vectors['Shell_ID_inch'][0], choice_vectors['Shell_ID_inch'][-1]],
+                "Tube_pass" : [choice_vectors['Tube_pass'][0], choice_vectors['Tube_pass'][-1]],
+                "tube_layout" : [choice_vectors['tube_layout'][0], choice_vectors['tube_layout'][-1]],
+                "Baffle_cut" : [15, 45]
+                }
+    
+    HX_test.set_bounds(bounds)
+    HX_test.set_constraints(Q_dot = Q_dot_cstr, DP_h = DP_h_cstr, DP_c = DP_c_cstr)
+    
+    # global_best_position, global_best_score, best_particle = HX_test.opt_size()
+    
+    import time
+    time_1 = []
+    
+    # for i in range(10):
+    t0 = time.perf_counter()
+    
+    global_best_position, global_best_score, best_particle = HX_test.opt_size(n_particles = 50, max_iter = 50)
+    
+    elapsed = time.perf_counter() - t0
+    
+    print(f"Optimization completed in {elapsed:.2f} s")
+    
+    time_1.append(elapsed)

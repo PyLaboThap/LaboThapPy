@@ -456,7 +456,7 @@ class HexMBChargeSensitive(BaseComponent):
         "2) Hot fluid side pinch"
         
         # Computation of outlet lowest possible enthalpy of the hot fluid using either the entrance cold fluid inlet temperature, or the arbitrary minimal
-        self.AS_H.update(CP.PT_INPUTS, self.p_hi, np.max([self.T_ci, T_hmin]))
+        self.AS_H.update(CP.PT_INPUTS, self.p_hi, max(self.T_ci, T_hmin))
         h_ho_ideal = self.AS_H.hmass() # Equation 5 (Bell et al. 2015)
         
         # Q_max computation
@@ -471,7 +471,7 @@ class HexMBChargeSensitive(BaseComponent):
         "3) Cold fluid side pinch"
                 
         # Computation of highest possible outlet enthalpy of the hot fluid using either the entrance hot fluid inlet temperature, or the arbitrary maximal
-        self.AS_C.update(CP.PT_INPUTS, self.p_ci, np.min([self.T_hi, T_cmax]))
+        self.AS_C.update(CP.PT_INPUTS, self.p_ci, min(self.T_hi, T_cmax))
         h_co_ideal = self.AS_C.hmass() # Equation  (Bell et al. 2015)
         
         # Q_max computation
@@ -485,7 +485,7 @@ class HexMBChargeSensitive(BaseComponent):
             
         "4) Final pinch and cell boundaries computation"
         
-        Q_dot_max = np.min([Q_dot_maxh, Q_dot_maxc])
+        Q_dot_max = min(Q_dot_maxh, Q_dot_maxc)
         
         if debug:
             print('Qmax (external pinching) is', Q_dot_max)
@@ -559,7 +559,7 @@ class HexMBChargeSensitive(BaseComponent):
         n_disc = self.params['n_disc'] + 1
         
         # Force the minimum number of discretizations needed
-        n_disc = np.max([n_disc, 2])
+        n_disc = max(n_disc, 2)
         
         # The original Bell2015 code uses: "if h_cdew is not None". I don't see when that could happen without an error before.
         "3.1) Create a vector of enthalpies : initiates the cell boundaries. If phase change, dew and bubble point are added"
@@ -614,7 +614,7 @@ class HexMBChargeSensitive(BaseComponent):
               print("Qcell_hk =", Qcell_ck, "\n-------\n")
             
             diff = Qcell_hk - Qcell_ck
-            tol  = np.max([EPS_ABS, EPS_REL * np.max([np.abs(Qcell_hk), np.abs(Qcell_ck) ]) ])
+            tol  = max(EPS_ABS, EPS_REL * max(abs(Qcell_hk), abs(Qcell_ck)))
             
             if diff > tol:
                 # hot has more heat -> add boundary on hot
@@ -700,7 +700,7 @@ class HexMBChargeSensitive(BaseComponent):
                 elif h_h > self.h_hdew:
                     self.x_vec_h.append(2)
                 else:
-                    self.x_vec_h.append(np.min([1, np.max([0, (h_h - self.h_hbubble)/(self.h_hdew - self.h_hbubble) ]) ]))
+                    self.x_vec_h.append(min(1, max(0, (h_h - self.h_hbubble)/(self.h_hdew - self.h_hbubble))))
             else:
                 self.x_vec_h.append(3)
                 
@@ -713,7 +713,7 @@ class HexMBChargeSensitive(BaseComponent):
                 elif h_c > self.h_cdew:
                     self.x_vec_c.append(2)
                 else:
-                    self.x_vec_c.append(np.min([1, np.max([0, (h_c - self.h_cbubble)/(self.h_cdew - self.h_cbubble) ]) ]))
+                    self.x_vec_c.append(min(1, max(0, (h_c - self.h_cbubble)/(self.h_cdew - self.h_cbubble))))
             else:
                 self.x_vec_c.append(3)
 
@@ -781,7 +781,7 @@ class HexMBChargeSensitive(BaseComponent):
                 for i in range(1,len(self.hvec_c)-1):
                     
                     # Check if enthalpy is equal to the bubblepoint enthalpy of cold stream and hot stream is colder than cold stream (impossible)
-                    if (np.abs(self.hvec_c[i] - self.h_cbubble) < 1e-6 and self.Tvec_c[i] > self.Tvec_h[i]):
+                    if (abs(self.hvec_c[i] - self.h_cbubble) < 1e-6 and self.Tvec_c[i] > self.Tvec_h[i]):
                         # Enthalpy of the hot stream at the pinch temperature
                         self.AS_H.update(CP.PT_INPUTS, self.pvec_h[i], self.T_cbubble)
                         h_h_pinch = self.AS_H.hmass() # Equation 10 (Bell et al. 2015)
@@ -987,7 +987,7 @@ class HexMBChargeSensitive(BaseComponent):
     def compute_H_2P_HTC(self, k, Th_mean, p_h_mean, T_wall_h, G_h, havg_h, Th_sat_mean):
         
         if self.phases_h[k] == "two-phase":
-            x_h = np.min([1, np.max([0, 0.5*(self.x_vec_h[k] + self.x_vec_h[k]) ]) ])
+            x_h = min(1, max(0, 0.5*(self.x_vec_h[k] + self.x_vec_h[k])))
         elif self.phases_h[k] == "vapor-wet":
             x_h = 1
                     
@@ -1084,15 +1084,15 @@ class HexMBChargeSensitive(BaseComponent):
             
         if self.phases_c[k] == "two-phase": 
             if len(self.phases_c[k]) == 1: 
-                x_c = np.min([1, np.max([0, (self.x_vec_c[k]+1)/2 ]) ])
+                x_c = min(1, max(0, (self.x_vec_c[k]+1)/2))
             else:
                 try: 
                     if self.phases_c[k+1] != "two-phase":
-                        x_c = np.min([1, np.max([0, (self.x_vec_c[k]+1)/2 ]) ])
+                        x_c = min(1, max(0, (self.x_vec_c[k]+1)/2))
                     else:
-                        x_c = np.min([1, np.max([0, (self.x_vec_c[k]+self.x_vec_c[k+1])/2 ]) ])
+                        x_c = min(1, max(0, (self.x_vec_c[k]+self.x_vec_c[k+1])/2))
                 except:
-                    x_c = np.min([1, np.max([0, (self.x_vec_c[k]+1)/2 ]) ])
+                    x_c = min(1, max(0, (self.x_vec_c[k]+1)/2))
                     
         elif self.phases_c[k] == "vapor-wet":
             x_c = 1
@@ -1161,6 +1161,59 @@ class HexMBChargeSensitive(BaseComponent):
     #%% PRESSURE DROP CORRELATION CHOOSING RELATED METHODS
 
     def compute_H_DP(self):
+        
+        m_dot_h = self.su_H.m_dot/self.params['n_parallel']
+        
+        if self.H.PressureDrop_Correlation == "Shell_Bell_Delaware_DP":
+            
+            DP_H = shell_bell_delaware_DP(m_dot_h, self.su_H.h, self.su_H.p, self.su_H.fluid, self.params)*self.params["n_series"]
+            
+        elif self.H.PressureDrop_Correlation == "Shell_Kern_DP":
+            DP_H = shell_DP_kern(m_dot_h, (self.su_H.T + self.su_C.T)/2, self.su_H.h, self.su_H.p, self.su_H.fluid, self.params)*self.params["n_series"]
+        elif self.H.PressureDrop_Correlation == "Gnielinski_DP":
+            mu_h_in = CP.PropsSI('V', 'H', self.su_H.h, 'P', self.su_H.p, self.su_H.fluid)
+            G_c, G_h = self.G_h_c_computation()
+
+            if self.HTX_Type == 'PCHE':
+                Dh = np.pi*self.params['D_c']/(2+np.pi)
+                DP_H = gnielinski_pipe_DP(mu_h_in, self.su_H.D, G_h, Dh, self.params["L_c"], type_HX= 'PCHE')  
+            else:
+                DP_H = gnielinski_pipe_DP(mu_h_in, self.su_H.D, G_h, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"])  
+
+        elif self.H.PressureDrop_Correlation == 'Darcy_Weisbach':
+            mu_h_in = CP.PropsSI('V', 'H', self.su_H.h, 'P', self.su_H.p, self.su_H.fluid)
+            G_c, G_h = self.G_h_c_computation()
+        
+            Dh = np.pi*self.params['D_c']/(2+np.pi)
+            DP_H = Darcy_Weisbach(mu_h_in, self.su_H.D, G_h, Dh, self.params["L_c"])  
+
+
+        elif self.H.PressureDrop_Correlation == "Cheng_CO2_DP":
+            G_c, G_h = self.G_h_c_computation()
+            mu_h_in = CP.PropsSI('V', 'H', self.su_H.h, 'P', self.su_H.p, self.su_H.fluid)
+            
+            DP_H = Cheng_CO2_DP(G_h, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"], self.su_H.p, self.su_H.h, mu_h_in, self.su_H.fluid)
+        
+        elif self.H.PressureDrop_Correlation == "Choi_DP":
+
+            G_c, G_h = self.G_h_c_computation()
+            rho_out = CP.PropsSI('D', 'P', self.su_H.p, 'Q', 0, self.su_H.fluid)
+            
+            if self.su_H.x:
+                x_in = self.su_H.x
+            else:              
+                x_in = 1
+
+            DP_H = Choi_DP(self.su_H.fluid, G_c, rho_out, self.su_H.D, self.su_H.p, 0, x_in, self.params["Tube_L"]*self.params["Tube_pass"], self.params["Tube_OD"]-2*self.params["Tube_t"])
+                        
+        else:
+            DP_H = 0
+            
+        return DP_H
+
+# -------------------------------------------------------------------------
+
+    def compute_cell_H_DP(self, k, Th_mean, p_h_mean, T_wall_h, G_h, havg_h, Th_sat_mean):
         
         m_dot_h = self.su_H.m_dot/self.params['n_parallel']
         
@@ -1537,7 +1590,7 @@ class HexMBChargeSensitive(BaseComponent):
             if and_solve and not only_external:
                 Q = self.solve_hx()
             self.epsilon_th = self.Q/self.Qmax # HTX efficiency
-            self.residual = 1 - np.sum(self.w) # HTX residual # !!! (what is "w" ?)
+            self.residual = 1 - sum(self.w) # HTX residual # !!! (what is "w" ?)
             
             "5.4) Effective density computation for each cell taking into account void fraction"
             
@@ -1680,14 +1733,14 @@ class HexMBChargeSensitive(BaseComponent):
             Tho = self.Tvec_h[k]
             Tco = self.Tvec_c[k+1]
             
-            DTA = np.max([Thi - Tco, 1e-02])
-            DTB = np.max([Tho - Tci, 1e-02])
+            DTA = max(Thi - Tco, 1e-02)
+            DTB = max(Tho - Tci, 1e-02)
             
             if DTA == DTB:
                 self.LMTD[k] = DTA
             else:
                 try:
-                    self.LMTD[k] = (DTA-DTB)/np.log(np.abs(DTA/DTB))
+                    self.LMTD[k] = (DTA-DTB)/np.log(abs(DTA/DTB))
                 except ValueError as VE:
                     print(Q, DTA, DTB)
                     raise
@@ -1713,7 +1766,7 @@ class HexMBChargeSensitive(BaseComponent):
                     T_wall_h = T_wall
                     
                 elif havg_h > self.h_hdew: # higher than condensation/dew point
-                    T_wall_h = np.max([T_wall, Th_sat_mean])                    
+                    T_wall_h = max(T_wall, Th_sat_mean)                    
                     if T_wall > Th_sat_mean:
                         self.phases_h.append('vapor')
                     else:
@@ -1763,7 +1816,9 @@ class HexMBChargeSensitive(BaseComponent):
                 self.phases_c.append('transcritical')
                 T_wall_c = T_wall
                 havg_c = (self.hvec_c[k] + self.hvec_c[k+1])/2.0 # Average cell enthalpy over the cell
-                            
+            
+            DP_h = self.compute_cell_H_DP(k, Th_mean, self.pvec_h[k], T_wall_h, G_h, havg_h, Th_mean) ytgggyu
+            
             p_c_mean = 0.5*(self.pvec_c[k] + self.pvec_c[k+1]) # mean pressure over the cell
             p_h_mean = 0.5*(self.pvec_h[k] + self.pvec_h[k+1]) # mean pressure over the cell
 
@@ -1782,14 +1837,13 @@ class HexMBChargeSensitive(BaseComponent):
                 except:
                     C_h = 20000
                 
-                C_min = np.min([C_c,C_h])
-                C_max = np.max([C_c,C_h])
+                C_min = min(C_c,C_h)
+                C_max = max(C_c,C_h)
                 C_r = C_min/C_max
                 
                 if self.params['n_series'] > 1:
                     self.R = (Thi - Tho)/(Tco - Tci)
                     self.P = (Tco - Tci)/(Thi - Tci)
-                    
                 else:
                     
                     self.R = (self.Tvec_h[-1] - self.Tvec_h[0])/(self.Tvec_c[-1] - self.Tvec_c[0])
@@ -1802,20 +1856,16 @@ class HexMBChargeSensitive(BaseComponent):
                     elif self.P > 0.99:
                         self.F[k] = 0
                     else:
-                        if np.mod(self.params['Tube_pass'], 2) == 0:
+                        if np.mod(self.params['Tube_pass'],2) == 0:
                             self.F[k] = F_shell_and_tube(self.R,self.P,self.params['n_series'])
                             
                             if self.F[k] == 0 and self.P < 0.9 and self.R < 10:
-                                # print("ah")
-
                                 self.F[k] = f_lmtd2(self.R, self.P, self.params, C_r)
                             
                                 if self.F[k] == 1:
                                     self.F[k] = 0.9
                             
                         else:
-                            print("oh")
-
                             self.F[k] = f_lmtd2(self.R, self.P, self.params, C_r)
                 else:    
                     self.F[k] = f_lmtd2(self.R, self.P, self.params, C_r)
@@ -1823,7 +1873,7 @@ class HexMBChargeSensitive(BaseComponent):
             else:
                 self.F[k] = 1
             
-            self.F[k] = np.max([self.F[k],0])    
+            self.F[k] = max(self.F[k],0)    
                         
             #UA_req including F correction factor in case of cross flow
             UA_req = self.mdot_h*(self.hvec_h[k+1]-self.hvec_h[k])/(self.F[k]*self.LMTD[k])          

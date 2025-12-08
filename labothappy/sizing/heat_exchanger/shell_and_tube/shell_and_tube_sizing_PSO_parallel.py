@@ -54,7 +54,7 @@ os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
 
 # Component import
 from component.base_component import BaseComponent
-from component.heat_exchanger.hex_MB_charge_sensitive import HeatExchangerMB
+from component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
 
 # Cost model import
 from correlations.heat_exchanger.STHE_cost_estimation import HeatExchangerCost
@@ -233,7 +233,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
 
         def HeatTransferRate(self, opt_inputs, opt_params):
                         
-            self.HX = HeatExchangerMB('Shell&Tube')
+            self.HX = HexMBChargeSensitive('Shell&Tube')
 
             # Set HX inputs
             self.HX.set_inputs(**opt_inputs)
@@ -520,7 +520,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
         if hasattr(particle, "HX"):
             new_particle.HX = copy.copy(particle.HX)
         else:
-            new_particle.HX = HeatExchangerMB("Shell&Tube")
+            new_particle.HX = HexMBChargeSensitive("Shell&Tube")
         
         # ⚠️ Do NOT copy the AbstractState object
         
@@ -977,7 +977,7 @@ if __name__ == "__main__":
     """
     
     HX_test = ShellAndTubeSizingOpt()
-    test_case = "CO2_GH"
+    test_case = "Methanol"
     
     if test_case == "Methanol":
     
@@ -1056,7 +1056,7 @@ if __name__ == "__main__":
                                 Flow_Type = 'Shell&Tube',
                                 H_DP_ON = True,
                                 C_DP_ON = True,
-                                n_disc = 1
+                                n_disc = 50
                               )
     
         H_Corr = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
@@ -1143,7 +1143,7 @@ if __name__ == "__main__":
                                 Flow_Type = 'Shell&Tube',
                                 H_DP_ON = True,
                                 C_DP_ON = True,
-                                n_disc = 50
+                                n_disc = 1
                               )
     
         H_Corr = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}

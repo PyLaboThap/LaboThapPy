@@ -86,7 +86,7 @@ class RadialTurbineMeanLineDesign(object):
 
         # Abstract State 
         self.fluid = fluid
-        self.AS = CP.AbstractState('HEOS', fluid)
+        self.AS = CP.AbstractState('BICUBIC&HEOS', fluid)
         
         # Blade Dictionnary
         self.stages = []

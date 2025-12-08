@@ -4,7 +4,7 @@ save_data_on_exit = True
 save_history = True
 save_non_project_files = False
 project_type = 'empty-project-type'
-recent_files = ['component\\examples\\heat_exchanger\\hex_thermosyphon_example.py', 'component\\expander\\turbine_mean_line_Aungier.py', 'component\\expander\\turbine_polyneff.py']
+recent_files = ['sizing\\turbomachinery\\compressor\\radial\\1D\\mean_line_radial_compressor_eta_row_design_new.py', 'sizing\\turbomachinery\\turbine\\radial\\mean_line_radial_turbine_loss_model_design_parallel.py', 'correlations\\turbomachinery\\radial_compressor_losses.py', '..\\..\\..\\..\\anaconda3\\Lib\\site-packages\\numpy\\__init__.py', 'sizing\\heat_exchanger\\shell_and_tube\\shell_and_tube_sizing_PSO_parallel.py', 'sizing\\heat_exchanger\\shell_and_tube\\shell_and_tube_sizing_PSO.py', 'correlations\\heat_exchanger\\f_lmtd2.py', 'component\\heat_exchanger\\hex_MB_charge_sensitive.py']
 
 [main]
 version = 0.2.0

@@ -39,41 +39,43 @@ def system_HP_parallel(x, input_data):
     mdot_HS = mdot * mdot_HS_fact
     HSource.set_properties(m_dot=mdot_HS)
 
-    try:
-        if params['HP_ARCH'] == 'IHX_EXP':
-            HP = IHX_EXP_CO2_HP(HSource, CSource.T, params['eta_cp'], params['eta_gc'],
-                                params['eta_IHX'], params['eta_exp'],
-                                params['PP_ev'], params['SH_ev'],
-                                P_low_guess, P_high, mdot, mute_print_flag=1)
-        else:
-            HP = IHX_CO2_HP(HSource, CSource.T, params['eta_cp'], params['eta_gc'],
-                            params['eta_IHX'], params['PP_ev'], params['SH_ev'],
+    # try:
+    
+    
+    if params['HP_ARCH'] == 'IHX_EXP':
+        HP = IHX_EXP_CO2_HP(HSource, CSource, params['eta_cp'], params['eta_gc'],
+                            params['eta_IHX'], params['eta_exp'],
+                            params['PP_ev'], params['SH_ev'],
                             P_low_guess, P_high, mdot, mute_print_flag=1)
+    else:
+        HP = IHX_CO2_HP(HSource, CSource, params['eta_cp'], params['eta_gc'],
+                        params['eta_IHX'], params['PP_ev'], params['SH_ev'],
+                        P_low_guess, P_high, mdot, mute_print_flag=1)
 
-        HP.solve()
+    HP.solve()
 
-        if not HP.converged:
-            return 100
-
-        if params['HP_ARCH'] == 'IHX_EXP':
-            COP = HP.components['GasCooler'].model.Q_dot.Q_dot / (
-                HP.components['Compressor'].model.W.W_dot - HP.components['Expander'].model.W_exp.W_dot)
-        else:
-            COP = HP.components['GasCooler'].model.Q_dot.Q_dot / HP.components['Compressor'].model.W.W_dot
-
-        T_err = abs((HP.components['GasCooler'].model.ex_C.T - obj['T_high']) / obj['T_high'])
-        W_err = abs((HP.components['Compressor'].model.W.W_dot - obj['W_dot']) / obj['W_dot'])
-
-        penalty = 0
-        if T_err > 1e-2:
-            penalty += 300 * T_err
-        if W_err > 1e-2:
-            penalty += 100 * W_err
-
-        return -COP + penalty
-
-    except Exception:
+    if not HP.converged:
         return 100
+
+    if params['HP_ARCH'] == 'IHX_EXP':
+        COP = HP.components['GasCooler'].model.Q_dot.Q_dot / (
+            HP.components['Compressor'].model.W.W_dot - HP.components['Expander'].model.W_exp.W_dot)
+    else:
+        COP = HP.components['GasCooler'].model.Q_dot.Q_dot / HP.components['Compressor'].model.W.W_dot
+
+    T_err = abs((HP.components['GasCooler'].model.ex_C.T - obj['T_high']) / obj['T_high'])
+    W_err = abs((HP.components['Compressor'].model.W.W_dot - obj['W_dot']) / obj['W_dot'])
+
+    penalty = 0
+    if T_err > 1e-2:
+        penalty += 3 * T_err
+    if W_err > 1e-2:
+        penalty += 1 * W_err
+
+    return -COP + penalty
+
+    # except Exception:
+    #     return 100
 
 #%% Optimizer Class
 
@@ -119,7 +121,8 @@ class CO2HPOptimizer:
             'CSource': {
                 'T': self.CSource.T,
                 'P': self.CSource.p,
-                'fluid': self.CSource.fluid
+                'fluid': self.CSource.fluid,
+                'm_dot': self.CSource.m_dot
             }
         }
     
@@ -177,12 +180,12 @@ class CO2HPOptimizer:
         P_low_guess = 0.8 * min(P_sat_T_CSource, P_crit_CO2)
         
         if self.params['HP_ARCH'] == 'IHX_EXP':
-            self.HP = IHX_EXP_CO2_HP(self.HSource, self.CSource.T, self.params['eta_cp'],
+            self.HP = IHX_EXP_CO2_HP(self.HSource, self.CSource, self.params['eta_cp'],
                                       self.params['eta_gc'], self.params['eta_IHX'], self.params['eta_exp'],
                                       self.params['PP_ev'], self.params['SH_ev'],
                                       P_low_guess, best_P_high, best_mdot, mute_print_flag=1)
         else:
-            self.HP = IHX_CO2_HP(self.HSource, self.CSource.T, self.params['eta_cp'],
+            self.HP = IHX_CO2_HP(self.HSource, self.CSource, self.params['eta_cp'],
                                  self.params['eta_gc'], self.params['eta_IHX'],
                                  self.params['PP_ev'], self.params['SH_ev'],
                                  P_low_guess, best_P_high, best_mdot, mute_print_flag=1)
@@ -213,7 +216,8 @@ if __name__ == "__main__":
     Optimizer = CO2HPOptimizer('CO2')
     
     # Define temperatures for sweep
-    T_vec = np.linspace(100, 150, 6) + 273.15
+    # T_vec = np.linspace(100, 150, 6) + 273.15
+    T_vec = np.array([130]) + 273.15
     COP_vec = []
     P_high_vec = []
     m_dot_vec = []
@@ -221,10 +225,16 @@ if __name__ == "__main__":
     T_act_vec = []
     
     # Sweep parameters
-    m_dot_HS_fact_min = np.array([0.2] * 6)
-    m_dot_HS_fact_max = np.array([0.8] * 6)
-    P_high_min = np.array([100, 100, 120, 130, 140, 150]) * 1e5
-    P_high_max = np.array([130, 150, 170, 180, 190, 200]) * 1e5
+    # m_dot_HS_fact_min = np.array([0.2] * 6)
+    # m_dot_HS_fact_max = np.array([0.8] * 6)
+    # P_high_min = np.array([100, 100, 120, 130, 140, 150]) * 1e5
+    # P_high_max = np.array([130, 150, 170, 180, 190, 200]) * 1e5
+    
+    m_dot_HS_fact_min = np.array([0.2])
+    m_dot_HS_fact_max = np.array([0.8])
+    P_high_min = np.array([120]) * 1e5
+    P_high_max = np.array([180]) * 1e5
+    
     
     for i in range(len(T_vec)):
         Optimizer.set_parameters(
@@ -257,7 +267,8 @@ if __name__ == "__main__":
         Optimizer.CSource.set_properties(
             T=15 + 273.15,
             P=1e5,
-            fluid='Water'
+            fluid='Water',
+            m_dot = 1000
         )
     
         Optimizer.HSource.set_properties(

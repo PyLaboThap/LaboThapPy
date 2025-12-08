@@ -456,13 +456,16 @@ class HexCstPinch(BaseComponent):
                 if self.res < 1e-2:
                     self.solved = True
                 else:
-                    print("System not solved according to specified tolerance in Evaporator")
-                    self.solved = False
+                    if self.print_flag:
+                        print("System not solved according to specified tolerance in Evaporator")
+                        self.solved = False
                     
             except Exception as e:
                 # Handle any errors that occur during solving
                 self.solved = False
-                print(f"Convergence problem in evaporator model: {e}")
+                
+                if self.print_flag:
+                    print(f"Convergence problem in evaporator model: {e}")
 
         elif self.params['HX_type'] == 'condenser':
             guess_T_sat = self.su_C.T + self.params['Pinch'] + self.params['Delta_T_sh_sc']
@@ -479,11 +482,19 @@ class HexCstPinch(BaseComponent):
                 self.update_connectors()
 
                 # Mark the model as solved if successful
-                self.solved = True
+                if self.res < 1e-2:
+                    self.solved = True
+                else:
+                    if self.print_flag:
+                        print("System not solved according to specified tolerance in Condenser")
+                        self.solved = False
+                        
             except Exception as e:
                 # Handle any errors that occur during solving
                 self.solved = False
-                print(f"Convergence problem in condenser model: {e}")
+                
+                if self.print_flag:
+                    print(f"Convergence problem in condenser model: {e}")
 
         """Compute HX Equivalent Efficiency"""
         # External Pinching
