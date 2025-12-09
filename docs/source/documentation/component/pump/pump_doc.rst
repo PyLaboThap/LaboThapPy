@@ -8,5 +8,6 @@ This sections provides information about the pump models available in the LaboTh
 
    pump_models/pump_csteff
    pump_models/pump_similarity_laws
+   pump_models/pump_curve_similarity
 
 
