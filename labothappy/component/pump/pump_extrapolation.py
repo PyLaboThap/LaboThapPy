@@ -84,7 +84,7 @@ class PumpExtrapolation(BaseComponent):
 
         NPSH_r: Required NPSH [m]
 
-        W_dot_wf: Work done on fluid [W]
+        W_dot: Work done on fluid [W]
 
         W_dot_el: Electric power consumption [W]
 
@@ -107,7 +107,6 @@ class PumpExtrapolation(BaseComponent):
         Returns a list of required input variable names.
         Used to check if the model has enough data to run.
         """
-        # self.sync_inputs()  # Ensure connector values are reflected in the inputs dict
         return ["P_su", "T_su", "P_ex", "fluid", "N_rot"]
 
     def get_required_parameters(self):
@@ -184,7 +183,7 @@ class PumpExtrapolation(BaseComponent):
             print("Component is not calculable or not parametrized")
             return
 
-        if self.su.p > self.ex.p or self.W.N < 0:
+        if self.su.p > self.ex.p or self.W.N_rot < 0:
             print(
                 "Supply pressure is higher than exhaust pressure or rotational speed is negative"
             )
@@ -192,28 +191,23 @@ class PumpExtrapolation(BaseComponent):
 
         self.V_dot_flag = 0  # Flag if flow is outside curve range
 
+        # And the change in density in case of different fluid???
+
         # Scale curves with respect to current speed
-        self.V_dot_curve = self.params["V_dot_curve"] * (
-            self.W.N / self.params["N_rot_rated"]
-        )
-        self.DH_curve = (
-            self.params["Delta_H_curve"] * (self.W.N / self.params["N_rot_rated"]) ** 2
-        )
+        self.V_dot_curve = self.params["V_dot_curve"] * (self.W.N_rot / self.params["N_rot_rated"])
+
+        self.DH_curve = (self.params["Delta_H_curve"] * (self.W.N_rot / self.params["N_rot_rated"]) ** 2)
+
         self.eta_is_curve = self.params["eta_is_curve"]
-        self.NPSH_r_curve = (
-            self.params["NPSH_r_curve"] * (self.W.N / self.params["N_rot_rated"]) ** 2
-        )
+
+        self.NPSH_r_curve = (self.params["NPSH_r_curve"] * (self.W.N_rot / self.params["N_rot_rated"]) ** 2)
 
         # Create interpolation functions for extrapolated performance
-        DH_V = interp1d(
-            self.DH_curve, self.V_dot_curve, kind="linear", fill_value="extrapolate"
-        )
-        V_eta = interp1d(
-            self.V_dot_curve, self.eta_is_curve, kind="linear", fill_value="extrapolate"
-        )
-        V_NPSH_r = interp1d(
-            self.V_dot_curve, self.NPSH_r_curve, kind="linear", fill_value="extrapolate"
-        )
+        DH_V = interp1d(self.DH_curve, self.V_dot_curve, kind="linear", fill_value="extrapolate")
+
+        V_eta = interp1d(self.V_dot_curve, self.eta_is_curve, kind="linear", fill_value="extrapolate")
+
+        V_NPSH_r = interp1d(self.V_dot_curve, self.NPSH_r_curve, kind="linear", fill_value="extrapolate")
 
         # Compute head difference [m]
         DP = self.ex.p - self.su.p
