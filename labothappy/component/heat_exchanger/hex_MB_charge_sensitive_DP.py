@@ -336,6 +336,11 @@ class HexMBChargeSensitive(BaseComponent):
         self.params['htc_type'] = htc_type
         # self.check_calculable()
         
+        self.UD_C_HTC = UD_C_HTC
+        self.UD_H_HTC = UD_H_HTC
+        self.Corr_H = Corr_H
+        self.Corr_C = Corr_C
+        
         if htc_type == "User-Defined":
             
             self.H.HeatExchange_Correlation = "User-Defined"
@@ -469,7 +474,7 @@ class HexMBChargeSensitive(BaseComponent):
 
     #%% PINCH AND DISCRETIZATION RELATED METHODS
             
-    def external_pinching(self):
+    def external_pinching(self, pvec_c = None, pvec_h = None):
         "Determine the maximum heat transfer rate based on the external pinching analysis"
         
         "1) Set temperature bound values" # !!! Find out why      
@@ -513,12 +518,14 @@ class HexMBChargeSensitive(BaseComponent):
         if debug:
             print('Qmax (external pinching) is', Q_dot_max)
 
-        self.calculate_cell_boundaries(Q_dot_max) # call calculate_cell_boundaries procedure
-
+        if pvec_c is None:
+            self.calculate_cell_boundaries(Q_dot_max) # call calculate_cell_boundaries procedure
+        else:
+            self.calculate_cell_boundaries(Q_dot_max, pvec_c = pvec_c, pvec_h = pvec_h) # call calculate_cell_boundaries procedure
 
         return Q_dot_max
 
-    def calculate_cell_boundaries(self, Q):
+    def calculate_cell_boundaries(self, Q, pvec_c = None, pvec_h = None):
         """ Calculate the cell boundaries for each fluid """
         
         
@@ -676,6 +683,13 @@ class HexMBChargeSensitive(BaseComponent):
 
         # Pressure distribution accross the HX. Method by RDickes (not validated).
         # Discretization of the pressure as a linear interpolation on enthalpy between in and out conditions # !!! Is this good ? 
+        if pvec_c is None:
+            self.pvec_c = (1-self.hnorm_c)*self.p_ci + self.hnorm_c*self.p_co
+            self.pvec_h = (1-self.hnorm_h)*self.p_ho + self.hnorm_h*self.p_hi
+        else:
+            self.pvec_c = pvec_c
+            self.pvec_h = pvec_h
+        
         self.pvec_c = (1-self.hnorm_c)*self.p_ci + self.hnorm_c*self.p_co
         self.pvec_h = (1-self.hnorm_h)*self.p_ho + self.hnorm_h*self.p_hi
 
@@ -762,7 +776,7 @@ class HexMBChargeSensitive(BaseComponent):
         self.DT_ho_ci = self.Tvec_h[0] - self.Tvec_c[0]
         self.DT_hi_co = self.Tvec_h[-1] - self.Tvec_c[-1]
 
-    def internal_pinching(self, stream):
+    def internal_pinching(self, stream, pvec_c = None, pvec_h = None):
         """
         Determine the maximum heat transfer rate based on the internal pinching analysis
         NB : external pinching analysis has already been done
@@ -789,8 +803,11 @@ class HexMBChargeSensitive(BaseComponent):
                         Qmax = self.mdot_c*(h_c_pinch-self.h_ci) + Qright # Equation 12
 
                         # Recalculate the cell boundaries
-                        self.calculate_cell_boundaries(Qmax)
-                
+                        if pvec_c is None:
+                            self.calculate_cell_boundaries(Qmax) # call calculate_cell_boundaries procedure
+                        else:
+                            self.calculate_cell_boundaries(Qmax, pvec_c = pvec_c, pvec_h = pvec_h) # call calculate_cell_boundaries procedure     
+                            
                         return Qmax
                     
             elif self.Transcritical_h:
@@ -815,10 +832,12 @@ class HexMBChargeSensitive(BaseComponent):
 
                         # New value for the limiting heat transfer rate
                         Qmax = Qleft + self.mdot_h*(self.h_hi-h_h_pinch) # Equation 16 (Bell et al. 2015)
-
-                        # Recalculate the cell boundaries
-                        self.calculate_cell_boundaries(Qmax)
-
+                        
+                        if pvec_c is None:
+                            self.calculate_cell_boundaries(Qmax) # call calculate_cell_boundaries procedure
+                        else:
+                            self.calculate_cell_boundaries(Qmax, pvec_c = pvec_c, pvec_h = pvec_h) # call calculate_cell_boundaries procedure
+                        
                         return Qmax
                     
             elif self.Transcritical_c:
@@ -1304,10 +1323,10 @@ class HexMBChargeSensitive(BaseComponent):
             DP_H = Choi_DP(self.AS_H, G_c, rho_out, rho_h, p_h_mean, 0, x_in, self.params["Tube_L"]*self.params["Tube_pass"], self.params["Tube_OD"]-2*self.params["Tube_t"])
                     
         else:
+            print("OH")
             DP_H = 0
                         
         return DP_H/self.params["n_disc"]
-
 
 # -------------------------------------------------------------------------
 
@@ -1316,20 +1335,13 @@ class HexMBChargeSensitive(BaseComponent):
         m_dot_c = self.su_C.m_dot/self.params['n_parallel']        
 
         if self.C.PressureDrop_Correlation == "Shell_Bell_Delaware_DP":
-            DP_C = shell_bell_delaware_DP(m_dot_c, self.su_C.h, self.su_C.p, self.su_C.fluid, self.params)*self.params["n_series"]
+            DP_C = shell_bell_delaware_DP(m_dot_c, self.su_C.h, self.su_C.p, self.AS_C, self.params)*self.params["n_series"]
         elif self.C.PressureDrop_Correlation == "Shell_Kern_DP":
-            DP_C = shell_DP_kern(m_dot_c, (self.su_H.T + self.su_C.T)/2, self.su_C.h, self.su_C.p, self.su_C.fluid, self.params)*self.params["n_series"]
+            DP_C = shell_DP_kern(m_dot_c, (self.su_H.T + self.su_C.T)/2, self.su_C.h, self.su_C.p, self.AS_C, self.params)*self.params["n_series"]
         elif self.C.PressureDrop_Correlation == "Gnielinski_DP":
             
             mu_c_in = CP.PropsSI('V', 'H', self.su_C.h, 'P', self.su_C.p, self.su_C.fluid)
             G_c, G_h = self.G_h_c_computation()
-            
-            # print(f"mu_c_in : {mu_c_in}")
-            # print(f"rho_c_in : {self.su_C.D}")
-            # print(f"G_c : {G_c}")
-            # print(f"D_in : {self.params['Tube_OD']-2*self.params['Tube_t']}")
-            # print(f"L : {self.params['Tube_L']*self.params['Tube_pass']}")
-            # print(f"Fluid : {self.su_C.fluid}")
             
             if self.HTX_Type == 'PCHE':
                 Dh = np.pi*self.params['D_c']/(2+np.pi)
@@ -1369,17 +1381,81 @@ class HexMBChargeSensitive(BaseComponent):
         
         return DP_C
 
-    # def compute_cell_C_DP(self):
+# -------------------------------------------------------------------------
 
-    #     if self.C.PressureDrop_Correlation == "Gnielinski_DP":
-    #         mu_c_in = CP.PropsSI('V', 'H', self.su_C.h, 'P', self.su_C.p, self.su_C.fluid)
-    #         G_c, G_h = self.G_h_c_computation()
-            
-    #         DP_C = gnielinski_pipe_DP(mu_c_in, self.su_C.D, G_c, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"]/self.params['n_disc'])    
-    #     else:
-    #         DP_C = 0
+    def compute_cell_C_DP_1P(self, k, Tc_mean, p_c_mean, T_wall_c, G_c, havg_c, Tc_sat_mean):
         
-    #     return DP_C
+        m_dot_c = self.su_C.m_dot/self.params['n_parallel']
+        
+        self.AS_C.update(CP.HmassP_INPUTS, havg_c, p_c_mean)
+        rho_c = self.AS_C.rhomass()
+        mu_c_in = self.AS_C.viscosity()
+        
+        G_c, G_h = self.G_h_c_computation()
+
+        if self.C.Correlation_DP_1phase == "Shell_Bell_Delaware_DP":
+            DP_C = shell_bell_delaware_DP(m_dot_c, havg_c, p_c_mean, self.AS_C, self.params)*self.params["n_series"]
+            
+        elif self.C.Correlation_DP_1phase == "Shell_Kern_DP":
+            DP_C = shell_DP_kern(m_dot_c, Tc_mean, havg_c, p_c_mean, self.AS_C, self.params)*self.params["n_series"]
+        
+        elif self.C.Correlation_DP_1phase == "Gnielinski_DP":
+
+            if self.HTX_Type == 'PCHE':
+                Dh = np.pi*self.params['D_c']/(2+np.pi)
+                DP_C = gnielinski_pipe_DP(mu_c_in, rho_c, G_c, Dh, self.params["L_c"]/self.params['n_disc'], type_HX= 'PCHE')  
+            else:
+                DP_C = gnielinski_pipe_DP(mu_c_in, rho_c, G_c, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"])  
+
+        elif self.C.Correlation_DP_1phase == 'Darcy_Weisbach':        
+            Dh = np.pi*self.params['D_c']/(2+np.pi)
+            DP_C = Darcy_Weisbach(mu_c_in, rho_c, G_c, Dh, self.params["L_c"])  
+      
+        else:
+            DP_C = 0
+        
+        if np.isfinite(self.w[k]):
+            return DP_C*self.w[k]
+        else:
+            return DP_C/self.params['n_disc']
+
+    def compute_cell_C_DP_2P(self, k, Tc_mean, p_c_mean, T_wall_c, G_c, havg_c, Tc_sat_mean, h_out):
+        
+        if self.phases_c[k] == "two-phase":
+            x_c = min(1, max(0, 0.5*(self.x_vec_c[k+1] + self.x_vec_c[k])))
+        elif self.phases_c[k] == "vapor-wet":
+            x_c = 1
+                        
+        m_dot_c = self.su_C.m_dot/self.params['n_parallel']
+        
+        self.AS_C.update(CP.HmassP_INPUTS, havg_c, p_c_mean)
+        rho_c = self.AS_C.rhomass()
+        mu_c_in = self.AS_C.viscosity()
+        
+        G_c, G_h = self.G_h_c_computation()
+
+        if self.C.Correlation_DP_2phase == "Cheng_CO2_DP":            
+            DP_C = Cheng_CO2_DP(G_c, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"], p_c_mean, havg_c, mu_c_in, self.AS_C.fluid)
+        
+        elif self.C.Correlation_DP_2phase == "Choi_DP":
+            self.AS_C.update(CP.HmassP_INPUTS, h_out, p_c_mean)
+            rho_out = self.AS_C.rhomass()
+
+            DP_C = Choi_DP(self.AS_C, G_c, rho_out, rho_c, p_c_mean, 0, x_c, self.params["Tube_L"]*self.params["Tube_pass"], self.params["Tube_OD"]-2*self.params["Tube_t"])
+        
+        elif self.C.Correlation_DP_2phase == "Muller_Steinhagen_Heck_DP":
+            self.AS_C.update(CP.HmassP_INPUTS, h_out, p_c_mean)
+            rho_out = self.AS_C.rhomass()      
+            
+            DP_C = Muller_Steinhagen_Heck_DP(self.AS_C, G_c, p_c_mean, x_c, self.params["Tube_L"]*self.params["Tube_pass"], self.params["Tube_OD"]-2*self.params["Tube_t"])
+
+        else:
+            DP_C = 0
+        
+        if np.isfinite(self.w[k]):
+            return DP_C*self.w[k]
+        else:
+            return DP_C/self.params['n_disc']
 
     #%% SOLVE RELATED METHODS
 
@@ -1402,7 +1478,7 @@ class HexMBChargeSensitive(BaseComponent):
             
         return G_c, G_h
 
-    def solve(self, only_external = False, and_solve = True):
+    def setup(self, only_external = False, and_solve = True):
         # OK
         """
         Parameters
@@ -1546,6 +1622,10 @@ class HexMBChargeSensitive(BaseComponent):
             self.T_hdew_ideal    = self.AS_H.T()
             self.h_hdew_ideal    = self.AS_H.hmass()
             
+    def solve(self, only_external = False, and_solve = True):
+
+        self.setup()
+            
         "4) Calculate pressure drops"
 
         if self.params['H_DP_ON'] == True: # if the pressure drop are not neglected
@@ -1557,13 +1637,6 @@ class HexMBChargeSensitive(BaseComponent):
         else:
             self.DP_h = 0
             self.p_ho = self.p_hi - self.DP_h  
-        
-            # if self.H_su.fluid == 'Water':
-            #     self.DP_h = self.H.f_dp["K"] * (self.mdot_h/self.H_su.D)**2
-            #     self.p_ho = self.p_hi - self.DP_h
-            # else:
-            #     self.DP_h = 0 # self.H.f_dp["K"] * self.mdot_h**(self.H.f_dp["B"]) # Empirical correlations : DP = K*m_dot**B # Han_BPHEX_DP(mu_h, G_h, self.geom.H_Dh, self.geom.chevron_angle, self.geom.plate_pitch_co, rho_v, rho_l, self.geom.l_v, self.geom.H_n_canals, self.mdot_h, self.geom.H_canal_t) # 
-            #     self.p_ho = self.p_hi - self.DP_h
             
         if self.params['C_DP_ON'] == True: # if the pressure drop are not neglected
             if self.C.PressureDrop_Correlation == "User-Defined":
@@ -1575,15 +1648,6 @@ class HexMBChargeSensitive(BaseComponent):
         else:
             self.DP_c = 0
             self.p_co = self.p_ci - self.DP_c  
-            
-        # if self.C.f_dp != {"K": 0, "B": 0}:
-        #     if self.C_su.fluid == 'Water':
-        #         self.DP_c = self.C.f_dp["K"] * (self.mdot_c/self.C_su.D)**2
-        #         self.p_co = self.p_ci - self.DP_c
-        #     else:
-        #         self.DP_c = 0 # self.C.f_dp["K"] * self.mdot_c**(self.C.f_dp["B"]) # Han_BPHEX_DP(mu_c, G_c, self.geom.H_Dh, self.geom.chevron_angle, self.geom.plate_pitch_co, rho_v, rho_l, self.geom.l_v, self.geom.C_n_canals, self.mdot_c, self.geom.C_canal_t) # 
-        #         self.p_co = self.p_ci - self.DP_c
-        
         
         "5) Calculate maximum and actual heat rates"
                 
@@ -1718,31 +1782,7 @@ class HexMBChargeSensitive(BaseComponent):
  
     def objective_function(self, Q, only_external = False):
 
-        "1) Perform Pinch Analysis taking into account new pressure drops"
-
-        self.p_ci = self.pvec_c[0]
-        self.p_co = self.pvec_c[-1]
-        self.p_hi = self.pvec_h[0]
-        self.p_ho = self.pvec_h[-1]
-
-        Qmax_ext = self.external_pinching() # Call to external-pinching procedure
-        self.Qmax_ext = Qmax_ext
-        Qmax = Qmax_ext
-        
-        if debug:
-            print("External pinching calculation done. \n")
-        
-        if not only_external: # If phase change is expected : Check the internal pinching
-            for stream in ['hot','cold']:
-                Qmax_int = self.internal_pinching(stream) # Call to internal-pinching procedure
-                if Qmax_int is not None:
-                    self.Qmax_int = Qmax_int
-                    Qmax = Qmax_int
-                    
-        # Maximum heat transfer rate determined by external or internal pinching
-        self.Qmax = Qmax
-        
-        "2) Initialize cell boundaries and results vectors"
+        "1) Initialize cell boundaries and results vectors"
 
         # print('Objective Function')
         self.calculate_cell_boundaries(Q)
@@ -1769,6 +1809,12 @@ class HexMBChargeSensitive(BaseComponent):
         self.phases_h = []
         self.phases_c = []
         
+        self.DPvec_h = []
+        self.DPvec_c = []
+        
+        self.pvec_h[0] = self.p_hi - self.DP_h
+        
+        #%%
         "2) Iteration over all cells"
         
         # The length of the hvec vectors is the same. hvec_h is arbitrarily taken below
@@ -1864,22 +1910,15 @@ class HexMBChargeSensitive(BaseComponent):
                 T_wall_c = T_wall
                 havg_c = (self.hvec_c[k] + self.hvec_c[k+1])/2.0 # Average cell enthalpy over the cell
             
+            #%% PRESSURE DROPS
+            
             G_c, G_h = self.G_h_c_computation()
-            
-            # 1 PHASE CORRELATION
-            if self.phases_h[k] == "liquid" or self.phases_h[k] == "vapor":
-                DP_h = self.compute_cell_H_DP_1P(k, Th_mean, self.pvec_h[k], T_wall_h, G_h, havg_h, Th_mean) 
-            elif self.phases_h[k] == "transcritical":
-                DP_h = self.compute_cell_H_DP_TC(k, Th_mean, self.pvec_h[k], T_wall_h, G_h, havg_h, Th_mean) 
-            # 2 PHASE CORRELATION
-            elif self.phases_h[k] == "two-phase" or self.phases_h[k] == "vapor-wet":
-                DP_h = self.compute_cell_H_DP_2P(k, Th_mean, self.pvec_h[k], T_wall_h, G_h, havg_h, Th_mean, self.hvec_h[k+1]) 
-            
-            self.pvec_h[k+1] = self.pvec_h[k] - DP_h
             
             p_c_mean = 0.5*(self.pvec_c[k] + self.pvec_c[k+1]) # mean pressure over the cell
             p_h_mean = 0.5*(self.pvec_h[k] + self.pvec_h[k+1]) # mean pressure over the cell
-                        
+            
+            #%% F for LMTD
+            
             # F correction factor for LMTD method:
             if self.params['Flow_Type'] != "CounterFlow":
                 try:
@@ -1934,6 +1973,8 @@ class HexMBChargeSensitive(BaseComponent):
             #UA_req including F correction factor in case of cross flow
             UA_req = self.mdot_h*(self.hvec_h[k+1]-self.hvec_h[k])/(self.F[k]*self.LMTD[k])          
 
+            #%% HTC
+            
             "3) Cell heat transfer coefficients"    
             
             "3.1) Hot side - User defined"
@@ -2113,17 +2154,49 @@ class HexMBChargeSensitive(BaseComponent):
                     except:
                         self.x_di_c = -1
         
+            # 1 PHASE CORRELATION
+            if self.phases_h[k] == "liquid" or self.phases_h[k] == "vapor":
+                DP_h = self.compute_cell_H_DP_1P(k, Th_mean, self.pvec_h[k], T_wall_h, G_h, havg_h, Th_mean) 
+                self.DPvec_h.append(DP_h)
+            elif self.phases_h[k] == "transcritical":
+                DP_h = self.compute_cell_H_DP_1P(k, Th_mean, self.pvec_h[k], T_wall_h, G_h, havg_h, Th_mean) 
+                self.DPvec_h.append(DP_h)
+            # 2 PHASE CORRELATION
+            elif self.phases_h[k] == "two-phase" or self.phases_h[k] == "vapor-wet":
+                DP_h = self.compute_cell_H_DP_2P(k, Th_mean, self.pvec_h[k], T_wall_h, G_h, havg_h, Th_mean, self.hvec_h[k+1]) 
+                self.DPvec_h.append(DP_h)
+
+            self.pvec_h[k+1] = self.pvec_h[k] + DP_h
+            
+            # 1 PHASE CORRELATION
+            if self.phases_c[k] == "liquid" or self.phases_c[k] == "vapor":
+                DP_c = self.compute_cell_C_DP_1P(k, Tc_mean, self.pvec_c[k], T_wall_c, G_c, havg_c, Tc_mean) 
+                self.DPvec_c.append(DP_c)
+
+            elif self.phases_c[k] == "transcritical":
+                DP_c = self.compute_cell_C_DP_1P(k, Tc_mean, self.pvec_c[k], T_wall_c, G_c, havg_c, Tc_mean) 
+                self.DPvec_c.append(DP_c)
+
+            # 2 PHASE CORRELATION
+            elif self.phases_c[k] == "two-phase" or self.phases_c[k] == "vapor-wet":
+                DP_c = self.compute_cell_C_DP_2P(k, Tc_mean, self.pvec_c[k], T_wall_c, G_c, havg_c, Tc_mean, self.hvec_c[k+1]) 
+                self.DPvec_c.append(DP_c)
+            
+            self.pvec_c[k+1] = self.pvec_c[k] - DP_c
+        
         if k < len(self.w) - 1:
             self.w = self.w[:-1]
-                
-                        
+                 
+        self.DP_h = self.pvec_h[-1] - self.pvec_h[0]
+        self.DP_c = self.pvec_c[0] - self.pvec_c[-1]
+            
         if debug:
             print(Q, 1-sum(w))
                 
         return 1-sum(w)
 
 #%% 
-    def solve_hx(self):
+    def solve_hx(self, only_external=False):
         """ 
         Solve the objective function using Brent's method and the maximum heat transfer 
         rate calculated from the pinching analysis
@@ -2131,11 +2204,44 @@ class HexMBChargeSensitive(BaseComponent):
         self.Q = self.Qmax + 1
         max_iter = 1000
         it = 0
-        
+    
+
         while self.Q > self.Qmax and it < max_iter:
-            self.Q = scipy.optimize.brentq(self.objective_function, 1e-5, self.Qmax-1e-10, rtol = 1e-14, xtol = 1e-10)
-            it = it+1
             
+            self.Q = scipy.optimize.brentq(self.objective_function, 1e-5, self.Qmax-1e-10, rtol = 1e-14, xtol = 1e-10)
+            
+            "Pinch Analysis : Verification as pressure drops changed - Create a new HX to not impact computed results"
+            
+            self.HX_pinch = HX = copy.copy(self)
+            
+            HX.p_ci = self.pvec_c[0]
+            HX.p_co = self.pvec_c[-1]
+            HX.p_hi = self.pvec_h[0]
+            HX.p_ho = self.pvec_h[-1]
+            
+            "Compute the external pinching & update cell boundaries"
+            Qmax_ext = HX.external_pinching(pvec_h=HX.pvec_h, pvec_c=HX.pvec_c) # Call to external-pinching procedure
+            self.Qmax_ext = HX.Qmax_ext = Qmax_ext
+            Qmax = Qmax_ext
+            
+            if debug:
+                print("External pinching calculation done. \n")
+            
+            "Compute the internal pinching & update cell boundaries"
+            if not only_external: # If phase change is expected : Check the internal pinching
+                for stream in ['hot','cold']:
+                    Qmax_int = HX.internal_pinching(stream, pvec_h=HX.pvec_h, pvec_c=HX.pvec_c) # Call to internal-pinching procedure
+                    if Qmax_int is not None:
+                        self.Qmax_int = HX.Qmax_int = Qmax_int
+                        Qmax = Qmax_int
+                        
+            # Maximum heat transfer rate determined by external or internal pinching
+            self.Qmax = HX.Qmax = Qmax
+
+            it = it+1
+        
+        # self.Q = scipy.optimize.brentq(self.objective_function, 1e-5, self.Qmax-1e-10, rtol = 1e-14, xtol = 1e-10)
+               
         # print('OUT of evap', self.Q)
         return self.Q
     
