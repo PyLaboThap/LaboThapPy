@@ -1,4 +1,3 @@
-
 """
 Modification w/r to previous version:
     - Putting some order in the Objective Function "for" loops. Sparing some
@@ -411,8 +410,6 @@ class HexMBChargeSensitive(BaseComponent):
         """
 
         self.params['DP_type'] = DP_type
-
-        # self.check_calculable()
         
         if self.params['H_DP_ON']:
             if self.params['DP_type'] == "User-Defined":
@@ -421,7 +418,8 @@ class HexMBChargeSensitive(BaseComponent):
                 self.H.DP_val = UD_H_DP
             elif self.params['DP_type'] == "Correlation":
                 if self.HTX_Type == 'Plate' or self.HTX_Type == 'Shell&Tube' or self.HTX_Type == 'Tube&Fins' or self.HTX_Type == 'PCHE':
-                    self.H.PressureDrop_Correlation = Corr_H
+                    first_key = next(iter(Corr_H))
+                    self.H.PressureDrop_Correlation = Corr_H[first_key]
                 else:
                     print("No Pressure drop correlation for that HTX Type.")
             else:
@@ -436,13 +434,38 @@ class HexMBChargeSensitive(BaseComponent):
                 self.C.DP_val = UD_C_DP
             elif self.params['DP_type'] == "Correlation":
                 if self.HTX_Type == 'Plate' or self.HTX_Type == 'Shell&Tube' or self.HTX_Type == 'Tube&Fins' or self.HTX_Type == 'PCHE':
-                    self.C.PressureDrop_Correlation = Corr_C
+                    first_key = next(iter(Corr_C))
+                    self.C.PressureDrop_Correlation = Corr_C[first_key]
                 else:
                     print("No Pressure drop correlation for that HTX Type.")
             else:
                 self.C.f_dp = {"K": 14.14, "B": 1.892}
         else: 
             self.C.f_dp = {"K": 0, "B": 0}        
+        
+        if self.HTX_Type == 'Plate' or self.HTX_Type == 'Shell&Tube' or self.HTX_Type == 'Tube&Fins' or self.HTX_Type == 'PCHE':
+            
+            self.H.Correlation_DP_1phase = Corr_H["1P"]
+            if "2P" in Corr_H:
+                self.H.Correlation_DP_2phase = Corr_H["2P"]
+            else:
+                self.H.Correlation_DP_2phase = None
+                
+            if "SC" in Corr_H:
+                self.H.Correlation_DP_TC = Corr_H["SC"]
+            else:
+                self.H.Correlation_DP_TC = None
+            
+            self.C.Correlation_DP_1phase = Corr_C["1P"]
+            if "2P" in Corr_C:
+                self.C.Correlation_DP_2phase = Corr_C["2P"]
+            else:
+                self.C.Correlation_DP_2phase = None
+        
+            if "SC" in Corr_C:
+                self.C.Correlation_DP_TC = Corr_C["SC"]
+            else:
+                self.C.Correlation_DP_TC = None
 
     #%% PINCH AND DISCRETIZATION RELATED METHODS
             
@@ -497,6 +520,7 @@ class HexMBChargeSensitive(BaseComponent):
 
     def calculate_cell_boundaries(self, Q):
         """ Calculate the cell boundaries for each fluid """
+        
         
         "1) Re-calculate the outlet enthalpies of each stream"
                 
@@ -1060,8 +1084,8 @@ class HexMBChargeSensitive(BaseComponent):
         
         if self.H.Correlation_2phase == 'Thome_Condensation':
             D_i = self.params['Tube_OD']-2*self.params['Tube_t']
-            alpha_h_2phase = thome_condensation(self.AS_H, D_i, G_h, p_h_mean, T_wall_h, x_h)
-        
+            alpha_h_2phase = thome_condensation(self.AS_H, D_i, G_h, p_h_mean, Th_sat_mean, T_wall_h, x_h)
+
         if self.H.Correlation_2phase == 'Tube_And_Fins':
             alpha_h_2phase = htc_tube_and_fins(self.H_su.fluid, self.params, p_h_mean, havg_h, self.mdot_h, self.params['Fin_type'])[0]
             
@@ -1072,6 +1096,7 @@ class HexMBChargeSensitive(BaseComponent):
         #     w_vap_wet = (Th_mean - Th_sat_mean)/(Th_mean - T_wall_h)
         #     # The line below re-calculates alpha_h in case of having a vapor-wet condition
         #     alpha_h = alpha_h_2phase - w_vap_wet*(alpha_h_2phase - alpha_h) # the last alpha_h in this equation is the 1 Phase calculation
+
 
         return alpha_h_2phase
 
@@ -1166,10 +1191,10 @@ class HexMBChargeSensitive(BaseComponent):
         
         if self.H.PressureDrop_Correlation == "Shell_Bell_Delaware_DP":
             
-            DP_H = shell_bell_delaware_DP(m_dot_h, self.su_H.h, self.su_H.p, self.su_H.fluid, self.params)*self.params["n_series"]
+            DP_H = shell_bell_delaware_DP(m_dot_h, self.su_H.h, self.su_H.p, self.AS_H, self.params)*self.params["n_series"]
             
         elif self.H.PressureDrop_Correlation == "Shell_Kern_DP":
-            DP_H = shell_DP_kern(m_dot_h, (self.su_H.T + self.su_C.T)/2, self.su_H.h, self.su_H.p, self.su_H.fluid, self.params)*self.params["n_series"]
+            DP_H = shell_DP_kern(m_dot_h, (self.su_H.T + self.su_C.T)/2, self.su_H.h, self.su_H.p, self.AS_H, self.params)*self.params["n_series"]
         elif self.H.PressureDrop_Correlation == "Gnielinski_DP":
             mu_h_in = CP.PropsSI('V', 'H', self.su_H.h, 'P', self.su_H.p, self.su_H.fluid)
             G_c, G_h = self.G_h_c_computation()
@@ -1186,7 +1211,6 @@ class HexMBChargeSensitive(BaseComponent):
         
             Dh = np.pi*self.params['D_c']/(2+np.pi)
             DP_H = Darcy_Weisbach(mu_h_in, self.su_H.D, G_h, Dh, self.params["L_c"])  
-
 
         elif self.H.PressureDrop_Correlation == "Cheng_CO2_DP":
             G_c, G_h = self.G_h_c_computation()
@@ -1213,82 +1237,79 @@ class HexMBChargeSensitive(BaseComponent):
 
 # -------------------------------------------------------------------------
 
-    def compute_cell_H_DP(self, k, Th_mean, p_h_mean, T_wall_h, G_h, havg_h, Th_sat_mean):
+    def compute_cell_H_DP_1P(self, k, Th_mean, p_h_mean, T_wall_h, G_h, havg_h, Th_sat_mean):
         
         m_dot_h = self.su_H.m_dot/self.params['n_parallel']
         
-        if self.H.PressureDrop_Correlation == "Shell_Bell_Delaware_DP":
+        self.AS_H.update(CP.HmassP_INPUTS, havg_h, p_h_mean)
+        rho_h = self.AS_H.rhomass()
+        mu_h_in = self.AS_H.viscosity()
+        mu_h_in = self.AS_H.viscosity()
+        
+        G_c, G_h = self.G_h_c_computation()
+
+        if self.H.Correlation_DP_1phase == "Shell_Bell_Delaware_DP":
             
-            DP_H = shell_bell_delaware_DP(m_dot_h, self.su_H.h, self.su_H.p, self.su_H.fluid, self.params)*self.params["n_series"]
+            DP_H = shell_bell_delaware_DP(m_dot_h, havg_h, p_h_mean, self.AS_H, self.params)*self.params["n_series"]
             
-        elif self.H.PressureDrop_Correlation == "Shell_Kern_DP":
-            DP_H = shell_DP_kern(m_dot_h, (self.su_H.T + self.su_C.T)/2, self.su_H.h, self.su_H.p, self.su_H.fluid, self.params)*self.params["n_series"]
-        elif self.H.PressureDrop_Correlation == "Gnielinski_DP":
-            mu_h_in = CP.PropsSI('V', 'H', self.su_H.h, 'P', self.su_H.p, self.su_H.fluid)
-            G_c, G_h = self.G_h_c_computation()
+        elif self.H.Correlation_DP_1phase == "Shell_Kern_DP":
+            DP_H = shell_DP_kern(m_dot_h, Th_mean, havg_h, p_h_mean, self.AS_H, self.params)*self.params["n_series"]
+        
+        elif self.H.Correlation_DP_1phase == "Gnielinski_DP":
 
             if self.HTX_Type == 'PCHE':
                 Dh = np.pi*self.params['D_c']/(2+np.pi)
-                DP_H = gnielinski_pipe_DP(mu_h_in, self.su_H.D, G_h, Dh, self.params["L_c"], type_HX= 'PCHE')  
+                DP_H = gnielinski_pipe_DP(mu_h_in, rho_h, G_h, Dh, self.params["L_c"]/self.params['n_disc'], type_HX= 'PCHE')  
             else:
-                DP_H = gnielinski_pipe_DP(mu_h_in, self.su_H.D, G_h, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"])  
+                DP_H = gnielinski_pipe_DP(mu_h_in, rho_h, G_h, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"])  
 
-        elif self.H.PressureDrop_Correlation == 'Darcy_Weisbach':
-            mu_h_in = CP.PropsSI('V', 'H', self.su_H.h, 'P', self.su_H.p, self.su_H.fluid)
-            G_c, G_h = self.G_h_c_computation()
-        
+        elif self.H.Correlation_DP_1phase == 'Darcy_Weisbach':        
             Dh = np.pi*self.params['D_c']/(2+np.pi)
-            DP_H = Darcy_Weisbach(mu_h_in, self.su_H.D, G_h, Dh, self.params["L_c"])  
-
-
-        elif self.H.PressureDrop_Correlation == "Cheng_CO2_DP":
-            G_c, G_h = self.G_h_c_computation()
-            mu_h_in = CP.PropsSI('V', 'H', self.su_H.h, 'P', self.su_H.p, self.su_H.fluid)
+            DP_H = Darcy_Weisbach(mu_h_in, rho_h, G_h, Dh, self.params["L_c"])  
+      
+        else:
+            DP_H = 0
             
-            DP_H = Cheng_CO2_DP(G_h, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"], self.su_H.p, self.su_H.h, mu_h_in, self.su_H.fluid)
-        
-        elif self.H.PressureDrop_Correlation == "Choi_DP":
+        return DP_H/self.params["n_disc"]
 
-            G_c, G_h = self.G_h_c_computation()
-            rho_out = CP.PropsSI('D', 'P', self.su_H.p, 'Q', 0, self.su_H.fluid)
+    def compute_cell_H_DP_2P(self, k, Th_mean, p_h_mean, T_wall_h, G_h, havg_h, Th_sat_mean, h_out):
+        
+        if self.phases_h[k] == "two-phase":
+            x_h = min(1, max(0, 0.5*(self.x_vec_h[k] + self.x_vec_h[k])))
+        elif self.phases_h[k] == "vapor-wet":
+            x_h = 1
+        
+        m_dot_h = self.su_H.m_dot/self.params['n_parallel']
+        
+        self.AS_H.update(CP.HmassP_INPUTS, havg_h, p_h_mean)
+        rho_h = self.AS_H.rhomass()
+        mu_h_in = self.AS_H.viscosity()
+        mu_h_in = self.AS_H.viscosity()
+        
+        G_c, G_h = self.G_h_c_computation()
+
+        if self.H.Correlation_DP_2phase == "Cheng_CO2_DP":            
+            DP_H = Cheng_CO2_DP(G_h, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"], p_h_mean, havg_h, mu_h_in, self.AS_H.fluid)
+        
+        elif self.H.Correlation_DP_2phase == "Choi_DP":
+            self.AS_H.update(CP.HmassP_INPUTS, h_out, p_h_mean)
+            
+            rho_out = self.AS_H.rhomass()
             
             if self.su_H.x:
                 x_in = self.su_H.x
             else:              
                 x_in = 1
 
-            DP_H = Choi_DP(self.su_H.fluid, G_c, rho_out, self.su_H.D, self.su_H.p, 0, x_in, self.params["Tube_L"]*self.params["Tube_pass"], self.params["Tube_OD"]-2*self.params["Tube_t"])
-                        
+            DP_H = Choi_DP(self.AS_H, G_c, rho_out, rho_h, p_h_mean, 0, x_in, self.params["Tube_L"]*self.params["Tube_pass"], self.params["Tube_OD"]-2*self.params["Tube_t"])
+                    
         else:
             DP_H = 0
-            
-        return DP_H
+                        
+        return DP_H/self.params["n_disc"]
 
-    # def compute_cell_H_DP(self):
-        
-    #     m_dot_h = self.su_H.m_dot/self.params['n_parallel']
-        
-    #     if self.H.PressureDrop_Correlation == "Shell_Bell_Delaware_DP":
-    #         DP_H = shell_bell_delaware_DP(m_dot_h, self.su_H.h, self.su_H.p, self.su_H.fluid, self.params)*self.params["n_series"]/self.params['n_disc']
-    #     elif self.H.PressureDrop_Correlation == "Shell_Kern_DP":
-    #         DP_H = shell_DP_kern(m_dot_h, (self.su_H.T + self.su_C.T)/2, self.su_H.h, self.su_H.p, self.su_H.fluid, self.params)*self.params["n_series"]/self.params['n_disc']
-                
-    #     elif self.H.PressureDrop_Correlation == "Choi_DP":
 
-    #         G_c, G_h = self.G_h_c_computation()
-    #         rho_out = CP.PropsSI('D', 'P', self.su_H.p, 'Q', 0, self.su_H.fluid)
-            
-    #         if self.su_H.x:
-    #             x_in = self.su_H.x
-    #         else:              
-    #             x_in = 1
-            
-    #         DP_H = Choi_DP(self.su_H.fluid, G_c, rho_out, self.su_H.D, self.su_H.p, 0, x_in, self.params["Tube_L"]*self.params["Tube_pass"], self.params["Tube_OD"]-2*self.params["Tube_t"])
-        
-    #     else:
-    #         DP_H = 0
-            
-    #     return DP_H
+# -------------------------------------------------------------------------
 
     def compute_C_DP(self):
 
@@ -1589,6 +1610,7 @@ class HexMBChargeSensitive(BaseComponent):
             "5.3) Solve the heat exchanger to find the actual heat rate"
             if and_solve and not only_external:
                 Q = self.solve_hx()
+                
             self.epsilon_th = self.Q/self.Qmax # HTX efficiency
             self.residual = 1 - sum(self.w) # HTX residual # !!! (what is "w" ?)
             
@@ -1694,9 +1716,34 @@ class HexMBChargeSensitive(BaseComponent):
             self.Q = 1
             raise Exception("Hot and cold temperatures seem to be reversed or a flow rate is negative.")
  
-    def objective_function(self, Q):
-        "1) Initialize cell boundaries and results vectors"
-        # OK
+    def objective_function(self, Q, only_external = False):
+
+        "1) Perform Pinch Analysis taking into account new pressure drops"
+
+        self.p_ci = self.pvec_c[0]
+        self.p_co = self.pvec_c[-1]
+        self.p_hi = self.pvec_h[0]
+        self.p_ho = self.pvec_h[-1]
+
+        Qmax_ext = self.external_pinching() # Call to external-pinching procedure
+        self.Qmax_ext = Qmax_ext
+        Qmax = Qmax_ext
+        
+        if debug:
+            print("External pinching calculation done. \n")
+        
+        if not only_external: # If phase change is expected : Check the internal pinching
+            for stream in ['hot','cold']:
+                Qmax_int = self.internal_pinching(stream) # Call to internal-pinching procedure
+                if Qmax_int is not None:
+                    self.Qmax_int = Qmax_int
+                    Qmax = Qmax_int
+                    
+        # Maximum heat transfer rate determined by external or internal pinching
+        self.Qmax = Qmax
+        
+        "2) Initialize cell boundaries and results vectors"
+
         # print('Objective Function')
         self.calculate_cell_boundaries(Q)
         # print("Cell boundaries calculated")
@@ -1817,13 +1864,22 @@ class HexMBChargeSensitive(BaseComponent):
                 T_wall_c = T_wall
                 havg_c = (self.hvec_c[k] + self.hvec_c[k+1])/2.0 # Average cell enthalpy over the cell
             
-            DP_h = self.compute_cell_H_DP(k, Th_mean, self.pvec_h[k], T_wall_h, G_h, havg_h, Th_mean) ytgggyu
+            G_c, G_h = self.G_h_c_computation()
+            
+            # 1 PHASE CORRELATION
+            if self.phases_h[k] == "liquid" or self.phases_h[k] == "vapor":
+                DP_h = self.compute_cell_H_DP_1P(k, Th_mean, self.pvec_h[k], T_wall_h, G_h, havg_h, Th_mean) 
+            elif self.phases_h[k] == "transcritical":
+                DP_h = self.compute_cell_H_DP_TC(k, Th_mean, self.pvec_h[k], T_wall_h, G_h, havg_h, Th_mean) 
+            # 2 PHASE CORRELATION
+            elif self.phases_h[k] == "two-phase" or self.phases_h[k] == "vapor-wet":
+                DP_h = self.compute_cell_H_DP_2P(k, Th_mean, self.pvec_h[k], T_wall_h, G_h, havg_h, Th_mean, self.hvec_h[k+1]) 
+            
+            self.pvec_h[k+1] = self.pvec_h[k] - DP_h
             
             p_c_mean = 0.5*(self.pvec_c[k] + self.pvec_c[k+1]) # mean pressure over the cell
             p_h_mean = 0.5*(self.pvec_h[k] + self.pvec_h[k+1]) # mean pressure over the cell
-
-            G_c, G_h = self.G_h_c_computation()
-            
+                        
             # F correction factor for LMTD method:
             if self.params['Flow_Type'] != "CounterFlow":
                 try:
@@ -1878,7 +1934,8 @@ class HexMBChargeSensitive(BaseComponent):
             #UA_req including F correction factor in case of cross flow
             UA_req = self.mdot_h*(self.hvec_h[k+1]-self.hvec_h[k])/(self.F[k]*self.LMTD[k])          
 
-            "3) Cell heat transfer coefficients"            
+            "3) Cell heat transfer coefficients"    
+            
             "3.1) Hot side - User defined"
             if self.H.HeatExchange_Correlation == "User-Defined": # User Defined
                 if self.phases_h[k] == "liquid":
@@ -1903,8 +1960,9 @@ class HexMBChargeSensitive(BaseComponent):
                 # 2 PHASE CORRELATION
                 elif self.phases_h[k] == "two-phase" or self.phases_h[k] == "vapor-wet":
                     alpha_h = self.compute_H_2P_HTC(k, Th_mean, p_h_mean, T_wall_h, G_h, havg_h, Th_sat_mean)
-                    
+            
             "3.2) Cold side - User defined"
+            
             if self.C.HeatExchange_Correlation == "User-Defined": # User Defined
                 if self.phases_c[k] == "liquid":
                     alpha_c = self.C.h_liq
@@ -1918,7 +1976,7 @@ class HexMBChargeSensitive(BaseComponent):
                     alpha_c = self.C.h_tpdryout
                 elif self.phases_c[k] == "transcritical":
                     alpha_c = self.C.h_transcrit
-                    
+
             elif self.C.HeatExchange_Correlation == "Correlation": # Heat transfer coefficient calculated from Correlations:
                 # 1 PHASE CORRELATION
                 if self.phases_c[k] == "liquid" or self.phases_c[k] == "vapor":
@@ -1962,16 +2020,10 @@ class HexMBChargeSensitive(BaseComponent):
                 except:
                     self.params["Overdesign"] = 0
                     
-                    
-                UA_avail = (1-self.params["Overdesign"])/(1/(alpha_c*self.A_in_tubes) + 1/(alpha_h*self.A_out_tubes) + R_fouling_s + R_fouling_t) # + R_fouling_s + R_fouling_t + R_cond) 
-                
-                # print("---------------")
-                # print(UA_avail)
-                # print("---------------")
-                # print(1/(alpha_c*self.A_in_tubes))
-                # print(1/(alpha_h*self.A_out_tubes))
-                # print(R_fouling_s)
-                # print(R_fouling_t)
+                if self.params['Shell_Side'] == 'H': # Fin side is the hot side 
+                    UA_avail = (1-self.params["Overdesign"])/(1/(alpha_c*self.A_in_tubes) + 1/(alpha_h*self.A_out_tubes) + R_fouling_s + R_fouling_t) # + R_fouling_s + R_fouling_t + R_cond) 
+                else:
+                    UA_avail = (1-self.params["Overdesign"])/(1/(alpha_h*self.A_in_tubes) + 1/(alpha_c*self.A_out_tubes) + R_fouling_s + R_fouling_t) # + R_fouling_s + R_fouling_t + R_cond) 
                 
             elif self.HTX_Type == 'Tube&Fins':
                 
@@ -2076,7 +2128,14 @@ class HexMBChargeSensitive(BaseComponent):
         Solve the objective function using Brent's method and the maximum heat transfer 
         rate calculated from the pinching analysis
         """
-        self.Q = scipy.optimize.brentq(self.objective_function, 1e-5, self.Qmax-1e-10, rtol = 1e-14, xtol = 1e-10)
+        self.Q = self.Qmax + 1
+        max_iter = 1000
+        it = 0
+        
+        while self.Q > self.Qmax and it < max_iter:
+            self.Q = scipy.optimize.brentq(self.objective_function, 1e-5, self.Qmax-1e-10, rtol = 1e-14, xtol = 1e-10)
+            it = it+1
+            
         # print('OUT of evap', self.Q)
         return self.Q
     

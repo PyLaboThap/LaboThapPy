@@ -7,6 +7,7 @@ from math import log10, inf
 import numpy as np
 import warnings
 from CoolProp.CoolProp import PropsSI
+import CoolProp.CoolProp as CP
 from scipy.optimize import fsolve
 
 #%%
@@ -83,7 +84,7 @@ def Darcy_Weisbach(mu, rho, G, Dh, L):
 
 from CoolProp.CoolProp import PropsSI
 
-def Muller_Steinhagen_Heck_DP(fluid, G, P_sat, x, L, D_in):
+def Muller_Steinhagen_Heck_DP(AS, G, P_sat, x, L, D_in):
     """
     Pressure drop correlation for two-phase flow (condensation & evaporation)
     in smooth tubes, based on the Müller-Steinhagen and Heck model.
@@ -106,11 +107,18 @@ def Muller_Steinhagen_Heck_DP(fluid, G, P_sat, x, L, D_in):
     Müller-Steinhagen, H., & Heck, K. (1986). A general correlation for pressure drops in two-phase flow in pipes. 
     Int. J. Heat Mass Transfer, 29(3), 381–388.
     """    
-    # Get liquid and vapor properties at saturation
-    mu_l = PropsSI('V', 'P', P_sat, 'Q', 0, fluid)  # Dynamic viscosity [Pa·s]
-    rho_l = PropsSI('D', 'P', P_sat, 'Q', 0, fluid)  # Density [kg/m³]
-    mu_v = PropsSI('V', 'P', P_sat, 'Q', 1, fluid)
-    rho_v = PropsSI('D', 'P', P_sat, 'Q', 1, fluid)
+    
+    # Get liquid properties at saturation
+    AS.update(CP.PQ_INPUTS, P_sat, 0)
+    
+    mu_l = AS.viscosity()  # Dynamic viscosity [Pa·s]
+    rho_l = AS.rhomass()  # Density [kg/m³]
+    
+    # Get vapor properties at saturation
+    AS.update(CP.PQ_INPUTS, P_sat, 1)
+    
+    mu_v = AS.viscosity()  # Dynamic viscosity [Pa·s]
+    rho_v = AS.rhomass()  # Density [kg/m³]
 
     # Reynolds numbers
     Re_l = G * D_in / mu_l
@@ -133,7 +141,7 @@ def Muller_Steinhagen_Heck_DP(fluid, G, P_sat, x, L, D_in):
 
     return DP
 
-def Choi_DP(fluid, G, rho_out, rho_in, P_sat, x_o, x_i, L, D_in):
+def Choi_DP(AS, G, rho_out, rho_in, P_sat, x_o, x_i, L, D_in):
     """
     For 2 phase flow (both condensation and evaporation)
     
@@ -159,9 +167,17 @@ def Choi_DP(fluid, G, rho_out, rho_in, P_sat, x_o, x_i, L, D_in):
     """
     g = 9.81
     
-    mu_l, h_l = PropsSI(('V','H'), 'P', P_sat, 'Q', 0, fluid)
-    h_v = PropsSI('H', 'P', P_sat, 'Q', 1, fluid)
+    # Get liquid properties at saturation
+    AS.update(CP.PQ_INPUTS, P_sat, 0)
     
+    mu_l = AS.viscosity()  # Dynamic viscosity [Pa·s]
+    h_l = AS.hmass()  # Enthalpy [J/kg]
+    
+    # Get vapor properties at saturation
+    AS.update(CP.PQ_INPUTS, P_sat, 1)
+    
+    h_v = AS.hmass() # Enthalpy [J/kg]
+        
     Dh_lv = h_v - h_l
     Re_f = G*D_in/mu_l
     

@@ -15,8 +15,8 @@ Modification w/r to previous version:
 
 import __init__
 
-from component.heat_exchanger.hex_MB_charge_sensitive import HeatExchangerMB
-from toolbox.geometries.heat_exchanger.geometry_shell_and_tube_hx import ShellAndTubeGeom
+from component.heat_exchanger.hex_MB_charge_sensitive_DP import HexMBChargeSensitive
+# from toolbox.geometries.heat_exchanger.geometry_shell_and_tube_hx import ShellAndTubeGeom
 from CoolProp.CoolProp import PropsSI    
 
 
@@ -29,7 +29,7 @@ start_time = time.time()
 
 "HTX Instanciation"
 
-HX = HeatExchangerMB('Shell&Tube')
+HX = HexMBChargeSensitive('Shell&Tube')
 
 # # -------------------------------------------------------------------------------------------------------------
 # # Methanol Sensible HT Case
@@ -394,7 +394,7 @@ params = {'n_series': 1,
           'Flow_Type': 'Shell&Tube',
           'H_DP_ON': True,
           'C_DP_ON': True,
-          'n_disc': 30,
+          'n_disc': 50,
           'A_eff': 856,
           'S_V_tot': 1000,
           'Shell_ID': 1.43,
@@ -427,9 +427,9 @@ HX.set_parameters(
 Corr_H = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Thome_Condensation"}
 Corr_C = {"SC" : "Shell_Kern_HTC", "1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
 
-Corr_H_DP = "Choi_DP"
-Corr_C_DP = "Shell_Kern_DP"
-
+Corr_C_DP = {"SC" : "Gnielinski_DP", "1P" : "Gnielinski_DP", "2P" : "Choi_DP"}
+Corr_H_DP = {"SC" : "Shell_Kern_DP", "1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
+        
 # # -------------------------------------------------------------------------------------------------------------
 
 # "Parameters Setting"

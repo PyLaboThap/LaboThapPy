@@ -151,7 +151,7 @@ def dittus_boetler_cooling(mu, Pr, k, G, Dh):
     
     return h
 
-def thome_condensation(AS, D_i, G, P_sat, T_wall, x):
+def thome_condensation(AS, D_i, G, P_sat, T_sat, T_wall, x):
     """
     Parameters
     ----------
@@ -159,12 +159,15 @@ def thome_condensation(AS, D_i, G, P_sat, T_wall, x):
     D_i : Internal Tube diameter
     G : Mass Flux
     P_sat : Saturation Pressure
+    T_sat : Saturation Temperature
+    T_wall : Saturation Temperature    
     x : Vapor Quality
 
     Returns
     -------
     h_tp : Condensing heat transfer coefficient
     """
+    
     from correlations.properties.void_fraction import void_fraction
     g = 9.81 # m/s^2
     
@@ -173,7 +176,6 @@ def thome_condensation(AS, D_i, G, P_sat, T_wall, x):
     A = np.pi*r**2
     
     # 2 phase properties
-    T_sat = AS.T()
     sigma = PropsSI('I', 'P', P_sat, 'Q', 0.5, AS.fluid_names()[0])
 
     # Liquid properties

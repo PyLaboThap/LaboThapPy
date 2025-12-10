@@ -52,7 +52,7 @@ from connector.mass_connector import MassConnector
 
 # Component import
 from component.base_component import BaseComponent
-from component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
+from component.heat_exchanger.hex_MB_charge_sensitive_DP import HexMBChargeSensitive
 
 # Cost model import
 from correlations.heat_exchanger.STHE_cost_estimation import HeatExchangerCost
@@ -77,6 +77,11 @@ import copy
 # Ignore convergence warnings
 import warnings
 warnings.filterwarnings('ignore')
+
+def make_hashable(obj):
+    if isinstance(obj, dict):
+        return tuple(sorted((k, make_hashable(v)) for k, v in obj.items()))
+    return obj
 
 #%%
 
@@ -209,81 +214,13 @@ class ShellAndTubeSizingOpt(BaseComponent):
 
             self.compute_geom(opt_inputs)
 
-            # if self.params['Shell_Side'] == 'C':
-
-            #     self.HX.set_inputs(
-            #         # First fluid
-            #         fluid_H = self.su_T.fluid,
-            #         m_dot_H = self.su_T.m_dot, # kg/s
-
-            #         # Second fluid
-            #         fluid_C = self.su_S.fluid,
-            #         m_dot_C = self.su_S.m_dot, # kg/s  # Make sure to include fluid information
-            #     )
-                
-            #     HX_req_inputs = self.HX.get_required_inputs()
-
-            #     for input_var in self.su_S.variables_input:
-            #         input_str = input_var[0] + '_su_C'
-            #         if input_str in HX_req_inputs:    
-            #             self.HX.set_inputs(**{input_str: input_var[1]})
-            #         else:
-            #             input_str = input_var[0].lower() + '_su_C'
-            #             self.HX.set_inputs(**{input_str: input_var[1]})
-
-            #     for input_var in self.su_T.variables_input:
-            #         input_str = input_var[0] + '_su_H'
-            #         if input_str in HX_req_inputs:    
-            #             self.HX.set_inputs(**{input_str: input_var[1]})
-            #         else:
-            #             input_str = input_var[0].lower() + '_su_H'
-            #             self.HX.set_inputs(**{input_str: input_var[1]})
-
-            # else:
-            #     self.HX.set_inputs(
-            #         # First fluid
-            #         fluid_H = self.su_S.fluid,
-            #         m_dot_H = self.su_S.m_dot, # kg/s
-
-            #         # Second fluid
-            #         fluid_C = self.su_T.fluid,
-            #         m_dot_C = self.su_T.m_dot, # kg/s  # Make sure to include fluid information
-            #     )    
-                
-            #     HX_req_inputs = self.HX.get_required_inputs()
-
-            #     for input_var in self.su_T.variables_input:
-            #         input_str = input_var[0] + '_su_C'
-            #         if input_str in HX_req_inputs:    
-            #             self.HX.set_inputs(**{input_str: input_var[1]})
-            #         else:
-            #             input_str = input_var[0].lower() + '_su_C'
-            #             self.HX.set_inputs(**{input_str: input_var[1]})
-
-            #     for input_var in self.su_S.variables_input:
-            #         input_str = input_var[0] + '_su_H'
-            #         if input_str in HX_req_inputs:    
-            #             self.HX.set_inputs(**{input_str: input_var[1]})
-            #         else:
-            #             input_str = input_var[0].lower() + '_su_H'
-            #             self.HX.set_inputs(**{input_str: input_var[1]})
-
             "Correlation Loading And Setting"
 
             Corr_H = self.H_htc_Corr
             Corr_C = self.C_htc_Corr
-
-            # Corr_H = {"1P" : "Gnielinski", "2P" : "Flow_boiling", "SC" : "Liu_sCO2"}
-            # Corr_C = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
             
             Corr_H_DP = self.H_DP_Corr 
             Corr_C_DP = self.C_DP_Corr # "Gnielinski_DP"
-            
-            # Corr_H_DP = "Shell_Kern_DP"
-            # Corr_C_DP = "Muller_Steinhagen_Heck_DP"
-
-            # Corr_H_DP = "Cheng_CO2_DP"
-            # Corr_C_DP = "Shell_Kern_DP"
 
             self.HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation' # 31
 
@@ -316,9 +253,9 @@ class ShellAndTubeSizingOpt(BaseComponent):
                 self.Q = self.HX.Q
                 self.DP_h = self.HX.DP_h
                 self.DP_c = self.HX.DP_c
-
+    
                 return self.HX.Q, self.HX.DP_h, self.HX.DP_c
-        
+            
             except:
                 self.Q = 0
                 self.DP_h = 0
@@ -397,8 +334,10 @@ class ShellAndTubeSizingOpt(BaseComponent):
             self.params.get('Shell_Side', 'H'),
             tuple(sorted((self.H_htc_Corr or {}).items())),
             tuple(sorted((self.C_htc_Corr or {}).items())),
-            self.H_DP_Corr,
-            self.C_DP_Corr,
+            tuple(sorted((self.H_DP_Corr or {}).items())),
+            tuple(sorted((self.C_DP_Corr or {}).items())),
+            # self.H_DP_Corr,
+            # self.C_DP_Corr,
         )
 
 
@@ -1386,8 +1325,11 @@ if __name__ == "__main__":
         H_Corr = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
         C_Corr = {"1P" : "Gnielinski", "2P" : "Flow_boiling"}
         
-        H_DP = "Shell_Kern_DP"
-        C_DP = "Gnielinski_DP"
+        # H_DP = "Shell_Kern_DP"
+        # C_DP = "Gnielinski_DP"
+        
+        C_DP = {"SC" : "Gnielinski_DP", "1P" : "Gnielinski_DP", "2P" : "Choi_DP"}
+        H_DP = {"SC" : "Shell_Kern_DP", "1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
         
         HX_test.set_corr(H_Corr, C_Corr, H_DP, C_DP)
     
@@ -1475,6 +1417,9 @@ if __name__ == "__main__":
         
         H_DP = "Shell_Kern_DP"
         C_DP = "Muller_Steinhagen_Heck_DP"
+
+        # C_DP = {"SC" : "Gnielinski_DP", "1P" : "Gnielinski_DP", "2P" : "Choi_DP"}
+        # H_DP = {"SC" : "Shell_Kern_DP", "1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
         
         HX_test.set_corr(H_Corr, C_Corr, H_DP, C_DP)
     
@@ -1564,6 +1509,9 @@ if __name__ == "__main__":
         Corr_H_DP = "Choi_DP"
         Corr_C_DP = "Shell_Kern_DP"
         
+        # Corr_H_DP = {"SC" : "Gnielinski_DP", "1P" : "Gnielinski_DP", "2P" : "Choi_DP"}
+        # Corr_C_DP = {"SC" : "Shell_Kern_DP", "1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
+        
         HX_test.set_corr(Corr_H, Corr_C, Corr_H_DP, Corr_C_DP)
     
     elif test_case == "CO2_GH":
@@ -1650,6 +1598,9 @@ if __name__ == "__main__":
         
         Corr_H_DP = "Shell_Kern_DP"
         Corr_C_DP = "Gnielinski_DP"
+        
+        # Corr_C_DP = {"SC" : "Gnielinski_DP", "1P" : "Gnielinski_DP", "2P" : "Choi_DP"}
+        # Corr_H_DP = {"SC" : "Shell_Kern_DP", "1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
         
         HX_test.set_corr(Corr_H, Corr_C, Corr_H_DP, Corr_C_DP)
     
