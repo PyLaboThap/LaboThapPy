@@ -3,8 +3,6 @@ Pump - Curves Similarity Law Model
 
 Model description
 -----------------
-
-
 The :code:`PumpCurveSimilarity` component models a pump using manufacturer
 performance curves together with the classical pump affinity (similarity) laws.
 It allows computing the pump operating point in three possible modes:
@@ -25,12 +23,16 @@ The model uses four characteristic curves at rated speed:
 
 These curves are supplied at a *rated* speed :math:`N_\text{rated}` and are
 scaled to other rotational speeds using similarity laws.
-The model description is available in the `PDF document <../../../../_static/pdf_files/PumpCurveSimLaw.pdf>`_.
+The model description is available in the pdf document linked in the references.
 
 Class description
 -----------------
+.. autoclass:: component.pump.pump_curve_similarity.PumpCurveSimilarity
 
-.. autoclass:: component.pump.pump_xurve_similarity.PumpCurveSimilarity
+Example of use
+-----------------
+.. literalinclude:: component/examples/pump/pump_curve_similarity_example.py
+   :language: python
 
 References
 ----------
