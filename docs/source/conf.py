@@ -6,6 +6,13 @@ sys.path.insert(0, os.path.abspath('../../labothappy'))
 
 master_doc = 'index'  # This assumes 'index.rst' is in the 'source' directory
 
+# NEW: allow including files anywhere in the project
+import sphinx
+from sphinx.application import Sphinx
+
+def setup(app):
+    app.add_config_value('allow_literal_include', True, 'env')
+
 
 # -- Project information -----------------------------------------------------
 project = 'LaboThApPy'

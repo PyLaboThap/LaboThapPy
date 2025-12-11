@@ -17,7 +17,7 @@ It allows computing the pump operating point in three possible modes:
 The model uses four characteristic curves at rated speed:
 
 - Head rise :math:`\Delta H(Q)`
-- Isentropic efficiency :math:`\eta_{\text{is}}(Q)`
+- Isentropic efficiency :math:`\varepsilon_{\text{is}}(Q)`
 - Required NPSH :math:`\text{NPSH}_r(Q)`
 - (Power curve is derived from head and efficiency)
 
@@ -31,7 +31,7 @@ Class description
 
 Example of use
 -----------------
-.. literalinclude:: component/examples/pump/pump_curve_similarity_example.py
+.. literalinclude:: ../../../../../../labothappy/component/examples/pump/pump_curve_similarity_example.py
    :language: python
 
 References
