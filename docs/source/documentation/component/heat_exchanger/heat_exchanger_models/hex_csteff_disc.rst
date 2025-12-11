@@ -25,9 +25,7 @@ temperature pinch (\Delta T_{pp}) equal to zero. It is determined before
 solving by varying a fictive heat exchanger effectiveness from 1 to 0 to by 
 increment of 1% until a pinch larger than zero is obtained.
 
-.. math::
-
-   \dot{Q}_{\max} = \dot{Q} such that \Delta T_{pp} = 0
+Where :math:`\dot{Q}_{\max} = \dot{Q}` such that :math:`\Delta T_{pp} = 0`
 
 Then, the heat exchanger is solved by decrementing its efficiency (starting 
 from the user-defined value acting as a maximum efficiency : \varepsilon) 

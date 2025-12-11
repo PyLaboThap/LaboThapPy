@@ -13,13 +13,10 @@ Class description
 
 .. autoclass:: component.heat_exchanger.hex_crossflowfintube_finitevolume.HexCrossFlowTubeAndFinsFiniteVolume
 
-
 Example of use
 -----------------
-
 .. literalinclude:: ../../../../../../labothappy/component/examples/heat_exchanger/hex_crossflowfintube_finitevolume_example.py
    :language: python
-
 
 References
 ----------
