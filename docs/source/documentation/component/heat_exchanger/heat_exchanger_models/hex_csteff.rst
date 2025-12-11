@@ -96,6 +96,11 @@ Class description
 -----------------
 .. autoclass:: component.heat_exchanger.hex_csteff.HexCstEff
 
+Example of use
+-----------------
+.. literalinclude:: ../../../../../../labothappy/component/examples/heat_exchanger/hex_csteff_example.py
+   :language: python
+
 References
 ----------
 /

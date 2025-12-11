@@ -36,8 +36,7 @@ until the imposed minimum temperature pinch (\Delta T_{pp,min}) is satisfied.
 Pressure drops can be imposed on both sides of the heat exchanger, these are
 equally distributed over the discretizations.
 
-Definitions
------------
+**Definitions**
 
 - :math:`\dot{m}_H`, :math:`\dot{m}_C`  
   Mass flow rates of the hot and cold streams, respectively (kg/s).
@@ -50,29 +49,29 @@ Definitions
   Specific enthalpies at the **outlets** of the hot and cold streams
   in an **ideal** heat exchanger (i.e., infinite area / infinite NTU).
 
-Procedure to compute heat transfer rate
----------------------------------------
+**Procedure to compute heat transfer rate**
+
 
 1. Compute or obtain the inlet temperatures and specific enthalpies  
    :math:`h_{su,H}` and :math:`h_{su,C}`.
 
 2. Impose and distribute the pressure drops.  
 
-3. Determine \dot{Q}_{max} by decrementing a fictive heat exchanger 
-effectiveness (starting from 1 and down 1% per iteration). \dot{Q}_{max} is the
+3. Determine :math:`\dot{Q}_{max}` by decrementing a fictive heat exchanger 
+effectiveness (starting from 1 and down 1% per iteration). :math:`\dot{Q}_{max}` is the
 heat rate value when the minimum pinch (at every discretization) becomes larger 
 or equal to 0.
 
-4. Compute \dot{Q} from \dot{Q}_{max} in a similar way: by decrementing the 
+4. Compute :math:`\dot{Q}` from :math:`\dot{Q}_{max}` in a similar way: by decrementing the 
 heat exchanger effectiveness (starting from the user-defined maximum value) 
 until the imposed minimum temperature pinch is satisfied at every 
 discretization.
 
+.. math::
+
       \dot{Q} = \varepsilon \cdot \dot{Q}_{\max}
 
-5. Compute outlet conditions 
-
-Outlet enthalpies are computed as:
+5. Outlet enthalpies are computed as:
 
 .. math::
 
@@ -82,8 +81,7 @@ Outlet enthalpies are computed as:
 
    h_{out,C} = h_{su,C} + \frac{\dot{Q}}{\dot{m}_C}
 
-Assumptions
------------
+**Assumptions**
 
 - Counterflow geometry.
 - User-specified maximum effectiveness :math:`\varepsilon`,  
@@ -94,7 +92,16 @@ efficient heat exchangers).
 - No heat losses to the environment.
 - Pressure drop equally distributed along the heat exchanger discretizations.
 
+Class description
+-----------------
+
 .. autoclass:: component.heat_exchanger.hex_csteff_disc.HexCstEffDisc
+
+Example of use
+-----------------
+.. literalinclude:: ../../../../../../labothappy/component/examples/heat_exchanger/hex_csteff_disc_example.py
+   :language: python
+
 
 References
 ----------
