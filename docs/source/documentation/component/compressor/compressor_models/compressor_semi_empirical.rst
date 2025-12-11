@@ -10,10 +10,12 @@ Class description
 -----------------
 .. autoclass:: component.compressor.compressor_semi_empirical.CompressorSE
 
+
 Example of use
 -----------------
-.. literalinclude:: ../../examples/compressor/compressor_semi_empirical_example.py
+.. literalinclude:: ../../../../../../labothappy/component/examples/compressor/compressor_semi_empirical_example.py
    :language: python
+
 
 References
 ----------

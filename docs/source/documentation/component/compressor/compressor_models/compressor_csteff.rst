@@ -21,7 +21,7 @@ Class description
 
 Example of use
 -----------------
-.. literalinclude:: ../../examples/compressor/compressor_csteff_example.py
+.. literalinclude:: ../../../../../../labothappy/component/examples/compressor/compressor_csteff_example.py
    :language: python
 
 References
