@@ -15,29 +15,29 @@ from labothappy.component.expander.expander_semi_empirical import ExpanderSE
 expander = ExpanderSE()
 "1. Inputs set through connectors"
 # Set properties for su connector
-expander.su.set_properties(P=4*1e5, T=273.15+70, fluid='R1233zd(E)')
-expander.ex.set_properties(P=1.1*1e5)
+# expander.su.set_properties(P=4*1e5, T=273.15+70, fluid='R1233zd(E)')
+# expander.ex.set_properties(P=1.1*1e5)
 
-# Set properties for ex connector
-expander.ex.set_properties(P=1.1*1e5)
+# # Set properties for ex connector
+# expander.ex.set_properties(P=1.1*1e5)
 
-# Set rotational speed
+# # Set rotational speed
 
-# expander.W.set_N_rot(6000)
-expander.set_inputs(N_rot = 6000)
+# # expander.W.set_N_rot(6000)
+# expander.set_inputs(N_rot = 6000)
 
-# Set ambient temperature
-expander.Q_amb.set_T_cold(293)
+# # Set ambient temperature
+# expander.Q_amb.set_T_cold(293)
 
 # "2. Inputs set directly"
-# expander.set_inputs(
-#     N_rot=6000,
-#     T_amb=298.15,
-#     P_su=400000,
-#     h_su=485571,
-#     P_ex=110000,
-#     fluid='R1233zd(E)'  # Make sure to include fluid information
-# )
+expander.set_inputs(
+    N_rot=6000,
+    T_amb=298.15,
+    P_su=400000,
+    h_su=485571,
+    P_ex=110000,
+    fluid='R1233zd(E)'  # Make sure to include fluid information
+)
 
 expander.set_parameters(AU_amb=8.33758799e+00, AU_su_n=6.67152053e-01, AU_ex_n=3.21181352e+01, d_su1=6.31789061e-03, m_dot_n=0.1, 
             A_leak=1.00000000e-10, W_dot_loss_0=8.19123951e-01, alpha= 7.79756524e-02, C_loss=4.68294054e-01, rv_in=1.7, V_s=0.0000712,
