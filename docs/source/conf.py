@@ -33,6 +33,8 @@ extensions = [
 autodoc_mock_imports = [
     "matplotlib",
     "matplotlib.pyplot",
+    "CoolProp",
+    "CoolProp.CoolProp",
 ]
 
 # Configure nbsphinx
