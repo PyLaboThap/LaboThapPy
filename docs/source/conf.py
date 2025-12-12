@@ -30,6 +30,11 @@ extensions = [
     'nbsphinx',  # For including Jupyter Notebooks
 ]
 
+autodoc_mock_imports = [
+    "matplotlib",
+    "matplotlib.pyplot",
+]
+
 # Configure nbsphinx
 nbsphinx_execute = 'auto'  # Options are 'auto', 'always', 'never'
 nbsphinx_allow_errors = True
