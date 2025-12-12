@@ -45,6 +45,7 @@ Example of use
 .. literalinclude:: ../../../../../../labothappy/component/examples/heat_exchanger/hex_cstpinch_example.py
    :language: python
 
+   
 References
 ----------
 /

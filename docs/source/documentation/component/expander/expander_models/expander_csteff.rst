@@ -21,7 +21,7 @@ Class description
 
 Example of use
 -----------------
-.. literalinclude:: ../../../../../../labothappy/component/examples/expander/expander_csteff_example.py
+.. literalinclude:: ../../examples/expander_csteff_example.py
    :language: python
 
 References

@@ -9,11 +9,6 @@ Class description
 -----------------
 .. autoclass:: component.expander.expander_semi_empirical.ExpanderSE
 
-.. Example of use
-.. -----------------
-.. .. literalinclude:: ../../../../../../labothappy/component/examples/expander/expander_semi_empirical_example.py
-..    :language: python
-
 Example of use
 -----------------
 .. literalinclude:: ../../examples/expander_semi_empirical_example.py
