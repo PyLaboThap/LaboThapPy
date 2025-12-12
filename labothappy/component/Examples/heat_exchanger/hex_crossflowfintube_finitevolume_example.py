@@ -1,5 +1,3 @@
-# import __init__ 
-
 import matplotlib.pyplot as plt
 from CoolProp.CoolProp import PropsSI
 from labothappy.component.heat_exchanger.hex_crossflowfintube_finitevolume import HexCrossFlowTubeAndFinsFiniteVolume

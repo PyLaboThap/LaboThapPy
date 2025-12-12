@@ -10,7 +10,6 @@ Model description
 
 Class description
 -----------------
-
 .. autoclass:: component.heat_exchanger.hex_crossflowfintube_finitevolume.HexCrossFlowTubeAndFinsFiniteVolume
 
 Example of use

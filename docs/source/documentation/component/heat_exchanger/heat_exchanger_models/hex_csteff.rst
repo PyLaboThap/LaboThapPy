@@ -86,8 +86,7 @@ Outlet enthalpies are computed as:
 **Assumptions:**
 
 - Counterflow geometry.
-- User-specified constant effectiveness :math:`\varepsilon`,  
-  with :math:`0 < \varepsilon \le 1`.
+- User-specified constant effectiveness :math:`\varepsilon`, with :math:`0 < \varepsilon \le 1`.
 - Ideal outlet enthalpies computed using the ideal counterflow limit.
 - No heat losses to the environment.
 - No pressure drop inside the heat exchanger.

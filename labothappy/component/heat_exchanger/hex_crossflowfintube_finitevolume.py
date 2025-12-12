@@ -4,8 +4,6 @@ Created on Wed May  8 09:38:42 2024
 
 @author: Basile & Sam
 """
-import __init__
-
 # External Toolbox 
 import numpy as np
 from scipy.optimize import fsolve

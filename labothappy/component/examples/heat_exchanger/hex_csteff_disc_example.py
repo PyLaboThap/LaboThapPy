@@ -1,5 +1,3 @@
-# import __init__
-
 from labothappy.component.heat_exchanger.hex_csteff_disc import HexCstEffDisc
 
 

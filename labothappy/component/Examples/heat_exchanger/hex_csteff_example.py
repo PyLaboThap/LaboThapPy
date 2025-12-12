@@ -1,7 +1,4 @@
-
 from labothappy.component.heat_exchanger.hex_csteff import HexCstEff
-
-import numpy as np
 
 "Simple test - Model for recuperators in simple thermodynamic studies "
 
