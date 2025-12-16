@@ -10,6 +10,11 @@ Class description
 -----------------
 .. autoclass:: component.tank.tank_spliter.TankSpliter
 
+Example of use
+-----------------
+.. literalinclude:: ../../examples/tank_spliter_example.py
+   :language: python
+
 References
 ----------
 /

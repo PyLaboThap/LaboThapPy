@@ -10,6 +10,11 @@ Class description
 -----------------
 .. autoclass:: component.tank.tank_LV_separator.TankLVSeparator
 
+Example of use
+-----------------
+.. literalinclude:: ../../examples/tank_LV_separator_example.py
+   :language: python
+
 References
 ----------
 /

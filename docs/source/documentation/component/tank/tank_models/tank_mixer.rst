@@ -1,5 +1,5 @@
 Tank - Mixer
-==========================================
+============
 
 Model description
 -----------------
@@ -10,6 +10,11 @@ The mixing process assumes perfect mixing, resulting in uniform temperature and 
 Class description
 -----------------
 .. autoclass:: component.tank.tank_mixer.TankMixer
+
+Example of use
+-----------------
+.. literalinclude:: ../../examples/tank_mixer_example.py
+   :language: python
 
 References
 ----------
