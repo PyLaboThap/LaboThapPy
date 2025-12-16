@@ -15,20 +15,24 @@ Class description
 Example of use
 -----------------
 **Plate heat exchanger:**
+
 .. literalinclude:: ../../examples/hex_plate_MB_charge_sensitive_example.py
-    :language: python
+   :language: python
 
 **Tube and fins heat exchanger:**
+
 .. literalinclude:: ../../examples/hex_T&F_MB_charge_sensitive_example.py
-    :language: python
+   :language: python
 
 **Shell and tube heat exchanger:**
+
 .. literalinclude:: ../../examples/hex_S&T_MB_charge_sensitive_example.py
-    :language: python
+   :language: python
 
 **PCHE heat exchanger:**
+
 .. literalinclude:: ../../examples/hex_PCHE_MB_charge_sensitive_example.py
-    :language: python
+   :language: python
 
 References
 ----------
