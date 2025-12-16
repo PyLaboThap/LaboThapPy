@@ -21,7 +21,7 @@ Class description
 
 Example of use
 -----------------
-.. literalinclude:: ../../../../../../labothappy/component/examples/pump/pump_csteff_example.py
+.. literalinclude:: ../../examples/pump_csteff_example.py
    :language: python
 
 
