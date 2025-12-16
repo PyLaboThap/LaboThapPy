@@ -8,12 +8,14 @@ Usage of a pinch point to model a Heat Exchanger (HEX) is typically done when mo
 of the HEX where the temperature difference between the two fluids implied in the HEX is minimal. One of the two fluids is expected to be phase-changing. After phase-changing, the subcooling or superheating of the fluid 
 is to be considered. 
 The following assumptions are made:
+
 - Steady-state operation
 - No pressure drops
 - No heat losses to the ambient
 - Counterflow configuration
 
 The model performs a discretisation of the HEX in one to three zones corresponding to the potential phases encountered by the phase-changing fluid in the HEX length, namely:
+
 - Superheated vapor zone
 - Two-phase zone
 - Subcooled liquid zone
@@ -42,9 +44,8 @@ Class description
 
 Example of use
 -----------------
-.. literalinclude:: ../../../../../../labothappy/component/examples/heat_exchanger/hex_cstpinch_example.py
+.. literalinclude:: ../../examples/hex_cstpinch_example.py
    :language: python
-
    
 References
 ----------
