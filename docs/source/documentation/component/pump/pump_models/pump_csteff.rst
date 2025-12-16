@@ -15,7 +15,15 @@ where :math:`\epsilon_{is}` is the isentropic efficiency, :math:`h_{su}` is the 
 
 Based on the isentropic efficiency definition, the exhaust specific enthalpy can be calculated and thus also the exhaust temperature.
 
+Class description
+-----------------
 .. autoclass:: component.pump.pump_csteff.PumpCstEff
+
+Example of use
+-----------------
+.. literalinclude:: ../../../../../../labothappy/component/examples/pump/pump_csteff_example.py
+   :language: python
+
 
 References
 ----------
