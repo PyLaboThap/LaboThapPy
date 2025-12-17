@@ -8,4 +8,4 @@ volumetric machines.
 
    expander_models/expander_csteff.rst
    expander_models/expander_semi_empirical.rst
-   expander_models/turbine_polyneff.rst
+   expander_models/turbine_mean_line_Aungier.rst
