@@ -35,6 +35,10 @@ autodoc_mock_imports = [
     "matplotlib.pyplot",
     "CoolProp",
     "CoolProp.CoolProp",
+    "numpy",
+    "scipy",
+    "pyswarms",
+    "joblib",
 ]
 
 # Configure nbsphinx
