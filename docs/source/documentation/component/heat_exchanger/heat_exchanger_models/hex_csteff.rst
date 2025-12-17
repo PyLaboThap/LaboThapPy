@@ -97,7 +97,7 @@ Class description
 
 Example of use
 -----------------
-.. literalinclude:: ../../examples/hex_csteff_example.py
+.. literalinclude:: ../../../../../../labothappy/component/examples/heat_exchanger/hex_csteff_example.py
    :language: python
 
 References

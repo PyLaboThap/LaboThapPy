@@ -16,22 +16,22 @@ Example of use
 -----------------
 **Plate heat exchanger:**
 
-.. literalinclude:: ../../examples/hex_plate_MB_charge_sensitive_example.py
+.. literalinclude:: ../../../../../../labothappy/component/examples/heat_exchanger/hex_plate_MB_charge_sensitive_example.py
    :language: python
 
 **Tube and fins heat exchanger:**
 
-.. literalinclude:: ../../examples/hex_T&F_MB_charge_sensitive_example.py
+.. literalinclude:: ../../../../../../labothappy/component/examples/heat_exchanger/hex_T&F_MB_charge_sensitive_example.py
    :language: python
 
 **Shell and tube heat exchanger:**
 
-.. literalinclude:: ../../examples/hex_S&T_MB_charge_sensitive_example.py
+.. literalinclude:: ../../../../../../labothappy/component/examples/heat_exchanger/hex_S&T_MB_charge_sensitive_example.py
    :language: python
 
 **PCHE heat exchanger:**
 
-.. literalinclude:: ../../examples/hex_PCHE_MB_charge_sensitive_example.py
+.. literalinclude:: ../../../../../../labothappy/component/examples/heat_exchanger/hex_PCHE_MB_charge_sensitive_example.py
    :language: python
 
 References

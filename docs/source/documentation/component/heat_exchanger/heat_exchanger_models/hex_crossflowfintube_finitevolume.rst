@@ -16,9 +16,8 @@ Class description
 
 Example of use
 -----------------
-.. literalinclude:: ../../examples/hex_crossflowfintube_finitevolume_example.py
+.. literalinclude:: ../../../../../../labothappy/component/examples/heat_exchanger/hex_crossflowfintube_finitevolume_example.py
    :language: python
-
 
 References
 ----------

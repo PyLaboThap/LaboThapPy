@@ -100,7 +100,8 @@ Class description
 
 Example of use
 -----------------
-.. literalinclude:: ../../examples/hex_eNTU_example.py
+.. literalinclude:: ../../../../../../labothappy/component/examples/heat_exchanger/hex_eNTU_example.py
+   :language: python
 
 References
 ----------
