@@ -199,6 +199,20 @@ class BaseComponent:
             'P_su_C':    lambda: self.su_C.p if hasattr(self,'su_C') else None,
             'm_dot_C':   lambda: self.su_C.m_dot if hasattr(self,'su_C') else None,
 
+            # su_1 connector inputs
+            'fluid_su_1': lambda: self.su_1.fluid if hasattr(self,'su_1') else None,
+            'T_su_1':     lambda: self.su_1.T if hasattr(self,'su_1') else None,
+            'h_su_1':     lambda: self.su_1.h if hasattr(self,'su_1') else None,
+            'P_su_1':     lambda: self.su_1.p if hasattr(self,'su_1') else None,
+            'm_dot_su_1': lambda: self.su_1.m_dot if hasattr(self,'su_1') else None,
+            
+            # su_2 connector inputs
+            'fluid_su_2': lambda: self.su_2.fluid if hasattr(self,'su_2') else None,
+            'T_su_2':     lambda: self.su_2.T if hasattr(self,'su_2') else None,
+            'h_su_2':     lambda: self.su_2.h if hasattr(self,'su_2') else None,
+            'P_su_2':     lambda: self.su_2.p if hasattr(self,'su_2') else None,
+            'm_dot_su_2': lambda: self.su_2.m_dot if hasattr(self,'su_2') else None,
+
             # ex connector
             'P_ex':      lambda: self.ex.p if hasattr(self,'ex') else None,
             'T_ex':      lambda: self.ex.T if hasattr(self,'ex') else None,

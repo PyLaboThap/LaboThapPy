@@ -1319,7 +1319,7 @@ if __name__ == "__main__":
                                 Flow_Type = 'Shell&Tube',
                                 H_DP_ON = True,
                                 C_DP_ON = True,
-                                n_disc = 50
+                                n_disc = 1
                               )
     
         H_Corr = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
@@ -1343,7 +1343,7 @@ if __name__ == "__main__":
         
         choice_vectors = {
                             'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
-                            'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
+                            'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
                                 29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
                             'Tube_pass' : [2], # [1,2,4,6,8,10]
                             'tube_layout' : [60]} # [0,45,60]}
@@ -1363,7 +1363,7 @@ if __name__ == "__main__":
         
         # Worst Case
         P_max_cycle = 5*1e5 # Pa
-        T_max_cycle = 273.15+110 # K 
+        T_max_cycle = 273.15+110 # K
         
         HX_test.set_max_cycle_prop(T_max_cycle = T_max_cycle, p_max_cycle = P_max_cycle)
         

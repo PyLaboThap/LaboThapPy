@@ -76,7 +76,7 @@ HX.set_inputs(
 "Geometry Loading"
 
 HX_geom = PlateGeomSWEP()
-HX_geom.set_parameters("B20Hx24/1P") 
+HX_geom.set_parameters("B20Hx24/1P")
 
 Corr_H = {"1P" : "Gnielinski", "2P" : "Han_cond_BPHEX"}
 Corr_C = {"1P" : "Gnielinski", "2P" : "Boiling_curve"}
