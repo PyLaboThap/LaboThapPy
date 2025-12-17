@@ -13,8 +13,9 @@ Class description
 
 Example of use
 -----------------
-.. literalinclude:: ../../examples/tank_mixer_example.py
+.. literalinclude:: ../../../../../../labothappy/component/examples/tank/tank_mixer_example.py
    :language: python
+
 
 References
 ----------

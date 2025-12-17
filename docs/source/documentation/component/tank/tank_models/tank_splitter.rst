@@ -12,8 +12,9 @@ Class description
 
 Example of use
 -----------------
-.. literalinclude:: ../../examples/tank_spliter_example.py
+.. literalinclude:: ../../../../../../labothappy/component/examples/tank/tank_spliter_example.py
    :language: python
+
 
 References
 ----------
