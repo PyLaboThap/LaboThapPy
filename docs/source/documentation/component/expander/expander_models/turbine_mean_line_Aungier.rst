@@ -11,7 +11,7 @@ Class description
 
 Example of use
 -----------------
-.. literalinclude:: ../../examples/turbine_mean_line_Aungier_example.py
+.. literalinclude:: ../../../../../../labothappy/component/examples/expander/turbine_mean_line_Aungier_example.py
    :language: python
 
 References

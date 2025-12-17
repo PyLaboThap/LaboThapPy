@@ -11,7 +11,7 @@ Class description
 
 Example of use
 -----------------
-.. literalinclude:: ../../examples/expander_semi_empirical_example.py
+.. literalinclude:: ../../../../../../labothappy/component/examples/expander/expander_semi_empirical_example.py
    :language: python
 
 References
