@@ -13,7 +13,8 @@ Class description
 
 Example of use
 -----------------
-.. literalinclude:: ../../examples/parabolic_trough_collector_example.py
+
+.. literalinclude:: ../../../../../../labothappy/component/examples/solar/parabolic_trough_collector_example.py
    :language: python
 
 References
