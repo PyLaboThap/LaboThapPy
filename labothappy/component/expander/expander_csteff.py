@@ -1,10 +1,8 @@
 
 import numpy as np
 from component.base_component import BaseComponent
-from connector.heat_connector import HeatConnector
 from connector.mass_connector import MassConnector
 from connector.work_connector import WorkConnector
-from CoolProp.CoolProp import PropsSI
 import CoolProp.CoolProp as CP
 
 class ExpanderCstEff(BaseComponent):
@@ -35,7 +33,7 @@ class ExpanderCstEff(BaseComponent):
 
         ex (MassConnector): Mass connector for the exhaust side.
         
-        W_exp (WorkConnector): Work connector.
+        W (WorkConnector): Work connector.
 
 
     **Parameters**:
@@ -72,7 +70,7 @@ class ExpanderCstEff(BaseComponent):
         self.ex = MassConnector()  
         
         # Define work connector for mechanical work output
-        self.W_exp = WorkConnector()
+        self.W = WorkConnector()
         self.print_flag = 1
 
     def get_required_inputs(self):  # Used in check_calculablle to see if all of the required inputs are set
@@ -135,13 +133,13 @@ class ExpanderCstEff(BaseComponent):
         self.ex.set_h(h_ex)
         self.ex.set_p(p_ex)
         self.ex.set_m_dot(self.su.m_dot)
-        self.W_exp.set_W_dot(W_dot_exp)
+        self.W.set_W_dot(W_dot_exp)
 
     def print_results(self):
         print("=== Expander Results ===")
         print(f"  - h_ex: {self.ex.h} [J/kg]")
         print(f"  - T_ex: {self.ex.T} [K]")
-        print(f"  - W_dot_exp: {self.W_exp.W_dot} [W]")
+        print(f"  - W_dot_exp: {self.W.W_dot} [W]")
         print("=========================")
 
     def print_states_connectors(self):
@@ -155,6 +153,6 @@ class ExpanderCstEff(BaseComponent):
         )
         print("=========================")
         print("Work connector:")
-        print(f"  - W_dot_exp: {self.W_exp.W_dot} [W]")
+        print(f"  - W_dot_exp: {self.W.W_dot} [W]")
         print("=========================")
 
