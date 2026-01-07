@@ -69,9 +69,10 @@ class CompressorCstEff(BaseComponent):
         ]
 
     def solve(self):
+        print('coucou')
         self.check_calculable()
         self.check_parametrized()
-
+        self.print_setup()
         self.AS = CP.AbstractState('HEOS', self.su.fluid)
 
         try:

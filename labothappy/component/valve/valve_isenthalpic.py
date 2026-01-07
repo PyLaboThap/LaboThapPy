@@ -52,6 +52,7 @@ class ValveIsenthalpic(BaseComponent):
         return []
 
     def solve(self):
+        self.print_setup()
         self.check_calculable()
         self.check_parametrized()
 
