@@ -31,14 +31,13 @@ class RecursiveCircuit(BaseCircuit):
             
         def check_convergence(self, new_value):
             
-            if self.value is not None and (abs(new_value - self.value)/self.value) < self.tolerance:
+            if (abs(new_value - self.value)/self.value) < self.tolerance:
                 self.converged = True
                 return True
             else: 
                 self.set_value(new_value)
                 self.converged = False
                 return False
-            
             return
             
         def set_value(self, value):
@@ -140,6 +139,7 @@ class RecursiveCircuit(BaseCircuit):
                 self.fixed_properties[fix_prop.name] = fix_prop
 
         return 
+
 
 #%% Variable set related methods
 
@@ -303,8 +303,6 @@ class RecursiveCircuit(BaseCircuit):
 
         for arg_name in kwargs:
 
-            # self.set_residual_variable(target = target, variable=arg_name)
-
             value = kwargs[arg_name]
             guess = RecursiveCircuit.Guess(target, arg_name, value)
 
@@ -439,326 +437,6 @@ class RecursiveCircuit(BaseCircuit):
         
         return
 
-#%% Plot 
-
-    # import matplotlib.pyplot as plt
-    # from itertools import zip_longest
-    # from typing import List
-    
-    # def plot_thermo_cycle(self, axes: str = 'Ts'):
-    #     """
-    #     Plot thermo cycle for each component in self.components.
-    
-    #     axes: currently only 'Ts' implemented (plot T vs s, i.e. s on x, T on y).
-    #     """
-    #     plt.figure()
-    
-    #     for component in self.components:
-    #         model = self.components[component].model
-    
-    #         prefix_supply = "su"
-    #         prefix_exhaust = "ex"
-    
-    #         supply_connectors = []
-    #         exhaust_connectors = []
-    
-    #         supply_suffixes = []
-    #         exhaust_suffixes = []
-    
-    #         # 1) collect connector attribute names and suffixes
-    #         for attr in vars(model):
-    #             if attr.startswith(prefix_supply):
-    #                 supply_connectors.append(attr)
-    #                 supply_suffixes.append(attr.removeprefix(prefix_supply))
-    #             elif attr.startswith(prefix_exhaust):
-    #                 exhaust_connectors.append(attr)
-    #                 exhaust_suffixes.append(attr.removeprefix(prefix_exhaust))
-    
-    #         # only keep suffixes that exist in both sets
-    #         common_suffixes = sorted(set(supply_suffixes) & set(exhaust_suffixes))
-    
-    #         # matched pairs (attributes that share the same suffix)
-    #         matched_supply = [
-    #             s for s in supply_connectors
-    #             if s.removeprefix(prefix_supply) in common_suffixes
-    #         ]
-    #         matched_exhaust = [
-    #             e for e in exhaust_connectors
-    #             if e.removeprefix(prefix_exhaust) in common_suffixes
-    #         ]
-    
-    #         # Build groups: one group per common suffix
-    #         groups = []
-    #         for suffix in common_suffixes:
-    #             groups.append({
-    #                 "supply": [getattr(model, prefix_supply + suffix)],
-    #                 "exhaust": [getattr(model, prefix_exhaust + suffix)],
-    #             })
-    
-    #         # Collect unmatched connectors (suffixes that don't match)
-    #         unmatched_supply = [
-    #             s for s in supply_connectors
-    #             if s.removeprefix(prefix_supply) not in common_suffixes
-    #         ]
-    #         unmatched_exhaust = [
-    #             e for e in exhaust_connectors
-    #             if e.removeprefix(prefix_exhaust) not in common_suffixes
-    #         ]
-    
-    #         # If there are unmatched connectors, put them into a final group together
-    #         if unmatched_supply or unmatched_exhaust:
-    #             groups.append({
-    #                 "supply": [getattr(model, connector) for connector in unmatched_supply],
-    #                 "exhaust": [getattr(model, connector) for connector in unmatched_exhaust]
-    #             })
-    
-    #         # 4) Plot each group
-    #         for group in groups:
-    #             # collect s and T for supply and exhaust connectors in this group
-    #             svec_su: List[float] = []
-    #             Tvec_su: List[float] = []
-    #             svec_ex: List[float] = []
-    #             Tvec_ex: List[float] = []
-    
-    #             # gather values (skip connectors that don't have attributes)
-    #             for connector in group.get('supply', []):
-    #                 if hasattr(connector, 'T') and hasattr(connector, 's'):
-    #                     Tvec_su.append(connector.T)
-    #                     svec_su.append(connector.s)
-    #             for connector in group.get('exhaust', []):
-    #                 if hasattr(connector, 'T') and hasattr(connector, 's'):
-    #                     Tvec_ex.append(connector.T)
-    #                     svec_ex.append(connector.s)
-    
-    #             # skip empty groups
-    #             if not (svec_su or svec_ex):
-    #                 continue
-    
-    #             if axes == 'Ts':
-    #                 # Align lists by repeating the last known value when necessary.
-    #                 # Use zip_longest, filling with the last value of each list.
-    #                 def fill_last(lst):
-    #                     if not lst:
-    #                         return []
-    #                     last = lst[-1]
-    #                     # create an iterator that returns items from lst, then infinite last
-    #                     return list(lst)  # we'll handle padding with zip_longest below
-    
-    #                 # Prepare sequences for zip_longest: if empty, keep empty so we can detect it
-    #                 seq_s_su = svec_su[:]
-    #                 seq_T_su = Tvec_su[:]
-    #                 seq_s_ex = svec_ex[:]
-    #                 seq_T_ex = Tvec_ex[:]
-    
-    #                 # If any sequence is empty, but the counterpart isn't, repeat the counterpart's last
-    #                 # value for the empty sequence so we still have pairs to plot.
-    #                 # The easiest robust approach is to compute target length = max(len lists)
-    #                 target_len = max(len(seq_s_su), len(seq_T_su), len(seq_s_ex), len(seq_T_ex), 1)
-    
-    #                 def pad_to(seq, target):
-    #                     if not seq:
-    #                         return [None] * target
-    #                     if len(seq) >= target:
-    #                         return seq[:target]
-    #                     return seq + [seq[-1]] * (target - len(seq))
-    
-    #                 seq_s_su = pad_to(seq_s_su, target_len)
-    #                 seq_T_su = pad_to(seq_T_su, target_len)
-    #                 seq_s_ex = pad_to(seq_s_ex, target_len)
-    #                 seq_T_ex = pad_to(seq_T_ex, target_len)
-    
-    #                 # Now plot line segments between supply and exhaust points:
-    #                 # For Ts axes we put s on x-axis and T on y-axis.
-    #                 for xs_su, ys_su, xs_ex, ys_ex in zip(seq_s_su, seq_T_su, seq_s_ex, seq_T_ex):
-    #                     # If any of the four is None skip (missing data)
-    #                     if None in (xs_su, ys_su, xs_ex, ys_ex):
-    #                         continue
-    #                     plt.plot([xs_su, xs_ex], [ys_su, ys_ex], 'b')
-    
-    #             else:
-    #                 # other axes modes could be implemented here later
-    #                 raise ValueError(f"Unsupported axes mode: {axes}")
-    
-    #     plt.xlabel('s')   # entropy on x for Ts
-    #     plt.ylabel('T')   # temperature on y for Ts
-    #     plt.title('Thermodynamic cycle (T-s)')
-    #     plt.grid(True)
-    #     plt.show()
-
-    import matplotlib.pyplot as plt
-    from typing import List
-    
-    def plot_thermo_cycle(self, axes: str = 'Ts'):
-        """
-        Plot thermo cycle for each component in self.components.
-    
-        axes:
-            'Ts' → Temperature–entropy diagram
-            'Ph' → Pressure–enthalpy diagram
-        """
-        plt.figure()
-    
-        # --- Axis configuration ---
-        if axes == 'Ts':
-            x_attr, y_attr = 's', 'T'
-            xlabel, ylabel = 's', 'T'
-            title = 'Thermodynamic cycle (T–s)'
-        elif axes == 'ph':
-            x_attr, y_attr = 'h', 'p'
-            xlabel, ylabel = 'h', 'p'
-            title = 'Thermodynamic cycle (P–h)'
-        else:
-            raise ValueError(f"Unsupported axes mode: {axes}")
-            
-        self.groups_comp = {}
-        
-        for component in self.components:
-            model = self.components[component].model
-    
-            prefix_supply = "su"
-            prefix_exhaust = "ex"
-    
-            supply_connectors = []
-            exhaust_connectors = []
-    
-            supply_suffixes = []
-            exhaust_suffixes = []
-    
-            # 1) collect connector attribute names and suffixes
-            for attr in vars(model):
-                if attr.startswith(prefix_supply):
-                    supply_connectors.append(attr)
-                    supply_suffixes.append(attr.removeprefix(prefix_supply))
-                elif attr.startswith(prefix_exhaust):
-                    exhaust_connectors.append(attr)
-                    exhaust_suffixes.append(attr.removeprefix(prefix_exhaust))
-    
-            # only keep suffixes that exist in both sets
-            common_suffixes = sorted(set(supply_suffixes) & set(exhaust_suffixes))
-    
-            # Build groups: one group per common suffix
-            groups = []
-            for suffix in common_suffixes:
-                groups.append({
-                    "supply": [getattr(model, prefix_supply + suffix)],
-                    "exhaust": [getattr(model, prefix_exhaust + suffix)],
-                })
-    
-            # Collect unmatched connectors
-            unmatched_supply = [
-                s for s in supply_connectors
-                if s.removeprefix(prefix_supply) not in common_suffixes
-            ]
-            unmatched_exhaust = [
-                e for e in exhaust_connectors
-                if e.removeprefix(prefix_exhaust) not in common_suffixes
-            ]
-    
-            if unmatched_supply or unmatched_exhaust:
-                groups.append({
-                    "supply": [getattr(model, c) for c in unmatched_supply],
-                    "exhaust": [getattr(model, c) for c in unmatched_exhaust]
-                })
-    
-            for group in groups:                
-                new_group = []
-                
-                for connector in group['supply']:
-                    dic = {
-                        x_attr : getattr(connector, x_attr),
-                        y_attr : getattr(connector, y_attr)
-                        }
-                    
-                    new_group.append(dic)
-
-                # print(groups[group])
-                group['supply'] = new_group
-                
-                new_group = []
-                for connector in group['exhaust']:
-                    dic = {
-                        x_attr : getattr(connector, x_attr),
-                        y_attr : getattr(connector, y_attr)
-                        }
-                    
-                    new_group.append(dic)
-
-                # print(groups[group])
-                group['exhaust'] = new_group
-    
-            self.groups_comp[component] = groups
-    
-        for component, groups in self.groups_comp.items():
-            for group in groups:
-                supply_points = group['supply']
-                exhaust_points = group['exhaust']
-        
-                # Determine how many segments we have
-                n = max(len(supply_points), len(exhaust_points))
-        
-                # Helper: pad shorter list with last point
-                def pad_points(points, target_len):
-                    if not points:
-                        return [{'x': None, 'y': None}] * target_len
-                    if len(points) >= target_len:
-                        return points[:target_len]
-                    return points + [points[-1]] * (target_len - len(points))
-        
-                supply_points = pad_points(supply_points, n)
-                exhaust_points = pad_points(exhaust_points, n)
-        
-                # Plot a line between each supply-exhaust pair
-                for su, ex in zip(supply_points, exhaust_points):
-                    xs = [su[x_attr], ex[x_attr]]
-                    ys = [su[y_attr], ex[y_attr]]
-        
-                    if None not in xs and None not in ys:
-                        plt.plot(xs, ys, 'b-o')  # you can change color/style
-    
-        # --- Plot saturation curve using CoolProp ---
-        fluid = self.fluid
-        
-        if fluid:
-            if axes == 'Ts':
-                # T–s saturation curve
-                P_min = PropsSI('Pcrit', fluid) * 0.1
-                P_max = PropsSI('Pcrit', fluid)
-                P_vals = np.logspace(np.log10(P_min), np.log10(P_max), 200)
-                s_liq, s_vap, T_liq, T_vap = [], [], [], []
-        
-                for P in P_vals:
-                    try:
-                        T_liq.append(PropsSI('T', 'P', P, 'Q', 0, fluid))
-                        T_vap.append(PropsSI('T', 'P', P, 'Q', 1, fluid))
-                        s_liq.append(PropsSI('S', 'P', P, 'Q', 0, fluid))
-                        s_vap.append(PropsSI('S', 'P', P, 'Q', 1, fluid))
-                    except:
-                        continue
-        
-                plt.plot(s_liq, T_liq, 'k--', label='Saturation liquid')
-                plt.plot(s_vap, T_vap, 'k--', label='Saturation vapor')
-        
-            elif axes == 'Ph':
-                # P–h saturation curve
-                T_min = PropsSI('Ttriple', fluid)
-                T_max = PropsSI('Tcrit', fluid)
-                T_vals = np.linspace(T_min, T_max, 200)
-                P_liq, P_vap, h_liq, h_vap = [], [], [], []
-        
-                for T in T_vals:
-                    try:
-                        P_liq.append(PropsSI('P', 'T', T, 'Q', 0, fluid))
-                        P_vap.append(PropsSI('P', 'T', T, 'Q', 1, fluid))
-                        h_liq.append(PropsSI('H', 'T', T, 'Q', 0, fluid))
-                        h_vap.append(PropsSI('H', 'T', T, 'Q', 1, fluid))
-                    except:
-                        continue
-        
-                plt.plot(h_liq, P_liq, 'k--', label='Saturation liquid')
-                plt.plot(h_vap, P_vap, 'k--', label='Saturation vapor')
-
-        plt.show()
-
 #%% Solve related methods
 
     def check_all_component_solved(self):
@@ -782,6 +460,10 @@ class RecursiveCircuit(BaseCircuit):
         component = self.get_component(component_name)
         component_model = component.model
 
+        # !!!
+        if component_name == 'Expander_1':
+            print(f"P_su_exp : {component_model.su.p}")
+
         if component_model.solved:
             return
 
@@ -789,37 +471,8 @@ class RecursiveCircuit(BaseCircuit):
         component_model.check_parametrized()
         
         if component_model.parametrized:
-            if component_model.calculable:    
-                save = {}
-                for next_connector in component.next:
-                    type_connector, connector_name = next_connector.split("-")
-                    if type_connector == "m":
-                        connector = getattr(component_model, connector_name)
-                        save[next_connector] = {'p' : connector.p, 'h' : connector.h}
-                    
+            if component_model.calculable:        
                 component_model.solve()
-                
-                save_new = {}
-                for next_connector in component.next:
-                    type_connector, connector_name = next_connector.split("-")
-                    if type_connector == "m":
-                        connector = getattr(component_model, connector_name)
-                        save_new[next_connector] = {'p' : connector.p, 'h' : connector.h}
-                
-                tol = 1e-2
-                
-                for connector in save:
-                    for prop in save[connector]:
-                        value_prev = save[connector][prop]
-                        value_new = save_new[connector][prop]
-                        
-                        if value_prev is not None:
-                            delta = abs((value_new - value_prev)/value_prev)
-                            # print(f"delta : {delta} for {connector} - {prop}")
-                            if delta > tol:
-                                component.next[connector].model.solved = False
-                            
-                        
             else:
                 return
         else:
@@ -848,22 +501,11 @@ class RecursiveCircuit(BaseCircuit):
         
         if self.check_all_component_solved():
             if self.print_flag:
-                print("All components solved in setup iteration.")
+                print("All components solved in first iteration.")
             pass
         else:
-            # for start_component in self.solve_start_components:
-            #     self.recursive_solve(start_component)
-            #     if self.check_all_component_solved():
-            #         break
-            
             if self.print_flag:
-                self.blocking_comp = []
-                for component in self.components:     
-                    if not self.components[component].model.check_calculable():
-                        self.blocking_comp.append(component)
-                
-                print("Not all components were solved in setup iteration.")
-                print(f"{self.blocking_comp} is/are not calculable.")
+                print("Not all components were solved in first iteration.")
             return
         
         # print("Set residual variables")
@@ -883,9 +525,7 @@ class RecursiveCircuit(BaseCircuit):
         n_it_max = 30   
         
         while i < n_it_max:
-            if self.print_flag:
-                print(f"Iteration {i+1}")
-            
+ 
             for it_var in self.it_vars:
                 
                 if "Link" in it_var.objective:                    
@@ -898,7 +538,7 @@ class RecursiveCircuit(BaseCircuit):
                     for target in it_var.target:
                         kwargs_dict = {'target': target,
                                         it_var.variable : value_obj}
-                                                
+                        
                         self.set_cycle_guess(**kwargs_dict)
                         
                     it_var.converged = True
