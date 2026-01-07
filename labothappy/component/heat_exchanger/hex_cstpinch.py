@@ -327,7 +327,7 @@ class HexCstPinch(BaseComponent):
         return self.res
     
     def system_cond(self, x):
-        P_cd = x[0]
+        P_cd = x
                 
         PP_list = []
         
@@ -418,25 +418,24 @@ class HexCstPinch(BaseComponent):
         self.PPTD = min(self.PP_array)
         
         # Calculate residual
-        self.res = abs(self.PPTD  - self.params['Pinch'])
+        self.res = self.PPTD  - self.params['Pinch']
         
         # Update the state of the working fluid
         self.Q_dot = Q_dot_cd
         self.P_sat = P_cd
-        
+        print('res_cond:', self.res)
+        print('P_cd:', P_cd)
         return self.res
 
     def solve(self):
         # Ensure all required checks are performed
-
         self.check_calculable()
         self.check_parametrized()
 
         if not (self.calculable and self.parametrized):
             print("HTX IS NOT CALCULABLE")
             return
-        self.print_setup()
-        self.print_states_connectors()
+        # self.print_setup()
         fluid_C = self.su_C.fluid  # Extract cold fluid name
         self.AS_C = AbstractState("BICUBIC&HEOS", fluid_C)  # Create a reusable state object
         
@@ -498,11 +497,34 @@ class HexCstPinch(BaseComponent):
 
             try:
                 """CONDENSER MODEL"""
-                fsolve(self.system_cond, x)
+                # root(self.system_evap, x, method = 'lm', tol=1e-7)
+                T_sat_min = self.su_C.T + self.params['Delta_T_sh_sc']
+                self.AS_H.update(CoolProp.QT_INPUTS,0.5,T_sat_min)
+                P_sat_min =  self.AS_H.p()
+                a = P_sat_min
+                #OK
 
-                """Update connectors after the calculations"""
+                T_sat_max = self.su_H.T
+                self.AS_H.update(CoolProp.QT_INPUTS,0.5,T_sat_max)
+                P_sat_max = self.AS_H.p()
+                b = P_sat_max
+                #OK
+                self.print_states_connectors()
+                bisect(self.system_cond,a, b,
+                        xtol=1e-12,     # absolute tolerance
+                        rtol=1e-12,     # relative tolerance
+                        maxiter=100,    # maximum iterations
+                        full_output=False,
+                        disp=True       # raise error if no convergence
+                )
                 self.update_connectors()
                 self.print_states_connectors()
+                # """CONDENSER MODEL"""
+                # fsolve(self.system_cond, x)
+                # print(f"Converged condenser model at P_cd: {x[0]}")
+                # """Update connectors after the calculations"""
+                # self.update_connectors()
+                # self.print_states_connectors()
                 # Mark the model as solved if successful
                 self.solved = True
             except Exception as e:

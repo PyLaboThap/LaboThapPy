@@ -69,10 +69,9 @@ class CompressorCstEff(BaseComponent):
         ]
 
     def solve(self):
-        print('coucou')
         self.check_calculable()
         self.check_parametrized()
-        self.print_setup()
+        # self.print_setup()
         self.AS = CP.AbstractState('HEOS', self.su.fluid)
 
         try:
@@ -87,6 +86,7 @@ class CompressorCstEff(BaseComponent):
             self.update_connectors(h_ex, w, W_dot)
 
             self.solved = True
+            self.print_states_connectors()
         except Exception as e:
             print(f"Error: {e}")
             self.solved = False
