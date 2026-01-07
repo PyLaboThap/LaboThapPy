@@ -1,3 +1,5 @@
+# 
+
 import __init__
 
 """
@@ -17,14 +19,6 @@ if project_root not in sys.path:
 
 #%%
 
-# from scipy.optimize import bisect
-
-# def f(x):
-#     return x**3 - x - 2
-
-# root = bisect(f, a=1, b=2)
-# print(root)
-
 from connector.mass_connector import MassConnector
 from connector.work_connector import WorkConnector
 from connector.heat_connector import HeatConnector
@@ -34,7 +28,6 @@ from component.base_component import BaseComponent
 from CoolProp.CoolProp import AbstractState
 import CoolProp.CoolProp as CoolProp
 from scipy.optimize import fsolve, root, minimize
-from scipy.optimize import bisect
 import numpy as np
 import math
 
@@ -181,8 +174,8 @@ class HexCstPinch(BaseComponent):
         
             try:
                 """EVAPORATOR MODEL"""
-                fsolve(self.system_evap, x)
-
+                root(self.system_evap, x, method = 'lm', tol=1e-7)
+                    
             except Exception as e:
                 # Handle any errors that occur during solving
                 print(f"Convergence problem in pinch analysis of evaporator model: {e}")
@@ -226,9 +219,7 @@ class HexCstPinch(BaseComponent):
             self.epsilon = np.nan
 
     def system_evap(self, x):
-        # print('Entering system_evap')
-        P_ev = x
-        # print('P_ev input:', P_ev)
+        P_ev = x[0]
         
         PP_list = []
         
@@ -317,17 +308,16 @@ class HexCstPinch(BaseComponent):
 
         # PPTD = min(self.T_H_ex - self.su_C.T, self.T_H_x0 - T_sat_ev, self.T_H_x1 - T_sat_ev, self.su_H.T - self.T_C_ex)
 
-        self.res = self.PPTD - self.params['Pinch']
+        self.res = abs(self.PPTD - self.params['Pinch'])
         
         # Update the state of the working fluid
         self.Q_dot = Q_dot_ev
         self.P_sat = P_ev
-        # print('res_evap:', self.res)
-        # print('P_ev:', P_ev)
+        
         return self.res
     
     def system_cond(self, x):
-        P_cd = x
+        P_cd = x[0]
                 
         PP_list = []
         
@@ -418,24 +408,24 @@ class HexCstPinch(BaseComponent):
         self.PPTD = min(self.PP_array)
         
         # Calculate residual
-        self.res = self.PPTD  - self.params['Pinch']
+        self.res = abs(self.PPTD  - self.params['Pinch'])
         
         # Update the state of the working fluid
         self.Q_dot = Q_dot_cd
         self.P_sat = P_cd
-        print('res_cond:', self.res)
-        print('P_cd:', P_cd)
+        
         return self.res
 
     def solve(self):
         # Ensure all required checks are performed
+
         self.check_calculable()
         self.check_parametrized()
 
         if not (self.calculable and self.parametrized):
             print("HTX IS NOT CALCULABLE")
             return
-        # self.print_setup()
+        
         fluid_C = self.su_C.fluid  # Extract cold fluid name
         self.AS_C = AbstractState("BICUBIC&HEOS", fluid_C)  # Create a reusable state object
         
@@ -450,39 +440,27 @@ class HexCstPinch(BaseComponent):
 
         # Determine the type of heat exchanger and set the initial guess for pressure
         if self.params['HX_type'] == 'evaporator':
-            # guess_T_sat = self.su_H.T - self.params['Pinch'] - self.params['Delta_T_sh_sc']
-            guess_T_sat = self.su_C.T + self.params['Pinch'] + self.params['Delta_T_sh_sc']
-            # print(f"guess_T_sat: {guess_T_sat}")
+            guess_T_sat = self.su_H.T - self.params['Pinch'] - self.params['Delta_T_sh_sc']
+            
             # print(f"guess_T_sat: {guess_T_sat}")
             self.AS_C.update(CoolProp.QT_INPUTS,0.5,guess_T_sat)
             P_ev_guess = self.AS_C.p() # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
-            # print(f"P_ev_guess: {P_ev_guess}")
             x = [P_ev_guess]
 
             try:
                 """EVAPORATOR MODEL"""
-                # root(self.system_evap, x, method = 'lm', tol=1e-7)
-                T_sat_min = self.su_C.T
-                self.AS_C.update(CoolProp.QT_INPUTS,0.5,T_sat_min)
-                P_sat_min =  self.AS_C.p()
-                a = P_sat_min
-                #OK
-
-                T_sat_max = self.su_H.T- self.params['Delta_T_sh_sc']
-                self.AS_C.update(CoolProp.QT_INPUTS,0.5,T_sat_max)
-                P_sat_max = self.AS_C.p()
-                b = P_sat_max
-                #OK
-
-                bisect(self.system_evap,a, b,
-                        xtol=1e-12,     # absolute tolerance
-                        rtol=1e-12,     # relative tolerance
-                        maxiter=100,    # maximum iterations
-                        full_output=False,
-                        disp=True       # raise error if no convergence
-                )
+                root(self.system_evap, x, method = 'lm', tol=1e-7)
+                
+                """Update connectors after the calculations"""
                 self.update_connectors()
-                self.print_states_connectors()
+
+                # Mark the model as solved if successful
+                if self.res < 1e-2:
+                    self.solved = True
+                else:
+                    print("System not solved according to specified tolerance in Evaporator")
+                    self.solved = False
+                    
             except Exception as e:
                 # Handle any errors that occur during solving
                 self.solved = False
@@ -497,34 +475,11 @@ class HexCstPinch(BaseComponent):
 
             try:
                 """CONDENSER MODEL"""
-                # root(self.system_evap, x, method = 'lm', tol=1e-7)
-                T_sat_min = self.su_C.T + self.params['Delta_T_sh_sc']
-                self.AS_H.update(CoolProp.QT_INPUTS,0.5,T_sat_min)
-                P_sat_min =  self.AS_H.p()
-                a = P_sat_min
-                #OK
+                fsolve(self.system_cond, x)
 
-                T_sat_max = self.su_H.T
-                self.AS_H.update(CoolProp.QT_INPUTS,0.5,T_sat_max)
-                P_sat_max = self.AS_H.p()
-                b = P_sat_max
-                #OK
-                self.print_states_connectors()
-                bisect(self.system_cond,a, b,
-                        xtol=1e-12,     # absolute tolerance
-                        rtol=1e-12,     # relative tolerance
-                        maxiter=100,    # maximum iterations
-                        full_output=False,
-                        disp=True       # raise error if no convergence
-                )
+                """Update connectors after the calculations"""
                 self.update_connectors()
-                self.print_states_connectors()
-                # """CONDENSER MODEL"""
-                # fsolve(self.system_cond, x)
-                # print(f"Converged condenser model at P_cd: {x[0]}")
-                # """Update connectors after the calculations"""
-                # self.update_connectors()
-                # self.print_states_connectors()
+
                 # Mark the model as solved if successful
                 self.solved = True
             except Exception as e:
