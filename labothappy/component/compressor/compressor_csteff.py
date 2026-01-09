@@ -86,7 +86,7 @@ class CompressorCstEff(BaseComponent):
             self.update_connectors(h_ex, w, W_dot)
 
             self.solved = True
-            self.print_states_connectors()
+            # self.print_states_connectors()
         except Exception as e:
             print(f"Error: {e}")
             self.solved = False
