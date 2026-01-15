@@ -37,6 +37,10 @@ class MassConnector:
             Quality in kg/kg.
         cp : float, optional
             Specific heat capacity in J/kg/K.
+        SC : float, optional
+            Subcooling in K.
+        SH : float, optional
+            Superheating in K.
         completely_known : bool
             True if all properties and mass flow rate are known, otherwise False.
         state_known : bool
@@ -91,6 +95,12 @@ class MassConnector:
         set_cp(self, value):
             Sets the specific heat capacity without calculating other properties.
 
+        set_SC(self, value):
+            Sets the subcooling and updates the list of known variables.
+        
+        set_SH(self, value):
+            Sets the superheating and updates the list of known variables.
+
         print_resume(self, unit_T='K', unit_p='Pa'):
             Prints a summary of the current properties in specified units.
 
@@ -130,7 +140,9 @@ class MassConnector:
         self.D = None               # Mass density [kg/m^3]
         self.x = None               # Quality [kg/kg]
         self.cp = None              # Specific heat capacity [J/kg/K]
-        
+        self.SC = None              # Subcooling [K]
+        self.SH = None              # Superheating [K]
+         
         self.CP_map = {
             # --- Mass-based inputs ---
             ('D', 'H'): CP.DmassHmass_INPUTS, ('D', 'P'): CP.DmassP_INPUTS, ('D', 'Q'): CP.DmassQ_INPUTS, ('D', 'S'): CP.DmassSmass_INPUTS, ('D', 'T'): CP.DmassT_INPUTS, ('D', 'U'): CP.DmassUmass_INPUTS,
@@ -167,10 +179,11 @@ class MassConnector:
         if self.fluid != None:
             if len(self.variables_input)>2:
                 warnings.warn("Error: Too many state variables")
+            elif (len(self.variables_input) == 2 or (len(self.variables_input) == 1 and (self.SC is not None or self.SH is not None))):
+                self.calculate_properties()
             elif len(self.variables_input)<2:
                 pass
-            elif len(self.variables_input)==2:
-                self.calculate_properties()
+
 
             if (self.m_dot != None or self.V_dot !=None) and self.state_known:
                 if self.m_dot != None:
@@ -200,9 +213,73 @@ class MassConnector:
                              f"Valid keys: {list(self.CP_map.keys())}")
     
         return self.CP_map[pair_sorted], reversed_flag
+    
+    def _replace_state_variable(self, key, value):
+        """
+        Replace or insert a state variable in variables_input.
+        Ensures only valid CoolProp inputs are used.
+        """
+        for i, var in enumerate(self.variables_input):
+            if var[0] == key:
+                self.variables_input[i][1] = value
+                return
+        self.variables_input.append([key, value])
+
 
     def calculate_properties(self):
+        # 1) Resolve superheating/subcooling into T or P
+        try:
+            if self.SH is not None and self.SC is not None:
+                raise ValueError("Cannot specify both SH and SC simultaneously.")
+
+            # ---- SUPERHEATING ----
+            if self.SH is not None:
+                if self.p is not None:
+                    # p known -> compute T
+                    self.AS.update(CP.PQ_INPUTS, self.p, 1) # Saturation temp at given p
+                    T_sat = self.AS.T()
+                    self.T = T_sat + self.SH
+                elif self.T is not None:
+                    # T known -> compute p
+                    self.AS.update(CP.QT_INPUTS, 1, self.T - self.SH) # Saturation p at given T
+                    self.p = self.AS.p()
+                else:
+                    pass  # Cannot resolve SH without T or p
+            # ---- SUBCOOLING ----
+            elif self.SC is not None:
+                if self.p is not None:
+                    # p known -> compute T
+                    self.AS.update(CP.PQ_INPUTS, self.p, 0) # Saturation temp at given p
+                    T_sat = self.AS.T()
+                    self.T = T_sat - self.SC
+                elif self.T is not None:
+                    # T known -> compute p
+                    self.AS.update(CP.QT_INPUTS, 0, self.T + self.SC) # Saturation p at given T
+                    self.p = self.AS.p()
+                else:
+                    pass  # Cannot resolve SC without T or p
+
+        except Exception as e:
+            warnings.warn(f"SH/SC resolution failed: {e}")
+            return
         
+        # --- After resolving SH / SC ---
+        if self.SH is not None or self.SC is not None:
+
+            # Ensure variables_input contains T or P, not SC/SH
+            if self.T is not None:
+                self._replace_state_variable('T', self.T)
+
+            if self.p is not None:
+                self._replace_state_variable('P', self.p)
+
+            # Remove any illegal keys just in case
+            self.variables_input = [
+                v for v in self.variables_input if v[0] in ['T', 'P', 'H', 'S', 'D', 'Q']
+            ]
+
+        
+        # 2) Calculate properties based on two known variables
         AS_inputs, reversed_flag = self.get_AS_inputs(self.variables_input[0][0], self.variables_input[1][0])
              
         try:
@@ -247,6 +324,10 @@ class MassConnector:
                 self.set_x(value)
             elif key.lower() == 'cp':
                 self.set_cp(value)
+            elif key.upper() == 'SC':
+                self.set_SC(value)
+            elif key.upper() == 'SH':
+                self.set_SH(value)
             else:
                 warnings.warn(f"Error: Invalid property '{key}'")
         
@@ -423,7 +504,17 @@ class MassConnector:
             self.cp = value
         else:          # If the quality is not known, set the value and add the variable to the list
             self.cp = value # We don't want to calculate in this case
-            
+
+    def set_SC(self, value):
+        self.SC = value
+        self.SH = None  # enforce exclusivity
+        self.check_completely_known()
+
+    def set_SH(self, value):
+        self.SH = value
+        self.SC = None  # enforce exclusivity
+        self.check_completely_known()
+
             
     def print_resume(self, unit_T='K', unit_p='Pa'):
         """
