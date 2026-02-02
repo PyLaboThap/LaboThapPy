@@ -14,9 +14,8 @@ Modification w/r to previous version:
 # # from __future__ import division, print_function
 # import __init__
 
-
-from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
 from toolbox.geometries.heat_exchanger.geometry_plate_hx_swep import PlateGeomSWEP
+from component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
 
 #%%
 
@@ -76,10 +75,13 @@ HX.set_inputs(
 "Geometry Loading"
 
 HX_geom = PlateGeomSWEP()
-HX_geom.set_parameters("B20Hx24/1P") 
+HX_geom.set_parameters("B20Hx24/1P")
 
 Corr_H = {"1P" : "Gnielinski", "2P" : "Han_cond_BPHEX"}
 Corr_C = {"1P" : "Gnielinski", "2P" : "Boiling_curve"}
+
+Corr_H_DP = {"1P" : "Gnielinski_DP", "2P" : "Choi_DP"}
+Corr_C_DP = {"1P" : "Gnielinski_DP", "2P" : "Choi_DP"}
 
 # ---------------------------------------------------------------------------------------------------------
 
@@ -181,8 +183,11 @@ HX.set_parameters(
 #             'Transcritical' : 200}
 
 HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation' # 28
-# HX.set_htc(htc_type = 'User-Defined', UD_H_HTC = UD_H_HTC, UD_C_HTC = UD_C_HTC) # 'User-Defined' or 'Correlation'
-HX.set_DP()
+
+# HX.set_DP() # equivalent to HX.set_DP(DP_type = None)
+# HX.set_DP(DP_type="User-Defined", UD_C_DP = 10000, UD_H_DP = 10000) # Fixed User-Defined values, equally distributed over discretizations
+# HX.set_DP(DP_type="Correlation_Global", Corr_C=Corr_C_DP, Corr_H=Corr_H_DP)
+HX.set_DP(DP_type="Correlation_Disc", Corr_C=Corr_C_DP, Corr_H=Corr_H_DP)
 
 "Solve the component"
 HX.solve()

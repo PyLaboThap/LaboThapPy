@@ -6,21 +6,20 @@ Created on Mon Apr 22 17:34:23 2024
 """
 
 import numpy as np
-from CoolProp.CoolProp import PropsSI
+import CoolProp.CoolProp as CP
 
-
-def DP_tube_and_fins(fluid, params, P_in, T_in, m_dot_in):
+def DP_tube_and_fins(AS, params, P_in, h_in, m_dot_in):
     
     """
     Parameters
     ----------
-    fluid : Fluid Name
+    AS : Fluid AbstractState
     
     geom : ACC geometry class
     
     P_in : Inlet fluid pressure [Pa]
     
-    T_in : Inlet fluid temperature [K]
+    h_in : Inlet fluid enthalpy [J/kg]
     
     m_dot_in : Inlet fluid flow rate [kg/s]
 
@@ -38,14 +37,18 @@ def DP_tube_and_fins(fluid, params, P_in, T_in, m_dot_in):
     
     "Air data (Pure air considered)"
     
-    rho_g, nu_g = PropsSI(('D','V'),'P',P_in,'T',T_in,fluid)
+    AS.update(CP.HmassP_INPUTS, h_in, P_in)
+    
+    rho_g = AS.rhomass()
+    mu_g = AS.viscosity()
+    
     V_dot_in = m_dot_in/rho_g # m^3/s
     
     "Geom data"
 
     n_tubes = params['n_tubes']
     Tube_ID = params['Tube_OD'] - 2*params['Tube_t']
-    n_tpr = n_tubes/params['n_rows']
+    n_tpr = n_tubes/(params['n_rows']*params['Tube_pass'])
     
     HTX_L = params['Tube_L']
     HTX_W = params['w']
@@ -99,11 +102,11 @@ def DP_tube_and_fins(fluid, params, P_in, T_in, m_dot_in):
 
     # xi_o
     
-    xi_o = C_z*C_r*(u_in_air*D_eq/nu_g)**(-n)
+    xi_o = C_z*C_r*(u_in_air*D_eq/mu_g)**(-n)
     
     "Pressure drop computation"
     
     C_op = 1.1 # Value from the book : correction factor taking account of real operating conditions of the heat-transfer surface
-    DP = C_op*xi_o*params['n_rows']*(rho_g*u_in_air**2)/2
-    
+    DP = C_op*xi_o*params['Tube_pass']*params['n_rows']*(rho_g*u_in_air**2)/2
+
     return DP

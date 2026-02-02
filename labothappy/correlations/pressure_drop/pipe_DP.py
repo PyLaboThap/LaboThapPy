@@ -3,14 +3,13 @@
 @author: Basile Chaudoir
 """
 
-from math import log10, inf
+from math import log10
 import numpy as np
 import warnings
-from CoolProp.CoolProp import PropsSI
-from scipy.optimize import fsolve
+import CoolProp.CoolProp as CP
 
 #%%
-def gnielinski_pipe_DP(mu, rho, G, Dh, L, type_HX = 'pipe'):
+def gnielinski_pipe_DP(mu, rho, G, Dh, L, type_HX = 'pipe', p = 0):
     """
     For  1 phase flow
     
@@ -24,7 +23,8 @@ def gnielinski_pipe_DP(mu, rho, G, Dh, L, type_HX = 'pipe'):
     G    : Flow rate per cross section area [kg/(m^2 * s)]
     Dh   : Hydraulic diameter [m]
     L    : Flow length [m]
-    
+    p    : Factor for tube turns (Sinnot : p = 2.5, Kern : p = 4)
+        
     Outputs
     -------
     
@@ -41,11 +41,11 @@ def gnielinski_pipe_DP(mu, rho, G, Dh, L, type_HX = 'pipe'):
     Re_min = 0
     Re_max = 1e06
     Re = G*Dh/mu
-
+        
     #-------------------------------------------------------------------------
     if type_HX == 'pipe':
         f = (1.8*log10(Re) - 1.5)**(-2)
-    elif type_HX == 'PCHE':
+    elif type_HX == 'PCHE' or type_HX == 'Plate':
         # f = 0.2515*Re**(-0.2031)
         f = (0.79*np.log(Re) - 1.64)**(-2)
 
@@ -54,7 +54,7 @@ def gnielinski_pipe_DP(mu, rho, G, Dh, L, type_HX = 'pipe'):
         
     v_flow = G/rho
     
-    DP = f*L*rho*v_flow**2/(2*Dh)    
+    DP = (p + f*L/Dh)*(rho*v_flow**2/2)    
     #-------------------------------------------------------------------------
     if Re >= Re_max or Re <=Re_min:
         # warnings.warn('Gnielinski singe-phase: Out of validity range --> Re = ', Re, ' is out of [', Re_min, ' - ', Re_max, '] !!!')
@@ -81,59 +81,215 @@ def Darcy_Weisbach(mu, rho, G, Dh, L):
     
     return DP
 
-from CoolProp.CoolProp import PropsSI
+# def Muller_Steinhagen_Heck_DP(AS, G, P_sat, x_in, x_out, L, D_in):
+#     """
+#     Pressure drop correlation for two-phase flow (condensation & evaporation)
+#     in smooth tubes, based on the Müller-Steinhagen and Heck model.
 
-def Muller_Steinhagen_Heck_DP(fluid, G, P_sat, x, L, D_in):
+#     Inputs:
+#     -------
+#     fluid : Fluid name (e.g., 'R134a')
+#     G : Mass flux [kg/(m^2*s)]
+#     P_sat : Saturation pressure [Pa]
+#     x : Vapor quality (mass fraction, 0 <= x <= 1)
+#     L : Tube length [m]
+#     D_in : Hydraulic diameter [m]
+
+#     Returns:
+#     --------
+#     DP : Pressure drop [Pa]
+
+#     Reference:
+#     ----------
+#     Müller-Steinhagen, H., & Heck, K. (1986). A general correlation for pressure drops in two-phase flow in pipes. 
+#     Int. J. Heat Mass Transfer, 29(3), 381–388.
+#     """    
+    
+#     # Get liquid properties at saturation
+#     AS.update(CP.PQ_INPUTS, P_sat, 0)
+    
+#     mu_l = AS.viscosity()  # Dynamic viscosity [Pa·s]
+#     rho_l = AS.rhomass()  # Density [kg/m³]
+    
+#     # Get vapor properties at saturation
+#     AS.update(CP.PQ_INPUTS, P_sat, 1)
+    
+#     mu_v = AS.viscosity()  # Dynamic viscosity [Pa·s]
+#     rho_v = AS.rhomass()  # Density [kg/m³]
+
+#     # Reynolds numbers
+#     Re_l = G * D_in / mu_l
+#     Re_v = G * D_in / mu_v
+
+#     # Friction factors (Blasius correlation for turbulent flow)
+#     f_l = 0.079 / Re_l**0.25
+#     f_v = 0.079 / Re_v**0.25
+
+#     # Pressure gradient terms
+#     A = f_l * 2 * G**2 / (D_in * rho_l)
+#     B = f_v * 2 * G**2 / (D_in * rho_v)
+
+#     # Müller-Steinhagen-Heck pressure gradient model
+#     # Y = A + 2 * (B - A) * x
+#     # DP_dz = Y * (1 - x)**(1/3) + B * x**3
+#     F = lambda x: -(3/4)*(1-x)**(4/3)*(A + 2*(B-A)*x) + (1/4)*B*x**4 - (9/14)*(B-A)*(1-x)**(7/3)
+#     DP = F(x_out) - F(x_in)
+    
+#     # # Total pressure drop over length L
+#     # DP = DP_dz * L
+
+#     return DP
+
+def Muller_Steinhagen_Heck_DP(
+    AS, G, P_sat, x_in, x_out, q_pp, D_in, L, n_disc
+):
     """
-    Pressure drop correlation for two-phase flow (condensation & evaporation)
-    in smooth tubes, based on the Müller-Steinhagen and Heck model.
+    Two-phase frictional pressure drop using Müller-Steinhagen & Heck
+    for constant heat flux evaporation/condensation.
+    """
 
-    Inputs:
-    -------
-    fluid : Fluid name (e.g., 'R134a')
-    G : Mass flux [kg/(m^2*s)]
-    P_sat : Saturation pressure [Pa]
-    x : Vapor quality (mass fraction, 0 <= x <= 1)
-    L : Tube length [m]
-    D_in : Hydraulic diameter [m]
+    # --- Saturated liquid ---
+    AS.update(CP.PQ_INPUTS, P_sat, 0)
+    mu_l = AS.viscosity()
+    rho_l = AS.rhomass()
+    h_l = AS.hmass()
 
-    Returns:
-    --------
-    DP : Pressure drop [Pa]
+    # --- Saturated vapor ---
+    AS.update(CP.PQ_INPUTS, P_sat, 1)
+    mu_v = AS.viscosity()
+    rho_v = AS.rhomass()
+    h_v = AS.hmass()
 
-    Reference:
-    ----------
-    Müller-Steinhagen, H., & Heck, K. (1986). A general correlation for pressure drops in two-phase flow in pipes. 
-    Int. J. Heat Mass Transfer, 29(3), 381–388.
-    """    
-    # Get liquid and vapor properties at saturation
-    mu_l = PropsSI('V', 'P', P_sat, 'Q', 0, fluid)  # Dynamic viscosity [Pa·s]
-    rho_l = PropsSI('D', 'P', P_sat, 'Q', 0, fluid)  # Density [kg/m³]
-    mu_v = PropsSI('V', 'P', P_sat, 'Q', 1, fluid)
-    rho_v = PropsSI('D', 'P', P_sat, 'Q', 1, fluid)
+    h_fg = h_v - h_l
 
-    # Reynolds numbers
+    # --- Reynolds numbers ---
     Re_l = G * D_in / mu_l
     Re_v = G * D_in / mu_v
 
-    # Friction factors (Blasius correlation for turbulent flow)
+    # --- Friction factors (Blasius) ---
     f_l = 0.079 / Re_l**0.25
     f_v = 0.079 / Re_v**0.25
 
-    # Pressure gradient terms
-    A = f_l * 2 * G**2 / (D_in * rho_l)
-    B = f_v * 2 * G**2 / (D_in * rho_v)
+    # --- MSH coefficients ---
+    A = 2 * f_l * G**2 / (D_in * rho_l)
+    B = 2 * f_v * G**2 / (D_in * rho_v)
+    
+    n_disc_low = 3
+    n_disc_high = 4
+    
+    if n_disc <= n_disc_low:
+        # --- Integrated MSH function ---
+        def F(x):
+            return (
+                -(3/4)*(1-x)**(4/3)*(A + 2*(B-A)*x)
+                + (1/4)*B*x**4
+                - (9/14)*(B-A)*(1-x)**(7/3)
+            )
+    
+        # --- Scaling from quality to length ---
+        m_dot = G * (np.pi * D_in**2 / 4)
+    
+        scale = m_dot * h_fg / (q_pp * np.pi * D_in)
+    
+        DP = scale * (F(x_out) - F(x_in))
 
-    # Müller-Steinhagen-Heck pressure gradient model
-    Y = A + 2 * (B - A) * x
-    DP_dz = Y * (1 - x)**(1/3) + B * x**3
-
-    # Total pressure drop over length L
-    DP = DP_dz * L
-
+    elif n_disc >= n_disc_high:
+        x = (x_in + x_out)/2
+        Y = A + 2*(B-A)*x
+        DP_dz = Y*(1-x)**(1/3) + B*x**3
+        
+        DP = DP_dz*L
+        
+    else:
+        # --- Integrated MSH function ---
+        def F(x):
+            return (
+                -(3/4)*(1-x)**(4/3)*(A + 2*(B-A)*x)
+                + (1/4)*B*x**4
+                - (9/14)*(B-A)*(1-x)**(7/3)
+            )
+    
+        # --- Scaling from quality to length ---
+        m_dot = G * (np.pi * D_in**2 / 4)
+    
+        scale = m_dot * h_fg / (q_pp * np.pi * D_in)
+    
+        DP_1 = scale * (F(x_out) - F(x_in))
+        
+        x = (x_in + x_out)/2
+        Y = A + 2*(B-A)*x
+        DP_dz = Y*(1-x)**(1/3) + B*x**3
+        
+        DP_2 = DP_dz*L
+        
+        alpha = (n_disc - n_disc_low) / (n_disc_high - n_disc_low)
+        alpha = np.clip(alpha, 0.0, 1.0)  # safety
+        
+        DP = (1 - alpha) * DP_1 + alpha * DP_2
+                
     return DP
 
-def Choi_DP(fluid, G, rho_out, rho_in, P_sat, x_o, x_i, L, D_in):
+
+# def Muller_Steinhagen_Heck_DP(AS, G, P_sat, x_in, x_out, L, D_in):
+#     """
+#     Pressure drop correlation for two-phase flow (condensation & evaporation)
+#     in smooth tubes, based on the Müller-Steinhagen and Heck model.
+
+#     Inputs:
+#     -------
+#     fluid : Fluid name (e.g., 'R134a')
+#     G : Mass flux [kg/(m^2*s)]
+#     P_sat : Saturation pressure [Pa]
+#     x : Vapor quality (mass fraction, 0 <= x <= 1)
+#     L : Tube length [m]
+#     D_in : Hydraulic diameter [m]
+
+#     Returns:
+#     --------
+#     DP : Pressure drop [Pa]
+
+#     Reference:
+#     ----------
+#     Müller-Steinhagen, H., & Heck, K. (1986). A general correlation for pressure drops in two-phase flow in pipes. 
+#     Int. J. Heat Mass Transfer, 29(3), 381–388.
+#     """    
+    
+#     # Get liquid properties at saturation
+#     AS.update(CP.PQ_INPUTS, P_sat, 0)
+    
+#     mu_l = AS.viscosity()  # Dynamic viscosity [Pa·s]
+#     rho_l = AS.rhomass()  # Density [kg/m³]
+    
+#     # Get vapor properties at saturation
+#     AS.update(CP.PQ_INPUTS, P_sat, 1)
+    
+#     mu_v = AS.viscosity()  # Dynamic viscosity [Pa·s]
+#     rho_v = AS.rhomass()  # Density [kg/m³]
+
+#     # Reynolds numbers
+#     Re_l = G * D_in / mu_l
+#     Re_v = G * D_in / mu_v
+
+#     # Friction factors (Blasius correlation for turbulent flow)
+#     f_l = 0.079 / Re_l**0.25
+#     f_v = 0.079 / Re_v**0.25
+
+#     # Pressure gradient terms
+#     A = f_l * 2 * G**2 / (D_in * rho_l)
+#     B = f_v * 2 * G**2 / (D_in * rho_v)
+
+#     # Müller-Steinhagen-Heck pressure gradient model
+#     DP_in = -3/4 * A + 2 * (B - A) * x_in * (1 - x_in)**(4/3) + B/4 * x_in**4 - 9/14*(B-A)*(1-x_in)**7/3
+#     DP_out = -3/4 * A + 2 * (B - A) * x_out * (1 - x_out)**(4/3) + B/4 * x_out**4 - 9/14*(B-A)*(1-x_out)**7/3
+
+#     # Total pressure drop over length L
+#     DP = DP_out - DP_in
+
+#     print(f"DP : {DP}")
+
+#     return DP
+
+def Choi_DP(AS, G, rho_out, rho_in, P_sat, x_o, x_i, L, D_in):
     """
     For 2 phase flow (both condensation and evaporation)
     
@@ -159,9 +315,17 @@ def Choi_DP(fluid, G, rho_out, rho_in, P_sat, x_o, x_i, L, D_in):
     """
     g = 9.81
     
-    mu_l, h_l = PropsSI(('V','H'), 'P', P_sat, 'Q', 0, fluid)
-    h_v = PropsSI('H', 'P', P_sat, 'Q', 1, fluid)
+    # Get liquid properties at saturation
+    AS.update(CP.PQ_INPUTS, P_sat, 0)
     
+    mu_l = AS.viscosity()  # Dynamic viscosity [Pa·s]
+    h_l = AS.hmass()  # Enthalpy [J/kg]
+    
+    # Get vapor properties at saturation
+    AS.update(CP.PQ_INPUTS, P_sat, 1)
+    
+    h_v = AS.hmass() # Enthalpy [J/kg]
+        
     Dh_lv = h_v - h_l
     Re_f = G*D_in/mu_l
     
@@ -251,6 +415,8 @@ def pipe_internal_DP(mu, rho, m_dot, params):
     DP = (4*f*params["Tube_L"]*params["Tube_pass"]/params["Tube_OD"] + 4*params["Tube_pass"])*rho*(u**2)/2
     
     return DP
+
+from CoolProp.CoolProp import PropsSI
 
 def Cheng_CO2_DP(G, D_in, L, P, h_in, mu, fluid):
     """

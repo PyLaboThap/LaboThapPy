@@ -17,6 +17,59 @@ import matplotlib.pyplot as plt
 
 from toolbox.economics.cpi_data import actualize_price
 
+def total_STHE_cost(HX, n_y=10, h_per_y=7000, C_e=0.12, i=0.1, eta_pp=0.8):
+    """
+    Parameters
+    ----------
+    HX : HX Object
+    n_y : Lifetime [y]
+    h_per_y : Hours of functioning per year [h/y]
+    C_e : Electricity costs [€/kWhe]
+    i : Discount rate [-]
+
+    Returns
+    -------
+    C_tot : HX Total costs
+    """
+    
+    # CAPEX : Hall Correlation
+    a_1 = 8000
+    a_2 = 259.2
+    a_3 = 0.91
+    
+    CAPEX = a_1 + a_2*max(HX.A_h, HX.A_c)**a_3
+    
+    # OPEX of year n
+    if HX.params['Shell_Side'] == 'H':
+        DP_t = HX.DP_c
+        DP_s = HX.DP_h
+        
+        mdot_t = HX.su_C.m_dot
+        mdot_s = HX.su_H.m_dot
+        
+        rho_t = HX.su_C.D
+        rho_s = HX.su_H.D
+    else:
+        DP_t = HX.DP_h
+        DP_s = HX.DP_c
+
+        mdot_t = HX.su_H.m_dot    
+        mdot_s = HX.su_C.m_dot
+
+        rho_t = HX.su_H.D    
+        rho_s = HX.su_C.D
+        
+    P = 1/eta_pp * (DP_t*mdot_t/rho_t + DP_s*mdot_s/rho_s)
+    OPEX_n = P*C_e*h_per_y/1000
+    
+    # OPEX
+    OPEX = 0
+    
+    for y in np.array(range(n_y))+1:
+        OPEX += OPEX_n/((1+i)**y)
+    
+    return OPEX + CAPEX
+
 class EconomicParameters:
     """Economic parameters for cost calculations"""
     def __init__(self):

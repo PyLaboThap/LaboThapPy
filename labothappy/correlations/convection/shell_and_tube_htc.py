@@ -61,7 +61,7 @@ def s_max(Tube_OD, pitch_ratio, Shell_ID, central_spacing, tube_layout): # Maxim
     
     p_T = Tube_OD * pitch_ratio # Tube Pitch
     s_max_coef = (Shell_ID / p_T)*(p_T -  Tube_OD) * central_spacing
-
+    
     if tube_layout == 0: # Squared Inline tube arrangement
     
         s_max = s_max_coef
@@ -164,8 +164,10 @@ def shell_htc_kern(m_dot, T_wall, T_in, P_in, AS, params):
     """
     
     "1) HTC"
-    
-    AS.update(CP.PT_INPUTS, P_in, T_in)
+    try:
+        AS.update(CP.PT_INPUTS, P_in, T_in)
+    except:
+        AS.update(CP.PT_INPUTS, P_in, T_in-0.1)
     
     rho = AS.rhomass()
     mu = AS.viscosity()
@@ -183,15 +185,21 @@ def shell_htc_kern(m_dot, T_wall, T_in, P_in, AS, params):
     
     Re = rho*V_t*(D_hydro/mu)
     
-    # print(Re)    
+    # Re = m_dot*params['Tube_OD']/(S_T*mu) 
+        
     
-    if Re < 2e3:
-        Nu = 0.427 * Re**0.528 * Pr**(1/3) 
-    else:
+    # if Re < 2e3:
+    #     Nu = 0.427 * Re**0.528 * Pr**(1/3) 
+    # else:
         # McAdams, if no Baffles -> HYP : mu = mu_w
-        Nu = 0.36*Pr**(1/3) * Re**(0.55) * (mu/mu_w)**(0.14)  
+    Nu = 0.36*Pr**(1/3) * Re**(0.55) * (mu/mu_w)**(0.14)  
 
     h = Nu*k/D_hydro
+        
+    # print(f"D_hydro : {D_hydro}")
+    
+    # print(f"P_in : {P_in}")
+    # print(f"T_in : {T_in}")
     
     # print(f"h : {h}")
     # print(f"Re : {Re}")

@@ -151,7 +151,7 @@ def dittus_boetler_cooling(mu, Pr, k, G, Dh):
     
     return h
 
-def thome_condensation(AS, D_i, G, P_sat, T_wall, x):
+def thome_condensation(AS, D_i, G, P_sat, T_sat, T_wall, x):
     """
     Parameters
     ----------
@@ -159,12 +159,15 @@ def thome_condensation(AS, D_i, G, P_sat, T_wall, x):
     D_i : Internal Tube diameter
     G : Mass Flux
     P_sat : Saturation Pressure
+    T_sat : Saturation Temperature
+    T_wall : Saturation Temperature    
     x : Vapor Quality
 
     Returns
     -------
     h_tp : Condensing heat transfer coefficient
     """
+    
     from correlations.properties.void_fraction import void_fraction
     g = 9.81 # m/s^2
     
@@ -173,7 +176,6 @@ def thome_condensation(AS, D_i, G, P_sat, T_wall, x):
     A = np.pi*r**2
     
     # 2 phase properties
-    T_sat = AS.T()
     sigma = PropsSI('I', 'P', P_sat, 'Q', 0.5, AS.fluid_names()[0])
 
     # Liquid properties
@@ -551,7 +553,7 @@ def horizontal_flow_boiling(AS, G, P_sat, x, D_in, q):
     F_d = (1e-2/D_in)**0.5
 
     # F_W : Contribution of tube wall roughness    
-    Ra = 2.3*1e-6 # between 1.6 and 6.3 *1e-6 for carbon steel pipes
+    Ra = 3*1e-6 # between 1.6 and 6.3 *1e-6 for carbon steel pipes : 2.3
     Ra_o = 1e-6
     F_W = (Ra/Ra_o)**0.133
     
@@ -642,7 +644,7 @@ def flow_boiling_gungor_winterton(fluid, G, P_sat, x, D_in, q, mu_l, Pr_l, k_l):
         S_2 = 1
         
     # Convection enhancement factor
-    E = E_2*(1 + 24000*Bo**1.16 + 1.23 * (1/X_tt)**0.86)
+    E = E_2*(1 + 24000*Bo**1.16 + 1.37 * (1/X_tt)**0.86)
     
     # Boiling suppression factor
     A_in = (np.pi/4)*D_in**2
@@ -656,7 +658,7 @@ def flow_boiling_gungor_winterton(fluid, G, P_sat, x, D_in, q, mu_l, Pr_l, k_l):
     S = S_2*((1 + 0.00000115*E**2 * Re_tp**1.17)**(-1))
     
     # Nucleate Bpiling : Cooper Correlation
-    h_nb = 55*P_r**(0.12)  * (-np.log10(P_r))**(-0.55) * (MM*1e3)**(-0.5) * q**0.67 # - 0.2*np.log(Ra)
+    h_nb = 55*P_r**(0.12)  * (-0.4343*np.log(P_r))**(-0.55) * (MM*1e3)**(-0.5) * q**0.67 # - 0.2*np.log(Ra)
     
     h_tp = E*h_f + S*h_nb
     
@@ -667,6 +669,61 @@ def flow_boiling_gungor_winterton(fluid, G, P_sat, x, D_in, q, mu_l, Pr_l, k_l):
     
     return h_tp
 
+def choi_boiling(AS, P_sat, x, D_i, G, q):
+    
+    "Properties"
+    # Saturated Liquid
+    AS.update(CP.PQ_INPUTS, P_sat, 0)
+    Pr_l = AS.Prandtl()
+    mu_l = AS.viscosity()
+    k_l = AS.conductivity()
+    rho_l = AS.rhomass()
+    h_l = AS.hmass()
+    cp_l = AS.cpmass()
+    
+    T_sat_bubble = AS.T()
+
+    # Saturated Vapor
+    AS.update(CP.PQ_INPUTS, P_sat, 1)
+    mu_v = AS.viscosity()
+    rho_v = AS.rhomass()
+    h_v = AS.hmass()
+
+    h_lv = h_v - h_l
+    T_sat_dew = AS.T()
+    T_sat = (T_sat_dew + T_sat_bubble)/2
+    
+    "Liquid HTC Contribution"
+    Re_l = G*(1-x)*D_i/mu_l
+    
+    h_l = 0.023*Re_l**0.8 * Pr_l**0.4*(k_l/D_i)
+    
+    "E parameter"
+    A_in_tube = np.pi*(D_i**2)/4
+    m_dot = A_in_tube*G
+    Bo = q/(G*h_lv) # Boiling number
+    
+    X_tt = ((1-x)/x)**(0.9)*(rho_v/rho_l)**(0.5)*(mu_l/mu_v)**(0.1) # Lockhart-Martinelli Constant    
+    E = 49.971*Bo**0.383 * X_tt**(-0.758)
+    
+    "S parameter"
+    Co = ((1-x)/x)**(0.9)*(rho_v/rho_l)**(0.5) # Convection number
+    S = 0.909*Co**0.301
+    
+    "h_nb"
+    g = 9.81 # m/s^2 : gravitational acceleration 
+    beta = 35 # ° : Constant
+    sigma = PropsSI('I', 'P', P_sat, 'Q', 0.5, AS.fluid_names()[0]) # !!! try to use AS instead
+    
+    bd = 0.0146*beta*(2*sigma*(rho_l-rho_v)/g)**0.5
+    h_nb = 207*k_l/(bd) *((q*bd)/(k_l*T_sat))**0.674 * (rho_v/rho_l)**(0.581) * Pr_l**0.533
+    
+    "F_m parameter"
+    F_m = (1+0.039*cp_l*(T_sat_dew - T_sat_bubble)/h_lv)**(-1)
+    
+    h_tp = E*h_l + S*F_m*h_nb
+    
+    return h_tp
 
 def pool_boiling(fluid, T_sat, T_tube):
     """

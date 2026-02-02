@@ -11,12 +11,7 @@ Modification w/r to previous version:
     - x_di_c correct calculation.
 """
 
-# from __future__ import division, print_function
-import __init__
-
-
-from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
-from labothappy.toolbox.geometries.heat_exchanger.geometry_plate_hx_swep import PlateGeomSWEP
+from component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
 
 #%%
 
@@ -29,7 +24,7 @@ from labothappy.toolbox.geometries.heat_exchanger.geometry_plate_hx_swep import 
 
 HX = HexMBChargeSensitive('PCHE')
 
-test_case = "TCO2_recup"
+test_case = "test_CO2"
 
 # # "Setting inputs"
 
@@ -65,16 +60,15 @@ if test_case == "test_CO2":
               'N_p': 256, # n plates
               'R_p': 1, # n_hot_channel_row / n_cold_channel_row
               't_2': 0.63*1e-3, # Horizontal pitch
-              't_3': 1*1e-3,
-              'type_channel' : 'Zigzag'} # Plate_thickness
+              't_3': 1*1e-3, # Plate thickness
+              'type_channel' : 'Zigzag'} 
     
     Corr_H = {"SC" : "Gnielinski", "1P" : "Gnielinski"}
     Corr_C = {"SC" : "Gnielinski", "1P" : "Gnielinski"}
 
-    H_DP = "Darcy_Weisbach"
-    C_DP = "Darcy_Weisbach"    
-    # H_DP = "Gnielinski_DP"
-    # C_DP = "Gnielinski_DP"
+    Corr_H_DP = {"SC" : "Darcy_Weisbach", "1P" : "Darcy_Weisbach"}
+    Corr_C_DP = {"SC" : "Darcy_Weisbach", "1P" : "Darcy_Weisbach"}  
+
     # ---------------------------------------------------------------------------------------------------------
     # "Parameters Setting"
     
@@ -111,7 +105,8 @@ if test_case == "TCO2_recup":
               'N_p': 563, # n plates
               'R_p': 1, # n_hot_channel_row / n_cold_channel_row
               't_2': 0.0012282802564224898, # Horizontal pitch
-              't_3': 0.0009428803890487963} # Plate_thickness
+              't_3': 0.0009428803890487963, # Plate_thickness
+              'type_channel' : 'Zigzag'} 
 
     Corr_H = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
     Corr_C = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
@@ -119,8 +114,8 @@ if test_case == "TCO2_recup":
     # H_DP = "Gnielinski_DP"
     # C_DP = "Gnielinski_DP"    
     
-    H_DP = None
-    C_DP = None
+    H_DP = {"SC" : "Darcy_Weisbach", "1P" : "Darcy_Weisbach"}
+    C_DP = {"SC" : "Darcy_Weisbach", "1P" : "Darcy_Weisbach"}  
     
     # ---------------------------------------------------------------------------------------------------------
     # "Parameters Setting"
@@ -147,7 +142,11 @@ if test_case == "TCO2_recup":
 
 HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation' # 28
 # HX.set_htc(htc_type = 'User-Defined', UD_H_HTC = UD_H_HTC, UD_C_HTC = UD_C_HTC) # 'User-Defined' or 'Correlation'
-HX.set_DP(DP_type= 'Correlation', Corr_H = H_DP, Corr_C = C_DP)
+
+# HX.set_DP() # equivalent to HX.set_DP(DP_type = None)
+# HX.set_DP(DP_type="User-Defined", UD_C_DP = 10000, UD_H_DP = 10000) # Fixed User-Defined values, equally distributed over discretizations
+# HX.set_DP(DP_type="Correlation_Global", Corr_C=Corr_C_DP, Corr_H=Corr_H_DP)
+HX.set_DP(DP_type="Correlation_Disc", Corr_C=Corr_C_DP, Corr_H=Corr_H_DP)
 
 # "Solve the component"
 HX.solve()
