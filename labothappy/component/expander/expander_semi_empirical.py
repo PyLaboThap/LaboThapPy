@@ -454,7 +454,7 @@ class ExpanderSE(BaseComponent):
         self.ex.set_p(self.ex.p)
 
         self.W.set_W_dot(self.W_dot_exp)
-        self.W.set_N(self.N_rot)
+        self.W.set_N_rot(self.N_rot)
         self.Q_amb.set_Q_dot(self.Q_dot_amb)
         self.Q_amb.set_T_hot(self.T_w)
 
