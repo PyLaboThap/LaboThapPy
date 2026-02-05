@@ -65,7 +65,7 @@ class CO2RCOptimizer(object):
 
         P_low_guess = min(1.3*P_sat_T_CSource,0.8*P_crit_CO2)  
 
-        self.RC = REC_CO2_TC(self.HSource, self.CSource.T, self.params['PP_gh'], self.params['PP_rec'], self.params['eta_pp'], self.params['eta_exp'], self.params['eta_gh'], 
+        self.RC = REC_CO2_TC(self.HSource, self.CSource, self.params['PP_gh'], self.params['PP_rec'], self.params['eta_pp'], self.params['eta_exp'], self.params['eta_gh'], 
                               self.params['eta_rec'], self.params['PP_cd'], self.params['SC_cd'], P_low_guess, self.it_var['P_high'], self.it_var['mdot'], mute_print_flag = 1)
 
         return # PP_rec
@@ -107,7 +107,7 @@ class CO2RCOptimizer(object):
             eta_pp = 0.8
             self.pp_power = DP*mdot/(rho*eta_pp)
             
-            self.W_dot_net = CO2_RC.components['Expander'].model.W_exp.W_dot - CO2_RC.components['Pump'].model.W_pp.W_dot - self.pp_power
+            self.W_dot_net = CO2_RC.components['Expander'].model.W.W_dot - CO2_RC.components['Pump'].model.W.W_dot - self.pp_power
     
             self.eta = (self.W_dot_net) / CO2_RC.components['GasHeater'].model.Q_dot.Q_dot 
             
@@ -116,7 +116,7 @@ class CO2RCOptimizer(object):
             return 1000
               
         if not CO2_RC.converged:
-            return 1000  
+            return 100
               
         self.penalty_1 = 0
         # self.penalty_2 = 0

@@ -39,41 +39,42 @@ def system_HP_parallel(x, input_data):
     mdot_HS = mdot * mdot_HS_fact
     HSource.set_properties(m_dot=mdot_HS)
 
-    try:
-        if params['HP_ARCH'] == 'IHX_EXP':
-            HP = IHX_EXP_CO2_HP(HSource, CSource.T, params['eta_cp'], params['eta_gc'],
-                                params['eta_IHX'], params['eta_exp'],
-                                params['PP_ev'], params['SH_ev'],
-                                P_low_guess, P_high, mdot, mute_print_flag=1)
-        else:
-            HP = IHX_CO2_HP(HSource, CSource.T, params['eta_cp'], params['eta_gc'],
-                            params['eta_IHX'], params['PP_ev'], params['SH_ev'],
+    # try:
+    if params['HP_ARCH'] == 'IHX_EXP':
+        HP = IHX_EXP_CO2_HP(HSource, CSource, params['eta_cp'], params['eta_gc'],
+                            params['eta_IHX'], params['eta_exp'],
+                            params['PP_ev'], params['SH_ev'],
                             P_low_guess, P_high, mdot, mute_print_flag=1)
+    else:
+        HP = IHX_CO2_HP(HSource, CSource.T, params['eta_cp'], params['eta_gc'],
+                        params['eta_IHX'], params['PP_ev'], params['SH_ev'],
+                        P_low_guess, P_high, mdot, mute_print_flag=1)
 
-        HP.solve()
+    HP.solve()
 
-        if not HP.converged:
-            return 100
+    # if not HP.converged:
+    #     print("OH")
+    #     return 100
 
-        if params['HP_ARCH'] == 'IHX_EXP':
-            COP = HP.components['GasCooler'].model.Q_dot.Q_dot / (
-                HP.components['Compressor'].model.W.W_dot - HP.components['Expander'].model.W_exp.W_dot)
-        else:
-            COP = HP.components['GasCooler'].model.Q_dot.Q_dot / HP.components['Compressor'].model.W.W_dot
+    if params['HP_ARCH'] == 'IHX_EXP':
+        COP = HP.components['GasCooler'].model.Q_dot.Q_dot / (
+            HP.components['Compressor'].model.W.W_dot - HP.components['Expander'].model.W.W_dot)
+    else:
+        COP = HP.components['GasCooler'].model.Q_dot.Q_dot / HP.components['Compressor'].model.W.W_dot
 
-        T_err = abs((HP.components['GasCooler'].model.ex_C.T - obj['T_high']) / obj['T_high'])
-        W_err = abs((HP.components['Compressor'].model.W.W_dot - obj['W_dot']) / obj['W_dot'])
+    T_err = abs((HP.components['GasCooler'].model.ex_C.T - obj['T_high']) / obj['T_high'])
+    W_err = abs((HP.components['Compressor'].model.W.W_dot - obj['W_dot']) / obj['W_dot'])
 
-        penalty = 0
-        if T_err > 1e-2:
-            penalty += 300 * T_err
-        if W_err > 1e-2:
-            penalty += 100 * W_err
+    penalty = 0
+    if T_err > 1e-2:
+        penalty += 300 * T_err
+    if W_err > 1e-2:
+        penalty += 100 * W_err
 
-        return -COP + penalty
+    return -COP + penalty
 
-    except Exception:
-        return 100
+    # except Exception:
+    #     return 100
 
 #%% Optimizer Class
 
@@ -177,7 +178,7 @@ class CO2HPOptimizer:
         P_low_guess = 0.8 * min(P_sat_T_CSource, P_crit_CO2)
         
         if self.params['HP_ARCH'] == 'IHX_EXP':
-            self.HP = IHX_EXP_CO2_HP(self.HSource, self.CSource.T, self.params['eta_cp'],
+            self.HP = IHX_EXP_CO2_HP(self.HSource, self.CSource, self.params['eta_cp'],
                                       self.params['eta_gc'], self.params['eta_IHX'], self.params['eta_exp'],
                                       self.params['PP_ev'], self.params['SH_ev'],
                                       P_low_guess, best_P_high, best_mdot, mute_print_flag=1)
@@ -192,7 +193,7 @@ class CO2HPOptimizer:
             self.HP.solve()
             if self.params['HP_ARCH'] == 'IHX_EXP':
                 self.COP = self.HP.components['GasCooler'].model.Q_dot.Q_dot / (
-                    self.HP.components['Compressor'].model.W.W_dot - self.HP.components['Expander'].model.W_exp.W_dot)
+                    self.HP.components['Compressor'].model.W.W_dot - self.HP.components['Expander'].model.W.W_dot)
             else:
                 self.COP = self.HP.components['GasCooler'].model.Q_dot.Q_dot / \
                            self.HP.components['Compressor'].model.W.W_dot

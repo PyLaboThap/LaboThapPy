@@ -5,8 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-from toolbox.geometries.solar.parabolictrough_geometry import PT_Collector_Geom
-from component.solar.parabolic_trough_collector import PTCollector
+from labothappy.toolbox.geometries.solar.parabolictrough_geometry import PT_Collector_Geom
+from labothappy.component.solar.parabolic_trough_collector import PTCollector
 
 PT_geom = PT_Collector_Geom()
 PT_geom.set_parameters("Soponova_MicroCSP")

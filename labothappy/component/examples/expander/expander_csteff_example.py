@@ -12,3 +12,7 @@ EXP.print_setup()
 
 EXP.solve()
 EXP.print_results()
+
+fig = EXP.plot_Ts()
+fig.show()
+

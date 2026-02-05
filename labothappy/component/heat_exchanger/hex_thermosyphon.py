@@ -845,8 +845,9 @@ class HexThermosyphon(BaseComponent):
                 self.AS_C.update(CP.HmassP_INPUTS, self.h_c[i+1], self.su_C.p)
                 self.T_c[i+1] = self.AS_C.T()
             except:
-                self.AS_C.update(CP.HmassP_INPUTS, self.h_c[i+1]-10, self.su_C.p)
-                self.T_c[i+1] = self.AS_C.T()
+                T_current = CP.PropsSI('T', 'H', self.h_c[i+1]-1000, 'P', self.su_C.p, self.su_C.fluid)
+                # self.AS_C.update(CP.HmassP_INPUTS, self.h_c[i+1]-10, self.su_C.p)
+                self.T_c[i+1] = T_current
                 
             R_tot_tube_mean = R_tot_tube_mean + self.R_tot_tube[i]
             R_e_o_mean = R_e_o_mean + self.R_e_o[i]
@@ -992,4 +993,3 @@ class HexThermosyphon(BaseComponent):
 
         
         
-

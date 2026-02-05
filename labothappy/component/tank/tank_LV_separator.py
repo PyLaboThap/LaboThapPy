@@ -136,7 +136,7 @@ class TankLVSeparator(BaseComponent):
         self.ex_v.set_fluid(self.su.fluid)
         self.ex_v.set_x(x_ex_v)
         self.ex_v.set_T(T_ex_v)
-        self.ex_l.set_h(h_ex_v) 
+        self.ex_v.set_h(h_ex_v) 
         self.ex_v.set_p(p_ex_v)
         self.ex_v.set_m_dot(m_dot_v)  
 

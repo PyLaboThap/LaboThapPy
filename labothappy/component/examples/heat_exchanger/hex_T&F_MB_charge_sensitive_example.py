@@ -13,7 +13,7 @@ Modification w/r to previous version:
 
 # from __future__ import division, print_function
 import __init__
-from component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
+from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
 
 #%%
 

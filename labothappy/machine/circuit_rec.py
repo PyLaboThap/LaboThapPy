@@ -31,7 +31,9 @@ class RecursiveCircuit(BaseCircuit):
             
         def check_convergence(self, new_value):
             
-            if (abs(new_value - self.value)/self.value) < self.tolerance:
+            self.res = (abs(new_value - self.value)/self.value)
+            
+            if self.res < self.tolerance:
                 self.converged = True
                 return True
             else: 
@@ -658,34 +660,13 @@ class RecursiveCircuit(BaseCircuit):
         
             if self.converged:
                 if self.print_flag:
-                    print(f"Solver successfully converged in {i+1} iteration(s) !")
+                    print(f"Solver successfully converged in {i+2} iteration(s) !")
                 return
             
             i = i + 1
-
-        # plt.figure()
-        # plt.plot(res_ev, 'r',  marker='o')                            
-        # plt.show()
         
         if self.print_flag:
             print(f"Solver failed to converge in {n_it_max} iterations.")
-        
-        # self.print_res_vars()
-        
-        # plt.figure()
-        
-        # plt.plot(m_dot_su_pp, 'r')
-        # plt.plot(m_dot_ex_pp, 'g',  marker='o')
-        # plt.plot(m_dot_su_spli, 'b')
-        # plt.plot(m_dot_ex_mix, 'k',  marker='o')
-        # plt.plot(m_dot_ex_cd, 'orange',  marker='o')
-        
-        # plt.legend(['su_pp', 'ex_pp', 'su_spli', 'ex_mix', 'ex_cd'])
-        
-        # plt.figure()
-        # plt.plot(P_cd, 'r')
-        
-        # plt.legend(['P_cd'])
         
         return
     

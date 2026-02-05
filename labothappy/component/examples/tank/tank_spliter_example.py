@@ -27,3 +27,8 @@ spliter.solve()
 for i in range(len(spliter.outlet_repartition)):
     outlet = getattr(spliter, f"ex_{i+1}")
     print(f"Outlet {i+1}: m_dot = {outlet.m_dot} kg/s, p = {outlet.p} Pa, h = {outlet.h} J/kg")
+
+# Plot States
+fig = spliter.plot_thermo_states()
+fig.show()
+

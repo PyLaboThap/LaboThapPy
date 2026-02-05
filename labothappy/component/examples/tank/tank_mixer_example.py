@@ -43,3 +43,7 @@ try:
     print(f"Outlet temperature: {T_out - 273.15:.2f} °C")
 except:
     print("Could not calculate outlet temperature.")
+    
+fig = Mixer.plot_thermo_states()
+fig.show()
+

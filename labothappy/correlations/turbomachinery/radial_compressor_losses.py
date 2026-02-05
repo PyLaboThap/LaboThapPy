@@ -15,7 +15,6 @@ def rotor_incidence_losses(A1, A1_th, beta1, w1, xhi1):
     w1 : Rotor inlet relative velocity [m/s]
     xhi1 : Rotor Inlet Blade Angle [rad]
 
-     
     Reference
     ---------
     Fortran program for predicting off-design performance of centrifugal
@@ -23,10 +22,10 @@ def rotor_incidence_losses(A1, A1_th, beta1, w1, xhi1):
     """    
 
     # Optimal incidence angle
-    beta1_opt = np.atan((A1/A1_th)*xhi1)
+    beta1_opt = np.arctan((A1/A1_th)*xhi1)
     
     # Losses
-    Dh_inc = 0.5* w1**2 * np.sin(beta1_opt-beta1)
+    Dh_inc = 0.5* w1**2 * np.sin(beta1-beta1_opt)**2
     
     return Dh_inc
 
@@ -160,9 +159,9 @@ def rotor_mixing_losses(alpha2, v2):
     fact2 = (1-eps_w-b_star/(1-eps_w))
     
     # Losses
-    Dh_cl = 0.5*v2**2 * fact1 * fact2**2
+    Dh_ml = 0.5*v2**2 * fact1 * fact2**2
     
-    return Dh_cl
+    return Dh_ml
 
 def rotor_disc_friction_losses(b2, eps_b, mdot, mu2, rho1, rho2, r2, u2):
     """
@@ -230,11 +229,11 @@ def rotor_recirculation_losses(alpha2, C_df, Dh0, n_bl_r, r1s, r2, u2, w1, w1s, 
 
 def stator_incidence_losses(A4, A4_th, beta4, w4, xhi4):
     """
-    A1 : Rotor inlet area [m2] (from blade pitch * height)
-    A1_th : Rotor inlet throat area [m2] (from inlet throat opening * height)
-    beta1 : Rotor Relative flow angle [rad]
-    w1 : Rotor inlet relative velocity [m/s]
-    xhi1 : Rotor Inlet Blade Angle [rad]
+    A4    : Stator inlet area [m2] (from blade pitch * height)
+    A4_th : Stator inlet throat area [m2] (from inlet throat opening * height)
+    beta4 : Stator Relative flow angle [rad]
+    w4    : Stator inlet relative velocity [m/s]
+    xhi4  : Stator Inlet Blade Angle [rad]
 
      
     Reference
@@ -256,7 +255,7 @@ def stator_incidence_losses(A4, A4_th, beta4, w4, xhi4):
 
 def stator_friction_losses(C_f, r3, r5, vm, xhi3, xhi5):
     """
-    C_f  : Stator friction coefficient [-] (=0.004 ?) : C_f =  k(1.8*1e5/ Re) ** 0.2 with k = 0.005
+    C_f  : Stator friction coefficient [-] (=0.004 ?) : C_f =  k(1.8*1e5/ Re)**0.2 with k = 0.005
     r3   : Stator inlet diameter [m]
     r5   : Stator outlet diameter [m]
     vm   : Stator meridional velocity [m/s]
@@ -279,4 +278,67 @@ def stator_friction_losses(C_f, r3, r5, vm, xhi3, xhi5):
     
     return Dh_f
 
+#%%
+
+def radial_compressor_rotor_losses(A1, A1_th, alpha2, beta1, beta1h, beta1s, b2, C_df, C_fi, Dh0, eps_a, eps_b, eps_r, L_z, mdot, mu2, n_bl_r,
+                                   rho1, rho2, r1h, r1s, r2, u2, vu2, v1m, v2, w1, w1_th, w1s, w2, xhi1, xhi2):
+    """
+    A1 : Rotor inlet area [m2] (from blade pitch * height)
+    A1_th : Rotor inlet throat area [m2] (from inlet throat opening * height)
+    alpha2 : Rotor outlet absolute angle [rad]
+    beta1 : Rotor Relative flow angle [rad]
+    beta1h : Rotor inlet hub angle [rad]
+    beta1s : Rotor inlet shroud angle [rad]
+    b2     : Rotor outlet passage height [m]
+    C_df   : Rotor friction coefficient [-] : 0.004 ? 
+    C_fi   : Rotor friction coefficient [-] : 0.004 ? 
+    Dh0    : Stage specific enthalpy difference [J/kg]
+    eps_a  : Rotor axial clearance [m] 
+    eps_b : Back face clearance gap [m]
+    eps_r  : Rotor radial clearance [m] 
+    L_z    : Rotor axial length [m]
+    mdot  : Flow rate [kg/s]
+    mu2   : Rotor outlet viscosity [Pa*s]
+    n_bl_r : Rotor blade number [-]
+    rho1   : Rotor inlet density [kg/m^3]
+    rho2   : Rotor outlet density [kg/m^3]
+    r1h    : Rotor inlet hub radius [m]
+    r1s    : Rotor inlet shroud radius [m]
+    r2     : Rotor outlet radius [m]
+    u2     : Rotor outlet tangential velocity [m/s]
+    vu2    : Rotor outlet absolute tangential velocity [m/s]
+    v1m    : Rotor inlet absolute meridional velocity [m/s]
+    v2     : Rotor outlet absolute velocity [m/s]
+    w1     : Rotor inlet relative velocity [m/s]
+    w1_th  : Rotor inlet throat relative velocity [m/s]
+    w1s    : Rotor inlet shroud relative velocity [m/s]
+    w2     : Rotor outlet relative velocity [m/s]
+    xhi1 : Rotor Inlet Blade Angle [rad]
+    xhi2   : Rotor Outlet Blade Angle [rad]
+    """
+    
+    Dh_rot = {}
+    
+    Dh_rot['inc'] = rotor_incidence_losses(A1, A1_th, beta1, w1, xhi1)
+    
+    Dh_rot['f'] = rotor_friciton_losses(beta1h, beta1s, b2, C_fi, L_z, n_bl_r, r1h, r1s, r2, w1, w1_th, w2, xhi2)
+    
+    Dh_rot['bl'] = rotor_blade_loading_losses(C_df, Dh0, n_bl_r, r1s, r2, u2, w1, w1s, w2)
+    
+    Dh_rot['cl'] = rotor_clearance_losses(b2, eps_a, eps_r, n_bl_r, rho1, rho2, r1h, r1s, r2, vu2, v1m)
+    
+    Dh_rot['ml'] = rotor_mixing_losses(alpha2, v2)
+    
+    Dh_rot['df'] = rotor_disc_friction_losses(b2, eps_b, mdot, mu2, rho1, rho2, r2, u2)
+    
+    Dh_rot['rc'] = rotor_recirculation_losses(alpha2, C_df, Dh0, n_bl_r, r1s, r2, u2, w1, w1s, w2)
+    
+    Dh_rot['tot'] = Dh_rot['inc'] + Dh_rot['f'] + Dh_rot['bl'] + Dh_rot['cl'] + Dh_rot['ml'] + Dh_rot['df'] + Dh_rot['rc']
+    
+    return Dh_rot
+
+def radial_compressor_stator_losses():
+    
+    
+    return
 

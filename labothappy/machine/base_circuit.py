@@ -140,7 +140,12 @@ class BaseCircuit:
 #%% Component related methods
 
     def add_component(self, model, name):
-        # Add a component to the cycle
+        
+        # Check if print shall be muted
+        if not self.print_flag:
+            model.mute_print()
+
+        # Add a component to the cycle        
         component = BaseCircuit.Component(name, model, self.fluid)
         self.components[name] = component
 
@@ -312,90 +317,80 @@ class BaseCircuit:
 
 #%% Ts-Plot related methods
 
-    def get_T_s_p(self, component_name, T, s, p, start_flag):
+    def plot_cycle_Ts(self, saturation_curve = True):
         
-        print(component_name)
+        fig = plt.figure()
         
-        if start_flag == 0:
-            if component_name == self.solve_start_components[0]:
-                return T, s, p
+        if saturation_curve:
+            def generate_saturation_curve(fluid, n_points=100):
+                """
+                Generates saturation curve arrays (T, s_liq, s_vap) for the fluid+suffix.
+                """
+            
+                fluid_name = fluid
+            
+                # Get saturation temperature range
+                T_crit = PropsSI('TCRIT', fluid_name)
+                T_triple = PropsSI('Ttriple', fluid_name)
+            
+                # Avoid extremely low T
+                T_min = max(T_triple, 0.1 * T_crit)
+                T_max = 1 * T_crit  # avoid critical point
+                T_sat = np.linspace(T_min, T_max, n_points)
+            
+                s_liq = np.zeros_like(T_sat)
+                s_vap = np.zeros_like(T_sat)
+            
+                for i, T in enumerate(T_sat):
+                    try:
+                        s_liq[i] = PropsSI('S', 'T', T, 'Q', 0, fluid_name)  # saturated liquid entropy
+                        s_vap[i] = PropsSI('S', 'T', T, 'Q', 1, fluid_name)  # saturated vapor entropy
+                    except:
+                        s_liq[i] = np.nan
+                        s_vap[i] = np.nan
+            
+                return T_sat, s_liq, s_vap
+            
+            T_sat, s_liq, s_vap = generate_saturation_curve(self.fluid)
+            
+            plt.plot(s_liq, T_sat, 'k--')  # saturated liquid
+            plt.plot(s_vap, T_sat, 'k--')  # saturated vapor
         
-        component = self.components[component_name]
-        component_model = component.model
-        
-        for input_port in component.previous:
+        for comp in self.components:
+            model = self.components[comp].model
             
-            connector_type, input_port_name = input_port.split("-")
+            su_C_flag = 0
+            su_H_flag = 0
             
-            if connector_type == 'm':
-                connector = getattr(self.components[component_name].model, input_port_name, None)
-            
-                if connector.fluid == self.fluid:
-                    T.append(connector.T)
-                    s.append(connector.s)                    
-                    p.append(connector.p)                    
-        
-        
-        for output_port in component.next:
-            
-            connector_type, output_port_name = output_port.split("-")
-            
-            if connector_type == 'm':
-                connector = getattr(self.components[component_name].model, output_port_name, None)
-            
-                if connector.fluid == self.fluid:
-                    T.append(connector.T)
-                    s.append(connector.s)        
-                    p.append(connector.p)   
-                    
-                    next_comp_name = self.components[component_name].next[output_port].name
-                    
-                    self.get_T_s_p(next_comp_name, T, s, p, 0)
-         
+            if hasattr(model, "su_C"):
+                su_C_flag = 1
                 
-                  
-        return T, s, p
-
-    def Ts_plot(self):
-        
-        T = []
-        s = []
-        p = []
-        
-        T, s, p = self.get_T_s_p(self.solve_start_components[0], T, s, p, 1)
-    
-        plt.figure()
+            if hasattr(model, "su_H"):
+                su_H_flag = 1
             
-        for i in range(len(T)):
-
-            print(i)
-            
-            T_sat = PropsSI('T', 'P', p[i], 'Q', 0.5, self.fluid)
-
-            s_sat_0 = PropsSI('S', 'P', p[i], 'Q', 0, self.fluid)  # Liquid
-            s_sat_1 = PropsSI('S', 'P', p[i], 'Q', 1, self.fluid)
-
-            if i < len(T) - 1:
-                
-                if (T[i] >= T_sat and T[i+1] <= T_sat):
+            if su_C_flag + su_H_flag > 0: # semi or total HX
+                if su_C_flag + su_H_flag == 1:
                     
-                    plt.plot([s[i], s_sat_1], [T[i], T_sat])
-                    plt.plot([s_sat_1, s_sat_0], [T_sat, T_sat])
-                    plt.plot([s_sat_0, s[i+1]], [T_sat, T[i+1]])
-                                        
-                elif (T[i] <= T_sat and T[i+1] >= T_sat):
-                    
-                    plt.plot([s[i], s_sat_0], [T[i], T_sat])
-                    plt.plot([s_sat_0, s_sat_1], [T_sat, T_sat])
-                    plt.plot([s_sat_1, s[i+1]], [T_sat, T[i+1]])
+                    if su_C_flag: # Semi HX Case
+                        fig = model.plot_Ts(fig = fig, choose_HX_side = 'C')
+                    else:
+                        fig = model.plot_Ts(fig = fig, choose_HX_side = 'H')
 
                 else:
-                    plt.plot([s[i], s[i+1]], [T[i],T[i+1]])
-    
+                    
+                    fluid_H = getattr(model, "su_H").fluid
+                    fluid_C = getattr(model, "su_C").fluid
+                    
+                    if fluid_H == fluid_C:
+                        dominant_side = None
+                    elif fluid_C == self.fluid:
+                        dominant_side = 'C'  
+                    else:
+                        dominant_side = 'H'
+                    
+                    fig = model.plot_Ts(fig = fig, choose_HX_side = dominant_side)
+                    
             else:
-                plt.plot([s[i], s[i+1]], [T[i],T[i+1]])
-                
-        plt.axis([min(s)-100, max(s)+100, min(T)-10, max(T)+10])
-        plt.show()
-
+                fig = model.plot_Ts(fig = fig)
+        
         return

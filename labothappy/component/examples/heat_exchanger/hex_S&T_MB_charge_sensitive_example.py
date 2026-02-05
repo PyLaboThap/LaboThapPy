@@ -14,12 +14,12 @@ Modification w/r to previous version:
 # from __future__ import division, print_function
 
 import __init__
-from component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
+from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
 
 # from toolbox.geometries.heat_exchanger.geometry_shell_and_tube_hx import ShellAndTubeGeom
 from CoolProp.CoolProp import PropsSI    
-from correlations.heat_exchanger.STHE_cost_estimation import HeatExchangerCost, total_STHE_cost
-from toolbox.plots.plot_MB_STHE import plot_MB_STHE
+from labothappy.correlations.heat_exchanger.STHE_cost_estimation import HeatExchangerCost, total_STHE_cost
+from labothappy.toolbox.plots.plot_MB_STHE import plot_MB_STHE
 
 #%%
 

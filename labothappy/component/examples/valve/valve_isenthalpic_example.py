@@ -29,3 +29,6 @@ Valve.solve()
 
 "--------- 3) Results ------------------------------------------------------------------------------------------"
 Valve.print_results()
+
+fig = Valve.plot_thermo_states()
+fig.show()

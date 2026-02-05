@@ -1,5 +1,5 @@
 
-from component.expander.expander_semi_empirical import ExpanderSE
+from labothappy.component.expander.expander_semi_empirical import ExpanderSE
 
 
 "Example of a semi-empirical expander component"
@@ -134,4 +134,6 @@ expander.solve()
 # Print the results
 expander.print_results()
 
-
+# Plot States
+fig = expander.plot_Ts()
+fig.show()

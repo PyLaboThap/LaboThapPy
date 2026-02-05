@@ -11,7 +11,7 @@ Modification w/r to previous version:
     - x_di_c correct calculation.
 """
 
-from component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
+from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
 
 #%%
 

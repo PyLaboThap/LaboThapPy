@@ -30,6 +30,7 @@ import CoolProp.CoolProp as CoolProp
 from scipy.optimize import fsolve, root, minimize
 import numpy as np
 import math
+import matplotlib.pyplot as plt
 
 class HexCstPinch(BaseComponent):
     """
@@ -556,10 +557,13 @@ class HexCstPinch(BaseComponent):
 
     def plot_disc(self):
         import matplotlib.pyplot as plt
-        
+
+        plt.figure()
+        plt.xlabel('Heat Transfer Rate [W]')
+        plt.ylabel('Temperature [K]')
+
         if self.params['HX_type'] == 'condenser':
-            plt.figure()
-            
+
             plt.plot([0, self.Q_dot_sh]                          , [self.su_H.T, self.T_sat_cd]  , 'r', label='H')
             plt.plot([self.Q_dot_sh, self.Q_dot_sh+self.Q_dot_tp], [self.T_sat_cd, self.T_sat_cd], 'r')
             plt.plot([self.Q_dot_sh+self.Q_dot_tp, self.Q_dot]       , [self.T_sat_cd, self.ex_H.T], 'r')
@@ -573,7 +577,6 @@ class HexCstPinch(BaseComponent):
             plt.show()
 
         if self.params['HX_type'] == 'evaporator':
-            plt.figure()
             
             plt.plot([0, self.Q_dot_sc]                          , [self.su_C.T, self.T_sat_ev]  , 'b', label='C')
             plt.plot([self.Q_dot_sc, self.Q_dot_sc+self.Q_dot_tp], [self.T_sat_ev, self.T_sat_ev], 'b')
@@ -586,3 +589,134 @@ class HexCstPinch(BaseComponent):
             plt.grid()
             plt.legend()
             plt.show()
+            
+    # def plot_Ts(self, fig = None, color = 'b', choose_HX_side = None):
+        
+    #     "1) Initialize the graph and inlet, outlet property containers"
+        
+    #     if fig is None:
+    #         fig = plt.figure()
+        
+    #     su = []
+    #     ex = []
+        
+    #     prop_2 = 'T'
+    #     prop_1 = 's'
+        
+    #     "2) Determine the component supply and exhaust ports"
+        
+    #     for attr, val in self.__dict__.items():
+            
+    #         if "su" in attr and isinstance(val, MassConnector):
+    #             su.append([attr, val, attr[2:]]) 
+        
+    #         if "ex" in attr and isinstance(val, MassConnector):
+    #             ex.append([attr, val, attr[2:]]) 
+
+    #     "3) Get properties"
+        
+    #     for i in range(len(su)):
+    #         su[i].append({prop_1 : getattr(su[i][1], prop_1),
+    #                       prop_2 : getattr(su[i][1], prop_2)})
+        
+    #     for i in range(len(ex)):
+    #         ex[i].append({prop_1 : getattr(ex[i][1], prop_1),
+    #                       prop_2 : getattr(ex[i][1], prop_2)})
+        
+    #     "4) Form couples"
+        
+    #     # Separate by suffix
+    #     su_by_suffix = { s[2]: s for s in su }
+    #     ex_by_suffix = { e[2]: e for e in ex }
+        
+    #     if choose_HX_side is not None:
+    #         su_by_suffix = {
+    #             k: v for k, v in su_by_suffix.items()
+    #             if choose_HX_side in k
+    #         }
+            
+    #         ex_by_suffix = {
+    #             k: v for k, v in ex_by_suffix.items()
+    #             if choose_HX_side in k
+    #         }
+        
+    #     couple_1 = []
+    #     couple_2 = []
+        
+    #     su_keys = set(su_by_suffix.keys())
+    #     ex_keys = set(ex_by_suffix.keys())
+        
+    #     # Case 1: normal one-to-one matching
+    #     if su_keys == ex_keys:
+            
+    #         for suf in su_keys:
+    #             su_elem = su_by_suffix[suf]
+    #             ex_elem = ex_by_suffix[suf]
+                
+    #             couple_1.append([
+    #                 su_elem[3][prop_1],
+    #                 ex_elem[3][prop_1]
+    #             ])
+                
+    #             couple_2.append([
+    #                 su_elem[3][prop_2],
+    #                 ex_elem[3][prop_2]
+    #             ])
+        
+    #     # Case 2: one supply, many exhaust
+    #     elif len(su_keys) == 1:
+            
+    #         su_elem = su_by_suffix[next(iter(su_keys))]
+            
+    #         for suf in ex_keys:
+    #             ex_elem = ex_by_suffix[suf]
+                
+    #             couple_1.append([
+    #                 su_elem[3][prop_1],
+    #                 ex_elem[3][prop_1]
+    #             ])
+                
+    #             couple_2.append([
+    #                 su_elem[3][prop_2],
+    #                 ex_elem[3][prop_2]
+    #             ])
+        
+    #     # Case 3: many supply, one exhaust
+    #     elif len(ex_keys) == 1:
+            
+    #         ex_elem = ex_by_suffix[next(iter(ex_keys))]
+            
+    #         for suf in su_keys:
+    #             su_elem = su_by_suffix[suf]
+                
+    #             couple_1.append([
+    #                 su_elem[3][prop_1],
+    #                 ex_elem[3][prop_1]
+    #             ])
+                
+    #             couple_2.append([
+    #                 su_elem[3][prop_2],
+    #                 ex_elem[3][prop_2]
+    #             ])
+        
+    #     # Case 4: incompatible
+    #     else:
+    #         raise ValueError(
+    #             f"Incompatible suffix sets: su={su_keys}, ex={ex_keys}"
+    #         )
+        
+    #     "5) Plot couples"
+        
+    #     for i in range(len(couple_1)):
+    #         c1 = couple_1[i]
+    #         c2 = couple_2[i]
+            
+    #         plt.plot(c1, c2, color = color)
+    #         plt.plot(c1, c2, marker='o', linestyle='None', color=color)
+            
+    #     plt.grid()
+        
+    #     plt.xlabel("Entropy [J/(kg*K)]")
+    #     plt.ylabel("Temperature [K]")
+        
+    #     return fig

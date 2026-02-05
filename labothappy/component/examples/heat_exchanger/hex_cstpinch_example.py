@@ -32,6 +32,9 @@ EVAP.print_results()
 EVAP.print_states_connectors()
 EVAP.plot_disc()
 
+fig = EVAP.plot_Ts(choose_HX_side='C')
+fig.show()
+
 # EVAP.equivalent_effectiveness()
 
 # # Exo ORC M&S
