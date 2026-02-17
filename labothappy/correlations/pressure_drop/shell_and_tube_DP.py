@@ -185,18 +185,21 @@ def shell_DP_kern(m_dot, T_wall, h_in, P_in, AS, params):
     "2) DP"
     
     Bo = 0.72
-    f = 2*Bo*Re**(-0.15)
-    # f = np.e**(0.576 - 0.19*np.log(Re)) # [-] : Friction coefficient
+    # f = 2*Bo*Re**(-0.15)
+    f = np.e**(0.576 - 0.19*np.log(Re)) # [-] : Friction coefficient
     G = m_dot/S_T # kg/(m^2 * s)
     phi_s = (mu/mu_w)**(0.14)  
     
-    # print(f"mu :{mu}")
-    # print(f"rho :{rho}")
-    
-    # print(D_hydro)
-    
     DP = (f*G**2 * params['Shell_ID'] * (params['cross_passes'] + 1))/(2*rho*D_hydro*phi_s)
     
+    print(f"rho :{rho}")
+    print(f"D_hydro:{D_hydro}")
+    print(f"phi_s :{phi_s}")
+    print(f"N_B :{params['cross_passes'] + 1}")
+    print(f"Shell_ID :{params['Shell_ID']}")
+    print(f"f :{f}")
+    print(f"G :{G}")
+        
     return DP
 
 #%%
@@ -501,3 +504,27 @@ def shell_bell_delaware_DP(m_dot_shell, h_shell, P_shell, AS, params):
     DP_shell = DP_PE + DP_PC + DP_w
 
     return DP_shell
+
+Ds = 1
+
+params = {
+    'Shell_ID': Ds,
+    'Tube_L': 5,
+    'Tube_OD': 0.027,
+    'Tube_t': 0.003,
+    'central_spacing':  Ds*0.6,
+    'pitch_ratio': 1.5,
+    'tube_layout': 45,
+    'Baffle_cut': 25,
+    'cross_passes' : np.ceil(5/Ds*0.6)
+    }
+
+AS = CP.AbstractState('HEOS', 'Water')
+
+P_in = 3*101325
+T_in = 20+273.15
+
+h_in = CP.PropsSI('H', 'P', P_in, 'T', T_in, 'Water')
+
+DP =  shell_DP_kern(111.11, 534.09, h_in, P_in, AS, params)
+

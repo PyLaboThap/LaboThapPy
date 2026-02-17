@@ -33,6 +33,8 @@ class IterativeCircuit(BaseCircuit):
             "pre": {}, # State cache before solving
             "post": {} # State cache after solving
         }
+        
+        self.convergence_frames = []
 
     def set_source_properties(self, **kwargs):
         # Set properties for a specific source
@@ -183,10 +185,11 @@ class IterativeCircuit(BaseCircuit):
             )
 
             residuals.append(raw / scale)
+        
+        self.convergence_frames.append(self.plot_cycle_Ts())
+
         return np.array(residuals, dtype=float)
 
-
-    
     def _apply_iteration_vector(self, x):
         """
         Apply solver vector x to all iteration variables
@@ -224,16 +227,28 @@ class IterativeCircuit(BaseCircuit):
         x0 = self._get_iteration_vector()
 
         # Solve
-        sol = fsolve(self._solve_circuit, x0)
+        self.sol = fsolve(self._solve_circuit, x0, full_output=True)
 
         # Apply final solution
-        self._apply_iteration_vector(sol)
+        self._apply_iteration_vector(self.sol[0])
 
         # Convergence check
-        residuals = self._solve_circuit(sol)
+        residuals = self._solve_circuit(self.sol[0])
         self.converged = np.all(np.abs(residuals) < 1.0)
+        
+        # Check if all components were well solved
+        for comp in self.components:
+            comp_model = self.components[comp].model
 
+            if not comp_model.solved:
+                self.converged = False
 
-        return sol
+        if self.print_flag:
+            if self.converged:
+                print(f"Solver converged after {self.sol[1]['nfev']} function evaluations")
+            else:
+                print(f"Solver failed to converge after {self.sol[1]['nfev']} function evaluations")
+                
+        return self.sol
 
         

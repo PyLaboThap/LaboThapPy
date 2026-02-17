@@ -10,17 +10,17 @@ import __init__
 from machine.circuit_rec import RecursiveCircuit
 from CoolProp.CoolProp import PropsSI
 
-from connector.mass_connector import MassConnector
+from labothappy.connector.mass_connector import MassConnector
 
-from component.heat_exchanger.hex_cstpinch import HexCstPinch
-from component.heat_exchanger.hex_csteff_disc import HexCstEffDisc
-from component.expander.expander_csteff import ExpanderCstEff 
-from component.pump.pump_csteff import PumpCstEff 
-from component.storage.storage_latent_isoT_cste_pinch import StorageLatentIsothermalCstePinch
-from component.compressor.compressor_csteff import CompressorCstEff
+from labothappy.component.heat_exchanger.hex_cstpinch import HexCstPinch
+from labothappy.component.heat_exchanger.hex_csteff_disc import HexCstEffDisc
+from labothappy.component.expander.expander_csteff import ExpanderCstEff 
+from labothappy.component.pump.pump_csteff import PumpCstEff 
+from labothappy.component.storage.storage_latent_isoT_cste_pinch import StorageLatentIsothermalCstePinch
+from labothappy.component.compressor.compressor_csteff import CompressorCstEff
 
-from component.tank.tank_mixer import TankMixer
-from component.tank.tank_spliter import TankSpliter
+from labothappy.component.tank.tank_mixer import TankMixer
+from labothappy.component.tank.tank_spliter import TankSpliter
 
 #%%
 
@@ -433,7 +433,7 @@ def Recomp_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp
 
 if __name__ == "__main__": 
 
-    study_case = "Simple"
+    study_case = "Recomp"
 
     if study_case == "Simple":
         T_cold_source = 0.1+273.15
@@ -546,7 +546,7 @@ if __name__ == "__main__":
         
         # for i in range(100):
         CO2_TC = REC_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_is_pp, eta_is_exp, eta_gh, eta_rec, PPTD_cd, SC_cd, P_low_guess, P_high, m_dot,
-                            DP_h_rec = DP_h_rec, DP_c_rec = DP_c_rec, DP_h_gh = DP_h_gh, DP_c_gh = DP_c_gh, DP_h_cond = DP_h_cond, DP_c_cond = DP_c_cond, mute_print_flag=1)
+                            DP_h_rec = DP_h_rec, DP_c_rec = DP_c_rec, DP_h_gh = DP_h_gh, DP_c_gh = DP_c_gh, DP_h_cond = DP_h_cond, DP_c_cond = DP_c_cond, mute_print_flag=0)
                 
         CO2_TC.solve()
                 
@@ -608,4 +608,4 @@ if __name__ == "__main__":
         print(f"Q_dot Recup LT : {CO2_TC.components['RecupLT'].model.Q}")
         
     CO2_TC.plot_cycle_Ts()
-    
+    CO2_TC.Ts_gif()

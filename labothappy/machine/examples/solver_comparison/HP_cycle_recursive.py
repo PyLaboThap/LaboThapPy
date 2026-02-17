@@ -86,6 +86,9 @@ HP.set_residual_variable(target="ExpansionValve:ex", variable="h", tolerance=1e3
 HP.set_residual_variable(target="ExpansionValve:ex", variable="p", tolerance=1e3)
 
 HP.solve()
+
+HP.plot_cycle_Ts()
+
 print(f"Converged at P_HP = {Compressor.ex.p}, P_LP = {Compressor.su.p}")
 
 

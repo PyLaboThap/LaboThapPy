@@ -10,9 +10,9 @@ from CoolProp.CoolProp import PropsSI
 import matplotlib.pyplot as plt
 import numpy as np
 
-from connector.mass_connector import MassConnector
-from connector.work_connector import WorkConnector
-from connector.heat_connector import HeatConnector
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.connector.work_connector import WorkConnector
+from labothappy.connector.heat_connector import HeatConnector
 
 from machine.base_circuit import BaseCircuit
 
@@ -31,15 +31,14 @@ class RecursiveCircuit(BaseCircuit):
             
         def check_convergence(self, new_value):
             
-            self.res = (abs(new_value - self.value)/self.value)
-            
-            if self.res < self.tolerance:
+            if self.value is not None and (abs(new_value - self.value)/self.value) < self.tolerance:
                 self.converged = True
                 return True
             else: 
                 self.set_value(new_value)
                 self.converged = False
                 return False
+            
             return
             
         def set_value(self, value):
@@ -84,8 +83,124 @@ class RecursiveCircuit(BaseCircuit):
             else:
                 raise ValueError("'rel' value for 'Iteration_variable' class shall be either 1 or -1.")
             
-        def find_backward_path(self):
-            return
+        def find_link_DP(self, components):
+                        
+            start = self.target[0].split(":")[0]
+            end = self.objective.split(":")[1]
+            
+            start_comp = components[start]
+            
+            from collections import deque
+
+            def get_suffix(port_name):
+                if port_name is None:
+                    return ""
+                if port_name.endswith("_C"):
+                    return "_C"
+                if port_name.endswith("_H"):
+                    return "_H"
+                return ""
+            
+            def shortest_path(start_component, end_name):
+                """
+                Returns path as list of tuples:
+                (component_name, entrance_port, exit_port_of_previous_component)
+                The exit_port is the port on the previous component used to reach this component.
+                """
+                queue = deque()
+                # Start: no entrance, no exit
+                queue.append((start_component, [[start_component.name, None, None]]))
+                
+                visited = set([start_component])
+            
+                while queue:
+                    current, path = queue.popleft()
+            
+                    if current.name == end_name:
+                        return path
+            
+                    # Suffix filtering
+                    _, entrance_port_current, _ = path[-1]
+                    entrance_suffix = get_suffix(entrance_port_current)
+            
+                    for prev_exit_port, next_comp in current.next.items():
+                        if next_comp in visited:
+                            continue
+            
+                        # Entrance port of next component pointing back to current
+                        entrance_port_next = next(
+                            (port for port, prev in next_comp.previous.items() if prev is current),
+                            None
+                        )
+            
+                        # Only consider next components whose exit port matches suffix if needed
+                        if entrance_suffix in ("_C", "_H") and not prev_exit_port.endswith(entrance_suffix):
+                            continue
+            
+                        visited.add(next_comp)
+            
+                        # Store:
+                        # - component name (next component)
+                        # - entrance port on next component
+                        # - exit port on previous component (current)
+                        queue.append(
+                            (next_comp, path + [[next_comp.name, entrance_port_next, prev_exit_port]])
+                        )
+            
+                return None
+
+            path = shortest_path(start_comp, end)
+            
+            for i in range(1,len(path)):
+                path_elem = path[i]
+                prev_path_elem = path[i-1]
+                                
+                prev_path_elem[-1] = path_elem[-1]
+                
+                if i == len(path)-1:
+                    path_elem[-1] = None
+            
+            def compute_delta_P(path, components):
+                """
+                path: list of [component_name, entrance_port, exit_port_of_prev]
+                components: dict of component_name -> component object
+                
+                Returns: dict of component_name -> delta_P
+                         Only for components with both entrance and exit ports not None
+                         Uses DP_c if port has '_C', DP_h if port has '_H'
+                """
+                delta_Ps = {}
+            
+                for comp_name, entrance_port, exit_port in path:
+                    # Skip components with None ports
+                    if entrance_port is None or exit_port is None:
+                        continue
+            
+                    comp = components[comp_name].model  # use model to access DP_c / DP_h
+            
+                    # Determine suffix
+                    suffix = ""
+                    if entrance_port.endswith("_C") or exit_port.endswith("_C"):
+                        suffix = "_C"
+                    elif entrance_port.endswith("_H") or exit_port.endswith("_H"):
+                        suffix = "_H"
+            
+                    # Assign delta_P based on suffix
+                    if suffix == "_C":
+                        delta_Ps[comp_name] = getattr(comp, "DP_c", 0)
+                    elif suffix == "_H":
+                        delta_Ps[comp_name] = getattr(comp, "DP_h", 0)
+                    else:
+                        # fallback if no suffix
+                        delta_Ps[comp_name] = 0
+            
+                return delta_Ps
+            
+            self.delta_Ps = compute_delta_P(path, components)
+            
+            self.DP = sum(self.delta_Ps.values())
+            
+            return self.DP
             
         def check(self, target_value, objective_connector, var):
             if abs((target_value - self.objective_value)/self.objective_value) < self.tol:
@@ -141,7 +256,6 @@ class RecursiveCircuit(BaseCircuit):
                 self.fixed_properties[fix_prop.name] = fix_prop
 
         return 
-
 
 #%% Variable set related methods
 
@@ -305,6 +419,8 @@ class RecursiveCircuit(BaseCircuit):
 
         for arg_name in kwargs:
 
+            # self.set_residual_variable(target = target, variable=arg_name)
+
             value = kwargs[arg_name]
             guess = RecursiveCircuit.Guess(target, arg_name, value)
 
@@ -407,7 +523,7 @@ class RecursiveCircuit(BaseCircuit):
                 raise ValueError(f"{objective} not part of the fixed_properties. Cannot be defined as an non-linking objective.")
         
         return
-
+    
 #%%
 
     def print_guesses(self):
@@ -439,6 +555,182 @@ class RecursiveCircuit(BaseCircuit):
         
         return
 
+#%% Plot 
+
+    import matplotlib.pyplot as plt
+    from typing import List
+    
+    def plot_thermo_cycle(self, axes: str = 'Ts'):
+        """
+        Plot thermo cycle for each component in self.components.
+    
+        axes:
+            'Ts' → Temperature–entropy diagram
+            'Ph' → Pressure–enthalpy diagram
+        """
+        plt.figure()
+    
+        # --- Axis configuration ---
+        if axes == 'Ts':
+            x_attr, y_attr = 's', 'T'
+            xlabel, ylabel = 's', 'T'
+            title = 'Thermodynamic cycle (T–s)'
+        elif axes == 'ph':
+            x_attr, y_attr = 'h', 'p'
+            xlabel, ylabel = 'h', 'p'
+            title = 'Thermodynamic cycle (P–h)'
+        else:
+            raise ValueError(f"Unsupported axes mode: {axes}")
+            
+        self.groups_comp = {}
+        
+        for component in self.components:
+            model = self.components[component].model
+    
+            prefix_supply = "su"
+            prefix_exhaust = "ex"
+    
+            supply_connectors = []
+            exhaust_connectors = []
+    
+            supply_suffixes = []
+            exhaust_suffixes = []
+    
+            # 1) collect connector attribute names and suffixes
+            for attr in vars(model):
+                if attr.startswith(prefix_supply):
+                    supply_connectors.append(attr)
+                    supply_suffixes.append(attr.removeprefix(prefix_supply))
+                elif attr.startswith(prefix_exhaust):
+                    exhaust_connectors.append(attr)
+                    exhaust_suffixes.append(attr.removeprefix(prefix_exhaust))
+    
+            # only keep suffixes that exist in both sets
+            common_suffixes = sorted(set(supply_suffixes) & set(exhaust_suffixes))
+    
+            # Build groups: one group per common suffix
+            groups = []
+            for suffix in common_suffixes:
+                groups.append({
+                    "supply": [getattr(model, prefix_supply + suffix)],
+                    "exhaust": [getattr(model, prefix_exhaust + suffix)],
+                })
+    
+            # Collect unmatched connectors
+            unmatched_supply = [
+                s for s in supply_connectors
+                if s.removeprefix(prefix_supply) not in common_suffixes
+            ]
+            unmatched_exhaust = [
+                e for e in exhaust_connectors
+                if e.removeprefix(prefix_exhaust) not in common_suffixes
+            ]
+    
+            if unmatched_supply or unmatched_exhaust:
+                groups.append({
+                    "supply": [getattr(model, c) for c in unmatched_supply],
+                    "exhaust": [getattr(model, c) for c in unmatched_exhaust]
+                })
+    
+            for group in groups:                
+                new_group = []
+                
+                for connector in group['supply']:
+                    dic = {
+                        x_attr : getattr(connector, x_attr),
+                        y_attr : getattr(connector, y_attr)
+                        }
+                    
+                    new_group.append(dic)
+
+                # print(groups[group])
+                group['supply'] = new_group
+                
+                new_group = []
+                for connector in group['exhaust']:
+                    dic = {
+                        x_attr : getattr(connector, x_attr),
+                        y_attr : getattr(connector, y_attr)
+                        }
+                    
+                    new_group.append(dic)
+
+                # print(groups[group])
+                group['exhaust'] = new_group
+    
+            self.groups_comp[component] = groups
+    
+        for component, groups in self.groups_comp.items():
+            for group in groups:
+                supply_points = group['supply']
+                exhaust_points = group['exhaust']
+        
+                # Determine how many segments we have
+                n = max(len(supply_points), len(exhaust_points))
+        
+                # Helper: pad shorter list with last point
+                def pad_points(points, target_len):
+                    if not points:
+                        return [{'x': None, 'y': None}] * target_len
+                    if len(points) >= target_len:
+                        return points[:target_len]
+                    return points + [points[-1]] * (target_len - len(points))
+        
+                supply_points = pad_points(supply_points, n)
+                exhaust_points = pad_points(exhaust_points, n)
+        
+                # Plot a line between each supply-exhaust pair
+                for su, ex in zip(supply_points, exhaust_points):
+                    xs = [su[x_attr], ex[x_attr]]
+                    ys = [su[y_attr], ex[y_attr]]
+        
+                    if None not in xs and None not in ys:
+                        plt.plot(xs, ys, 'b-o')  # you can change color/style
+    
+        # --- Plot saturation curve using CoolProp ---
+        fluid = self.fluid
+        
+        if fluid:
+            if axes == 'Ts':
+                # T–s saturation curve
+                P_min = PropsSI('Pcrit', fluid) * 0.1
+                P_max = PropsSI('Pcrit', fluid)
+                P_vals = np.logspace(np.log10(P_min), np.log10(P_max), 200)
+                s_liq, s_vap, T_liq, T_vap = [], [], [], []
+        
+                for P in P_vals:
+                    try:
+                        T_liq.append(PropsSI('T', 'P', P, 'Q', 0, fluid))
+                        T_vap.append(PropsSI('T', 'P', P, 'Q', 1, fluid))
+                        s_liq.append(PropsSI('S', 'P', P, 'Q', 0, fluid))
+                        s_vap.append(PropsSI('S', 'P', P, 'Q', 1, fluid))
+                    except:
+                        continue
+        
+                plt.plot(s_liq, T_liq, 'k--', label='Saturation liquid')
+                plt.plot(s_vap, T_vap, 'k--', label='Saturation vapor')
+        
+            elif axes == 'Ph':
+                # P–h saturation curve
+                T_min = PropsSI('Ttriple', fluid)
+                T_max = PropsSI('Tcrit', fluid)
+                T_vals = np.linspace(T_min, T_max, 200)
+                P_liq, P_vap, h_liq, h_vap = [], [], [], []
+        
+                for T in T_vals:
+                    try:
+                        P_liq.append(PropsSI('P', 'T', T, 'Q', 0, fluid))
+                        P_vap.append(PropsSI('P', 'T', T, 'Q', 1, fluid))
+                        h_liq.append(PropsSI('H', 'T', T, 'Q', 0, fluid))
+                        h_vap.append(PropsSI('H', 'T', T, 'Q', 1, fluid))
+                    except:
+                        continue
+        
+                plt.plot(h_liq, P_liq, 'k--', label='Saturation liquid')
+                plt.plot(h_vap, P_vap, 'k--', label='Saturation vapor')
+
+        plt.show()
+
 #%% Solve related methods
 
     def check_all_component_solved(self):
@@ -462,10 +754,6 @@ class RecursiveCircuit(BaseCircuit):
         component = self.get_component(component_name)
         component_model = component.model
 
-        # !!!
-        if component_name == 'Expander_1':
-            print(f"P_su_exp : {component_model.su.p}")
-
         if component_model.solved:
             return
 
@@ -473,8 +761,37 @@ class RecursiveCircuit(BaseCircuit):
         component_model.check_parametrized()
         
         if component_model.parametrized:
-            if component_model.calculable:        
+            if component_model.calculable:    
+                save = {}
+                for next_connector in component.next:
+                    type_connector, connector_name = next_connector.split("-")
+                    if type_connector == "m":
+                        connector = getattr(component_model, connector_name)
+                        save[next_connector] = {'p' : connector.p, 'h' : connector.h}
+                    
                 component_model.solve()
+                
+                save_new = {}
+                for next_connector in component.next:
+                    type_connector, connector_name = next_connector.split("-")
+                    if type_connector == "m":
+                        connector = getattr(component_model, connector_name)
+                        save_new[next_connector] = {'p' : connector.p, 'h' : connector.h}
+                
+                tol = 1e-2
+                
+                for connector in save:
+                    for prop in save[connector]:
+                        value_prev = save[connector][prop]
+                        value_new = save_new[connector][prop]
+                        
+                        if value_prev is not None:
+                            delta = abs((value_new - value_prev)/value_prev)
+                            # print(f"delta : {delta} for {connector} - {prop}")
+                            if delta > tol:
+                                component.next[connector].model.solved = False
+                            
+                        
             else:
                 return
         else:
@@ -503,11 +820,22 @@ class RecursiveCircuit(BaseCircuit):
         
         if self.check_all_component_solved():
             if self.print_flag:
-                print("All components solved in first iteration.")
+                print("All components solved in setup iteration.")
             pass
         else:
+            # for start_component in self.solve_start_components:
+            #     self.recursive_solve(start_component)
+            #     if self.check_all_component_solved():
+            #         break
+            
             if self.print_flag:
-                print("Not all components were solved in first iteration.")
+                self.blocking_comp = []
+                for component in self.components:     
+                    if not self.components[component].model.check_calculable():
+                        self.blocking_comp.append(component)
+                
+                print("Not all components were solved in setup iteration.")
+                print(f"{self.blocking_comp} is/are not calculable.")
             return
         
         # print("Set residual variables")
@@ -522,25 +850,35 @@ class RecursiveCircuit(BaseCircuit):
             self.res_vars[res_var_name].set_value(value)
 
         self.guess_update = True
+        
+        self.convergence_frames.append(self.plot_cycle_Ts(plot_auto = False))
 
         i=0
         n_it_max = 30   
         
         while i < n_it_max:
- 
+            if self.print_flag:
+                print(f"Iteration {i+1}")
+            
             for it_var in self.it_vars:
                 
-                if "Link" in it_var.objective:                    
+                if "Link" in it_var.objective:        
+                    
                     _, obj_comp_name, port_var = it_var.objective.split(":")
                     port_name, variable = port_var.split("-")
-                    
+
+                    if variable == 'p':
+                        gain = it_var.find_link_DP(self.components)
+                    else:
+                        gain = 0
+                        
                     connector_obj = getattr(self.components[obj_comp_name].model, port_name)
                     value_obj = getattr(connector_obj, variable)
                     
                     for target in it_var.target:
                         kwargs_dict = {'target': target,
-                                        it_var.variable : value_obj}
-                        
+                                        it_var.variable : value_obj+gain}
+                                                
                         self.set_cycle_guess(**kwargs_dict)
                         
                     it_var.converged = True
@@ -660,13 +998,38 @@ class RecursiveCircuit(BaseCircuit):
         
             if self.converged:
                 if self.print_flag:
-                    print(f"Solver successfully converged in {i+2} iteration(s) !")
+                    print(f"Solver successfully converged in {i+1} iteration(s) !")
+                    
                 return
             
+            self.convergence_frames.append(self.plot_cycle_Ts(plot_auto=False))
+            
             i = i + 1
+
+        # plt.figure()
+        # plt.plot(res_ev, 'r',  marker='o')                            
+        # plt.show()
         
         if self.print_flag:
             print(f"Solver failed to converge in {n_it_max} iterations.")
         
+        # self.print_res_vars()
+        
+        # plt.figure()
+        
+        # plt.plot(m_dot_su_pp, 'r')
+        # plt.plot(m_dot_ex_pp, 'g',  marker='o')
+        # plt.plot(m_dot_su_spli, 'b')
+        # plt.plot(m_dot_ex_mix, 'k',  marker='o')
+        # plt.plot(m_dot_ex_cd, 'orange',  marker='o')
+        
+        # plt.legend(['su_pp', 'ex_pp', 'su_spli', 'ex_mix', 'ex_cd'])
+        
+        # plt.figure()
+        # plt.plot(P_cd, 'r')
+        
+        # plt.legend(['P_cd'])
+        
         return
+    
     

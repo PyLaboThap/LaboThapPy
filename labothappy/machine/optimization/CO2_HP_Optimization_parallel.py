@@ -7,8 +7,8 @@ Adapted for multiprocessing-based PSO with optimizer return
 
 #%% Imports
 
-from machine.examples.CO2_Heat_Pumps.CO2_HeatPump_circuit import IHX_CO2_HP, IHX_EXP_CO2_HP
-from connector.mass_connector import MassConnector
+from labothappy.machine.examples.CO2_Heat_Pumps.CO2_HeatPump_circuit import IHX_CO2_HP, IHX_EXP_CO2_HP
+from labothappy.connector.mass_connector import MassConnector
 
 import numpy as np
 import CoolProp.CoolProp as CP

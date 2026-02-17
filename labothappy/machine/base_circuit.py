@@ -133,9 +133,12 @@ class BaseCircuit:
 
         # Properties and guesses
         self.print_flag = 1
+        self.plot_flag = 1
         self.fluid = fluid
         self.parameters = {}
         self.converged = False
+
+        self.convergence_frames = []
 
 #%% Component related methods
 
@@ -261,63 +264,21 @@ class BaseCircuit:
             self.components[component_name].model.mute_print()
         
         return
-    
-#%% Ph-Plot related methods
 
-    def get_p_h(self, component_name, h, p, start_flag):
-        
-        if start_flag == 0:
-            if component_name == self.solve_start_components[0]:
-                return h, p
-        
-        component = self.components[component_name]
-        component_model = component.model
-        
-        for input_port in component.previous:
-            
-            connector_type, input_port_name = input_port.split("-")
-            
-            if connector_type == 'm':
-                connector = getattr(self.components[component_name].model, input_port_name, None)
-            
-            if connector.fluid == self.fluid:
-                h.append(connector.h)
-                p.append(connector.p)                    
-        
-        for output_port in component.next:
-            
-            connector_type, output_port_name = output_port.split("-")
-            
-            if connector_type == 'm':
-                connector = getattr(self.components[component_name].model, output_port_name, None)
-            
-                if connector.fluid == self.fluid:
-                    h.append(connector.h)
-                    p.append(connector.p)        
-                    
-                    next_comp_name = self.components[component_name].next[output_port].name
-                    
-                    self.get_p_h(next_comp_name, h, p, 0)
-                
-        return h, p
 
-    def ph_plot(self):
+    def mute_plot(self):
+        self.plot_flag = 0
         
-        h = []
-        p = []
-        
-        h, p = self.get_p_h(self.solve_start_components[0], h, p, 1)
-    
-        plt.figure()
-    
-        for i in range(len(h)):
-            plt.plot(h,p)
-    
         return
 
 #%% Ts-Plot related methods
 
-    def plot_cycle_Ts(self, saturation_curve = True):
+    def plot_cycle_Ts(self, saturation_curve = True, plot_auto = True):
+        
+        if plot_auto:
+            plt.ion()
+        else:
+            plt.ioff()
         
         fig = plt.figure()
         
@@ -393,4 +354,29 @@ class BaseCircuit:
             else:
                 fig = model.plot_Ts(fig = fig)
         
+        if plot_auto:
+            return fig
+        else:
+            fig_to_return = fig
+            plt.close(fig)
+            return fig_to_return
+    
+    def Ts_gif(self):
+        
+        import numpy as np
+        import imageio
+        import matplotlib.pyplot as plt
+        
+        frames = []
+        
+        for fig in self.convergence_frames:
+            fig.canvas.draw()
+        
+            img = np.frombuffer(fig.canvas.tostring_rgb(), dtype='uint8')
+            img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+        
+            frames.append(img)
+        
+        imageio.mimsave("Ts_convergence.gif", frames, duration=5.0)
+                
         return

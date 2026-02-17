@@ -1,9 +1,9 @@
-from machine.circuit_rec import RecursiveCircuit
-from connector.mass_connector import MassConnector
-from component.compressor.compressor_csteff import CompressorCstEff
-from component.heat_exchanger.hex_cstpinch import HexCstPinch
-from component.valve.valve_isenthalpic import ValveIsenthalpic
-from component.heat_exchanger.hex_csteff import HexCstEff
+from labothappy.machine.circuit_rec import RecursiveCircuit
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.component.compressor.compressor_csteff import CompressorCstEff
+from labothappy.component.heat_exchanger.hex_cstpinch import HexCstPinch
+from labothappy.component.valve.valve_isenthalpic import ValveIsenthalpic
+from labothappy.component.heat_exchanger.hex_csteff import HexCstEff
 
 from CoolProp.CoolProp import PropsSI
 
@@ -50,11 +50,11 @@ HP.link_components("Recuperator", "m-ex_C", "Compressor", "m-su")
 
 # Add fluid sources
 CD_source = MassConnector('Water')
-T_su_w_cd = 50+273.15
+T_su_w_cd = 60+273.15
 P_su_w_cd = 3e5
 m_dot_w_cd = 0.5  # kg/s
 EV_source = MassConnector('Water')
-T_su_w_ev = 20+273.15
+T_su_w_ev = 10+273.15
 P_su_w_ev = 1e5
 m_dot_w_ev = 5  # kg/s
 
@@ -73,8 +73,8 @@ m_dot_CS = 5 # kg/s
 m_dot_ref = 0.2 # kg/s
 
 # Cycle guess values
-P_low = PropsSI("P", "T", T_CS-10, "Q", 1, fluid)
-P_high = PropsSI("P", "T", T_HS+10, "Q", 0, fluid)
+P_low = PropsSI("P", "T", T_CS-5, "Q", 1, fluid)
+P_high = PropsSI("P", "T", T_HS+5, "Q", 0, fluid)
 
 HP.set_cycle_guess(target="Compressor:su", m_dot = m_dot_ref, SH=SH_ev, p=P_low)
 HP.set_cycle_guess(target="Compressor:ex", p=P_high)

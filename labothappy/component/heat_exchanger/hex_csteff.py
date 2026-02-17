@@ -99,32 +99,65 @@ class HexCstEff(BaseComponent):
             self.su_H.m_dot = self.su_C.m_dot
         
         if self.su_C.m_dot is None:
-            self.su_C.m_dot = self.su_H.m_dot            
-
+            self.su_C.m_dot = self.su_H.m_dot    
+    
         self.check_calculable()
         self.check_parametrized()
-
-        "Define Abstract State for property calculations"
-        self.AS_C = CP.AbstractState('HEOS', self.su_C.fluid)
-        self.AS_H = CP.AbstractState('HEOS', self.su_H.fluid)
-
-        "Define Q_dot_max through enthalpies"
-        self.AS_H.update(CP.PT_INPUTS, self.su_H.p, self.su_C.T) 
-        H_h_id = self.AS_H.hmass() # Ideal enthalpy computed based on cold side temperature
-        self.AS_C.update(CP.PT_INPUTS, self.su_C.p, self.su_H.T)
-        H_c_id = self.AS_C.hmass() # Ideal enthalpy computed based on hot side temperature
         
-        Q_dot_maxh = self.su_H.m_dot*abs(H_h_id-self.su_H.h)
-        Q_dot_maxc = self.su_C.m_dot*abs(H_c_id-self.su_C.h)
+        if 'DP_c' in self.params:
+            self.DP_c = self.params['DP_c']
+        else:
+            self.DP_c = 0
         
-        Q_dot_max = min(Q_dot_maxh,Q_dot_maxc)
+        if 'DP_h' in self.params:
+            self.DP_h = self.params['DP_h']
+        else:
+            self.DP_h = 0
         
-        "Heat Transfer Rate"
-        Q_dot = self.params['eta']*Q_dot_max
-
-        "Outlet states"   
-        self.update_connectors(Q_dot)
-        self.solved = True
+        try:
+            "Define Abstract State for property calculations"
+            self.AS_C = CP.AbstractState('HEOS', self.su_C.fluid)
+            self.AS_H = CP.AbstractState('HEOS', self.su_H.fluid)
+    
+            "Define Q_dot_max through enthalpies"
+            self.AS_H.update(CP.PT_INPUTS, self.su_H.p, self.su_C.T) 
+            H_h_id = self.AS_H.hmass() # Ideal enthalpy computed based on cold side temperature
+            self.AS_C.update(CP.PT_INPUTS, self.su_C.p, self.su_H.T)
+            H_c_id = self.AS_C.hmass() # Ideal enthalpy computed based on hot side temperature
+            
+            Q_dot_maxh = self.su_H.m_dot*abs(H_h_id-self.su_H.h)
+            Q_dot_maxc = self.su_C.m_dot*abs(H_c_id-self.su_C.h)
+            
+            Q_dot_max = min(Q_dot_maxh,Q_dot_maxc)
+            
+            "Heat Transfer Rate"
+            Q_dot = self.params['eta']*Q_dot_max
+    
+            "Outlet states"   
+            self.update_connectors(Q_dot)
+            self.solved = True
+            
+        except:
+            "Define Q_dot_max through C_dot"
+            self.AS_C.update(CP.PT_INPUTS, self.su_C.p, self.su_C.T)
+            cp_c = self.AS_C.cpmass()
+            
+            self.AS_H.update(CP.PT_INPUTS, self.su_H.p, self.su_H.T)
+            cp_h = self.AS_H.cpmass()
+            
+            C_dot_c = self.su_C.m_dot*cp_c
+            C_dot_h = self.su_H.m_dot*cp_h
+            
+            C_dot_min = min(C_dot_c, C_dot_h)
+            Q_dot_max = C_dot_min*(self.su_H.T-self.su_C.T)
+            
+            "Heat Transfer Rate"
+            Q_dot = self.params['eta']*Q_dot_max
+            
+            "Outlet states"   
+            self.update_connectors(Q_dot)
+            self.solved = True
+            
         return
 
     def update_connectors(self, Q_dot):
@@ -133,12 +166,12 @@ class HexCstEff(BaseComponent):
         self.ex_C.set_fluid(self.su_C.fluid)
         self.ex_C.set_m_dot(self.su_C.m_dot)
         self.ex_C.set_h(self.su_C.h + Q_dot/self.su_C.m_dot)
-        self.ex_C.set_p(self.su_C.p)
+        self.ex_C.set_p(self.su_C.p - self.DP_c)
 
         self.ex_H.set_fluid(self.su_H.fluid)
         self.ex_H.set_m_dot(self.su_H.m_dot)
         self.ex_H.set_h(self.su_H.h - Q_dot/self.su_H.m_dot)
-        self.ex_H.set_p(self.su_H.p)
+        self.ex_H.set_p(self.su_H.p - self.DP_h)
 
         "Heat conector"
         self.Q.set_Q_dot(Q_dot)
