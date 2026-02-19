@@ -2093,6 +2093,6 @@ class HexMBChargeSensitive(BaseComponent):
         print(f"  - su_H: fluid={self.su_H.fluid}, T={self.su_H.T}, p={self.su_H.p}, m_dot={self.su_H.m_dot}")
         print(f"  - ex_C: fluid={self.ex_C.fluid}, T={self.ex_C.T}, p={self.ex_C.p}, m_dot={self.ex_C.m_dot}")
         print(f"  - ex_H: fluid={self.ex_H.fluid}, T={self.ex_H.T}, p={self.ex_H.p}, m_dot={self.ex_H.m_dot}")
-        print(f"  - Q_dot: {self.Q_dot.Q_dot}")
+        # print(f"  - Q_dot: {self.Q.Q_dot}")
         print("======================")
 

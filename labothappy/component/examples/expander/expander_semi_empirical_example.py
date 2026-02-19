@@ -27,7 +27,7 @@ expander.ex.set_properties(P=1.1*1e5)
 expander.set_inputs(N_rot = 6000)
 
 # Set ambient temperature
-expander.Q_amb.set_T_cold(293)
+expander.Q_amb.set_T_amb(293)
 
 # "2. Inputs set directly"
 # expander.set_inputs(
