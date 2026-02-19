@@ -8,7 +8,9 @@ Author-email: Your Name <you@example.com>
 License: MIT
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
-License-File: LICENSE
+License-File: LICENSE.txt
+License-File: NOTICE.txt
+License-File: AUTHORS.txt
 Requires-Dist: CoolProp>=6.6.0
 Requires-Dist: numpy>=1.24
 Requires-Dist: scipy>=1.10

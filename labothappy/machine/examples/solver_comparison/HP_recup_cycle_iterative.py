@@ -66,7 +66,7 @@ m_dot_ref = 0.2 # kg/s
 SC_cd = 3  # K
 SH_ev = 3  # K
 
-HP.set_cycle_input(target="ExpansionValve:su", m_dot = m_dot_ref, SC=SC_cd)
+HP.set_cycle_input(target="ExpansionValve:su", m_dot = m_dot_ref)
 HP.set_cycle_input(target="Evaporator:ex_C", SH=SH_ev)
 HP.set_cycle_input(target="Condenser:ex_H", m_dot = m_dot_ref, SC=SC_cd)
 
@@ -121,3 +121,4 @@ HP.set_residual_variable(
 # Solve circuit
 HP.solve()
 print(f"Converged at P_HP = {Compressor.ex.p}, P_LP = {Compressor.su.p}")
+# HP.print_states()

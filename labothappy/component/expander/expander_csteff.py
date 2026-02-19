@@ -105,8 +105,8 @@ class ExpanderCstEff(BaseComponent):
             h_ex_is = self.AS.hmass()
             
             
-            h_ex = self.su.h - (self.su.h - h_ex_is) / self.params["eta_is"]
-            w_exp = self.su.h - h_ex #Specific work 
+            h_ex = self.su.h - (self.su.h - h_ex_is) * self.params["eta_is"]
+            w_exp = self.su.h - h_ex # Specific work 
             
             # Set exhaust mass flow rate equal to suction (mass conserved)
             self.ex.set_m_dot(self.su.m_dot)

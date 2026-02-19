@@ -125,6 +125,7 @@ class HexCstEff(BaseComponent):
         "Outlet states"   
         self.update_connectors(Q_dot)
         self.solved = True
+        self.print_states_connectors()
         return
 
     def update_connectors(self, Q_dot):
