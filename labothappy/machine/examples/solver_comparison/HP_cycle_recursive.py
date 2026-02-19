@@ -87,5 +87,5 @@ HP.set_residual_variable(target="ExpansionValve:ex", variable="p", tolerance=1e3
 
 HP.solve()
 print(f"Converged at P_HP = {Compressor.ex.p}, P_LP = {Compressor.su.p}")
-
+HP.print_states()
 

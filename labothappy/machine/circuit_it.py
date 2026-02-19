@@ -181,8 +181,8 @@ class IterativeCircuit(BaseCircuit):
                 if rv["scale"] is not None
                 else self._default_residual_scale(rv["variable"])
             )
-
             residuals.append(raw / scale)
+            # print("residuals", residuals)
         return np.array(residuals, dtype=float)
 
 
@@ -231,6 +231,7 @@ class IterativeCircuit(BaseCircuit):
 
         # Convergence check
         residuals = self._solve_circuit(sol)
+        # print('residuals', residuals)
         self.converged = np.all(np.abs(residuals) < 1.0)
 
 

@@ -281,7 +281,6 @@ class MassConnector:
         
         # 2) Calculate properties based on two known variables
         AS_inputs, reversed_flag = self.get_AS_inputs(self.variables_input[0][0], self.variables_input[1][0])
-             
         try:
             if not reversed_flag:
                 self.AS.update(AS_inputs, self.variables_input[0][1], self.variables_input[1][1])
@@ -332,6 +331,7 @@ class MassConnector:
                 warnings.warn(f"Error: Invalid property '{key}'")
         
     def set_fluid(self, value):
+        # print('set_fluid', value)
         if self.fluid != None:
             pass
         elif self.fluid == None:
@@ -407,6 +407,7 @@ class MassConnector:
         self.check_completely_known()
         
     def set_h(self, value):
+        # print('set_h', value)
         if self.h != None: # If the specific enthalpy is already known, update the value and the corresponding variable in the list
             self.h = value
             

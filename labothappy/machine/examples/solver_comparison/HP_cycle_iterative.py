@@ -25,7 +25,7 @@ SC_cd = 3  # K
 Pinch_ev = 3  # K
 SH_ev = 3  # K
 
-Compressor.set_parameters(eta_is=0.8)
+Compressor.set_parameters(eta_is=eta_is_cp)
 Condenser.set_parameters(Pinch=Pinch_cd, Delta_T_sh_sc=SC_cd, HX_type="condenser")
 Evaporator.set_parameters(Pinch=Pinch_ev, Delta_T_sh_sc=SH_ev, HX_type="evaporator")
 
@@ -100,3 +100,4 @@ HP.set_residual_variable(
 # Solve circuit
 HP.solve()
 print(f"Converged at P_HP = {Compressor.ex.p}, P_LP = {Compressor.su.p}")
+HP.print_states()

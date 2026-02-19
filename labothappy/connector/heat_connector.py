@@ -6,6 +6,7 @@ Created on Tue Sep 10 14:09:18 2024
 @email: elise.neven@uliege.be
 
 """
+import warnings
 
 class HeatConnector:
     """
@@ -47,6 +48,18 @@ class HeatConnector:
         self.Q_dot = None             # Heat power [W]
         self.T_hot = None             # Hot temperature [K]
         self.T_cold = None            # Cold temperature [K]
+
+    def set_properties(self, **kwargs):
+        print("heat connector:", kwargs)
+        for key, value in kwargs.items():
+            if key == 'Q_dot':
+                self.set_Q_dot(value)
+            elif key == 'T_hot':
+                self.set_T_hot(value)
+            elif key == 'T_cold':
+                self.set_T_cold(value)
+            else:
+                warnings.warn(f"Error: Invalid property '{key}'")
 
     def calculate_properties(self):
         pass
