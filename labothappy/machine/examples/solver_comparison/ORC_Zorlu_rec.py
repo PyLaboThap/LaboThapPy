@@ -12,8 +12,11 @@ import numpy as np
 
 #%% Instanciate Circuit
 
-T_guess_ev = np.linspace(120,160,21) + 273.15
-T_guess_cd = np.linspace(100,130,16) + 273.15
+# T_guess_ev = np.linspace(120,160,21) + 273.15
+# T_guess_cd = np.linspace(100,130,16) + 273.15
+
+T_guess_cd = [15+273.15]
+T_guess_ev = [141+273.15]
 
 SC_cd_vec = np.linspace(1,1,1)
 SH_ev_vec = np.linspace(3,3,1)
@@ -35,7 +38,7 @@ for T_cd in T_guess_cd:
                 ORC = RecursiveCircuit(fluid)
 
                 # Ignore debug printing
-                ORC.mute_print()
+                # ORC.mute_print()
                 
                 # Create components
                 Pump = PumpCstEff()
@@ -66,7 +69,7 @@ for T_cd in T_guess_cd:
                     Delta_T_sh_sc=SC_cd, 
                     HX_type="condenser", 
                     DP_c = 0,
-                    DP_h = 15*1e3)
+                    DP_h = 0*1e3)
                 
                 Expander.set_parameters(eta_is=eta_is_exp)
                 
@@ -74,17 +77,17 @@ for T_cd in T_guess_cd:
                     Pinch=Pinch_ev, 
                     Delta_T_sh_sc=SH_ev, 
                     HX_type="evaporator",
-                    DP_c = 50*1e3,
+                    DP_c = 0*1e3,
                     DP_h = 0)
                 
                 Recuperator.set_parameters(
                     eta=eff_rec,
-                    DP_c = 50*1e3,
-                    DP_h = 10*1e3)
+                    DP_c = 0*1e3,
+                    DP_h = 0*1e3)
                 
                 Preheater.set_parameters(
                     eta=eff_pre,
-                    DP_c = 50*1e3,
+                    DP_c = 0*1e3,
                     DP_h = 0)
                 
                 #%% Add components to circuit
@@ -165,27 +168,27 @@ for T_cd in T_guess_cd:
                 ORC.set_iteration_variable(target=['Expander:ex'], variable='p', objective = 'Link:Condenser:su_H-p', tol = 1e-2, rel = 1, damping_factor = damping, cycle = ORC)
                 ORC.set_iteration_variable(target=['Pump:ex'], variable='p', objective = 'Link:Evaporator:su_C-p', tol = 1e-2, rel = 1, damping_factor = damping, cycle = ORC)
                 
-                try: 
-                    start = time.perf_counter()
-                    ORC.solve()                    
-                    end = time.perf_counter()
+                # try: 
+                start = time.perf_counter()
+                ORC.solve()                    
+                end = time.perf_counter()
 
-                    elapsed = end - start
+                elapsed = end - start
 
-                    if ORC.converged:
-                        print(f"Success !")
-                        successes += 1
-                        success_time += elapsed
-                    else:
-                        print(f"Failure... (conv)")
-                        failures += 1
-                except:
-                    print(f"Failure...")
+                if ORC.converged:
+                    print(f"Success !")
+                    successes += 1
+                    success_time += elapsed
+                else:
+                    print(f"Failure... (conv)")
+                #         failures += 1
+                # except:
+                #     print(f"Failure...")
                 
     # HP.plot_cycle_Ts() 
     
 print(f"Success : {successes}/{tries} {round(successes/tries * 100,2)} %")
-print(f"Success Avg Time : {round(success_time/successes,5)} s")                
+print(f"Success Avg Time : {round(success_time/(successes+1e-8),5)} s")                
 # ORC.plot_cycle_Ts()
 
 # print(f"Converged at P_HP = {Pump.ex.p}, P_LP = {Pump.su.p}")

@@ -556,3 +556,8 @@ class MassConnector:
         print("Mass density: " + str(self.D) + "[kg/m^3]")
         print("Quality: " + str(self.x) + "[-]")
 
+
+    def reset(self):
+        self.T = None
+        self.h = None
+        self.m_dot = None

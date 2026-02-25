@@ -181,6 +181,8 @@ def shell_htc_kern(m_dot, T_wall, T_in, P_in, AS, params):
     S_T = s_max_kern(params['Tube_OD'], params['pitch_ratio'], params['Shell_ID'], params['central_spacing'], params['tube_layout']) # m^
     D_hydro = d_h(params['Tube_OD'], params['pitch_ratio'], params['tube_layout'])
 
+    print(mu)
+
     V_t = m_dot/(S_T*rho)
     
     Re = rho*V_t*(D_hydro/mu)
@@ -287,6 +289,7 @@ def bell_delaware_coefs(layout_angle, Re):
             [0.37, -0.395, 1.187, 0.37],
             #[0.37, -0.395, 1.187, 0.37]  # Extend the last value for extrapolation
         ]
+        
         b_values = [
             [35, -1, 6.3, 0.378],
             [35, -1, 6.3, 0.378],
@@ -390,7 +393,7 @@ def shell_bell_delaware_htc(m_dot_shell, T_shell, T_shell_w, P_shell, shell_flui
     # Effective sections and hydraulic diameter
     S_T = s_max(params['Tube_OD'], params['pitch_ratio'], params['Shell_ID'], params['central_spacing'], params['tube_layout']) # m^2
     S_L = s_L(params['Baffle_cut'], params['Shell_ID'], params['n_tubes'], params['Tube_OD']) # m^2
-
+    
     # Transversal to tube Flow speed and Reynolds number
     G_s = m_dot_shell/S_T
     
@@ -494,4 +497,47 @@ def shell_bell_delaware_htc(m_dot_shell, T_shell, T_shell_w, P_shell, shell_flui
     
     h = h_id*J_c*J_l*J_b*J_r*J_s
     
+    print(f"h_id : {h_id}")
+    print(f"J_c : {J_c}")
+    print(f"J_l : {J_l}")
+    print(f"J_b : {J_b}")
+    print(f"J_r : {J_r}")
+    print(f"J_s : {J_s}")
+
+    
     return h
+
+
+if __name__ == "__main__":
+    m_dot = 150000/3600
+    T_wall = 487.56
+    T_in = 327 # 293.15
+    P_in = 3*101325
+    fluid = 'Water'
+
+    AS = CP.AbstractState('HEOS', fluid)
+    
+    Ds = 1
+    params = {
+        'Baffle_cut' : 25,
+        'central_spacing' : 0.6*Ds,
+        'clear_TB' : 0.00622,
+        'clear_BS' : 0.01487,
+        'D_OTL' : Ds-0.02,
+        'inlet_spacing' : 0.6*Ds,        
+        'outlet_spacing' : 0.6*Ds,
+        'n_tubes' : 445,
+        'N_strips' : 2,
+        'pitch_ratio' : 1.5,
+        'Shell_ID' : Ds,
+        'tube_layout' : 0,
+        'Tube_L' : 3,
+        'Tube_OD' : 0.027,
+        'Tubesheet_t' : 0.1*Ds,
+        }
+    
+    h_kern, Re_kern, Pr_kern = shell_htc_kern(m_dot, T_wall, T_in, P_in, AS, params)
+
+
+    h_BD = shell_bell_delaware_htc(m_dot, T_in, T_wall, P_in, fluid, params)
+

@@ -362,21 +362,49 @@ class BaseCircuit:
             return fig_to_return
     
     def Ts_gif(self):
-        
-        import numpy as np
+
         import imageio
-        import matplotlib.pyplot as plt
-        
+    
         frames = []
-        
-        for fig in self.convergence_frames:
+        n_frames = len(self.convergence_frames)
+    
+        for i, fig in enumerate(self.convergence_frames):
+    
+            # --- Add progress bar axis ---
+            # Remove previous progress bar if it exists
+            if hasattr(fig, "_progress_ax"):
+                fig._progress_ax.remove()
+    
+            progress_ax = fig.add_axes([0.1, 0.02, 0.8, 0.04])  # [left, bottom, width, height]
+            progress_ax.set_xlim(0, 1)
+            progress_ax.set_ylim(0, 1)
+    
+            progress = (i + 1) / n_frames
+            progress_ax.barh(0.5, progress, height=0.6)
+            progress_ax.set_xticks([])
+            progress_ax.set_yticks([])
+            progress_ax.set_frame_on(True)
+    
+            progress_ax.text(
+                0.5, 0.5,
+                f"Iteration {i+1}/{n_frames}",
+                ha="center",
+                va="center",
+                fontsize=8,
+                color="black",
+                weight="bold"
+            )
+    
+            fig._progress_ax = progress_ax  # store reference
+    
+            # --- Render figure ---
             fig.canvas.draw()
-        
-            img = np.frombuffer(fig.canvas.tostring_rgb(), dtype='uint8')
+    
+            img = np.frombuffer(fig.canvas.tostring_rgb(), dtype="uint8")
             img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-        
+    
             frames.append(img)
-        
-        imageio.mimsave("Ts_convergence.gif", frames, duration=5.0)
-                
+    
+        imageio.mimsave("Ts_convergence.gif", frames, duration=len(self.convergence_frames)/2)
+    
         return

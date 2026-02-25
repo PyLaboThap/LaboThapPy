@@ -4,7 +4,7 @@ from labothappy.component.heat_exchanger.hex_cstpinch import HexCstPinch
 # from simulation_model import HXPinchCst
 import numpy as np
 
-case_test = 'EVAP_C3'
+case_test = 'EVAP_HP_ZORLU'
 
 "Evaporator test"
 
@@ -28,6 +28,39 @@ if case_test == 'EVAP_C5':
     EVAP.set_parameters(**{
         'Pinch': 4,
         'Delta_T_sh_sc': 10,
+        'HX_type': 'evaporator'
+    })
+    
+    EVAP.solve()
+    EVAP.print_results()
+    EVAP.print_states_connectors()
+    EVAP.plot_disc()
+    
+    fig = EVAP.plot_Ts(choose_HX_side='C')
+    fig.show()
+    
+    EVAP.equivalent_effectiveness()
+
+elif case_test == 'EVAP_HP_ZORLU':
+
+    # # # Exo ORC M&S
+    EVAP = HexCstPinch()
+    
+    EVAP.set_inputs(
+        fluid_C = 'Cyclopentane',
+        h_su_C = 166132,
+        P_su_C = 493215,
+        m_dot_C = 19.99,
+    
+        fluid_H = 'Water',
+        T_su_H = 113.1+273.15,
+        P_su_H = 189*1e3,
+        m_dot_H = 497.6,
+    )
+    
+    EVAP.set_parameters(**{
+        'Pinch': 3,
+        'Delta_T_sh_sc': 1,
         'HX_type': 'evaporator'
     })
     

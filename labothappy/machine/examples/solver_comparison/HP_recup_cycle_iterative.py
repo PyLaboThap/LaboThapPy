@@ -66,7 +66,8 @@ m_dot_ref = 0.2 # kg/s
 SC_cd = 3  # K
 SH_ev = 3  # K
 
-HP.set_cycle_input(target="ExpansionValve:su", m_dot = m_dot_ref, SC=SC_cd)
+HP.set_cycle_input(target="ExpansionValve:su", m_dot = m_dot_ref)
+HP.set_cycle_input(target="Compressor:su", m_dot = m_dot_ref)
 HP.set_cycle_input(target="Evaporator:ex_C", SH=SH_ev)
 HP.set_cycle_input(target="Condenser:ex_H", m_dot = m_dot_ref, SC=SC_cd)
 
@@ -84,7 +85,14 @@ HP.set_iteration_variable(
 )
 
 HP.set_iteration_variable(
-    target="ExpansionValve:ex",
+    target=["Compressor:su"],
+    variable="SH",
+    guess=SH_ev*2,
+    tolerance=1e-6
+)
+
+HP.set_iteration_variable(
+    target=["ExpansionValve:ex", "Compressor:su"],
     variable="p",
     guess=P_LP_guess,
     tolerance=1e-6

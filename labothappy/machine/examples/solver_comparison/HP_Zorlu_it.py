@@ -40,19 +40,19 @@ Condenser.set_parameters(
     Delta_T_sh_sc=SC_cd, 
     HX_type="condenser",
     DP_c = 0*1e3,
-    DP_h = 50*1e3)
+    DP_h = 0*1e3)
 
 Evaporator.set_parameters(
     Pinch=Pinch_ev, 
     Delta_T_sh_sc=SH_ev, 
     HX_type="evaporator",
-    DP_c = 15*1e3,
-    DP_h = 50*1e3)
+    DP_c = 0*1e3,
+    DP_h = 0*1e3)
 
 Recuperator.set_parameters(
     eta=eff_rec,
-    DP_c = 10*1e3,
-    DP_h = 50*1e3)
+    DP_c = 0*1e3,
+    DP_h = 0*1e3)
 
 # Add components to circuit
 HP.add_component(Compressor, "Compressor")
@@ -77,7 +77,7 @@ m_dot_w_cd = 10000  # kg/s
 EV_source = MassConnector('Water')
 T_su_w_ev = 113.1+273.15
 P_su_w_ev = 189*1e3
-m_dot_w_ev = 500  # kg/s
+m_dot_w_ev = 497.6  # kg/s
 
 HP.add_source("CD_Water", CD_source, HP.components["Condenser"], "m-su_C")
 HP.set_source_properties(T=T_su_w_cd, fluid='Water', P=P_su_w_cd, m_dot = m_dot_w_cd, target="CD_Water")
@@ -89,25 +89,26 @@ m_dot_ref = 19.31* 1.0352594687116445  # kg/s
 
 #%% Cycle guess values
 
-HP.set_cycle_input(target="ExpansionValve:su", m_dot = m_dot_ref, SC=SC_cd)
+HP.set_cycle_input(target="ExpansionValve:su", m_dot = m_dot_ref)
+HP.set_cycle_input(target="Compressor:su", m_dot = m_dot_ref)
 HP.set_cycle_input(target="Evaporator:ex_C", SH=SH_ev)
 HP.set_cycle_input(target="Condenser:ex_H", m_dot = m_dot_ref, SC=SC_cd)
 
 # Set iteration variables
-P_LP_guess = PropsSI("P", "T", T_su_w_ev-Pinch_ev-SH_ev, "Q", 1, fluid)
-P_HP_guess = PropsSI("P", "T", T_su_w_cd+Pinch_cd+SC_cd, "Q", 0, fluid)
-T_su_vlv_guess = PropsSI('T', 'P', P_HP_guess, 'Q', 0, fluid) - SC_cd - 0.1
+P_HP_guess = PropsSI("P", "T", T_su_w_cd+10, "Q", 0, fluid)
+P_LP_guess = PropsSI("P", "T", T_su_w_ev-10, "Q", 1, fluid)
+T_su_vlv_guess = PropsSI('H', 'P', P_HP_guess, 'Q', 0, fluid) - SC_cd - 0.1
 h_su_vlv_guess = PropsSI('H', 'P', P_HP_guess, 'T', T_su_vlv_guess, fluid)
 
 HP.set_iteration_variable(
-    target=["Compressor:ex", "Condenser:ex_H"],
+    target=["ExpansionValve:su", "Compressor:ex", "Condenser:ex_H"],
     variable="p",
     guess=P_HP_guess,
     tolerance=1e-6
 )
 
 HP.set_iteration_variable(
-    target=["Compressor:su", "ExpansionValve:ex"],
+    target="ExpansionValve:ex",
     variable="p",
     guess=P_LP_guess,
     tolerance=1e-6
@@ -116,8 +117,8 @@ HP.set_iteration_variable(
 HP.set_iteration_variable(
     target="ExpansionValve:su",
     variable="h",
-    guess=h_su_vlv_guess,
-    tolerance=1e-3
+    guess=T_su_vlv_guess,
+    tolerance=1e-6
 )
 
 # Set residual variables

@@ -26,15 +26,19 @@ class RecursiveCircuit(BaseCircuit):
             self.target = target 
             self.variable = variable
             self.value = None
+            self.prev_value = None
             self.tolerance = tolerance
             self.converged = False
-            
+
         def check_convergence(self, new_value):
             
             if self.value is not None and (abs(new_value - self.value)/self.value) < self.tolerance:
+                self.set_prev_value(self.value)
+                self.set_value(new_value)
                 self.converged = True
                 return True
             else: 
+                self.set_prev_value(self.value)
                 self.set_value(new_value)
                 self.converged = False
                 return False
@@ -45,6 +49,10 @@ class RecursiveCircuit(BaseCircuit):
             self.value = value
             return
 
+        def set_prev_value(self, value):
+            self.prev_value = value
+            return
+        
     class Guess():
         def __init__(self, target, variable, value):
     
@@ -239,6 +247,7 @@ class RecursiveCircuit(BaseCircuit):
         self.res_vars = {}
         self.it_vars = []
         self.converged = False
+        self.solving_order = []
 
     def set_source_properties(self, **kwargs):
         # Set properties for a specific source
@@ -538,6 +547,18 @@ class RecursiveCircuit(BaseCircuit):
         
         return
 
+    def reset_input_values(self):
+        
+        for comp in self.components:
+            comp_model = self.components[comp].model
+            
+            comp_model.reset_inputs()
+
+        if self.print_flag:
+            print(f"----------------------------------")
+
+            print(f"Reset component inputs")
+
 #%%
 
     def set_cycle_parameters(self, **kwargs):
@@ -555,186 +576,11 @@ class RecursiveCircuit(BaseCircuit):
         
         return
 
-#%% Plot 
-
-    import matplotlib.pyplot as plt
-    from typing import List
-    
-    def plot_thermo_cycle(self, axes: str = 'Ts'):
-        """
-        Plot thermo cycle for each component in self.components.
-    
-        axes:
-            'Ts' → Temperature–entropy diagram
-            'Ph' → Pressure–enthalpy diagram
-        """
-        plt.figure()
-    
-        # --- Axis configuration ---
-        if axes == 'Ts':
-            x_attr, y_attr = 's', 'T'
-            xlabel, ylabel = 's', 'T'
-            title = 'Thermodynamic cycle (T–s)'
-        elif axes == 'ph':
-            x_attr, y_attr = 'h', 'p'
-            xlabel, ylabel = 'h', 'p'
-            title = 'Thermodynamic cycle (P–h)'
-        else:
-            raise ValueError(f"Unsupported axes mode: {axes}")
-            
-        self.groups_comp = {}
-        
-        for component in self.components:
-            model = self.components[component].model
-    
-            prefix_supply = "su"
-            prefix_exhaust = "ex"
-    
-            supply_connectors = []
-            exhaust_connectors = []
-    
-            supply_suffixes = []
-            exhaust_suffixes = []
-    
-            # 1) collect connector attribute names and suffixes
-            for attr in vars(model):
-                if attr.startswith(prefix_supply):
-                    supply_connectors.append(attr)
-                    supply_suffixes.append(attr.removeprefix(prefix_supply))
-                elif attr.startswith(prefix_exhaust):
-                    exhaust_connectors.append(attr)
-                    exhaust_suffixes.append(attr.removeprefix(prefix_exhaust))
-    
-            # only keep suffixes that exist in both sets
-            common_suffixes = sorted(set(supply_suffixes) & set(exhaust_suffixes))
-    
-            # Build groups: one group per common suffix
-            groups = []
-            for suffix in common_suffixes:
-                groups.append({
-                    "supply": [getattr(model, prefix_supply + suffix)],
-                    "exhaust": [getattr(model, prefix_exhaust + suffix)],
-                })
-    
-            # Collect unmatched connectors
-            unmatched_supply = [
-                s for s in supply_connectors
-                if s.removeprefix(prefix_supply) not in common_suffixes
-            ]
-            unmatched_exhaust = [
-                e for e in exhaust_connectors
-                if e.removeprefix(prefix_exhaust) not in common_suffixes
-            ]
-    
-            if unmatched_supply or unmatched_exhaust:
-                groups.append({
-                    "supply": [getattr(model, c) for c in unmatched_supply],
-                    "exhaust": [getattr(model, c) for c in unmatched_exhaust]
-                })
-    
-            for group in groups:                
-                new_group = []
-                
-                for connector in group['supply']:
-                    dic = {
-                        x_attr : getattr(connector, x_attr),
-                        y_attr : getattr(connector, y_attr)
-                        }
-                    
-                    new_group.append(dic)
-
-                # print(groups[group])
-                group['supply'] = new_group
-                
-                new_group = []
-                for connector in group['exhaust']:
-                    dic = {
-                        x_attr : getattr(connector, x_attr),
-                        y_attr : getattr(connector, y_attr)
-                        }
-                    
-                    new_group.append(dic)
-
-                # print(groups[group])
-                group['exhaust'] = new_group
-    
-            self.groups_comp[component] = groups
-    
-        for component, groups in self.groups_comp.items():
-            for group in groups:
-                supply_points = group['supply']
-                exhaust_points = group['exhaust']
-        
-                # Determine how many segments we have
-                n = max(len(supply_points), len(exhaust_points))
-        
-                # Helper: pad shorter list with last point
-                def pad_points(points, target_len):
-                    if not points:
-                        return [{'x': None, 'y': None}] * target_len
-                    if len(points) >= target_len:
-                        return points[:target_len]
-                    return points + [points[-1]] * (target_len - len(points))
-        
-                supply_points = pad_points(supply_points, n)
-                exhaust_points = pad_points(exhaust_points, n)
-        
-                # Plot a line between each supply-exhaust pair
-                for su, ex in zip(supply_points, exhaust_points):
-                    xs = [su[x_attr], ex[x_attr]]
-                    ys = [su[y_attr], ex[y_attr]]
-        
-                    if None not in xs and None not in ys:
-                        plt.plot(xs, ys, 'b-o')  # you can change color/style
-    
-        # --- Plot saturation curve using CoolProp ---
-        fluid = self.fluid
-        
-        if fluid:
-            if axes == 'Ts':
-                # T–s saturation curve
-                P_min = PropsSI('Pcrit', fluid) * 0.1
-                P_max = PropsSI('Pcrit', fluid)
-                P_vals = np.logspace(np.log10(P_min), np.log10(P_max), 200)
-                s_liq, s_vap, T_liq, T_vap = [], [], [], []
-        
-                for P in P_vals:
-                    try:
-                        T_liq.append(PropsSI('T', 'P', P, 'Q', 0, fluid))
-                        T_vap.append(PropsSI('T', 'P', P, 'Q', 1, fluid))
-                        s_liq.append(PropsSI('S', 'P', P, 'Q', 0, fluid))
-                        s_vap.append(PropsSI('S', 'P', P, 'Q', 1, fluid))
-                    except:
-                        continue
-        
-                plt.plot(s_liq, T_liq, 'k--', label='Saturation liquid')
-                plt.plot(s_vap, T_vap, 'k--', label='Saturation vapor')
-        
-            elif axes == 'Ph':
-                # P–h saturation curve
-                T_min = PropsSI('Ttriple', fluid)
-                T_max = PropsSI('Tcrit', fluid)
-                T_vals = np.linspace(T_min, T_max, 200)
-                P_liq, P_vap, h_liq, h_vap = [], [], [], []
-        
-                for T in T_vals:
-                    try:
-                        P_liq.append(PropsSI('P', 'T', T, 'Q', 0, fluid))
-                        P_vap.append(PropsSI('P', 'T', T, 'Q', 1, fluid))
-                        h_liq.append(PropsSI('H', 'T', T, 'Q', 0, fluid))
-                        h_vap.append(PropsSI('H', 'T', T, 'Q', 1, fluid))
-                    except:
-                        continue
-        
-                plt.plot(h_liq, P_liq, 'k--', label='Saturation liquid')
-                plt.plot(h_vap, P_vap, 'k--', label='Saturation vapor')
-
-        plt.show()
-
 #%% Solve related methods
 
     def check_all_component_solved(self):
         for component in self.components:
+            
             if self.components[component].model.solved == False:
                 return False
         
@@ -755,6 +601,8 @@ class RecursiveCircuit(BaseCircuit):
         component_model = component.model
 
         if component_model.solved:
+            if self.print_flag:
+                print(f"Component '{component_name}' already solved.")
             return
 
         component_model.check_calculable()
@@ -771,6 +619,9 @@ class RecursiveCircuit(BaseCircuit):
                     
                 component_model.solve()
                 
+                if component_name not in self.solving_order:
+                    self.solving_order.append(component_name)
+
                 save_new = {}
                 for next_connector in component.next:
                     type_connector, connector_name = next_connector.split("-")
@@ -778,7 +629,7 @@ class RecursiveCircuit(BaseCircuit):
                         connector = getattr(component_model, connector_name)
                         save_new[next_connector] = {'p' : connector.p, 'h' : connector.h}
                 
-                tol = 1e-2
+                tol = 1e-4
                 
                 for connector in save:
                     for prop in save[connector]:
@@ -790,9 +641,10 @@ class RecursiveCircuit(BaseCircuit):
                             # print(f"delta : {delta} for {connector} - {prop}")
                             if delta > tol:
                                 component.next[connector].model.solved = False
-                            
                         
             else:
+                if self.print_flag:
+                    print(f"Component '{component_name}' not calculable.")
                 return
         else:
             raise ValueError(f"Component '{component_name}' not parametrized.")
@@ -803,7 +655,7 @@ class RecursiveCircuit(BaseCircuit):
         
         return
 
-    def solve(self):
+    def solve(self, max_iter = 30):
         
         # print("Solve Start")
         
@@ -851,15 +703,24 @@ class RecursiveCircuit(BaseCircuit):
 
         self.guess_update = True
         
-        self.convergence_frames.append(self.plot_cycle_Ts(plot_auto = False))
+        # self.convergence_frames.append(self.plot_cycle_Ts(plot_auto = False))
 
-        i=0
-        n_it_max = 30   
+        self.res_energy = (self.components['Compressor'].model.W.W_dot + self.components['Evaporator'].model.Q.Q_dot - self.components['Condenser'].model.Q.Q_dot)/abs(self.components['Compressor'].model.W.W_dot + self.components['Evaporator'].model.Q.Q_dot + self.components['Condenser'].model.Q.Q_dot)   
+                         
+        # self.print_states()
         
-        while i < n_it_max:
-            if self.print_flag:
-                print(f"Iteration {i+1}")
+        i=0
+        
+        while i < max_iter:
+            self.messages = []
             
+            if self.print_flag:
+                
+                print("\n")
+                print(f"###########################")
+                print(f"Iteration {i+1}")
+                print(f"###########################")
+
             for it_var in self.it_vars:
                 
                 if "Link" in it_var.objective:        
@@ -966,15 +827,24 @@ class RecursiveCircuit(BaseCircuit):
                 else:
                     pass
 
+            # self.reset_input_values()
+
             self.reset_solved_marker()
     
-            for start_component in self.solve_start_components:
-                self.recursive_solve(start_component)
-                if self.check_all_component_solved():
-                    break       
-    
-            # print("Check res_vars convergence and set new values if needed")
-
+            # for start_component in self.solve_start_components:
+            #     self.recursive_solve(start_component)
+                                
+            #     if self.check_all_component_solved():
+            #         break       
+        
+            for component_name in self.solving_order:
+                if self.print_flag:
+                    print(f"----------------------------------")
+                    print(f"Component : {component_name}")
+                    
+                comp_model = self.components[component_name]
+                comp_model.solve()
+        
             self.converged = True
 
             for res_var in self.res_vars:    
@@ -988,47 +858,38 @@ class RecursiveCircuit(BaseCircuit):
                 
                 if not self.res_vars[res_var].converged:
                     self.converged = False
-            
+                    self.messages.append(f"Residual variable tolerance not satisfied : {res_var}.")
+
             for it_var in self.it_vars:    
                 if not it_var.converged:
-                    self.converged = False            
+                    self.converged = False        
+                    self.messages.append(f"Iteration variable tolerance not satisfied : {it_var}.")
         
             if not self.check_all_component_solved():
                 self.converged = False
+                self.messages.append("Not all component solved.")
+
         
+            self.res_energy = (self.components['Compressor'].model.W.W_dot + self.components['Evaporator'].model.Q.Q_dot - self.components['Condenser'].model.Q.Q_dot)/abs(self.components['Compressor'].model.W.W_dot + self.components['Evaporator'].model.Q.Q_dot + self.components['Condenser'].model.Q.Q_dot)   
+                                 
+            if abs(self.res_energy) > 1e-4:
+                self.converged = False
+                if self.print_flag:
+                    self.messages.append("Energy Residual not satsfied !")
+                    
             if self.converged:
                 if self.print_flag:
                     print(f"Solver successfully converged in {i+1} iteration(s) !")
                     
                 return
             
-            self.convergence_frames.append(self.plot_cycle_Ts(plot_auto=False))
-            
+            if self.plot_flag:
+                self.convergence_frames.append(self.plot_cycle_Ts(plot_auto=False))
+                        
             i = i + 1
-
-        # plt.figure()
-        # plt.plot(res_ev, 'r',  marker='o')                            
-        # plt.show()
         
         if self.print_flag:
-            print(f"Solver failed to converge in {n_it_max} iterations.")
-        
-        # self.print_res_vars()
-        
-        # plt.figure()
-        
-        # plt.plot(m_dot_su_pp, 'r')
-        # plt.plot(m_dot_ex_pp, 'g',  marker='o')
-        # plt.plot(m_dot_su_spli, 'b')
-        # plt.plot(m_dot_ex_mix, 'k',  marker='o')
-        # plt.plot(m_dot_ex_cd, 'orange',  marker='o')
-        
-        # plt.legend(['su_pp', 'ex_pp', 'su_spli', 'ex_mix', 'ex_cd'])
-        
-        # plt.figure()
-        # plt.plot(P_cd, 'r')
-        
-        # plt.legend(['P_cd'])
+            print(f"Solver failed to converge in {max_iter} iterations.")
         
         return
     

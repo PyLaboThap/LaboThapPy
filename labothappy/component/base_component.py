@@ -14,6 +14,7 @@ from connector.heat_connector import HeatConnector
 import matplotlib.pyplot as plt
 import numpy as np
 from CoolProp.CoolProp import PropsSI
+import CoolProp.CoolProp as CP
 
 class BaseComponent:
     """
@@ -436,7 +437,7 @@ class BaseComponent:
 
             couple_1_discretized = []
             couple_2_discretized = []
-            n_points = 50
+            n_points = 10000
             
             if choose_HX_side is not None:
                 # Only generate couples for the chosen side
@@ -444,14 +445,24 @@ class BaseComponent:
                 su_conn = su_by_suffix[suffix][1]
                 ex_conn = ex_by_suffix[suffix][1]
                 
+                h_in, h_out = su_conn.h, ex_conn.h
                 s_in, s_out = su_conn.s, ex_conn.s
                 P_in, P_out = su_conn.p, ex_conn.p
                 fluid = su_conn.fluid
                 
+                AS = CP.AbstractState('BICUBIC&HEOS', fluid)
+                
+                h_array = np.linspace(h_in, h_out, n_points)
                 s_array = np.linspace(s_in, s_out, n_points)
                 P_array = np.linspace(P_in, P_out, n_points)
-                T_array = np.array([PropsSI('T', 'S', s, 'P', P, fluid) for s, P in zip(s_array, P_array)])
                 
+                T_array = np.zeros(len(h_array))
+                
+                for i in range(len(h_array)):
+                    AS.update(CP.HmassP_INPUTS, h_array[i], P_array[i])
+                    
+                    T_array[i] = AS.T()
+
                 couple_1_discretized.append(s_array)
                 couple_2_discretized.append(T_array)
             
@@ -465,14 +476,24 @@ class BaseComponent:
                     su_conn = su_item[1]
                     ex_conn = ex_by_suffix[suf][1]
                     
+                    h_in, h_out = su_conn.h, ex_conn.h
                     s_in, s_out = su_conn.s, ex_conn.s
                     P_in, P_out = su_conn.p, ex_conn.p
                     fluid = su_conn.fluid
                     
+                    AS = CP.AbstractState('BICUBIC&HEOS', fluid)
+                    
+                    h_array = np.linspace(h_in, h_out, n_points)
                     s_array = np.linspace(s_in, s_out, n_points)
                     P_array = np.linspace(P_in, P_out, n_points)
-                    T_array = np.array([PropsSI('T', 'S', s, 'P', P, fluid) for s, P in zip(s_array, P_array)])
                     
+                    T_array = np.zeros(len(h_array))
+                    
+                    for i in range(len(h_array)):
+                        AS.update(CP.HmassP_INPUTS, h_array[i], P_array[i])
+                        
+                        T_array[i] = AS.T()
+
                     couple_1_discretized.append(s_array)
                     couple_2_discretized.append(T_array)
             
@@ -499,150 +520,9 @@ class BaseComponent:
         
         return fig
 
-    # def plot_component(self, inputs_names=None, outputs_names=None, parameters_names=None):
-    #     """
-    #     Plot a visual representation of the component with inputs/outputs and parameters.
-    #     """
-
-    #     # Enable LaTeX rendering in Matplotlib
-    #     plt.rcParams['text.usetex'] = True
-
-    #     # Create figure and axis
-    #     fig, ax = plt.subplots(figsize=(8, 8))
-
-    #     # Draw the block (component)
-    #     block = patches.FancyBboxPatch((0.4, 0.6), 0.3, 0.1, boxstyle="round,pad=0.1", 
-    #                                     edgecolor="black", facecolor="#D4E9C7", zorder=2)
-    #     ax.add_patch(block)
-    #     ax.text(0.55, 0.65, self.__class__.__name__, horizontalalignment='center', 
-    #             verticalalignment='center', fontsize=20, fontweight='bold')
-
-    #     # Define positions for inputs, outputs, and parameters
-    #     input_pos = [0.2, 0.65]  # Position for input
-    #     output_pos = [0.8, 0.65]  # Position for output
-    #     param_pos = [0.55, 0.4]  # Position for parameters
-
-    #     # Inputs
-    #     if inputs_names:
-    #         ax.text(input_pos[0] - 0.15, input_pos[1] + 0.2, r'\textbf{Inputs}', fontsize=17, fontweight='bold', color='black')
-    #         ax.annotate('', xy=(input_pos[0] + 0.1, input_pos[1]), xytext=(input_pos[0] - 0.05, input_pos[1]),
-    #                     fontsize=12, color='black',
-    #                     arrowprops=dict(facecolor='black', edgecolor='black', width=0.5, headwidth=8, shrink=0.05))
-
-    #          # Calculate spacing for inputs
-    #         num_inputs = len(inputs_names)
-    #         vertical_spacing = 0.1
-    #         start_y = input_pos[1] - (num_inputs - 1) * vertical_spacing / 2
-
-    #         # List all inputs next to the arrow
-    #         for i, input_name in enumerate(inputs_names):
-    #             y = start_y + i * vertical_spacing
-    #             ax.text(input_pos[0] - 0.15, y, f'$\\mathbf{{{input_name}}}$', fontsize=17, color='black', verticalalignment='center')
-
-
-    #     # Outputs
-    #     if outputs_names:
-    #         ax.text(output_pos[0] + 0.15, output_pos[1] + 0.2, r'\textbf{Outputs}', fontsize=17, fontweight='bold', color='black')
-    #         ax.annotate('', xy=(output_pos[0] + 0.15, output_pos[1]), xytext=(output_pos[0], output_pos[1]),
-    #                     fontsize=12, color='black',
-    #                     arrowprops=dict(facecolor='black', edgecolor='black', width=0.5, headwidth=8, shrink=0.05))
-
-    #         # Calculate spacing for outputs
-    #         num_outputs = len(outputs_names)
-    #         vertical_spacing = 0.1
-    #         start_y = output_pos[1] - (num_outputs - 1) * vertical_spacing / 2
-
-    #         # List all outputs next to the arrow
-    #         for i, output_name in enumerate(outputs_names):
-    #             y = start_y + i * vertical_spacing
-    #             ax.text(output_pos[0] + 0.2, y, f'$\\mathbf{{{output_name}}}$', fontsize=17, color='black', verticalalignment='center')
-
-
-    #     # Parameters
-    #     if parameters_names:
-    #         ax.text(param_pos[0], param_pos[1], r'\textbf{Parameters}', fontsize=17, fontweight='bold', color='black', horizontalalignment='center')
-    #         ax.annotate('', xy=(param_pos[0], param_pos[1] + 0.1), xytext=(param_pos[0], param_pos[1] + 0.05),
-    #                     fontsize=12, color='black',
-    #                     arrowprops=dict(facecolor='black', edgecolor='black', width=0.5, headwidth=8, shrink=0.05))
-
-    #         # Calculate spacing for parameters
-    #         num_params = len(parameters_names)
-    #         vertical_spacing = 0.1
-    #         start_y = param_pos[1] - (num_params - 1) * vertical_spacing / 2
-
-    #         # List all parameters below "Parameters"
-    #         for i, param_name in enumerate(parameters_names):
-    #             y = start_y - i * vertical_spacing
-    #             ax.text(param_pos[0], y-0.05, f'$\\mathbf{{{param_name}}}$', fontsize=17, color='black', verticalalignment='center', horizontalalignment='center')
-
-    #     # Plot formatting
-    #     ax.set_xlim(0, 1)
-    #     ax.set_ylim(0, 1)
-    #     ax.axis('off')  # Hide axis
-
-
-    # def plot_connectors(self, supply_connectors_names=None, exhaust_connectors_names=None):
-
-    #     """
-    #     Plot a visual representation of the component with inputs/outputs and parameters.
-    #     """
-
-    #     # Enable LaTeX rendering in Matplotlib
-    #     plt.rcParams['text.usetex'] = True
-
-    #     # Create figure and axis
-    #     fig, ax = plt.subplots(figsize=(8, 8))
-
-    #     # Draw the block (component)
-    #     block = patches.FancyBboxPatch((0.4, 0.6), 0.3, 0.1, boxstyle="round,pad=0.1", 
-    #                                     edgecolor="black", facecolor="skyblue", zorder=2)
-    #     ax.add_patch(block)
-    #     ax.text(0.55, 0.65, self.__class__.__name__, horizontalalignment='center', 
-    #             verticalalignment='center', fontsize=20, fontweight='bold')
-
-    #     # Define positions for inputs, outputs, and parameters
-    #     input_pos = [0.2, 0.65]  # Position for input
-    #     output_pos = [0.8, 0.65]  # Position for output
-
-    #     # Inputs
-    #     if supply_connectors_names:
-    #         ax.annotate('', xy=(input_pos[0] + 0.1, input_pos[1]), xytext=(input_pos[0] - 0.05, input_pos[1]),
-    #                     fontsize=12, color='black',
-    #                     arrowprops=dict(facecolor='black', edgecolor='black', width=0.5, headwidth=8, shrink=0.05))
-
-    #          # Calculate spacing for inputs
-    #         num_inputs = len(supply_connectors_names)
-    #         vertical_spacing = 0.1
-    #         start_y = input_pos[1] - (num_inputs - 1) * vertical_spacing / 2
-
-    #         # List all inputs next to the arrow
-    #         for i, input_name in enumerate(supply_connectors_names):
-    #             y = start_y + i * vertical_spacing
-    #             ax.text(input_pos[0] - 0.15, y, f'$\\mathbf{{{input_name}}}$', fontsize=17, color='black', verticalalignment='center')
-
-
-    #     # Outputs
-    #     if exhaust_connectors_names:
-    #         ax.annotate('', xy=(output_pos[0] + 0.15, output_pos[1]), xytext=(output_pos[0], output_pos[1]),
-    #                     fontsize=12, color='black',
-    #                     arrowprops=dict(facecolor='black', edgecolor='black', width=0.5, headwidth=8, shrink=0.05))
-
-    #         # Calculate spacing for outputs
-    #         num_outputs = len(exhaust_connectors_names)
-    #         vertical_spacing = 0.1
-    #         start_y = output_pos[1] - (num_outputs - 1) * vertical_spacing / 2
-
-    #         # List all outputs next to the arrow
-    #         for i, output_name in enumerate(exhaust_connectors_names):
-    #             y = start_y + i * vertical_spacing
-    #             ax.text(output_pos[0] + 0.2, y, f'$\\mathbf{{{output_name}}}$', fontsize=17, color='black', verticalalignment='center')
-
-
-    #     # Plot formatting
-    #     ax.set_xlim(0, 1)
-    #     ax.set_ylim(0, 1)
-    #     ax.axis('off')  # Hide axis
-
-
-
-
+    def reset_inputs(self):
+        for attr, val in self.__dict__.items():
+            if hasattr(val, "reset"):
+                val.reset()
+        
+        self.inputs = {}
