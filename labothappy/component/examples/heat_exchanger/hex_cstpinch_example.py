@@ -4,7 +4,9 @@ from labothappy.component.heat_exchanger.hex_cstpinch import HexCstPinch
 # from simulation_model import HXPinchCst
 import numpy as np
 
-case_test = 'EVAP_HP_ZORLU'
+from CoolProp.CoolProp import PropsSI
+
+case_test = 'COND_C5'
 
 "Evaporator test"
 
@@ -95,8 +97,8 @@ elif case_test == 'EVAP_C3':
         'Pinch': 4,
         'Delta_T_sh_sc': 1,
         'HX_type': 'evaporator',
-        'DP_c' : 10*1e3,
-        'DP_h' : 10*1e3,
+        # 'DP_c' : 10*1e3,
+        # 'DP_h' : 10*1e3,
     })
     
     EVAP.solve()
@@ -106,30 +108,81 @@ elif case_test == 'EVAP_C3':
     
     # EVAP.equivalent_effectiveness()
 
+# elif case_test == 'COND_C5':
+
+#     "Condenser test"
+    
+#     COND = HexCstPinch()
+    
+#     COND.set_inputs(
+#         fluid_H = 'Cyclopentane',
+#         T_su_H = 45+273.15,
+#         P_su_H = 71.82*1e3,
+#         m_dot_H = 34.51,
+        
+#         fluid_C = 'Water',
+#         T_su_C = 24+273.15,
+#         P_su_C = 1e5,
+#         m_dot_C = 900
+#     )
+    
+#     COND.set_parameters(**{
+#         'Pinch': 3,
+#         'Delta_T_sh_sc': 1,
+#         'HX_type': 'condenser',
+#         # 'DP_c' : 30*1e3,
+#         # 'DP_h' : 15*1e3,
+#     })
+    
+#     COND.solve()
+    
+#     COND.print_results()
+#     COND.print_states_connectors()
+#     COND.plot_disc()
+    
+#     # COND.equivalent_effectiveness()
+   
 elif case_test == 'COND_C5':
 
     "Condenser test"
     
     COND = HexCstPinch()
     
+    T_in = 301.1500000038572
+    
+    P_su_H, h_su_H = PropsSI(('P','H'), 'T', T_in, 'Q', 0.98, 'Cyclopentane')
+    
     COND.set_inputs(
         fluid_H = 'Cyclopentane',
-        T_su_H = 41.2+273.15,
-        P_su_H = 68.3*1e3,
-        m_dot_H = 46.18,
+        h_su_H = h_su_H,
+        P_su_H = P_su_H,
+        m_dot_H = 34.51,
         
-        fluid_C = 'Air',
-        T_su_C = 20+273.15,
+        fluid_C = 'Water',
+        T_su_C = 24+273.15,
         P_su_C = 1e5,
-        m_dot_C = 1911
+        m_dot_C = 900
     )
     
     COND.set_parameters(**{
-        'Pinch': 5,
-        'Delta_T_sh_sc': 5,
-        'HX_type': 'condenser'
+        'Pinch': 3,
+        'Delta_T_sh_sc': 1,
+        'HX_type': 'condenser',
+        # 'DP_c' : 30*1e3,
+        # 'DP_h' : 15*1e3,
     })
     
+    COND.solve()
+    
+    # COND.print_results()
+    # COND.print_states_connectors()
+    COND.plot_disc()
+    
+    # COND.equivalent_effectiveness()
+    
+    
+elif case_test == 'COND_CO2':
+
     COND = HexCstPinch()
     
     COND.set_inputs(
@@ -159,5 +212,5 @@ elif case_test == 'COND_C5':
     COND.print_states_connectors()
     COND.plot_disc()
     
-    COND.equivalent_effectiveness()
+    # COND.equivalent_effectiveness()
     

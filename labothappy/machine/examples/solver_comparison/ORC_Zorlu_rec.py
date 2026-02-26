@@ -1,5 +1,7 @@
 from labothappy.machine.circuit_rec import RecursiveCircuit
+
 from labothappy.connector.mass_connector import MassConnector
+
 from labothappy.component.pump.pump_csteff import PumpCstEff
 from labothappy.component.heat_exchanger.hex_cstpinch import HexCstPinch
 from labothappy.component.expander.expander_csteff import ExpanderCstEff
@@ -15,7 +17,7 @@ import numpy as np
 # T_guess_ev = np.linspace(120,160,21) + 273.15
 # T_guess_cd = np.linspace(100,130,16) + 273.15
 
-T_guess_cd = [15+273.15]
+T_guess_cd = [24+273.15]
 T_guess_ev = [141+273.15]
 
 SC_cd_vec = np.linspace(1,1,1)
@@ -53,7 +55,7 @@ for T_cd in T_guess_cd:
                 
                 eta_is_exp = 0.8
                 
-                Pinch_cd = 5  # K
+                Pinch_cd = 3  # K
                 SC_cd = SC_cd # 1 # K
                 
                 Pinch_ev = 10  # K
@@ -136,12 +138,15 @@ for T_cd in T_guess_cd:
                 m_dot_ref = 34.51 # kg/s
                 
                 #%% Cycle guess values
-                P_low = PropsSI("P", "T", T_cd+Pinch_cd+SC_cd, "Q", 1, fluid)
-                P_high = PropsSI("P", "T", T_ev-Pinch_ev-SH_ev, "Q", 0, fluid)
+                P_low = PropsSI("P", "T", T_cd+20, "Q", 1, fluid)
+                P_high = PropsSI("P", "T", T_ev-20, "Q", 0, fluid)
+                
+                h_pp_guess = PropsSI("H", "T", T_cd+20-SC_cd, "P", P_low, fluid)
+
                 
                 #%%
                 
-                ORC.set_cycle_guess(target="Pump:su", m_dot = m_dot_ref, SC=SC_cd*2, p=P_low)
+                ORC.set_cycle_guess(target="Pump:su", m_dot = m_dot_ref, h=h_pp_guess, p=P_low)
                 ORC.set_cycle_guess(target="Pump:ex", p=P_high)
                 
                 # ORC.set_cycle_guess(target="Recuperator:su_C", p=P_high, m_dot=m_dot_ref, T=T_su_w_cd+Pinch_cd)
@@ -165,12 +170,12 @@ for T_cd in T_guess_cd:
                 #%% CYCLE FIXED VARIABLES AND ITERATION VARIABLE
                 damping = 0.2 # 0.2
                 
-                ORC.set_iteration_variable(target=['Expander:ex'], variable='p', objective = 'Link:Condenser:su_H-p', tol = 1e-2, rel = 1, damping_factor = damping, cycle = ORC)
-                ORC.set_iteration_variable(target=['Pump:ex'], variable='p', objective = 'Link:Evaporator:su_C-p', tol = 1e-2, rel = 1, damping_factor = damping, cycle = ORC)
+                ORC.set_iteration_variable(target=['Expander:ex'], variable='p', objective = 'Link:Condenser:ex_H-p', tol = 1e-2, rel = 1, damping_factor = damping, cycle = ORC)
+                ORC.set_iteration_variable(target=['Pump:ex'], variable='p', objective = 'Link:Evaporator:ex_C-p', tol = 1e-2, rel = 1, damping_factor = damping, cycle = ORC)
                 
                 # try: 
                 start = time.perf_counter()
-                ORC.solve()                    
+                ORC.solve(max_iter=30)
                 end = time.perf_counter()
 
                 elapsed = end - start
@@ -185,10 +190,19 @@ for T_cd in T_guess_cd:
                 # except:
                 #     print(f"Failure...")
                 
-    # HP.plot_cycle_Ts() 
     
 print(f"Success : {successes}/{tries} {round(successes/tries * 100,2)} %")
 print(f"Success Avg Time : {round(success_time/(successes+1e-8),5)} s")                
-# ORC.plot_cycle_Ts()
+ORC.plot_cycle_Ts()
+
+import matplotlib.pyplot as plt
+plt.show()
 
 # print(f"Converged at P_HP = {Pump.ex.p}, P_LP = {Pump.su.p}")
+
+print("Pump")
+print(Pump.W.W_dot)
+print((Pump.ex.h - Pump.su.h)*Pump.su.m_dot)
+
+
+

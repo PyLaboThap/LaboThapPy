@@ -15,8 +15,8 @@ import numpy as np
 # T_guess_cd = np.linspace(120,160,21) + 273.15
 # T_guess_ev = np.linspace(100,130,16) + 273.15
 
-T_guess_cd = [141+273.15]
-T_guess_ev = [113.1+273.15]
+T_guess_cd = [141   + 273.15]
+T_guess_ev = [113.1 + 273.15]
 
 # SC_cd_vec = np.linspace(1,10,10)
 # SH_ev_vec = np.linspace(1,10,10)
@@ -40,7 +40,7 @@ for T_cd in T_guess_cd:
                 HP = RecursiveCircuit(fluid)
                 
                 # Ignore debug printing
-                HP.mute_print()
+                # HP.mute_print()
                 HP.mute_plot()
                 
                 # Create components
@@ -53,7 +53,7 @@ for T_cd in T_guess_cd:
                 # Set component parameters
                 eta_is_cp = 0.8 # -
                 
-                Pinch_cd = 10  # K
+                Pinch_cd = 1  # K
                 SC_cd = SC_cd # 3  # K
                 
                 Pinch_ev = 3  # K
@@ -68,20 +68,20 @@ for T_cd in T_guess_cd:
                     Pinch=Pinch_cd, 
                     Delta_T_sh_sc=SC_cd, 
                     HX_type="condenser",
-                    DP_c = 0*1e3,
-                    DP_h = 0*1e3)
+                    DP_c = 50*1e3,
+                    DP_h = 50*1e3)
                 
                 Evaporator.set_parameters(
                     Pinch=Pinch_ev,
                     Delta_T_sh_sc=SH_ev, 
                     HX_type="evaporator",
-                    DP_c = 0*1e3,
+                    DP_c = 15*1e3,
                     DP_h = 0*1e3)
                 
                 Recuperator.set_parameters(
                     eta=eff_rec,
-                    DP_c = 0*1e3,
-                    DP_h = 0*1e3)
+                    DP_c = 10*1e3,
+                    DP_h = 50*1e3)
                 
                 # Add components to circuit
                 HP.add_component(Compressor, "Compressor")
@@ -119,28 +119,28 @@ for T_cd in T_guess_cd:
                 #%% Cycle guess values
                 
                 P_low = PropsSI("P", "T", T_ev-10, "Q", 1, fluid)
-                P_high = PropsSI("P", "T", T_cd+20, "Q", 0, fluid)
+                P_high = PropsSI("P", "T", T_cd+10, "Q", 0, fluid)
                 
                 HP.set_cycle_guess(target="Compressor:su", m_dot = m_dot_ref, SH=SH_ev, p=P_low)
                 HP.set_cycle_guess(target="Compressor:ex", p=P_high)
                 
                 HP.set_cycle_guess(target="Evaporator:su_C", p=P_low, m_dot = m_dot_ref, x=0.2)
                 # Set residual variables
-                HP.set_residual_variable(target="Compressor:ex", variable="h", tolerance=1e-4)
-                HP.set_residual_variable(target="Compressor:ex", variable="p", tolerance=1e-4)
+                HP.set_residual_variable(target="Compressor:ex", variable="h", tolerance=5e-3)
+                HP.set_residual_variable(target="Compressor:ex", variable="p", tolerance=5e-3)
                 
-                HP.set_residual_variable(target="Condenser:ex_H", variable="h", tolerance=1e-4)
-                HP.set_residual_variable(target="Condenser:ex_H", variable="p", tolerance=1e-4)
+                HP.set_residual_variable(target="Condenser:ex_H", variable="h", tolerance=5e-3)
+                HP.set_residual_variable(target="Condenser:ex_H", variable="p", tolerance=5e-3)
                 
-                HP.set_residual_variable(target="Evaporator:ex_C", variable="h", tolerance=1e-4)
-                HP.set_residual_variable(target="Evaporator:ex_C", variable="p", tolerance=1e-4)
+                HP.set_residual_variable(target="Evaporator:ex_C", variable="h", tolerance=5e-3)
+                HP.set_residual_variable(target="Evaporator:ex_C", variable="p", tolerance=5e-3)
                 
-                HP.set_residual_variable(target="ExpansionValve:ex", variable="h", tolerance=1e-4)
-                HP.set_residual_variable(target="ExpansionValve:ex", variable="p", tolerance=1e-4)
+                HP.set_residual_variable(target="ExpansionValve:ex", variable="h", tolerance=5e-3)
+                HP.set_residual_variable(target="ExpansionValve:ex", variable="p", tolerance=5e-3)
                 
                 # try: 
                 start = time.perf_counter()
-                HP.solve(max_iter=30)                    
+                HP.solve(max_iter=30)
                 end = time.perf_counter()
 
                 elapsed = end - start
@@ -155,7 +155,7 @@ for T_cd in T_guess_cd:
                 # except:
                 #     print(f"Failure...")
                 
-    # HP.plot_cycle_Ts() 
+    HP.plot_cycle_Ts() 
     
     # HP.Ts_gif()
     

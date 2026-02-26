@@ -622,25 +622,25 @@ class RecursiveCircuit(BaseCircuit):
                 if component_name not in self.solving_order:
                     self.solving_order.append(component_name)
 
-                save_new = {}
-                for next_connector in component.next:
-                    type_connector, connector_name = next_connector.split("-")
-                    if type_connector == "m":
-                        connector = getattr(component_model, connector_name)
-                        save_new[next_connector] = {'p' : connector.p, 'h' : connector.h}
+                # save_new = {}
+                # for next_connector in component.next:
+                #     type_connector, connector_name = next_connector.split("-")
+                #     if type_connector == "m":
+                #         connector = getattr(component_model, connector_name)
+                #         save_new[next_connector] = {'p' : connector.p, 'h' : connector.h}
                 
-                tol = 1e-4
+                # tol = 1e-4
                 
-                for connector in save:
-                    for prop in save[connector]:
-                        value_prev = save[connector][prop]
-                        value_new = save_new[connector][prop]
+                # for connector in save:
+                #     for prop in save[connector]:
+                #         value_prev = save[connector][prop]
+                #         value_new = save_new[connector][prop]
                         
-                        if value_prev is not None:
-                            delta = abs((value_new - value_prev)/value_prev)
-                            # print(f"delta : {delta} for {connector} - {prop}")
-                            if delta > tol:
-                                component.next[connector].model.solved = False
+                #         if value_prev is not None:
+                #             delta = abs((value_new - value_prev)/value_prev)
+                #             # print(f"delta : {delta} for {connector} - {prop}")
+                #             if delta > tol:
+                #                 component.next[connector].model.solved = False
                         
             else:
                 if self.print_flag:
@@ -704,9 +704,7 @@ class RecursiveCircuit(BaseCircuit):
         self.guess_update = True
         
         # self.convergence_frames.append(self.plot_cycle_Ts(plot_auto = False))
-
-        self.res_energy = (self.components['Compressor'].model.W.W_dot + self.components['Evaporator'].model.Q.Q_dot - self.components['Condenser'].model.Q.Q_dot)/abs(self.components['Compressor'].model.W.W_dot + self.components['Evaporator'].model.Q.Q_dot + self.components['Condenser'].model.Q.Q_dot)   
-                         
+              
         # self.print_states()
         
         i=0
@@ -845,6 +843,9 @@ class RecursiveCircuit(BaseCircuit):
                 comp_model = self.components[component_name]
                 comp_model.solve()
         
+            # self.res_energy = (self.components['Pump'].model.W.W_dot + self.components['Evaporator'].model.Q.Q_dot + self.components['Preheater'].model.Q.Q_dot  - self.components['Condenser'].model.Q.Q_dot - self.components['Expander'].model.W.W_dot)/abs(self.components['Pump'].model.W.W_dot + self.components['Expander'].model.W.W_dot + self.components['Evaporator'].model.Q.Q_dot + self.components['Preheater'].model.Q.Q_dot  + self.components['Condenser'].model.Q.Q_dot)   
+            
+        
             self.converged = True
 
             for res_var in self.res_vars:    
@@ -868,14 +869,16 @@ class RecursiveCircuit(BaseCircuit):
             if not self.check_all_component_solved():
                 self.converged = False
                 self.messages.append("Not all component solved.")
-
-        
-            self.res_energy = (self.components['Compressor'].model.W.W_dot + self.components['Evaporator'].model.Q.Q_dot - self.components['Condenser'].model.Q.Q_dot)/abs(self.components['Compressor'].model.W.W_dot + self.components['Evaporator'].model.Q.Q_dot + self.components['Condenser'].model.Q.Q_dot)   
-                                 
-            if abs(self.res_energy) > 1e-4:
+            
+            if 'Compressor' in self.components:
+                self.res_energy = (self.components['Compressor'].model.W.W_dot + self.components['Evaporator'].model.Q.Q_dot - self.components['Condenser'].model.Q.Q_dot)/abs(self.components['Compressor'].model.W.W_dot + self.components['Evaporator'].model.Q.Q_dot + self.components['Condenser'].model.Q.Q_dot)   
+            else:
+                self.res_energy = (self.components['Pump'].model.W.W_dot + self.components['Evaporator'].model.Q.Q_dot + self.components['Preheater'].model.Q.Q_dot  - self.components['Condenser'].model.Q.Q_dot - self.components['Expander'].model.W.W_dot)/abs(self.components['Pump'].model.W.W_dot + self.components['Expander'].model.W.W_dot + self.components['Evaporator'].model.Q.Q_dot + self.components['Preheater'].model.Q.Q_dot  + self.components['Condenser'].model.Q.Q_dot)   
+                
+            if self.res_energy**2 > 1e-4:
                 self.converged = False
                 if self.print_flag:
-                    self.messages.append("Energy Residual not satsfied !")
+                    self.messages.append("Energy Residual not satisfied !")
                     
             if self.converged:
                 if self.print_flag:
