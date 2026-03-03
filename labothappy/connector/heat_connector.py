@@ -6,6 +6,7 @@ Created on Tue Sep 10 14:09:18 2024
 @email: elise.neven@uliege.be
 
 """
+import warnings
 
 class HeatConnector:
     """
@@ -47,6 +48,21 @@ class HeatConnector:
         self.Q_dot = None             # Heat power [W]
         self.T_hot = None             # Hot temperature [K]
         self.T_cold = None            # Cold temperature [K]
+        self.T_amb = None             # Ambient temperature [K]
+
+    def set_properties(self, **kwargs):
+        print("heat connector:", kwargs)
+        for key, value in kwargs.items():
+            if key == 'Q_dot':
+                self.set_Q_dot(value)
+            elif key == 'T_hot':
+                self.set_T_hot(value)
+            elif key == 'T_cold':
+                self.set_T_cold(value)
+            elif key == 'T_amb':
+                self.set_T_amb(value)
+            else:
+                warnings.warn(f"Error: Invalid property '{key}'")
 
     def calculate_properties(self):
         pass
@@ -78,6 +94,18 @@ class HeatConnector:
         else:              # If the temperature is not known, set the value and add the variable to the list
             self.T_cold = value
             self.variables_input = self.variables_input+[['T_cold',value]]
+        self.calculate_properties()
+
+    def set_T_amb(self, value):
+        if self.T_amb != None: # If the temperature is already known, update the value and the corresponding variable in the list
+            self.T_amb = value
+            for i, var in enumerate(self.variables_input):
+                if var[0] == 'T_amb':
+                    self.variables_input[i][1] = value
+                    break
+        else:              # If the temperature is not known, set the value and add the variable to the list
+            self.T_amb = value
+            self.variables_input = self.variables_input+[['T_amb',value]]
         self.calculate_properties()
 
 

@@ -121,15 +121,14 @@ class PumpCurveSimilarity(BaseComponent):
 
     def get_required_parameters(self):
         # Returns a list of required parameters needed for model execution.
-
         return ["V_dot_curve", "Delta_H_curve", "eta_is_curve", "NPSH_r_curve", "N_rot_rated", "mode"]
 
     def solve(self):
         """
         Main solving routine that extrapolates pump curves, computes thermodynamic and performance outputs.
         """
-        self.check_calculable()
         self.check_parametrized()
+        self.check_calculable()
 
         if not self.calculable or not self.parametrized:
             print("Component is not calculable or not parametrized")
@@ -283,6 +282,7 @@ class PumpCurveSimilarity(BaseComponent):
 
         # Update mass flow
         self.V_dot = self.V_dot
+        self.ex.set_m_dot(self.m_dot)
 
         # Thermodynamics
         self.AS.update(CP.PSmass_INPUTS, self.ex.p, self.su.s)

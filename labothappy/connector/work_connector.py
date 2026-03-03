@@ -6,7 +6,7 @@ Created on Tue Sep 10 14:09:18 2024
 @email: elise.neven@uliege.be
 
 """
-
+import warnings
 
 class WorkConnector:
     """
@@ -50,6 +50,22 @@ class WorkConnector:
         self.N_rot = None              # Speed [rpm]
         self.C = None            # Torque [Nm]
         self.W_dot_el = None       # Electrical power [W]
+
+    def set_properties(self, **kwargs):
+        
+        for key, value in kwargs.items():
+            if key == 'W_dot':
+                self.set_W_dot(value)
+            elif key == 'w':
+                self.set_w(value)
+            elif key == 'N_rot':
+                self.set_N_rot(value)
+            elif key == 'C':
+                self.set_C(value)
+            elif key == 'W_dot_el':
+                self.set_W_dot_el(value)
+            else:
+                warnings.warn(f"Error: Invalid property '{key}'")
 
 
     def calculate_properties(self):

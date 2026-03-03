@@ -152,8 +152,11 @@ class BaseComponent:
             # W connector inputs
             'N_rot':     lambda val: self.W.set_N_rot(val),
 
+            # Q connector inputs
+            'Q_dot':     lambda val: self.Q.set_Q_dot(val),
+
             # Q_amb connector inputs
-            'T_amb':     lambda val: self.Q_amb.set_T_cold(val),
+            'T_amb':     lambda val: self.Q_amb.set_T_amb(val),
             
             # Solar
             'DNI':       lambda val:val,
@@ -222,8 +225,11 @@ class BaseComponent:
             # W connector
             'N_rot':     lambda: self.W.N_rot if hasattr(self,'W') else None,
 
+            # Q connector
+            'Q_dot':     lambda: self.Q.Q_dot if hasattr(self,'Q') else None,
+
             # Q_amb connector
-            'T_amb':     lambda: self.Q_amb.T_cold if hasattr(self,'Q_amb') else None,
+            'T_amb':     lambda: self.Q_amb.T_amb if hasattr(self,'Q_amb') else None,
             
             # Solar
             'DNI':       lambda: self.DNI if hasattr(self,'DNI') else None,

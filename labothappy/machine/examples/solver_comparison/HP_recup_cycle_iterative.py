@@ -67,15 +67,13 @@ SC_cd = 3  # K
 SH_ev = 3  # K
 
 HP.set_cycle_input(target="ExpansionValve:su", m_dot = m_dot_ref)
-HP.set_cycle_input(target="Compressor:su", m_dot = m_dot_ref)
 HP.set_cycle_input(target="Evaporator:ex_C", SH=SH_ev)
 HP.set_cycle_input(target="Condenser:ex_H", m_dot = m_dot_ref, SC=SC_cd)
 
 # Set iteration variables
 P_HP_guess = PropsSI("P", "T", T_su_w_cd+10, "Q", 0, fluid)
 P_LP_guess = PropsSI("P", "T", T_su_w_ev-10, "Q", 1, fluid)
-T_su_vlv_guess = PropsSI('H', 'P', P_HP_guess, 'Q', 0, fluid) - SC_cd - 0.1
-h_su_vlv_guess = PropsSI('H', 'P', P_HP_guess, 'T', T_su_vlv_guess, fluid)
+T_su_vlv_guess = PropsSI('T', 'P', P_HP_guess, 'Q', 0, fluid) - SC_cd
 
 HP.set_iteration_variable(
     target=["ExpansionValve:su", "Compressor:ex", "Condenser:ex_H"],
@@ -85,14 +83,7 @@ HP.set_iteration_variable(
 )
 
 HP.set_iteration_variable(
-    target=["Compressor:su"],
-    variable="SH",
-    guess=SH_ev*2,
-    tolerance=1e-6
-)
-
-HP.set_iteration_variable(
-    target=["ExpansionValve:ex", "Compressor:su"],
+    target="ExpansionValve:ex",
     variable="p",
     guess=P_LP_guess,
     tolerance=1e-6
@@ -100,7 +91,7 @@ HP.set_iteration_variable(
 
 HP.set_iteration_variable(
     target="ExpansionValve:su",
-    variable="h",
+    variable="T",
     guess=T_su_vlv_guess,
     tolerance=1e-6
 )
@@ -129,7 +120,5 @@ HP.set_residual_variable(
 
 # Solve circuit
 HP.solve()
-
-HP.plot_cycle_Ts()
-
 print(f"Converged at P_HP = {Compressor.ex.p}, P_LP = {Compressor.su.p}")
+# HP.print_states()

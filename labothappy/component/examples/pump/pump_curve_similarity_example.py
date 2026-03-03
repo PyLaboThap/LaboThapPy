@@ -13,16 +13,6 @@ N_rated = 2900 # RPM
 # If you have eta_curve -> you can find back W_dot_curve or vice versa
 
 PUMP = PumpCurveSimilarity()
-# Set Inputs
-PUMP.set_inputs(
-    P_su=1.3e5,  # Suction pressure in Pascals
-    T_su=275.15+15,  # Suction temperature in Kelvin
-    P_ex=2.4e5,  # Exhaust pressure in Pascals
-    N_rot=1589,  # Rotational speed in RPM
-    # m_dot = 0.36,  # Mass flow rate in kg/s
-    fluid="R1233zd(E)",  # Actual fluid type
-)
-
 
 # Set Parameters
 PUMP.set_parameters(
@@ -31,7 +21,17 @@ PUMP.set_parameters(
     eta_is_curve = eta_is_curve,
     NPSH_r_curve = NPSH_r_curve,
     N_rot_rated = N_rated,
-    mode = "P_N",  # Mode can be "M_N", "P_M", or "P_N"
+    mode = "P_M",  # Mode can be "M_N", "P_M", or "P_N"
+)
+
+# Set Inputs
+PUMP.set_inputs(
+    P_su=1.3e5,  # Suction pressure in Pascals
+    T_su=275.15+15,  # Suction temperature in Kelvin
+    P_ex=2.4e5,  # Exhaust pressure in Pascals
+    # N_rot=1589,  # Rotational speed in RPM
+    m_dot = 0.36,  # Mass flow rate in kg/s
+    fluid="R1233zd(E)",  # Actual fluid type
 )
 
 PUMP.solve()

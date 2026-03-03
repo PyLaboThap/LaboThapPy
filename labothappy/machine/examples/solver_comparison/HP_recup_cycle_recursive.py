@@ -100,5 +100,6 @@ HP.solve()
 HP.plot_cycle_Ts()
 
 print(f"Converged at P_HP = {Compressor.ex.p}, P_LP = {Compressor.su.p}")
+# HP.print_states()
 
 
