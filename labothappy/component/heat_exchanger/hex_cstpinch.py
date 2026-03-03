@@ -333,7 +333,7 @@ class HexCstPinch(BaseComponent):
         return self.res
 
     def system_cond(self, x):
-        
+                
         "1) Initialize Values"        
         self.Q_dot_sc = 0
         self.Q_dot_tp = 0
@@ -446,8 +446,8 @@ class HexCstPinch(BaseComponent):
         self.check_calculable()
         self.check_parametrized()
         
-        print(f"T_su_C : {self.su_C.T}")
-        print(f"T_su_H : {self.su_H.T}")
+        # print(f"T_su_C : {self.su_C.T}")
+        # print(f"T_su_H : {self.su_H.T}")
         
         if not (self.calculable and self.parametrized):
             print("HTX IS NOT CALCULABLE")
@@ -510,7 +510,7 @@ class HexCstPinch(BaseComponent):
             self.P_solution, self.results = brentq(
                 self.system_evap,
                 max(P_triple*1.1+self.DP_c/2, 0.1*P_ev_guess), 
-                P_crit*0.99,
+                upper_bound,
                 xtol=1e-6,
                 rtol=1e-8,
                 maxiter=100,
@@ -566,7 +566,7 @@ class HexCstPinch(BaseComponent):
                 lower_bound = self.AS_H.p()
                 
                 self.AS_H.update(CoolProp.QT_INPUTS, 0.5, self.su_H.T)
-                upper_bound = min(P_crit * 0.99, self.AS_H.p())
+                upper_bound = max(P_crit * 0.95, self.AS_H.p())
                 
                 res1 = self.system_cond(lower_bound)
                 res2 = self.system_cond(upper_bound)
@@ -585,7 +585,7 @@ class HexCstPinch(BaseComponent):
             self.P_solution, self.results = brentq(
                 self.system_cond,
                 max(P_triple*1.1+self.DP_h, 0.1*P_cd_guess), 
-                P_crit*0.99 - self.DP_h,
+                upper_bound,
                 xtol=1e-6,
                 rtol=1e-8,
                 maxiter=100,
@@ -629,8 +629,14 @@ class HexCstPinch(BaseComponent):
             self.su_C.set_p(self.P_ev_x0)
 
             self.ex_C.set_fluid(self.su_C.fluid)
-            self.ex_C.set_h(self.h_C_ex)
             self.ex_C.set_p(self.P_ev_x1)
+            
+            try:
+                self.ex_C.set_h(self.h_C_ex)
+            except:
+                print(self.ex_C.variables_input)
+                exit()
+                
             self.ex_C.set_m_dot(self.su_C.m_dot)
 
             self.ex_H.set_fluid(self.su_H.fluid)
@@ -643,12 +649,13 @@ class HexCstPinch(BaseComponent):
 
         else: 
 
-            self.su_H.set_p(self.P_sat + self.DP_h/2)
+            self.su_H.set_p(self.P_cd_x1)
 
             self.ex_H.set_fluid(self.su_H.fluid)
             # self.ex_H.set_h(CoolProp.PropsSI('H', 'P', self.P_cd_x0, 'T', self.T_H_ex, self.su_H.fluid) )
+            self.ex_H.set_p(self.P_cd_x0)
+
             self.ex_H.set_h(self.h_H_ex)
-            self.ex_H.set_p(self.P_sat - self.DP_h/2)
             self.ex_H.set_m_dot(self.su_H.m_dot)
 
             self.ex_C.set_fluid(self.su_C.fluid)

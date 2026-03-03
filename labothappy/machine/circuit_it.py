@@ -139,7 +139,7 @@ class IterativeCircuit(BaseCircuit):
         return np.array([it["x0"] for it in self.it_vars.values()])
     
     def _solve_circuit(self, x):
-
+        print(f"x : {x}")
         # 1. Apply iteration variables
         self._apply_iteration_vector(x)
 
@@ -150,7 +150,9 @@ class IterativeCircuit(BaseCircuit):
             self.state_cache["pre"][key] = self._read_variable(
                 rv["pre_target"], rv["variable"]
             )
-
+        
+        print(f"pre : {self.state_cache['pre']}")
+        
         # 3. Solve components (one full circuit pass)
         if not self.solve_start_components:
             self._build_solve_order()
@@ -165,6 +167,8 @@ class IterativeCircuit(BaseCircuit):
             self.state_cache["post"][key] = self._read_variable(
                 rv["post_target"], rv["variable"]
             )
+
+        print(f"post : {self.state_cache['post']}")
 
         # 5. Compute residuals
         residuals = []
@@ -187,6 +191,8 @@ class IterativeCircuit(BaseCircuit):
             residuals.append(raw / scale)
         
         self.convergence_frames.append(self.plot_cycle_Ts())
+
+        print(f"residuals : {residuals}")
 
         return np.array(residuals, dtype=float)
 

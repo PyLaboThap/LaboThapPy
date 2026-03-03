@@ -97,8 +97,8 @@ HP.set_cycle_input(target="Condenser:ex_H", m_dot = m_dot_ref, SC=SC_cd)
 # Set iteration variables
 P_HP_guess = PropsSI("P", "T", T_su_w_cd+10, "Q", 0, fluid)
 P_LP_guess = PropsSI("P", "T", T_su_w_ev-10, "Q", 1, fluid)
-T_su_vlv_guess = PropsSI('H', 'P', P_HP_guess, 'Q', 0, fluid) - SC_cd - 0.1
-h_su_vlv_guess = PropsSI('H', 'P', P_HP_guess, 'T', T_su_vlv_guess, fluid)
+h_su_vlv_guess = PropsSI('H', 'P', P_HP_guess, 'Q', 0, fluid) - SC_cd - 0.1
+# h_su_vlv_guess = PropsSI('H', 'P', P_HP_guess, 'T', T_su_vlv_guess, fluid)
 
 HP.set_iteration_variable(
     target=["ExpansionValve:su", "Compressor:ex", "Condenser:ex_H"],
@@ -117,7 +117,7 @@ HP.set_iteration_variable(
 HP.set_iteration_variable(
     target="ExpansionValve:su",
     variable="h",
-    guess=T_su_vlv_guess,
+    guess=h_su_vlv_guess,
     tolerance=1e-6
 )
 

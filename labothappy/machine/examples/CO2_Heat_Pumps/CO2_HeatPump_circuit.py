@@ -544,7 +544,7 @@ def Flash_CO2_HP_Series_CP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low
 
 if __name__ == "__main__":
 
-    study_case = "Simple"    
+    study_case = "IHX"    
 
     # Pressure levels
     P_low_guess = 40*1e5
@@ -586,9 +586,9 @@ if __name__ == "__main__":
         
         CO2_HP = IHX_CO2_HP(HSource, CSource, eta_compressor, eta_GC, eta_IHX, DT_pp_ev, SH_ev, P_low_guess, P_high, m_dot, mute_print_flag = 0)
         
-        CO2_HP.solve()        
+        CO2_HP.solve()
 
-        COP = CO2_HP.components["GasCooler"].model.Q.Q_dot/(CO2_HP.components["Compressor"].model.W.W_dot)
+        # COP = CO2_HP.components["GasCooler"].model.Q.Q_dot/(CO2_HP.components["Compressor"].model.W.W_dot)
 
     elif study_case == "Simple":
 

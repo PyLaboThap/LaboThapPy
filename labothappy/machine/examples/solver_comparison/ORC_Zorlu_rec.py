@@ -40,7 +40,7 @@ for T_cd in T_guess_cd:
                 ORC = RecursiveCircuit(fluid)
 
                 # Ignore debug printing
-                # ORC.mute_print()
+                ORC.mute_print()
                 
                 # Create components
                 Pump = PumpCstEff()

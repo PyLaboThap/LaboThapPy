@@ -871,7 +871,7 @@ class RecursiveCircuit(BaseCircuit):
                 self.messages.append("Not all component solved.")
             
             if 'Compressor' in self.components:
-                self.res_energy = (self.components['Compressor'].model.W.W_dot + self.components['Evaporator'].model.Q.Q_dot - self.components['Condenser'].model.Q.Q_dot)/abs(self.components['Compressor'].model.W.W_dot + self.components['Evaporator'].model.Q.Q_dot + self.components['Condenser'].model.Q.Q_dot)   
+                self.res_energy = 0 # (self.components['Compressor'].model.W.W_dot + self.components['Evaporator'].model.Q.Q_dot - self.components['Condenser'].model.Q.Q_dot)/abs(self.components['Compressor'].model.W.W_dot + self.components['Evaporator'].model.Q.Q_dot + self.components['Condenser'].model.Q.Q_dot)   
             else:
                 self.res_energy = (self.components['Pump'].model.W.W_dot + self.components['Evaporator'].model.Q.Q_dot + self.components['Preheater'].model.Q.Q_dot  - self.components['Condenser'].model.Q.Q_dot - self.components['Expander'].model.W.W_dot)/abs(self.components['Pump'].model.W.W_dot + self.components['Expander'].model.W.W_dot + self.components['Evaporator'].model.Q.Q_dot + self.components['Preheater'].model.Q.Q_dot  + self.components['Condenser'].model.Q.Q_dot)   
                 

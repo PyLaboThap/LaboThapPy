@@ -22,7 +22,7 @@ T_guess_ev = [113.1 + 273.15]
 # SH_ev_vec = np.linspace(1,10,10)
 
 SC_cd_vec = np.linspace(3,3,1)
-SH_ev_vec = np.linspace(1,1,1)
+SH_ev_vec = np.linspace(5,5,1)
 
 # Instanciate Circuit
 fluid = "Cyclopentane"
@@ -53,7 +53,7 @@ for T_cd in T_guess_cd:
                 # Set component parameters
                 eta_is_cp = 0.8 # -
                 
-                Pinch_cd = 1  # K
+                Pinch_cd = 5  # K
                 SC_cd = SC_cd # 3  # K
                 
                 Pinch_ev = 3  # K
