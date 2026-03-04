@@ -10,9 +10,9 @@ from CoolProp.CoolProp import PropsSI
 import matplotlib.pyplot as plt
 import numpy as np
 
-from connector.mass_connector import MassConnector
-from connector.work_connector import WorkConnector
-from connector.heat_connector import HeatConnector
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.connector.work_connector import WorkConnector
+from labothappy.connector.heat_connector import HeatConnector
 
 from machine.base_circuit import BaseCircuit
 
@@ -26,24 +26,33 @@ class RecursiveCircuit(BaseCircuit):
             self.target = target 
             self.variable = variable
             self.value = None
+            self.prev_value = None
             self.tolerance = tolerance
             self.converged = False
-            
+
         def check_convergence(self, new_value):
             
-            if (abs(new_value - self.value)/self.value) < self.tolerance:
+            if self.value is not None and (abs(new_value - self.value)/self.value) < self.tolerance:
+                self.set_prev_value(self.value)
+                self.set_value(new_value)
                 self.converged = True
                 return True
             else: 
+                self.set_prev_value(self.value)
                 self.set_value(new_value)
                 self.converged = False
                 return False
+            
             return
             
         def set_value(self, value):
             self.value = value
             return
 
+        def set_prev_value(self, value):
+            self.prev_value = value
+            return
+        
     class Guess():
         def __init__(self, target, variable, value):
     
@@ -82,8 +91,124 @@ class RecursiveCircuit(BaseCircuit):
             else:
                 raise ValueError("'rel' value for 'Iteration_variable' class shall be either 1 or -1.")
             
-        def find_backward_path(self):
-            return
+        def find_link_DP(self, components):
+                        
+            start = self.target[0].split(":")[0]
+            end = self.objective.split(":")[1]
+            
+            start_comp = components[start]
+            
+            from collections import deque
+
+            def get_suffix(port_name):
+                if port_name is None:
+                    return ""
+                if port_name.endswith("_C"):
+                    return "_C"
+                if port_name.endswith("_H"):
+                    return "_H"
+                return ""
+            
+            def shortest_path(start_component, end_name):
+                """
+                Returns path as list of tuples:
+                (component_name, entrance_port, exit_port_of_previous_component)
+                The exit_port is the port on the previous component used to reach this component.
+                """
+                queue = deque()
+                # Start: no entrance, no exit
+                queue.append((start_component, [[start_component.name, None, None]]))
+                
+                visited = set([start_component])
+            
+                while queue:
+                    current, path = queue.popleft()
+            
+                    if current.name == end_name:
+                        return path
+            
+                    # Suffix filtering
+                    _, entrance_port_current, _ = path[-1]
+                    entrance_suffix = get_suffix(entrance_port_current)
+            
+                    for prev_exit_port, next_comp in current.next.items():
+                        if next_comp in visited:
+                            continue
+            
+                        # Entrance port of next component pointing back to current
+                        entrance_port_next = next(
+                            (port for port, prev in next_comp.previous.items() if prev is current),
+                            None
+                        )
+            
+                        # Only consider next components whose exit port matches suffix if needed
+                        if entrance_suffix in ("_C", "_H") and not prev_exit_port.endswith(entrance_suffix):
+                            continue
+            
+                        visited.add(next_comp)
+            
+                        # Store:
+                        # - component name (next component)
+                        # - entrance port on next component
+                        # - exit port on previous component (current)
+                        queue.append(
+                            (next_comp, path + [[next_comp.name, entrance_port_next, prev_exit_port]])
+                        )
+            
+                return None
+
+            path = shortest_path(start_comp, end)
+            
+            for i in range(1,len(path)):
+                path_elem = path[i]
+                prev_path_elem = path[i-1]
+                                
+                prev_path_elem[-1] = path_elem[-1]
+                
+                if i == len(path)-1:
+                    path_elem[-1] = None
+            
+            def compute_delta_P(path, components):
+                """
+                path: list of [component_name, entrance_port, exit_port_of_prev]
+                components: dict of component_name -> component object
+                
+                Returns: dict of component_name -> delta_P
+                         Only for components with both entrance and exit ports not None
+                         Uses DP_c if port has '_C', DP_h if port has '_H'
+                """
+                delta_Ps = {}
+            
+                for comp_name, entrance_port, exit_port in path:
+                    # Skip components with None ports
+                    if entrance_port is None or exit_port is None:
+                        continue
+            
+                    comp = components[comp_name].model  # use model to access DP_c / DP_h
+            
+                    # Determine suffix
+                    suffix = ""
+                    if entrance_port.endswith("_C") or exit_port.endswith("_C"):
+                        suffix = "_C"
+                    elif entrance_port.endswith("_H") or exit_port.endswith("_H"):
+                        suffix = "_H"
+            
+                    # Assign delta_P based on suffix
+                    if suffix == "_C":
+                        delta_Ps[comp_name] = getattr(comp, "DP_c", 0)
+                    elif suffix == "_H":
+                        delta_Ps[comp_name] = getattr(comp, "DP_h", 0)
+                    else:
+                        # fallback if no suffix
+                        delta_Ps[comp_name] = 0
+            
+                return delta_Ps
+            
+            self.delta_Ps = compute_delta_P(path, components)
+            
+            self.DP = sum(self.delta_Ps.values())
+            
+            return self.DP
             
         def check(self, target_value, objective_connector, var):
             if abs((target_value - self.objective_value)/self.objective_value) < self.tol:
@@ -122,6 +247,7 @@ class RecursiveCircuit(BaseCircuit):
         self.res_vars = {}
         self.it_vars = []
         self.converged = False
+        self.solving_order = []
 
     def set_source_properties(self, **kwargs):
         # Set properties for a specific source
@@ -139,7 +265,6 @@ class RecursiveCircuit(BaseCircuit):
                 self.fixed_properties[fix_prop.name] = fix_prop
 
         return 
-
 
 #%% Variable set related methods
 
@@ -303,6 +428,8 @@ class RecursiveCircuit(BaseCircuit):
 
         for arg_name in kwargs:
 
+            # self.set_residual_variable(target = target, variable=arg_name)
+
             value = kwargs[arg_name]
             guess = RecursiveCircuit.Guess(target, arg_name, value)
 
@@ -405,7 +532,7 @@ class RecursiveCircuit(BaseCircuit):
                 raise ValueError(f"{objective} not part of the fixed_properties. Cannot be defined as an non-linking objective.")
         
         return
-
+    
 #%%
 
     def print_guesses(self):
@@ -419,6 +546,18 @@ class RecursiveCircuit(BaseCircuit):
             print(f"{fix_prop}: {self.fixed_properties[fix_prop].value}")
         
         return
+
+    def reset_input_values(self):
+        
+        for comp in self.components:
+            comp_model = self.components[comp].model
+            
+            comp_model.reset_inputs()
+
+        if self.print_flag:
+            print(f"----------------------------------")
+
+            print(f"Reset component inputs")
 
 #%%
 
@@ -441,6 +580,7 @@ class RecursiveCircuit(BaseCircuit):
 
     def check_all_component_solved(self):
         for component in self.components:
+            
             if self.components[component].model.solved == False:
                 return False
         
@@ -460,20 +600,51 @@ class RecursiveCircuit(BaseCircuit):
         component = self.get_component(component_name)
         component_model = component.model
 
-        # !!!
-        if component_name == 'Expander_1':
-            print(f"P_su_exp : {component_model.su.p}")
-
         if component_model.solved:
+            if self.print_flag:
+                print(f"Component '{component_name}' already solved.")
             return
 
         component_model.check_calculable()
         component_model.check_parametrized()
         
         if component_model.parametrized:
-            if component_model.calculable:        
+            if component_model.calculable:    
+                save = {}
+                for next_connector in component.next:
+                    type_connector, connector_name = next_connector.split("-")
+                    if type_connector == "m":
+                        connector = getattr(component_model, connector_name)
+                        save[next_connector] = {'p' : connector.p, 'h' : connector.h}
+                    
                 component_model.solve()
+                
+                if component_name not in self.solving_order:
+                    self.solving_order.append(component_name)
+
+                # save_new = {}
+                # for next_connector in component.next:
+                #     type_connector, connector_name = next_connector.split("-")
+                #     if type_connector == "m":
+                #         connector = getattr(component_model, connector_name)
+                #         save_new[next_connector] = {'p' : connector.p, 'h' : connector.h}
+                
+                # tol = 1e-4
+                
+                # for connector in save:
+                #     for prop in save[connector]:
+                #         value_prev = save[connector][prop]
+                #         value_new = save_new[connector][prop]
+                        
+                #         if value_prev is not None:
+                #             delta = abs((value_new - value_prev)/value_prev)
+                #             # print(f"delta : {delta} for {connector} - {prop}")
+                #             if delta > tol:
+                #                 component.next[connector].model.solved = False
+                        
             else:
+                if self.print_flag:
+                    print(f"Component '{component_name}' not calculable.")
                 return
         else:
             raise ValueError(f"Component '{component_name}' not parametrized.")
@@ -484,7 +655,7 @@ class RecursiveCircuit(BaseCircuit):
         
         return
 
-    def solve(self):
+    def solve(self, max_iter = 30):
         
         # print("Solve Start")
         
@@ -501,11 +672,22 @@ class RecursiveCircuit(BaseCircuit):
         
         if self.check_all_component_solved():
             if self.print_flag:
-                print("All components solved in first iteration.")
+                print("All components solved in setup iteration.")
             pass
         else:
+            # for start_component in self.solve_start_components:
+            #     self.recursive_solve(start_component)
+            #     if self.check_all_component_solved():
+            #         break
+            
             if self.print_flag:
-                print("Not all components were solved in first iteration.")
+                self.blocking_comp = []
+                for component in self.components:     
+                    if not self.components[component].model.check_calculable():
+                        self.blocking_comp.append(component)
+                
+                print("Not all components were solved in setup iteration.")
+                print(f"{self.blocking_comp} is/are not calculable.")
             return
         
         # print("Set residual variables")
@@ -520,25 +702,42 @@ class RecursiveCircuit(BaseCircuit):
             self.res_vars[res_var_name].set_value(value)
 
         self.guess_update = True
-
-        i=0
-        n_it_max = 30   
         
-        while i < n_it_max:
- 
+        # self.convergence_frames.append(self.plot_cycle_Ts(plot_auto = False))
+              
+        # self.print_states()
+        
+        i=0
+        
+        while i < max_iter:
+            self.messages = []
+            
+            if self.print_flag:
+                
+                print("\n")
+                print(f"###########################")
+                print(f"Iteration {i+1}")
+                print(f"###########################")
+
             for it_var in self.it_vars:
                 
-                if "Link" in it_var.objective:                    
+                if "Link" in it_var.objective:        
+                    
                     _, obj_comp_name, port_var = it_var.objective.split(":")
                     port_name, variable = port_var.split("-")
-                    
+
+                    if variable == 'p':
+                        gain = it_var.find_link_DP(self.components)
+                    else:
+                        gain = 0
+                        
                     connector_obj = getattr(self.components[obj_comp_name].model, port_name)
                     value_obj = getattr(connector_obj, variable)
                     
                     for target in it_var.target:
                         kwargs_dict = {'target': target,
-                                        it_var.variable : value_obj}
-                        
+                                        it_var.variable : value_obj+gain}
+                                                
                         self.set_cycle_guess(**kwargs_dict)
                         
                     it_var.converged = True
@@ -626,15 +825,27 @@ class RecursiveCircuit(BaseCircuit):
                 else:
                     pass
 
+            # self.reset_input_values()
+
             self.reset_solved_marker()
     
-            for start_component in self.solve_start_components:
-                self.recursive_solve(start_component)
-                if self.check_all_component_solved():
-                    break       
-    
-            # print("Check res_vars convergence and set new values if needed")
-
+            # for start_component in self.solve_start_components:
+            #     self.recursive_solve(start_component)
+                                
+            #     if self.check_all_component_solved():
+            #         break       
+        
+            for component_name in self.solving_order:
+                if self.print_flag:
+                    print(f"----------------------------------")
+                    print(f"Component : {component_name}")
+                    
+                comp_model = self.components[component_name]
+                comp_model.solve()
+        
+            # self.res_energy = (self.components['Pump'].model.W.W_dot + self.components['Evaporator'].model.Q.Q_dot + self.components['Preheater'].model.Q.Q_dot  - self.components['Condenser'].model.Q.Q_dot - self.components['Expander'].model.W.W_dot)/abs(self.components['Pump'].model.W.W_dot + self.components['Expander'].model.W.W_dot + self.components['Evaporator'].model.Q.Q_dot + self.components['Preheater'].model.Q.Q_dot  + self.components['Condenser'].model.Q.Q_dot)   
+            
+        
             self.converged = True
 
             for res_var in self.res_vars:    
@@ -648,44 +859,41 @@ class RecursiveCircuit(BaseCircuit):
                 
                 if not self.res_vars[res_var].converged:
                     self.converged = False
-            
+                    self.messages.append(f"Residual variable tolerance not satisfied : {res_var}.")
+
             for it_var in self.it_vars:    
                 if not it_var.converged:
-                    self.converged = False            
+                    self.converged = False        
+                    self.messages.append(f"Iteration variable tolerance not satisfied : {it_var}.")
         
             if not self.check_all_component_solved():
                 self.converged = False
-        
+                self.messages.append("Not all component solved.")
+            
+            # if 'Compressor' in self.components:
+            #     self.res_energy = 0 # (self.components['Compressor'].model.W.W_dot + self.components['Evaporator'].model.Q.Q_dot - self.components['Condenser'].model.Q.Q_dot)/abs(self.components['Compressor'].model.W.W_dot + self.components['Evaporator'].model.Q.Q_dot + self.components['Condenser'].model.Q.Q_dot)   
+            # else:
+            #     self.res_energy = (self.components['Pump'].model.W.W_dot + self.components['Evaporator'].model.Q.Q_dot + self.components['Preheater'].model.Q.Q_dot  - self.components['Condenser'].model.Q.Q_dot - self.components['Expander'].model.W.W_dot)/abs(self.components['Pump'].model.W.W_dot + self.components['Expander'].model.W.W_dot + self.components['Evaporator'].model.Q.Q_dot + self.components['Preheater'].model.Q.Q_dot  + self.components['Condenser'].model.Q.Q_dot)   
+                
+            # if self.res_energy**2 > 1e-4:
+            #     self.converged = False
+            #     if self.print_flag:
+            #         self.messages.append("Energy Residual not satisfied !")
+                    
             if self.converged:
                 if self.print_flag:
                     print(f"Solver successfully converged in {i+1} iteration(s) !")
+                    
                 return
             
+            if self.plot_flag:
+                self.convergence_frames.append(self.plot_cycle_Ts(plot_auto=False))
+                        
             i = i + 1
-
-        # plt.figure()
-        # plt.plot(res_ev, 'r',  marker='o')                            
-        # plt.show()
         
         if self.print_flag:
-            print(f"Solver failed to converge in {n_it_max} iterations.")
-        
-        # self.print_res_vars()
-        
-        # plt.figure()
-        
-        # plt.plot(m_dot_su_pp, 'r')
-        # plt.plot(m_dot_ex_pp, 'g',  marker='o')
-        # plt.plot(m_dot_su_spli, 'b')
-        # plt.plot(m_dot_ex_mix, 'k',  marker='o')
-        # plt.plot(m_dot_ex_cd, 'orange',  marker='o')
-        
-        # plt.legend(['su_pp', 'ex_pp', 'su_spli', 'ex_mix', 'ex_cd'])
-        
-        # plt.figure()
-        # plt.plot(P_cd, 'r')
-        
-        # plt.legend(['P_cd'])
+            print(f"Solver failed to converge in {max_iter} iterations.")
         
         return
+    
     

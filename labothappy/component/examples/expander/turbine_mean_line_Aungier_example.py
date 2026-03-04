@@ -7,9 +7,9 @@ Created on Wed Dec 17 12:50:00 2025
  
 import matplotlib.pyplot as plt
 import numpy as np
- 
-from component.expander.turbine_mean_line_Aungier import AxialTurbineMeanLine, generate_map_processes
-from toolbox.turbomachinery.mean_line_axial_turbine_mapping import map_plot, map_plot_clean, plot_power_eta_vs_mdot, filter_sparse_by_proximity
+
+from labothappy.toolbox.turbomachinery.mean_line_axial_turbine_mapping import map_plot, map_plot_clean, plot_power_eta_vs_mdot, filter_sparse_by_proximity
+from labothappy.component.expander.turbine_mean_line_Aungier import AxialTurbineMeanLine, generate_map_processes
  
 if __name__ == "__main__":
    
@@ -113,7 +113,7 @@ if __name__ == "__main__":
             R_c_R = [0.01657872114, 0.01772155179, 0.01914958914, 0.02090755531, 0.02304935574, 0.02564128287, 0.0287675548, None],
             )
        
-    map_case =1
+    map_case = 0
    
     if map_case == 1 and case_study == "TCO2_ORC":
        
@@ -142,6 +142,7 @@ if __name__ == "__main__":
             levels=24, focus_high=True, max_iso_speeds=4,
             figsize=(9,6), dpi=220
         )
+        
         plt.show()
    
         # fig, ax = map_plot_clean(

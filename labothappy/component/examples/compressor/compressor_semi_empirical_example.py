@@ -60,8 +60,6 @@ compressor.Q_amb.set_T_cold(293)
 # Set rotational speed
 compressor.W.set_N_rot(6000)
 
-
-
 #---------------------------------------------------------------------------------------------#
 "Solve compressor component"
 #---------------------------------------------------------------------------------------------#
@@ -69,3 +67,6 @@ compressor.W.set_N_rot(6000)
 # Solve the compressor component
 compressor.solve()
 compressor.print_results()
+
+fig = compressor.plot_Ts()
+fig.show()

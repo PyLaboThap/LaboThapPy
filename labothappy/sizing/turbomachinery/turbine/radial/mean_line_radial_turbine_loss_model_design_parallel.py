@@ -544,27 +544,6 @@ class RadialTurbineMeanLineDesign(object):
             sol = minimize(determine_stator_inlet, x0=x0_disc, bounds = bounds_arr, callback=time_limited_callback)     
             
             self.designRotor()
-            
-        #     while res > 1e-4:
-        #             # print(f"iteration {c+1}")
-        #             if c > 100:
-        #                 exit()
-        #             # print(f"x_in : {x_in}")
-        #             x_out = determine_stator_inlet(x_in)
-        #             # print(f"x_out : {x_out}")
-                    
-        #             res_vec = abs((x_in - x_out)/x_out)
-        #             res = sum(res_vec)
-                    
-        #             x_in = (1-self.params['damping'])*x_in + self.params['damping'] * x_out 
-                                  
-        #             # print(f"new x_in : {x_in}")
-        
-        #             c += 1
-                    
-        #             # print(f"res : {res}")
-                                
-        #     determine_stator_inlet(x_out)
         
         except TimeoutError:
             obj = 1000

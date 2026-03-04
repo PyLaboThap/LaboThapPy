@@ -11,6 +11,11 @@ from connector.mass_connector import MassConnector
 from connector.work_connector import WorkConnector
 from connector.heat_connector import HeatConnector
 
+import matplotlib.pyplot as plt
+import numpy as np
+from CoolProp.CoolProp import PropsSI
+import CoolProp.CoolProp as CP
+
 class BaseComponent:
     """
 
@@ -143,7 +148,7 @@ class BaseComponent:
             'P_ex_C':    lambda val: self.ex_C.set_p(val),
             'T_ex_C':    lambda val: self.ex_C.set_T(val),
             'h_ex_C':    lambda val: self.ex_C.set_h(val),
-
+            
             # W connector inputs
             'N_rot':     lambda val: self.W.set_N_rot(val),
 
@@ -310,151 +315,220 @@ class BaseComponent:
         # This method should be overridden in derived classes
         raise NotImplementedError("The 'solve' method should be implemented in derived classes.")
     
+    def plot_Ts(self, fig = None, color = 'b', choose_HX_side = None):
+                
+        "1) Initialize the graph and inlet, outlet property containers"
+        
+        if fig is None:
+            fig = plt.figure()
+        
+        su = []
+        ex = []
+        
+        prop_2 = 'T'
+        prop_1 = 's'
+        
+        "2) Determine the component supply and exhaust ports"
+        
+        for attr, val in self.__dict__.items():
+            
+            if "su" in attr and isinstance(val, MassConnector):
+                su.append([attr, val, attr[2:]]) 
+        
+            if "ex" in attr and isinstance(val, MassConnector):
+                ex.append([attr, val, attr[2:]]) 
 
-    # def plot_component(self, inputs_names=None, outputs_names=None, parameters_names=None):
-    #     """
-    #     Plot a visual representation of the component with inputs/outputs and parameters.
-    #     """
+        "3) Get properties"
+        
+        for i in range(len(su)):
+            su[i].append({prop_1 : getattr(su[i][1], prop_1),
+                          prop_2 : getattr(su[i][1], prop_2)})
+        
+        for i in range(len(ex)):
+            ex[i].append({prop_1 : getattr(ex[i][1], prop_1),
+                          prop_2 : getattr(ex[i][1], prop_2)})
+        
+        "4) Form couples"
+        
+        # Separate by suffix
+        su_by_suffix = { s[2]: s for s in su }
+        ex_by_suffix = { e[2]: e for e in ex }
+        
+        if choose_HX_side is not None:
+            su_by_suffix = {
+                k: v for k, v in su_by_suffix.items()
+                if choose_HX_side in k
+            }
+            
+            ex_by_suffix = {
+                k: v for k, v in ex_by_suffix.items()
+                if choose_HX_side in k
+            }
+        
+        couple_1 = []
+        couple_2 = []
+        
+        su_keys = set(su_by_suffix.keys())
+        ex_keys = set(ex_by_suffix.keys())
+        
+        # Case 1: normal one-to-one matching
+        if su_keys == ex_keys:
+            
+            for suf in su_keys:
+                su_elem = su_by_suffix[suf]
+                ex_elem = ex_by_suffix[suf]
+                
+                couple_1.append([
+                    su_elem[3][prop_1],
+                    ex_elem[3][prop_1]
+                ])
+                
+                couple_2.append([
+                    su_elem[3][prop_2],
+                    ex_elem[3][prop_2]
+                ])
+        
+        # Case 2: one supply, many exhaust
+        elif len(su_keys) == 1:
+            
+            su_elem = su_by_suffix[next(iter(su_keys))]
+            
+            for suf in ex_keys:
+                ex_elem = ex_by_suffix[suf]
+                
+                couple_1.append([
+                    su_elem[3][prop_1],
+                    ex_elem[3][prop_1]
+                ])
+                
+                couple_2.append([
+                    su_elem[3][prop_2],
+                    ex_elem[3][prop_2]
+                ])
+        
+        # Case 3: many supply, one exhaust
+        elif len(ex_keys) == 1:
+            
+            ex_elem = ex_by_suffix[next(iter(ex_keys))]
+            
+            for suf in su_keys:
+                su_elem = su_by_suffix[suf]
+                
+                couple_1.append([
+                    su_elem[3][prop_1],
+                    ex_elem[3][prop_1]
+                ])
+                
+                couple_2.append([
+                    su_elem[3][prop_2],
+                    ex_elem[3][prop_2]
+                ])
+        
+        # Case 4: incompatible
+        else:
+            raise ValueError(
+                f"Incompatible suffix sets: su={su_keys}, ex={ex_keys}"
+            )
+                
+        # Check whether the component is a HX, if yes, multi-phase shall be considered
+        su_suffixes = su_by_suffix.keys()
+        ex_suffixes = ex_by_suffix.keys()
 
-    #     # Enable LaTeX rendering in Matplotlib
-    #     plt.rcParams['text.usetex'] = True
+        has_H = any('_H' in suf for suf in su_suffixes) or any('_H' in suf for suf in ex_suffixes)
+        has_C = any('_C' in suf for suf in su_suffixes) or any('_C' in suf for suf in ex_suffixes)
 
-    #     # Create figure and axis
-    #     fig, ax = plt.subplots(figsize=(8, 8))
+        "3.1) IF the component is a HX : Detect multi phase operation by plotting along the isobar"
 
-    #     # Draw the block (component)
-    #     block = patches.FancyBboxPatch((0.4, 0.6), 0.3, 0.1, boxstyle="round,pad=0.1", 
-    #                                     edgecolor="black", facecolor="#D4E9C7", zorder=2)
-    #     ax.add_patch(block)
-    #     ax.text(0.55, 0.65, self.__class__.__name__, horizontalalignment='center', 
-    #             verticalalignment='center', fontsize=20, fontweight='bold')
+        if has_H or has_C:
 
-    #     # Define positions for inputs, outputs, and parameters
-    #     input_pos = [0.2, 0.65]  # Position for input
-    #     output_pos = [0.8, 0.65]  # Position for output
-    #     param_pos = [0.55, 0.4]  # Position for parameters
+            couple_1_discretized = []
+            couple_2_discretized = []
+            n_points = 10000
+            
+            if choose_HX_side is not None:
+                # Only generate couples for the chosen side
+                suffix = "_" + choose_HX_side
+                su_conn = su_by_suffix[suffix][1]
+                ex_conn = ex_by_suffix[suffix][1]
+                
+                h_in, h_out = su_conn.h, ex_conn.h
+                s_in, s_out = su_conn.s, ex_conn.s
+                P_in, P_out = su_conn.p, ex_conn.p
+                fluid = su_conn.fluid
+                
+                AS = CP.AbstractState('BICUBIC&HEOS', fluid)
+                
+                h_array = np.linspace(h_in, h_out, n_points)
+                s_array = np.linspace(s_in, s_out, n_points)
+                P_array = np.linspace(P_in, P_out, n_points)
+                
+                T_array = np.zeros(len(h_array))
+                
+                for i in range(len(h_array)):
+                    AS.update(CP.HmassP_INPUTS, h_array[i], P_array[i])
+                    
+                    T_array[i] = AS.T()
 
-    #     # Inputs
-    #     if inputs_names:
-    #         ax.text(input_pos[0] - 0.15, input_pos[1] + 0.2, r'\textbf{Inputs}', fontsize=17, fontweight='bold', color='black')
-    #         ax.annotate('', xy=(input_pos[0] + 0.1, input_pos[1]), xytext=(input_pos[0] - 0.05, input_pos[1]),
-    #                     fontsize=12, color='black',
-    #                     arrowprops=dict(facecolor='black', edgecolor='black', width=0.5, headwidth=8, shrink=0.05))
+                couple_1_discretized.append(s_array)
+                couple_2_discretized.append(T_array)
+            
+            else:
+                # Generate couples for all sides present in su_by_suffix
+                for suf, su_item in su_by_suffix.items():
+                    # Only consider matching exhaust
+                    if suf not in ex_by_suffix:
+                        continue
+                    
+                    su_conn = su_item[1]
+                    ex_conn = ex_by_suffix[suf][1]
+                    
+                    h_in, h_out = su_conn.h, ex_conn.h
+                    s_in, s_out = su_conn.s, ex_conn.s
+                    P_in, P_out = su_conn.p, ex_conn.p
+                    fluid = su_conn.fluid
+                    
+                    AS = CP.AbstractState('BICUBIC&HEOS', fluid)
+                    
+                    h_array = np.linspace(h_in, h_out, n_points)
+                    s_array = np.linspace(s_in, s_out, n_points)
+                    P_array = np.linspace(P_in, P_out, n_points)
+                    
+                    T_array = np.zeros(len(h_array))
+                    
+                    for i in range(len(h_array)):
+                        AS.update(CP.HmassP_INPUTS, h_array[i], P_array[i])
+                        
+                        T_array[i] = AS.T()
 
-    #          # Calculate spacing for inputs
-    #         num_inputs = len(inputs_names)
-    #         vertical_spacing = 0.1
-    #         start_y = input_pos[1] - (num_inputs - 1) * vertical_spacing / 2
+                    couple_1_discretized.append(s_array)
+                    couple_2_discretized.append(T_array)
+            
+            # Replace couple_1 / couple_2 with the discretized arrays
+            couple_1 = couple_1_discretized
+            couple_2 = couple_2_discretized
+                
+            # ------------------------------------------------------
+        
+        "4) Plot couples"
 
-    #         # List all inputs next to the arrow
-    #         for i, input_name in enumerate(inputs_names):
-    #             y = start_y + i * vertical_spacing
-    #             ax.text(input_pos[0] - 0.15, y, f'$\\mathbf{{{input_name}}}$', fontsize=17, color='black', verticalalignment='center')
+        for i in range(len(couple_1)):
+            c1 = couple_1[i]
+            c2 = couple_2[i]
+            
+            plt.plot(c1, c2, color = color)
+            plt.scatter([c1[0], c1[-1]], [c2[0], c2[-1]], color=color, zorder=5)  
+            
+        plt.grid()
+        
+        plt.xlabel("Entropy [J/(kg*K)]")
+        plt.ylabel("Temperature [K]")
+                
+        
+        return fig
 
-
-    #     # Outputs
-    #     if outputs_names:
-    #         ax.text(output_pos[0] + 0.15, output_pos[1] + 0.2, r'\textbf{Outputs}', fontsize=17, fontweight='bold', color='black')
-    #         ax.annotate('', xy=(output_pos[0] + 0.15, output_pos[1]), xytext=(output_pos[0], output_pos[1]),
-    #                     fontsize=12, color='black',
-    #                     arrowprops=dict(facecolor='black', edgecolor='black', width=0.5, headwidth=8, shrink=0.05))
-
-    #         # Calculate spacing for outputs
-    #         num_outputs = len(outputs_names)
-    #         vertical_spacing = 0.1
-    #         start_y = output_pos[1] - (num_outputs - 1) * vertical_spacing / 2
-
-    #         # List all outputs next to the arrow
-    #         for i, output_name in enumerate(outputs_names):
-    #             y = start_y + i * vertical_spacing
-    #             ax.text(output_pos[0] + 0.2, y, f'$\\mathbf{{{output_name}}}$', fontsize=17, color='black', verticalalignment='center')
-
-
-    #     # Parameters
-    #     if parameters_names:
-    #         ax.text(param_pos[0], param_pos[1], r'\textbf{Parameters}', fontsize=17, fontweight='bold', color='black', horizontalalignment='center')
-    #         ax.annotate('', xy=(param_pos[0], param_pos[1] + 0.1), xytext=(param_pos[0], param_pos[1] + 0.05),
-    #                     fontsize=12, color='black',
-    #                     arrowprops=dict(facecolor='black', edgecolor='black', width=0.5, headwidth=8, shrink=0.05))
-
-    #         # Calculate spacing for parameters
-    #         num_params = len(parameters_names)
-    #         vertical_spacing = 0.1
-    #         start_y = param_pos[1] - (num_params - 1) * vertical_spacing / 2
-
-    #         # List all parameters below "Parameters"
-    #         for i, param_name in enumerate(parameters_names):
-    #             y = start_y - i * vertical_spacing
-    #             ax.text(param_pos[0], y-0.05, f'$\\mathbf{{{param_name}}}$', fontsize=17, color='black', verticalalignment='center', horizontalalignment='center')
-
-    #     # Plot formatting
-    #     ax.set_xlim(0, 1)
-    #     ax.set_ylim(0, 1)
-    #     ax.axis('off')  # Hide axis
-
-
-    # def plot_connectors(self, supply_connectors_names=None, exhaust_connectors_names=None):
-
-    #     """
-    #     Plot a visual representation of the component with inputs/outputs and parameters.
-    #     """
-
-    #     # Enable LaTeX rendering in Matplotlib
-    #     plt.rcParams['text.usetex'] = True
-
-    #     # Create figure and axis
-    #     fig, ax = plt.subplots(figsize=(8, 8))
-
-    #     # Draw the block (component)
-    #     block = patches.FancyBboxPatch((0.4, 0.6), 0.3, 0.1, boxstyle="round,pad=0.1", 
-    #                                     edgecolor="black", facecolor="skyblue", zorder=2)
-    #     ax.add_patch(block)
-    #     ax.text(0.55, 0.65, self.__class__.__name__, horizontalalignment='center', 
-    #             verticalalignment='center', fontsize=20, fontweight='bold')
-
-    #     # Define positions for inputs, outputs, and parameters
-    #     input_pos = [0.2, 0.65]  # Position for input
-    #     output_pos = [0.8, 0.65]  # Position for output
-
-    #     # Inputs
-    #     if supply_connectors_names:
-    #         ax.annotate('', xy=(input_pos[0] + 0.1, input_pos[1]), xytext=(input_pos[0] - 0.05, input_pos[1]),
-    #                     fontsize=12, color='black',
-    #                     arrowprops=dict(facecolor='black', edgecolor='black', width=0.5, headwidth=8, shrink=0.05))
-
-    #          # Calculate spacing for inputs
-    #         num_inputs = len(supply_connectors_names)
-    #         vertical_spacing = 0.1
-    #         start_y = input_pos[1] - (num_inputs - 1) * vertical_spacing / 2
-
-    #         # List all inputs next to the arrow
-    #         for i, input_name in enumerate(supply_connectors_names):
-    #             y = start_y + i * vertical_spacing
-    #             ax.text(input_pos[0] - 0.15, y, f'$\\mathbf{{{input_name}}}$', fontsize=17, color='black', verticalalignment='center')
-
-
-    #     # Outputs
-    #     if exhaust_connectors_names:
-    #         ax.annotate('', xy=(output_pos[0] + 0.15, output_pos[1]), xytext=(output_pos[0], output_pos[1]),
-    #                     fontsize=12, color='black',
-    #                     arrowprops=dict(facecolor='black', edgecolor='black', width=0.5, headwidth=8, shrink=0.05))
-
-    #         # Calculate spacing for outputs
-    #         num_outputs = len(exhaust_connectors_names)
-    #         vertical_spacing = 0.1
-    #         start_y = output_pos[1] - (num_outputs - 1) * vertical_spacing / 2
-
-    #         # List all outputs next to the arrow
-    #         for i, output_name in enumerate(exhaust_connectors_names):
-    #             y = start_y + i * vertical_spacing
-    #             ax.text(output_pos[0] + 0.2, y, f'$\\mathbf{{{output_name}}}$', fontsize=17, color='black', verticalalignment='center')
-
-
-    #     # Plot formatting
-    #     ax.set_xlim(0, 1)
-    #     ax.set_ylim(0, 1)
-    #     ax.axis('off')  # Hide axis
-
-
-
-
+    def reset_inputs(self):
+        for attr, val in self.__dict__.items():
+            if hasattr(val, "reset"):
+                val.reset()
+        
+        self.inputs = {}

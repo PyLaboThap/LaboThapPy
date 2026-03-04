@@ -286,17 +286,19 @@ class MassConnector:
                 self.AS.update(AS_inputs, self.variables_input[0][1], self.variables_input[1][1])
             else:
                 self.AS.update(AS_inputs, self.variables_input[1][1], self.variables_input[0][1])
-    
+                            
             self.T = self.AS.T()
             self.p = self.AS.p()
             self.h = self.AS.hmass()
             self.s = self.AS.smass()
             self.D = self.AS.rhomass()
             self.cp = self.AS.cpmass()
+            self.x = self.AS.Q()
             self.state_known = True
+            
         except:
             warnings.warn("Error: This pair of inputs is not yet supported.")
-    
+            
     def set_properties(self, **kwargs):
         
         if 'fluid' in kwargs:
@@ -555,3 +557,8 @@ class MassConnector:
         print("Mass density: " + str(self.D) + "[kg/m^3]")
         print("Quality: " + str(self.x) + "[-]")
 
+
+    def reset(self):
+        self.T = None
+        self.h = None
+        self.m_dot = None

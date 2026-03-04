@@ -70,3 +70,6 @@ HX.set_parameters(
 HX.solve()
 HX.print_setup()
 HX.print_results()
+
+fig = HX.plot_Ts(choose_HX_side='H')
+fig.show()
