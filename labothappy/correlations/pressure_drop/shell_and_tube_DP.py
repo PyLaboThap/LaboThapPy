@@ -505,26 +505,28 @@ def shell_bell_delaware_DP(m_dot_shell, h_shell, P_shell, AS, params):
 
     return DP_shell
 
-Ds = 1
-
-params = {
-    'Shell_ID': Ds,
-    'Tube_L': 5,
-    'Tube_OD': 0.027,
-    'Tube_t': 0.003,
-    'central_spacing':  Ds*0.6,
-    'pitch_ratio': 1.5,
-    'tube_layout': 45,
-    'Baffle_cut': 25,
-    'cross_passes' : np.ceil(5/Ds*0.6)
-    }
-
-AS = CP.AbstractState('HEOS', 'Water')
-
-P_in = 3*101325
-T_in = 20+273.15
-
-h_in = CP.PropsSI('H', 'P', P_in, 'T', T_in, 'Water')
-
-DP =  shell_DP_kern(111.11, 534.09, h_in, P_in, AS, params)
+if __name__ == "__main__":
+    
+    Ds = 1
+    
+    params = {
+        'Shell_ID': Ds,
+        'Tube_L': 5,
+        'Tube_OD': 0.027,
+        'Tube_t': 0.003,
+        'central_spacing':  Ds*0.6,
+        'pitch_ratio': 1.5,
+        'tube_layout': 45,
+        'Baffle_cut': 25,
+        'cross_passes' : np.ceil(5/Ds*0.6)
+        }
+    
+    AS = CP.AbstractState('HEOS', 'Water')
+    
+    P_in = 3*101325
+    T_in = 20+273.15
+    
+    h_in = CP.PropsSI('H', 'P', P_in, 'T', T_in, 'Water')
+    
+    DP =  shell_DP_kern(111.11, 534.09, h_in, P_in, AS, params)
 

@@ -2,7 +2,7 @@ import numpy as np
 from CoolProp.CoolProp import PropsSI
 import matplotlib.pyplot as plt
 
-from labothappy.machine.circuit_it import IterativeCircuit
+from labothappy.machine.circuit_rec import RecursiveCircuit
 from labothappy.connector.mass_connector import MassConnector
 from labothappy.component.expander.expander_semi_empirical import ExpanderSE
 from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
@@ -56,7 +56,7 @@ class TS_curve_generator:
 
 # -------- 1) Instanciate Circuit --------
 fluid = 'R1233zd(E)'
-orc = IterativeCircuit(fluid)
+orc = RecursiveCircuit(fluid)
 
 # -------- 2) Create components --------
 Expander = ExpanderSE()
@@ -155,9 +155,15 @@ SC_cd = 5  # K
 N_exp = 6000 # RPM
 T_amb = 293 # K
 
-orc.set_cycle_input(target="Pump:su", m_dot = m_dot_ref, SC=SC_cd)
-orc.set_cycle_input(target="Expander:W", N_rot = N_exp)
-orc.set_cycle_input(target="Expander:Q_amb", T_amb=T_amb)
+P_LP_guess = PropsSI("P", "T", T_su_w_cd+10, "Q", 0, fluid)
+P_HP_guess = PropsSI("P", "T", T_su_w_ev-10, "Q", 1, fluid)
+
+orc.set_cycle_guess(target="Pump:su", m_dot = m_dot_ref, SC=SC_cd, p=P_LP_guess)
+orc.set_cycle_guess(target="Pump:ex", p=P_HP_guess)
+
+orc.set_cycle_guess(target="Expander:W", N_rot = N_exp)
+orc.set_cycle_guess(target="Expander:Q_amb", T_amb=T_amb)
+orc.set_cycle_guess(target="Expander:ex", p=P_LP_guess)
 
 # Expander.print_setup()
 
@@ -170,36 +176,13 @@ orc.set_cycle_input(target="Expander:Q_amb", T_amb=T_amb)
 # P_pp_su_ub = P_pp_ex_ub/rp_min
 # -> Si jamais besoin d'essayer plusieurs Guesses
 
-P_LP_guess = PropsSI("P", "T", T_su_w_cd+10, "Q", 0, fluid)
-P_HP_guess = PropsSI("P", "T", T_su_w_ev-10, "Q", 1, fluid)
-
-orc.set_iteration_variable(
-    target=["Pump:su", "Expander:ex"],
-    variable="p",
-    guess=P_LP_guess,
-    tolerance=1e-6
-)
-
-orc.set_iteration_variable(
-    target="Pump:ex",
-    variable="p",
-    guess=P_HP_guess,
-    tolerance=1e-6
-)
-
 # -------- 9) Set residual variables --------
 orc.set_residual_variable(
-    pre_target="Pump:su",
-    post_target="Condenser:ex_H",
-    variable="h",
-    tolerance=1e-3
+    target="Pump:ex", variable="h", tolerance=1e-3
 )
 
 orc.set_residual_variable(
-    pre_target="Expander:W",
-    post_target="Expander:W",
-    variable="N_rot",
-    tolerance=1e-3
+    target="Expander:W", variable="N_rot", tolerance=1e-3
 )
 
 # -------- 10) Solve circuit --------
@@ -235,6 +218,7 @@ for i, (s, T) in enumerate(zip(s_array, T_array)):
 TS_curve = TS_curve_generator(fluid)
 TS_curve.points(s_array, T_array)
 
-
+energy_vec = np.array([orc.components['Pump'].model.W.W_dot, orc.components['Evaporator'].model.Q.Q_dot, - orc.components['Condenser'].model.Q.Q_dot, - orc.components['Expander'].model.W.W_dot])
+res_energy = np.sum(energy_vec)/np.max(energy_vec)
 
 

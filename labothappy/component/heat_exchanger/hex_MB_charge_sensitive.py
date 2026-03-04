@@ -1,3 +1,6 @@
+# model = 1
+
+# if model == 1:
 """
 Modification w/r to previous version:
     - Putting some order in the Objective Function "for" loops. Sparing some
@@ -227,13 +230,13 @@ class HexMBChargeSensitive(BaseComponent):
                     - 'C' : cold
 
         ex : Exhaust - 'H' : hot
-                     - 'C' : cold
+                      - 'C' : cold
                     
         Q_dot : Heat connection to the ambient
         
         HTX_Type : Type of HTX - Plate 
-                               - Shell and Tube
-                               - Tube and Fins
+                                - Shell and Tube
+                                - Tube and Fins
         """
         
         super().__init__()
@@ -243,7 +246,7 @@ class HexMBChargeSensitive(BaseComponent):
         self.ex_H = MassConnector()
         self.ex_C = MassConnector() # Mass_connector
                 
-        self.Q_HX = HeatConnector()
+        self.Q = HeatConnector()
         self.F_fun = None
         self.w = [None]
         self.Qdot_c_rel = [0]
@@ -294,10 +297,10 @@ class HexMBChargeSensitive(BaseComponent):
 
         if self.HTX_Type == 'Plate':     
             geometry_parameters = ['A_c', 'A_h', 'h', 'l', 'l_v',
-                                   'C_CS', 'C_Dh', 'C_V_tot', 'C_canal_t', 'C_n_canals',
-                                   'H_CS', 'H_Dh', 'H_V_tot', 'H_canal_t', 'H_n_canals',
-                                   'casing_t', 'chevron_angle', 'fooling', 
-                                   'n_plates', 'plate_cond', 'plate_pitch_co', 't_plates', 'w']
+                                    'C_CS', 'C_Dh', 'C_V_tot', 'C_canal_t', 'C_n_canals',
+                                    'H_CS', 'H_Dh', 'H_V_tot', 'H_canal_t', 'H_n_canals',
+                                    'casing_t', 'chevron_angle', 'fooling', 
+                                    'n_plates', 'plate_cond', 'plate_pitch_co', 't_plates', 'w']
 
         elif self.HTX_Type == 'Shell&Tube':
                 
@@ -317,10 +320,10 @@ class HexMBChargeSensitive(BaseComponent):
         elif self.HTX_Type == 'Tube&Fins':
             
             geometry_parameters = ['A_flow', 'Fin_OD', 'Fin_per_m', 'Fin_t', 'Fin_type',
-                                   'Finned_tube_flag', 'Tube_L', 'Tube_OD',
-                                   'Tube_cond', 'Tube_t', 'fouling', 'h', 'k_fin',
-                                   'Tube_pass', 'n_rows', 'n_series', 'n_parallel', 'n_tubes', 'pitch', 'pitch_ratio', 'tube_arrang',
-                                   'w','Fin_Side']
+                                    'Finned_tube_flag', 'Tube_L', 'Tube_OD',
+                                    'Tube_cond', 'Tube_t', 'fouling', 'h', 'k_fin',
+                                    'Tube_pass', 'n_rows', 'n_series', 'n_parallel', 'n_tubes', 'pitch', 'pitch_ratio', 'tube_arrang',
+                                    'w','Fin_Side']
             
         elif self.HTX_Type == 'PCHE':
             
@@ -1954,10 +1957,10 @@ class HexMBChargeSensitive(BaseComponent):
             self.h_hdew_ideal    = self.AS_H.hmass()
             
     def solve(self, only_external = False, and_solve = True):
-        
+            
         self.setup_geom()
         self.setup()
-            
+                            
         "4) Calculate pressure drops"
 
         if self.params['DP_type'] is None: # if the pressure drop are not neglected
@@ -2006,8 +2009,9 @@ class HexMBChargeSensitive(BaseComponent):
             "5.3) Solve the heat exchanger to find the actual heat rate"
             if and_solve and not only_external:
                 Q = self.solve_hx()
+                self.Q.set_Q_dot(Q)
                 
-            self.epsilon_th = self.Q/self.Qmax # HTX efficiency
+            self.epsilon_th = self.Q_dot/self.Qmax # HTX efficiency
             self.residual = 1 - sum(self.w) # HTX residual # !!! (what is "w" ?)
             
             "5.4) Effective density computation for each cell taking into account void fraction"
@@ -2109,7 +2113,7 @@ class HexMBChargeSensitive(BaseComponent):
                 return Q
             
         else: # Just a flag if the heat exchanger is not solved
-            self.Q = 1
+            self.Q_dot = 1
             raise Exception("Hot and cold temperatures seem to be reversed or a flow rate is negative.")
  
     def objective_function(self, Q, only_external = False):
@@ -2125,7 +2129,7 @@ class HexMBChargeSensitive(BaseComponent):
         
         if ('Tube_pass' in self.params) and self.HTX_Type == 'Shell&Tube':
             self.overlap_matrix = determine_cell_overlap(self.w, self.params['Tube_pass'], self.params['Shell_Side'])
-       
+        
         "2) Initialize results vectors"
                         
         # Initialize dry-out incipience identification
@@ -2374,8 +2378,8 @@ class HexMBChargeSensitive(BaseComponent):
 
             if self.HTX_Type == 'Plate':     
                 # In the equation below, thickness resistance is given with respect to A_h arbitrarely
-                self.UA_avail[k] = 1/((1+self.params['fooling'])/(alpha_h*self.params['A_h']) + 1/(alpha_c*self.params['A_c'])) #+ self.params['t_plates']/(self.params['plate_cond'])) 
-            
+                self.UA_avail[k] = 1/((1+self.params['fooling'])/(self.alpha_h[k]*self.params['A_h']) + 1/(self.alpha_c[k]*self.params['A_c'])) #+ self.params['t_plates']/(self.params['plate_cond'])) 
+                
             elif self.HTX_Type == 'Shell&Tube':       
                 fact_cond_1 = np.log(self.params['Tube_OD']/(self.params['Tube_OD'] - 2*self.params['Tube_t']))
                 fact_cond_2 = 2*np.pi*self.params['tube_cond']*self.params['Tube_L']*self.params['n_series']*self.params['n_tubes']*self.params['n_parallel']
@@ -2480,7 +2484,7 @@ class HexMBChargeSensitive(BaseComponent):
                 if DTA == DTB:
                     self.LMTD[k] = DTA
                 else:
-                    self.LMTD[k] = (DTA - DTB) / np.log(DTA / DTB)   
+                    self.LMTD[k] = (DTA - DTB) / np.log(abs(DTA / DTB))   
         
         for k in range(n_cells): # iterate over each cell
         
@@ -2613,6 +2617,20 @@ class HexMBChargeSensitive(BaseComponent):
         
         self.w_prev = [0]
         
+        # print(Q)
+        # print(self.w)
+        # print(self.hvec_c)
+        # print(self.hvec_h)
+        # print(self.F)
+        # print(self.LMTD)
+        # print(self.UA_avail)
+        # print(self.UA_req)
+
+        # print("=="*20)
+        
+        # if Q > self.Qmax*0.8:
+        #     exit()
+        
         return 1-self.w_sum
 
 #%% 
@@ -2621,15 +2639,15 @@ class HexMBChargeSensitive(BaseComponent):
         Solve the objective function using Brent's method and the maximum heat transfer 
         rate calculated from the pinching analysis
         """
-        self.Q = self.Qmax + 1
+        self.Q_dot = self.Qmax + 1
         max_iter = 1000
         it = 0
     
         self.eval = 0
 
-        while self.Q > self.Qmax and it < max_iter:
+        while self.Q_dot > self.Qmax and it < max_iter:
             
-            self.Q, self.results = scipy.optimize.brentq(self.objective_function, 1e-5, self.Qmax-1e-10, rtol = 1e-5, xtol = 1e-5, full_output=True)
+            self.Q_dot, self.results = scipy.optimize.brentq(self.objective_function, 1e-5, self.Qmax*0.999, rtol = 1e-5, xtol = 1e-5, full_output=True)
             
             "Pinch Analysis : Verification as pressure drops changed - Create a new HX to not impact computed results"
             
@@ -2664,7 +2682,7 @@ class HexMBChargeSensitive(BaseComponent):
         # self.Q = scipy.optimize.brentq(self.objective_function, 1e-5, self.Qmax-1e-10, rtol = 1e-14, xtol = 1e-10)
                
         # print('OUT of evap', self.Q)
-        return self.Q
+        return self.Q_dot
     
 #%% 
     def plot_objective_function(self, N = 100):
@@ -2736,4 +2754,3 @@ class HexMBChargeSensitive(BaseComponent):
         print(f"  - ex_H: fluid={self.ex_H.fluid}, T={self.ex_H.T}, p={self.ex_H.p}, m_dot={self.ex_H.m_dot}")
         # print(f"  - Q_dot: {self.Q.Q_dot}")
         print("======================")
-
