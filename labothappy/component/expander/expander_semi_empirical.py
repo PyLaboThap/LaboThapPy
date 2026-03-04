@@ -466,6 +466,7 @@ class ExpanderSE(BaseComponent):
         print(f"  - epsilon_is: {self.epsilon_is} [-]")
         print(f"  - m_dot: {self.m_dot} [kg/s]")
         print(f"  - epsilon_v: {self.epsilon_v} [-]")
+        print(f"  - N_rot: {self.W.N_rot} [-]")
         print("=========================")
 
     def print_states_connectors(self):
