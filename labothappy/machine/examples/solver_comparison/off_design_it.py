@@ -53,18 +53,22 @@ class TS_curve_generator:
         # plt.title('TS Curve')
         plt.show()
 
+#%%
 
 # -------- 1) Instanciate Circuit --------
+
 fluid = 'R1233zd(E)'
 orc = IterativeCircuit(fluid)
 
 # -------- 2) Create components --------
+
 Expander = ExpanderSE()
 Condenser = HexMBChargeSensitive('Plate')
 Pump = PumpCurveSimilarity()
 Evaporator = HexMBChargeSensitive('Plate')
 
 # -------- 3) Set component parameters --------
+
 # Expander
 Expander.set_parameters(AU_amb=9.3, AU_su_n=4.75, AU_ex_n=17.7, d_su1=6.48e-3, m_dot_n=0.1, 
             A_leak=9.99e-06, W_dot_loss_0=2.37e+1 , alpha= 1.16e-1, C_loss=1.13, rv_in=1.7, V_s=2*0.0000712, mode='P_M')
@@ -87,7 +91,6 @@ Evaporator.set_parameters(
 Evaporator.set_htc(htc_type="Correlation", Corr_H={"1P": "water_plate_HTC"}, Corr_C={"1P": "martin_holger_plate_HTC", "2P": "amalfi_plate_HTC"}) # 'User-Defined' or 'Correlation' # 28
 Evaporator.set_DP()
 
-
 # Condenser
 condenser_geom = PlateGeomSWEP()
 condenser_geom.set_parameters("P200THx140/1P_Condenser")
@@ -106,10 +109,10 @@ Condenser.set_htc(htc_type="Correlation", Corr_H={"1P": "martin_holger_plate_HTC
 Condenser.set_DP()
 
 # Pump
-V_dot_curve = np.array([20, 30, 40, 50, 60, 70, 80])   # m3/h
-Delta_H_curve = np.array([57, 55, 52, 49, 45, 42, 36])  # m (head falls with flow)
-eta_is_curve = np.array([0.45, 0.59, 0.69, 0.75, 0.79, 0.79, 0.75])  # eff peaks near mid-flow
-NPSH_r_curve = np.array([1.1, 1.1, 1.4, 1.8, 2, 3, 4.7])  # m, increases again near max flow
+V_dot_curve = np.array([20, 30, 40, 50, 60, 70, 80]) # m3/h
+Delta_H_curve = np.array([57, 55, 52, 49, 45, 42, 36]) # m (head falls with flow)
+eta_is_curve = np.array([0.45, 0.59, 0.69, 0.75, 0.79, 0.79, 0.75]) # eff peaks near mid-flow
+NPSH_r_curve = np.array([1.1, 1.1, 1.4, 1.8, 2, 3, 4.7]) # m, increases again near max flow
 N_rated = 2900 # RPM
 # Reference point: water at 20°C and 1 atm for a rated speed of 2900 RPM
 
@@ -123,26 +126,30 @@ Pump.set_parameters(
 )
 
 # -------- 4) Add components to circuit --------
+
 orc.add_component(Expander, "Expander")
 orc.add_component(Condenser, "Condenser")
 orc.add_component(Pump, "Pump")
 orc.add_component(Evaporator, "Evaporator")
 
 # -------- 5) Link components with mass connectors --------
+
 orc.link_components("Expander", "m-ex", "Condenser", "m-su_H")
 orc.link_components("Condenser", "m-ex_H", "Pump", "m-su")
 orc.link_components("Pump", "m-ex", "Evaporator", "m-su_C")
 orc.link_components("Evaporator", "m-ex_C", "Expander", "m-su")
 
 # -------- 6) Add fluid sources --------
+
 CD_source = MassConnector('Water')
 T_su_w_cd = 5 +273.15
 P_su_w_cd = 2e5
-m_dot_w_cd = 3  # kg/s
+m_dot_w_cd = 3 # kg/s
+
 EV_source = MassConnector('Water')
 T_su_w_ev = 70+273.15
 P_su_w_ev = 2e5
-m_dot_w_ev = 2.5  # kg/s
+m_dot_w_ev = 2.5 # kg/s
 
 orc.add_source("CD_Water", CD_source, orc.components["Condenser"], "m-su_C")
 orc.set_source_properties(T=T_su_w_cd, fluid='Water', P=P_su_w_cd, m_dot = m_dot_w_cd, target="CD_Water")
@@ -150,6 +157,7 @@ orc.add_source("EV_Water", EV_source, orc.components["Evaporator"], "m-su_H")
 orc.set_source_properties(T=T_su_w_ev, fluid='Water', P=P_su_w_ev, m_dot = m_dot_w_ev, target="EV_Water")
 
 # -------- 7) Set cycle inputs --------
+
 m_dot_ref = 0.4 # kg/s
 SC_cd = 5  # K
 N_exp = 6000 # RPM
@@ -159,16 +167,7 @@ orc.set_cycle_input(target="Pump:su", m_dot = m_dot_ref, SC=SC_cd)
 orc.set_cycle_input(target="Expander:W", N_rot = N_exp)
 orc.set_cycle_input(target="Expander:Q_amb", T_amb=T_amb)
 
-# Expander.print_setup()
-
 # -------- 8) Set iteration variables --------
-# P_pp_su_lb = max(PropsSI('P', 'Q', 0, 'T', T_su_w_cd, fluid), PropsSI('P_min', 'Q', 0, 'T', 273.15, fluid))
-# P_pp_ex_ub = PropsSI('P', 'Q', 0, 'T', min(PropsSI('Tcrit', 'Q', 0, 'T', 273.15, fluid)-2, T_su_w_ev-1), fluid)
-# rp_max = P_pp_ex_ub/P_pp_su_lb
-# rp_min = min(1.01, rp_max)   #min(1.01, rp_max)
-# Possible that the guesses are ill conditioned
-# P_pp_su_ub = P_pp_ex_ub/rp_min
-# -> Si jamais besoin d'essayer plusieurs Guesses
 
 P_LP_guess = PropsSI("P", "T", T_su_w_cd+10, "Q", 0, fluid)
 P_HP_guess = PropsSI("P", "T", T_su_w_ev-10, "Q", 1, fluid)
@@ -188,6 +187,7 @@ orc.set_iteration_variable(
 )
 
 # -------- 9) Set residual variables --------
+
 orc.set_residual_variable(
     pre_target="Pump:su",
     post_target="Condenser:ex_H",
@@ -203,9 +203,12 @@ orc.set_residual_variable(
 )
 
 # -------- 10) Solve circuit --------
+
 orc.solve()
 print(f"Converged at P_HP = {Expander.su.p}, P_LP = {Expander.ex.p}")
 orc.print_states()
+
+# -------- 11) Plot results --------
 
 "Graphs"
 # Create array with point of the cycle
@@ -231,10 +234,5 @@ plt.plot(s_c, T_c, color='red', linestyle='-', label='Heat source')
 for i, (s, T) in enumerate(zip(s_array, T_array)):
     plt.text(s, T, str(i+1), fontsize=12, color='black', ha='right', va='bottom')
 
-
 TS_curve = TS_curve_generator(fluid)
 TS_curve.points(s_array, T_array)
-
-
-
-

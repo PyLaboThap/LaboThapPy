@@ -1284,7 +1284,7 @@ class HexMBChargeSensitive(BaseComponent):
             alpha_h, self.Re_h[k], self.Pr_h[k]  = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['Tube_OD'] - 2*self.params['Tube_t'], self.params['Tube_L']*self.params["Tube_pass"])
             alpha_h_2phase = 20000 # horizontal_tube_internal_condensation(self.H_su.fluid , G_h, p_h_mean, self.x_vec_h[k], T_wall_h, self.params['Tube_OD'] - 2*self.params['Tube_t'])
         if self.H.Correlation_2phase == 'shah_condensation_plate_HTC':
-            alpha_h_2phase = shah_condensation_plate_HTC(self.params['H_Dh'], self.params['l_v'], self.params['w_v'], self.params['amplitude'], self.params['phi'], self.mdot_h, p_h_mean, self.params['H_n_canals'], self.H_su.fluid)
+            alpha_h_2phase = shah_condensation_plate_HTC(self.params['H_Dh'], self.params['l_v'], self.params['w_v'], self.params['amplitude'], self.params['phi'], self.mdot_h, p_h_mean, self.params['H_n_canals'], self.AS_H)
         
         if self.H.Correlation_2phase == 'Thome_Condensation':
             D_i = self.params['Tube_OD']-2*self.params['Tube_t']
@@ -1361,7 +1361,7 @@ class HexMBChargeSensitive(BaseComponent):
         elif self.C.Correlation_2phase == "gnielinski_pipe_htc":
             alpha_c_2phase, self.Re_c[k], self.Pr_c[k]  = gnielinski_pipe_htc(mu_c_l, Pr_c_l, mu_c_l, k_c_l, G_c, self.params['C_Dh'], self.params['l']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) #
         elif self.C.Correlation_2phase == "amalfi_plate_HTC":
-            alpha_c_2phase = amalfi_plate_HTC(self.params['C_Dh'], self.params['l'], self.params['w'], self.params['amplitude'], self.params['chevron_angle'], self.params['C_n_canals'], self.params['A_c'], self.mdot_c, p_c_mean, self.C_su.fluid)
+            alpha_c_2phase = amalfi_plate_HTC(self.params['C_Dh'], self.params['l'], self.params['w'], self.params['amplitude'], self.params['chevron_angle'], self.params['C_n_canals'], self.params['A_c'], self.mdot_c, p_c_mean, self.AS_C)
         elif self.C.Correlation_2phase == "Flow_boiling":
             q = self.Qvec_c[k]/(self.params['A_eff']*self.w[k])
             D_in = self.params['Tube_OD']-2*self.params['Tube_t']
