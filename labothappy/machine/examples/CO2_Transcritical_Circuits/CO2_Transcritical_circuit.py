@@ -92,10 +92,6 @@ def basic_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp,
         
     CO2_TC.set_cycle_guess(target='Expander:ex', p = P_low)
     
-    # CYCLE RESIDUAL VARIABLES
-    CO2_TC.set_residual_variable(target='Condenser:ex_H', variable='h', tolerance= 1e-3)
-    CO2_TC.set_residual_variable(target='GasHeater:ex_C', variable='h', tolerance= 1e-3)
-    
     return CO2_TC
 
 #%%
@@ -185,17 +181,6 @@ def REC_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, e
     
     CO2_TC.set_iteration_variable(target=['Expander:ex'], variable='p', objective = 'Link:Condenser:su_H-p', tol = 1e-2, rel = 1, damping_factor = 0.2, cycle = CO2_TC)
     
-    # CYCLE RESIDUAL VARIABLES
-    
-    CO2_TC.set_residual_variable(target='Recuperator:su_C', variable='h', tolerance= 1e-5)
-    CO2_TC.set_residual_variable(target='Recuperator:su_C', variable='p', tolerance= 1e-5)
-    CO2_TC.set_residual_variable(target='Recuperator:su_H', variable='h', tolerance= 1e-5)
-    CO2_TC.set_residual_variable(target='Recuperator:su_H', variable='p', tolerance= 1e-5)
-    CO2_TC.set_residual_variable(target='Expander:ex', variable='h', tolerance= 1e-5)
-    CO2_TC.set_residual_variable(target='Expander:ex', variable='p', tolerance= 1e-5)
-    CO2_TC.set_residual_variable(target='Recuperator:ex_C', variable='p', tolerance= 1e-5)
-    CO2_TC.set_residual_variable(target='Recuperator:ex_H', variable='p', tolerance= 1e-5)
-    
     return CO2_TC
 
 #%% 
@@ -283,17 +268,6 @@ def REC_CO2_TC_sto(HSource, T_cold_source, Pinch_min_GH, Pinch_min_REC, eta_pp, 
     # ITERATION VARIABLES
     
     CO2_TC.set_iteration_variable(target=['Expander:ex'], variable='p', objective = 'Link:Condenser:su-p', tol = 1e-2, rel = 1, damping_factor = 0.2, cycle = CO2_TC)
-    
-    # CYCLE RESIDUAL VARIABLES
-    
-    CO2_TC.set_residual_variable(target='Recuperator:su_C', variable='h', tolerance= 1e-5)
-    CO2_TC.set_residual_variable(target='Recuperator:su_C', variable='p', tolerance= 1e-5)
-    CO2_TC.set_residual_variable(target='Recuperator:su_H', variable='h', tolerance= 1e-5)
-    CO2_TC.set_residual_variable(target='Recuperator:su_H', variable='p', tolerance= 1e-5)
-    CO2_TC.set_residual_variable(target='Expander:ex', variable='h', tolerance= 1e-5)
-    CO2_TC.set_residual_variable(target='Expander:ex', variable='h', tolerance= 1e-5)
-    CO2_TC.set_residual_variable(target='Recuperator:ex_C', variable='p', tolerance= 1e-5)
-    CO2_TC.set_residual_variable(target='Recuperator:ex_H', variable='p', tolerance= 1e-5)
     
     return CO2_TC
 
@@ -416,16 +390,6 @@ def Recomp_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp
         
     CO2_TC.set_fixed_properties(target='Pump:su', SC = SC_cd)    
     CO2_TC.set_iteration_variable(target=['Expander:ex'], variable='p', objective = 'Link:Condenser:su_H-p', tol = 1e-2, rel = 1, damping_factor = 0.2, cycle = CO2_TC)
-    
-    # CYCLE RESIDUAL VARIABLES
-    CO2_TC.set_residual_variable(target='Condenser:ex_H', variable='h', tolerance= 1e-3)
-    CO2_TC.set_residual_variable(target='GasHeater:ex_C', variable='h', tolerance= 1e-3)
-    CO2_TC.set_residual_variable(target='Expander:ex', variable='p', tolerance= 1e-3)
-    CO2_TC.set_residual_variable(target='Expander:ex', variable='h', tolerance= 1e-3)
-    CO2_TC.set_residual_variable(target='RecupLT:ex_H', variable='p', tolerance= 1e-3)
-    CO2_TC.set_residual_variable(target='RecupLT:ex_H', variable='h', tolerance= 1e-3)
-    CO2_TC.set_residual_variable(target='Spliter:ex_2', variable='h', tolerance= 1e-3)
-    CO2_TC.set_residual_variable(target='Spliter:ex_2', variable='p', tolerance= 1e-3)
     
     return CO2_TC
 
@@ -594,7 +558,7 @@ if __name__ == "__main__":
         
         CO2_TC = Recomp_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_is_pp, eta_is_exp, 
                                eta_is_cp, eta_gh, eta_rec, PPTD_cd, SC_cd, P_low_guess, P_high, 
-                               m_dot, spliter_frac = 1, mute_print_flag=1)
+                               m_dot, spliter_frac = 1, mute_print_flag=0)
         
         # CO2_TC = Recomp_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_is_pp, eta_is_exp, eta_gh, eta_rec, PPTD_cd, SC_cd, P_low_guess, P_high, m_dot,
         #                     DP_h_rec = DP_h_rec, DP_c_rec = DP_c_rec, DP_h_gh = DP_h_gh, DP_c_gh = DP_c_gh, DP_h_cond = DP_h_cond, DP_c_cond = DP_c_cond, mute_print_flag=0)

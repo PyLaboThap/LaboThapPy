@@ -333,7 +333,7 @@ class HexCstPinch(BaseComponent):
         return self.res
 
     def system_cond(self, x):
-                
+                        
         "1) Initialize Values"        
         self.Q_dot_sc = 0
         self.Q_dot_tp = 0
@@ -509,7 +509,7 @@ class HexCstPinch(BaseComponent):
             
             self.P_solution, self.results = brentq(
                 self.system_evap,
-                max(P_triple*1.1+self.DP_c/2, 0.1*P_ev_guess), 
+                max(P_triple*1.3+self.DP_c/2, 0.1*P_ev_guess), 
                 upper_bound,
                 xtol=1e-6,
                 rtol=1e-8,
@@ -584,7 +584,7 @@ class HexCstPinch(BaseComponent):
             
             self.P_solution, self.results = brentq(
                 self.system_cond,
-                max(P_triple*1.1+self.DP_h, 0.1*P_cd_guess), 
+                max(P_triple*1.3+self.DP_h, 0.1*P_cd_guess), 
                 upper_bound,
                 xtol=1e-6,
                 rtol=1e-8,

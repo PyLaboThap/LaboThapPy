@@ -80,19 +80,6 @@ def basic_CO2_HP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low, P_high):
         
     CO2_HP.set_cycle_guess(target='Valve:ex', p = P_low)
     
-    #%% CYCLE RESIDUAL VARIABLES
-    CO2_HP.set_residual_variable(target='Valve:ex', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Valve:ex', variable='p', tolerance= 1e-3)
-
-    CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='p', tolerance= 1e-3)
-
-    CO2_HP.set_residual_variable(target='Compressor:ex', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Compressor:ex', variable='p', tolerance= 1e-3)
-
-    CO2_HP.set_residual_variable(target='GasCooler:ex_H', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='GasCooler:ex_H', variable='p', tolerance= 1e-3)
-    
     return CO2_HP
 
 def Exp_CO2_HP(HSource, CSource, eta_cp, eta_exp, eta_gc, PP_ev, SH_ev, P_low, P_high, m_dot, mute_print_flag):
@@ -156,10 +143,6 @@ def Exp_CO2_HP(HSource, CSource, eta_cp, eta_exp, eta_gc, PP_ev, SH_ev, P_low, P
     CO2_HP.set_cycle_guess(target='Compressor:ex', p = P_high)
         
     CO2_HP.set_cycle_guess(target='Expander:ex', p = P_low)
-    
-    #%% CYCLE RESIDUAL VARIABLES
-    CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='GasCooler:ex_H', variable='h', tolerance= 1e-3)
     
     return CO2_HP
     
@@ -241,19 +224,6 @@ def IHX_CO2_HP(HSource, CSource, eta_cp, eta_gc, eta_IHX, PP_ev, SH_ev, P_low, P
 
     CO2_HP.set_cycle_guess(target='Valve:su', p = P_high, T = T_ex_valve_guess, m_dot = m_dot)    
     CO2_HP.set_cycle_guess(target='Valve:ex', p = P_low)
-    
-    #%% CYCLE RESIDUAL VARIABLES
-    CO2_HP.set_residual_variable(target='Valve:ex', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Valve:ex', variable='p', tolerance= 1e-3)
-
-    CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='p', tolerance= 1e-3)
-
-    CO2_HP.set_residual_variable(target='Compressor:ex', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Compressor:ex', variable='p', tolerance= 1e-3)
-
-    CO2_HP.set_residual_variable(target='GasCooler:ex_H', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='GasCooler:ex_H', variable='p', tolerance= 1e-3)
     
     return CO2_HP
 
@@ -337,19 +307,6 @@ def IHX_EXP_CO2_HP(HSource, CSource, eta_cp, eta_gc, eta_IHX, eta_exp, PP_ev, SH
 
     CO2_HP.set_cycle_guess(target='Expander:su', p = P_high, T = T_ex_exp_guess, m_dot = m_dot)    
     CO2_HP.set_cycle_guess(target='Expander:ex', p = P_low)
-    
-    #%% CYCLE RESIDUAL VARIABLES
-    CO2_HP.set_residual_variable(target='Expander:ex', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Expander:ex', variable='p', tolerance= 1e-3)
-
-    CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='p', tolerance= 1e-3)
-
-    CO2_HP.set_residual_variable(target='Compressor:ex', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Compressor:ex', variable='p', tolerance= 1e-3)
-
-    CO2_HP.set_residual_variable(target='GasCooler:ex_H', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='GasCooler:ex_H', variable='p', tolerance= 1e-3)
     
     return CO2_HP
 
@@ -438,14 +395,6 @@ def Flash_CO2_HP_Parallel_CP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_l
     CO2_HP.set_cycle_guess(target='Valve_HP:ex', p = P_mid)
     CO2_HP.set_cycle_guess(target='Valve_LP:ex', p = P_low)
     
-    #%% CYCLE RESIDUAL VARIABLES
-    CO2_HP.set_residual_variable(target='Mixer:ex', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Mixer:ex', variable='m_dot', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='m_dot', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Valve_HP:ex', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Valve_HP:ex', variable='m_dot', tolerance= 1e-3)
-    
     return CO2_HP
 
 def Flash_CO2_HP_Series_CP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low, P_mid, P_high):
@@ -532,19 +481,11 @@ def Flash_CO2_HP_Series_CP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low
     CO2_HP.set_cycle_guess(target='Valve_HP:ex', p = P_mid)
     CO2_HP.set_cycle_guess(target='Valve_LP:ex', p = P_low)
     
-    #%% CYCLE RESIDUAL VARIABLES
-    CO2_HP.set_residual_variable(target='Mixer:ex', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Mixer:ex', variable='m_dot', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='m_dot', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Valve_HP:ex', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Valve_HP:ex', variable='m_dot', tolerance= 1e-3)
-    
     return CO2_HP
 
 if __name__ == "__main__":
 
-    study_case = "IHX"    
+    study_case = "Expander"    
 
     # Pressure levels
     P_low_guess = 40*1e5
