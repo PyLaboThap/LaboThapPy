@@ -10,7 +10,7 @@ Created on Thu Jan 08 2026
 from machine.base_circuit import BaseCircuit
 
 import numpy as np
-from scipy.optimize import fsolve
+from scipy.optimize import root, fsolve
 from CoolProp.CoolProp import PropsSI
 
 class IterativeCircuit(BaseCircuit):
@@ -137,56 +137,57 @@ class IterativeCircuit(BaseCircuit):
         return np.array([it["x0"] for it in self.it_vars.values()])
     
     def _solve_circuit(self, x):
-
-        # 1. Apply iteration variables
-        self._apply_iteration_vector(x)
-
-        # 2. Snapshot PRE-solve values
-        self.state_cache["pre"].clear()
-        for rv in self.res_vars:
-            key = (rv["pre_target"], rv["variable"])
-            self.state_cache["pre"][key] = self._read_variable(
-                rv["pre_target"], rv["variable"]
-            )
-
-        # 3. Solve components (one full circuit pass)
-        if not self.solve_start_components:
-            self._build_solve_order()
-
-        for name in self.solve_start_components:
-            self.components[name].solve()
-
-        # 4. Snapshot POST-solve values
-        self.state_cache["post"].clear()
-        for rv in self.res_vars:
-            key = (rv["post_target"], rv["variable"])
-            self.state_cache["post"][key] = self._read_variable(
-                rv["post_target"], rv["variable"]
-            )
-
-        # 5. Compute residuals
-        residuals = []
-
-        for rv in self.res_vars:
-            pre_key = (rv["pre_target"], rv["variable"])
-            post_key = (rv["post_target"], rv["variable"])
-
-            raw = (
-                self.state_cache["post"][post_key]
-                - self.state_cache["pre"][pre_key]
-            )
-
-            scale = (
-                rv["scale"]
-                if rv["scale"] is not None
-                else self._default_residual_scale(rv["variable"])
-            )
-            residuals.append(raw / scale)
-            # print("residuals", residuals)
-        return np.array(residuals, dtype=float)
-
-
+        try:
+            # 1. Apply iteration variables
+            self._apply_iteration_vector(x)
     
+            # 2. Snapshot PRE-solve values
+            self.state_cache["pre"].clear()
+            for rv in self.res_vars:
+                key = (rv["pre_target"], rv["variable"])
+                self.state_cache["pre"][key] = self._read_variable(
+                    rv["pre_target"], rv["variable"]
+                )
+    
+            # 3. Solve components (one full circuit pass)
+            if not self.solve_start_components:
+                self._build_solve_order()
+    
+            for name in self.solve_start_components:
+                self.components[name].solve()
+    
+            # 4. Snapshot POST-solve values
+            self.state_cache["post"].clear()
+            for rv in self.res_vars:
+                key = (rv["post_target"], rv["variable"])
+                self.state_cache["post"][key] = self._read_variable(
+                    rv["post_target"], rv["variable"]
+                )
+    
+            # 5. Compute residuals
+            residuals = []
+    
+            for rv in self.res_vars:
+                pre_key = (rv["pre_target"], rv["variable"])
+                post_key = (rv["post_target"], rv["variable"])
+    
+                raw = (
+                    self.state_cache["post"][post_key]
+                    - self.state_cache["pre"][pre_key]
+                )
+    
+                scale = (
+                    rv["scale"]
+                    if rv["scale"] is not None
+                    else self._default_residual_scale(rv["variable"])
+                )
+                residuals.append(raw / scale)
+                # print("residuals", residuals)
+            return np.array(residuals, dtype=float)
+        
+        except Exception:
+            return np.ones(len(self.res_vars)) * 1e6  # gros résidu, pas NaN
+        
     def _apply_iteration_vector(self, x):
         """
         Apply solver vector x to all iteration variables
@@ -218,23 +219,33 @@ class IterativeCircuit(BaseCircuit):
                 return name
         raise RuntimeError("No calculable component found to start the circuit solve.")
 
-    def solve(self):
-
-        # Initial guess vector
+    def solve(self, method='hybr', tol=1.49012e-8):
+    
         x0 = self._get_iteration_vector()
-
-        # Solve
-        sol = fsolve(self._solve_circuit, x0)
-
-        # Apply final solution
+    
+        if method == 'fsolve':
+            sol = fsolve(self._solve_circuit, x0, full_output=False)
+            residuals = self._solve_circuit(sol)
+            self.converged = np.all(np.abs(residuals) < 1.0)
+            return sol
+    
+        result = root(
+            self._solve_circuit,
+            x0,
+            method=method,
+            tol=tol,
+            options={'maxiter': 1000}
+        )
+    
+        sol = result.x
         self._apply_iteration_vector(sol)
-
-        # Convergence check
         residuals = self._solve_circuit(sol)
-        # print('residuals', residuals)
-        self.converged = np.all(np.abs(residuals) < 1.0)
-
-
+        self.converged = result.success and np.all(np.abs(residuals) < 1.0)
+    
+        if not self.converged:
+            print(f"[{method}] non convergé : {result.message}")
+            print(f"  résidus : {residuals}")
+    
         return sol
-
         
+    

@@ -120,6 +120,7 @@ class MassConnector:
             try:
                 try: 
                     self.AS = CP.AbstractState("BICUBIC&HEOS", fluid) 
+                    self.AS_sat = CP.AbstractState("BICUBIC&HEOS", fluid) 
                     self.fluid = fluid
                 except:
                     if "INCOMP" in fluid:
@@ -280,7 +281,12 @@ class MassConnector:
 
         
         # 2) Calculate properties based on two known variables
-        AS_inputs, reversed_flag = self.get_AS_inputs(self.variables_input[0][0], self.variables_input[1][0])
+        
+        if len(self.variables_input) > 1:
+            AS_inputs, reversed_flag = self.get_AS_inputs(self.variables_input[0][0], self.variables_input[1][0])
+        else:
+            return
+        
         try:
             if not reversed_flag:
                 self.AS.update(AS_inputs, self.variables_input[0][1], self.variables_input[1][1])
@@ -296,6 +302,19 @@ class MassConnector:
             self.x = self.AS.Q()
             self.state_known = True
             
+            # Compute SH et SC
+            if hasattr(self, "AS_sat") and self.T < self.AS.T_critical() and self.p < self.AS.p_critical():
+                self.AS_sat.update(CP.PQ_INPUTS, self.p, 0.5)
+                T_sat = self.AS_sat.T()
+                
+                self.SC = T_sat - self.T
+                self.SH = self.T - T_sat
+                
+                if self.SC >= 0:
+                    self.SH = None
+                elif self.SH >=0:
+                    self.SC = None
+                
         except:
             warnings.warn("Error: This pair of inputs is not yet supported.")
             
@@ -332,6 +351,8 @@ class MassConnector:
             else:
                 warnings.warn(f"Error: Invalid property '{key}'")
         
+        self.calculate_properties()
+        
     def set_fluid(self, value):
         # print('set_fluid', value)
         if self.fluid != None:
@@ -340,6 +361,7 @@ class MassConnector:
             try:
                 try: 
                     self.AS = CP.AbstractState("BICUBIC&HEOS", value) 
+                    self.AS_sat = CP.AbstractState("BICUBIC&HEOS", value) 
                     self.fluid = value
                 except:
                     if "INCOMP" in value:

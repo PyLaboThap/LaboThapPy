@@ -563,8 +563,8 @@ if __name__ == "__main__":
         # CO2_TC = Recomp_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_is_pp, eta_is_exp, eta_gh, eta_rec, PPTD_cd, SC_cd, P_low_guess, P_high, m_dot,
         #                     DP_h_rec = DP_h_rec, DP_c_rec = DP_c_rec, DP_h_gh = DP_h_gh, DP_c_gh = DP_c_gh, DP_h_cond = DP_h_cond, DP_c_cond = DP_c_cond, mute_print_flag=0)
          
-        CO2_TC.solve()
-                
+        CO2_TC.solve(method = 'Wegstein')
+
         eta = (CO2_TC.components['Expander'].model.W.W_dot - CO2_TC.components['Pump'].model.W.W_dot - CO2_TC.components['Compressor'].model.W.W_dot)/(CO2_TC.components['GasHeater'].model.Q)
         
         print(f"eta_th : {eta}")
@@ -572,4 +572,4 @@ if __name__ == "__main__":
         print(f"Q_dot Recup LT : {CO2_TC.components['RecupLT'].model.Q}")
         
     CO2_TC.plot_cycle_Ts()
-    CO2_TC.Ts_gif()
+    # CO2_TC.Ts_gif()

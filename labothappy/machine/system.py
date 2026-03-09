@@ -23,4 +23,3 @@ class System:
 
     def solve(self):
         return
-
