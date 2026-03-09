@@ -6,7 +6,7 @@ Created on Mon Feb  3 15:31:53 2025
 """
 
 
-from labothappy.machine.circuit_rec import RecursiveCircuit
+from labothappy.machine.circuit import Circuit
 from CoolProp.CoolProp import PropsSI
 
 from labothappy.connector.mass_connector import MassConnector
@@ -23,7 +23,7 @@ from labothappy.component.tank.tank_LV_separator import TankLVSeparator
 
 def basic_CO2_HP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low, P_high):
     
-    CO2_HP = RecursiveCircuit('CO2')
+    CO2_HP = Circuit('CO2')
     
     # Create components
     Compressor = CompressorCstEff()
@@ -83,7 +83,7 @@ def basic_CO2_HP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low, P_high):
     return CO2_HP
 
 def Exp_CO2_HP(HSource, CSource, eta_cp, eta_exp, eta_gc, PP_ev, SH_ev, P_low, P_high, m_dot, mute_print_flag):
-    CO2_HP = RecursiveCircuit('CO2')
+    CO2_HP = Circuit('CO2')
     
     # Create components
     Compressor = CompressorCstEff()
@@ -149,7 +149,7 @@ def Exp_CO2_HP(HSource, CSource, eta_cp, eta_exp, eta_gc, PP_ev, SH_ev, P_low, P
     # self.HSource, self.CSource, self.params['eta_cp'], self.params['eta_gc'], self.params['eta_IHX'], self.params['PP_ev'], self.params['SH_ev'], P_low_guess, self.it_var['P_high'], self.it_var['mdot'], mute_print_flag = 0
 
 def IHX_CO2_HP(HSource, CSource, eta_cp, eta_gc, eta_IHX, PP_ev, SH_ev, P_low, P_high, m_dot, mute_print_flag):
-    CO2_HP = RecursiveCircuit('CO2')
+    CO2_HP = Circuit('CO2')
     
     n_disc_HX = 50
     PP_min_HX = 5
@@ -228,7 +228,7 @@ def IHX_CO2_HP(HSource, CSource, eta_cp, eta_gc, eta_IHX, PP_ev, SH_ev, P_low, P
     return CO2_HP
 
 def IHX_EXP_CO2_HP(HSource, CSource, eta_cp, eta_gc, eta_IHX, eta_exp, PP_ev, SH_ev, P_low, P_high, m_dot, mute_print_flag):
-    CO2_HP = RecursiveCircuit('CO2')
+    CO2_HP = Circuit('CO2')
     
     n_disc_HX = 50
     PP_min_HX = 5
@@ -311,7 +311,7 @@ def IHX_EXP_CO2_HP(HSource, CSource, eta_cp, eta_gc, eta_IHX, eta_exp, PP_ev, SH
     return CO2_HP
 
 def Flash_CO2_HP_Parallel_CP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low, P_mid, P_high):
-    CO2_HP = RecursiveCircuit('CO2')
+    CO2_HP = Circuit('CO2')
 
     # Create components
     Compressor_1 = CompressorCstEff()
@@ -398,7 +398,7 @@ def Flash_CO2_HP_Parallel_CP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_l
     return CO2_HP
 
 def Flash_CO2_HP_Series_CP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low, P_mid, P_high):
-    CO2_HP = RecursiveCircuit('CO2')
+    CO2_HP = Circuit('CO2')
 
     # Create components
     Compressor_1 = CompressorCstEff()
@@ -485,7 +485,7 @@ def Flash_CO2_HP_Series_CP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low
 
 if __name__ == "__main__":
 
-    study_case = "Expander"    
+    study_case = "Simple"    
 
     # Pressure levels
     P_low_guess = 40*1e5
@@ -527,7 +527,7 @@ if __name__ == "__main__":
         
         CO2_HP = IHX_CO2_HP(HSource, CSource, eta_compressor, eta_GC, eta_IHX, DT_pp_ev, SH_ev, P_low_guess, P_high, m_dot, mute_print_flag = 0)
         
-        CO2_HP.solve()
+        CO2_HP.solve(method = 'successive_substitution')
 
         # COP = CO2_HP.components["GasCooler"].model.Q.Q_dot/(CO2_HP.components["Compressor"].model.W.W_dot)
 
@@ -541,7 +541,7 @@ if __name__ == "__main__":
         
         CO2_HP = basic_CO2_HP(HSource, CSource, eta_compressor, eta_GC, DT_pp_ev, SH_ev, P_low_guess, P_high)
         
-        CO2_HP.solve()      
+        CO2_HP.solve(method = 'successive_substitution')
 
         COP = CO2_HP.components["GasCooler"].model.Q.Q_dot/(CO2_HP.components["Compressor"].model.W.W_dot)
 
@@ -558,7 +558,7 @@ if __name__ == "__main__":
         
         CO2_HP = Exp_CO2_HP(HSource, CSource, eta_compressor, eta_exp, eta_GC, DT_pp_ev, SH_ev, P_low_guess, P_high, m_dot, mute_print_flag = 0)
         
-        CO2_HP.solve()      
+        CO2_HP.solve(method = 'successive_substitution')
     
         COP = CO2_HP.components["GasCooler"].model.Q.Q_dot/(CO2_HP.components["Compressor"].model.W.W_dot - CO2_HP.components["Expander"].model.W.W_dot)
     

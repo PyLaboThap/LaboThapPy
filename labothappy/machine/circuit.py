@@ -67,7 +67,7 @@ _NEWTON_METHODS = frozenset(['fsolve', 'hybr', 'lm', 'broyden1',
 _ALL_METHODS = _SUBST_METHODS | _NEWTON_METHODS
 
 
-class MixedCircuit(BaseCircuit):
+class Circuit(BaseCircuit):
     """
     Unified sequential-modular circuit solver with pluggable numerical methods.
 
@@ -301,7 +301,7 @@ class MixedCircuit(BaseCircuit):
         source = self.get_source(target)
         source.set_properties(**kwargs)
         for arg_name, value in kwargs.items():
-            fp = MixedCircuit.Fixed_Property(target, arg_name, value)
+            fp = Circuit.Fixed_Property(target, arg_name, value)
             if fp.name not in self.fixed_properties:
                 self.fixed_properties[fp.name] = fp
 
@@ -310,7 +310,7 @@ class MixedCircuit(BaseCircuit):
         component_name, connector_name = target.split(':')
         component = self.get_component(component_name)
         for arg_name, value in kwargs.items():
-            fp = MixedCircuit.Fixed_Property(target, arg_name, value)
+            fp = Circuit.Fixed_Property(target, arg_name, value)
             if fp.name not in self.fixed_properties:
                 self.fixed_properties[fp.name] = fp
         component.set_properties(connector_name, **kwargs)
@@ -321,7 +321,7 @@ class MixedCircuit(BaseCircuit):
         component_name, connector_name = target.split(':')
         component = self.get_component(component_name)
         for arg_name, value in kwargs.items():
-            guess = MixedCircuit.Guess(target, arg_name, value)
+            guess = Circuit.Guess(target, arg_name, value)
             if self.guess_update or guess.name not in self.guesses or external_set:
                 if guess.name in self.guesses:
                     guess.input_history  = self.guesses[guess.name].input_history
@@ -334,12 +334,12 @@ class MixedCircuit(BaseCircuit):
                                objective=None, rel=1, damping_factor=0.5,
                                cycle=None):
         if objective in self.fixed_properties:
-            it_var = MixedCircuit.Iteration_variable(
+            it_var = Circuit.Iteration_variable(
                 target, variable, objective,
                 self.fixed_properties[objective].value,
                 tol, rel, damping_factor, self)
         elif "Link" in objective:
-            it_var = MixedCircuit.Iteration_variable(
+            it_var = Circuit.Iteration_variable(
                 target, variable, objective, None,
                 tol, rel, damping_factor, self)
         else:
@@ -462,7 +462,7 @@ class MixedCircuit(BaseCircuit):
             guess.record_output(f_curr)
 
             if use_wegstein and var not in ("SC", "SH"):
-                next_value = MixedCircuit._wegstein_update(
+                next_value = Circuit._wegstein_update(
                     x_prev=guess.prev_input,
                     x_curr=x_curr,
                     f_prev=guess.prev_output,
