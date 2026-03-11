@@ -28,7 +28,7 @@ Pinch_cd = 10  # K
 SC_cd = 3  # K
 
 Pinch_ev = 3  # K
-SH_ev = 5 # K
+SH_ev = 1 # K
 
 eff_rec = 0.8 # -
 

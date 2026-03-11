@@ -5,9 +5,7 @@ Created on Mon Feb  3 15:31:53 2025
 @author: Basile
 """
 
-import __init__
-
-from machine.circuit_rec import RecursiveCircuit
+from labothappy.machine.circuit import Circuit
 from CoolProp.CoolProp import PropsSI
 
 from labothappy.connector.mass_connector import MassConnector
@@ -28,7 +26,7 @@ def basic_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp,
                PP_cd, SC_cd, P_low, P_high, m_dot, DP_h_gh = 0, DP_c_gh = 0, DP_h_cond = 0,
                DP_c_cond = 0,mute_print_flag=1):
     
-    CO2_TC = RecursiveCircuit('CO2')
+    CO2_TC = Circuit('CO2')
     
     # Create components
     Expander = ExpanderCstEff()
@@ -100,7 +98,7 @@ def REC_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, e
                eta_rec, PP_cd, SC_cd, P_low, P_high, m_dot, DP_h_rec = 0, DP_c_rec = 0, 
                DP_h_gh = 0, DP_c_gh = 0, DP_h_cond = 0, DP_c_cond = 0, mute_print_flag=1):
 
-    CO2_TC = RecursiveCircuit('CO2')
+    CO2_TC = Circuit('CO2')
     
     # Create components
     Expander = ExpanderCstEff()
@@ -167,7 +165,7 @@ def REC_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, e
     
     CD_source = MassConnector()
     CO2_TC.add_source("CD_Water", CD_source, CO2_TC.components["Condenser"], "m-su_C")
-    CO2_TC.set_source_properties(T=CSource.T, fluid=CSource.fluid, m_dot=CSource.m_dot, target='CD_Water', P = CSource.p)
+    CO2_TC.set_source_properties(T=CSource, fluid=CSource.fluid, m_dot=CSource.m_dot, target='CD_Water', P = CSource.p)
     
     # CYCLE GUESSES
     
@@ -189,7 +187,7 @@ def REC_CO2_TC_sto(HSource, T_cold_source, Pinch_min_GH, Pinch_min_REC, eta_pp, 
                eta_rec, PP_cd, SC_cd, P_low, P_high, m_dot, DP_h_rec = 0, DP_c_rec = 0, 
                DP_h_gh = 0, DP_c_gh = 0, DP_cond = 0,mute_print_flag=1):
     
-    CO2_TC = RecursiveCircuit('CO2')
+    CO2_TC = Circuit('CO2')
     
     # Create components
     Expander = ExpanderCstEff()
@@ -275,7 +273,7 @@ def Recomp_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp
                PP_cd, SC_cd, P_low, P_high, m_dot, spliter_frac = 0.5, DP_h_gh = 0, DP_c_gh = 0, DP_h_cond = 0,
                DP_c_cond = 0 ,mute_print_flag=1):
     
-    CO2_TC = RecursiveCircuit('CO2')
+    CO2_TC = Circuit('CO2')
     
     rep_spliter = [spliter_frac, 1-spliter_frac]
     
@@ -397,7 +395,7 @@ def Recomp_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp
 
 if __name__ == "__main__": 
 
-    study_case = "Recomp"
+    study_case = "Simple"
 
     if study_case == "Simple":
         T_cold_source = 0.1+273.15
@@ -431,7 +429,7 @@ if __name__ == "__main__":
         CO2_TC = basic_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_is_pp, eta_is_exp, eta_gh, PPTD_cd, SC_cd, P_low_guess, P_high, m_dot,
                             DP_h_gh = 50*1e3, DP_c_gh = 2*1e5, DP_h_cond = 1*1e5, DP_c_cond = 50*1e3, mute_print_flag=0)
                 
-        CO2_TC.solve()
+        CO2_TC.solve(method = 'broyden1')
 
     elif study_case == "Recup_sto":
         T_cold_source = 0.1+273.15
@@ -465,7 +463,7 @@ if __name__ == "__main__":
         CO2_TC = REC_CO2_TC_sto(HSource, T_cold_source, Pinch_min_GH, Pinch_min_REC, eta_is_pp, eta_is_exp, eta_gh, eta_rec, PPTD_cd, SC_cd, P_low_guess, P_high, m_dot,
                             DP_h_rec = 1*1e5, DP_c_rec = 2*1e5, DP_h_gh = 50*1e3, DP_c_gh = 2*1e5, DP_cond = 1*1e5, mute_print_flag=0)
                 
-        CO2_TC.solve()
+        CO2_TC.solve(method = 'wegstein')
      
     elif study_case == "Recup":
         
@@ -512,7 +510,7 @@ if __name__ == "__main__":
         CO2_TC = REC_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_is_pp, eta_is_exp, eta_gh, eta_rec, PPTD_cd, SC_cd, P_low_guess, P_high, m_dot,
                             DP_h_rec = DP_h_rec, DP_c_rec = DP_c_rec, DP_h_gh = DP_h_gh, DP_c_gh = DP_c_gh, DP_h_cond = DP_h_cond, DP_c_cond = DP_c_cond, mute_print_flag=0)
                 
-        CO2_TC.solve()
+        CO2_TC.solve(method = 'wegstein')
                 
     elif study_case == "Recomp":
         
@@ -563,7 +561,7 @@ if __name__ == "__main__":
         # CO2_TC = Recomp_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_is_pp, eta_is_exp, eta_gh, eta_rec, PPTD_cd, SC_cd, P_low_guess, P_high, m_dot,
         #                     DP_h_rec = DP_h_rec, DP_c_rec = DP_c_rec, DP_h_gh = DP_h_gh, DP_c_gh = DP_c_gh, DP_h_cond = DP_h_cond, DP_c_cond = DP_c_cond, mute_print_flag=0)
          
-        CO2_TC.solve(method = 'Wegstein')
+        CO2_TC.solve(method = 'wegstein')
 
         eta = (CO2_TC.components['Expander'].model.W.W_dot - CO2_TC.components['Pump'].model.W.W_dot - CO2_TC.components['Compressor'].model.W.W_dot)/(CO2_TC.components['GasHeater'].model.Q)
         

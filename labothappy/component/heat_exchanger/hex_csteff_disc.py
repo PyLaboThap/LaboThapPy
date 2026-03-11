@@ -91,7 +91,7 @@ class HexCstEffDisc(BaseComponent):
         self.ex_C = MassConnector()
         self.ex_H = MassConnector()
 
-        self.Q_dot = HeatConnector()
+        self.Q = HeatConnector()
         self.guesses = {}
         self.DT_pinch = -2
         
@@ -166,7 +166,7 @@ class HexCstEffDisc(BaseComponent):
         self.pinch_residual(1.0)
         if self.DT_pinch > 1e-3:
             self.eta_pinch = 1.0
-            self.Q_dot_max_int = self.Q  # at eta=1
+            self.Q_dot_max_int = self.Q_dot  # at eta=1
             self.Q_dot_max = min(self.Q_dot_max_ext, self.Q_dot_max_int)
             return
     
@@ -192,7 +192,7 @@ class HexCstEffDisc(BaseComponent):
         self.eta_pinch = eta_low
         # one last evaluation at eta_pinch for consistency
         self.pinch_residual(self.eta_pinch)
-        self.Q_dot_max_int = self.Q
+        self.Q_dot_max_int = self.Q_dot
         self.Q_dot_max = min(self.Q_dot_max_ext, self.Q_dot_max_int)
         
         return
@@ -202,14 +202,14 @@ class HexCstEffDisc(BaseComponent):
         "Heat Transfer Rate"
         n = self.params['n_disc']
         
-        self.Q = eta*self.Q_dot_max
-        Q_dot_seg = self.Q / n
+        self.Q_dot = eta*self.Q_dot_max
+        Q_dot_seg = self.Q_dot / n
         
         # Set inlet enthalpies
         self.h_hot[0] = self.su_H.h
         self.T_hot[0] = self.su_H.T
         
-        h_cold_out = self.su_C.h + self.Q/self.su_C.m_dot
+        h_cold_out = self.su_C.h + self.Q_dot/self.su_C.m_dot
         self.h_cold[0] = h_cold_out
         
         self.AS_C.update(CP.HmassP_INPUTS, h_cold_out, self.su_C.p)
@@ -322,7 +322,7 @@ class HexCstEffDisc(BaseComponent):
         "Mass Connectors"
         self.ex_C.set_fluid(self.su_C.fluid)
         self.ex_C.set_m_dot(self.su_C.m_dot)
-        self.ex_C.set_h(self.su_C.h + self.Q/self.su_C.m_dot)
+        self.ex_C.set_h(self.su_C.h + self.Q_dot/self.su_C.m_dot)
         self.ex_C.set_p(self.p_cold[-1])
         
         self.AS_C.update(CP.HmassP_INPUTS, self.ex_C.h, self.ex_C.p)
@@ -330,14 +330,14 @@ class HexCstEffDisc(BaseComponent):
 
         self.ex_H.set_fluid(self.su_H.fluid)
         self.ex_H.set_m_dot(self.su_H.m_dot)
-        self.ex_H.set_h(self.su_H.h - self.Q/self.su_H.m_dot)
+        self.ex_H.set_h(self.su_H.h - self.Q_dot/self.su_H.m_dot)
         self.ex_H.set_p(self.p_hot[-1])
         
         self.AS_H.update(CP.HmassP_INPUTS, self.ex_H.h, self.ex_H.p)
         self.ex_H.set_T(self.AS_H.T())
         
         "Heat conector"
-        self.Q_dot.set_Q_dot(self.Q)
+        self.Q.set_Q_dot(self.Q_dot)
 
         return
 

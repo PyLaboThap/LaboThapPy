@@ -5,18 +5,18 @@ Created on Mon Feb  3 15:31:53 2025
 @author: Basile
 """
 
-from machine.circuit_rec import RecursiveCircuit
-from connector.mass_connector import MassConnector
-from component.heat_exchanger.hex_csteff import HexCstEff
-from component.heat_exchanger.hex_cstpinch import HexCstPinch
-from component.compressor.compressor_csteff import CompressorCstEff 
-from component.valve.valve_isenthalpic import ValveIsenthalpic
+from labothappy.machine.circuit import Circuit
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.component.heat_exchanger.hex_csteff import HexCstEff
+from labothappy.component.heat_exchanger.hex_cstpinch import HexCstPinch
+from labothappy.component.compressor.compressor_csteff import CompressorCstEff 
+from labothappy.component.valve.valve_isenthalpic import ValveIsenthalpic
 
 from CoolProp.CoolProp import PropsSI
 
 def basic_HP(fluid, HSource, CSource, eta_cp, PP_cd, SC_cd, PP_ev, SH_ev, P_low, P_high, mdot):
     
-    HP = RecursiveCircuit(fluid)
+    HP = Circuit(fluid)
     
     # Create components
     Compressor = CompressorCstEff()
@@ -234,7 +234,7 @@ if __name__ == "__main__":
         CSource.set_properties(fluid = fluid_CS, T = T_CS, p = p_CS, m_dot = m_dot_CS)
         
         HP_example = basic_HP(fluid, HSource, CSource, eta_cp, PP_cd, SC_cd, PP_ev, SH_ev, P_low_guess, P_high_guess, mdot)
-        HP_example.solve()        
+        HP_example.solve(method='wegstein')        
 
     # elif study_case == "Simple":
         

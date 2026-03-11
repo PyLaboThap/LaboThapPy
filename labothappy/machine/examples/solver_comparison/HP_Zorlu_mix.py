@@ -1,4 +1,4 @@
-from labothappy.machine.circuit_rec import RecursiveCircuit
+from labothappy.machine.circuit import Circuit
 
 from labothappy.connector.mass_connector import MassConnector
 
@@ -37,7 +37,7 @@ for T_cd in T_guess_cd:
     for T_ev in T_guess_ev:
         for SC_cd in SC_cd_vec:
             for SH_ev in SH_ev_vec:
-                HP = RecursiveCircuit(fluid)
+                HP = Circuit(fluid)
                 
                 # Ignore debug printing
                 # HP.mute_print()
@@ -69,7 +69,7 @@ for T_cd in T_guess_cd:
                 EV_source = MassConnector('Water')
                 T_su_w_ev = 113.1+273.15
                 P_su_w_ev = 2*1e5
-                m_dot_w_ev = 497.6  # kg/s
+                m_dot_w_ev = 500  # kg/s
                 
                 #%% Inputs
                 m_dot_ref = 20 # kg/s
@@ -140,7 +140,7 @@ for T_cd in T_guess_cd:
                 
                 # try: 
                 start = time.perf_counter()
-                HP.solve(max_iter=30, method='Wegstein')
+                HP.solve(max_iter=30, method='wegstein')
                 end = time.perf_counter()
 
                 elapsed = end - start

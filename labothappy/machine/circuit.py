@@ -494,29 +494,29 @@ class Circuit(BaseCircuit):
                                  **{guess.variable: float(value)})
 
     def _residual_function(self, x: np.ndarray) -> np.ndarray:
-        """
-        F(x) = f(x) - x
-
-        Apply x as guesses, run one sequential sweep, read back connector
-        outputs.  Returns the mismatch vector.
-        """
-        try:
-            self._apply_guess_vector(x)
-            self._enforce_fixed_properties()
-            self._sequential_sweep()
-
-            f_x = np.array(
-                [float(getattr(
-                    getattr(self.components[gn.split(":")[0]].model,
-                            gn.split(":")[1].split("-")[0]),
-                    gn.split("-")[1]))
-                 for gn in self.guesses],
-                dtype=float)
-            return f_x - x
-
-        except Exception:
-            return np.ones(len(self.guesses)) * 1e6
-
+        self._iteration_count += 1
+        self.reset_solved_marker()
+        self._apply_guess_vector(x)
+        self._enforce_fixed_properties()
+        self._enforce_iteration_variables()
+        self._sequential_sweep()
+    
+        f_x = []
+        for gn, guess in self.guesses.items():
+            comp_name, rest = gn.split(":", 1)
+            port_name, var  = rest.split("-", 1)
+            connector = getattr(self.components[comp_name].model, port_name)
+            val       = getattr(connector, var)
+            f_x.append(float(val))
+    
+        residual = np.array(f_x, dtype=float) - x
+        if self.print_flag:
+            print(f"  Iteration {self._iteration_count} — res: {residual}")
+        return residual
+    
+        # except Exception as e:
+        #     print(f"Residual error: {e}")  # ← aide au debug
+        #     return np.ones(len(self.guesses)) * 1e6
     # -----------------------------------------------------------------------
     # Convergence check helpers
     # -----------------------------------------------------------------------
@@ -627,11 +627,16 @@ class Circuit(BaseCircuit):
         # 2b. Newton-based solve — residual built automatically from guesses
         # ------------------------------------------------------------------
         else:
+            self._iteration_count = 0
             x0 = self._build_guess_vector()
 
             if method == 'fsolve':
-                sol = fsolve(self._residual_function, x0,
-                             full_output=False)
+                sol = fsolve(
+                    self._residual_function,
+                    x0,
+                    full_output=False,
+                    xtol=tol,
+                )
             else:
                 result = root(
                     self._residual_function, x0,
@@ -640,18 +645,18 @@ class Circuit(BaseCircuit):
                 sol = result.x
                 if self.print_flag and not result.success:
                     print(f"[{method}] did not converge: {result.message}")
-
-            # Apply final solution and check
+                    
             self._apply_guess_vector(sol)
             self._enforce_fixed_properties()
             self._sequential_sweep()
-
-            current_snapshot = self._snapshot_connector_states()
-            self._check_convergence(current_snapshot)
+        
+            # For Newton methods, check residual directly
+            final_residual = self._residual_function(sol)
+            self.converged = bool(np.max(np.abs(final_residual)) < 1e-6)
 
             if self.print_flag:
                 status = "Converged" if self.converged else "Did not converge"
-                print(f"{status} [{method}].")
+                print(f"{status} [{method}] in {self._iteration_count} iterations.")
 
     # -----------------------------------------------------------------------
     # Print helpers

@@ -577,7 +577,7 @@ class RecursiveCircuit(BaseCircuit):
         
         return
 
-    def solve(self, max_iter=30, method='successive_substitution'):
+    def solve(self, max_iter=30, method='successive_substitution', tol = 1e-6):
         """
         Solve the circuit.
 

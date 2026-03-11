@@ -485,8 +485,8 @@ class HexCstPinch(BaseComponent):
             
             P_crit = self.AS_C.trivial_keyed_output(CoolProp.iP_critical)
             
-            max_iter = 1000
-            step = 0.1
+            max_iter = 100
+            step = 0.01
             max_step = 5.0
 
             lower_bound = max(P_triple*1.1 + self.DP_c/2, 0.5*P_ev_guess)
@@ -556,7 +556,7 @@ class HexCstPinch(BaseComponent):
 
             
             max_iter = 100
-            step = 0.1
+            step = 0.01
             max_step = 5.0
             
             for _ in range(max_iter):
@@ -631,11 +631,7 @@ class HexCstPinch(BaseComponent):
             self.ex_C.set_fluid(self.su_C.fluid)
             self.ex_C.set_p(self.P_ev_x1)
             
-            try:
-                self.ex_C.set_h(self.h_C_ex)
-            except:
-                print(self.ex_C.variables_input)
-                exit()
+            self.ex_C.set_h(self.h_C_ex)
                 
             self.ex_C.set_m_dot(self.su_C.m_dot)
 

@@ -76,11 +76,11 @@ class CompressorCstEff(BaseComponent):
 
         try:
             self.AS.update(CP.PSmass_INPUTS, self.ex.p, self.su.s)
-            h_ex_is = self.AS.hmass()
+            self.h_ex_is = self.AS.hmass()
             
             self.AS.T()
             
-            h_ex = self.su.h + (h_ex_is - self.su.h) / self.params['eta_is']
+            h_ex = self.su.h + (self.h_ex_is - self.su.h) / self.params['eta_is']
             w = h_ex - self.su.h
             W_dot = self.su.m_dot*w
             self.update_connectors(h_ex, w, W_dot)
