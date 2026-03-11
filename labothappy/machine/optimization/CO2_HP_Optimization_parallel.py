@@ -57,10 +57,10 @@ def system_HP_parallel(x, input_data):
     #     return 100
 
     if params['HP_ARCH'] == 'IHX_EXP':
-        COP = HP.components['GasCooler'].model.Q_dot.Q_dot / (
+        COP = HP.components['GasCooler'].model.Q.Q_dot / (
             HP.components['Compressor'].model.W.W_dot - HP.components['Expander'].model.W.W_dot)
     else:
-        COP = HP.components['GasCooler'].model.Q_dot.Q_dot / HP.components['Compressor'].model.W.W_dot
+        COP = HP.components['GasCooler'].model.Q.Q_dot / HP.components['Compressor'].model.W.W_dot
 
     T_err = abs((HP.components['GasCooler'].model.ex_C.T - obj['T_high']) / obj['T_high'])
     W_err = abs((HP.components['Compressor'].model.W.W_dot - obj['W_dot']) / obj['W_dot'])
@@ -131,7 +131,7 @@ class CO2HPOptimizer:
             ))
             
         self.optimizer = GlobalBestPSO(
-            n_particles=40,
+            n_particles=100,
             dimensions=3,
             options={'c1': 1.5, 'c2': 2.0, 'w': 0.7},
             bounds=bounds
@@ -192,10 +192,10 @@ class CO2HPOptimizer:
         try:
             self.HP.solve()
             if self.params['HP_ARCH'] == 'IHX_EXP':
-                self.COP = self.HP.components['GasCooler'].model.Q_dot.Q_dot / (
+                self.COP = self.HP.components['GasCooler'].model.Q.Q_dot / (
                     self.HP.components['Compressor'].model.W.W_dot - self.HP.components['Expander'].model.W.W_dot)
             else:
-                self.COP = self.HP.components['GasCooler'].model.Q_dot.Q_dot / \
+                self.COP = self.HP.components['GasCooler'].model.Q.Q_dot / \
                            self.HP.components['Compressor'].model.W.W_dot
         except Exception as e:
             print(f"⚠️ Failed to solve final HP circuit: {e}")
@@ -212,6 +212,8 @@ if __name__ == "__main__":
     
     # Initialize optimizer
     Optimizer = CO2HPOptimizer('CO2')
+    
+    n_MW = 1
     
     # Define temperatures for sweep
     T_vec = np.linspace(100, 150, 6) + 273.15
@@ -252,7 +254,7 @@ if __name__ == "__main__":
     
         Optimizer.set_obj(
             T_high=T_vec[i],
-            W_dot=1e6
+            W_dot=n_MW*1e6
         )
     
         Optimizer.CSource.set_properties(

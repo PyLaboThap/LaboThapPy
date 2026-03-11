@@ -1,16 +1,15 @@
-from labothappy.machine.circuit_it import IterativeCircuit
+from labothappy.machine.circuit import Circuit
+
 from labothappy.connector.mass_connector import MassConnector
 from labothappy.component.compressor.compressor_csteff import CompressorCstEff
 from labothappy.component.heat_exchanger.hex_cstpinch import HexCstPinch
 from labothappy.component.valve.valve_isenthalpic import ValveIsenthalpic
 
 from CoolProp.CoolProp import PropsSI
-from scipy.optimize import fsolve
-import numpy as np
 
 # Instanciate Circuit
 fluid = "Propane"
-HP = IterativeCircuit(fluid)
+HP = Circuit(fluid)
 
 # Create components
 Compressor = CompressorCstEff()
@@ -24,8 +23,7 @@ Pinch_cd = 3  # K
 SC_cd = 3  # K
 Pinch_ev = 3  # K
 SH_ev = 3  # K
-
-Compressor.set_parameters(eta_is=eta_is_cp)
+Compressor.set_parameters(eta_is=0.8)
 Condenser.set_parameters(Pinch=Pinch_cd, Delta_T_sh_sc=SC_cd, HX_type="condenser")
 Evaporator.set_parameters(Pinch=Pinch_ev, Delta_T_sh_sc=SH_ev, HX_type="evaporator")
 
@@ -56,48 +54,44 @@ HP.set_source_properties(T=T_su_w_cd, fluid='Water', P=P_su_w_cd, m_dot = m_dot_
 HP.add_source("EV_Water", EV_source, HP.components["Evaporator"], "m-su_H")
 HP.set_source_properties(T=T_su_w_ev, fluid='Water', P=P_su_w_ev, m_dot = m_dot_w_ev, target="EV_Water")
 
-# Set cycle inputs
+# Inputs
+T_HS = 40 + 273.15  # K
+P_HS = 3e5  # Pa
+m_dot_HS = 0.5  # kg/s
+T_CS = 20 + 273.15  # K
+P_CS = 1e5  # Pa
+m_dot_CS = 5 # kg/s
 m_dot_ref = 0.2 # kg/s
-SC_cd = 3  # K
-SH_ev = 3  # K
 
-HP.set_cycle_input(target="ExpansionValve:su", m_dot = m_dot_ref, SC=SC_cd)
-HP.set_cycle_input(target="Evaporator:ex_C", SH=SH_ev)
+# Cycle guess values
+P_low = PropsSI("P", "T", T_CS-10, "Q", 1, fluid)
+P_high = PropsSI("P", "T", T_HS+10, "Q", 0, fluid)
 
-# Set iteration variables
-P_HP_guess = PropsSI("P", "T", T_su_w_cd+10, "Q", 0, fluid)
-P_LP_guess = PropsSI("P", "T", T_su_w_ev-10, "Q", 1, fluid)
+T_sat_guess_valve = PropsSI("H", "P", P_high, "Q", 0, fluid)
+h_guess_valve = PropsSI("H", "P", P_high, "T", T_sat_guess_valve-SC_cd, fluid)
 
-HP.set_iteration_variable(
-    target=["ExpansionValve:su", "Compressor:ex"],
-    variable="p",
-    guess=P_HP_guess,
-    tolerance=1e-6
-)
+HP.set_cycle_guess(target="Compressor:su", m_dot = m_dot_ref, SH=SH_ev, p=P_low)
+HP.set_cycle_guess(target="Compressor:ex", p=P_high)
 
-HP.set_iteration_variable(
-    target="ExpansionValve:ex",
-    variable="p",
-    guess=P_LP_guess,
-    tolerance=1e-6
-)
-
+HP.set_cycle_guess(target="ExpansionValve:su", p=P_high, m_dot = m_dot_ref, SC=SC_cd)
+HP.set_cycle_guess(target="ExpansionValve:ex", p=P_low)
 # Set residual variables
-HP.set_residual_variable(
-    pre_target="ExpansionValve:su",
-    post_target="Condenser:ex_H",
-    variable="p",
-    tolerance=1e-3
-)
+HP.set_residual_variable(target="Compressor:ex", variable="h", tolerance=1e3)
+HP.set_residual_variable(target="Compressor:ex", variable="p", tolerance=1e3)
 
-HP.set_residual_variable(
-    pre_target="ExpansionValve:ex",
-    post_target="Evaporator:su_C",
-    variable="p",
-    tolerance=1e-3
-)
+HP.set_residual_variable(target="Condenser:ex_H", variable="h", tolerance=1e-3)
+HP.set_residual_variable(target="Condenser:ex_H", variable="p", tolerance=1e-3)
 
-# Solve circuit
-HP.solve()
+HP.set_residual_variable(target="Evaporator:ex_C", variable="h", tolerance=1e-3)
+HP.set_residual_variable(target="Evaporator:ex_C", variable="p", tolerance=1e-3)
+
+HP.set_residual_variable(target="ExpansionValve:ex", variable="h", tolerance=1e3)
+HP.set_residual_variable(target="ExpansionValve:ex", variable="p", tolerance=1e3)
+
+HP.solve(method='anderson', tol=1e-8)
+
+# HP.plot_cycle_Ts()
+
 print(f"Converged at P_HP = {Compressor.ex.p}, P_LP = {Compressor.su.p}")
-HP.print_states()
+# HP.print_states()
+

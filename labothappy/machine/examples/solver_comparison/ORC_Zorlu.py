@@ -1,4 +1,4 @@
-from labothappy.machine.circuit_rec import RecursiveCircuit
+from labothappy.machine.circuit import Circuit
 
 from labothappy.connector.mass_connector import MassConnector
 
@@ -17,10 +17,10 @@ import numpy as np
 # T_guess_ev = np.linspace(120,160,21) + 273.15
 # T_guess_cd = np.linspace(100,130,16) + 273.15
 
-T_guess_cd = [24+273.15]
-T_guess_ev = [141+273.15]
+T_guess_cd = [24+273.15-5]
+T_guess_ev = [141+273.15+5]
 
-SC_cd_vec = np.linspace(1,1,1)
+SC_cd_vec = np.linspace(3,3,1)
 SH_ev_vec = np.linspace(3,3,1)
 
 # Instanciate Circuit
@@ -37,10 +37,10 @@ for T_cd in T_guess_cd:
         for SC_cd in SC_cd_vec:
             for SH_ev in SH_ev_vec:
 
-                ORC = RecursiveCircuit(fluid)
+                ORC = Circuit(fluid)
 
                 # Ignore debug printing
-                ORC.mute_print()
+                # ORC.mute_print()
                 
                 # Create components
                 Pump = PumpCstEff()
@@ -138,12 +138,11 @@ for T_cd in T_guess_cd:
                 m_dot_ref = 34.51 # kg/s
                 
                 #%% Cycle guess values
-                P_low = PropsSI("P", "T", T_cd+20, "Q", 1, fluid)
-                P_high = PropsSI("P", "T", T_ev-20, "Q", 0, fluid)
+                P_low = PropsSI("P", "T", T_cd+10, "Q", 1, fluid)
+                P_high = PropsSI("P", "T", T_ev-10, "Q", 0, fluid)
                 
-                h_pp_guess = PropsSI("H", "T", T_cd+20-SC_cd, "P", P_low, fluid)
+                h_pp_guess = PropsSI("H", "T", T_cd+10-SC_cd, "P", P_low, fluid)
 
-                
                 #%%
                 
                 ORC.set_cycle_guess(target="Pump:su", m_dot = m_dot_ref, h=h_pp_guess, p=P_low)
@@ -154,28 +153,14 @@ for T_cd in T_guess_cd:
                 ORC.set_cycle_guess(target="Expander:su", p=P_high, m_dot = m_dot_ref, SH=SH_ev*2)
                 ORC.set_cycle_guess(target="Expander:ex", p=P_low)
                 
-                #%% Set residual variables
-                ORC.set_residual_variable(target="Pump:ex", variable="h", tolerance=1e-3)
-                ORC.set_residual_variable(target="Pump:ex", variable="p", tolerance=1e-3)
-                
-                ORC.set_residual_variable(target="Condenser:ex_H", variable="h", tolerance=1e-3)
-                ORC.set_residual_variable(target="Condenser:ex_H", variable="p", tolerance=1e-3)
-                
-                ORC.set_residual_variable(target="Evaporator:ex_C", variable="h", tolerance=1e-3)
-                ORC.set_residual_variable(target="Evaporator:ex_C", variable="p", tolerance=1e-3)
-                
-                ORC.set_residual_variable(target="Expander:ex", variable="h", tolerance=1e-3)
-                ORC.set_residual_variable(target="Expander:ex", variable="p", tolerance=1e-3)
-                
                 #%% CYCLE FIXED VARIABLES AND ITERATION VARIABLE
                 damping = 0.2 # 0.2
                 
                 ORC.set_iteration_variable(target=['Expander:ex'], variable='p', objective = 'Link:Condenser:ex_H-p', tol = 1e-2, rel = 1, damping_factor = damping, cycle = ORC)
                 ORC.set_iteration_variable(target=['Pump:ex'], variable='p', objective = 'Link:Evaporator:ex_C-p', tol = 1e-2, rel = 1, damping_factor = damping, cycle = ORC)
                 
-                # try: 
                 start = time.perf_counter()
-                ORC.solve(max_iter=30)
+                ORC.solve(max_iter=100, method='anderson')
                 end = time.perf_counter()
 
                 elapsed = end - start
@@ -186,23 +171,21 @@ for T_cd in T_guess_cd:
                     success_time += elapsed
                 else:
                     print(f"Failure... (conv)")
+                    
                 #         failures += 1
                 # except:
                 #     print(f"Failure...")
                 
-    
-print(f"Success : {successes}/{tries} {round(successes/tries * 100,2)} %")
-print(f"Success Avg Time : {round(success_time/(successes+1e-8),5)} s")                
-ORC.plot_cycle_Ts()
+# print(f"Success : {successes}/{tries} {round(successes/tries * 100,2)} %")
+# print(f"Success Avg Time : {round(success_time/(successes+1e-8),5)} s")                
+# ORC.plot_cycle_Ts()
 
-import matplotlib.pyplot as plt
-plt.show()
+# import matplotlib.pyplot as plt
+# plt.show()
 
-# print(f"Converged at P_HP = {Pump.ex.p}, P_LP = {Pump.su.p}")
+# # print(f"Converged at P_HP = {Pump.ex.p}, P_LP = {Pump.su.p}")
 
-print("Pump")
-print(Pump.W.W_dot)
-print((Pump.ex.h - Pump.su.h)*Pump.su.m_dot)
-
-
+# print("Pump")
+# print(Pump.W.W_dot)
+# print((Pump.ex.h - Pump.su.h)*Pump.su.m_dot)
 

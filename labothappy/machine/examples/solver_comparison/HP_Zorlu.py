@@ -1,4 +1,4 @@
-from labothappy.machine.circuit_rec import RecursiveCircuit
+from labothappy.machine.circuit import Circuit
 
 from labothappy.connector.mass_connector import MassConnector
 
@@ -37,7 +37,7 @@ for T_cd in T_guess_cd:
     for T_ev in T_guess_ev:
         for SC_cd in SC_cd_vec:
             for SH_ev in SH_ev_vec:
-                HP = RecursiveCircuit(fluid)
+                HP = Circuit(fluid)
                 
                 # Ignore debug printing
                 # HP.mute_print()
@@ -69,7 +69,7 @@ for T_cd in T_guess_cd:
                 EV_source = MassConnector('Water')
                 T_su_w_ev = 113.1+273.15
                 P_su_w_ev = 2*1e5
-                m_dot_w_ev = 497.6  # kg/s
+                m_dot_w_ev = 500  # kg/s
                 
                 #%% Inputs
                 m_dot_ref = 20 # kg/s
@@ -125,22 +125,9 @@ for T_cd in T_guess_cd:
                 HP.set_cycle_guess(target="Compressor:ex", p=P_high)
                 
                 HP.set_cycle_guess(target="Evaporator:su_C", p=P_low, m_dot = m_dot_ref, x=0.2)
-                # Set residual variables
-                HP.set_residual_variable(target="Compressor:ex", variable="h", tolerance=1e-6)
-                HP.set_residual_variable(target="Compressor:ex", variable="p", tolerance=1e-6)
                 
-                HP.set_residual_variable(target="Condenser:ex_H", variable="h", tolerance=1e-6)
-                HP.set_residual_variable(target="Condenser:ex_H", variable="p", tolerance=1e-6)
-                
-                HP.set_residual_variable(target="Evaporator:ex_C", variable="h", tolerance=1e-6)
-                HP.set_residual_variable(target="Evaporator:ex_C", variable="p", tolerance=1e-6)
-                
-                HP.set_residual_variable(target="ExpansionValve:ex", variable="h", tolerance=1e-6)
-                HP.set_residual_variable(target="ExpansionValve:ex", variable="p", tolerance=1e-6)
-                
-                # try: 
                 start = time.perf_counter()
-                HP.solve(max_iter=30, method='Wegstein')
+                HP.solve(max_iter=100, method='anderson')
                 end = time.perf_counter()
 
                 elapsed = end - start

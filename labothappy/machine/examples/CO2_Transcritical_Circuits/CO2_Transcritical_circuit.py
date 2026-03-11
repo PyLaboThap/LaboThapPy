@@ -165,7 +165,7 @@ def REC_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, e
     
     CD_source = MassConnector()
     CO2_TC.add_source("CD_Water", CD_source, CO2_TC.components["Condenser"], "m-su_C")
-    CO2_TC.set_source_properties(T=CSource, fluid=CSource.fluid, m_dot=CSource.m_dot, target='CD_Water', P = CSource.p)
+    CO2_TC.set_source_properties(T=CSource.T, fluid=CSource.fluid, m_dot=CSource.m_dot, target='CD_Water', P = CSource.p)
     
     # CYCLE GUESSES
     
@@ -395,7 +395,7 @@ def Recomp_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp
 
 if __name__ == "__main__": 
 
-    study_case = "Simple"
+    study_case = "Recup"
 
     if study_case == "Simple":
         T_cold_source = 0.1+273.15
@@ -508,10 +508,10 @@ if __name__ == "__main__":
         
         # for i in range(100):
         CO2_TC = REC_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_is_pp, eta_is_exp, eta_gh, eta_rec, PPTD_cd, SC_cd, P_low_guess, P_high, m_dot,
-                            DP_h_rec = DP_h_rec, DP_c_rec = DP_c_rec, DP_h_gh = DP_h_gh, DP_c_gh = DP_c_gh, DP_h_cond = DP_h_cond, DP_c_cond = DP_c_cond, mute_print_flag=0)
+                            DP_h_rec = DP_h_rec, DP_c_rec = DP_c_rec, DP_h_gh = DP_h_gh, DP_c_gh = DP_c_gh, DP_h_cond = DP_h_cond, DP_c_cond = DP_c_cond, mute_print_flag=1)
                 
         CO2_TC.solve(method = 'wegstein')
-                
+ 
     elif study_case == "Recomp":
         
         T_cold_source = 0.1+273.15

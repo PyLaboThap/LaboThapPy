@@ -15,48 +15,80 @@ The solve() method is now pluggable:
 """
 
 import numpy as np
+import matplotlib.pyplot as plt
+
+class TS_curve_generator:
+    
+    def __init__(self, Fluid):
+        self.Fluid = Fluid
+        self.TS_curve()
+        
+    def TS_curve(self):
+        # Calculate critical pressure and minimum pressure
+        P_crit = 0.99 * PropsSI('Pcrit', 'T', 0, 'P', 0, self.Fluid)
+        P_min = PropsSI('P', 'T', 273.15 - 10, 'Q', 0, self.Fluid)
+
+        # Create an array of pressures
+        P_lin = np.linspace(P_min, P_crit, 100)
+        
+        # Initialize arrays to store data
+        s_liq = np.zeros(100)
+        T_liq = np.zeros(100)
+        s_vap = np.zeros(100)
+        T_vap = np.zeros(100)
+
+        # Loop through the pressures and collect data
+        for i in range(100):
+            s_liq[i] = PropsSI('S', 'P', P_lin[i], 'Q', 0, self.Fluid)
+            T_liq[i] = PropsSI('T', 'P', P_lin[i], 'Q', 0, self.Fluid)
+            s_vap[i] = PropsSI('S', 'P', P_lin[i], 'Q', 1, self.Fluid)
+            T_vap[i] = PropsSI('T', 'P', P_lin[i], 'Q', 1, self.Fluid)
+
+        # Create the full TS curve by combining liquid and vapor data
+        self.s_TS_curve = np.concatenate((s_liq, np.flip(s_vap)))
+        self.T_TS_curve = np.concatenate((T_liq, np.flip(T_vap)))
+        plt.plot(self.s_TS_curve, self.T_TS_curve, color='black', linestyle='--')
+        plt.xlabel('Entropy (J/kg K)')
+        plt.ylabel('Temperature (K)')
+        # plt.show()
+
+    def points(self, s_array, T_array):
+
+        plt.plot(s_array, T_array, 'bo-', markersize=4)
+        # plt.plot(self.s_TS_curve, self.T_TS_curve, color='blue')
+        # plt.xlabel('Entropy (J/kg K)')
+        # plt.ylabel('Temperature (K)')
+        # plt.title('TS Curve')
+        plt.show()
+
 from CoolProp.CoolProp import PropsSI
 
-from labothappy.machine.circuit_mix import MixedCircuit
-
+from labothappy.machine.circuit import Circuit
 from labothappy.connector.mass_connector import MassConnector
-
 from labothappy.component.expander.expander_semi_empirical import ExpanderSE
 from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
 from labothappy.component.pump.pump_curve_similarity import PumpCurveSimilarity
-from labothappy.component.tank.tank_spliter import TankSpliter
-from labothappy.component.tank.tank_mixer import TankMixer
-
 from labothappy.toolbox.geometries.heat_exchanger.geometry_plate_hx_swep import PlateGeomSWEP
 
 # -------- 1) Instantiate Circuit --------
 fluid = 'R1233zd(E)'
-orc = MixedCircuit(fluid)
+orc = Circuit(fluid)
 
-# orc.mute_print()
+orc.mute_print()
 
 # -------- 2) Create components --------
-Expander1   = ExpanderSE()
-Expander2   = ExpanderSE()
+Expander   = ExpanderSE()
 Condenser  = HexMBChargeSensitive('Plate')
 Pump       = PumpCurveSimilarity()
 Evaporator = HexMBChargeSensitive('Plate')
-Mixer = TankMixer(n_inlets=2)
-Spliter = TankSpliter(outlet_repartition=[0.5,0.5])
 
 # -------- 3) Set component parameters --------
 
 # Expander
-Expander1.set_parameters(
+Expander.set_parameters(
     AU_amb=9.3, AU_su_n=4.75, AU_ex_n=17.7, d_su1=6.48e-3, m_dot_n=0.1,
     A_leak=9.99e-06, W_dot_loss_0=2.37e+1, alpha=1.16e-1, C_loss=1.13,
-    rv_in=1.7, V_s=0.0000712, mode='M_N'
-)
-
-Expander2.set_parameters(
-    AU_amb=9.3, AU_su_n=4.75, AU_ex_n=17.7, d_su1=6.48e-3, m_dot_n=0.1,
-    A_leak=9.99e-06, W_dot_loss_0=2.37e+1, alpha=1.16e-1, C_loss=1.13,
-    rv_in=1.7, V_s=0.0000712, mode='M_N'
+    rv_in=1.7, V_s=2*0.0000712, mode='P_M'
 )
 
 # Evaporator
@@ -132,24 +164,16 @@ Pump.set_parameters(
 )
 
 # -------- 4) Add components to circuit --------
-orc.add_component(Expander1,   "Expander1")
-orc.add_component(Expander2,   "Expander2")
+orc.add_component(Expander,   "Expander")
 orc.add_component(Condenser,  "Condenser")
 orc.add_component(Pump,       "Pump")
 orc.add_component(Evaporator, "Evaporator")
-orc.add_component(Mixer, "Mixer")
-orc.add_component(Spliter, "Spliter")
 
 # -------- 5) Link components --------
-orc.link_components("Expander1",   "m-ex",   "Mixer",  "m-su_1")
-orc.link_components("Expander2",   "m-ex",   "Mixer",  "m-su_2")
-orc.link_components("Mixer",   "m-ex",   "Condenser",  "m-su_H")
-
+orc.link_components("Expander",   "m-ex",   "Condenser",  "m-su_H")
 orc.link_components("Condenser",  "m-ex_H", "Pump",       "m-su")
 orc.link_components("Pump",       "m-ex",   "Evaporator", "m-su_C")
-orc.link_components("Evaporator", "m-ex_C", "Spliter",   "m-su")
-orc.link_components("Spliter", "m-ex_1", "Expander1",   "m-su")
-orc.link_components("Spliter", "m-ex_2", "Expander2",   "m-su")
+orc.link_components("Evaporator", "m-ex_C", "Expander",   "m-su")
 
 # -------- 6) Add fluid sources --------
 CD_source    = MassConnector('Water')
@@ -181,28 +205,25 @@ P_HP_guess = PropsSI("P", "T", T_su_w_ev - 10, "Q", 1, fluid)
 
 orc.set_cycle_guess(target="Pump:su",      m_dot=m_dot_ref, SC=SC_cd, p=P_LP_guess)
 orc.set_cycle_guess(target="Pump:ex",      p=P_HP_guess)
-
-orc.set_cycle_guess(target="Expander1:W",   N_rot=N_exp)
-orc.set_cycle_guess(target="Expander1:Q_amb", T_amb=T_amb)
-# orc.set_cycle_guess(target="Expander1:ex",  p=P_LP_guess)
-
-orc.set_cycle_guess(target="Expander2:W",   N_rot=N_exp)
-orc.set_cycle_guess(target="Expander2:Q_amb", T_amb=T_amb)
-# orc.set_cycle_guess(target="Expander2:ex",  p=P_LP_guess)
+orc.set_cycle_guess(target="Expander:W",   N_rot=N_exp)
+orc.set_cycle_guess(target="Expander:Q_amb", T_amb=T_amb)
+orc.set_cycle_guess(target="Expander:ex",  p=P_LP_guess)
 
 # -------- 8) Solve — swap method here for comparison --------
-METHOD = 'wegstein'   # <-- change to compare: 'successive_substitution',
+# METHOD = 'wegstein'   # <-- change to compare: 'successive_substitution',
+#                       #     'wegstein', 'fsolve', 'lm', 'broyden1', 'anderson'
+
+METHOD = 'successive_substitution'   # <-- change to compare: 'successive_substitution',
                       #     'wegstein', 'fsolve', 'lm', 'broyden1', 'anderson'
 
 orc.solve(method=METHOD)
 
 print(f"\n[{METHOD}] Converged: {orc.converged}")
-print(f"  P_HP = {Expander1.su.p:.2f} Pa")
-print(f"  P_LP = {Expander1.ex.p:.2f} Pa")
-print(f"  T_su_expander = {Expander1.su.T - 273.15:.2f} °C")
+print(f"  P_HP = {Expander.su.p:.2f} Pa")
+print(f"  P_LP = {Expander.ex.p:.2f} Pa")
+print(f"  T_su_expander = {Expander.su.T - 273.15:.2f} °C")
 print(f"  m_dot = {Pump.su.m_dot:.4f} kg/s")
-print(f"  W_exp = {2*Expander1.W.W_dot:.2f} W")
+print(f"  W_exp = {Expander.W.W_dot:.2f} W")
 print(f"  W_pump = {Pump.W.W_dot:.2f} W")
 print(f"  Q_ev = {Evaporator.Q.Q_dot:.2f} W")
 print(f"  Q_cd = {Condenser.Q.Q_dot:.2f} W")
-

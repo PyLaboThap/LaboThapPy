@@ -7,7 +7,7 @@ Created on Wed Jul 16 11:12:02 2025
 
 #%% Imports
 
-from machine.examples.CO2_Transcritical_Circuits.CO2_Transcritical_circuit import REC_CO2_TC, basic_CO2_TC
+from labothappy.machine.examples.CO2_Transcritical_Circuits.CO2_Transcritical_circuit import REC_CO2_TC, basic_CO2_TC
 from connector.mass_connector import MassConnector
 
 import numpy as np
@@ -16,10 +16,10 @@ from pyswarms.single import GlobalBestPSO
 from tqdm import tqdm
 from joblib import Parallel, delayed
 
-from sizing.turbomachinery.turbine.axial.design_1D.mean_line_axial_turbine_loss_model_design_aungier import AxialTurbineMeanLineDesign
-from sizing.heat_exchanger.shell_and_tube.shell_and_tube_sizing_PSO_parallel import ShellAndTubeSizingOpt
-from sizing.heat_exchanger.PCHE.PCHE_PSO import PCHESizingOpt
-from sizing.turbomachinery.pump.radial.radial_pump_0D_design import RadialPumpODDesign
+from labothappy.sizing.turbomachinery.turbine.axial.design_1D.mean_line_axial_turbine_loss_model_design_aungier import AxialTurbineMeanLineDesign
+from labothappy.sizing.heat_exchanger.shell_and_tube.shell_and_tube_sizing_PSO_parallel import ShellAndTubeSizingOpt
+from labothappy.sizing.heat_exchanger.PCHE.PCHE_PSO import PCHESizingOpt
+from labothappy.sizing.turbomachinery.pump.radial.radial_pump_0D_design import RadialPumpODDesign
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -81,7 +81,7 @@ def TCO2_rec_comp_sizing(RC):
             L_z = L_z_bounds, # [m] : 0.6 limit fixed by Heatric (PCHE manufacturer) : Width
             )
         
-        Q_dot_cstr = REC_model.Q_dot.Q_dot
+        Q_dot_cstr = REC_model.Q.Q_dot
         DP_c_cstr = REC_model.DP_c
         DP_h_cstr = REC_model.DP_h
         
@@ -241,7 +241,7 @@ def TCO2_rec_comp_sizing(RC):
                     }
 
         CD_sizing.set_bounds(bounds)
-        CD_sizing.set_constraints(Q_dot = CD_model.Q_dot.Q_dot, DP_h = max(CD_model.DP_h, 1e3), DP_c = max(CD_model.DP_c, 1e3))
+        CD_sizing.set_constraints(Q_dot = CD_model.Q.Q_dot, DP_h = max(CD_model.DP_h, 1e3), DP_c = max(CD_model.DP_c, 1e3))
 
         global_best_position, global_best_score, best_particle = CD_sizing.opt_size()
         
@@ -290,7 +290,7 @@ def TCO2_rec_comp_sizing(RC):
         
         Turb_sizing.set_inputs(
             mdot = Turb_model.su.m_dot, # kg/s
-            W_dot = Turb_model.W_exp.W_dot, # W : 
+            W_dot = Turb_model.W.W_dot, # W : 
             p0_su = Turb_model.su.p, # Pa
             T0_su = Turb_model.su.T, # K
             p_ex = Turb_model.ex.p, # Pa
@@ -348,6 +348,7 @@ def system_RC_parallel(x, input_data):
     for idx, allowed_vals in discrete_vars.items():
         allowed_vals = np.array(allowed_vals, dtype=float)
         x[idx] = allowed_vals[np.argmin(np.abs(allowed_vals - x[idx]))]
+        
     # --------------------------------------------
 
     fluid = input_data['fluid']
@@ -376,16 +377,16 @@ def system_RC_parallel(x, input_data):
                         DP_c_cond=params['DP_c_cond'], mute_print_flag=1)
 
     elif input_data['RC_ARCH'] == 'basic':
-        RC = basic_CO2_TC(HSource, CSource.T, params['PP_gh'], params['PP_rec'], params['eta_pp'],
+        RC = basic_CO2_TC(HSource, CSource, params['PP_gh'], params['PP_rec'], params['eta_pp'],
                           params['eta_exp'], params['eta_gh'], params['PP_cd'], params['SC_cd'],
                           P_low_guess, x[0], x[1], mute_print_flag=1)
 
     try:
-        RC.solve()
-    
+        RC.solve(method='wegstein')
+        
         if not RC.converged:
             # cost, penalty, eta
-            return 1000.0, np.inf, np.nan
+            return 1000, np.inf, np.nan
     
         DP = 50e3
         rho = RC.components['GasHeater'].model.su_H.D
@@ -394,10 +395,10 @@ def system_RC_parallel(x, input_data):
         eta_pp = 0.8
         pp_power = DP * mdot / (rho * eta_pp)
     
-        W_dot_net = (RC.components['Expander'].model.W_exp.W_dot * 0.95
-                     - RC.components['Pump'].model.W_pp.W_dot / 0.95
+        W_dot_net = (RC.components['Expander'].model.W.W_dot * 0.95
+                     - RC.components['Pump'].model.W.W_dot / 0.95
                      - pp_power / 0.95)
-        eta = W_dot_net / RC.components['GasHeater'].model.Q_dot.Q_dot
+        eta = W_dot_net / RC.components['GasHeater'].model.Q.Q_dot
     
         penalty = 0.0
     
@@ -407,18 +408,18 @@ def system_RC_parallel(x, input_data):
         if abs((obj['eta'] - eta)/obj['eta']) > 2e-2:
             penalty += abs((obj['eta'] - eta)/obj['eta']) * 10
             
-        # objective = RC.components['GasHeater'].model.Q_dot.Q_dot
+        # objective = RC.components['GasHeater'].model.Q.Q_dot
         RC.eta = eta
         RC.W_dot_net = W_dot_net
         
-        Q_cond = RC.components['Condenser'].model.Q_dot.Q_dot
+        Q_cond = RC.components['Condenser'].model.Q.Q_dot
         RC.components['Condenser'].model.equivalent_effectiveness()
         eta_cond = RC.components['Condenser'].model.epsilon
         
-        Q_rec = RC.components['Recuperator'].model.Q_dot.Q_dot
+        Q_rec = RC.components['Recuperator'].model.Q.Q_dot
         eta_rec = RC.components['Recuperator'].model.epsilon
     
-        Q_gh = RC.components['GasHeater'].model.Q_dot.Q_dot
+        Q_gh = RC.components['GasHeater'].model.Q.Q_dot
         eta_gh = RC.components['GasHeater'].model.epsilon
         
         eps = 1e-6
@@ -584,8 +585,10 @@ class CO2RCOptimizer:
         return
 
     def opt_RC(self, n_jobs=None, n_particles=30, max_iter=30, patience=10, tol=1e-4, ntop = 10):
+        
         import multiprocessing, numexpr as ne
         n_cores = multiprocessing.cpu_count()
+        
         if n_jobs is None:
             n_jobs = n_cores - 1
     
@@ -637,9 +640,9 @@ class CO2RCOptimizer:
                 'fluid': self.HSource.fluid
             },
             'CSource': {
+                'fluid': self.CSource.fluid,
                 'T': self.CSource.T,
                 'P': self.CSource.p,
-                'fluid': self.CSource.fluid,
                 # 'm_dot': self.CSource.m_dot # !!!
             },
             'RC_ARCH': self.params['RC_ARCH'],
@@ -654,39 +657,39 @@ class CO2RCOptimizer:
         #%% 1) Optimize with pre-set params
         
         def objective_wrapper(X):
-                discrete_vars = input_data.get('discrete_vars', {})
-        
-                def discretize(x):
-                    x = np.array(x, dtype=float)
-                    for idx, allowed_vals in discrete_vars.items():
-                        allowed_vals = np.array(allowed_vals, dtype=float)
-                        x[idx] = allowed_vals[np.argmin(np.abs(allowed_vals - x[idx]))]
-                    return x
-        
-                if parallel is None or n_jobs == 1:
-                    # pure serial evaluation, no joblib overhead
-                    results = [system_RC_parallel(x, input_data) for x in X]
-                else:
-                    results = parallel(
-                        delayed(system_RC_parallel)(x, input_data) for x in X
-                    )
-        
-                results = np.array(results)
-                costs    = results[:, 0]
-                penalties = results[:, 1]
-                etas      = results[:, 2]
-        
-                eta_obj = self.obj['eta']
-        
-                for x_i, pen_i, cost in zip(X, penalties, costs):
-                    if pen_i == 0 and np.isfinite(cost):
-                        x_disc = discretize(x_i)
-                        self.allowable_positions.append({
-                            'x': x_disc.copy(),
-                            'score': float(cost)
-                        })
-        
-                return costs
+            discrete_vars = input_data.get('discrete_vars', {})
+    
+            def discretize(x):
+                x = np.array(x, dtype=float)
+                for idx, allowed_vals in discrete_vars.items():
+                    allowed_vals = np.array(allowed_vals, dtype=float)
+                    x[idx] = allowed_vals[np.argmin(np.abs(allowed_vals - x[idx]))]
+                return x
+    
+            if parallel is None or n_jobs == 1:
+                # pure serial evaluation, no joblib overhead
+                results = [system_RC_parallel(x, input_data) for x in X]
+            else:
+                results = parallel(
+                    delayed(system_RC_parallel)(x, input_data) for x in X
+                )
+    
+            results = np.array(results)
+            costs    = results[:, 0]
+            penalties = results[:, 1]
+            etas      = results[:, 2]
+    
+            eta_obj = self.obj['eta']
+    
+            for x_i, pen_i, cost in zip(X, penalties, costs):
+                if pen_i == 0 and np.isfinite(cost):
+                    x_disc = discretize(x_i)
+                    self.allowable_positions.append({
+                        'x': x_disc.copy(),
+                        'score': float(cost)
+                    })
+    
+            return costs
 
         self.optimizer = GlobalBestPSO(
             n_particles=n_particles,
@@ -871,7 +874,7 @@ if __name__ == "__main__":
     n_MW = 1 # W
     W_dot_obj = n_MW*1e6 # W
     
-    eta_obj = 0.12
+    eta_obj = 0.1
     
     # Create optimizer instance
     Optimizer = CO2RCOptimizer('CO2')
@@ -976,5 +979,5 @@ if __name__ == "__main__":
     # t3 = time.perf_counter()
     # print(f"Second run time (warm): {t3 - t2:.4f} s")
 
-    Optimizer.cycle_design(ntop = 5)
+    Optimizer.cycle_design(ntop = 5, n_particles=100)
 

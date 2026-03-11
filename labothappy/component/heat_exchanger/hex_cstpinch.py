@@ -576,7 +576,7 @@ class HexCstPinch(BaseComponent):
                 
                 self.su_H.set_T(self.su_H.T + step)
                 step = min(step * 2, max_step)
-            
+                        
             if res1 * res2 > 0:
                 raise ValueError("Could not bracket condenser pressure root.")
             

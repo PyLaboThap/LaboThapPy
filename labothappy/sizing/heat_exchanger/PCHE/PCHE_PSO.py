@@ -10,7 +10,7 @@ os.environ.setdefault("VECLIB_MAXIMUM_THREADS", "1")
 os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
 
 from component.base_component import BaseComponent
-from component.heat_exchanger.hex_MB_charge_sensitive import HeatExchangerMB
+from component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
 
 from toolbox.heat_exchangers.PCHE.thicknesses import PCHE_thicknesses
 from toolbox.economics.cpi_data import actualize_price
@@ -57,7 +57,7 @@ class PCHESizingOpt(BaseComponent):
     def __init__(self):
         super().__init__()
         
-        self.HX = HeatExchangerMB('PCHE')
+        self.HX = HexMBChargeSensitive('PCHE')
         self.bounds = {}
         
         return
@@ -76,8 +76,11 @@ class PCHESizingOpt(BaseComponent):
         self.HX.params['C_DP_ON'] = self.params['C_DP_ON']
         
         # Set DP
+        print(H_DP)
+        print(C_DP)
+        
         if DP_type == "Correlation":
-            self.HX.set_DP(DP_type = 'Correlation', Corr_H = H_DP, Corr_C = C_DP)
+            self.HX.set_DP(DP_type = 'Correlation_Disc', Corr_H = H_DP, Corr_C = C_DP)
         else:
             self.HX.set_DP(DP_type = 'User-Defined', UD_H_DP = UD_H_DP, UD_C_DP = UD_C_DP)
         

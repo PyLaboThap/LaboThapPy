@@ -489,7 +489,7 @@ def system_RC_parallel(x, input_data):
 
         W_dot_net = RC.components['Expander'].model.W.W_dot*0.95 - RC.components['Pump'].model.W.W_dot/0.95 - pp_power/0.95
         
-        eta = W_dot_net / RC.components['GasHeater'].model.Q_dot.Q_dot
+        eta = W_dot_net / RC.components['GasHeater'].model.Q.Q_dot
 
         Th_out = RC.components['GasHeater'].model.ex_H.T
         Th_out_obj = 15 + 273.15
@@ -564,7 +564,7 @@ class CO2RCOptimizer:
             ))
     
         self.optimizer = GlobalBestPSO(
-            n_particles=20,
+            n_particles=100,
             dimensions=3,
             options={'c1': 1.5, 'c2': 2.0, 'w': 0.7},
             bounds=bounds
@@ -639,7 +639,7 @@ class CO2RCOptimizer:
             W_net = self.RC.components['Expander'].model.W.W_dot*0.95 - \
                     self.RC.components['Pump'].model.W.W_dot/0.95 - W_dot_pp/0.95
     
-            eta_final = W_net / self.RC.components['GasHeater'].model.Q_dot.Q_dot
+            eta_final = W_net / self.RC.components['GasHeater'].model.Q.Q_dot
     
             self.eta = eta_final
             self.W_dot_net = W_net
@@ -670,8 +670,8 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     
     # Define temperature sweep (°C to K)
-    # T_vec = np.linspace(100, 150, 6) + 273.15
-    T_vec = np.array([130])+273.15
+    T_vec = np.linspace(100, 150, 6) + 273.15
+    # T_vec = np.array([130])+273.15
     
     # Output vectors
     eta_vec = []

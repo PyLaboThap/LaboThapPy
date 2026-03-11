@@ -485,13 +485,36 @@ class Circuit(BaseCircuit):
 
     def _build_guess_vector(self) -> np.ndarray:
         """Current guess values as a numpy vector (ordered as self.guesses)."""
-        return np.array([g.value for g in self.guesses.values()], dtype=float)
+        
+        guess_vec = np.array([g.value for g in self.guesses.values()], dtype=float)
+        
+        return guess_vec
 
     def _apply_guess_vector(self, x: np.ndarray):
         """Write a numpy vector back into the guess connectors."""
         for value, (guess_name, guess) in zip(x, self.guesses.items()):
             self.set_cycle_guess(target=guess.target,
                                  **{guess.variable: float(value)})
+
+
+    
+    def _get_scale(self, var_name: str, x_val: float) -> float:
+        # Define fixed scales per variable type
+        _SCALES = {
+            'p':     1e5,    # Pa — normalize by ~1 bar
+            'h':     1e4,    # J/kg
+            'm_dot': 1.0,    # kg/s
+            'T':     10.0,   # K
+            'SH':    1.0,    # K — fixed scale, ignore x magnitude
+            'SC':    1.0,    # K — fixed scale, ignore x magnitude
+            'x':     0.1,    # quality
+        }
+        
+        for key, scale in _SCALES.items():
+            if var_name == key:
+                return scale
+        # Fallback: use |x| but with a floor
+        return max(abs(x_val), 1e-3)
 
     def _residual_function(self, x: np.ndarray) -> np.ndarray:
         self._iteration_count += 1
@@ -506,10 +529,22 @@ class Circuit(BaseCircuit):
             comp_name, rest = gn.split(":", 1)
             port_name, var  = rest.split("-", 1)
             connector = getattr(self.components[comp_name].model, port_name)
-            val       = getattr(connector, var)
-            f_x.append(float(val))
+            val = getattr(connector, var)
+            if val is None:
+                f_x.append(1e6)
+            else:
+                f_x.append(float(val))
     
-        residual = np.array(f_x, dtype=float) - x
+        f_x = np.array(f_x, dtype=float)
+        
+        # # Normalize by the scale of x to make residuals dimensionless
+        # scales = np.array([
+        #     self._get_scale(guess.variable, x[i])
+        #     for i, (_, guess) in enumerate(self.guesses.items())
+        # ])
+        
+        residual = (np.array(f_x) - x) 
+    
         if self.print_flag:
             print(f"  Iteration {self._iteration_count} — res: {residual}")
         return residual
@@ -547,8 +582,8 @@ class Circuit(BaseCircuit):
     # Main solve entry point
     # -----------------------------------------------------------------------
 
-    def solve(self, max_iter: int = 30, method: str = 'fsolve',
-              tol: float = 1.49012e-8):
+    def solve(self, max_iter: int = 30, method: str = 'broyden1',
+              root_tol: float = 1e-10, tol=1e-4):
         """
         Solve the circuit.
 
@@ -601,6 +636,7 @@ class Circuit(BaseCircuit):
         # 2a. Substitution-based solve loop
         # ------------------------------------------------------------------
         if method in _SUBST_METHODS:
+            self.convergence_tolerance = tol
             use_wegstein = (method == 'wegstein')
 
             for i in range(max_iter):
@@ -635,24 +671,35 @@ class Circuit(BaseCircuit):
                     self._residual_function,
                     x0,
                     full_output=False,
-                    xtol=tol,
+                    xtol=root_tol,
+                    maxfev=max_iter,
                 )
             else:
+                if method in ('hybr', 'lm'):
+                    options = {'maxfev': max_iter}
+                else:
+                    options = {'maxiter': max_iter}
+                
                 result = root(
                     self._residual_function, x0,
-                    method=method, tol=tol,
-                    options={'maxiter': max_iter * 10})
+                    method=method,
+                    tol=root_tol,
+                    options=options
+                )
+                
                 sol = result.x
                 if self.print_flag and not result.success:
                     print(f"[{method}] did not converge: {result.message}")
-                    
+            
+            self.sol = sol
+            
             self._apply_guess_vector(sol)
             self._enforce_fixed_properties()
             self._sequential_sweep()
         
             # For Newton methods, check residual directly
-            final_residual = self._residual_function(sol)
-            self.converged = bool(np.max(np.abs(final_residual)) < 1e-6)
+            self.final_residual = self._residual_function(sol)
+            self.converged = bool(np.max(np.abs(self.final_residual)) < tol)
 
             if self.print_flag:
                 status = "Converged" if self.converged else "Did not converge"
