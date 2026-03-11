@@ -67,7 +67,7 @@ Evaporator = HexMBChargeSensitive('Plate')
 # -------- 3) Set component parameters --------
 # Expander
 Expander.set_parameters(AU_amb=9.3, AU_su_n=4.75, AU_ex_n=17.7, d_su1=6.48e-3, m_dot_n=0.1, 
-            A_leak=9.99e-06, W_dot_loss_0=2.37e+1 , alpha= 1.16e-1, C_loss=1.13, rv_in=1.7, V_s=2*0.0000712, mode='P_M')
+            A_leak=9.99e-06, W_dot_loss_0=2.37e+1 , alpha= 1.16e-1, C_loss=1.13, rv_in=1.7, V_s=3*0.0000712, mode='P_M')
 # I take into account the fact that there's two expander by multiplying by two the Vs
 
 # Evaporator
@@ -86,7 +86,6 @@ Evaporator.set_parameters(
 
 Evaporator.set_htc(htc_type="Correlation", Corr_H={"1P": "water_plate_HTC"}, Corr_C={"1P": "martin_holger_plate_HTC", "2P": "amalfi_plate_HTC"}) # 'User-Defined' or 'Correlation' # 28
 Evaporator.set_DP()
-
 
 # Condenser
 condenser_geom = PlateGeomSWEP()
@@ -136,28 +135,31 @@ orc.link_components("Evaporator", "m-ex_C", "Expander", "m-su")
 
 # -------- 6) Add fluid sources --------
 CD_source = MassConnector('Water')
-T_su_w_cd = 5 +273.15
+T_su_w_cd = 10 + 273.15
 P_su_w_cd = 2e5
-m_dot_w_cd = 3  # kg/s
+m_dot_w_cd = 2 # kg/s
 EV_source = MassConnector('Water')
 T_su_w_ev = 70+273.15
 P_su_w_ev = 2e5
-m_dot_w_ev = 2.5  # kg/s
+m_dot_w_ev = 3 # kg/s
 
 orc.add_source("CD_Water", CD_source, orc.components["Condenser"], "m-su_C")
-orc.set_source_properties(T=T_su_w_cd, fluid='Water', P=P_su_w_cd, m_dot = m_dot_w_cd, target="CD_Water")
+orc.set_source_properties(T=T_su_w_cd, fluid='Water', P=P_su_w_cd, m_dot = m_dot_w_cd, target="Condenser:su_C")
 orc.add_source("EV_Water", EV_source, orc.components["Evaporator"], "m-su_H")
-orc.set_source_properties(T=T_su_w_ev, fluid='Water', P=P_su_w_ev, m_dot = m_dot_w_ev, target="EV_Water")
+orc.set_source_properties(T=T_su_w_ev, fluid='Water', P=P_su_w_ev, m_dot = m_dot_w_ev, target="Evaporator:su_H")
 
 # -------- 7) Set cycle inputs --------
-m_dot_ref = 0.4 # kg/s
-SC_cd = 5  # K
+m_dot_ref = 0.45 # kg/s
+SC_cd = 7  # K
 N_exp = 6000 # RPM
 T_amb = 293 # K
 
 orc.set_cycle_input(target="Pump:su", m_dot = m_dot_ref, SC=SC_cd)
 orc.set_cycle_input(target="Expander:W", N_rot = N_exp)
 orc.set_cycle_input(target="Expander:Q_amb", T_amb=T_amb)
+
+# Pb of properties with coolprop in the end!
+# Aie aie aie
 
 # Expander.print_setup()
 
@@ -199,6 +201,7 @@ orc.set_residual_variable(
     pre_target="Expander:W",
     post_target="Expander:W",
     variable="N_rot",
+    scale=N_exp,
     tolerance=1e-3
 )
 
@@ -206,6 +209,14 @@ orc.set_residual_variable(
 orc.solve()
 print(f"Converged at P_HP = {Expander.su.p}, P_LP = {Expander.ex.p}")
 orc.print_states()
+print('W_dot_exp', Expander.W.W_dot)
+print('N_rot', Expander.W.N_rot)
+# print('T_amb', )
+
+# Issue: I should clean all the values after an iteration and then compute the cycle with the new guesses.
+# SO SEVERAL ISSUES still exists: the fact that coolprop doesn't compute good the properties and the model of the pump which doesn't converges good
+# -> to fix tomorrow!
+# I should add a 'clean connector' to mass connector I think.
 
 "Graphs"
 # Create array with point of the cycle
@@ -234,7 +245,4 @@ for i, (s, T) in enumerate(zip(s_array, T_array)):
 
 TS_curve = TS_curve_generator(fluid)
 TS_curve.points(s_array, T_array)
-
-
-
 

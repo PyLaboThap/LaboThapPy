@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 """
 Created on Thu Jan 08 2026
@@ -21,6 +22,7 @@ class IterativeCircuit(BaseCircuit):
         # Properties and inputs
         self.fluid = fluid
         self.inputs = {}
+        self.source_inputs = {}
 
         # Variables vectors/dictionary
         self.res_vars = [] # List of residual variables
@@ -34,12 +36,66 @@ class IterativeCircuit(BaseCircuit):
             "post": {} # State cache after solving
         }
 
-    def set_source_properties(self, **kwargs):
-        # Set properties for a specific source
-        target = kwargs.pop('target')
-        source = self.get_source(target)
+    # def set_source_properties(self, **kwargs):
 
-        source.set_properties(**kwargs)
+    #     target = kwargs.pop("target")
+
+    #     component_name, connector_name = target.split(":")
+    #     source = self.get_source(target)
+
+    #     for var, value in kwargs.items():
+
+    #         name = f"{target}-{var.upper()}"
+
+    #         self.source_inputs[name] = {
+    #             "target": target,
+    #             "component": component_name,
+    #             "connector": connector_name,
+    #             "variable": var,
+    #             "value": value
+    #         }
+
+    #     # Apply immediately
+    #     source.set_properties(**kwargs)
+
+    def set_source_properties(self, **kwargs):
+
+        target = kwargs.pop("target")
+
+        component_name, connector_name = target.split(":")
+        component = self.get_component(component_name)
+
+        connector = getattr(component.model, connector_name)
+
+        # Store inputs
+        for var, value in kwargs.items():
+
+            name = f"{target}-{var.upper()}"
+
+            self.source_inputs[name] = {
+                "target": target,
+                "component": component_name,
+                "connector": connector_name,
+                "variable": var,
+                "value": value
+            }
+
+        # Apply immediately
+        connector.set_properties(**kwargs)
+
+    def _apply_source_inputs(self):
+
+        for inp in self.source_inputs.values():
+
+            component = self.get_component(inp["component"])
+
+            connector = getattr(component.model, inp["connector"])
+
+            variable = inp["variable"]
+
+            value = inp["value"]
+
+            connector.set_properties(**{variable: value})
 
     def set_cycle_input(self, **kwargs):
         target = kwargs.pop("target")
@@ -128,6 +184,21 @@ class IterativeCircuit(BaseCircuit):
         }
 
         return default_scales.get(variable, 1.0)
+    
+    def _clear_all_connectors(self):
+        """
+        Reset all connectors in the circuit before a new iteration.
+        Keeps the fluid but removes thermodynamic states.
+        """
+
+        for comp in self.components.values():
+            model = comp.model
+
+            for attr in dir(model):
+                obj = getattr(model, attr)
+
+                if hasattr(obj, "clear_state"):  # MassConnector
+                    obj.clear_state()
 
 
     def _get_iteration_vector(self):
@@ -136,12 +207,63 @@ class IterativeCircuit(BaseCircuit):
         """
         return np.array([it["x0"] for it in self.it_vars.values()])
     
+    # def _solve_circuit(self, x):
+
+    #     # 1. Apply iteration variables
+    #     self._apply_iteration_vector(x)
+
+    #     # 2. Snapshot PRE-solve values
+    #     self.state_cache["pre"].clear()
+    #     for rv in self.res_vars:
+    #         key = (rv["pre_target"], rv["variable"])
+    #         self.state_cache["pre"][key] = self._read_variable(
+    #             rv["pre_target"], rv["variable"]
+    #         )
+
+    #     # 3. Solve components (one full circuit pass)
+    #     if not self.solve_start_components:
+    #         self._build_solve_order()
+
+    #     for name in self.solve_start_components:
+    #         self.components[name].solve()
+
+    #     # 4. Snapshot POST-solve values
+    #     self.state_cache["post"].clear()
+    #     for rv in self.res_vars:
+    #         key = (rv["post_target"], rv["variable"])
+    #         self.state_cache["post"][key] = self._read_variable(
+    #             rv["post_target"], rv["variable"]
+    #         )
+
+    #     # 5. Compute residuals
+    #     residuals = []
+
+    #     for rv in self.res_vars:
+    #         pre_key = (rv["pre_target"], rv["variable"])
+    #         post_key = (rv["post_target"], rv["variable"])
+
+    #         raw = (
+    #             self.state_cache["post"][post_key]
+    #             - self.state_cache["pre"][pre_key]
+    #         )
+
+    #         scale = (
+    #             rv["scale"]
+    #             if rv["scale"] is not None
+    #             else self._default_residual_scale(rv["variable"])
+    #         )
+    #         residuals.append(raw / scale)
+    #         print("residuals", residuals)
+    #     return np.array(residuals, dtype=float)
     def _solve_circuit(self, x):
 
-        # 1. Apply iteration variables
+        # 1️⃣ Reset all connectors
+        self._clear_all_connectors()
+
+        # 2️⃣ Apply iteration variables + inputs
         self._apply_iteration_vector(x)
 
-        # 2. Snapshot PRE-solve values
+        # 3️⃣ Snapshot PRE-solve values
         self.state_cache["pre"].clear()
         for rv in self.res_vars:
             key = (rv["pre_target"], rv["variable"])
@@ -149,14 +271,14 @@ class IterativeCircuit(BaseCircuit):
                 rv["pre_target"], rv["variable"]
             )
 
-        # 3. Solve components (one full circuit pass)
+        # 4️⃣ Solve components
         if not self.solve_start_components:
             self._build_solve_order()
 
         for name in self.solve_start_components:
             self.components[name].solve()
 
-        # 4. Snapshot POST-solve values
+        # 5️⃣ Snapshot POST-solve values
         self.state_cache["post"].clear()
         for rv in self.res_vars:
             key = (rv["post_target"], rv["variable"])
@@ -164,7 +286,7 @@ class IterativeCircuit(BaseCircuit):
                 rv["post_target"], rv["variable"]
             )
 
-        # 5. Compute residuals
+        # 6️⃣ Compute residuals
         residuals = []
 
         for rv in self.res_vars:
@@ -181,16 +303,33 @@ class IterativeCircuit(BaseCircuit):
                 if rv["scale"] is not None
                 else self._default_residual_scale(rv["variable"])
             )
+
             residuals.append(raw / scale)
-            # print("residuals", residuals)
+
         return np.array(residuals, dtype=float)
 
+    def _apply_cycle_inputs(self):
+        for inp in self.inputs.values():
 
-    
+            component = self.get_component(inp["component"])
+
+            connector = inp["connector"]
+
+            variable = inp["variable"]
+
+            value = inp["value"]
+
+            component.set_properties(connector, **{variable: value})
+        
     def _apply_iteration_vector(self, x):
-        """
-        Apply solver vector x to all iteration variables
-        """
+
+        # 1️⃣ reapply source inputs
+        self._apply_source_inputs()
+
+        # 2️⃣ reapply cycle inputs
+        self._apply_cycle_inputs()
+
+        # 3️⃣ apply iteration variables
         for value, it in zip(x, self.it_vars.values()):
             for entry in it["entries"]:
                 entry["setter"](value)
@@ -233,7 +372,6 @@ class IterativeCircuit(BaseCircuit):
         residuals = self._solve_circuit(sol)
         # print('residuals', residuals)
         self.converged = np.all(np.abs(residuals) < 1.0)
-
 
         return sol
 

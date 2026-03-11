@@ -502,3 +502,14 @@ class PumpCurveSimilarity(BaseComponent):
 
         plt.tight_layout()
         plt.show()
+    
+    def print_states_connectors(self):
+        print("=== Pump States ===")
+        print("Mass connectors:")
+        print(f"  - su: fluid={self.su.fluid}, T={self.su.T} [K], p={self.su.p} [Pa], h={self.su.h} [J/kg], s={self.su.s} [J/K.kg], m_dot={self.su.m_dot} [kg/s]")
+        print(f"  - ex: fluid={self.ex.fluid}, T={self.ex.T} [K], p={self.ex.p} [Pa], h={self.ex.h} [J/kg], s={self.ex.s} [J/K.kg], m_dot={self.ex.m_dot} [kg/s]")
+        print("=========================")
+        print("Work connector:")
+        print(f"  - W_dot_pp: {self.W.W_dot} [W]")
+        print(f"  - N_pp: {self.W.N_rot} [RPM]")
+        print("=========================")

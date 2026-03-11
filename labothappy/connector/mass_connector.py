@@ -516,6 +516,46 @@ class MassConnector:
         self.SC = None  # enforce exclusivity
         self.check_completely_known()
 
+    def clear_state(self, keep_fluid=True):
+        """
+        Clean all thermodynamic states of the connector.
+
+        Parameters
+        ----------
+        keep_fluid : bool, optional
+            If True (default), the fluid and CoolProp AbstractState are kept.
+            If False, the fluid is also removed.
+        """
+
+        # Reset known flags
+        self.completely_known = False
+        self.state_known = False
+
+        # Reset state variables list
+        self.variables_input = []
+
+        # Reset thermodynamic properties
+        self.T = None
+        self.p = None
+        self.h = None
+        self.s = None
+        self.D = None
+        self.x = None
+        self.cp = None
+
+        # Reset saturation offsets
+        self.SC = None
+        self.SH = None
+
+        # Reset flow rates
+        self.m_dot = None
+        self.V_dot = None
+
+        # Optionally reset fluid
+        if not keep_fluid:
+            self.fluid = None
+            self.AS = None
+
             
     def print_resume(self, unit_T='K', unit_p='Pa'):
         """
