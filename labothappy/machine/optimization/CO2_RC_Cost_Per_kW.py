@@ -390,7 +390,7 @@ def system_RC_parallel(x, input_data):
     
         DP = 50e3
         rho = RC.components['GasHeater'].model.su_H.D
-        mdot = RC.components['GasHeater'].model.su_H.m_dot + RC.components['GasHeater'].model.su_C.m_dot
+        mdot = RC.components['GasHeater'].model.su_H.m_dot #+ RC.components['GasHeater'].model.su_C.m_dot
         
         eta_pp = 0.8
         pp_power = DP * mdot / (rho * eta_pp)
@@ -398,16 +398,26 @@ def system_RC_parallel(x, input_data):
         W_dot_net = (RC.components['Expander'].model.W.W_dot * 0.95
                      - RC.components['Pump'].model.W.W_dot / 0.95
                      - pp_power / 0.95)
+        
         eta = W_dot_net / RC.components['GasHeater'].model.Q.Q_dot
     
         penalty = 0.0
+        
+        # print(f"x : {x}")
+        
+        # if abs((W_dot_net - obj['W_dot'])/obj['W_dot']) > 2e-2:
+        #     penalty += abs((W_dot_net - obj['W_dot'])/obj['W_dot']) * 100
+        #     print(f"W_dot_net: {W_dot_net}")
+        #     print(f"obj['W_dot']: {obj['W_dot']}")
     
-        if abs((W_dot_net - obj['W_dot'])/obj['W_dot']) > 2e-2:
-            penalty += abs((W_dot_net - obj['W_dot'])/obj['W_dot']) * 10
-    
-        if abs((obj['eta'] - eta)/obj['eta']) > 2e-2:
-            penalty += abs((obj['eta'] - eta)/obj['eta']) * 10
-            
+        # if abs((obj['eta'] - eta)/obj['eta']) > 2e-2:
+        #     penalty += abs((obj['eta'] - eta)/obj['eta']) * 100
+        
+        #     print(f"eta: {eta}")
+        #     print(f"obj['eta']: {obj['eta']}")
+        
+        # print("------------------------------------\n")
+        
         # objective = RC.components['GasHeater'].model.Q.Q_dot
         RC.eta = eta
         RC.W_dot_net = W_dot_net
@@ -682,6 +692,10 @@ class CO2RCOptimizer:
             eta_obj = self.obj['eta']
     
             for x_i, pen_i, cost in zip(X, penalties, costs):
+                # print(f"x_i : {x_i}")
+                # print(f"pen_i : {pen_i}")
+                # print(f"cost : {cost}")
+                
                 if pen_i == 0 and np.isfinite(cost):
                     x_disc = discretize(x_i)
                     self.allowable_positions.append({
@@ -874,16 +888,16 @@ if __name__ == "__main__":
     n_MW = 1 # W
     W_dot_obj = n_MW*1e6 # W
     
-    eta_obj = 0.1
+    eta_obj = 0.12
     
     # Create optimizer instance
     Optimizer = CO2RCOptimizer('CO2')
     
     # Sweep parameters
     m_dot_HS_fact_bounds = [0.5,1]
-    m_dot_CS_fact_bounds = [10,20]
-    P_high_bounds = np.array([120, 160]) * 1e5
-    m_dot_bounds = np.array([30,50])*n_MW
+    m_dot_CS_fact_bounds = [10,200]
+    P_high_bounds = np.array([100, 180]) * 1e5
+    m_dot_bounds = np.array([10,80])*n_MW
     
     # Discrete Variable choices
     eta_gh_disc = np.arange(0.8,0.99,0.01)
@@ -891,6 +905,12 @@ if __name__ == "__main__":
     eta_rec_disc= np.arange(0.7,0.98,0.02)
     PP_cd_disc = np.arange(1,15,1)
     
+    # # GasHeater
+    # eta_gh_disc = np.array([0.95])
+    # PP_gh_disc = np.array([5])
+    # eta_rec_disc = np.array([0.8])
+    # PP_cd_disc = np.array([5])
+
     # Set model parameters
     Optimizer.set_parameters(
         RC_ARCH= 'REC', # 'REC'
@@ -899,21 +919,21 @@ if __name__ == "__main__":
         eta_pp=0.8,
         
         # GasHeater
-        DP_h_gh = 100*1e3,
-        DP_c_gh = 4*1e5,
+        DP_h_gh = 50*1e3, # 100*1e3,
+        DP_c_gh = 50*1e3, # 4*1e5,
 
         # Recuperator
         PP_rec=0,
-        DP_h_rec = 4*1e5,
-        DP_c_rec = 2*1e5,
+        DP_h_rec = 50*1e3, # 4*1e5,
+        DP_c_rec = 50*1e3, # 2*1e5,
         
         # Expander
         eta_exp=0.9,
         
         # Condenser
         SC_cd=0.1,
-        DP_h_cond = 2*1e5,
-        DP_c_cond = 100*1e3,
+        DP_h_cond = 50*1e3, # 2*1e5,
+        DP_c_cond = 50*1e3, # 100*1e3,
         
         # Bounds
         P_high_bounds=P_high_bounds,
@@ -953,7 +973,7 @@ if __name__ == "__main__":
 
     # Source definitions
     Optimizer.CSource.set_properties(
-        T=15 + 273.15,
+        T=0.1 + 273.15,
         P=5e5,
         fluid='Water',
     )

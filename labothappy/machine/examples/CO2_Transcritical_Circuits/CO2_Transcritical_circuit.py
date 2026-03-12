@@ -35,7 +35,6 @@ def basic_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp,
     Condenser = HexCstPinch()
     
     # Pump PARAMETERS
-    
     Pump.set_parameters(eta_is=eta_pp)
 
     # Expander PARAMETERS
@@ -395,7 +394,7 @@ def Recomp_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp
 
 if __name__ == "__main__": 
 
-    study_case = "Recup"
+    study_case = "Recomp"
 
     if study_case == "Simple":
         T_cold_source = 0.1+273.15
@@ -563,11 +562,11 @@ if __name__ == "__main__":
          
         CO2_TC.solve(method = 'wegstein')
 
-        eta = (CO2_TC.components['Expander'].model.W.W_dot - CO2_TC.components['Pump'].model.W.W_dot - CO2_TC.components['Compressor'].model.W.W_dot)/(CO2_TC.components['GasHeater'].model.Q)
+        # eta = (CO2_TC.components['Expander'].model.W.W_dot - CO2_TC.components['Pump'].model.W.W_dot - CO2_TC.components['Compressor'].model.W.W_dot)/(CO2_TC.components['GasHeater'].model.Q)
         
-        print(f"eta_th : {eta}")
-        print(f"Q_dot Recup HT : {CO2_TC.components['RecupHT'].model.Q}")
-        print(f"Q_dot Recup LT : {CO2_TC.components['RecupLT'].model.Q}")
+        # print(f"eta_th : {eta}")
+        # print(f"Q_dot Recup HT : {CO2_TC.components['RecupHT'].model.Q}")
+        # print(f"Q_dot Recup LT : {CO2_TC.components['RecupLT'].model.Q}")
         
     CO2_TC.plot_cycle_Ts()
     # CO2_TC.Ts_gif()

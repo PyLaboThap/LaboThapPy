@@ -1584,7 +1584,7 @@ class AxialTurbineMeanLineDesign(object):
 
 if __name__ == "__main__":
 
-    case_study = "TCO2_ORC"
+    case_study = "Salah_Case"
     
     Turb = AxialTurbineMeanLineDesign('Cyclopentane')
     
