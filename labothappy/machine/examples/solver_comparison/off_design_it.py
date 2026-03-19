@@ -2,7 +2,7 @@ import numpy as np
 from CoolProp.CoolProp import PropsSI
 import matplotlib.pyplot as plt
 
-from labothappy.machine.circuit import Circuit
+from labothappy.machine.circuit_it import IterativeCircuit
 from labothappy.connector.mass_connector import MassConnector
 from labothappy.component.expander.expander_semi_empirical import ExpanderSE
 from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
@@ -56,7 +56,7 @@ class TS_curve_generator:
 
 # -------- 1) Instanciate Circuit --------
 fluid = 'R1233zd(E)'
-orc = Circuit(fluid)
+orc = IterativeCircuit(fluid)
 
 # -------- 2) Create components --------
 Expander = ExpanderSE()
@@ -144,9 +144,9 @@ P_su_w_ev = 2e5
 m_dot_w_ev = 3 # kg/s
 
 orc.add_source("CD_Water", CD_source, orc.components["Condenser"], "m-su_C")
-orc.set_source_properties(T=T_su_w_cd, fluid='Water', P=P_su_w_cd, m_dot = m_dot_w_cd, target="CD_Water")
+orc.set_source_properties(T=T_su_w_cd, fluid='Water', P=P_su_w_cd, m_dot = m_dot_w_cd, target="Condenser:su_C")
 orc.add_source("EV_Water", EV_source, orc.components["Evaporator"], "m-su_H")
-orc.set_source_properties(T=T_su_w_ev, fluid='Water', P=P_su_w_ev, m_dot = m_dot_w_ev, target="EV_Water")
+orc.set_source_properties(T=T_su_w_ev, fluid='Water', P=P_su_w_ev, m_dot = m_dot_w_ev, target="Evaporator:su_H")
 
 # -------- 7) Set cycle inputs --------
 m_dot_ref = 0.45 # kg/s
@@ -158,45 +158,78 @@ orc.set_cycle_input(target="Pump:su", m_dot = m_dot_ref, SC=SC_cd)
 orc.set_cycle_input(target="Expander:W", N_rot = N_exp)
 orc.set_cycle_input(target="Expander:Q_amb", T_amb=T_amb)
 
+# Pb of properties with coolprop in the end!
+# Aie aie aie
+
+# Expander.print_setup()
+
+# -------- 8) Set iteration variables --------
+# P_pp_su_lb = max(PropsSI('P', 'Q', 0, 'T', T_su_w_cd, fluid), PropsSI('P_min', 'Q', 0, 'T', 273.15, fluid))
+# P_pp_ex_ub = PropsSI('P', 'Q', 0, 'T', min(PropsSI('Tcrit', 'Q', 0, 'T', 273.15, fluid)-2, T_su_w_ev-1), fluid)
+# rp_max = P_pp_ex_ub/P_pp_su_lb
+# rp_min = min(1.01, rp_max)   #min(1.01, rp_max)
+# Possible that the guesses are ill conditioned
+# P_pp_su_ub = P_pp_ex_ub/rp_min
+# -> Si jamais besoin d'essayer plusieurs Guesses
+
 P_LP_guess = PropsSI("P", "T", T_su_w_cd+10, "Q", 0, fluid)
 P_HP_guess = PropsSI("P", "T", T_su_w_ev-10, "Q", 1, fluid)
 
-orc.set_cycle_guess(target="Pump:su",        p=P_LP_guess)
-orc.set_cycle_guess(target="Pump:su",        SC=SC_cd)
-orc.set_cycle_guess(target="Pump:ex",        p=P_HP_guess)
-orc.set_cycle_guess(target="Expander:ex",    p=P_HP_guess)
+orc.set_iteration_variable(
+    target=["Pump:su", "Expander:ex"],
+    variable="p",
+    guess=P_LP_guess,
+    tolerance=1e-6
+)
 
-orc.set_fixed_properties(target="Pump:su", SC=SC_cd)
-orc.set_iteration_variable(target=["Expander:ex"], objective="Pump:su-SC", variable="p", damping_factor = 0.5, rel=1)
+orc.set_iteration_variable(
+    target="Pump:ex",
+    variable="p",
+    guess=P_HP_guess,
+    tolerance=1e-6
+)
 
-orc.set_fixed_properties(target="Expander:W", N_rot=N_exp)
-orc.set_iteration_variable(target=["Expander:su"], objective="Expander:W-N_rot", variable="p", damping_factor = 0.5, rel=1)
+# -------- 9) Set residual variables --------
+orc.set_residual_variable(target="Condenser:ex_H-SC",  target_value=SC_cd, tolerance=1e-3)
+orc.set_residual_variable(target="Expander:W-N_rot" ,  target_value=N_exp, scale=N_exp, tolerance=1e-3)
 
-# -------- 8) Solve — swap method here for comparison --------
-METHOD = 'wegstein'   # <-- change to compare: 'successive_substitution',
-#                       #     'wegstein', 'fsolve', 'lm', 'broyden1', 'anderson'
+# -------- 10) Solve circuit --------
+orc.solve()
+print(f"Converged at P_HP = {Expander.su.p}, P_LP = {Expander.ex.p}")
+orc.print_states()
+print('W_dot_exp', Expander.W.W_dot)
+print('N_rot', Expander.W.N_rot)
+# print('T_amb', )
 
-# METHOD = 'anderson'   # <-- change to compare: 'successive_substitution',
-                      #     'wegstein', 'fsolve', 'lm', 'broyden1', 'anderson'
+# Issue: I should clean all the values after an iteration and then compute the cycle with the new guesses.
+# SO SEVERAL ISSUES still exists: the fact that coolprop doesn't compute good the properties and the model of the pump which doesn't converges good
+# -> to fix tomorrow!
+# I should add a 'clean connector' to mass connector I think.
 
-orc.solve(method=METHOD, max_iter=100)
+"Graphs"
+# Create array with point of the cycle
+T_cd = PropsSI('T', 'P', Condenser.su_H.p, 'Q', 0.5, fluid)
+T_ev = PropsSI('T', 'P', Evaporator.su_C.p, 'Q', 0.5, fluid)
+s_cd_1 = PropsSI('S', 'P', Condenser.su_H.p, 'Q', 1, fluid)
+s_cd_0 = PropsSI('S', 'P', Condenser.su_H.p, 'Q', 0, fluid)
+s_ev_1 = PropsSI('S', 'P', Evaporator.su_C.p, 'Q', 1, fluid)
+s_ev_0 = PropsSI('S', 'P', Evaporator.su_C.p, 'Q', 0, fluid)
 
-print(f"\n[{METHOD}] Converged: {orc.converged}")
-print(f"  P_HP = {Expander.su.p:.2f} Pa")
-print(f"  P_LP = {Expander.ex.p:.2f} Pa")
-print(f"  T_su_expander = {Expander.su.T - 273.15:.2f} °C")
-print(f"  m_dot = {Pump.su.m_dot:.4f} kg/s")
-print(f"  W_exp = {Expander.W.W_dot:.2f} W")
-print(f"  W_pump = {Pump.W.W_dot:.2f} W")
-print(f"  Q_ev = {Evaporator.Q.Q_dot:.2f} W")
-print(f"  Q_cd = {Condenser.Q.Q_dot:.2f} W")
+T_array = [Expander.su.T, Condenser.su_H.T, T_cd, T_cd, Condenser.ex_H.T, Evaporator.su_C.T, T_ev, T_ev, Evaporator.ex_C.T, Expander.su.T]
+s_array = [Expander.su.s, Condenser.su_H.s, s_cd_1, s_cd_0, Condenser.ex_H.s, Evaporator.su_C.s, s_ev_0, s_ev_1, Evaporator.ex_C.s, Expander.su.s]
+
+T_c = np.linspace(Condenser.ex_C.T, Condenser.su_C.T, 100)
+s_c = np.linspace(Condenser.su_H.s, Condenser.ex_H.s, 100)
+T_h = np.linspace(Evaporator.su_H.T, Evaporator.ex_H.T, 100)
+s_h = np.linspace(Evaporator.ex_C.s, Evaporator.su_C.s, 100)
+
+plt.plot(s_h, T_h, color='blue', linestyle='-', label='Heat sink')
+plt.plot(s_c, T_c, color='red', linestyle='-', label='Heat source')
+
+# Add numbers next to points
+for i, (s, T) in enumerate(zip(s_array, T_array)):
+    plt.text(s, T, str(i+1), fontsize=12, color='black', ha='right', va='bottom')
 
 
-"""
-1) Fixer des variables constantes 
-    
-2) Réfléchir à ce que ça implique niveau variables d'itération
-    
-3) Quid DeltaP ? 
-    
-"""
+TS_curve = TS_curve_generator(fluid)
+TS_curve.points(s_array, T_array)

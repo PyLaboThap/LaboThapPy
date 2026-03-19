@@ -31,7 +31,6 @@ class IterativeCircuit(BaseCircuit):
         self.solve_start_components = [] # Ordered list of components to solve
         self.solving_order = []          # DFS-determined solving order
         self.converged = False # Convergence flag
-        self.cycle_guesses = {} # Initial guesses — updated after each sweep
 
     def set_source_properties(self, **kwargs):
 
@@ -92,46 +91,6 @@ class IterativeCircuit(BaseCircuit):
         # 2. Apply values to component model
         component.set_properties(connector_name, **kwargs)
 
-    def set_cycle_guess(self, **kwargs):
-        """
-        Set an initial value on a connector for DFS bootstrapping only.
-
-        Unlike set_cycle_input, this value is NOT re-enforced at each
-        iteration — it is applied once to help the DFS find a starting
-        component, then left free for the sweep to overwrite.
-
-        Unlike set_iteration_variable, it is NOT part of the solver's
-        unknown vector — fsolve does not control it.
-
-        Use this for connector properties that need an initial value to
-        make the circuit calculable, but whose converged value will be
-        determined naturally by the cycle propagation.
-
-        Parameters
-        ----------
-        target : str
-            "ComponentName:connector_name"
-        **kwargs : float
-            One or more variable=value pairs (e.g. SH=34, p=1e5).
-        """
-        target = kwargs.pop("target")
-        component_name, connector_name = target.split(":")
-        component = self.get_component(component_name)
-
-        # Store for reapplication after each _clear_all_connectors
-        for variable, value in kwargs.items():
-            name = f"{target}-{variable}"
-            self.cycle_guesses[name] = {
-                "target":    target,
-                "component": component_name,
-                "connector": connector_name,
-                "variable":  variable,
-                "value":     value
-            }
-
-        # Apply immediately for DFS bootstrapping
-        component.set_properties(connector_name, **kwargs)
-
     def set_iteration_variable(self, target, variable, guess=None, tolerance=1e-6):
 
         if isinstance(target, str):
@@ -178,37 +137,29 @@ class IterativeCircuit(BaseCircuit):
             "tolerance": tolerance
         }
 
-    def set_residual_variable(self, target, tolerance, closes=None, target_value=None, scale=None):
+    def set_residual_variable(self, target, tolerance, target_value=None, scale=None):
         """
         Define a residual variable.
 
-        Three modes:
+        Two modes depending on whether target_value is provided:
 
-        Self-closure (closes=None, target_value=None):
-            F = value_after_sweep(target) - value_before_sweep(target)
-            Works when the target connector is recalculated by the sweep
-            (e.g. an enthalpy that propagates through the cycle).
-
-        Cross-closure (closes provided, target_value=None):
-            F = value_after_sweep(target) - value_before_sweep(closes)
-            Use when the two ends of the loop live on different connectors
-            (e.g. pressure must match between Condenser:ex_H and ExpansionValve:su).
+        Closure mode (target_value=None):
+            F = value_after_sweep - value_before_sweep
+            The residual closes the cycle: the calculated value must match
+            the value that was imposed as a guess before the sweep.
 
         Target mode (target_value provided):
-            F = calculated_value(target) - target_value
-            Drives a connector variable toward a fixed external value.
-            If variable is "SC" or "SH", residual is computed on enthalpy
+            F = calculated_value - target_value
+            The residual drives a connector variable toward a fixed external value.
+            If variable is "SC" or "SH", the residual is computed on enthalpy
             internally via CoolProp.
 
         Parameters
         ----------
         target : str
-            "ComponentName:connector_name-variable" — POST-sweep read location.
+            "ComponentName:connector_name-variable"  e.g. "Condenser:ex_H-p"
         tolerance : float
             Convergence tolerance (kept for reference).
-        closes : str, optional
-            "ComponentName:connector_name-variable" — PRE-sweep read location.
-            Only used in cross-closure mode.
         target_value : float, optional
             External target value. If None, closure mode is used.
         scale : float, optional
@@ -217,26 +168,14 @@ class IterativeCircuit(BaseCircuit):
         connector_part, variable = target.rsplit("-", 1)
         component_name, connector_name = connector_part.split(":")
 
-        # Parse closes string if provided
-        if closes is not None:
-            closes_connector_part, closes_variable = closes.rsplit("-", 1)
-            closes_component, closes_connector = closes_connector_part.split(":")
-        else:
-            closes_component  = component_name
-            closes_connector  = connector_name
-            closes_variable   = variable
-
         self.res_vars.append({
-            "target":           target,
-            "component":        component_name,
-            "connector":        connector_name,
-            "variable":         variable,
-            "closes_component": closes_component,
-            "closes_connector": closes_connector,
-            "closes_variable":  closes_variable,
-            "target_value":     float(target_value) if target_value is not None else None,
-            "tol":              tolerance,
-            "scale":            scale
+            "target": target,
+            "component": component_name,
+            "connector": connector_name,
+            "variable": variable,
+            "target_value": float(target_value) if target_value is not None else None,
+            "tol": tolerance,
+            "scale": scale
         })
 
     def _default_residual_scale(self, variable):
@@ -264,8 +203,8 @@ class IterativeCircuit(BaseCircuit):
             for attr in dir(model):
                 obj = getattr(model, attr)
 
-                if hasattr(obj, "reset"):  # MassConnector
-                    obj.reset()
+                if hasattr(obj, "clear_state"):  # MassConnector
+                    obj.clear_state()
 
 
     def _get_iteration_vector(self):
@@ -332,7 +271,7 @@ class IterativeCircuit(BaseCircuit):
         self.reset_solved_marker()
 
     def _solve_circuit(self, x):
-                        
+
         self.n_it += 1
 
         # 1️⃣ Reset all connectors
@@ -345,9 +284,9 @@ class IterativeCircuit(BaseCircuit):
         pre_snapshot = {}
         for rv in self.res_vars:
             if rv["target_value"] is None:
-                key = (rv["closes_component"], rv["closes_connector"], rv["closes_variable"])
+                key = (rv["component"], rv["connector"], rv["variable"])
                 pre_snapshot[key] = self._read_variable(
-                    f"{rv['closes_component']}:{rv['closes_connector']}", rv["closes_variable"]
+                    f"{rv['component']}:{rv['connector']}", rv["variable"]
                 )
         self._pre_snapshot = pre_snapshot
 
@@ -356,13 +295,10 @@ class IterativeCircuit(BaseCircuit):
             self._build_solve_order()
 
         self.reset_solved_marker()
-        for name in self.solving_order: 
+        for name in self.solving_order:
             self.components[name].solve()
 
-        # 5️⃣ Update cycle guesses from calculated connector values
-        self._update_cycle_guesses()
-
-        # 6️⃣ Compute residuals
+        # 5️⃣ Compute residuals
         residuals = []
 
         for rv in self.res_vars:
@@ -392,30 +328,10 @@ class IterativeCircuit(BaseCircuit):
                 else self._default_residual_scale(var)
             )
 
-            res = (calculated - target_val) / scale
+            residuals.append((calculated - target_val) / scale)
 
-            residuals.append(res)
             
         return np.array(residuals, dtype=float)
-
-    def _apply_cycle_guesses(self):
-        """Re-apply stored guess values after _clear_all_connectors."""
-        for g in self.cycle_guesses.values():
-            component = self.get_component(g["component"])
-            component.set_properties(g["connector"], **{g["variable"]: g["value"]})
-
-    def _update_cycle_guesses(self):
-        """
-        After a sweep, read back the calculated values from the connectors
-        and update the stored guesses — so the next iteration starts from
-        the latest computed state rather than the original initial value.
-        """
-        for g in self.cycle_guesses.values():
-            component = self.get_component(g["component"])
-            connector = getattr(component.model, g["connector"])
-            calculated = getattr(connector, g["variable"], None)
-            if calculated is not None:
-                g["value"] = calculated
 
     def _apply_cycle_inputs(self):
         for inp in self.inputs.values():
@@ -435,20 +351,17 @@ class IterativeCircuit(BaseCircuit):
         # 1️⃣ reapply source inputs
         self._apply_source_inputs()
 
-        # 2️⃣ reapply cycle guesses (updated after each sweep)
-        self._apply_cycle_guesses()
-
-        # 3️⃣ reapply cycle inputs (fixed — overrides guesses if overlap)
+        # 2️⃣ reapply cycle inputs
         self._apply_cycle_inputs()
 
-        # 4️⃣ apply iteration variables
+        # 3️⃣ apply iteration variables
         for value, it in zip(x, self.it_vars.values()):
             for entry in it["entries"]:
                 entry["setter"](value)
 
     def _read_variable_pre(self, rv):
         """Return the pre-sweep snapshot value for a closure residual."""
-        key = (rv["closes_component"], rv["closes_connector"], rv["closes_variable"])
+        key = (rv["component"], rv["connector"], rv["variable"])
         return self._pre_snapshot.get(key, 0.0)
 
     def _read_variable(self, target, variable):

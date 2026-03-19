@@ -121,13 +121,16 @@ for T_cd in T_guess_cd:
                 P_low = PropsSI("P", "T", T_ev, "Q", 1, fluid)
                 P_high = PropsSI("P", "T", T_cd, "Q", 0, fluid)
                 
-                HP.set_cycle_guess(target="Compressor:su", m_dot = m_dot_ref, SH=SH_ev, p=P_low)
+                HP.set_cycle_guess(target="Compressor:su", m_dot = m_dot_ref)
+                HP.set_cycle_guess(target="Evaporator:su_C", m_dot = m_dot_ref)
+
+                HP.set_cycle_guess(target="Compressor:su", p=P_low, SH=SH_ev+1)
                 HP.set_cycle_guess(target="Compressor:ex", p=P_high)
                 
-                HP.set_cycle_guess(target="Evaporator:su_C", p=P_low, m_dot = m_dot_ref, x=0.2)
+                HP.set_cycle_guess(target="Evaporator:su_C", p=P_low, x=0.2)
                 
                 start = time.perf_counter()
-                HP.solve(max_iter=100, method='anderson')
+                HP.solve(max_iter=100, method='broyden1')
                 end = time.perf_counter()
 
                 elapsed = end - start

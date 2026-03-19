@@ -175,6 +175,8 @@ class MassConnector:
         self.D = None
         self.x = None
         self.cp = None
+        self.SC = None
+        self.SH = None
     
     def check_completely_known(self):
         if self.fluid != None:
@@ -533,12 +535,70 @@ class MassConnector:
     def set_SC(self, value):
         self.SC = value
         self.SH = None  # enforce exclusivity
-        self.check_completely_known()
-
+    
+        # If state was already fully defined, reset it and keep only p or T
+        # so we don't end up with 3 variables in variables_input
+        if len(self.variables_input) >= 2:
+            if self.p is not None:
+                # Keep p, drop everything else — SC will resolve T
+                self.variables_input = [['P', self.p]]
+                self.T = None; self.h = None; self.s = None
+                self.D = None; self.x = None; self.state_known = False
+            elif self.T is not None:
+                # Keep T, drop everything else — SC will resolve p
+                self.variables_input = [['T', self.T]]
+                self.p = None; self.h = None; self.s = None
+                self.D = None; self.x = None; self.state_known = False
+    
+        if self.p is not None:
+            try:
+                self.AS.update(CP.PQ_INPUTS, self.p, 0)
+                T_sat = self.AS.T()
+                self.set_T(T_sat - self.SC)
+            except Exception as e:
+                warnings.warn(f"set_SC: could not resolve T from p: {e}")
+        elif self.T is not None:
+            try:
+                self.AS.update(CP.QT_INPUTS, 0, self.T + self.SC)
+                self.set_p(self.AS.p())
+            except Exception as e:
+                warnings.warn(f"set_SC: could not resolve p from T: {e}")
+        else:
+            self.check_completely_known()
+ 
     def set_SH(self, value):
         self.SH = value
         self.SC = None  # enforce exclusivity
-        self.check_completely_known()
+    
+        # If state was already fully defined, reset it and keep only p or T
+        # so we don't end up with 3 variables in variables_input
+        if len(self.variables_input) >= 2:
+            if self.p is not None:
+                # Keep p, drop everything else — SH will resolve T
+                self.variables_input = [['P', self.p]]
+                self.T = None; self.h = None; self.s = None
+                self.D = None; self.x = None; self.state_known = False
+            elif self.T is not None:
+                # Keep T, drop everything else — SH will resolve p
+                self.variables_input = [['T', self.T]]
+                self.p = None; self.h = None; self.s = None
+                self.D = None; self.x = None; self.state_known = False
+    
+        if self.p is not None:
+            try:
+                self.AS.update(CP.PQ_INPUTS, self.p, 1)
+                T_sat = self.AS.T()
+                self.set_T(T_sat + self.SH)
+            except Exception as e:
+                warnings.warn(f"set_SH: could not resolve T from p: {e}")
+        elif self.T is not None:
+            try:
+                self.AS.update(CP.QT_INPUTS, 1, self.T - self.SH)
+                self.set_p(self.AS.p())
+            except Exception as e:
+                warnings.warn(f"set_SH: could not resolve p from T: {e}")
+        else:
+            self.check_completely_known()
 
             
     def print_resume(self, unit_T='K', unit_p='Pa'):
@@ -578,9 +638,3 @@ class MassConnector:
         
         print("Mass density: " + str(self.D) + "[kg/m^3]")
         print("Quality: " + str(self.x) + "[-]")
-
-
-    def reset(self):
-        self.T = None
-        self.h = None
-        self.m_dot = None

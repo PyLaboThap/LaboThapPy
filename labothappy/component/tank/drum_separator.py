@@ -422,6 +422,8 @@ class DrumSeparator(BaseComponent):
         
         self.mdot_ex_oil = self.su_oil['m_dot']*(1-self.eta_total)
         
+        self.x_ex_oil = (self.mdot_ex_oil/self.su_gas['m_dot'])/100
+        
         return
 
 #%%

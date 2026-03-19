@@ -2110,6 +2110,7 @@ class HexMBChargeSensitive(BaseComponent):
                 self.C_ex = self.ex_C
                                             
                 self.solved = True
+                
                 return Q
             
         else: # Just a flag if the heat exchanger is not solved
@@ -2644,7 +2645,7 @@ class HexMBChargeSensitive(BaseComponent):
         it = 0
     
         self.eval = 0
-
+        
         while self.Q_dot > self.Qmax and it < max_iter:
             
             self.Q_dot, self.results = scipy.optimize.brentq(self.objective_function, 1e-5, self.Qmax*0.999, rtol = 1e-5, xtol = 1e-5, full_output=True)
@@ -2682,6 +2683,7 @@ class HexMBChargeSensitive(BaseComponent):
         # self.Q = scipy.optimize.brentq(self.objective_function, 1e-5, self.Qmax-1e-10, rtol = 1e-14, xtol = 1e-10)
                
         # print('OUT of evap', self.Q)
+                
         return self.Q_dot
     
 #%% 

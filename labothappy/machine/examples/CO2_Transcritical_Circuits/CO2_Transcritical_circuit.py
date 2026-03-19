@@ -394,7 +394,7 @@ def Recomp_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp
 
 if __name__ == "__main__": 
 
-    study_case = "Recomp"
+    study_case = "Recup"
 
     if study_case == "Simple":
         T_cold_source = 0.1+273.15
