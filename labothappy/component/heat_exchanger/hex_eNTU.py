@@ -58,7 +58,8 @@ class HexeNTU(BaseComponent):
         V_HTX: Volume of the heat exchanger [m³]
         A_canal_H: Cross-sectional area of hot fluid channels [m²]
         A_canal_C: Cross-sectional area of cold fluid channels [m²]
-        D_h: Hydraulic diameter [m]
+        D_h_C: Hydraulic diameter of the cold fluid channel [m]
+        D_h_H: Hydraulic diameter of the hot fluid channel [m]
         k_plate: Thermal conductivity of the separating plate [W/m.K]
         t_plate: Thickness of the separating plate [m]
         n_plates: Number of plates [-]
@@ -107,7 +108,7 @@ class HexeNTU(BaseComponent):
     def get_required_parameters(self):
         """ Returns the list of required parameters to describe the geometry and physical configuration """
         return ['A_htx', 'L_HTX', 'V_HTX', 'Flow_Type',
-                'A_canal_h', 'A_canal_c', 'D_h',
+                'A_canal_H', 'A_canal_C', 'D_h_C', 'D_h_H',
                 'k_plate', 't_plate', 'n_plates',
                 'co_pitch', 'chevron_angle', 'fouling']
     
@@ -162,11 +163,11 @@ class HexeNTU(BaseComponent):
 
 
             
-            G_h = self.su_H.m_dot/self.params['A_canal_h']
-            G_c = self.su_C.m_dot/self.params['A_canal_c']
+            G_h = self.su_H.m_dot/self.params['A_canal_H']
+            G_c = self.su_C.m_dot/self.params['A_canal_C']
                         
-            h_h = gnielinski_pipe_htc(mu_h, Pr_h, Pr_h, k_h, G_h, self.params['D_h'], self.params['L_HTX'])[0]
-            h_c = gnielinski_pipe_htc(mu_c, Pr_c, Pr_c, k_c, G_c, self.params['D_h'], self.params['L_HTX'])[0]
+            h_h = gnielinski_pipe_htc(mu_h, Pr_h, Pr_h, k_h, G_h, self.params['D_h_H'], self.params['L_HTX'])[0]
+            h_c = gnielinski_pipe_htc(mu_c, Pr_c, Pr_c, k_c, G_c, self.params['D_h_C'], self.params['L_HTX'])[0]
 
             AU = (1/(self.params['A_htx']*h_h) + 1/(self.params['A_htx']*h_c) + self.params['t_plate']/(self.params['k_plate']*self.params['A_htx']) + self.params['fouling']/self.params['A_htx'])**(-1)         
 
