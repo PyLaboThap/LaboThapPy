@@ -9,7 +9,7 @@ Architecture
 ------------
 - Component ordering  : DFS recursive traversal (from circuit_rec)
 - Problem definition  : set_cycle_guess / set_fixed_properties /
-                        set_iteration_variable / set_cycle_input (from circuit_rec + circuit_it)
+                        set_iteration_variable (from circuit_rec)
 - Convergence check   : global p/h snapshot on all MassConnector output ports
                         (from circuit_rec)
 - Numerical methods   : pluggable via solve(method=...)
@@ -29,12 +29,6 @@ Architecture
 
 Notes
 -----
-Cycle inputs (set_cycle_input) define fixed, non-iterated values imposed on
-a connector at every iteration — similar to fixed_properties but targeting
-component connectors rather than source/sink connectors.  They are
-re-enforced before every sequential sweep, after source inputs and before
-iteration variables are applied.
-
 For Newton-based methods the guess variables are automatically used as the
 iteration vector x.  The residual is  F(x) = f(x) - x  where f(x) is the
 value read back from the connectors after one full sequential sweep.
@@ -79,12 +73,11 @@ class Circuit(BaseCircuit):
 
     Usage
     -----
-    >>> circuit = Circuit(fluid='CO2')
+    >>> circuit = MixedCircuit(fluid='R1233ZDE')
     >>> # ... add components, connect ports ...
-    >>> circuit.set_fixed_properties(target='Pump:su', p=1e5, fluid='CO2')
+    >>> circuit.set_fixed_properties(target='Pump:su', p=1e5, fluid='R1233ZDE')
     >>> circuit.set_cycle_guess(target='Pump:su', m_dot=0.1)
-    >>> circuit.set_cycle_input(target='Turbine:su', T=800.0)   # fixed, not iterated
-    >>> circuit.solve(method='wegstein')
+    >>> circuit.solve(method='wegstein')          # or 'anderson', 'lm', etc.
     """
 
     # -----------------------------------------------------------------------
@@ -116,22 +109,6 @@ class Circuit(BaseCircuit):
             self.target   = target
             self.variable = variable
             self.value    = value
-
-    class Cycle_Input:
-        """
-        A fixed value imposed on a component connector at every iteration.
-        Unlike guesses, cycle inputs are never updated by the solver.
-        Unlike fixed_properties, they target component connectors directly
-        (not source/sink connectors).
-        """
-        def __init__(self, target: str, component_name: str,
-                     connector_name: str, variable: str, value: float):
-            self.name           = f"{target}-{variable.upper()}"
-            self.target         = target
-            self.component_name = component_name
-            self.connector_name = connector_name
-            self.variable       = variable
-            self.value          = value
 
     class Iteration_variable:
         def __init__(self, target, variable, objective,
@@ -209,15 +186,18 @@ class Circuit(BaseCircuit):
             return self.DP
 
         def check(self, target_value, objective_connector, var):
-            if not hasattr(objective_connector, 'fluid'):
-                return self.objective_value
-            
             if abs((target_value - self.objective_value) / self.objective_value) < self.tol:
                 self.converged = True
                 return None
             self.converged = False
-            temp = MassConnector(fluid=objective_connector.fluid)
-            temp.set_properties(**{var: self.objective_value, 'T': objective_connector.T})
+            
+            if isinstance(objective_connector, MassConnector):
+                temp = MassConnector(fluid=objective_connector.fluid)
+                temp.set_properties(**{var: self.objective_value, 'T': objective_connector.T})
+
+            elif isinstance(objective_connector, WorkConnector):
+                pass
+                
             return getattr(temp, self.variable)
 
     # -----------------------------------------------------------------------
@@ -237,7 +217,6 @@ class Circuit(BaseCircuit):
         self.fixed_properties: dict = {}
         self.parameters:       dict = {}
         self.guesses:          dict = {}
-        self.inputs:           dict = {}   # cycle inputs (fixed, non-iterated)
         self.it_vars:          list = []
         self.res_vars:         dict = {}   # kept for backward compat
 
@@ -320,23 +299,17 @@ class Circuit(BaseCircuit):
         return (q * x_curr - f_curr) / (q - 1.0)
 
     # -----------------------------------------------------------------------
-    # Problem-definition API
+    # Problem-definition API  (mirrors circuit_rec)
     # -----------------------------------------------------------------------
 
     def set_source_properties(self, **kwargs):
         target = kwargs.pop('target')
         source = self.get_source(target)
         source.set_properties(**kwargs)
-    
         for arg_name, value in kwargs.items():
-            name = f"{target}-{arg_name}"
-            self.inputs[name] = Circuit.Cycle_Input(
-                target         = target,
-                component_name = source.component_name,
-                connector_name = source.connector_name,
-                variable       = arg_name,
-                value          = value,
-            )
+            fp = Circuit.Fixed_Property(target, arg_name, value)
+            if fp.name not in self.fixed_properties:
+                self.fixed_properties[fp.name] = fp
 
     def set_fixed_properties(self, **kwargs):
         target = kwargs.pop('target')
@@ -346,8 +319,8 @@ class Circuit(BaseCircuit):
             fp = Circuit.Fixed_Property(target, arg_name, value)
             if fp.name not in self.fixed_properties:
                 self.fixed_properties[fp.name] = fp
-        # component.set_properties(connector_name, **kwargs)
-        # component.model.check_calculable()
+        component.set_properties(connector_name, **kwargs)
+        component.model.check_calculable()
 
     def set_cycle_guess(self, external_set: bool = False, **kwargs):
         target = kwargs.pop('target')
@@ -360,47 +333,6 @@ class Circuit(BaseCircuit):
                     guess.input_history  = self.guesses[guess.name].input_history
                     guess.output_history = self.guesses[guess.name].output_history
                 self.guesses[guess.name] = guess
-        component.set_properties(connector_name, **kwargs)
-        component.model.check_calculable()
-
-    def set_cycle_input(self, **kwargs):
-        """
-        Set a fixed input on a component connector.
-
-        Unlike ``set_cycle_guess``, these values are NEVER updated by the
-        solver — they are simply re-imposed at the start of every iteration,
-        after source inputs and before iteration variables.
-
-        Unlike ``set_fixed_properties``, they do not need to be source/sink
-        connectors; any component connector is valid.
-
-        Parameters
-        ----------
-        target : str
-            ``"ComponentName:connector_name"``
-        **kwargs : float
-            One or more variable=value pairs (e.g. ``T=800.0``, ``p=1e5``).
-
-        Example
-        -------
-        >>> circuit.set_cycle_input(target='GasHeater:su_C', T=800.0, p=200e5)
-        """
-        target = kwargs.pop('target')
-        component_name, connector_name = target.split(':')
-        component = self.get_component(component_name)
-
-        # Store each variable as a separate Cycle_Input entry
-        for variable, value in kwargs.items():
-            name = f"{target}-{variable}"
-            self.inputs[name] = Circuit.Cycle_Input(
-                target         = target,
-                component_name = component_name,
-                connector_name = connector_name,
-                variable       = variable,
-                value          = value,
-            )
-
-        # Apply immediately so the component is aware of the value right away
         component.set_properties(connector_name, **kwargs)
         component.model.check_calculable()
 
@@ -429,23 +361,6 @@ class Circuit(BaseCircuit):
         pass
 
     # -----------------------------------------------------------------------
-    # Input enforcement  (new — mirrors circuit_it behaviour)
-    # -----------------------------------------------------------------------
-
-    def _apply_cycle_inputs(self):
-        """
-        Re-enforce all cycle inputs on their connectors.
-
-        Called at the start of every iteration sweep, after source inputs
-        and before iteration variables, so that fixed inputs are never
-        overwritten by the solver's guess updates.
-        """
-        for inp in self.inputs.values():
-            component = self.get_component(inp.component_name)
-            component.set_properties(inp.connector_name,
-                                     **{inp.variable: inp.value})
-
-    # -----------------------------------------------------------------------
     # DFS solver  (identical to circuit_rec)
     # -----------------------------------------------------------------------
 
@@ -455,20 +370,6 @@ class Circuit(BaseCircuit):
     def reset_solved_marker(self):
         for c in self.components.values():
             c.model.solved = False
-
-    def reset_all_connectors(self):
-        """
-        Reset the thermodynamic state of every MassConnector in the circuit,
-        while preserving the fluid name.
-        """
-        for comp in self.components.values():
-            for attr_name in dir(comp.model):
-                attr = getattr(comp.model, attr_name)
-                if isinstance(attr, MassConnector):
-                    # Preserve fluid, wipe everything else
-                    fluid = attr.fluid
-                    attr.reset()
-                    attr.fluid = fluid
 
     def recursive_solve(self, component_name: str):
         if self.print_flag:
@@ -502,7 +403,11 @@ class Circuit(BaseCircuit):
         for component_name in self.solving_order:
             if self.print_flag:
                 print(f"--- Component : {component_name}")
+                
             self.components[component_name].solve()
+
+        # self.print_states()
+        return
 
     # -----------------------------------------------------------------------
     # Iteration variable and fixed property enforcement
@@ -514,9 +419,9 @@ class Circuit(BaseCircuit):
             if "Link" in it_var.objective:
                 _, obj_comp_name, port_var = it_var.objective.split(":")
                 port_name, variable = port_var.split("-")
-                gain         = it_var.find_link_DP(self.components) if variable == 'p' else 0
+                gain          = it_var.find_link_DP(self.components) if variable == 'p' else 0
                 connector_obj = getattr(self.components[obj_comp_name].model, port_name)
-                value_obj    = getattr(connector_obj, variable)
+                value_obj     = getattr(connector_obj, variable)
                 for target in it_var.target:
                     self.set_cycle_guess(target=target, **{it_var.variable: value_obj + gain})
                 it_var.converged = True
@@ -525,44 +430,21 @@ class Circuit(BaseCircuit):
                 port, var      = rest.split("-")
                 connector      = getattr(self.components[obj_comp].model, port)
                 current_value  = getattr(connector, var)
-    
+                
                 if current_value is not None:
-    
-                    # --- Special case: SC or SH drives pressure ---
-                    if var in ('SC', 'SH') and it_var.variable == 'p':
-                        error = current_value - it_var.objective_value
-                        if abs(error) < it_var.tol:
-                            it_var.converged = True
-                            continue
-                        it_var.converged = False
-                        # SC too high → p too low → increase p, and vice versa
-                        # dSC/dp < 0: increasing p raises T_sat, reduces SC
-                        import CoolProp.CoolProp as CP
-                        p_current = connector.p
-                        T_sat = CP.PropsSI('T', 'Q', 0, 'P', p_current, connector.fluid)
-                        # Nudge T_sat by -error to correct SC
-                        T_sat_target = T_sat - error  
-                        p_new = CP.PropsSI('P', 'Q', 0, 'T', T_sat_target, connector.fluid)
+                    desired_value = it_var.check(current_value, connector, var)
+                    if desired_value is not None:
+                        target_comp, target_port = it_var.target[0].split(":")
+                        target_connector         = getattr(
+                            self.components[target_comp].model, target_port)
+                        target_current_value = getattr(target_connector, it_var.variable)
+                        new_target_value = (
+                            (desired_value - target_current_value)
+                            * it_var.damping_factor + target_current_value)
                         for target in it_var.target:
                             self.set_cycle_guess(
-                                target=target,
-                                **{it_var.variable: 
-                                   p_current + it_var.damping_factor * (p_new - p_current)})
-    
-                    # --- General case ---
-                    else:
-                        desired_value = it_var.check(current_value, connector, var)
-                        if desired_value is not None:
-                            target_comp, target_port = it_var.target[0].split(":")
-                            target_connector = getattr(
-                                self.components[target_comp].model, target_port)
-                            target_current_value = getattr(target_connector, it_var.variable)
-                            new_target_value = (
-                                (desired_value - target_current_value)
-                                * it_var.damping_factor + target_current_value)
-                            for target in it_var.target:
-                                self.set_cycle_guess(
-                                    target=target, **{it_var.variable: new_target_value})
+                                target=target, **{it_var.variable: new_target_value})
+
 
     def _enforce_fixed_properties(self):
         """Re-enforce all fixed properties on their connectors."""
@@ -615,42 +497,47 @@ class Circuit(BaseCircuit):
 
     def _build_guess_vector(self) -> np.ndarray:
         """Current guess values as a numpy vector (ordered as self.guesses)."""
-        return np.array([g.value for g in self.guesses.values()], dtype=float)
+        
+        guess_vec = np.array([g.value for g in self.guesses.values()], dtype=float)
+        
+        return guess_vec
 
     def _apply_guess_vector(self, x: np.ndarray):
         """Write a numpy vector back into the guess connectors."""
         for value, (guess_name, guess) in zip(x, self.guesses.items()):
             self.set_cycle_guess(target=guess.target,
                                  **{guess.variable: float(value)})
+            
+            print(f"{guess_name} : {value}")
+        
 
+    
     def _get_scale(self, var_name: str, x_val: float) -> float:
+        # Define fixed scales per variable type
         _SCALES = {
-            'p':     1e5,
-            'h':     1e4,
-            'm_dot': 1.0,
-            'T':     10.0,
-            'SH':    1.0,
-            'SC':    1.0,
-            'x':     0.1,
+            'p':     1e5,    # Pa — normalize by ~1 bar
+            'h':     1e4,    # J/kg
+            'm_dot': 1.0,    # kg/s
+            'T':     10.0,   # K
+            'SH':    1.0,    # K — fixed scale, ignore x magnitude
+            'SC':    1.0,    # K — fixed scale, ignore x magnitude
+            'x':     0.1,    # quality
         }
+        
         for key, scale in _SCALES.items():
             if var_name == key:
                 return scale
+        # Fallback: use |x| but with a floor
         return max(abs(x_val), 1e-3)
 
     def _residual_function(self, x: np.ndarray) -> np.ndarray:
         self._iteration_count += 1
         self.reset_solved_marker()
-        self.reset_all_connectors()
-
-        # Apply guesses, fixed properties, cycle inputs, then iteration variables
-        # Order matters: cycle inputs must not be overwritten by guesses.
         self._apply_guess_vector(x)
         self._enforce_fixed_properties()
-        self._apply_cycle_inputs()          # ← cycle inputs imposed after guesses
-        self._sequential_sweep()
         self._enforce_iteration_variables()
-
+        self._sequential_sweep()
+    
         f_x = []
         for gn, guess in self.guesses.items():
             comp_name, rest = gn.split(":", 1)
@@ -661,14 +548,24 @@ class Circuit(BaseCircuit):
                 f_x.append(1e6)
             else:
                 f_x.append(float(val))
-
-        f_x      = np.array(f_x, dtype=float)
-        residual = f_x - x
-
+    
+        f_x = np.array(f_x, dtype=float)
+        
+        # # Normalize by the scale of x to make residuals dimensionless
+        # scales = np.array([
+        #     self._get_scale(guess.variable, x[i])
+        #     for i, (_, guess) in enumerate(self.guesses.items())
+        # ])
+        
+        residual = (np.array(f_x) - x) 
+    
         if self.print_flag:
             print(f"  Iteration {self._iteration_count} — res: {residual}")
         return residual
-
+    
+        # except Exception as e:
+        #     print(f"Residual error: {e}")  # ← aide au debug
+        #     return np.ones(len(self.guesses)) * 1e6
     # -----------------------------------------------------------------------
     # Convergence check helpers
     # -----------------------------------------------------------------------
@@ -700,7 +597,7 @@ class Circuit(BaseCircuit):
     # -----------------------------------------------------------------------
 
     def solve(self, max_iter: int = 30, method: str = 'broyden1',
-              root_tol: float = 1e-10, tol=1e-4):
+              root_tol: float = 1e-10, tol=1e-5):
         """
         Solve the circuit.
 
@@ -715,6 +612,8 @@ class Circuit(BaseCircuit):
         tol : float
             Tolerance passed to scipy root/fsolve (Newton-based methods only).
         """
+        self._iteration_count = 1
+        
         if method not in _ALL_METHODS:
             raise ValueError(
                 f"Unknown method '{method}'. "
@@ -757,26 +656,46 @@ class Circuit(BaseCircuit):
             use_wegstein = (method == 'wegstein')
 
             for i in range(max_iter):
+                self._iteration_count += 1
+
                 self.messages = []
                 if self.print_flag:
                     print(f"\n{'#'*30}\nIteration {i+1}\n{'#'*30}")
-                    
-                self.reset_all_connectors()
-                self._enforce_fixed_properties()
-                self._apply_cycle_inputs()          # ← re-impose cycle inputs
-                self._apply_guess_vector(self._build_guess_vector())  # re-apply current guesses               
+
                 self._enforce_iteration_variables()
+                self._enforce_fixed_properties()
                 self._substitution_step(use_wegstein)
-                self._sequential_sweep()
-                self._enforce_iteration_variables()   # ← AFTER sweep, reads actual results
                 
+                # try:
+                self._sequential_sweep()
+                # except:
+                #     self.converged = False
+                #     return
+                    
                 current_snapshot = self._snapshot_connector_states()
                 if self._check_convergence(current_snapshot):
                     if self.print_flag:
                         print(f"Converged in {i+1} iteration(s).")
+                        
+                    # Q_cd = self.components['Condenser'].model.Q.Q_dot
+                    # Q_ev = self.components['Evaporator'].model.Q.Q_dot
+                    # W_cp = self.components['Compressor'].model.W.W_dot
+                    # self.res_energy = (Q_cd - W_cp - Q_ev)/Q_cd
+
+                    # if abs(self.res_energy) > 1e-4:
+                    #     self.converged = False
+                        
                     return
                 self._prev_connector_states = current_snapshot
-
+            
+                # Q_cd = self.components['Condenser'].model.Q.Q_dot
+                # Q_ev = self.components['Evaporator'].model.Q.Q_dot
+                # W_cp = self.components['Compressor'].model.W.W_dot
+                # self.res_energy = (Q_cd - W_cp - Q_ev)/Q_cd
+                    
+                # if abs(self.res_energy) > 1e-4:
+                #     self.converged = False
+                
             if self.print_flag:
                 print(f"Failed to converge in {max_iter} iterations.")
 
@@ -800,27 +719,35 @@ class Circuit(BaseCircuit):
                     options = {'maxfev': max_iter}
                 else:
                     options = {'maxiter': max_iter}
-
+                
                 result = root(
                     self._residual_function, x0,
                     method=method,
                     tol=root_tol,
                     options=options
                 )
-
+                
                 sol = result.x
                 if self.print_flag and not result.success:
                     print(f"[{method}] did not converge: {result.message}")
-
+            
             self.sol = sol
-
+            
             self._apply_guess_vector(sol)
             self._enforce_fixed_properties()
-            self._apply_cycle_inputs()              # ← final enforcement
             self._sequential_sweep()
-
+        
+            # For Newton methods, check residual directly
             self.final_residual = self._residual_function(sol)
             self.converged = bool(np.max(np.abs(self.final_residual)) < tol)
+
+            Q_cd = self.components['Condenser'].model.Q.Q_dot
+            Q_ev = self.components['Evaporator'].model.Q.Q_dot
+            W_cp = self.components['Compressor'].model.W.W_dot
+            self.res_energy = (Q_cd - W_cp - Q_ev)/Q_cd
+
+            if abs(self.res_energy) > 1e-6:
+                self.converged = False
 
             if self.print_flag:
                 status = "Converged" if self.converged else "Did not converge"
@@ -833,14 +760,6 @@ class Circuit(BaseCircuit):
     def print_guesses(self):
         for name, g in self.guesses.items():
             print(f"{name}: {g.value}")
-
-    def print_inputs(self):
-        """Print all registered cycle inputs."""
-        if not self.inputs:
-            print("No cycle inputs set.")
-            return
-        for name, inp in self.inputs.items():
-            print(f"{name}: {inp.value}  ({inp.component_name}:{inp.connector_name}.{inp.variable})")
 
     def print_guess_history(self):
         for name, guess in self.guesses.items():
@@ -856,4 +775,6 @@ class Circuit(BaseCircuit):
 
     def print_fixed_properties(self):
         for name, fp in self.fixed_properties.items():
-            print(f"{name}: {fp.value}")           
+            print(f"{name}: {fp.value}")
+            
+            

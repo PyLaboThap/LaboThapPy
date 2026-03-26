@@ -328,7 +328,7 @@ if __name__ == "__main__":
         )
     
         # Objective
-        Optimizer.set_obj(W_dot=1e6)
+        Optimizer.set_obj(W_dot=W_dot_test)
     
         # Source definitions
         Optimizer.CSource.set_properties(

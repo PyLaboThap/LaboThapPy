@@ -12,145 +12,149 @@ from CoolProp.CoolProp import PropsSI
 import time
 import numpy as np
 
-# T_guess_cd = np.linspace(120,160,21) + 273.15
-# T_guess_ev = np.linspace(100,130,16) + 273.15
+SH_vec = np.linspace(1, 10, 10)
+SC_vec = np.linspace(1, 10, 10)
+eff_rec_vec = np.linspace(0.8, 0.8, 1)
 
-T_guess_cd = [141   + 2 + 273.15]
-T_guess_ev = [113.1 - 2 + 273.15]
-
-# SC_cd_vec = np.linspace(1,10,10)
-# SH_ev_vec = np.linspace(1,10,10)
-
-SC_cd_vec = np.linspace(3,3,1)
-SH_ev_vec = np.linspace(1,1,1)
-
-# Instanciate Circuit
-fluid = "Cyclopentane"
-
-tries = len(T_guess_cd)*len(T_guess_ev)*len(SC_cd_vec)*len(SH_ev_vec)
+avg_success_time = 0
 successes = 0
-failures = 0
+tries = 0
 
-success_time = 0
+for eff_rec_val in eff_rec_vec:
+    for SH in SH_vec:
+        for SC in SC_vec:
+            tries +=1
+            
+            fluid = "Cyclopentane"
+            HP = Circuit(fluid)
+            
+            "Ignore debug printing"
+            HP.mute_print()
+            HP.mute_plot()
+            
+            "Create components"
+            Compressor = CompressorCstEff()
+            Condenser = HexCstPinch()
+            ExpansionValve = ValveIsenthalpic()
+            Evaporator = HexCstPinch()
+            Recuperator = HexCstEff()
+            
+            "Set component parameters"
+            # Compressor
+            eta_is_cp = 0.8 # -
+            
+            # Condenser
+            Pinch_cd = 10  # K
+            SC_cd = SC # 3  # K
+            DP_h_cd = 10e3
+            
+            # Evaporator
+            Pinch_ev = 3  # K
+            SH_ev = SH # 5 # K
+            DP_c_ev = 10e3
 
-for T_cd in T_guess_cd:
-    for T_ev in T_guess_ev:
-        for SC_cd in SC_cd_vec:
-            for SH_ev in SH_ev_vec:
-                HP = Circuit(fluid)
-                
-                # Ignore debug printing
-                # HP.mute_print()
-                HP.mute_plot()
-                
-                # Create components
-                Compressor = CompressorCstEff()
-                Condenser = HexCstPinch()
-                ExpansionValve = ValveIsenthalpic()
-                Evaporator = HexCstPinch()
-                Recuperator = HexCstEff()
-                
-                # Set component parameters
-                eta_is_cp = 0.8 # -
-                
-                Pinch_cd = 10  # K
-                SC_cd = SC_cd # 3  # K
-                
-                Pinch_ev = 3  # K
-                SH_ev = SH_ev # 5 # K
-                
-                eff_rec = 0.8 # -
-                
-                # Add fluid sources
-                CD_source = MassConnector('Water')
-                T_su_w_cd = 141+273.15
-                P_su_w_cd = 5e5
-                m_dot_w_cd = 10000  # kg/s
-                EV_source = MassConnector('Water')
-                T_su_w_ev = 113.1+273.15
-                P_su_w_ev = 2*1e5
-                m_dot_w_ev = 500  # kg/s
-                
-                #%% Inputs
-                m_dot_ref = 20 # kg/s
-                
-                Compressor.set_parameters(
-                    eta_is=eta_is_cp)
-                
-                Condenser.set_parameters(
-                    Pinch=Pinch_cd, 
-                    Delta_T_sh_sc=SC_cd, 
-                    HX_type="condenser",
-                    DP_c = 0*1e3,
-                    DP_h = 0*1e3)
-                
-                Evaporator.set_parameters(
-                    Pinch=Pinch_ev,
-                    Delta_T_sh_sc=SH_ev, 
-                    HX_type="evaporator",
-                    DP_c = 0*1e3,
-                    DP_h = 0*1e3)
-                
-                Recuperator.set_parameters(
-                    eta=eff_rec,
-                    DP_c = 0*1e3,
-                    DP_h = 0*1e3)
-                
-                # Add components to circuit
-                HP.add_component(Compressor, "Compressor")
-                HP.add_component(Condenser, "Condenser")
-                HP.add_component(ExpansionValve, "ExpansionValve")
-                HP.add_component(Evaporator, "Evaporator")
-                HP.add_component(Recuperator, "Recuperator")
-                
-                # Link components with mass connectors
-                HP.link_components("Compressor", "m-ex", "Condenser", "m-su_H")
-                HP.link_components("Condenser", "m-ex_H", "Recuperator", "m-su_H")
-                HP.link_components("Recuperator", "m-ex_H", "ExpansionValve", "m-su")
-                HP.link_components("ExpansionValve", "m-ex", "Evaporator", "m-su_C")
-                HP.link_components("Evaporator", "m-ex_C", "Recuperator", "m-su_C")
-                HP.link_components("Recuperator", "m-ex_C", "Compressor", "m-su")
-                
-                HP.add_source("CD_Water", CD_source, HP.components["Condenser"], "m-su_C")
-                HP.set_source_properties(T=T_su_w_cd, fluid='Water', P=P_su_w_cd, m_dot = m_dot_w_cd, target="CD_Water")
-                HP.add_source("EV_Water", EV_source, HP.components["Evaporator"], "m-su_H")
-                HP.set_source_properties(T=T_su_w_ev, fluid='Water', P=P_su_w_ev, m_dot = m_dot_w_ev, target="EV_Water")
-                
-                #%% Cycle guess values
-                
-                P_low = PropsSI("P", "T", T_ev, "Q", 1, fluid)
-                P_high = PropsSI("P", "T", T_cd, "Q", 0, fluid)
-                
-                HP.set_cycle_guess(target="Compressor:su", m_dot = m_dot_ref)
-                HP.set_cycle_guess(target="Evaporator:su_C", m_dot = m_dot_ref)
+            # Recuperator
+            eff_rec = eff_rec_val # 0.8 -
+            DP_h_rec = 10e3
+            DP_c_rec = 10e3
+            
+            # Add fluid sources
+            CD_source = MassConnector('Water')
+            T_su_w_cd = 141+273.15
+            P_su_w_cd = 5e5
+            m_dot_w_cd = 10000  # kg/s
+            EV_source = MassConnector('Water')
+            T_su_w_ev = 113.1+273.15
+            P_su_w_ev = 2*1e5
+            m_dot_w_ev = 500  # kg/s
+            
+            #%% Inputs
+            m_dot_ref = 20 # kg/s
+            
+            Compressor.set_parameters(
+                eta_is=eta_is_cp)
+            
+            Condenser.set_parameters(
+                Pinch=Pinch_cd, 
+                Delta_T_sh_sc=SC_cd, 
+                HX_type="condenser",
+                DP_c = 0*1e3,
+                DP_h = DP_h_cd)
+            
+            Evaporator.set_parameters(
+                Pinch=Pinch_ev,
+                Delta_T_sh_sc=SH_ev, 
+                HX_type="evaporator",
+                DP_c = DP_c_ev,
+                DP_h = 0*1e3)
+            
+            Recuperator.set_parameters(
+                eta=eff_rec,
+                DP_c = DP_c_rec,
+                DP_h = DP_h_rec)
+            
+            # Add components to circuit
+            HP.add_component(Compressor, "Compressor")
+            HP.add_component(Condenser, "Condenser")
+            HP.add_component(ExpansionValve, "ExpansionValve")
+            HP.add_component(Evaporator, "Evaporator")
+            HP.add_component(Recuperator, "Recuperator")
+            
+            # Link components with mass connectors
+            HP.link_components("Compressor", "m-ex", "Condenser", "m-su_H")
+            HP.link_components("Condenser", "m-ex_H", "Recuperator", "m-su_H")
+            HP.link_components("Recuperator", "m-ex_H", "ExpansionValve", "m-su")
+            HP.link_components("ExpansionValve", "m-ex", "Evaporator", "m-su_C")
+            HP.link_components("Evaporator", "m-ex_C", "Recuperator", "m-su_C")
+            HP.link_components("Recuperator", "m-ex_C", "Compressor", "m-su")
+            
+            HP.add_source("CD_Water", CD_source, HP.components["Condenser"], "m-su_C")
+            HP.set_source_properties(T=T_su_w_cd, fluid='Water', P=P_su_w_cd, m_dot = m_dot_w_cd, target="CD_Water")
+            HP.add_source("EV_Water", EV_source, HP.components["Evaporator"], "m-su_H")
+            HP.set_source_properties(T=T_su_w_ev, fluid='Water', P=P_su_w_ev, m_dot = m_dot_w_ev, target="EV_Water")
+                            
+            #%% Cycle guess values
+            
+            P_LP_guess = PropsSI("P", "T", T_su_w_ev+50, "Q", 1, fluid)
+            T_sat_LP_guess = PropsSI("T", "P", P_LP_guess, "Q", 1, fluid)
+            
+            P_HP_guess = PropsSI("P", "T", T_su_w_cd+50, "Q", 0, fluid)
+            h_su_vlv_guess = PropsSI('H', 'P', P_HP_guess, 'Q', 0, fluid) - SC_cd - 10000
+            
+            HP.set_cycle_guess(target="Compressor:su", m_dot = m_dot_ref)
+            HP.set_cycle_guess(target="ExpansionValve:su", m_dot = m_dot_ref, h=h_su_vlv_guess, p = P_HP_guess)
+            HP.set_cycle_guess(target="ExpansionValve:ex", p=P_LP_guess)
+            
+            HP.set_cycle_guess(target="Compressor:su", p=P_LP_guess, T=T_sat_LP_guess+10)
+            HP.set_cycle_guess(target="Compressor:ex", p=P_HP_guess)
+            
 
-                HP.set_cycle_guess(target="Compressor:su", p=P_low, SH=SH_ev+1)
-                HP.set_cycle_guess(target="Compressor:ex", p=P_high)
-                
-                HP.set_cycle_guess(target="Evaporator:su_C", p=P_low, x=0.2)
-                
-                start = time.perf_counter()
-                HP.solve(max_iter=100, method='broyden1')
-                end = time.perf_counter()
+            
+            start = time.perf_counter()
+            HP.solve(max_iter=100, method='wegstein')
+            end = time.perf_counter()
+            
+            elapsed = end - start
+            
+            if HP.converged:
+                successes += 1
+                avg_success_time += elapsed
+                # print(f"Converged in {HP._iteration_count} iterations ! res_energy : {HP.res_energy}")
+            else:
+                print(f"PP_cd : {SC}")
+                print(f"PP_ev : {SH}")
+                print(f"------------------")
+            
+            Q_cd = HP.components['Condenser'].model.Q.Q_dot
+            Q_ev = HP.components['Evaporator'].model.Q.Q_dot
+            W_cp = HP.components['Compressor'].model.W.W_dot
+            Q_rec = HP.components['Recuperator'].model.Q.Q_dot
+            COP = Q_cd/W_cp
+            
+avg_success_time = avg_success_time/successes
+conv_prop = successes/tries
 
-                elapsed = end - start
+print(f"avg_success_time : {avg_success_time}")
+print(f"conv_prop : {conv_prop}")
 
-                if HP.converged:
-                    print(f"Success !")
-                    successes += 1
-                    success_time += elapsed
-                else:
-                    print(f"Failure... (conv)")
-                    failures += 1
-                # except:
-                #     print(f"Failure...")
-                
-    HP.plot_cycle_Ts() 
-    
-    # HP.Ts_gif()
-    
-print(f"Success : {successes}/{tries} {round(successes/tries * 100,2)} %")
-print(f"Success Avg Time : {round(success_time/(successes+1e-14),5)} s")
-   
-    
-    
+# HP.plot_cycle_Ts()

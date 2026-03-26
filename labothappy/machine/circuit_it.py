@@ -9,8 +9,8 @@ Created on Thu Jan 08 2026
 
 from machine.base_circuit import BaseCircuit
 
+from scipy.optimize import fsolve, root
 import numpy as np
-from scipy.optimize import fsolve
 from CoolProp.CoolProp import PropsSI
 
 class IterativeCircuit(BaseCircuit):
@@ -286,6 +286,9 @@ class IterativeCircuit(BaseCircuit):
             c.model.solved = False
 
     def recursive_solve(self, component_name: str):
+        if self.print_flag:
+            print(f"Solving {component_name}")
+        
         component       = self.get_component(component_name)
         component_model = component.model
         if component_model.solved:
@@ -308,6 +311,9 @@ class IterativeCircuit(BaseCircuit):
         Determine solving order via DFS traversal (ported from circuit_mix).
         Populates self.solving_order and self.solve_start_components.
         """
+        if self.print_flag:
+            print("Starting solving order definition")
+        
         # Apply initial guesses so components can evaluate check_calculable()
         x0 = self._get_iteration_vector()
         self._apply_iteration_vector(x0)
@@ -328,12 +334,21 @@ class IterativeCircuit(BaseCircuit):
                 f"Setup failed. Blocking components (not calculable): {blocking}"
             )
 
+        else:
+            if self.print_flag:
+                print("Setup completed !")
+        
         # Reset solved markers — the DFS solve above was only for ordering
         self.reset_solved_marker()
 
     def _solve_circuit(self, x):
                         
         self.n_it += 1
+
+        if self.print_flag:            
+            print(f"="*30)
+            print(f"Iteration : {self.n_it}")
+            print(f"="*30)
 
         # 1️⃣ Reset all connectors
         self._clear_all_connectors()
@@ -357,6 +372,10 @@ class IterativeCircuit(BaseCircuit):
 
         self.reset_solved_marker()
         for name in self.solving_order: 
+
+            if self.print_flag:
+                print(f"Solving {name}")
+                
             self.components[name].solve()
 
         # 5️⃣ Update cycle guesses from calculated connector values
@@ -364,6 +383,8 @@ class IterativeCircuit(BaseCircuit):
 
         # 6️⃣ Compute residuals
         residuals = []
+
+        print(self.components['Evaporator'].model.su_C.T)
 
         for rv in self.res_vars:
             var      = rv["variable"]
@@ -373,6 +394,7 @@ class IterativeCircuit(BaseCircuit):
             if rv["target_value"] is None:
                 # Closure mode: target is the value imposed before the sweep
                 target_val = self._read_variable_pre(rv)
+                                
             elif var in ("SC", "SH"):
                 # SC/SH target: convert to enthalpy via CoolProp
                 p = self._read_variable(comp_key, "p")
@@ -391,10 +413,14 @@ class IterativeCircuit(BaseCircuit):
                 if rv["scale"] is not None
                 else self._default_residual_scale(var)
             )
-
+            
             res = (calculated - target_val) / scale
 
             residuals.append(res)
+            
+        if self.print_flag:            
+            print(f"residuals : {residuals}")
+            
             
         return np.array(residuals, dtype=float)
 
@@ -456,28 +482,111 @@ class IterativeCircuit(BaseCircuit):
         component = self.get_component(component_name)
         connector = getattr(component.model, connector_name)
         return getattr(connector, variable)
+    
+    # ── private solver backends ─────────────────────────────────────────────────
+    
+    def _solve_fsolve(self, x0):
+        """Original fsolve backend — unchanged behaviour."""
+        return fsolve(self._solve_circuit, x0)
+    
+    
+    def _solve_root(self, x0, root_method='hybr'):
+        """
+        scipy.optimize.root backend.
+    
+        Recommended methods:
+          'hybr'    — Powell's hybrid (same engine as fsolve, more diagnostics)
+          'lm'      — Levenberg-Marquardt (robust to near-singular Jacobians)
+          'broyden1'— quasi-Newton, good when the Jacobian is expensive
+          'krylov'  — matrix-free, efficient for large systems
+        """
+        result = root(self._solve_circuit, x0, method=root_method,
+                      options={'maxfev': 2000, 'xtol': 1e-8})
+        if not result.success:
+            print(f"[root/{root_method}] did not converge: {result.message}")
+        return result.x
+    
+    
+    def _solve_newton(self, x0, tol=1e-8, max_iter=100, eps=1e-6):
+        """
+        Baseline Newton-Raphson with finite-difference Jacobian.
+    
+        Useful as a reference / debugging baseline — the iteration is
+        fully transparent and easy to instrument.
+        """
+        x = np.array(x0, dtype=float)
+        n = len(x)
+    
+        for it in range(max_iter):
+            self.n_it += 1
+            F = np.array(self._solve_circuit(x), dtype=float)
+    
+            norm = np.linalg.norm(F)
+            if norm < tol:
+                print(f"[newton] converged in {it+1} iterations (|F|={norm:.2e})")
+                return x
+    
+            # Finite-difference Jacobian  J[i,j] = dF_i/dx_j
+            J = np.zeros((n, n))
+            for j in range(n):
+                x_fwd = x.copy()
+                x_fwd[j] += eps
+                F_fwd = np.array(self._solve_circuit(x_fwd), dtype=float)
+                J[:, j] = (F_fwd - F) / eps
+    
+            # Newton step  J·dx = -F
+            try:
+                dx = np.linalg.solve(J, -F)
+            except np.linalg.LinAlgError:
+                print("[newton] singular Jacobian — aborting")
+                return x
+    
+            x = x + dx
+    
+        print(f"[newton] reached max_iter={max_iter} without converging "
+              f"(|F|={np.linalg.norm(np.array(self._solve_circuit(x))):.2e})")
+        return x
 
-    def solve(self):
+    def solve(self, method='fsolve'):
+        """
+        Solve the circuit.
+        
+        Parameters
+        ----------
+        method : str
+            'fsolve'   — original scipy fsolve (default, backward-compatible)
+            'root'     — scipy.optimize.root (more methods/diagnostics available)
+            'newton'   — baseline Newton-Raphson with finite-difference Jacobian
+        """
+        root_methods = {'hybr', 'lm', 'broyden1', 'broyden2', 'anderson', 'krylov', 'df-sane'}
+        
         self.n_it = 0
-
-        # Build DFS solving order before handing off to fsolve
         if not self.solving_order:
             self._build_solve_order()
-
-        # Reset solved markers so _solve_circuit can re-solve cleanly
         self.reset_solved_marker()
-
-        # Initial guess vector
         x0 = self._get_iteration_vector()
+    
+        # try:
+        if method == 'fsolve':
+            sol = self._solve_fsolve(x0)
 
-        # Solve
-        sol = fsolve(self._solve_circuit, x0)
+        elif method == 'newton':
+            sol = self._solve_newton(x0)
 
-        # Apply final solution
+        elif method in root_methods:
+            sol = self._solve_root(x0, root_method=method)
+
+        else:
+            raise ValueError(f"Unknown method '{method}'. "
+                             f"Choose from: 'fsolve', 'newton', a root method: {root_methods}.")
+
+        # except Exception as e:
+        #     print(f"Error during solving ({method}): {e}")
+        #     self.converged = False
+        #     return
+    
         self._apply_iteration_vector(sol)
-
-        # Convergence check
         residuals = self._solve_circuit(sol)
         self.converged = np.all(np.abs(residuals) < 1.0)
-
+        
         return sol

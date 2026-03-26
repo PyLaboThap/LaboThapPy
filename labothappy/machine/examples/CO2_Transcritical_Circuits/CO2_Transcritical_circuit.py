@@ -394,7 +394,7 @@ def Recomp_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp
 
 if __name__ == "__main__": 
 
-    study_case = "Recup"
+    study_case = "Recomp"
 
     if study_case == "Simple":
         T_cold_source = 0.1+273.15
@@ -428,7 +428,7 @@ if __name__ == "__main__":
         CO2_TC = basic_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_is_pp, eta_is_exp, eta_gh, PPTD_cd, SC_cd, P_low_guess, P_high, m_dot,
                             DP_h_gh = 50*1e3, DP_c_gh = 2*1e5, DP_h_cond = 1*1e5, DP_c_cond = 50*1e3, mute_print_flag=0)
                 
-        CO2_TC.solve(method = 'broyden1')
+        CO2_TC.solve(method = 'wegstein')
 
     elif study_case == "Recup_sto":
         T_cold_source = 0.1+273.15
@@ -507,7 +507,7 @@ if __name__ == "__main__":
         
         # for i in range(100):
         CO2_TC = REC_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_is_pp, eta_is_exp, eta_gh, eta_rec, PPTD_cd, SC_cd, P_low_guess, P_high, m_dot,
-                            DP_h_rec = DP_h_rec, DP_c_rec = DP_c_rec, DP_h_gh = DP_h_gh, DP_c_gh = DP_c_gh, DP_h_cond = DP_h_cond, DP_c_cond = DP_c_cond, mute_print_flag=1)
+                            DP_h_rec = DP_h_rec, DP_c_rec = DP_c_rec, DP_h_gh = DP_h_gh, DP_c_gh = DP_c_gh, DP_h_cond = DP_h_cond, DP_c_cond = DP_c_cond, mute_print_flag=0)
                 
         CO2_TC.solve(method = 'wegstein')
  

@@ -67,7 +67,7 @@ Evaporator = HexMBChargeSensitive('Plate')
 # -------- 3) Set component parameters --------
 # Expander
 Expander.set_parameters(AU_amb=9.3, AU_su_n=4.75, AU_ex_n=17.7, d_su1=6.48e-3, m_dot_n=0.1, 
-            A_leak=9.99e-06, W_dot_loss_0=2.37e+1 , alpha= 1.16e-1, C_loss=1.13, rv_in=1.7, V_s=3*0.0000712, mode='P_M')
+            A_leak=9.99e-06, W_dot_loss_0=2.37e+1 , alpha= 1.16e-1, C_loss=1.13, rv_in=1.7, V_s=2*0.0000712, mode='P_M')
 # I take into account the fact that there's two expander by multiplying by two the Vs
 
 # Evaporator
@@ -154,23 +154,38 @@ SC_cd = 7  # K
 N_exp = 6000 # RPM
 T_amb = 293 # K
 
-orc.set_cycle_input(target="Pump:su", m_dot = m_dot_ref, SC=SC_cd)
-orc.set_cycle_input(target="Expander:W", N_rot = N_exp)
-orc.set_cycle_input(target="Expander:Q_amb", T_amb=T_amb)
-
-P_LP_guess = PropsSI("P", "T", T_su_w_cd+10, "Q", 0, fluid)
+P_LP_guess = PropsSI("P", "T", T_su_w_cd+15, "Q", 0, fluid)
 P_HP_guess = PropsSI("P", "T", T_su_w_ev-10, "Q", 1, fluid)
 
-orc.set_cycle_guess(target="Pump:su",        p=P_LP_guess)
-orc.set_cycle_guess(target="Pump:su",        SC=SC_cd)
+T_sat_LP_guess = PropsSI("T", "P", P_LP_guess, "Q", 0.5, fluid)
+
+h_SC_guess = PropsSI("H", "P", P_LP_guess, "T", T_sat_LP_guess - SC_cd, fluid)
+
+orc.set_cycle_guess(target="Pump:su", m_dot = m_dot_ref, h=h_SC_guess, p=P_LP_guess)
 orc.set_cycle_guess(target="Pump:ex",        p=P_HP_guess)
-orc.set_cycle_guess(target="Expander:ex",    p=P_HP_guess)
 
-orc.set_fixed_properties(target="Pump:su", SC=SC_cd)
-orc.set_iteration_variable(target=["Expander:ex"], objective="Pump:su-SC", variable="p", damping_factor = 0.5, rel=1)
+orc.set_cycle_guess(target="Expander:W", N_rot = N_exp)
+orc.set_cycle_guess(target="Expander:Q_amb", T_amb=T_amb)
+orc.set_cycle_guess(target="Expander:ex",    p=P_LP_guess)
 
-orc.set_fixed_properties(target="Expander:W", N_rot=N_exp)
-orc.set_iteration_variable(target=["Expander:su"], objective="Expander:W-N_rot", variable="p", damping_factor = 0.5, rel=1)
+orc.set_iteration_variable(
+    it_var  = 'Expander:ex-p',
+    objective = 'Pump:su-SC',
+    target_value = SC_cd,
+    obj_type = "Target_val",
+    damping_factor = 0.3,
+)
+
+orc.set_iteration_variable(
+    it_var  = 'Pump:ex-p',
+    objective = 'Expander:W-N_rot',
+    target_value = N_exp,
+    obj_type = "Target_val",
+    damping_factor = 0.1,
+)
+
+# 390277.22120227996
+# 123310.5005941549
 
 # -------- 8) Solve — swap method here for comparison --------
 METHOD = 'wegstein'   # <-- change to compare: 'successive_substitution',
@@ -190,7 +205,6 @@ print(f"  W_exp = {Expander.W.W_dot:.2f} W")
 print(f"  W_pump = {Pump.W.W_dot:.2f} W")
 print(f"  Q_ev = {Evaporator.Q.Q_dot:.2f} W")
 print(f"  Q_cd = {Condenser.Q.Q_dot:.2f} W")
-
 
 """
 1) Fixer des variables constantes 

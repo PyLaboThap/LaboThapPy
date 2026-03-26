@@ -638,3 +638,7 @@ class MassConnector:
         
         print("Mass density: " + str(self.D) + "[kg/m^3]")
         print("Quality: " + str(self.x) + "[-]")
+
+        print("SH: " + str(self.SH) + "[-]")
+        print("SC: " + str(self.SC) + "[-]")
+

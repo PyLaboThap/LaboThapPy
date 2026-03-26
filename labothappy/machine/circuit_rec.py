@@ -577,7 +577,7 @@ class RecursiveCircuit(BaseCircuit):
         
         return
 
-    def solve(self, max_iter=30, method='successive_substitution', tol = 1e-6):
+    def solve(self, max_iter=30, method='successive_substitution'):
         """
         Solve the circuit.
 
@@ -646,6 +646,8 @@ class RecursiveCircuit(BaseCircuit):
         
         while i < max_iter:
             self.messages = []
+            
+            self.components['Evaporator'].model.su_C.print_resume()
             
             if self.print_flag:
                 print("\n")

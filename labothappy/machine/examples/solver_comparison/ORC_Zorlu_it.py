@@ -1,4 +1,4 @@
-from labothappy.machine.circuit import Circuit
+from labothappy.machine.circuit_it import IterativeCircuit
 
 from labothappy.connector.mass_connector import MassConnector
 
@@ -37,7 +37,7 @@ for T_cd in T_guess_cd:
         for SC_cd in SC_cd_vec:
             for SH_ev in SH_ev_vec:
 
-                ORC = Circuit(fluid)
+                ORC = IterativeCircuit(fluid)
 
                 # Ignore debug printing
                 # ORC.mute_print()
@@ -71,7 +71,7 @@ for T_cd in T_guess_cd:
                     Delta_T_sh_sc=SC_cd, 
                     HX_type="condenser", 
                     DP_c = 0,
-                    DP_h = 10*1e3)
+                    DP_h = 0*1e3)
                 
                 Expander.set_parameters(eta_is=eta_is_exp)
                 
@@ -79,17 +79,17 @@ for T_cd in T_guess_cd:
                     Pinch=Pinch_ev, 
                     Delta_T_sh_sc=SH_ev, 
                     HX_type="evaporator",
-                    DP_c = 10*1e3,
+                    DP_c = 0*1e3,
                     DP_h = 0)
                 
                 Recuperator.set_parameters(
                     eta=eff_rec,
-                    DP_c = 10*1e3,
-                    DP_h = 10*1e3)
+                    DP_c = 0*1e3,
+                    DP_h = 0*1e3)
                 
                 Preheater.set_parameters(
                     eta=eff_pre,
-                    DP_c = 10*1e3,
+                    DP_c = 0*1e3,
                     DP_h = 0)
                 
                 #%% Add components to circuit
@@ -126,27 +126,30 @@ for T_cd in T_guess_cd:
                 m_dot_w_pre = 60  # kg/s
                 
                 ORC.add_source("CD_Water", CD_source, ORC.components["Condenser"], "m-su_C")
-                ORC.set_source_properties(T=T_su_w_cd, fluid='Water', P=P_su_w_cd, m_dot = m_dot_w_cd, target="CD_Water")
+                ORC.set_source_properties(T=T_su_w_cd, fluid='Water', P=P_su_w_cd, m_dot = m_dot_w_cd, target="Condenser:su_C")
                 
                 ORC.add_source("EV_Water", EV_source, ORC.components["Evaporator"], "m-su_H")
-                ORC.set_source_properties(T=T_su_w_ev, fluid='Water', P=P_su_w_ev, m_dot = m_dot_w_ev, target="EV_Water")
+                ORC.set_source_properties(T=T_su_w_ev, fluid='Water', P=P_su_w_ev, m_dot = m_dot_w_ev, target="Evaporator:su_H")
                 
                 ORC.add_source("PRE_Water", PRE_source, ORC.components["Preheater"], "m-su_H")
-                ORC.set_source_properties(T=T_su_w_pre, fluid='Water', P=P_su_w_pre, m_dot = m_dot_w_pre, target="PRE_Water")
+                ORC.set_source_properties(T=T_su_w_pre, fluid='Water', P=P_su_w_pre, m_dot = m_dot_w_pre, target="Preheater:su_H")
                 
                 #%% Inputs
                 m_dot_ref = 34.51 # kg/s
                 
                 #%% Cycle guess values
-                P_low = PropsSI("P", "T", T_cd+10, "Q", 1, fluid)
-                P_high = PropsSI("P", "T", T_ev-10, "Q", 0, fluid)
+                T_sat_guess_cd = T_cd+10
+                T_sat_guess_ev = T_ev+10
                 
-                h_pp_guess = PropsSI("H", "T", T_cd+10-SC_cd, "P", P_low, fluid)
+                P_low = PropsSI("P", "T", T_sat_guess_cd, "Q", 1, fluid)
+                P_high = PropsSI("P", "T", T_sat_guess_ev, "Q", 0, fluid)
+                
+                h_pp_guess = PropsSI("H", "T", T_sat_guess_cd-SC_cd, "P", P_low, fluid)
+                h_exp_guess = PropsSI("H", "T", T_sat_guess_ev-SC_cd, "P", P_high, fluid)
 
                 #%%
                 
-                ORC.set_cycle_guess(target="Pump:su", m_dot = m_dot_ref, h=h_pp_guess, p=P_low)
-                ORC.set_cycle_guess(target="Pump:ex", p=P_high)
+                ORC.set_cycle_guess(target="Pump:su", m_dot = m_dot_ref, h=h_pp_guess, p = P_low)
                 
                 # ORC.set_cycle_guess(target="Recuperator:su_C", p=P_high, m_dot=m_dot_ref, T=T_su_w_cd+Pinch_cd)
                 
@@ -154,21 +157,49 @@ for T_cd in T_guess_cd:
                 ORC.set_cycle_guess(target="Expander:ex", p=P_low)
                 
                 #%% CYCLE FIXED VARIABLES AND ITERATION VARIABLE
-                                
+                
                 ORC.set_iteration_variable(
-                    it_var  = 'Expander:ex-p',
-                    objective = 'Condenser:ex_H-p',
-                    obj_type = "Link"
+                    target  = 'Expander:ex',
+                    variable = 'p',
+                    guess = P_low,
+                    tolerance=1e-6
                 )
-                                
+                
+                # 'Condenser:ex_H-p',
+                
                 ORC.set_iteration_variable(
-                    it_var  = 'Pump:ex-p',
-                    objective = 'Evaporator:ex_C-p',
-                    obj_type = "Link"
+                    target  = ['Pump:ex', 'Expander:su'],
+                    variable = 'p',
+                    guess=P_high,
+                    tolerance=1e-6
+                    )
+                
+                ORC.set_iteration_variable(
+                    target="Expander:su",
+                    variable="h",
+                    guess=h_exp_guess,
+                    tolerance=1e-6
+                )
+                
+                #%% CYCLE FIXED VARIABLES AND ITERATION VARIABLE
+
+                ORC.set_residual_variable(
+                    target="Expander:su-p",
+                    tolerance=1e-3
+                )
+                
+                ORC.set_residual_variable(
+                    target="Pump:su-p",
+                    tolerance=1e-3
+                )
+                
+                ORC.set_residual_variable(
+                    target="Expander:su-h",
+                    tolerance=1e-3
                 )
                 
                 start = time.perf_counter()
-                ORC.solve(max_iter=100, method='anderson')
+                ORC.solve(method='fsolve')
                 end = time.perf_counter()
 
                 elapsed = end - start

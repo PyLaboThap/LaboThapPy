@@ -154,7 +154,11 @@ SC_cd = 7  # K
 N_exp = 6000 # RPM
 T_amb = 293 # K
 
-orc.set_cycle_input(target="Pump:su", m_dot = m_dot_ref, SC=SC_cd)
+P_LP_guess = PropsSI("P", "T", T_su_w_cd+10, "Q", 0, fluid)
+P_HP_guess = PropsSI("P", "T", T_su_w_ev-10, "Q", 1, fluid)
+
+orc.set_cycle_input(target="Pump:su", m_dot = m_dot_ref, SC=SC_cd, P=P_LP_guess)
+orc.set_cycle_input(target="Expander:su", p = P_HP_guess)
 orc.set_cycle_input(target="Expander:W", N_rot = N_exp)
 orc.set_cycle_input(target="Expander:Q_amb", T_amb=T_amb)
 
@@ -172,11 +176,8 @@ orc.set_cycle_input(target="Expander:Q_amb", T_amb=T_amb)
 # P_pp_su_ub = P_pp_ex_ub/rp_min
 # -> Si jamais besoin d'essayer plusieurs Guesses
 
-P_LP_guess = PropsSI("P", "T", T_su_w_cd+10, "Q", 0, fluid)
-P_HP_guess = PropsSI("P", "T", T_su_w_ev-10, "Q", 1, fluid)
-
 orc.set_iteration_variable(
-    target=["Pump:su", "Expander:ex"],
+    target=["Expander:ex"],
     variable="p",
     guess=P_LP_guess,
     tolerance=1e-6
