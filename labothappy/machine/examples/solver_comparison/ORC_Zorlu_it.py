@@ -17,30 +17,32 @@ import numpy as np
 # T_guess_ev = np.linspace(120,160,21) + 273.15
 # T_guess_cd = np.linspace(100,130,16) + 273.15
 
-T_guess_cd = [24+273.15-5]
-T_guess_ev = [141+273.15+5]
+T_guess_cd = np.linspace(-5,5,11) + 24+273.15
+T_guess_ev = np.linspace(-5,5,11) + 141+273.15
 
-SC_cd_vec = np.linspace(3,3,1)
-SH_ev_vec = np.linspace(3,3,1)
+SC_cd_vec = np.linspace(1,10,10)
+SH_ev_vec = np.linspace(1,10,10)
 
 # Instanciate Circuit
 fluid = "Cyclopentane"
 
-tries = len(T_guess_cd)*len(T_guess_ev)*len(SC_cd_vec)*len(SH_ev_vec)
 successes = 0
 failures = 0
 
 success_time = 0
+tries = 0
 
 for T_cd in T_guess_cd:
     for T_ev in T_guess_ev:
         for SC_cd in SC_cd_vec:
             for SH_ev in SH_ev_vec:
-
+                
+                tries += 1
+                
                 ORC = IterativeCircuit(fluid)
 
                 # Ignore debug printing
-                # ORC.mute_print()
+                ORC.mute_print()
                 
                 # Create components
                 Pump = PumpCstEff()
@@ -138,19 +140,20 @@ for T_cd in T_guess_cd:
                 m_dot_ref = 34.51 # kg/s
                 
                 #%% Cycle guess values
-                T_sat_guess_cd = T_cd+10
-                T_sat_guess_ev = T_ev+10
+                T_sat_guess_cd = T_cd
+                T_sat_guess_ev = T_ev
                 
                 P_low = PropsSI("P", "T", T_sat_guess_cd, "Q", 1, fluid)
                 P_high = PropsSI("P", "T", T_sat_guess_ev, "Q", 0, fluid)
                 
                 h_pp_guess = PropsSI("H", "T", T_sat_guess_cd-SC_cd, "P", P_low, fluid)
-                h_exp_guess = PropsSI("H", "T", T_sat_guess_ev-SC_cd, "P", P_high, fluid)
+                h_exp_guess = PropsSI("H", "T", T_sat_guess_ev+2*SH_ev, "P", P_high, fluid)
 
                 #%%
-                
-                ORC.set_cycle_guess(target="Pump:su", m_dot = m_dot_ref, h=h_pp_guess, p = P_low)
-                
+                                
+                ORC.set_cycle_guess(target="Pump:su", m_dot = m_dot_ref, h=h_pp_guess, p=P_low)
+                ORC.set_cycle_guess(target="Pump:ex", p=P_high)
+                                
                 # ORC.set_cycle_guess(target="Recuperator:su_C", p=P_high, m_dot=m_dot_ref, T=T_su_w_cd+Pinch_cd)
                 
                 ORC.set_cycle_guess(target="Expander:su", p=P_high, m_dot = m_dot_ref, SH=SH_ev*2)
@@ -163,10 +166,8 @@ for T_cd in T_guess_cd:
                     variable = 'p',
                     guess = P_low,
                     tolerance=1e-6
-                )
-                
-                # 'Condenser:ex_H-p',
-                
+                    )
+                                
                 ORC.set_iteration_variable(
                     target  = ['Pump:ex', 'Expander:su'],
                     variable = 'p',
@@ -179,7 +180,7 @@ for T_cd in T_guess_cd:
                     variable="h",
                     guess=h_exp_guess,
                     tolerance=1e-6
-                )
+                    )
                 
                 #%% CYCLE FIXED VARIABLES AND ITERATION VARIABLE
 
@@ -199,18 +200,22 @@ for T_cd in T_guess_cd:
                 )
                 
                 start = time.perf_counter()
-                ORC.solve(method='fsolve')
+                ORC.solve(method='newton')
                 end = time.perf_counter()
 
                 elapsed = end - start
 
                 if ORC.converged:
-                    print(f"Success !")
+                    # print(f"Success !")
                     successes += 1
                     success_time += elapsed
                 else:
-                    print(f"Failure... (conv)")
-                    
+                    pass
+                    # print(f"Failure... (conv)")
+                
+                if np.mod(tries,100) == 0:
+                    print(f"Tries : {tries}")
+                
                 
 # print(f"Success : {successes}/{tries} {round(successes/tries * 100,2)} %")
 # print(f"Success Avg Time : {round(success_time/(successes+1e-8),5)} s")                

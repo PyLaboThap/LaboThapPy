@@ -384,8 +384,6 @@ class IterativeCircuit(BaseCircuit):
         # 6️⃣ Compute residuals
         residuals = []
 
-        print(self.components['Evaporator'].model.su_C.T)
-
         for rv in self.res_vars:
             var      = rv["variable"]
             comp_key = f"{rv['component']}:{rv['connector']}"
@@ -523,7 +521,8 @@ class IterativeCircuit(BaseCircuit):
     
             norm = np.linalg.norm(F)
             if norm < tol:
-                print(f"[newton] converged in {it+1} iterations (|F|={norm:.2e})")
+                if self.print_flag:
+                    print(f"[newton] converged in {it+1} iterations (|F|={norm:.2e})")
                 return x
     
             # Finite-difference Jacobian  J[i,j] = dF_i/dx_j
@@ -566,24 +565,24 @@ class IterativeCircuit(BaseCircuit):
         self.reset_solved_marker()
         x0 = self._get_iteration_vector()
     
-        # try:
-        if method == 'fsolve':
-            sol = self._solve_fsolve(x0)
+        try:
+            if method == 'fsolve':
+                sol = self._solve_fsolve(x0)
+    
+            elif method == 'newton':
+                sol = self._solve_newton(x0)
+    
+            elif method in root_methods:
+                sol = self._solve_root(x0, root_method=method)
+    
+            else:
+                raise ValueError(f"Unknown method '{method}'. "
+                                 f"Choose from: 'fsolve', 'newton', a root method: {root_methods}.")
 
-        elif method == 'newton':
-            sol = self._solve_newton(x0)
-
-        elif method in root_methods:
-            sol = self._solve_root(x0, root_method=method)
-
-        else:
-            raise ValueError(f"Unknown method '{method}'. "
-                             f"Choose from: 'fsolve', 'newton', a root method: {root_methods}.")
-
-        # except Exception as e:
-        #     print(f"Error during solving ({method}): {e}")
-        #     self.converged = False
-        #     return
+        except Exception as e:
+            print(f"Error during solving ({method}): {e}")
+            self.converged = False
+            return
     
         self._apply_iteration_vector(sol)
         residuals = self._solve_circuit(sol)

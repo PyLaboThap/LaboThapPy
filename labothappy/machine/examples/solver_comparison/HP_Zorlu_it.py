@@ -12,8 +12,8 @@ from CoolProp.CoolProp import PropsSI
 import time
 import numpy as np
 
-SC_cd_vec = np.linspace(1,10,10)
-SH_ev_vec = np.linspace(1,10,10)
+SC_cd_vec = np.linspace(3,3,1)
+SH_ev_vec = np.linspace(3,3,1)
 # eff_rec_vec = np.linspace(0, 1, 11)
 
 # Instanciate Circuit
@@ -50,17 +50,17 @@ for SC_cd in SC_cd_vec:
         # Condenser
         Pinch_cd = 10  # K
         SC_cd = SC_cd # 3  # K
-        DP_h_cd = 10e3
+        DP_h_cd = 0
         
         # Evaporator
         Pinch_ev = 3  # K
         SH_ev = SH_ev # 5 # K
-        DP_c_ev = 10e3
+        DP_c_ev = 0
 
         # Recuperator
         eff_rec = 0.8 # 0.8 -
-        DP_h_rec = 10e3
-        DP_c_rec = 10e3
+        DP_h_rec = 0
+        DP_c_rec = 0
         
         # Add fluid sources
         CD_source = MassConnector('Water')
@@ -178,7 +178,7 @@ for SC_cd in SC_cd_vec:
         elapsed = end - start
 
         if HP.converged:
-            print(f"Converged in {HP.n_it} iterations ! res_energy : {HP.res_energy}")
+            print(f"Converged in {HP.n_it} iterations !") # res_energy : {HP.res_energy}")
             successes += 1
             success_time += elapsed
         else:
