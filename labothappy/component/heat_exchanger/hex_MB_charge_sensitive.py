@@ -1788,9 +1788,19 @@ class HexMBChargeSensitive(BaseComponent):
                 A_t = np.pi*self.params['Tube_OD']*(self.params['Tube_L']*(1 - self.params['Fin_t']/self.params['Fin_spacing'])*self.params['n_tubes'] + L_t)
                 
                 self.params['A_out_tot'] = A_r + A_t
+            
+            elif self.params['Fin_type'] == "Bank_staggered":
     
+                "HT Area computations"
+                
+                # Fin HT area
+                self.params['N_fins'] = self.params['Tube_L']*self.params['Fin_per_m'] # Number of Fins
+                self.params['Fin_spacing'] = (self.params['Tube_L'] - self.params['N_fins']*self.params['Fin_t'])/(self.params['N_fins'])
+                
+                self.params['A_out_tot'] = self.params['A_tot']
+                
             else:
-                raise ValueError("Fin geometry is not 'Annular' nor 'Square'")
+                raise ValueError("Fin geometry is not 'Annular', 'Bank_staggered' nor 'Square'")
             
             self.params['A_in_tot'] = np.pi*(self.params['Tube_OD'] - 2*self.params['Tube_t'])*self.params['Tube_L']*self.params['n_tubes']
                         

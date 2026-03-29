@@ -286,6 +286,60 @@ def htc_tube_and_fins_square(fluid, params, P_in, h_in, m_dot_in):
     
     return h_rdc, A_tot
 
+def htc_tube_and_fins_bank(fluid, params, P_in, h_in, m_dot_in):
+    """
+    Parameters
+    ----------
+    fluid : Fluid Name
+    
+    params : HTX parameters dictionnary
+    
+    P_in : Inlet fluid pressure [Pa]
+    
+    T_in : Inlet fluid temperature [K]
+    
+    m_dot_in : Inlet fluid flow rate [kg/s]
+
+    Returns
+    -------
+    A_tot : Total outer area
+        
+    A_in : Tube internal area
+    
+    Important note: 
+    No time for implementing a good correlation. This is a preliminary implementation for tube banks 
+    Reynolds calculated from:
+    Y. Zhong, J. Zhao, L. Zhao, G. Gao, and X. Zhu, ‘Heat Transfer and Flow Resistance in Crossflow over Corrugated Tube Banks’, Energies, vol. 17, no. 7, Mar. 2024, doi: 10.3390/en17071641.
+
+    """
+    
+    rho_in = PropsSI("D", "P", P_in, "H", h_in, fluid)
+    
+    nu_in = PropsSI("V", "P", P_in, "H", h_in, fluid)
+    
+    A_front = params['Tube_L'] * params['w']
+    
+    u_in = m_dot_in / (rho_in *A_front)
+    
+    sigma_V = params['pitch_V']/params['Tube_OD']
+    sigma_H = params['pitch_H']/params['Tube_OD']
+    S_D = np.sqrt((sigma_H/2)**2 + sigma_V**2)
+    
+    Phi_V = 1 - np.pi / (4*sigma_V)
+    Phi_H = 1 - np.pi / (4*sigma_H)
+    
+    l = np.pi / 2 * params['Tube_OD']
+    
+    u_max = u_in * sigma_H / (2*S_D-1)
+    
+    Re = u_max * params['Tube_OD'] / nu_in
+
+    h = 0.27 * Re**0.63 * params['k_fin'] / params['Tube_OD']
+    
+    A_tot = params['A_tot']
+
+    return h, A_tot
+
 def htc_tube_and_fins(fluid, params, P_in, h_in, m_dot_in, Fin_type):
     """
     Parameters
@@ -324,6 +378,9 @@ def htc_tube_and_fins(fluid, params, P_in, h_in, m_dot_in, Fin_type):
         
     elif Fin_type == "Square":
         h_rdc, A_tot = htc_tube_and_fins_square(fluid, params, P_in, h_in, m_dot_in)
+        
+    elif Fin_type == "Bank_staggered":
+        h_rdc, A_tot = htc_tube_and_fins_bank(fluid, params, P_in, h_in, m_dot_in)
     
     return h_rdc, A_tot
 
@@ -361,4 +418,3 @@ def eta_fin_straight_rect(t_fin, L_fin, h_c, k_fin, D_fin, D_tube):
     psi_eta = 1 - 0.016*(D_fin/D_tube - 1)*(1+ np.tanh(2*mL - 1))
     
     return eta_f, psi_eta
-
