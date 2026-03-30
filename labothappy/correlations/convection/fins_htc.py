@@ -52,7 +52,10 @@ def htc_tube_and_fins_annular(fluid, params, P_in, h_in, m_dot_in):
     Tube_ID = params['Tube_OD'] - 2*params['Tube_t']
     n_tpr = n_tubes/(params['n_rows']*params['Tube_pass'])
     
-    HTX_L = params['L']
+    if 'L' in params:
+        HTX_L = params['L']
+    else:
+        HTX_L = params['Tube_L'] # adding if no "L available
     HTX_W = params['w']
     
     Fin_L = (params['Fin_OD'] - params['Tube_OD'])/2
@@ -114,8 +117,13 @@ def htc_tube_and_fins_annular(fluid, params, P_in, h_in, m_dot_in):
                                            
     "Bundle shape param X"
     
-    sigma_1 = params['pitch_ratio']
-    sigma_2 = params['pitch_ratio']
+    if 'pitch_V' in params and 'pitch_H' in params:
+        sigma_1 = params['pitch_V']/params['Tube_OD']
+        sigma_2 = params['pitch_H']/params['Tube_OD']
+        
+    else: # this was the formula already implemented, I added an option if multiple pitch's were available
+        sigma_1 = params['pitch_ratio']
+        sigma_2 = params['pitch_ratio'] 
     
     X = sigma_1/sigma_2 - 1.26/Psi_f - 2
         
@@ -254,8 +262,8 @@ def htc_tube_and_fins_square(fluid, params, P_in, h_in, m_dot_in):
 
     "Bundle shape param X"
     
-    sigma_1 = params['pitch_V']/params['Tube_OD']
-    sigma_2 = params['pitch_H']/params['Tube_OD']
+    sigma_1 = params['pitch_V']/params['Tube_OD'] # transverse
+    sigma_2 = params['pitch_H']/params['Tube_OD'] # longitudinal
     
     X = sigma_1/sigma_2 - 1.26/Psi_f - 2
         
