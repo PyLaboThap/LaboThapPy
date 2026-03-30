@@ -1380,6 +1380,13 @@ class HexMBChargeSensitive(BaseComponent):
             
             alpha_c_2phase = choi_boiling(self.AS_C, p_c_mean, x_c, D_in, G_c, q)
         
+        # test, not sure at all this is valid
+        elif self.C.Correlation_2phase == "Shell_Kern_HTC":
+            try: 
+                alpha_c_2phase, self.Re_h[k], self.Pr_h[k] = shell_htc_kern(self.mdot_h, T_wall_c, Tc_mean, p_c_mean, self.AS_H, self.params) 
+            except:
+                alpha_c_2phase, self.Re_h[k], self.Pr_h[k] = shell_htc_kern(self.mdot_h, T_wall_c, Tc_mean-0.1, p_c_mean, self.AS_H, self.params)       
+
         else:
             raise ValueError("Correlation not found for Cold Side 2-Phase")
             
@@ -1757,13 +1764,14 @@ class HexMBChargeSensitive(BaseComponent):
             if self.H.Correlation_1phase == "Shell_Bell_Delaware_HTC" or self.C.Correlation_1phase == "Shell_Bell_Delaware_HTC":
                 pass # Implement interdependence computation
 
-            if self.H.Correlation_1phase == "Shell_Kern_HTC" or self.C.Correlation_1phase == "Shell_Kern_HTC":                
+            if self.H.Correlation_1phase == "Shell_Kern_HTC" or self.C.Correlation_1phase == "Shell_Kern_HTC":            
                 self.params['cross_passes'] = np.round(self.params['Tube_L']/self.params['central_spacing'])-1
 
         elif self.HTX_Type == 'Tube&Fins':
             self.params['pitch'] = self.params['pitch_ratio']*self.params['Tube_OD']
-            self.params['pitch_V'] = self.params['pitch_ratio']*self.params['Tube_OD']
-            self.params['pitch_H'] = self.params['pitch_ratio']*self.params['Tube_OD']
+            # self.params['pitch_V'] = self.params['pitch_ratio']*self.params['Tube_OD']
+            # self.params['pitch_H'] = self.params['pitch_ratio']*self.params['Tube_OD']
+            # In some TEMA sheets, 2 pitches are described, not only one. So in the end, self.params['pitch_H']=self.params['pitch_H']
             
             if self.params['Fin_type'] == "Annular":
                 self.params['N_fins'] = self.params['Tube_L']*self.params['Fin_per_m'] - 1 # Number of Fins
