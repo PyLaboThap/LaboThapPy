@@ -152,25 +152,28 @@ def f_lmtd2(R,P,params,C_r):
     else:
         print("No e-NTU Correlation implemented for other Flow_Type than : 'Shell&Tube', 'CrossFlow', 'ParallelFlow' ")        
     
-    out_fsolve = fsolve(f, 1, full_output= 1)#, args=(), fprime=None, full_output=0, col_deriv=0, xtol=1.49012e-08, maxfev=0, band=None, epsfcn=None, factor=100, diag=None)    
-    NTU, res_NTU,flag_ntu = float(out_fsolve[0]), float(out_fsolve[1].get('fvec')), out_fsolve[2]
+    if not params['Flow_Type'] == 'Counterflow':
+        out_fsolve = fsolve(f, 1, full_output= 1)#, args=(), fprime=None, full_output=0, col_deriv=0, xtol=1.49012e-08, maxfev=0, band=None, epsfcn=None, factor=100, diag=None)    
+        NTU, res_NTU,flag_ntu = float(out_fsolve[0]), float(out_fsolve[1].get('fvec')), out_fsolve[2]
     
-    if abs(res_NTU)< 1e-3  and flag_ntu > 0:
-        if  R==1:
-            F=P/NTU/(1-P)
-        elif P <= 1e-04:
-            F = 1
+        if abs(res_NTU)< 1e-3  and flag_ntu > 0:
+            if  R==1:
+                F=P/NTU/(1-P)
+            elif P <= 1e-04:
+                F = 1
+            else:
+                F = epsilon*math.log((Pbis-1)/(Rbis*Pbis -1))/NTU/Pbis/(Rbis-1);
+            flag = flag_ntu
         else:
-            F = epsilon*math.log((Pbis-1)/(Rbis*Pbis -1))/NTU/Pbis/(Rbis-1);
-        flag = flag_ntu
-    else:
-
-        F = 1
-        flag = flag_ntu
+    
+            F = 1
+            flag = flag_ntu
         
     if params['Flow_Type'] == 'Shell&Tube':
         if params['Tube_pass'] > 1 and P < 0.1:
             F = 1
+    elif params['Flow_Type'] == 'Counterflow':
+        F = 1
         
     return F
 
