@@ -7,8 +7,15 @@ Created on Tue Jul 30 14:32:39 2024
 
 from component.base_component import BaseComponent
 
-from correlations.convection.pipe_htc import gnielinski_pipe_htc 
+# from correlations.convection.pipe_htc import gnielinski_pipe_htc 
 from correlations.heat_exchanger.e_NTU import e_NTU
+from correlations.convection.plate_htc import han_BPHEX_DP, water_plate_HTC, martin_BPHEX_HTC, muley_manglik_BPHEX_HTC, han_boiling_BPHEX_HTC, han_cond_BPHEX_HTC, thonon_plate_HTC, kumar_plate_HTC, martin_holger_plate_HTC, amalfi_plate_HTC, shah_condensation_plate_HTC
+from correlations.convection.pipe_htc import gnielinski_pipe_htc, boiling_curve, horizontal_tube_internal_condensation, horizontal_flow_boiling, flow_boiling_gungor_winterton, Liu_sCO2, Cheng_sCO2, thome_condensation, choi_boiling
+from correlations.convection.shell_and_tube_htc import shell_bell_delaware_htc, shell_htc_kern
+from correlations.convection.tube_bank_htc import ext_tube_film_condens
+from correlations.convection.fins_htc import htc_tube_and_fins
+from correlations.convection.printed_circuit_htc import PCHE_Lee, PCHE_conv
+
 
 from connector.mass_connector import MassConnector
 from connector.work_connector import WorkConnector
@@ -16,6 +23,10 @@ from connector.heat_connector import HeatConnector
 
 from CoolProp.CoolProp import PropsSI
 import CoolProp.CoolProp as CP
+
+
+
+from toolbox.geometries.heat_exchanger.c_geometry_HXs_Zorlu import Zorlu_HXs
 
 class HexeNTU(BaseComponent):
     
@@ -53,6 +64,7 @@ class HexeNTU(BaseComponent):
     **Parameters**:
             
         Flow_Type : Flow configuration of the fluid ('CounterFlow', 'CrossFlow', 'Shell&Tube', 'ParallelFlow') [-]
+        hex_type: Type of heat exchanger ('Shell&Tubes', 'Tube&Fins', 'Plate')
         A_htx: Total heat exchange area [m²]
         L_HTX: Length of the heat exchanger [m]
         V_HTX: Volume of the heat exchanger [m³]
@@ -107,10 +119,127 @@ class HexeNTU(BaseComponent):
 
     def get_required_parameters(self):
         """ Returns the list of required parameters to describe the geometry and physical configuration """
-        return ['A_htx', 'L_HTX', 'V_HTX', 'Flow_Type',
-                'A_canal_H', 'A_canal_C', 'D_h_C', 'D_h_H',
-                'k_plate', 't_plate', 'n_plates',
-                'co_pitch', 'chevron_angle', 'fouling']
+        HEX_TYPE = ['hex_type']
+        
+        if self.hex_type == 'Plate':
+            geometry_parameters = ['A_htx', 'L_HTX', 'V_HTX', 'Flow_Type',
+                               'A_canal_H', 'A_canal_C', 'D_h_C', 'D_h_H',
+                               'k_plate', 't_plate', 'n_plates',
+                               'co_pitch', 'chevron_angle', 'fouling']
+        elif self.hex_type == 'Shell&Tubes':
+            geometry_parameters = ['A_htx'] 
+            # to be continued
+        elif self.hex_type == 'Tube&Fins':
+            geometry_parameters = ['A_htx'] 
+            # to be continued
+        else:
+            print("Unrecognised HEX type. hex_type shall be equal to 'Shell&Tubes', 'Tube&Fins' or 'Plate'.")
+        
+        return HEX_TYPE + geometry_parameters
+    
+    
+    
+    
+    def A_in(self, hex_type = None):
+        if self.params['hex_type'] == 'Plate':
+            A_in_c = self.params['A_canal_C']
+            A_in_h = self.params['A_canal_H']
+        elif self.params['hex_type'] == 'Shell&Tubes':
+            # No
+            A_in_c = self.params['A_canal_C']
+            A_in_h = self.params['A_canal_H']
+            #NO
+        elif self.params['hex_type'] == 'Tube&Fins':
+            # No
+            A_in_c = self.params['A_canal_C']
+            A_in_h = self.params['A_canal_H']
+            #NO
+        
+        return A_in_h, A_in_c
+    
+    
+    # Setting heat transfer coefficient, user defined or from a correlation
+    def set_htc(self, htc_type = "Correlation", Corr_H = None, Corr_C = None, UD_H_HTC = None, UD_C_HTC = None):
+        """
+        General Parameters : 
+            
+            - htc_type : Heat Transfer coefficient type ('User-Defined' or 'Correlation')
+            - Corr_H   : Correlations for hot side
+            - Corr_C   : Correlations for cold side
+            - UD_H_HTC : User-Defined HTC for hot side
+            - UD_C_HTC : User-Defined HTC for cold side
+            
+        """
+        
+        self.params['htc_type'] = htc_type
+        # self.check_calculable()
+        
+        self.UD_C_HTC = UD_C_HTC
+        self.UD_H_HTC = UD_H_HTC
+        self.Corr_H = Corr_H
+        self.Corr_C = Corr_C
+        
+        if htc_type == "User-Defined":
+            
+            self.H.HeatExchange_Correlation = "User-Defined"
+            self.C.HeatExchange_Correlation = "User-Defined"
+            
+            # User-Defined Heat Transfer Coefficients (hot):
+            self.H.h_liq = UD_H_HTC['Liquid']
+            self.H.h_vap = UD_H_HTC['Vapor']
+            self.H.h_twophase = UD_H_HTC['Two-Phase']
+            self.H.h_vapwet = UD_H_HTC['Vapor-wet']
+            self.H.h_tpdryout = UD_H_HTC['Dryout']
+            self.H.h_transcrit = UD_H_HTC['Transcritical']
+        
+            # User-Defined Heat Transfer Coefficients (cold):
+            self.C.h_liq = UD_C_HTC['Liquid']
+            self.C.h_vap = UD_C_HTC['Vapor']
+            self.C.h_twophase = UD_C_HTC['Two-Phase']
+            self.C.h_vapwet = UD_C_HTC['Vapor-wet']
+            self.C.h_tpdryout = UD_C_HTC['Dryout']
+            self.C.h_transcrit = UD_C_HTC['Transcritical']
+        
+        else: 
+            # Type 
+            self.H.HeatExchange_Correlation = "Correlation"
+            self.C.HeatExchange_Correlation = "Correlation"
+            
+            if self.HTX_Type == 'Plate' or self.HTX_Type == 'Shell&Tube' or self.HTX_Type == 'Tube&Fins' or self.HTX_Type == 'PCHE':
+                
+                self.H.Correlation_1phase = Corr_H["1P"]
+                if "2P" in Corr_H:
+                    self.H.Correlation_2phase = Corr_H["2P"]
+                else:
+                    self.H.Correlation_2phase = None
+                    
+                if "SC" in Corr_H:
+                    self.H.Correlation_TC = Corr_H["SC"]
+                else:
+                    self.H.Correlation_TC = None
+                
+                self.C.Correlation_1phase = Corr_C["1P"]
+                if "2P" in Corr_C:
+                    self.C.Correlation_2phase = Corr_C["2P"]
+                else:
+                    self.C.Correlation_2phase = None
+
+                if "SC" in Corr_C:
+                    self.C.Correlation_TC = Corr_C["SC"]
+                else:
+                    self.C.Correlation_TC = None
+
+            if self.C.Correlation_2phase == "Boiling_curve": # Compute the fluid boiling curve beforehand
+                try:
+                    self.AS_C = CP.AbstractState("BICUBIC&HEOS", self.su_C.fluid)   
+                    self.AS_C.update(CP.PQ_INPUTS, self.su_C.p, 0)
+                    
+                    T_sat = self.AS_C.T()
+                    (h_boil, DT_vect) = boiling_curve(self.params['Tube_OD'], self.su_C.fluid, T_sat, self.su_C.p)
+                    self.C_f_boiling = interp1d(DT_vect,h_boil)
+                except:
+                    self.C_f_boiling = interp1d([0,10000],[20000,20000])
+    
     
     def solve(self):
         self.check_calculable()
@@ -161,11 +290,14 @@ class HexeNTU(BaseComponent):
             Pr_c = self.AS_C.Prandtl()
             k_c = self.AS_C.conductivity()
 
-
             
-            G_h = self.su_H.m_dot/self.params['A_canal_H']
-            G_c = self.su_C.m_dot/self.params['A_canal_C']
+            A_in_h, A_in_c = self.A_in(hex_type = self.params['hex_type'])
+            
+            G_h = self.su_H.m_dot/A_in_h
+            G_c = self.su_C.m_dot/A_in_c
                         
+            
+            # CHANGE THAT
             h_h = gnielinski_pipe_htc(mu_h, Pr_h, Pr_h, k_h, G_h, self.params['D_h_H'], self.params['L_HTX'])[0]
             h_c = gnielinski_pipe_htc(mu_c, Pr_c, Pr_c, k_c, G_c, self.params['D_h_C'], self.params['L_HTX'])[0]
 
@@ -188,21 +320,22 @@ class HexeNTU(BaseComponent):
             h_h_Tc = self.AS_H.hmass()
 
             
+            # Special cases for incompressibles
             
-            # DH_pc_c = PropsSI('H','Q',1,'P',self.su_cold.p,self.su_cold.fluid) - PropsSI('H','Q',0,'P',self.su_cold.p,self.su_cold.fluid)
-            
-            self.AS_C.update(CP.PQ_INPUTS, self.su_C.p, 0)
-            h_l_cold = self.AS_C.hmass()
-            
-            self.AS_C.update(CP.PQ_INPUTS, self.su_C.p, 1)
-            h_v_cold = self.AS_C.hmass()
-            
-            DH_pc_c = h_v_cold - h_l_cold
+            if "INCOMP" not in self.su_C.fluid:
+                
+                self.AS_C.update(CP.PQ_INPUTS, self.su_C.p, 0)
+                h_l_cold = self.AS_C.hmass()
+                
+                self.AS_C.update(CP.PQ_INPUTS, self.su_C.p, 1)
+                h_v_cold = self.AS_C.hmass()
+                
+                DH_pc_c = h_v_cold - h_l_cold
+            else:
+                DH_pc_c = 0
 
-
-            # Special case for incompressibles
+            
             if "INCOMP" not in self.su_H.fluid:
-                # DH_pc_h = PropsSI('H','Q',1,'P',self.su_hot.p,self.su_hot.fluid) - PropsSI('H','Q',0,'P',self.su_hot.p,self.su_hot.fluid)
                 
                 self.AS_H.update(CP.PQ_INPUTS, self.su_H.p, 0)
                 h_l_hot = self.AS_H.hmass()
@@ -219,7 +352,7 @@ class HexeNTU(BaseComponent):
             
             Qmax_c = self.su_C.m_dot*((h_c_Th - self.su_C.h))
             Qmax_h = self.su_H.m_dot*((self.su_H.h - h_h_Tc))
-                        
+            
             Qmax = min(Qmax_c, Qmax_h)
             
             Q = eps*Qmax  # Actual heat exchanged
@@ -254,3 +387,16 @@ class HexeNTU(BaseComponent):
 
         else:
             print("Heat Exchanger component is not defined. Ensure it is solved first.")
+            
+            
+# if __name__ == "__main__":
+    # geom_obj = Zorlu_HXs()
+    # geom_obj.set_parameters("ORC_recuperator")
+    
+    # HX = HexeNTU()
+    # HX.set_parameters(**geom_obj.geom)
+    
+    # A_c, A_h = HX.A_in(hex_type = 'Plate')
+    
+    
+    
