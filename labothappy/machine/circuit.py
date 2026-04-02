@@ -514,7 +514,6 @@ class Circuit(BaseCircuit):
                 
             self.components[component_name].solve()
 
-        # self.print_states()
         return
 
     #%% -----------------------------------------------------------------------
@@ -612,7 +611,7 @@ class Circuit(BaseCircuit):
     # Main solve entry point
     # -----------------------------------------------------------------------
 
-    def solve(self, max_iter: int = 30, method: str = 'broyden1',
+    def solve(self, max_iter: int = 30, method: str = 'wegstein',
               root_tol: float = 1e-10, tol=1e-5):
         """
         Solve the circuit.
@@ -646,7 +645,13 @@ class Circuit(BaseCircuit):
                 self.solve_start_components.append(component)
 
         for start in self.solve_start_components:
-            self.recursive_solve(start)
+            
+            try:
+                self.recursive_solve(start)
+            except:
+                self.converged = False
+                return
+            
             if self.check_all_component_solved():
                 break
 
@@ -656,6 +661,7 @@ class Circuit(BaseCircuit):
                             if not self.components[c].model.check_calculable()]
                 print(f"Setup failed. Blocking components: {blocking}")
             return
+
 
         if self.print_flag:
             print(f"Setup complete. Solving order: {self.solving_order}")
@@ -670,6 +676,7 @@ class Circuit(BaseCircuit):
         self.convergence_tolerance = tol
         use_wegstein = (method == 'wegstein')
 
+
         for i in range(max_iter):
             self._iteration_count += 1
 
@@ -681,11 +688,11 @@ class Circuit(BaseCircuit):
             self._enforce_fixed_properties()
             self._substitution_step(use_wegstein)
             
-            # try:
-            self._sequential_sweep()
-            # except:
-            #     self.converged = False
-            #     return
+            try:
+                self._sequential_sweep()
+            except:
+                self.converged = False
+                return
                 
             current_snapshot = self._snapshot_connector_states()
             if self._check_convergence(current_snapshot):
@@ -702,7 +709,8 @@ class Circuit(BaseCircuit):
                     
                 return
             self._prev_connector_states = current_snapshot
-        
+         
+
             # Q_cd = self.components['Condenser'].model.Q.Q_dot
             # Q_ev = self.components['Evaporator'].model.Q.Q_dot
             # W_cp = self.components['Compressor'].model.W.W_dot

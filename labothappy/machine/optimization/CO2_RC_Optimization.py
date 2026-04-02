@@ -7,8 +7,8 @@ Created on Wed Jul 16 11:12:02 2025
 
 #%% Imports
 
-from machine.examples.CO2_Heat_Pumps.CO2_HeatPump_circuit import IHX_CO2_HP, IHX_EXP_CO2_HP
-from machine.examples.CO2_Transcritical_Circuits.CO2_Transcritical_circuit import REC_CO2_TC
+from labothappy.machine.examples.CO2_Heat_Pumps.CO2_HeatPump_circuit import IHX_CO2_HP, IHX_EXP_CO2_HP
+from labothappy.machine.examples.CO2_Transcritical_Circuits.CO2_Transcritical_circuit import REC_CO2_TC
 from connector.mass_connector import MassConnector
 
 import numpy as np
@@ -88,9 +88,9 @@ class CO2RCOptimizer(object):
             CO2_RC = self.RC
     
             CO2_RC.solve()
-
+    
             # Pump
-
+    
             DP = 50*1e3
             rho = CO2_RC.components['GasHeater'].model.su_H.D
             mdot = CO2_RC.components['GasHeater'].model.su_H.m_dot
@@ -109,8 +109,8 @@ class CO2RCOptimizer(object):
             
             self.W_dot_net = CO2_RC.components['Expander'].model.W.W_dot - CO2_RC.components['Pump'].model.W.W_dot - self.pp_power
     
-            self.eta = (self.W_dot_net) / CO2_RC.components['GasHeater'].model.Q_dot.Q_dot 
-            
+            self.eta = (self.W_dot_net) / CO2_RC.components['GasHeater'].model.Q.Q_dot 
+                
 
         except:
             return 1000
@@ -192,7 +192,7 @@ class CO2RCOptimizer(object):
 
 Optimizer = CO2RCOptimizer('CO2')
 
-T = 95
+T = 100
 
 if T == 95:
     Optimizer.set_parameters(

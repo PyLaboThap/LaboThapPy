@@ -944,6 +944,11 @@ class ShellAndTubeSizingOpt(BaseComponent):
                 
         return self.global_best_position, self.global_best_score, self.best_particle
     
+    def CAPEX_computation(self):
+        
+        return 
+    
+    
     def opt_size(self, n_particles = 50, max_iter = 50, obj = 'mass', print_flag = 0):
         
         self.obj = obj

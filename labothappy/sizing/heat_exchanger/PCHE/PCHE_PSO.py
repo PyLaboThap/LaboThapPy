@@ -75,10 +75,6 @@ class PCHESizingOpt(BaseComponent):
         self.HX.params['H_DP_ON'] = self.params['H_DP_ON']
         self.HX.params['C_DP_ON'] = self.params['C_DP_ON']
         
-        # Set DP
-        print(H_DP)
-        print(C_DP)
-        
         if DP_type == "Correlation":
             self.HX.set_DP(DP_type = 'Correlation_Disc', Corr_H = H_DP, Corr_C = C_DP)
         else:
@@ -130,7 +126,7 @@ class PCHESizingOpt(BaseComponent):
         
         # Penalties 
         if self.Q_dot_constr:
-            pen_Q = max(self.Q_dot_constr - self.HX.Q,0)
+            pen_Q = max(self.Q_dot_constr - self.HX.Q.Q_dot,0)
         else:
             pen_Q = 0
         
@@ -356,7 +352,7 @@ class PCHESizingOpt(BaseComponent):
             print("-------------")
             print(f"A_h : {round(self.HX.A_h,2)} [m^2]")
             print(f"A_c : {round(self.HX.A_c,2)} [m^2]")
-            print(f"Q_dot : {round(self.HX.Q,1)} [W]")
+            print(f"Q_dot : {round(self.HX.Q.Q_dot,1)} [W]")
             print(f"DP_c : {round(self.HX.DP_c,1)} [Pa]")
             print(f"DP_h : {round(self.HX.DP_h,1)} [Pa]")
             print(f"m_HX : {round(self.m_HX,1)} [kg]")
@@ -398,8 +394,8 @@ if __name__ == "__main__":
     H_Corr = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
     C_Corr = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
     
-    H_DP = "Gnielinski_DP"
-    C_DP = "Gnielinski_DP"
+    H_DP = {"1P" : "Gnielinski_DP", "SC" : "Gnielinski_DP"}
+    C_DP = {"1P" : "Gnielinski_DP", "SC" : "Gnielinski_DP"}
     
     HX_opt.set_corr(H_Corr, C_Corr, H_DP, C_DP)
     

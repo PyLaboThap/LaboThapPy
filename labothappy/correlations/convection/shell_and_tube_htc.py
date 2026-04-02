@@ -181,8 +181,6 @@ def shell_htc_kern(m_dot, T_wall, T_in, P_in, AS, params):
     S_T = s_max_kern(params['Tube_OD'], params['pitch_ratio'], params['Shell_ID'], params['central_spacing'], params['tube_layout']) # m^
     D_hydro = d_h(params['Tube_OD'], params['pitch_ratio'], params['tube_layout'])
 
-    print(mu)
-
     V_t = m_dot/(S_T*rho)
     
     Re = rho*V_t*(D_hydro/mu)
@@ -496,14 +494,6 @@ def shell_bell_delaware_htc(m_dot_shell, T_shell, T_shell_w, P_shell, shell_flui
     "1.7) Final Heat Transfer Coefficient"
     
     h = h_id*J_c*J_l*J_b*J_r*J_s
-    
-    print(f"h_id : {h_id}")
-    print(f"J_c : {J_c}")
-    print(f"J_l : {J_l}")
-    print(f"J_b : {J_b}")
-    print(f"J_r : {J_r}")
-    print(f"J_s : {J_s}")
-
     
     return h
 

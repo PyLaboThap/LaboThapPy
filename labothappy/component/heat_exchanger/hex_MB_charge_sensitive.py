@@ -1260,6 +1260,7 @@ class HexMBChargeSensitive(BaseComponent):
             elif self.H.Correlation_1phase == 'Tube_And_Fins':
                 alpha_h = htc_tube_and_fins(self.H_su.fluid, self.params, p_h_mean, havg_h, self.mdot_h, self.params['Fin_type'])[0]
             alpha_h_2phase = ext_tube_film_condens(self.params['Tube_OD'], self.H_su.fluid, Th_mean, T_wall_h, V_flow)
+            
         if self.H.Correlation_2phase == 'Horizontal_Tube_Internal_Condensation':
             self.AS_H.update(CP.HmassP_INPUTS, havg_h, p_h_mean)
             mu_h = self.AS_H.viscosity()
@@ -1957,7 +1958,7 @@ class HexMBChargeSensitive(BaseComponent):
             self.h_hdew_ideal    = self.AS_H.hmass()
             
     def solve(self, only_external = False, and_solve = True):
-            
+        
         self.setup_geom()
         self.setup()
                             

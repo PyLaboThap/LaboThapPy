@@ -520,7 +520,7 @@ class HexCstPinch(BaseComponent):
                     break
             
                 self.su_C.set_T(self.su_C.T - step)
-            
+                                
                 step = min(step * 2, max_step)   # accelerate
 
             if res1 * res2 > 0:
@@ -567,11 +567,11 @@ class HexCstPinch(BaseComponent):
             # print("="*30)
             
             guess_T_sat_min = self.su_C.T
-            
+                        
             self.AS_H.update(CoolProp.QT_INPUTS,0.5,guess_T_sat_min)
             P_cd_guess = self.AS_H.p() # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
             x = [P_cd_guess]
-
+            
             # try:
             # Ensure the pressure is non-negative
             P_triple = self.AS_H.trivial_keyed_output(CoolProp.iP_triple)
@@ -602,9 +602,7 @@ class HexCstPinch(BaseComponent):
                     break
                 
                 self.su_H.set_T(self.su_H.T + step)
-                
-                # print(f"T_su_H update : {self.su_H.T}")
-                
+                                
                 step = min(step * 2, max_step)
             
             if res1 * res2 > 0:

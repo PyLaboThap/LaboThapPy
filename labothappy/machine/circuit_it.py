@@ -419,7 +419,8 @@ class IterativeCircuit(BaseCircuit):
         if self.print_flag:            
             print(f"residuals : {residuals}")
             
-            
+        self.print_states()
+        
         return np.array(residuals, dtype=float)
 
     def _apply_cycle_guesses(self):
@@ -565,24 +566,24 @@ class IterativeCircuit(BaseCircuit):
         self.reset_solved_marker()
         x0 = self._get_iteration_vector()
     
-        try:
-            if method == 'fsolve':
-                sol = self._solve_fsolve(x0)
-    
-            elif method == 'newton':
-                sol = self._solve_newton(x0)
-    
-            elif method in root_methods:
-                sol = self._solve_root(x0, root_method=method)
-    
-            else:
-                raise ValueError(f"Unknown method '{method}'. "
-                                 f"Choose from: 'fsolve', 'newton', a root method: {root_methods}.")
+        # try:
+        if method == 'fsolve':
+            sol = self._solve_fsolve(x0)
 
-        except Exception as e:
-            print(f"Error during solving ({method}): {e}")
-            self.converged = False
-            return
+        elif method == 'newton':
+            sol = self._solve_newton(x0)
+
+        elif method in root_methods:
+            sol = self._solve_root(x0, root_method=method)
+
+        else:
+            raise ValueError(f"Unknown method '{method}'. "
+                             f"Choose from: 'fsolve', 'newton', a root method: {root_methods}.")
+
+        # except Exception as e:
+        #     print(f"Error during solving ({method}): {e}")
+        #     self.converged = False
+        #     return
     
         self._apply_iteration_vector(sol)
         residuals = self._solve_circuit(sol)
