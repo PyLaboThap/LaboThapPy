@@ -365,20 +365,38 @@ class PCHESizingOpt(BaseComponent):
 if __name__ == "__main__":
     HX_opt = PCHESizingOpt()
 
-    HX_opt.set_inputs(
-        # First fluid
-        fluid_H = 'CO2',
-        T_su_H = 249 + 273.15, # K
-        P_su_H = 96.4*1e5, # Pa
-        m_dot_H = 5.35, # kg/s
+    case_study = 'REC'
 
-        # Second fluid
-        fluid_C = 'CO2',
-        T_su_C = 52.77 + 273.15, # K
-        P_su_C = 165.4*1e5, # Pa
-        m_dot_C = 5.35, # kg/s  # Make sure to include fluid information
-        )
-
+    if case_study == "Reference": 
+        HX_opt.set_inputs(
+            # First fluid
+            fluid_H = 'CO2',
+            T_su_H = 249 + 273.15, # K
+            P_su_H = 96.4*1e5, # Pa
+            m_dot_H = 5.35, # kg/s
+    
+            # Second fluid
+            fluid_C = 'CO2',
+            T_su_C = 52.77 + 273.15, # K
+            P_su_C = 165.4*1e5, # Pa
+            m_dot_C = 5.35, # kg/s  # Make sure to include fluid information
+         )
+        
+    elif case_study == "REC":
+        HX_opt.set_inputs(
+            # First fluid
+            fluid_H = 'CO2',
+            T_su_H = 340.08, # K
+            P_su_H = 75.1*1e5, # Pa
+            m_dot_H = 26.73, # kg/s
+    
+            # Second fluid
+            fluid_C = 'CO2',
+            T_su_C = 312.41, # K
+            P_su_C = 115.2*1e5, # Pa
+            m_dot_C = 26.73, # kg/s  # Make sure to include fluid information
+         )
+        
     HX_opt.set_parameters(
         k_cond = 60, # plate conductivity
         R_p = 1, # n_hot_channel_row / n_cold_channel_row

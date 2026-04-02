@@ -875,7 +875,7 @@ if __name__ == "__main__":
     
     T_test = 130 + 273.15 # K
     
-    n_MW = 10 # W
+    n_MW = 5 # W
     W_dot_obj = n_MW*1e6 # W
     
     eta_obj = 0.12
@@ -887,7 +887,7 @@ if __name__ == "__main__":
     m_dot_HS_fact_bounds = [0.5,1]
     m_dot_CS_fact_bounds = [10,200]
     P_high_bounds = np.array([100, 180]) * 1e5
-    m_dot_bounds = np.array([10,80])*n_MW
+    m_dot_bounds = np.array([20,80])*n_MW
     
     # Discrete Variable choices
     eta_gh_disc = np.arange(0.8,0.99,0.01)
