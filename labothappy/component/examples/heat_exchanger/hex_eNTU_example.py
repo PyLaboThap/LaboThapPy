@@ -3,7 +3,7 @@ import numpy as np
 
 from labothappy.component.heat_exchanger.hex_eNTU import HexeNTU
 
-HX = HexeNTU()
+HX = HexeNTU('Plate')
 
 HX.set_inputs(
     # First fluid
@@ -61,7 +61,7 @@ H_Dh = (4*H_canal_t*w)/(2*H_canal_t+2*w)
     
 HX.set_parameters(
     A_htx=0.752, L_HTX=0.393, V_HTX=0.9*1e-3, Flow_Type = 'CounterFlow',
-    A_canal_h=H_CS, A_canal_c=C_CS, D_h=H_Dh, 
+    A_canal_H=H_CS, A_canal_C=C_CS, D_h_H=H_Dh, D_h_C = C_Dh, 
     k_plate=45, t_plate=0.0008, n_plates = 10,
     co_pitch=0.005, chevron_angle=20*np.pi/180, fouling=98.51/1000
 )
@@ -71,5 +71,5 @@ HX.solve()
 HX.print_setup()
 HX.print_results()
 
-fig = HX.plot_Ts(choose_HX_side='H')
-fig.show()
+# fig = HX.plot_Ts(choose_HX_side='H')
+# fig.show()
