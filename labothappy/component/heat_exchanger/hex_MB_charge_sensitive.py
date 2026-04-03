@@ -2030,7 +2030,7 @@ class HexMBChargeSensitive(BaseComponent):
                 self.Q.set_Q_dot(Q)
                 
             self.epsilon_th = self.Q_dot/self.Qmax # HTX efficiency
-            self.residual = 1 - sum(self.w) # HTX residual # !!! (what is "w" ?)
+            self.residual = 1 - sum(self.w) # HTX residual 
             
             "5.4) Effective density computation for each cell taking into account void fraction"
             
