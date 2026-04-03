@@ -21,7 +21,10 @@ class HexCstEffDisc(BaseComponent):
     
     **Description**:
     
-        This model simulates a counterflow heat exchanger with constant effectiveness, discretized into segments along the flow direction. The model uses energy balances and basic thermodynamics (via CoolProp) to determine outlet conditions for both hot and cold streams. It iteratively adjusts the effectiveness to satisfy a minimum pinch point temperature difference (Pinch_min). The model is suitable for on-design, steady-state simulations of heat exchangers where detailed flow dynamics are simplified.
+        This model simulates a counterflow heat exchanger with constant effectiveness, discretized into segments along the flow direction. 
+        The model uses energy balances and basic thermodynamics (via CoolProp) to determine outlet conditions for both hot and cold streams. 
+        It iteratively adjusts the effectiveness to satisfy a minimum pinch point temperature difference (Pinch_min). 
+        The model is suitable for on-design, steady-state simulations of heat exchangers where detailed flow dynamics are simplified.
     
     **Assumptions**:
     
