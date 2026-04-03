@@ -23,6 +23,7 @@ from connector.heat_connector import HeatConnector
 
 from CoolProp.CoolProp import PropsSI
 import CoolProp.CoolProp as CP
+from scipy.interpolate import interp1d
 
 
 
@@ -64,7 +65,7 @@ class HexeNTU(BaseComponent):
     **Parameters**:
             
         Flow_Type : Flow configuration of the fluid ('CounterFlow', 'CrossFlow', 'Shell&Tube', 'ParallelFlow') [-]
-        hex_type: Type of heat exchanger ('Shell&Tubes', 'Tube&Fins', 'Plate')
+        hex_type: Type of heat exchanger ('Shell&Tube', 'Tube&Fins', 'Plate')
         A_htx: Total heat exchange area [m²]
         L_HTX: Length of the heat exchanger [m]
         V_HTX: Volume of the heat exchanger [m³]
@@ -102,8 +103,37 @@ class HexeNTU(BaseComponent):
         Q_dot: Heat transfer rate [W]
 """
     
-    
-    def __init__(self):
+    class H:
+        def __init__(self):
+            self.Correlation_1phase = None
+            self.Correlation_2phase = None
+            self.HeatExchange_Correlation = None  
+            self.PressureDrop_Correlation = None
+            self.h_liq = None
+            self.h_vap = None
+            self.h_twophase = None
+            self.h_vapwet = None
+            self.h_tpdryout = None
+            self.h_transcrit = None
+            self.f_dp = None
+
+    class C:
+        def __init__(self):
+            self.Correlation_1phase = None
+            self.Correlation_2phase = None
+            self.HeatExchange_Correlation = None
+            self.PressureDrop_Correlation = None
+            self.h_liq = None
+            self.h_vap = None
+            self.h_twophase = None
+            self.h_vapwet = None
+            self.h_tpdryout = None
+            self.h_transcrit = None
+            self.f_dp = None
+        
+        
+        
+    def __init__(self, hex_type):
         super().__init__()
         self.su_H = MassConnector()
         self.su_C = MassConnector()
@@ -112,6 +142,19 @@ class HexeNTU(BaseComponent):
         self.ex_C = MassConnector() # Mass_connector
 
         self.Q_hex = HeatConnector()
+        
+        if hex_type == 'Plate' or hex_type == 'Shell&Tube' or hex_type == 'Tube&Fins':
+            self.hex_type = hex_type
+        else:
+            raise ValueError("Heat exchanger types implemented for this model are : 'Plate', 'Shell&Tube', 'Tube&Fins'.")
+        self.hex_type = hex_type
+        
+        self.H = self.H()
+        self.C = self.C()
+        
+        # self.H = HexeNTU.H()
+        # self.C = HexeNTU.C()
+
 
     def get_required_inputs(self):
         # Return a list of required inputs
@@ -119,44 +162,53 @@ class HexeNTU(BaseComponent):
 
     def get_required_parameters(self):
         """ Returns the list of required parameters to describe the geometry and physical configuration """
-        HEX_TYPE = ['hex_type']
+        # HEX_TYPE = [self.hex_type]
+        self.params['hex_type'] = self.hex_type
         
         if self.hex_type == 'Plate':
             geometry_parameters = ['A_htx', 'L_HTX', 'V_HTX', 'Flow_Type',
                                'A_canal_H', 'A_canal_C', 'D_h_C', 'D_h_H',
                                'k_plate', 't_plate', 'n_plates',
                                'co_pitch', 'chevron_angle', 'fouling']
-        elif self.hex_type == 'Shell&Tubes':
+        elif self.hex_type == 'Shell&Tube':
             geometry_parameters = ['A_htx'] 
             # to be continued
         elif self.hex_type == 'Tube&Fins':
             geometry_parameters = ['A_htx'] 
             # to be continued
+        
+        
+        elif self.hex_type == 'Shell&Tube':
+                
+            if self.H.Correlation_1phase == "Shell_Bell_Delaware_HTC" or self.C.Correlation_1phase == "Shell_Bell_Delaware_HTC":
+
+                geometry_parameters = ['Baffle_cut', 'D_OTL', 'N_strips', 'Shell_ID', 'Tube_L', 'Tube_OD', 'Tube_pass',
+                                    'Tube_t', 'Tubesheet_t', 'central_spacing', 'clear_BS', 'clear_TB',
+                                    'cross_passes', 'foul_s', 'foul_t', 'inlet_spacing', 'n_series', 'n_parallel', 
+                                    'n_tubes', 'outlet_spacing', 'pitch_ratio', 'tube_cond', 'tube_layout', 'Shell_Side']
+
+            if self.H.Correlation_1phase == "Shell_Kern_HTC" or self.C.Correlation_1phase == "Shell_Kern_HTC":
+
+                geometry_parameters = ['Baffle_cut', 'Shell_ID', 'Tube_L', 'Tube_OD', 'Tube_pass','Tube_t', 'central_spacing',
+                                    'cross_passes', 'foul_s', 'foul_t', 'n_series', 'n_parallel', 'n_tubes', 'pitch_ratio', 
+                                    'tube_cond', 'tube_layout', 'Shell_Side']
+        
+        elif self.hex_type == 'Tube&Fins':
+            
+            geometry_parameters = ['A_flow', 'Fin_OD', 'Fin_per_m', 'Fin_t', 'Fin_type',
+                                    'Finned_tube_flag', 'Tube_L', 'Tube_OD',
+                                    'Tube_cond', 'Tube_t', 'fouling', 'h', 'k_fin',
+                                    'Tube_pass', 'n_rows', 'n_series', 'n_parallel', 'n_tubes', 'pitch', 'pitch_ratio', 'tube_arrang',
+                                    'w','Fin_Side']
+            
         else:
-            print("Unrecognised HEX type. hex_type shall be equal to 'Shell&Tubes', 'Tube&Fins' or 'Plate'.")
+            print("Unrecognised HEX type. hex_type shall be equal to 'Shell&Tube', 'Tube&Fins' or 'Plate'.")
         
-        return HEX_TYPE + geometry_parameters
+        # return HEX_TYPE + geometry_parameters
+        return geometry_parameters
     
     
-    
-    
-    def A_in(self, hex_type = None):
-        if self.params['hex_type'] == 'Plate':
-            A_in_c = self.params['A_canal_C']
-            A_in_h = self.params['A_canal_H']
-        elif self.params['hex_type'] == 'Shell&Tubes':
-            # No
-            A_in_c = self.params['A_canal_C']
-            A_in_h = self.params['A_canal_H']
-            #NO
-        elif self.params['hex_type'] == 'Tube&Fins':
-            # No
-            A_in_c = self.params['A_canal_C']
-            A_in_h = self.params['A_canal_H']
-            #NO
-        
-        return A_in_h, A_in_c
-    
+    # changer et mettre une seule corrélation demandée
     
     # Setting heat transfer coefficient, user defined or from a correlation
     def set_htc(self, htc_type = "Correlation", Corr_H = None, Corr_C = None, UD_H_HTC = None, UD_C_HTC = None):
@@ -241,6 +293,108 @@ class HexeNTU(BaseComponent):
                     self.C_f_boiling = interp1d([0,10000],[20000,20000])
     
     
+    
+    
+    # def set_DP(self, DP_type = None, Corr_H = None, Corr_C = None, UD_H_DP = None, UD_C_DP = None):
+    def set_DP(self, UD_H_DP = None, UD_C_DP = None):
+        """
+        General Parameters : 
+            
+            # - htc_type : Heat Transfer coefficient type ('User-Defined' or 'Correlation')
+            # - Corr_H   : Correlations for hot side
+            # - Corr_C   : Correlations for cold side
+            - UD_H_HTC : User-Defined HTC for hot side
+            - UD_C_HTC : User-Defined HTC for cold side
+            
+        """
+
+        # self.params['DP_type'] = DP_type
+        
+        self.params['UD_H_DP'] = UD_H_DP
+        self.params['UD_C_DP'] = UD_C_DP
+        
+        self.C.Correlation_DP = {}
+        self.H.Correlation_DP = {}
+        
+        # if self.params['DP_type'] is None:
+        if self.params['UD_C_DP'] is None and self.params['UD_H_DP'] is None:
+            self.C.Correlation_DP["SC"] = None
+            self.C.Correlation_DP["2P"] = None
+            self.C.Correlation_DP["1P"] = None
+            
+            self.H.Correlation_DP["SC"] = None
+            self.H.Correlation_DP["2P"] = None
+            self.H.Correlation_DP["1P"] = None
+
+            self.H.DP_val = None
+            self.C.DP_val = None
+
+        # elif self.params['DP_type'] == 'User-Defined':
+        elif self.params['UD_C_DP'] is not None and self.params['UD_H_DP'] is not None:
+
+            self.H.DP_val = UD_H_DP
+            self.C.DP_val = UD_C_DP            
+
+            self.C.Correlation_DP["SC"] = None
+            self.C.Correlation_DP["2P"] = None
+            self.C.Correlation_DP["1P"] = None
+            
+            self.H.Correlation_DP["SC"] = None
+            self.H.Correlation_DP["2P"] = None
+            self.H.Correlation_DP["1P"] = None
+
+        
+        # elif self.params['DP_type'] == "Correlation":
+            
+        #     self.H.Correlation_DP["1P"] = Corr_H["1P"]
+        #     if "2P" in Corr_H:
+        #         self.H.Correlation_DP["2P"] = Corr_H["2P"]
+        #     else:
+        #         self.H.Correlation_DP["2P"] = None
+                
+        #     if "SC" in Corr_H:
+        #         self.H.Correlation_DP["SC"] = Corr_H["SC"]
+        #     else:
+        #         self.H.Correlation_DP["SC"] = None
+            
+        #     self.C.Correlation_DP["1P"] = Corr_C["1P"]
+        #     if "2P" in Corr_C:
+        #         self.C.Correlation_DP["2P"] = Corr_C["2P"]
+        #     else:
+        #         self.C.Correlation_DP["2P"] = None
+        
+        #     if "SC" in Corr_C:
+        #         self.C.Correlation_DP["SC"] = Corr_C["SC"]
+        #     else:
+        #         self.C.Correlation_DP["SC"] = None
+        else:
+            # raise ValueError("Error in pressure drop setting. DP_type entry shall either not be set or be set to: \n - 'User-Defined' \n - 'Correlation'")
+            raise ValueError("Error in pressure drop setting. 'UD_H_DP' and 'UD_C_DP' shall be set.")
+            
+        return
+
+    # def compute_htc(self, k, Tc_mean, p_c_mean, T_wall_c, G_c, havg_c)
+    #     if 
+    
+    
+    def A_in(self, hex_type = None):
+        if self.params['hex_type'] == 'Plate':
+            A_in_c = self.params['A_canal_C']
+            A_in_h = self.params['A_canal_H']
+        elif self.params['hex_type'] == 'Shell&Tube':
+            # No
+            A_in_c = self.params['A_canal_C']
+            A_in_h = self.params['A_canal_H']
+            #NO
+        elif self.params['hex_type'] == 'Tube&Fins':
+            # No
+            A_in_c = self.params['A_canal_C']
+            A_in_h = self.params['A_canal_H']
+            #NO
+        
+        return A_in_h, A_in_c
+    
+
     def solve(self):
         self.check_calculable()
         self.check_parametrized()
@@ -253,11 +407,7 @@ class HexeNTU(BaseComponent):
             
             # Detect Phase change
             # self.detect_phase_change()
-            
-            # Calcul de C_r
-            # cp_h = PropsSI('C', 'H', self.su_hot.h, 'P', self.su_hot.p, self.su_hot.fluid)
-            # cp_c = PropsSI('C', 'H', self.su_cold.h, 'P', self.su_cold.p, self.su_cold.fluid)
-            
+
             self.AS_H.update(CP.HmassP_INPUTS, self.su_H.h, self.su_H.p)
             cp_h = self.AS_H.cpmass()
             
@@ -275,11 +425,7 @@ class HexeNTU(BaseComponent):
                         
             # Calcul de NTU
             T_w = (self.su_H.T + self.su_C.T)/2
-            
-            # --- Heat transfer coefficient estimation using Gnielinski correlation ---
-            # mu_h, Pr_h, k_h = PropsSI(('V','PRANDTL','L'), 'H', self.su_hot.h, 'P', self.su_hot.p, self.su_hot.fluid)
-            # mu_c, Pr_c, k_c = PropsSI(('V','PRANDTL','L'), 'H', self.su_cold.h, 'P', self.su_cold.p, self.su_cold.fluid)
-            
+        
             self.AS_H.update(CP.HmassP_INPUTS, self.su_H.h, self.su_H.p)
             mu_h = self.AS_H.viscosity()
             Pr_h = self.AS_H.Prandtl()
@@ -291,11 +437,16 @@ class HexeNTU(BaseComponent):
             k_c = self.AS_C.conductivity()
 
             
+
+            # Changes has to be done here
             A_in_h, A_in_c = self.A_in(hex_type = self.params['hex_type'])
             
             G_h = self.su_H.m_dot/A_in_h
             G_c = self.su_C.m_dot/A_in_c
                         
+            
+            # h_h = compute_htc(mu,Pr, )
+            # k, Tc_mean, p_c_mean, T_wall_c, G_c, havg_c)
             
             # CHANGE THAT
             h_h = gnielinski_pipe_htc(mu_h, Pr_h, Pr_h, k_h, G_h, self.params['D_h_H'], self.params['L_HTX'])[0]
@@ -356,10 +507,39 @@ class HexeNTU(BaseComponent):
             Qmax = min(Qmax_c, Qmax_h)
             
             Q = eps*Qmax  # Actual heat exchanged
+            
+            
+
+            # Hypothesis: isenthalpic pressure drop 
+            """ Setting the DP """
+            # if self.params['DP_type'] is None: # if the pressure drop are not neglected
+            
+            # otherwise keyerror:            
+            UD_C_DP = self.params.get('UD_C_DP')
+            UD_H_DP = self.params.get('UD_H_DP')
+            
+            if UD_C_DP is None and UD_H_DP is None:
+                self.DP_c = 0
+                self.ex_C.p = self.su_C.p - self.DP_c  
+                
+                self.DP_h = 0
+                self.ex_H.p = self.su_H.p - self.DP_h 
+                
+            # elif self.params['DP_type'] == "User-Defined":
+            # elif 'UD_H_DP' in self.params and 'UD_C_DP' in self.params:
+            elif UD_C_DP is not None and UD_H_DP is not None:
+                self.DP_h = self.H.DP_val
+                self.ex_H.p = self.su_H.p - self.DP_h
+                    
+                self.DP_c = self.C.DP_val        
+                self.ex_C.p = self.su_C.p - self.DP_c
+            # Correlation-based DP are not considered yet
+
+
 
             # --- Set exhaust states (new enthalpies) and link to connectors ---
-            self.ex_H.set_properties(H = self.su_H.h - Q/self.su_H.m_dot, fluid = self.su_H.fluid, m_dot = self.su_H.m_dot, P = self.su_H.p)
-            self.ex_C.set_properties(H = self.su_C.h + Q/self.su_C.m_dot, fluid = self.su_C.fluid, m_dot = self.su_C.m_dot, P = self.su_C.p)
+            self.ex_H.set_properties(H = self.su_H.h - Q/self.su_H.m_dot, fluid = self.su_H.fluid, m_dot = self.su_H.m_dot, P = self.ex_H.p)
+            self.ex_C.set_properties(H = self.su_C.h + Q/self.su_C.m_dot, fluid = self.su_C.fluid, m_dot = self.su_C.m_dot, P = self.ex_C.p)
 
             self.Q_hex.set_Q_dot(Q)
 
