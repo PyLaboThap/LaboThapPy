@@ -75,9 +75,9 @@ if HX_name == "PREHEATER":
     
 
 elif HX_name == "RECUPERATOR":
-    Type_HX = 'epsNTU'   # 'epsNTU'  or 'Tube&Fins'
+    Type_HX = 'epsNTU'   # 'epsNTU'  or 'MB'
     
-    if Type_HX == 'Tube&Fins':
+    if Type_HX == 'MB':
         HX = HexMBChargeSensitive('Tube&Fins')
         
         HX.set_inputs(
@@ -116,7 +116,7 @@ elif HX_name == "RECUPERATOR":
         print(f'  - Q_dot = {HX.Q_dot/1000} kW')
     
     elif Type_HX =='epsNTU' :
-        HX = HexeNTU()
+        HX = HexeNTU("Tube&Fins")
         
         HX.set_inputs(
             fluid_H = 'Cyclopentane',
@@ -176,7 +176,7 @@ elif HX_name == "ACC":
     
     "Set pressure drops"
     # geom_obj.set_DP("ORC_recuperator")
-    # HX.set_DP(**geom_obj.DP) 
+    HX.set_DP(**geom_obj.DP) 
     HX.set_DP() # no pressure drops normally
         
     "Solve the component"
