@@ -58,10 +58,11 @@ if HX_name == "PREHEATER":
     HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation' # 31
     
     # PRESSURE DROP SETTING
+    HX.set_DP()
+
+    #geom_obj.set_DP("ORC_preheater")
     
-    geom_obj.set_DP("ORC_preheater")
-    
-    HX.set_DP(**geom_obj.DP) # equivalent to HX.set_DP(DP_type = None)
+    #HX.set_DP(**geom_obj.DP)
     # HX.set_DP(DP_type="User-Defined", UD_C_DP = 10000, UD_H_DP = 10000) # Fixed User-Defined values, equally distributed over discretizations
     # HX.set_DP(DP_type="Correlation_Global", Corr_C=Corr_C_DP, Corr_H=Corr_H_DP)
     # HX.set_DP(DP_type="Correlation_Disc", Corr_C=Corr_C_DP, Corr_H=Corr_H_DP)
@@ -131,9 +132,17 @@ elif HX_name == "RECUPERATOR":
             m_dot_C = 62.74, # kg/s  
             )
         
+        "Set HTC"
+        Corr_C = "Gnielinski"
+        Corr_H = "Tube_And_Fins"
+        HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation'
+        
+        
+        
         geom_obj = Zorlu_HXs()
         geom_obj.set_parameters("ORC_recuperator")
         HX.set_parameters(**geom_obj.geom)
+        
         
         HX.solve()
         # HX.print_setup()
