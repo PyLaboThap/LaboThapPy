@@ -342,7 +342,7 @@ class HexeNTU(BaseComponent):
             h_conv = gnielinski_pipe_htc(mu, Pr, mu_w, k, G, Dh_H, L_HTX)[0]
             
         elif htc_type == None and (self.hex_type == 'Shell&Tube' or self.hex_type == 'Tube&Fins'):
-            raise ValueError("The htc_type was either not set thanks to 'set_htc' or was set but is not equal to 'User-Defined' or 'Correlation'.")
+            raise ValueError("The htc_type was either:\n  - not set thanks to 'set_htc'\n  - set but the correlation was not called in the proper way, it shall be called as strings, not dicts (Corr_H = 'Gnielinski' f.i.)\n  - set thanks to set_htc but not recognised\n  - set but is not equal to 'User-Defined' or 'Correlation'.")
              
             
         else:
@@ -350,11 +350,11 @@ class HexeNTU(BaseComponent):
                 h_conv = self.UD_H_HTC
                  
             elif self.C.HeatExchange_Correlation == "Correlation" and self.H.HeatExchange_Correlation == "Correlation" :
-                if self.hex_type == 'Plate' and (self.H_su.fluid == 'water' or self.H_su.fluid == 'Water'):
+                if self.hex_type == 'Plate' and (self.su_H.fluid == 'water' or self.su_H.fluid == 'Water'):
                     h_conv = water_plate_HTC(mu, Pr, k, G, Dh_H)
                 
                 
-                elif htc_type == "Gnielinski":
+                elif self.Corr_H == "Gnielinski":
                     if self.hex_type == 'Plate':
                         h_conv = gnielinski_pipe_htc(mu, Pr, mu_w, k, G, Dh_H, L_HTX)[0]
                     elif self.hex_type == 'Shell&Tube':
@@ -363,21 +363,21 @@ class HexeNTU(BaseComponent):
                         h_conv = gnielinski_pipe_htc(mu, Pr, mu_w, k, G, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']*self.params['Tube_pass'])[0] 
                         
                         
-                elif htc_type == "Shell_Bell_Delaware_HTC":
-                    h_conv = shell_bell_delaware_htc(self.su_H.m_dot, T, T_w, p, self.H_su.fluid, self.params)
-                elif htc_type == 'Shell_Kern_HTC':
+                elif self.Corr_H == "Shell_Bell_Delaware_HTC":
+                    h_conv = shell_bell_delaware_htc(self.su_H.m_dot, T, T_w, p, self.su_H.fluid, self.params)
+                elif self.Corr_H == 'Shell_Kern_HTC':
                     h_conv = shell_htc_kern(self.su_H.m_dot, T_w, T, p, self.AS_H, self.params)     
-                elif htc_type == 'Tube_And_Fins':
-                    h_conv = htc_tube_and_fins(self.H_su.fluid, self.params, p, self.su_H.h , self.su_H.m_dot, self.params['Fin_type'])[0]
-                elif htc_type == 'water_plate_HTC':
+                elif self.Corr_H == 'Tube_And_Fins':
+                    h_conv = htc_tube_and_fins(self.su_H.fluid, self.params, p, self.su_H.h , self.su_H.m_dot, self.params['Fin_type'])[0]
+                elif self.Corr_H == 'water_plate_HTC':
                     h_conv = water_plate_HTC(mu, Pr, k, G, Dh_H)
                 elif htc_type  == 'martin_holger_plate_HTC':
-                    h_conv = martin_holger_plate_HTC(mu, Pr, k, self.su_H.m_dot, self.params['H_n_canals'], T, p, self.H_su.fluid, Dh_H, L_HTX, self.params['w'], self.params['amplitude'], self.params['chevron_angle'])            
+                    h_conv = martin_holger_plate_HTC(mu, Pr, k, self.su_H.m_dot, self.params['H_n_canals'], T, p, self.su_H.fluid, Dh_H, L_HTX, self.params['w'], self.params['amplitude'], self.params['chevron_angle'])            
                 
                 
                 
             elif self.C.HeatExchange_Correlation == None or self.H.HeatExchange_Correlation == None :
-                raise ValueError("The htc_type was set but not the rest. Please set 'UD_H_DP' and 'UD_C_DP' if htc_type='User-defined' or 'Corr_C' and 'Corr_H' if htc_type='Correlation'.")
+                raise ValueError("The self.Corr_H was set but not the rest. Please set 'UD_H_DP' and 'UD_C_DP' if htc_type='User-defined' or 'Corr_C' and 'Corr_H' if htc_type='Correlation'.")
         
         return h_conv
             
@@ -403,7 +403,7 @@ class HexeNTU(BaseComponent):
             h_conv = gnielinski_pipe_htc(mu, Pr, mu_w, k, G, Dh_C, L_HTX)[0]
             
         elif htc_type == None and (self.hex_type == 'Shell&Tube' or self.hex_type == 'Tube&Fins'):
-            raise ValueError("The htc_type was either not set thanks to 'set_htc' or was set but is not equal to 'User-Defined' or 'Correlation'.")
+            raise ValueError("The htc_type was either:\n  - not set thanks to 'set_htc'\n  - set but the correlation was not called in the proper way, it shall be called as strings, not dicts (Corr_H = 'Gnielinski' f.i.)\n  - set thanks to set_htc but not recognised\n  - set but is not equal to 'User-Defined' or 'Correlation'.")
              
             
         else:
@@ -411,11 +411,11 @@ class HexeNTU(BaseComponent):
                 h_conv = self.UD_C_HTC
                  
             elif self.C.HeatExchange_Correlation == "Correlation" and self.H.HeatExchange_Correlation == "Correlation" :
-                if self.hex_type == 'Plate' and (self.H_su.fluid == 'water' or self.C_su.fluid == 'Water'):
+                if self.hex_type == 'Plate' and (self.su_C.fluid == 'water' or self.su_C.fluid == 'Water'):
                     h_conv = water_plate_HTC(mu, Pr, k, G, Dh_C)
                 
                 
-                elif htc_type == "Gnielinski":
+                elif self.Corr_C == "Gnielinski":
                     if self.hex_type == 'Plate':
                         h_conv = gnielinski_pipe_htc(mu, Pr, mu_w, k, G, Dh_C, L_HTX)[0]
                     elif self.hex_type == 'Shell&Tube':
@@ -424,21 +424,20 @@ class HexeNTU(BaseComponent):
                         h_conv = gnielinski_pipe_htc(mu, Pr, mu_w, k, G, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']*self.params['Tube_pass'])[0] 
                         
                         
-                elif htc_type == "Shell_Bell_Delaware_HTC":
-                    h_conv = shell_bell_delaware_htc(self.su_C.m_dot, T, T_w, p, self.C_su.fluid, self.params)
-                elif htc_type == 'Shell_Kern_HTC':
+                elif self.Corr_C == "Shell_Bell_Delaware_HTC":
+                    h_conv = shell_bell_delaware_htc(self.su_C.m_dot, T, T_w, p, self.su_C.fluid, self.params)
+                elif self.Corr_C == 'Shell_Kern_HTC':
                     h_conv = shell_htc_kern(self.su_C.m_dot, T_w, T, p, self.AS_C, self.params)     
-                elif htc_type == 'Tube_And_Fins':
-                    h_conv = htc_tube_and_fins(self.C_su.fluid, self.params, p, self.su_C.h , self.su_C.m_dot, self.params['Fin_type'])[0]
-                elif htc_type == 'water_plate_HTC':
+                elif self.Corr_C == 'Tube_And_Fins':
+                    h_conv = htc_tube_and_fins(self.su_C.fluid, self.params, p, self.su_C.h , self.su_C.m_dot, self.params['Fin_type'])[0]
+                elif self.Corr_C == 'water_plate_HTC':
                     h_conv = water_plate_HTC(mu, Pr, k, G, Dh_C)
-                elif htc_type  == 'martin_holger_plate_HTC':
-                    h_conv = martin_holger_plate_HTC(mu, Pr, k, self.su_C.m_dot, self.params['C_n_canals'], T, p, self.C_su.fluid, Dh_C, L_HTX, self.params['w'], self.params['amplitude'], self.params['chevron_angle'])            
+                elif self.Corr_C  == 'martin_holger_plate_HTC':
+                    h_conv = martin_holger_plate_HTC(mu, Pr, k, self.su_C.m_dot, self.params['C_n_canals'], T, p, self.su_C.fluid, Dh_C, L_HTX, self.params['w'], self.params['amplitude'], self.params['chevron_angle'])            
                 
                 
                 
             elif self.C.HeatExchange_Correlation == None or self.C.HeatExchange_Correlation == None :
-                print("we 're here")
                 raise ValueError("The htc_type was set but not the rest. Please set 'UD_H_DP' and 'UD_C_DP' if htc_type='User-defined' or 'Corr_C' and 'Corr_H' if htc_type='Correlation'.")
         
         return h_conv
@@ -465,7 +464,20 @@ class HexeNTU(BaseComponent):
         return G_c, G_h
     
     
-
+    def AU_computation(self, h_h,h_c):
+        
+        if self.hex_type == 'Plate':
+            AU = (1/(self.params['A_htx']*h_h) + 1/(self.params['A_htx']*h_c) + self.params['t_plate']/(self.params['k_plate']*self.params['A_htx']) + self.params['fouling']/self.params['A_htx'])**(-1)         
+        elif self.hex_type == 'Shell&Tube':
+            AU = (1/(self.params['A_htx']*h_h) + 1/(self.params['A_htx']*h_c) + self.params['Tube_t']/(self.params['tube_cond']*self.params['A_htx']) + (self.params['foul_s']+self.params['foul_t'])/self.params['A_htx'])**(-1)
+            
+        elif self.hex_type == 'Tube&Fins':
+            AU = (1/(self.params['A_htx']*h_h) + 1/(self.params['A_htx']*h_c) + self.params['Tube_t']/(self.params['Tube_cond']*self.params['A_htx']) + self.params['fouling']/self.params['A_htx'])**(-1)
+            
+        else:
+            raise ValueError("Unrecognised hex_type. It shall be equal to 'Plate', 'Shell&Tube' or 'Tube&Fins'.")
+            
+        return AU
     
 
     def solve(self):
@@ -527,8 +539,10 @@ class HexeNTU(BaseComponent):
 
             
             # h_c = gnielinski_pipe_htc(mu_c, Pr_c, Pr_c, k_c, G_c, self.params['D_h_C'], self.params['L_HTX'])[0]
-
-            AU = (1/(self.params['A_htx']*h_h) + 1/(self.params['A_htx']*h_c) + self.params['t_plate']/(self.params['k_plate']*self.params['A_htx']) + self.params['fouling']/self.params['A_htx'])**(-1)         
+            
+            
+            AU = self.AU_computation(h_h,h_c)
+            # AU = (1/(self.params['A_htx']*h_h) + 1/(self.params['A_htx']*h_c) + self.params['t_plate']/(self.params['k_plate']*self.params['A_htx']) + self.params['fouling']/self.params['A_htx'])**(-1)         
 
             NTU = AU/C_min
                         
