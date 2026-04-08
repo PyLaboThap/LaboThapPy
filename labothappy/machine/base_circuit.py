@@ -76,29 +76,26 @@ class BaseCircuit:
     #%%
 
     class Source():
-        
-        # Heat, Work, Mass ?? 
-        
         def __init__(self, name, properties, target_component, next_comp_input_port):
-            self.name = name
-            self.properties = properties
-            self.next = {}
+            self.name           = name
+            self.properties     = properties
+            self.next           = {}
+            self.connector_name = next_comp_input_port.split('-')[1]  # "m-su_C" -> "su_C"
+            self.component_name = target_component.name
             self.link(target_component, next_comp_input_port)
-
+    
         def set_properties(self, **kwargs):
             self.properties.set_properties(**kwargs)
-
+    
         def link(self, target_component, next_comp_input_port):
             connector_type = next_comp_input_port.split('-')[0]
- 
-            if connector_type != "m":  # Mass connector
+            if connector_type != "m":
                 print("Source shall be connected by a mass connector")
                 return
             else:
-                setattr(target_component.model, next_comp_input_port.split('-')[1], self.properties) # Voir si ça fait juste référence ou si ça crée un nouvel objet    
+                setattr(target_component.model, next_comp_input_port.split('-')[1], self.properties)
                 self.next[target_component.name] = target_component.model
                 target_component.add_previous(next_comp_input_port, self)
-                # print(f"Linked source {self.name} to {target_component.name}.{next_comp_input_port}")
 
     #%%
 
@@ -167,7 +164,6 @@ class BaseCircuit:
 #%% Source related methods
 
     def add_source(self, name, connector, next_comp, next_comp_input_port):
-        # Add a source to the cycle
         source = BaseCircuit.Source(name, connector, next_comp, next_comp_input_port)
         self.sources[name] = source
 

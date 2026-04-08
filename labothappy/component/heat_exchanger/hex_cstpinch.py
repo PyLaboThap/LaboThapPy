@@ -311,7 +311,7 @@ class HexCstPinch(BaseComponent):
         
         PP_list.append(self.T_H_ex - self.su_C.T)
         
-        if self.Q_dot_sc > 0:
+        if self.Q_dot_tp > 0:
             PP_list.append(self.T_H_x0 - self.T_ev_x0)            
 
         if self.Q_dot_sh > 0:
@@ -329,11 +329,13 @@ class HexCstPinch(BaseComponent):
         # Update the state of the working fluid
         self.Q_dot = Q_dot_ev
         self.P_sat = self.P_ev
-                
+        
         return self.res
 
     def system_cond(self, x):
-                        
+        
+        # print(f"x : {x}")
+        
         "1) Initialize Values"        
         self.Q_dot_sc = 0
         self.Q_dot_tp = 0
@@ -438,9 +440,12 @@ class HexCstPinch(BaseComponent):
         self.Q_dot = Q_dot_cd
         self.P_sat = P_cd
 
+        # print(f"res : {self.res}")
+
         return self.res
     
     def solve(self):
+        
         self.change_flag = 0
         
         self.check_calculable()
@@ -463,14 +468,28 @@ class HexCstPinch(BaseComponent):
         else:
             self.DP_c = 0
 
+        # self.su_C_save = {'T': self.su_C.T,
+        #                   'P': self.su_C.p,
+        #                   'H': self.su_C.h,
+        #                   'Q': self.su_C.x}
+
+        # self.su_H_save = {'T': self.su_H.T,
+        #                   'P': self.su_H.p,
+        #                   'H': self.su_H.h,
+        #                   'Q': self.su_H.x}
+
+        # print(f"H : {self.su_H_save}")
+        # print(f"C : {self.su_C_save}")
+
         fluid_C = self.su_C.fluid  # Extract cold fluid name
-        self.AS_C = AbstractState("HEOS", fluid_C)  # Create a reusable state object
+        self.AS_C = AbstractState("BICUBIC&HEOS", fluid_C)  # Create a reusable state object
         
         fluid_H = self.su_H.fluid  # Extract hot fluid name
-        self.AS_H = AbstractState("HEOS", fluid_H)  # Create a reusable state object
+        self.AS_H = AbstractState("BICUBIC&HEOS", fluid_H)  # Create a reusable state object
         
         # Determine the type of heat exchanger and set the initial guess for pressure
         if self.params['HX_type'] == 'evaporator':
+    
             guess_T_sat_max = self.su_H.T
                         
             # print(f"guess_T_sat: {guess_T_sat}")
@@ -485,8 +504,8 @@ class HexCstPinch(BaseComponent):
             
             P_crit = self.AS_C.trivial_keyed_output(CoolProp.iP_critical)
             
-            max_iter = 100
-            step = 0.01
+            max_iter = 1000
+            step = 0.5
             max_step = 5.0
 
             lower_bound = max(P_triple*1.1 + self.DP_c/2, 0.5*P_ev_guess)
@@ -501,7 +520,7 @@ class HexCstPinch(BaseComponent):
                     break
             
                 self.su_C.set_T(self.su_C.T - step)
-            
+                                
                 step = min(step * 2, max_step)   # accelerate
 
             if res1 * res2 > 0:
@@ -509,7 +528,7 @@ class HexCstPinch(BaseComponent):
             
             self.P_solution, self.results = brentq(
                 self.system_evap,
-                max(P_triple*1.3+self.DP_c/2, 0.1*P_ev_guess), 
+                max(P_triple*1.1+self.DP_c/2, 0.1*P_ev_guess), 
                 upper_bound,
                 xtol=1e-6,
                 rtol=1e-8,
@@ -517,7 +536,7 @@ class HexCstPinch(BaseComponent):
                 full_output=True
             )
             
-            self.system_evap(self.P_solution)
+            # self.system_evap(self.P_solution)
     
             """Update connectors after the calculations"""
             self.update_connectors()
@@ -543,12 +562,16 @@ class HexCstPinch(BaseComponent):
             #         print(f"Convergence problem in evaporator model: {e}")
 
         elif self.params['HX_type'] == 'condenser':
-            guess_T_sat_min = self.su_C.T
+            # print("="*30)
+            # print(f"CD Solve - T_su_H {self.su_H.T} - P_su_H {self.su_H.p}")
+            # print("="*30)
             
+            guess_T_sat_min = self.su_C.T
+                        
             self.AS_H.update(CoolProp.QT_INPUTS,0.5,guess_T_sat_min)
             P_cd_guess = self.AS_H.p() # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
             x = [P_cd_guess]
-
+            
             # try:
             # Ensure the pressure is non-negative
             P_triple = self.AS_H.trivial_keyed_output(CoolProp.iP_triple)
@@ -556,17 +579,21 @@ class HexCstPinch(BaseComponent):
 
             
             max_iter = 100
-            step = 0.01
+            step = 0.5
             max_step = 5.0
             
             for _ in range(max_iter):
+                
+                # print(f"su_H.T : {self.su_H.T}")
                 
                 # Recalculer les bornes à chaque itération
                 self.AS_H.update(CoolProp.QT_INPUTS, 0.5, self.su_C.T)  # ← basé sur T_su_C + pinch
                 lower_bound = self.AS_H.p()
                 
                 self.AS_H.update(CoolProp.QT_INPUTS, 0.5, self.su_H.T)
-                upper_bound = max(P_crit * 0.95, self.AS_H.p())
+                upper_bound = min(P_crit * 0.95, self.AS_H.p())
+
+                # print(f"T_su_H: {self.su_H.T}")
                 
                 res1 = self.system_cond(lower_bound)
                 res2 = self.system_cond(upper_bound)
@@ -575,8 +602,9 @@ class HexCstPinch(BaseComponent):
                     break
                 
                 self.su_H.set_T(self.su_H.T + step)
+                                
                 step = min(step * 2, max_step)
-                        
+            
             if res1 * res2 > 0:
                 raise ValueError("Could not bracket condenser pressure root.")
             
@@ -584,7 +612,7 @@ class HexCstPinch(BaseComponent):
             
             self.P_solution, self.results = brentq(
                 self.system_cond,
-                max(P_triple*1.3+self.DP_h, 0.1*P_cd_guess), 
+                max(P_triple*1.1+self.DP_h, 0.1*P_cd_guess), 
                 upper_bound,
                 xtol=1e-6,
                 rtol=1e-8,
@@ -628,17 +656,25 @@ class HexCstPinch(BaseComponent):
 
             self.su_C.set_p(self.P_ev_x0)
 
+            self.ex_C.reset()
+            
             self.ex_C.set_fluid(self.su_C.fluid)
             self.ex_C.set_p(self.P_ev_x1)
             
-            self.ex_C.set_h(self.h_C_ex)
+            try:
+                self.ex_C.set_h(self.h_C_ex)
+            except:
+                print(self.ex_C.variables_input)
+                exit()
                 
             self.ex_C.set_m_dot(self.su_C.m_dot)
+
+            self.ex_H.reset()
 
             self.ex_H.set_fluid(self.su_H.fluid)
             self.ex_H.set_m_dot(self.su_H.m_dot)
             self.ex_H.set_p(self.su_H.p - self.DP_h)
-            self.ex_H.set_T(self.T_H_ex)
+            self.ex_H.set_h(self.h_H_ex)
             
             "Heat conector"
             self.Q.set_Q_dot(self.Q_dot)
@@ -647,12 +683,15 @@ class HexCstPinch(BaseComponent):
 
             self.su_H.set_p(self.P_cd_x1)
 
+            self.ex_H.reset()
+
             self.ex_H.set_fluid(self.su_H.fluid)
-            # self.ex_H.set_h(CoolProp.PropsSI('H', 'P', self.P_cd_x0, 'T', self.T_H_ex, self.su_H.fluid) )
             self.ex_H.set_p(self.P_cd_x0)
 
             self.ex_H.set_h(self.h_H_ex)
             self.ex_H.set_m_dot(self.su_H.m_dot)
+
+            self.ex_C.reset()
 
             self.ex_C.set_fluid(self.su_C.fluid)
             self.ex_C.set_m_dot(self.su_C.m_dot)

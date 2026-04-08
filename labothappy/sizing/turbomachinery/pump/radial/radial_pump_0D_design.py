@@ -246,6 +246,27 @@ class RadialPumpODDesign():
     
         return best_col, best_row
     
+    def export_params_dict(self):
+
+        return {
+            "type": "Radial Pump Stack",
+            
+            "mass_flow_kg_s": self.inputs['m_dot'],
+            "total_to_static_efficiency": self.eta_is,
+            "pressure_ratio": round(self.inputs['P_ex']/self.inputs['P_su'],2),
+            "n_parallel": self.n_parallel,
+
+            "H1": self.inputs["H1"],
+            "H2": self.inputs["H2"],
+            "v1": self.inputs["v1"],
+            "v2": self.inputs["v2"],            
+            "T_su": self.inputs["T_su"],
+            "P_su": self.inputs["P_su"],
+            "P_ex": self.inputs["P_ex"],
+            
+            "CAPEX": self.CAPEX,
+        }
+    
     def design(self):
         
         self.eta_matrix = np.zeros([len(self.params["n_parallel_choices"]), len(self.params['Omega_choices'])])

@@ -333,10 +333,14 @@ class ExpanderSE(BaseComponent):
             h_su2 = min(h_max, max(max(h_ex_is, self.AS.hmass()), h_su1 - Q_dot_su/self.m_dot))
         
         P_su2 = P_su1 # No pressure drop just heat transfer
-        self.AS.update(CoolProp.HmassP_INPUTS, h_su2, P_su2)
-        rho_su2 = self.AS.rhomass()
-        s_su2 = self.AS.smass()
+        # self.AS.update(CoolProp.HmassP_INPUTS, h_su2, P_su2)
+        # rho_su2 = self.AS.rhomass()
+        # s_su2 = self.AS.smass()
         
+        rho_su2 = rho_su
+        s_su2 = s_su
+        h_su2 = h_su
+
         #------------------------------------------------------------------------------------------------
         "4. Leakage"
         try:

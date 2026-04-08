@@ -79,6 +79,8 @@ def Darcy_Weisbach(mu, rho, G, Dh, L):
 
     DP = f*L*rho*v_flow**2/(2*Dh) 
     
+    
+    
     return DP
 
 # def Muller_Steinhagen_Heck_DP(AS, G, P_sat, x_in, x_out, L, D_in):

@@ -163,10 +163,14 @@ class HexCstEff(BaseComponent):
     def update_connectors(self, Q_dot):
         
         "Mass Connectors"
+        self.ex_C.reset()
+
         self.ex_C.set_fluid(self.su_C.fluid)
         self.ex_C.set_m_dot(self.su_C.m_dot)
         self.ex_C.set_h(self.su_C.h + Q_dot/self.su_C.m_dot)
         self.ex_C.set_p(self.su_C.p - self.DP_c)
+
+        self.ex_H.reset()
 
         self.ex_H.set_fluid(self.su_H.fluid)
         self.ex_H.set_m_dot(self.su_H.m_dot)

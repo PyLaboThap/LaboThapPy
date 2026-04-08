@@ -45,27 +45,28 @@ D_o = 1 + 1/2 [in] => Pitch_ratio = (1+7/8)/D_o
 Baffle_cut = 0.25 # Could be varied from 0.15 to 0.4 but 0.25 is usual value for liquid flow
 """
 
-import __init__
-
 # Connector import
-from connector.mass_connector import MassConnector
+from labothappy.connector.mass_connector import MassConnector
 
 # Component import
-from component.base_component import BaseComponent
-from component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
+from labothappy.component.base_component import BaseComponent
+from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
 
 # Cost model import
-from correlations.heat_exchanger.STHE_cost_estimation import HeatExchangerCost, total_STHE_cost
+from labothappy.correlations.heat_exchanger.STHE_cost_estimation import HeatExchangerCost, total_STHE_cost, krishna_cost_correlation_STHE
 
 # Shell and tube related toolbox
-from toolbox.heat_exchangers.shell_and_tubes.pitch_ratio_shell_and_tube import pitch_ratio_fun
-from toolbox.heat_exchangers.shell_and_tubes.estimate_tube_in_shell import estimate_number_of_tubes
-from toolbox.heat_exchangers.shell_and_tubes.shell_toolbox import shell_thickness
-from toolbox.heat_exchangers.shell_and_tubes.tubesheet_toolbox import tube_sheet_thickness
-from toolbox.heat_exchangers.shell_and_tubes.baffle_toolbox import baffle_thickness, find_divisors_between_bounds
+from labothappy.toolbox.heat_exchangers.shell_and_tubes.pitch_ratio_shell_and_tube import pitch_ratio_fun
+from labothappy.toolbox.heat_exchangers.shell_and_tubes.estimate_tube_in_shell import estimate_number_of_tubes
+from labothappy.toolbox.heat_exchangers.shell_and_tubes.shell_toolbox import shell_thickness
+from labothappy.toolbox.heat_exchangers.shell_and_tubes.tubesheet_toolbox import tube_sheet_thickness
+from labothappy.toolbox.heat_exchangers.shell_and_tubes.baffle_toolbox import baffle_thickness, find_divisors_between_bounds
 
 # Piping toolbox
-from toolbox.piping.pipe_thickness import carbon_steel_pipe_thickness_mm
+from labothappy.toolbox.piping.pipe_thickness import carbon_steel_pipe_thickness_mm
+
+# Inflation
+from labothappy.toolbox.economics.cpi_data import actualize_price
 
 # External imports
 from CoolProp.CoolProp import PropsSI
@@ -217,7 +218,10 @@ class ShellAndTubeSizingOpt(BaseComponent):
             self.HX = HexMBChargeSensitive('Shell&Tube')
 
             self.HX.set_inputs(**opt_inputs)
-
+            
+            if "Tube_t_flag" not in opt_params:
+                opt_params['Tube_t_flag'] = True    
+            
             self.compute_geom(opt_inputs, Tube_t_flag = opt_params['Tube_t_flag'])
 
             "Correlation Loading And Setting"
@@ -259,13 +263,13 @@ class ShellAndTubeSizingOpt(BaseComponent):
                         
             try:
                 self.HX.solve()
-                self.Q = self.HX.Q
+                self.Q = self.HX.Q.Q_dot
                 self.DP_h = self.HX.DP_h
                 self.DP_c = self.HX.DP_c
     
-                self.Q_guess = self.HX.Q
+                self.Q_guess = self.HX.Q.Q_dot
     
-                return self.HX.Q, self.HX.DP_h, self.HX.DP_c
+                return self.HX.Q.Q_dot, self.HX.DP_h, self.HX.DP_c
             
             except:
                 
@@ -408,9 +412,57 @@ class ShellAndTubeSizingOpt(BaseComponent):
         self.H_DP_Corr = H_DP
         self.C_DP_Corr = C_DP  
         return
-
-    #%%
     
+    #%%
+    def export_params_dict(self):
+        
+        return {
+            "type": "Shell and Tube",
+            "Flow_Type": self.params["Flow_Type"],
+            
+            "Q_dot": self.best_particle.Q,
+            "DP_h": self.best_particle.DP_h,
+            "DP_c": self.best_particle.DP_c,
+            
+            "fluid_H": self.inputs['fluid_H'],            
+            "m_dot_H": self.inputs['m_dot_H'],
+            "T_su_H": self.inputs['T_su_H'],
+            "P_su_H": self.inputs['P_su_H'],
+            
+            "fluid_C": self.inputs['fluid_C'],            
+            "m_dot_C": self.inputs['m_dot_C'],
+            "T_su_C": self.inputs['T_su_C'],
+            "P_su_C": self.inputs['P_su_C'],
+
+            "n_series": self.best_particle.params["n_series"],
+            "n_parallel": self.best_particle.params["n_parallel"],
+            "foul_t": self.best_particle.params["foul_t"],
+            "foul_s": self.best_particle.params["foul_s"],      
+            
+            "tube_cond": self.best_particle.params["tube_cond"],
+            "Overdesign": self.best_particle.params["Overdesign"],
+            "Shell_Side": self.best_particle.params["Shell_Side"],
+            "S_V_tot": self.best_particle.params["S_V_tot"],
+            "T_V_tot": self.best_particle.params["T_V_tot"],
+            
+            "A_eff": self.best_particle.params["A_eff"],
+            "Shell_ID": self.best_particle.params["Shell_ID"],
+            "Tube_L": self.best_particle.params["Tube_L"],
+            "Tube_OD": self.best_particle.params["Tube_OD"],
+            "Tube_t": self.best_particle.params["Tube_t"],
+            "central_spacing": self.best_particle.params["central_spacing"],
+            "Tube_pass": self.best_particle.params["Tube_pass"],
+            "cross_passes": self.best_particle.params["cross_passes"],
+            "n_tubes": self.best_particle.params["n_tubes"],
+            "pitch_ratio": self.best_particle.params["pitch_ratio"],
+            "tube_layout": self.best_particle.params["tube_layout"],
+            "Baffle_cut": self.best_particle.params["Baffle_cut"],
+            
+            "CAPEX": self.CAPEX,
+        } 
+    
+    #%%
+
     def random_multiple(self, lower_bound, upper_bound, multiple):
         """
         Generate a random number that is a multiple of `multiple` within the range [lower_bound, upper_bound].
@@ -944,6 +996,25 @@ class ShellAndTubeSizingOpt(BaseComponent):
                 
         return self.global_best_position, self.global_best_score, self.best_particle
     
+    def cost_estimation(self):
+        
+        m_HX = self.best_particle.masses['Total']
+        n_tubes = self.best_particle.HX.params['n_tubes']
+        tube_L = self.best_particle.HX.params['Tube_L']
+        tube_OD = self.best_particle.HX.params['Tube_OD']
+
+        n_B = np.round(tube_L/self.best_particle.HX.params['central_spacing']) - 1
+
+        capex = krishna_cost_correlation_STHE(m_HX, n_B, n_tubes, tube_L, tube_OD)
+        
+        self.CAPEX = {"HX" : actualize_price(capex, 2023, "USD"),
+                      "Currency" : "USD"}
+        
+        self.CAPEX["Install"] = self.CAPEX["HX"]*0.35
+        self.CAPEX["Total"] = self.CAPEX["HX"] + self.CAPEX["Install"]
+        
+        return
+    
     def opt_size(self, n_particles = 50, max_iter = 50, obj = 'mass', print_flag = 0):
         
         self.obj = obj
@@ -969,6 +1040,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
         self.best_particle.total_cost = self.HX_total_cost(self.best_particle.HX)
 
         if obj == 'mass':
+            
             self.cost_calculator = HeatExchangerCost(
                 D_S_i=self.best_particle.HX.params['Shell_ID'],  
                 t_S=self.best_particle.HX.params['t_S'], 
@@ -997,8 +1069,8 @@ class ShellAndTubeSizingOpt(BaseComponent):
                 N_Bt=100
             )
     
-            self.CAPEX = self.cost_calculator.calculate_total_cost()
-            
+            self.manuf_cost = self.cost_calculator.calculate_total_cost()
+            self.cost_estimation()
             
         self.reject = 0
         for part in self.particles:

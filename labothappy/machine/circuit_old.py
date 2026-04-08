@@ -45,8 +45,6 @@ from __future__ import annotations
 
 import warnings
 import numpy as np
-import CoolProp.CoolProp as CP
-
 from scipy.optimize import fsolve, root
 
 from labothappy.connector.mass_connector import MassConnector
@@ -113,39 +111,34 @@ class Circuit(BaseCircuit):
             self.value    = value
 
     class Iteration_variable:
-        def __init__(self, it_var=None, objective=None, obj_type="Target_val", target_value=None, damping_factor=None, rel=None, tol=1e-4):
-            
-            self.name = it_var
-            self.it_comp_name, rest = it_var.split(":")
-            self.it_connector_name, self.it_prop_name = rest.split("-")
-        
-            self.obj_type = obj_type
-            
-            self.obj_comp_name, rest = objective.split(":")
-            self.obj_connector_name, self.obj_prop_name = rest.split("-")
-            
-            self.damping_factor = damping_factor
-            self.target_value   = target_value
-            self.rel            = rel
-            self.tol            = tol
-            
-            self.history = []
-            self.history_new = []
-    
+        def __init__(self, target, variable, objective,
+                     objective_value, tol, rel, damping_factor, cycle):
+            self.target          = target
+            self.variable        = variable
+            self.objective       = objective
+            self.objective_value = objective_value
+            self.tol             = tol
+            self.converged       = False
+            self.damping_factor  = damping_factor
+            self.cycle           = cycle
+            if rel not in (1, -1):
+                raise ValueError("'rel' must be 1 or -1.")
+            self.rel = rel
+
         def find_link_DP(self, components):
             """BFS path finder — identical to circuit_rec implementation."""
             from collections import deque
-    
-            start      = self.it_comp_name
-            end        = self.obj_comp_name
+
+            start = self.target[0].split(":")[0]
+            end   = self.objective.split(":")[1]
             start_comp = components[start]
-    
+
             def get_suffix(port_name):
-                if port_name is None:           return ""
-                if port_name.endswith("_C"):    return "_C"
-                if port_name.endswith("_H"):    return "_H"
+                if port_name is None: return ""
+                if port_name.endswith("_C"): return "_C"
+                if port_name.endswith("_H"): return "_H"
                 return ""
-    
+
             def shortest_path(start_component, end_name):
                 queue   = deque([(start_component, [[start_component.name, None, None]])])
                 visited = {start_component}
@@ -167,22 +160,13 @@ class Circuit(BaseCircuit):
                         queue.append(
                             (next_comp, path + [[next_comp.name, entrance_port_next, prev_exit_port]]))
                 return None
-    
+
             path = shortest_path(start_comp, end)
-    
             for i in range(1, len(path)):
                 path[i - 1][-1] = path[i][-1]
                 if i == len(path) - 1:
                     path[i][-1] = None
-    
-            if "su" in self.it_connector_name:
-                path[0][1] = self.it_connector_name
-                
-            if "ex" in self.obj_connector_name:
-                path[-1][2] = self.obj_connector_name
-    
-            self.path = path
-    
+
             delta_Ps = {}
             for comp_name, entrance_port, exit_port in path:
                 if entrance_port is None or exit_port is None:
@@ -196,129 +180,25 @@ class Circuit(BaseCircuit):
                 if suffix == "_C":   delta_Ps[comp_name] = getattr(comp, "DP_c", 0)
                 elif suffix == "_H": delta_Ps[comp_name] = getattr(comp, "DP_h", 0)
                 else:                delta_Ps[comp_name] = 0
-    
+
             self.delta_Ps = delta_Ps
             self.DP       = sum(delta_Ps.values())
             return self.DP
-    
-        def update_it_var(self, components, cycle):
+
+        def check(self, target_value, objective_connector, var):
+            if abs((target_value - self.objective_value) / self.objective_value) < self.tol:
+                self.converged = True
+                return None
+            self.converged = False
             
-            if self.obj_type == "Link":
-                if self.it_prop_name == self.obj_prop_name == 'p':
-            
-                    DP_gain          = self.find_link_DP(components)                    
-                    connector_obj = getattr(components[self.obj_comp_name].model, self.obj_connector_name)
-                    value_obj     = getattr(connector_obj, self.obj_prop_name)
-                    
-                    update_guess_target = self.it_comp_name + ":" + self.it_connector_name                    
-                    cycle.set_cycle_guess(target=update_guess_target, **{self.it_prop_name: value_obj + DP_gain})
-                    
-            else:
-                if self.obj_prop_name == "SC" and self.it_prop_name == 'p':
-                    from scipy.optimize import brentq
-                    
-                    def h_to_pressure_from_SC(h, SC_target):
-                        """
-                        Find pressure P such that the subcooling of state (P, h) equals SC_target.
-                        i.e. T_sat(P, Q=0) - T(P, h) = SC_target
-                        """
-                        def residual(P):
-                            cycle.AS.update(CP.PQ_INPUTS, P, 0)
-                            self.T_sat_target = cycle.AS.T()
-                            
-                            cycle.AS.update(CP.HmassP_INPUTS, h, P)
-                            T = cycle.AS.T()
-                            
-                            res = (self.T_sat_target - T) - SC_target
-                            
-                            return res
-                    
-                        P_min = cycle.AS.trivial_keyed_output(CP.iP_triple)  # adjust bounds to your fluid
-                        P_max = cycle.AS.p_critical()*0.98
-                    
-                        return brentq(residual, P_min, P_max, xtol=self.tol)
+            if isinstance(objective_connector, MassConnector):
+                temp = MassConnector(fluid=objective_connector.fluid)
+                temp.set_properties(**{var: self.objective_value, 'T': objective_connector.T})
 
-                    it_connector = getattr(components[self.it_comp_name].model, self.it_connector_name)                    
-                    obj_connector = getattr(components[self.obj_comp_name].model, self.obj_connector_name)
-                    current_h_value = obj_connector.h
-                    
-                    P_target = h_to_pressure_from_SC(current_h_value, self.target_value)
-                    
-                    update_guess_target = self.it_comp_name + ":" + self.it_connector_name
-
-                    error = it_connector.p - P_target
-                    
-                    P_set = it_connector.p*(1-self.damping_factor) + P_target*self.damping_factor
-                    
-                    cycle.set_cycle_guess(target=update_guess_target, **{self.it_prop_name: P_set})
-            
-                else:
-                    
-                    if not self.history:
-                        print("He He")
-                        obj_connector = getattr(components[self.obj_comp_name].model, self.obj_connector_name)
-                        obj_current_value = getattr(obj_connector, self.obj_prop_name)
-
-                        it_connector = getattr(components[self.it_comp_name].model, self.it_connector_name)
-                        it_current_value = getattr(it_connector, self.it_prop_name)
-                        
-                        current_status = [it_current_value, obj_current_value]
-                        self.history = current_status
-                    
-                    
-                        update_guess_target = self.it_comp_name + ":" + self.it_connector_name
-                        
-                        new_val = 0.99*it_current_value
-                        cycle.set_cycle_guess(target=update_guess_target, **{self.it_prop_name: new_val})
-    
-                    
-                    else:                       
-                        print(f"history : {self.history}")
-
-                        obj_connector = getattr(components[self.obj_comp_name].model, self.obj_connector_name)
-                        obj_current_value = getattr(obj_connector, self.obj_prop_name)
-
-                        it_connector = getattr(components[self.it_comp_name].model, self.it_connector_name)
-                        it_current_value = getattr(it_connector, self.it_prop_name)
-                        
-                        current_status = [it_current_value, obj_current_value]
-                        self.history_new = current_status
+            elif isinstance(objective_connector, WorkConnector):
+                pass
                 
-                        slope = (self.history_new[1] - self.history[1])/(self.history_new[0] - self.history[0])
-                        DX_target = (self.target_value - obj_current_value)/slope
-                        DX_target = min(DX_target, 0.01*it_current_value*np.sign(DX_target))
-                        
-                        update_guess_target = self.it_comp_name + ":" + self.it_connector_name
-                        new_val = DX_target + it_current_value
-                        
-                        new_val = new_val*self.damping_factor + it_current_value*(1-self.damping_factor)
-                        cycle.set_cycle_guess(target=update_guess_target, **{self.it_prop_name: new_val})
-
-                        self.history[0] = self.history_new[0]
-                        self.history[1] = self.history_new[1]
-                        
-                        self.history_new = []
-
-                        print(f"slope : {slope}")
-                        print(f"DX_target : {DX_target}")
-                        
-                        
-                        
-                        return
-                    
-                    # If no history: 
-                    
-                    # 1) Log it_var and obj_var
-                    # 2) perturbate the it_var
-                    
-                    # Next it : measure change in obj_var
-                    # Modify it_var accordingly 
-                    
-                                        
-                
-                
-            
-            return
+            return getattr(temp, self.variable)
 
     # -----------------------------------------------------------------------
     # Constructor
@@ -337,7 +217,7 @@ class Circuit(BaseCircuit):
         self.fixed_properties: dict = {}
         self.parameters:       dict = {}
         self.guesses:          dict = {}
-        self.it_vars:          dict = {}
+        self.it_vars:          list = []
         self.res_vars:         dict = {}   # kept for backward compat
 
         # Solve state
@@ -354,13 +234,8 @@ class Circuit(BaseCircuit):
         # Wegstein clipping bounds
         self.wegstein_q_min = -5.0
         self.wegstein_q_max =  0.0
-        
-        if self.fluid is not None:
-            self.AS = CP.AbstractState("HEOS", self.fluid)
-        else:
-            self.AS = None
 
-    #%% -----------------------------------------------------------------------
+    # -----------------------------------------------------------------------
     # Connector snapshot helpers  (identical to circuit_rec)
     # -----------------------------------------------------------------------
 
@@ -404,7 +279,7 @@ class Circuit(BaseCircuit):
                             f"rel_err={rel_err:.2e}")
         return all_converged, messages
 
-    #%% -----------------------------------------------------------------------
+    # -----------------------------------------------------------------------
     # Static numerical helpers
     # -----------------------------------------------------------------------
 
@@ -423,8 +298,8 @@ class Circuit(BaseCircuit):
             return f_curr
         return (q * x_curr - f_curr) / (q - 1.0)
 
-    #%% -----------------------------------------------------------------------
-    # Problem-definition API 
+    # -----------------------------------------------------------------------
+    # Problem-definition API  (mirrors circuit_rec)
     # -----------------------------------------------------------------------
 
     def set_source_properties(self, **kwargs):
@@ -461,6 +336,23 @@ class Circuit(BaseCircuit):
         component.set_properties(connector_name, **kwargs)
         component.model.check_calculable()
 
+    def set_iteration_variable(self, tol=1e-2, target=None, variable=None,
+                               objective=None, rel=1, damping_factor=0.5,
+                               cycle=None):
+        if objective in self.fixed_properties:
+            it_var = Circuit.Iteration_variable(
+                target, variable, objective,
+                self.fixed_properties[objective].value,
+                tol, rel, damping_factor, self)
+        elif "Link" in objective:
+            it_var = Circuit.Iteration_variable(
+                target, variable, objective, None,
+                tol, rel, damping_factor, self)
+        else:
+            raise ValueError(
+                f"'{objective}' not in fixed_properties and not a Link objective.")
+        self.it_vars.append(it_var)
+
     def set_cycle_parameters(self, **kwargs):
         self.parameters.update(kwargs)
 
@@ -468,7 +360,7 @@ class Circuit(BaseCircuit):
         """Kept for backward compatibility — not used for convergence checking."""
         pass
 
-    #%% -----------------------------------------------------------------------
+    # -----------------------------------------------------------------------
     # DFS solver  (identical to circuit_rec)
     # -----------------------------------------------------------------------
 
@@ -514,11 +406,45 @@ class Circuit(BaseCircuit):
                 
             self.components[component_name].solve()
 
+        # self.print_states()
         return
 
-    #%% -----------------------------------------------------------------------
+    # -----------------------------------------------------------------------
     # Iteration variable and fixed property enforcement
     # -----------------------------------------------------------------------
+
+    def _enforce_iteration_variables(self):
+        """Update guesses based on iteration variable objectives."""
+        for it_var in self.it_vars:
+            if "Link" in it_var.objective:
+                _, obj_comp_name, port_var = it_var.objective.split(":")
+                port_name, variable = port_var.split("-")
+                gain          = it_var.find_link_DP(self.components) if variable == 'p' else 0
+                connector_obj = getattr(self.components[obj_comp_name].model, port_name)
+                value_obj     = getattr(connector_obj, variable)
+                for target in it_var.target:
+                    self.set_cycle_guess(target=target, **{it_var.variable: value_obj + gain})
+                it_var.converged = True
+            else:
+                obj_comp, rest = it_var.objective.split(":")
+                port, var      = rest.split("-")
+                connector      = getattr(self.components[obj_comp].model, port)
+                current_value  = getattr(connector, var)
+                
+                if current_value is not None:
+                    desired_value = it_var.check(current_value, connector, var)
+                    if desired_value is not None:
+                        target_comp, target_port = it_var.target[0].split(":")
+                        target_connector         = getattr(
+                            self.components[target_comp].model, target_port)
+                        target_current_value = getattr(target_connector, it_var.variable)
+                        new_target_value = (
+                            (desired_value - target_current_value)
+                            * it_var.damping_factor + target_current_value)
+                        for target in it_var.target:
+                            self.set_cycle_guess(
+                                target=target, **{it_var.variable: new_target_value})
+
 
     def _enforce_fixed_properties(self):
         """Re-enforce all fixed properties on their connectors."""
@@ -528,23 +454,7 @@ class Circuit(BaseCircuit):
                     target=fix_prop.target,
                     **{fix_prop.variable: fix_prop.value})
 
-    def set_iteration_variable(self, it_var = None, objective = None, obj_type = "Target_val", target_value = None, damping_factor = None, rel = None, tol=1e-4):
-        """
-        
-        """
-        
-        self.it_vars[it_var] = self.Iteration_variable(it_var=it_var, objective=objective, obj_type=obj_type, target_value = target_value, damping_factor = damping_factor, rel = rel, tol=tol)    
-        
-        return
-    
-    def update_iteration_variables(self):
-        
-        for it_var_name, it_var in self.it_vars.items():
-            it_var.update_it_var(self.components, self)
-        
-        return
-    
-    #%% -----------------------------------------------------------------------
+    # -----------------------------------------------------------------------
     # Substitution-based iteration step
     # -----------------------------------------------------------------------
 
@@ -580,7 +490,82 @@ class Circuit(BaseCircuit):
 
             self.set_cycle_guess(target=guess.target,
                                  **{guess.variable: next_value})
+
+    # -----------------------------------------------------------------------
+    # Newton-based residual function  (used by fsolve / root)
+    # -----------------------------------------------------------------------
+
+    def _build_guess_vector(self) -> np.ndarray:
+        """Current guess values as a numpy vector (ordered as self.guesses)."""
         
+        guess_vec = np.array([g.value for g in self.guesses.values()], dtype=float)
+        
+        return guess_vec
+
+    def _apply_guess_vector(self, x: np.ndarray):
+        """Write a numpy vector back into the guess connectors."""
+        for value, (guess_name, guess) in zip(x, self.guesses.items()):
+            self.set_cycle_guess(target=guess.target,
+                                 **{guess.variable: float(value)})
+            
+            print(f"{guess_name} : {value}")
+        
+
+    
+    def _get_scale(self, var_name: str, x_val: float) -> float:
+        # Define fixed scales per variable type
+        _SCALES = {
+            'p':     1e5,    # Pa — normalize by ~1 bar
+            'h':     1e4,    # J/kg
+            'm_dot': 1.0,    # kg/s
+            'T':     10.0,   # K
+            'SH':    1.0,    # K — fixed scale, ignore x magnitude
+            'SC':    1.0,    # K — fixed scale, ignore x magnitude
+            'x':     0.1,    # quality
+        }
+        
+        for key, scale in _SCALES.items():
+            if var_name == key:
+                return scale
+        # Fallback: use |x| but with a floor
+        return max(abs(x_val), 1e-3)
+
+    def _residual_function(self, x: np.ndarray) -> np.ndarray:
+        self._iteration_count += 1
+        self.reset_solved_marker()
+        self._apply_guess_vector(x)
+        self._enforce_fixed_properties()
+        self._enforce_iteration_variables()
+        self._sequential_sweep()
+    
+        f_x = []
+        for gn, guess in self.guesses.items():
+            comp_name, rest = gn.split(":", 1)
+            port_name, var  = rest.split("-", 1)
+            connector = getattr(self.components[comp_name].model, port_name)
+            val = getattr(connector, var)
+            if val is None:
+                f_x.append(1e6)
+            else:
+                f_x.append(float(val))
+    
+        f_x = np.array(f_x, dtype=float)
+        
+        # # Normalize by the scale of x to make residuals dimensionless
+        # scales = np.array([
+        #     self._get_scale(guess.variable, x[i])
+        #     for i, (_, guess) in enumerate(self.guesses.items())
+        # ])
+        
+        residual = (np.array(f_x) - x) 
+    
+        if self.print_flag:
+            print(f"  Iteration {self._iteration_count} — res: {residual}")
+        return residual
+    
+        # except Exception as e:
+        #     print(f"Residual error: {e}")  # ← aide au debug
+        #     return np.ones(len(self.guesses)) * 1e6
     # -----------------------------------------------------------------------
     # Convergence check helpers
     # -----------------------------------------------------------------------
@@ -595,11 +580,11 @@ class Circuit(BaseCircuit):
             self.converged = False
             self.messages.extend(connector_messages)
 
-        # for it_var in self.it_vars:
-        #     if not it_var.converged:
-        #         self.converged = False
-        #         self.messages.append(
-        #             f"it_var not converged: {it_var.target}-{it_var.variable}")
+        for it_var in self.it_vars:
+            if not it_var.converged:
+                self.converged = False
+                self.messages.append(
+                    f"it_var not converged: {it_var.target}-{it_var.variable}")
 
         if not self.check_all_component_solved():
             self.converged = False
@@ -607,11 +592,11 @@ class Circuit(BaseCircuit):
 
         return self.converged
 
-    #%% -----------------------------------------------------------------------
+    # -----------------------------------------------------------------------
     # Main solve entry point
     # -----------------------------------------------------------------------
 
-    def solve(self, max_iter: int = 30, method: str = 'wegstein',
+    def solve(self, max_iter: int = 30, method: str = 'broyden1',
               root_tol: float = 1e-10, tol=1e-5):
         """
         Solve the circuit.
@@ -645,13 +630,7 @@ class Circuit(BaseCircuit):
                 self.solve_start_components.append(component)
 
         for start in self.solve_start_components:
-            
-            try:
-                self.recursive_solve(start)
-            except:
-                self.converged = False
-                return
-            
+            self.recursive_solve(start)
             if self.check_all_component_solved():
                 break
 
@@ -662,67 +641,119 @@ class Circuit(BaseCircuit):
                 print(f"Setup failed. Blocking components: {blocking}")
             return
 
-
         if self.print_flag:
             print(f"Setup complete. Solving order: {self.solving_order}")
 
         # Initial snapshot
         self._prev_connector_states = self._snapshot_connector_states()
         self.guess_update = True
-                
+
         # ------------------------------------------------------------------
         # 2a. Substitution-based solve loop
         # ------------------------------------------------------------------
-        self.convergence_tolerance = tol
-        use_wegstein = (method == 'wegstein')
+        if method in _SUBST_METHODS:
+            self.convergence_tolerance = tol
+            use_wegstein = (method == 'wegstein')
 
+            for i in range(max_iter):
+                self._iteration_count += 1
 
-        for i in range(max_iter):
-            self._iteration_count += 1
-
-            self.messages = []
-            if self.print_flag:
-                print(f"\n{'#'*30}\nIteration {i+1}\n{'#'*30}")
-
-            self.update_iteration_variables()
-            self._enforce_fixed_properties()
-            self._substitution_step(use_wegstein)
-            
-            try:
-                self._sequential_sweep()
-            except:
-                self.converged = False
-                return
-                
-            current_snapshot = self._snapshot_connector_states()
-            if self._check_convergence(current_snapshot):
+                self.messages = []
                 if self.print_flag:
-                    print(f"Converged in {i+1} iteration(s).")
+                    print(f"\n{'#'*30}\nIteration {i+1}\n{'#'*30}")
+
+                self._enforce_iteration_variables()
+                self._enforce_fixed_properties()
+                self._substitution_step(use_wegstein)
+                
+                # try:
+                self._sequential_sweep()
+                # except:
+                #     self.converged = False
+                #     return
                     
+                current_snapshot = self._snapshot_connector_states()
+                if self._check_convergence(current_snapshot):
+                    if self.print_flag:
+                        print(f"Converged in {i+1} iteration(s).")
+                        
+                    # Q_cd = self.components['Condenser'].model.Q.Q_dot
+                    # Q_ev = self.components['Evaporator'].model.Q.Q_dot
+                    # W_cp = self.components['Compressor'].model.W.W_dot
+                    # self.res_energy = (Q_cd - W_cp - Q_ev)/Q_cd
+
+                    # if abs(self.res_energy) > 1e-4:
+                    #     self.converged = False
+                        
+                    return
+                self._prev_connector_states = current_snapshot
+            
                 # Q_cd = self.components['Condenser'].model.Q.Q_dot
                 # Q_ev = self.components['Evaporator'].model.Q.Q_dot
                 # W_cp = self.components['Compressor'].model.W.W_dot
                 # self.res_energy = (Q_cd - W_cp - Q_ev)/Q_cd
-
+                    
                 # if abs(self.res_energy) > 1e-4:
                 #     self.converged = False
-                    
-                return
-            self._prev_connector_states = current_snapshot
-         
-
-            # Q_cd = self.components['Condenser'].model.Q.Q_dot
-            # Q_ev = self.components['Evaporator'].model.Q.Q_dot
-            # W_cp = self.components['Compressor'].model.W.W_dot
-            # self.res_energy = (Q_cd - W_cp - Q_ev)/Q_cd
                 
-            # if abs(self.res_energy) > 1e-4:
-            #     self.converged = False
-            
-        if self.print_flag:
-            print(f"Failed to converge in {max_iter} iterations.")
+            if self.print_flag:
+                print(f"Failed to converge in {max_iter} iterations.")
 
-    #%% -----------------------------------------------------------------------
+        # ------------------------------------------------------------------
+        # 2b. Newton-based solve — residual built automatically from guesses
+        # ------------------------------------------------------------------
+        else:
+            self._iteration_count = 0
+            x0 = self._build_guess_vector()
+
+            if method == 'fsolve':
+                sol = fsolve(
+                    self._residual_function,
+                    x0,
+                    full_output=False,
+                    xtol=root_tol,
+                    maxfev=max_iter,
+                )
+            else:
+                if method in ('hybr', 'lm'):
+                    options = {'maxfev': max_iter}
+                else:
+                    options = {'maxiter': max_iter}
+                
+                result = root(
+                    self._residual_function, x0,
+                    method=method,
+                    tol=root_tol,
+                    options=options
+                )
+                
+                sol = result.x
+                if self.print_flag and not result.success:
+                    print(f"[{method}] did not converge: {result.message}")
+            
+            self.sol = sol
+            
+            self._apply_guess_vector(sol)
+            self._enforce_fixed_properties()
+            self._sequential_sweep()
+        
+            # For Newton methods, check residual directly
+            self.final_residual = self._residual_function(sol)
+            self.converged = bool(np.max(np.abs(self.final_residual)) < tol)
+
+            Q_cd = self.components['Condenser'].model.Q.Q_dot
+            Q_ev = self.components['Evaporator'].model.Q.Q_dot
+            W_cp = self.components['Compressor'].model.W.W_dot
+            self.res_energy = (Q_cd - W_cp - Q_ev)/Q_cd
+
+            if abs(self.res_energy) > 1e-6:
+                self.converged = False
+
+            if self.print_flag:
+                status = "Converged" if self.converged else "Did not converge"
+                print(f"{status} [{method}] in {self._iteration_count} iterations.")
+
+    # -----------------------------------------------------------------------
     # Print helpers
     # -----------------------------------------------------------------------
 

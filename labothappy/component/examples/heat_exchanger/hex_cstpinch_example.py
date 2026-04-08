@@ -3,12 +3,15 @@ from labothappy.component.heat_exchanger.hex_cstpinch import HexCstPinch
 
 # from simulation_model import HXPinchCst
 import numpy as np
+import matplotlib.pyplot as plt
 
 from CoolProp.CoolProp import PropsSI
 
-case_test = 'COND_C5'
+case_test = 'EVAP_C5'
 
 "Evaporator test"
+
+# {'T': 376.25000000112317, 'P': 448092.1358915291, 'H': 227308.5385466662, 'Q': 0.33354141364131273}
 
 if case_test == 'EVAP_C5':
 
@@ -17,19 +20,19 @@ if case_test == 'EVAP_C5':
     
     EVAP.set_inputs(
         fluid_C = 'Cyclopentane',
-        T_su_C = 110+273.15,
-        P_su_C = 831.8*1e3,
-        m_dot_C = 51.03,
+        P_su_C = 448092.1358915291,
+        h_su_C = 227308.5385466662,
+        m_dot_C = 20,
     
-        fluid_H = 'Water', #Oil
-        T_su_H = 145+273.15,
-        P_su_H = 5*1e5,
-        m_dot_H = 400,
+        fluid_H = 'Water', 
+        T_su_H = 386.25,
+        P_su_H = 2*1e5,
+        m_dot_H = 500,
     )
     
     EVAP.set_parameters(**{
-        'Pinch': 4,
-        'Delta_T_sh_sc': 10,
+        'Pinch': 3,
+        'Delta_T_sh_sc': 1,
         'HX_type': 'evaporator'
     })
     
@@ -38,10 +41,20 @@ if case_test == 'EVAP_C5':
     EVAP.print_states_connectors()
     EVAP.plot_disc()
     
-    fig = EVAP.plot_Ts(choose_HX_side='C')
-    fig.show()
+    # fig = EVAP.plot_Ts(choose_HX_side='C')
+    # fig.show()
     
-    EVAP.equivalent_effectiveness()
+    # EVAP.equivalent_effectiveness()
+
+    # p_vec = np.linspace(280791, 561582, 10000)
+    # res_vec = []
+
+    # for p in p_vec:
+    #     res = EVAP.system_evap(p)
+        
+    #     res_vec.append(res)
+
+    # plt.plot(p_vec,res_vec)
 
 elif case_test == 'EVAP_HP_ZORLU':
 

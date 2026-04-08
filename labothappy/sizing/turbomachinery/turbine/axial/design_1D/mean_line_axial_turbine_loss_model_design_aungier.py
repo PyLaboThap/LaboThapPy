@@ -2,10 +2,10 @@
 
 # --- loading libraries 
 
-from connector.mass_connector import MassConnector
-from correlations.turbomachinery.aungier_axial_turbine import aungier_loss_model
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.correlations.turbomachinery.aungier_axial_turbine import aungier_loss_model
 
-from component.expander.turbine_mean_line_Aungier import AxialTurbineMeanLine
+from labothappy.component.expander.turbine_mean_line_Aungier import AxialTurbineMeanLine
 from CoolProp.CoolProp import PropsSI
 from scipy.optimize import brentq, root_scalar
 import pyswarms as ps
@@ -312,7 +312,7 @@ class AxialTurbineMeanLineDesign(object):
                 self.params[key] = value
 
     # ---------------- Result Plot Methods ----------------------------------------------------------------
-
+    
     def plot_geometry(self, fontsize = 16, ticksize = 12):
         
         r_m_line = np.ones(len(self.r_tip))*self.r_m
@@ -499,7 +499,6 @@ class AxialTurbineMeanLineDesign(object):
     
         args_str = ",\n    ".join(f"{k} = {fmt(v)}" for k, v in selected.items())
 
-
     def export_stage_vectors(self):
         """
         Export stage geometry as Python vectors (lists), one per variable.
@@ -538,7 +537,55 @@ class AxialTurbineMeanLineDesign(object):
             if any(v is not None for v in values):
                 arr = [fmt(v) for v in values]
                 print(f"{var} = [{', '.join(arr)}],")
-                
+    
+    def export_params_dict(self):
+        
+        stator_vars = [
+            "h_blade_S", "chord_S", "xhi_S1", "xhi_S2",
+            "pitch_S", "o_S", "t_TE_S", "t_blade_S", "n_blade_S", "R_c_S"
+        ]
+        rotor_vars = [
+            "h_blade_R", "chord_R", "xhi_R1", "xhi_R2",
+            "pitch_R", "o_R", "t_TE_R", "t_blade_R", "n_blade_R", "R_c_R"
+        ]
+
+        def collect(var_list):
+            """For each variable, collect its value across all stages into a list."""
+            out = {}
+            for var in var_list:
+                values = [getattr(stage, var, None) for stage in self.stages]
+                if any(v is not None for v in values):
+                    out[var] = values
+            return out
+
+        param_keys = ["damping", "delta_tip", "N_lw", "D_lw", "e_blade", "Omega_rated"]
+
+
+        return {
+            "type": "Axial Turbine",
+            "mdot_rated": self.inputs['mdot'],
+            "Wdot_rated": self.inputs['W_dot'],
+            "N_rot_rated": self.params['Omega'],
+            "total_to_static_efficiency": self.eta_is,
+            "DP_rated": round(self.inputs['p0_su']/self.inputs['p_ex'],2),
+            "n_stages": self.nStages,
+            
+            "p0_su": self.inputs['p0_su'],
+            "T0_su": self.inputs['T0_su'],
+            "p_ex": self.inputs['p_ex'],
+            
+            "r_m" : self.r_m,
+            "delta_tip" : self.params['delta_tip'],
+            "N_lw" : self.params['N_lw'],
+            "D_lw" : self.params['D_lw'],
+            "e_blade" : self.params['e_blade'],
+            
+            "stator": collect(stator_vars),
+            "rotor": collect(rotor_vars),
+            
+            "CAPEX": self.CAPEX,
+        }
+            
     # ---------------- Loss Models ------------------------------------------------------------------------
     def compute_stator_t_max(self, stage):
         # --- constants from stage / design ---

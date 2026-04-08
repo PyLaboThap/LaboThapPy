@@ -245,6 +245,10 @@ class HexCstEffDisc(BaseComponent):
         self.check_parametrized()
 
         if self.su_H.T < self.su_C.T:
+            
+            if self.plot_flag:
+                print("Switch sides")
+            
             save = self.su_C
             self.su_C = self.su_H
             self.su_H = save
