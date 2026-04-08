@@ -9,11 +9,11 @@ os.environ.setdefault("MKL_NUM_THREADS", "1")
 os.environ.setdefault("VECLIB_MAXIMUM_THREADS", "1")
 os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
 
-from component.base_component import BaseComponent
-from component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
+from labothappy.component.base_component import BaseComponent
+from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
 
-from toolbox.heat_exchangers.PCHE.thicknesses import PCHE_thicknesses
-from toolbox.economics.cpi_data import actualize_price
+from labothappy.toolbox.heat_exchangers.PCHE.thicknesses import PCHE_thicknesses
+from labothappy.toolbox.economics.cpi_data import actualize_price
 
 import pyswarms as ps
 import numpy as np
@@ -95,6 +95,44 @@ class PCHESizingOpt(BaseComponent):
         return
 
     #%%
+    def export_params_dict(self):
+        
+        return {
+            "type": "PCHE",
+            "type_channel": "Zigzag",
+            "Flow_Type": self.params["Flow_Type"],
+            
+            "Q_dot": self.HX.Q.Q_dot,
+            "DP_h": self.HX.DP_h,
+            "DP_c": self.HX.DP_c,
+            
+            "fluid_H": self.inputs['fluid_H'],            
+            "m_dot_H": self.inputs['m_dot_H'],
+            "T_su_H": self.inputs['T_su_H'],
+            "P_su_H": self.inputs['P_su_H'],
+            
+            "fluid_C": self.inputs['fluid_C'],            
+            "m_dot_C": self.inputs['m_dot_C'],
+            "T_su_C": self.inputs['T_su_C'],
+            "P_su_C": self.inputs['P_su_C'],
+
+            "alpha": self.params["alpha"],
+            "D_c": self.params["D_c"],
+            "k_cond": self.params["k_cond"],
+            "L_c": self.params["L_c"],            
+            "N_c": self.params["N_c"],
+            "N_p": self.params["N_p"],
+            "R_p": self.params["R_p"],
+            "t_2": self.params["t_2"],
+            "t_3": self.params["t_3"],
+            "L_x": self.params["L_x"],
+            "L_y": self.params["L_y"],
+            "L_z": self.params["L_z"],
+            
+            "CAPEX": self.CAPEX,
+        } 
+
+    #%%
 
     def compute_geom(self):
         
@@ -126,17 +164,17 @@ class PCHESizingOpt(BaseComponent):
         
         # Penalties 
         if self.Q_dot_constr:
-            pen_Q = max(self.Q_dot_constr - self.HX.Q.Q_dot,0)
+            self.pen_Q = pen_Q = max(self.Q_dot_constr - self.HX.Q.Q_dot,0)
         else:
             pen_Q = 0
         
         if self.DP_h_constr:
-            pen_DP_h = max(self.HX.DP_h - self.DP_h_constr,0)
+            self.pen_DP_h = pen_DP_h = max(self.HX.DP_h - self.DP_h_constr,0)
         else:
             pen_DP_h = 0
             
         if self.DP_c_constr:
-            pen_DP_c = max(self.HX.DP_c - self.DP_c_constr,0)
+            self.pen_DP_c = pen_DP_c = max(self.HX.DP_c - self.DP_c_constr,0)
         else:
             pen_DP_c = 0
 
@@ -164,6 +202,8 @@ class PCHESizingOpt(BaseComponent):
         
         self.U = sum((self.HX.Qvec_h/self.HX.LMTD)*self.HX.w)
         self.UA = self.U*(1/(1/self.HX.A_h + 1/self.HX.A_c))
+        
+        self.CAPEX_alt = 49.45*self.UA**0.7544
         
         self.CAPEX = {"HX" : actualize_price(C_m*self.m_HX, 2022, "USD"),
                       "Currency" : "USD"}
@@ -199,7 +239,7 @@ class PCHESizingOpt(BaseComponent):
             self.HX.solve()
         except:
             # print("Error in Solving")
-            return 10000
+            return 1000000
         
         # Score
         score = self.compute_score()
@@ -269,7 +309,7 @@ class PCHESizingOpt(BaseComponent):
     
     #%%
     
-    def design_parallel(self, n_jobs=-1, backend="loky", chunksize="auto"):
+    def design_parallel(self, n_jobs=-1, backend="loky", chunksize="auto", n_particles = 30):
         # ---- fixed order + bounds ----
         ORDER = ['alpha', 'D_c', 'L_x', 'L_y', 'L_z']
         def bounds_dict_to_arrays(bounds_dict, order=ORDER):
@@ -283,7 +323,7 @@ class PCHESizingOpt(BaseComponent):
         D = lb.size
     
         optimizer = ps.single.GlobalBestPSO(
-            n_particles=30, dimensions=D,
+            n_particles=n_particles, dimensions=D,
             options={'c1': 1.5, 'c2': 2.0, 'w': 0.7},
             bounds=(lb, ub)
         )
@@ -386,22 +426,22 @@ if __name__ == "__main__":
         HX_opt.set_inputs(
             # First fluid
             fluid_H = 'CO2',
-            T_su_H = 340.08, # K
-            P_su_H = 75.1*1e5, # Pa
-            m_dot_H = 26.73, # kg/s
+            T_su_H = 304.8, # K
+            P_su_H = 4389716, # Pa
+            m_dot_H = 30.9, # kg/s
     
             # Second fluid
             fluid_C = 'CO2',
-            T_su_C = 312.41, # K
-            P_su_C = 115.2*1e5, # Pa
-            m_dot_C = 26.73, # kg/s  # Make sure to include fluid information
+            T_su_C = 286.1, # K
+            P_su_C = 14271953, # Pa
+            m_dot_C = 30.9, # kg/s  # Make sure to include fluid information
          )
         
     HX_opt.set_parameters(
         k_cond = 60, # plate conductivity
         R_p = 1, # n_hot_channel_row / n_cold_channel_row
         
-        n_disc = 50,
+        n_disc = 10,
         
         Flow_Type = 'CounterFlow', 
         H_DP_ON = True, 
@@ -412,8 +452,8 @@ if __name__ == "__main__":
     H_Corr = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
     C_Corr = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
     
-    H_DP = {"1P" : "Gnielinski_DP", "SC" : "Gnielinski_DP"}
-    C_DP = {"1P" : "Gnielinski_DP", "SC" : "Gnielinski_DP"}
+    H_DP = {"1P" : "Darcy_Weisbach", "SC" : "Darcy_Weisbach"}
+    C_DP = {"1P" : "Darcy_Weisbach", "SC" : "Darcy_Weisbach"}
     
     HX_opt.set_corr(H_Corr, C_Corr, H_DP, C_DP)
     
@@ -424,17 +464,17 @@ if __name__ == "__main__":
     HX_opt.set_bounds(
         alpha = [10,40], # [°]
         D_c = [1*1e-3, 3*1e-3], # [m]
-        L_x = [0.1, 1.5], # [m] : 0.6 limit fixed by Heatric (PCHE manufacturer) : Fluid direction
-        L_y = [0.1, 2.3], # [m] : 2.3 limit for shipping requirements : Vertical direction
-        L_z = [0.1, 0.6], # [m] : 1.5 limit fixed by Heatric (PCHE manufacturer) : Width
+        L_x = [0.2, 1.5], # [m] : 0.6 limit fixed by Heatric (PCHE manufacturer) : Fluid direction
+        L_y = [0.3, 2.3], # [m] : 2.3 limit for shipping requirements : Vertical direction
+        L_z = [0.2, 0.6], # [m] : 1.5 limit fixed by Heatric (PCHE manufacturer) : Width
         )
     
-    Q_dot_cstr = 1.4*1e6
-    DP_c_cstr = 50*1e3
-    DP_h_cstr = 50*1e3
+    Q_dot_cstr = 308446
+    DP_c_cstr = 2*1e5
+    DP_h_cstr = 4*1e5
     
     HX_opt.set_constraints(Q_dot = Q_dot_cstr, DP_h = DP_h_cstr, DP_c = DP_c_cstr)
 
-    best_pos = HX_opt.design_parallel()
+    best_pos = HX_opt.design_parallel(n_jobs=1)
     
     

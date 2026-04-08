@@ -5,10 +5,11 @@ Created on Thu Aug 21 13:31:47 2025
 @author: Basile
 """
 
-from connector.mass_connector import MassConnector
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.correlations.turbomachinery.radial_turbine_losses import nozzle_losses, rotor_losses
+
 from CoolProp.CoolProp import PropsSI
 from scipy.optimize import fsolve, minimize, root, least_squares
-from correlations.turbomachinery.radial_turbine_losses import nozzle_losses, rotor_losses
 
 import CoolProp.CoolProp as CP
 import matplotlib.pyplot as plt

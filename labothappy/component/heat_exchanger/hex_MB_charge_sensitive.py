@@ -21,6 +21,7 @@ import correlations
 
 import CoolProp.CoolProp as CP
 from CoolProp.Plots import PropertyPlot
+from CoolProp.CoolProp import PropsSI
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.optimize
@@ -82,29 +83,62 @@ HTC_correlations = {
 
 def propsfluid_AS(T_mean, P_mean, T_wall, fluid, incompr_flag, AS):
     
-    AS.update(CP.PT_INPUTS, P_mean, T_mean)    
-    mu = AS.viscosity()
-    cp = AS.cpmass()
+    T_max = AS.Tmax() # K
+    T_min = AS.Ttriple()
     
-    if fluid == 'R1233zd(E)':
-        k = conducticity_R1233zd(T_mean, P_mean)
-        Pr = mu * cp / k
-    else:
-        k = AS.conductivity()    
-        Pr = AS.Prandtl()
+    P_max = AS.pmax()
+    AS.update(CP.QT_INPUTS, 0.5, T_min+1)
+    
+    P_min = AS.p()
+    
+    P_mean = np.clip(P_mean, P_min, P_max)
+    T_mean = np.clip(T_mean, T_min, T_max)
+    T_wall = np.clip(T_wall, T_min, T_max)
+    
+    try:
+        AS.update(CP.PT_INPUTS, P_mean, T_mean)    
+        mu = AS.viscosity()
+        cp = AS.cpmass()
+        
+        if fluid == 'R1233zd(E)':
+            k = conducticity_R1233zd(T_mean, P_mean)
+            Pr = mu * cp / k
+        else:
+            k = AS.conductivity()    
+            Pr = AS.Prandtl()
+            
+    except:
+        mu, cp = PropsSI(("V", "CPMASS"), "P", P_mean, "T", T_mean, AS.fluid_names[0])
 
-    AS.update(CP.PT_INPUTS, P_mean, T_wall)    
+        if fluid == 'R1233zd(E)':
+            k = conducticity_R1233zd(T_mean, P_mean)
+            Pr = mu * cp / k
+        else:
+            k, Pr = PropsSI(("L", "PRANDTL"), "P", P_mean, "T", T_mean, AS.fluid_names[0])
 
-    mu_wall = AS.viscosity()
+    try: 
+        AS.update(CP.PT_INPUTS, P_mean, T_wall)    
+        mu_wall = AS.viscosity()
+        cp_wall = AS.cpmass()
+        
+        if fluid == 'R1233zd(E)':
+            k_wall = conducticity_R1233zd(T_mean, P_mean)
+            Pr_wall = mu_wall * cp_wall / k_wall
+        else:
+            k_wall = AS.conductivity()    
+            Pr_wall = AS.Prandtl()
+        
+    except:
+        mu_wall, cp_wall = PropsSI(("V", "CPMASS"), "P", P_mean, "T", T_wall, AS.fluid_names[0])
+
+        if fluid == 'R1233zd(E)':
+            k_wall = conducticity_R1233zd(T_mean, P_mean)
+            Pr_wall = mu_wall * cp_wall / k_wall
+        else:
+            k_wall, Pr_wall = PropsSI(("L", "PRANDTL"), "P", P_mean, "T", T_wall, AS.fluid_names[0])
+
+
     mu_rat = mu/mu_wall
-    cp_wall = AS.cpmass()
-
-    if fluid == 'R1233zd(E)':
-        k_wall = conducticity_R1233zd(T_mean, P_mean)
-        Pr_wall = mu_wall * cp_wall / k_wall
-    else:
-        k_wall = AS.conductivity()    
-        Pr_wall = AS.Prandtl()
     
     return mu, Pr, k, mu_wall, mu_rat, Pr_wall, 0
 

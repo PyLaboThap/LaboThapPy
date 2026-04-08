@@ -5,10 +5,11 @@ Created on Thu Aug 21 13:31:47 2025
 @author: Basile
 """
 
-from connector.mass_connector import MassConnector
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.correlations.turbomachinery.radial_turbine_losses import nozzle_losses, rotor_losses
+
 from CoolProp.CoolProp import PropsSI
 from scipy.optimize import fsolve, minimize, root, least_squares
-from correlations.turbomachinery.radial_turbine_losses import nozzle_losses, rotor_losses
 
 import CoolProp.CoolProp as CP
 import matplotlib.pyplot as plt
@@ -418,15 +419,6 @@ class RadialTurbineMeanLineDesign(object):
         self.sol_stator1 = minimize(system_MB_stator, x0, method='L-BFGS-B', bounds=bounds,
                        options={'ftol': 1e-8, 'gtol': 1e-8})
         
-        # # Check result
-        # if sol.success:
-        #     print("Solver succeeded!")
-        # else:
-        #     print("Solver failed.")
-        
-        # print("Message:", sol.message)
-        # print("Solution:", sol.x)
-        
         "4) -------- (2) Stator Inlet ------------------------"
         
         # blade angles based on Aungier's function for the blade shape
@@ -585,6 +577,84 @@ class RadialTurbineMeanLineDesign(object):
         
         return obj
     
+    #%%
+    
+    def cost_estimation(self):
+        
+        if self.fluid == 'CO2' or self.fluid == 'CarbonDioxide' or self.fluid == 'R744':
+            """
+            SCO2 POWER CYCLE COMPONENT COST CORRELATIONS FROM DOE DATA
+            SPANNING MULTIPLE SCALES AND APPLICATIONS (2019)
+            
+            Nathan T. Weiland,  Blake W. Lance, Sandeep R. Pidaparti
+            
+            Especially good for 10 - 750 
+            Based on 2017 CEPCI (chemical plant cost index) for dollars
+            """
+            
+            T_550 = 273.15+550 # K
+            
+            if self.inputs['T0_su'] > T_550: # °C
+                f = 1 + 1.137*1e-5*(self.inputs['T0_su'] - T_550)**2
+            else:
+                f = 1
+        
+            W_dot_MW = self.W_dot/1e6
+            self.CAPEX['Turbine'] = 406200*W_dot_MW**0.8 * f
+        
+        else:
+            """
+            Supplementary Information:
+            Techno-economic analysis of recuperated Joule-Brayton
+            pumped thermal energy storage (2022)
+                        
+            Joshua D. McTigue, Pau Farres-Antunez, Kavin Sundarnath Jawaharlal Ayyanathanc, Christos N. Markides, Alexander J. White           
+            Based on 1995 CEPCI (chemical plant cost index) for dollars
+            """
+            rho0_air = PropsSI('D', 'T', 15+273.15, 'P', 101325, 'Air')
+            rho_out = self.stages[-1].get_static_prop('D',2)
+            
+            W_dot_MW = self.W_dot/1e6
+            
+            n = 1
+            
+            if self.eta_is >= 0.92:
+                 fact_1 = 1.051 * 266 * self.inputs['mdot'] * np.log(self.inputs['p0_su']/self.inputs['p_ex']) / (0.94 - self.eta_is)
+            else:
+                 fact_1 = 1.051 * 266 * self.inputs['mdot'] * np.log(self.inputs['p0_su']/self.inputs['p_ex']) / (0.92 - self.eta_is)                
+                
+            fact_2 = (1+np.exp(0.036*(self.inputs['T0_su']) - 1.207 * 54.4))
+            
+            fact_3 = (rho_out/rho0_air)**(-n)
+            
+            self.CAPEX['Turbine'] = fact_1*fact_2*fact_3
+            
+        # Generator Costs
+        
+        """
+        SCO2 POWER CYCLE COMPONENT COST CORRELATIONS FROM DOE DATA
+        SPANNING MULTIPLE SCALES AND APPLICATIONS (2019)
+        
+        Nathan T. Weiland,  Blake W. Lance, Sandeep R. Pidaparti
+        
+        Especially good for 10 - 750 
+        Based on 2017 CEPCI (chemical plant cost index) for dollars
+        """
+        
+        self.eta_alt = 0.97
+        self.W_dot_el = self.W_dot*self.eta_alt
+        
+        W_dot_el_MW = self.W_dot_el/1e6
+        
+        self.CAPEX['Alternator'] = 108900 * W_dot_el_MW**0.5463
+        
+        self.f_install = 0.35 
+        self.CAPEX['Installation'] = self.f_install*(self.CAPEX['Alternator'] + self.CAPEX['Turbine'])
+        
+        self.CAPEX['Total'] = self.CAPEX['Turbine'] + self.CAPEX['Alternator'] + self.CAPEX['Installation']
+        
+        return
+        
 #%%
 
     def design(self):
@@ -652,13 +722,27 @@ class RadialTurbineMeanLineDesign(object):
         best_pos = optimizer.swarm.best_pos
         self.design_system(best_pos)
     
-        print(f"Parameters : {self.inputs['psi'], self.inputs['phi'], self.inputs['xhi'], self.params['r5_r4_ratio'], self.params['r5h_r5t_ratio']}")
-        print(f"Turbine rotation speed: {self.Omega} [RPM]")
-        print(f"Turbine total-to-static efficiency : {self.eta_is} [-]")
-        print(f"Turbine Generation : {self.W_dot} [W]")
+        self.cost_estimation()
+        
+        if __name__ == "__main__":
+            print(f"Work Coef : {self.inputs['psi']}")
+            print(f"Flow Coef : {self.inputs['phi']}")
+            print(f"Xhi : {self.inputs['xhi']}")
+            print(f"r5_r4_ratio : {self.params['r5_r4_ratio']}")
+            print(f"r5h_r5t_ratio  : {self.params['r5h_r5t_ratio']}")
+        
+            print(f"P_in : {self.total_states['P'][1]} [Pa]")
+            print(f"P_out: {self.static_states['P'][5]} [Pa]")
+            print(f"Omega: {self.Omega} [RPM]")
+            print(f"eta_is: {self.eta_is}")
+            print(f"W_dot : {self.W_dot} [W]")
+            
+            print(f"r4 : {self.params['r4']} [m]")
+            print(f"r5 : {self.params['r5']} [m]")
+            
         return best_pos
 
-    def design_parallel(self, n_jobs=-1, backend="loky", chunksize="auto"):
+    def design_parallel(self, n_jobs=-1, backend="loky", chunksize="auto", n_particles = 20, max_iter=50):
         os.environ["PYTHONWARNINGS"] = "ignore" 
         
         bounds = (np.array([
@@ -720,12 +804,12 @@ class RadialTurbineMeanLineDesign(object):
     
         # --- PSO optimizer ---
         optimizer = ps.single.GlobalBestPSO(
-            n_particles=20, dimensions=dimensions,
+            n_particles=n_particles, dimensions=dimensions,
             options={'c1': 1.5, 'c2': 2.0, 'w': 0.7},
             bounds=bounds
         )
     
-        patience, tol, max_iter = 5, 1e-3, 3
+        patience, tol, max_iter = 5, 1e-3, max_iter
         no_improve, best_cost = 0, float("inf")
     
         for i in range(max_iter):
@@ -756,53 +840,57 @@ class RadialTurbineMeanLineDesign(object):
         # Finalize
         self.design_system(best_pos)
         # self.cost_estimation()
-    
-        print(f"Work Coef : {self.inputs['psi']}")
-        print(f"Flow Coef : {self.inputs['phi']}")
-        print(f"Xhi : {self.inputs['xhi']}")
-        print(f"r5_r4_ratio : {self.params['r5_r4_ratio']}")
-        print(f"r5h_r5t_ratio  : {self.params['r5h_r5t_ratio']}")
-    
-        print(f"P_in : {self.total_states['P'][0]} [Pa]")
-        print(f"P_out: {self.static_states['P'][-1]} [Pa]")
-        print(f"Omega: {self.params['Omega']} [RPM]")
-        print(f"eta_is: {self.eta_is}")
-        print(f"W_dot : {self.W_dot} [W]")
         
-        print(f"r4 : {self.params['r4']} [m]")
-        print(f"r5 : {self.params['r5']} [m]")
+        if __name__ == "__main__":
+            print(f"Work Coef : {self.inputs['psi']}")
+            print(f"Flow Coef : {self.inputs['phi']}")
+            print(f"Xhi : {self.inputs['xhi']}")
+            print(f"r5_r4_ratio : {self.params['r5_r4_ratio']}")
+            print(f"r5h_r5t_ratio  : {self.params['r5h_r5t_ratio']}")
+        
+            print(f"P_in : {self.total_states['P'][1]} [Pa]")
+            print(f"P_out: {self.static_states['P'][5]} [Pa]")
+            print(f"Omega: {self.Omega} [RPM]")
+            print(f"eta_is: {self.eta_is}")
+            print(f"W_dot : {self.W_dot} [W]")
+            
+            print(f"r4 : {self.params['r4']} [m]")
+            print(f"r5 : {self.params['r5']} [m]")
+        
+        self.cost_estimation()
         
         return best_pos
 
-Turb = RadialTurbineMeanLineDesign('CO2')
-
-Turb.set_inputs(
-    mdot = 100, # kg/s
-    W_dot = 4.69*1e6, # W
-    p0_su = 140*1e5, # Pa
-    T0_su = 273.15 + 121, # K
-    p_ex = 39.8*1e5, # Pa
-    )
-
-Turb.set_parameters(
-    r5_r4_bounds = [0.3,0.7], # [-] : r5/r4 ratio
-    psi_bounds = [0.5, 1.5],
-    phi_bounds = [0.3, 0.6],
-    xhi_bounds = [0.3, 0.6],
-    r5h_r5t_bounds = [0.3, 0.4], # [-] : hub_tip ratio at the exit
+if __name__ == "__main__":
+    Turb = RadialTurbineMeanLineDesign('CO2')
     
-    S_b4_ratio = 1.05, # flow path length to blade height ratio -> from 1 to 2 depending on the app, 1.05 max for CO2
-    t_TE_c_S_max = 0.02, # [-]
-    t_TE_S = 5*1e-4, # [m]
-    cl_a = 0.4*1e-3, # [m] : Axial clearance
-    cl_r = 0.4*1e-3, # [m] : Radial clearance
+    Turb.set_inputs(
+        mdot = 100, # kg/s
+        W_dot = 4.69*1e6, # W
+        p0_su = 140*1e5, # Pa
+        T0_su = 273.15 + 121, # K
+        p_ex = 39.8*1e5, # Pa
+        )
     
-    damping = 0.5, # [-]
-
-    Mth_target = 0.3, # [-]    
-    r5t_guess = 0.15, # [m]
-    r4_guess = 0.22, # [m]
-    )
+    Turb.set_parameters(
+        r5_r4_bounds = [0.3,0.7], # [-] : r5/r4 ratio
+        psi_bounds = [0.5, 1.5],
+        phi_bounds = [0.3, 0.6],
+        xhi_bounds = [0.3, 0.6],
+        r5h_r5t_bounds = [0.3, 0.4], # [-] : hub_tip ratio at the exit
+        
+        S_b4_ratio = 1.05, # flow path length to blade height ratio -> from 1 to 2 depending on the app, 1.05 max for CO2
+        t_TE_c_S_max = 0.02, # [-]
+        t_TE_S = 5*1e-4, # [m]
+        cl_a = 0.4*1e-3, # [m] : Axial clearance
+        cl_r = 0.4*1e-3, # [m] : Radial clearance
+        
+        damping = 0.5, # [-]
     
-Turb.design_parallel()
+        Mth_target = 0.4, # [-]    
+        r5t_guess = 0.15, # [m]
+        r4_guess = 0.22, # [m]
+        )
+        
+    Turb.design_parallel(max_iter=3, n_jobs=1)
 
