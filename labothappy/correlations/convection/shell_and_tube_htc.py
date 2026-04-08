@@ -549,7 +549,14 @@ if __name__ == "__main__":
 
     # params = {
     #     'clear_TB' : 0.00622,
-    #     'clear_BS' : 0.01487,
+    #     if tube_OD > 0.03175: 
+    #       clear_TB = 0.8 mm 
+    #     
+    #     else:
+    #       
+    
+    
+    #     'clear_BS' : 0.01487, 3.1*1e-3 + 4*1e-3*Shell_ID
     #     'D_OTL' : Ds-0.02,
     #     'inlet_spacing' : 0.6*Ds,        
     #     'outlet_spacing' : 0.6*Ds,
