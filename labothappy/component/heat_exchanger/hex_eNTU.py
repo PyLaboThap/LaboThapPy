@@ -174,24 +174,18 @@ class HexeNTU(BaseComponent):
                                'A_canal_H', 'A_canal_C', 'D_h_C', 'D_h_H',
                                'k_plate', 't_plate', 'n_plates',
                                'co_pitch', 'chevron_angle', 'fouling']
-        elif self.hex_type == 'Shell&Tube':
-            geometry_parameters = ['A_htx'] 
-            # to be continued
-        elif self.hex_type == 'Tube&Fins':
-            geometry_parameters = ['A_htx'] 
-            # to be continued
         
         
         elif self.hex_type == 'Shell&Tube':
                 
-            if self.H.Correlation_1phase == "Shell_Bell_Delaware_HTC" or self.C.Correlation_1phase == "Shell_Bell_Delaware_HTC":
+            if self.Corr_H == "Shell_Bell_Delaware_HTC" or self.Corr_C == "Shell_Bell_Delaware_HTC":
 
                 geometry_parameters = ['Baffle_cut', 'D_OTL', 'N_strips', 'Shell_ID', 'Tube_L', 'Tube_OD', 'Tube_pass',
                                     'Tube_t', 'Tubesheet_t', 'central_spacing', 'clear_BS', 'clear_TB',
                                     'cross_passes', 'foul_s', 'foul_t', 'inlet_spacing', 'n_series', 'n_parallel', 
                                     'n_tubes', 'outlet_spacing', 'pitch_ratio', 'tube_cond', 'tube_layout', 'Shell_Side']
 
-            if self.H.Correlation_1phase == "Shell_Kern_HTC" or self.C.Correlation_1phase == "Shell_Kern_HTC":
+            if self.Corr_H == "Shell_Kern_HTC" or self.Corr_C == "Shell_Kern_HTC":
 
                 geometry_parameters = ['Baffle_cut', 'Shell_ID', 'Tube_L', 'Tube_OD', 'Tube_pass','Tube_t', 'central_spacing',
                                     'cross_passes', 'foul_s', 'foul_t', 'n_series', 'n_parallel', 'n_tubes', 'pitch_ratio', 
@@ -202,7 +196,7 @@ class HexeNTU(BaseComponent):
             geometry_parameters = ['A_flow', 'Fin_OD', 'Fin_per_m', 'Fin_t', 'Fin_type',
                                     'Finned_tube_flag', 'Tube_L', 'Tube_OD',
                                     'Tube_cond', 'Tube_t', 'fouling', 'h', 'k_fin',
-                                    'Tube_pass', 'n_rows', 'n_series', 'n_parallel', 'n_tubes', 'pitch', 'pitch_ratio', 'tube_arrang',
+                                    'Tube_pass', 'n_rows', 'n_series', 'n_parallel', 'n_tubes', 'pitch_V', 'pitch_H', 'pitch_ratio', 'tube_arrang',
                                     'w','Fin_Side']
             
         else:
