@@ -94,6 +94,8 @@ def htc_tube_and_fins_annular(fluid, params, P_in, h_in, m_dot_in):
     # Fin conventional length
     D_fin_c = params['Tube_OD'] + (2*Fin_L*params['Fin_t'])/Fin_spacing
     
+    if 'pitch_V' in params and 'pitch_H' in params:
+        params['pitch'] = max(params['pitch_V'], params['pitch_H'])
     Tube_diag_pitch = np.sqrt(2)*params['pitch'] # Square staggered bank
     psi_c = (params['pitch'] - D_fin_c)/(Tube_diag_pitch - D_fin_c)
 
