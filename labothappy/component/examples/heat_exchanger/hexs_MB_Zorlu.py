@@ -17,7 +17,7 @@ from toolbox.geometries.heat_exchanger.c_geometry_HXs_Zorlu import Zorlu_HXs
 
 import numpy as np
 
-HX_name = 'RECUPERATOR'
+HX_name = 'ACC'
 
 n_disc =30
     
@@ -142,9 +142,13 @@ elif HX_name == "RECUPERATOR":
         geom_obj = Zorlu_HXs()
         geom_obj.set_parameters("ORC_recuperator")
         HX.set_parameters(**geom_obj.geom)
+        geom_obj.set_DP("ORC_recuperator")
+        HX.set_DP(**geom_obj.DP)
         
         
         HX.solve()
+        HX.print_results()
+        print(f"\n  - Q_dot = {HX.Q_hex.Q_dot/1000} kW")
         # HX.print_setup()
         
         
@@ -156,48 +160,85 @@ elif HX_name == "RECUPERATOR":
     
     
 elif HX_name == "ACC":
-    HX = HexMBChargeSensitive('Tube&Fins')
     
-    HX.set_inputs(
-        fluid_H = 'Cyclopentane',
-        T_su_H = 38.46 + 273.15, # K
-        P_su_H = 0.7003*1e5, # Pa
-        m_dot_H = 62.71, # kg/s
+    Type_HX = 'epsNTU'   # 'epsNTU'  or 'MB'
     
-        # Second fluid
-        fluid_C = 'Air',
-        T_su_C = 15 + 273.15, # K
-        P_su_C = 1.01325*1e5, # Pa
-        m_dot_C = 2557, # kg/s  
-        )
-    "Set HTC"
-    Corr_H = {"1P" : "Gnielinski", "2P" : "Thome_Condensation"}
-    Corr_C = {"1P" : "Tube_And_Fins", "2P" : "Tube_And_Fins"}
-    # Corr_H = {"1P" : "Tube&Fins", "2P" : "Tube&Fins"}
-    HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation'
+    if Type_HX == 'MB':
+        HX = HexMBChargeSensitive('Tube&Fins')
     
-    
-    "Set geometry"
-    geom_obj = Zorlu_HXs()
-    geom_obj.set_parameters("ORC_ACC")
-    HX.set_parameters(**geom_obj.geom)
-    HX.set_parameters(n_disc=n_disc)
-    
-    "Set pressure drops"
-    # geom_obj.set_DP("ORC_recuperator")
-    HX.set_DP(**geom_obj.DP) 
-    HX.set_DP() # no pressure drops normally
         
-    "Solve the component"
-    
-    HX.solve() 
-    HX.print_states_connectors()
-    print(f'  - epsilon = {HX.epsilon_th}')
-    # print(f'  - Q_dot = {HX.Q_dot}')
-    
-    # epsilon_ACC = HX.Q_dot / (HX.su_C.m_dot * HX.su_C.cp * (HX.su_H.T - HX.su_C.T))
-    
-    
+        HX.set_inputs(
+            fluid_H = 'Cyclopentane',
+            T_su_H = 38.46 + 273.15, # K
+            P_su_H = 0.7003*1e5, # Pa
+            m_dot_H = 62.71, # kg/s
+        
+            # Second fluid
+            fluid_C = 'Air',
+            T_su_C = 15 + 273.15, # K
+            P_su_C = 1.01325*1e5, # Pa
+            m_dot_C = 2557, # kg/s  
+            )
+        "Set HTC"
+        Corr_H = {"1P" : "Gnielinski", "2P" : "Thome_Condensation"}
+        Corr_C = {"1P" : "Tube_And_Fins", "2P" : "Tube_And_Fins"}
+        # Corr_H = {"1P" : "Tube&Fins", "2P" : "Tube&Fins"}
+        HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation'
+        
+        
+        "Set geometry"
+        geom_obj = Zorlu_HXs()
+        geom_obj.set_parameters("ORC_ACC")
+        HX.set_parameters(**geom_obj.geom)
+        HX.set_parameters(n_disc=n_disc)
+        
+        "Set pressure drops"
+        # geom_obj.set_DP("ORC_recuperator")
+        HX.set_DP(**geom_obj.DP) 
+        HX.set_DP() # no pressure drops normally
+            
+        "Solve the component"
+        
+        HX.solve() 
+        HX.print_states_connectors()
+        print(f'  - epsilon = {HX.epsilon_th}')
+        
+        
+        
+    elif Type_HX =='epsNTU' :
+        HX = HexeNTU("Tube&Fins")
+
+        HX.set_inputs(
+            fluid_H = 'Cyclopentane',
+            T_su_H = 38.46 + 273.15, # K
+            P_su_H = 0.7003*1e5, # Pa
+            m_dot_H = 62.71, # kg/s
+        
+            # Second fluid
+            fluid_C = 'Air',
+            T_su_C = 15 + 273.15, # K
+            P_su_C = 1.01325*1e5, # Pa
+            m_dot_C = 2557, # kg/s  
+            )
+        
+        Corr_C = "Gnielinski"
+        Corr_H = "Tube_And_Fins"
+        HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation'
+        
+        
+        
+        geom_obj = Zorlu_HXs()
+        geom_obj.set_parameters("ORC_ACC")
+        HX.set_parameters(**geom_obj.geom)
+        geom_obj.set_DP("ORC_ACC")
+        HX.set_DP(**geom_obj.DP)
+        
+        
+        HX.solve()
+        # HX.print_results()
+        # print(f"\n  - Q_dot = {HX.Q_hex.Q_dot/1000} kW")
+        
+        
     
     
 
