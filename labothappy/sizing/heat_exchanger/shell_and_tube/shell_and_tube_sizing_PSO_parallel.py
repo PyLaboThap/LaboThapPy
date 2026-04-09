@@ -1731,7 +1731,7 @@ if __name__ == "__main__":
             df_updated.to_excel(excel_file, engine='openpyxl')
             #%%
     else:
-        test_case = "Methanol"
+        test_case = "CO2_CD"
 
         n_disc = 5
         n_opt_per_cond = 1
@@ -1930,7 +1930,7 @@ if __name__ == "__main__":
                                 'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
                                 'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
                                     29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
-                                'Tube_pass' : [1,2,4,6,8,10],
+                                'Tube_pass' : [1,2,4], # 6,8,10],
                                 'tube_layout' : [0,45,60]} 
             
             """
@@ -1959,21 +1959,21 @@ if __name__ == "__main__":
             HX_test.set_inputs(
                 # First fluid
                 fluid_H = 'CO2',
-                T_su_H = 273.15 + 40, # K
-                P_su_H = 5050000, # Pa
-                m_dot_H = 30, # kg/s
+                T_su_H = 289.64, # K
+                P_su_H = 4234404, # Pa
+                m_dot_H = 335.3, # kg/s
         
                 # Second fluid
                 fluid_C = 'Water',
-                T_su_C = 3 + 273.15, # K
+                T_su_C = 0.1 + 273.15, # K
                 P_su_C = 5*1e5, # Pa
-                m_dot_C = 150, # kg/s  # Make sure to include fluid information
+                m_dot_C = 2000, # kg/s  # Make sure to include fluid information
                 )
             
             "Constraints Values"
-            Q_dot_cstr = 7500000 # 6295150
-            DP_h_cstr = 3*1e5
-            DP_c_cstr = 100*1e3
+            Q_dot_cstr = 75285944 # 6295150
+            DP_h_cstr = 2*1e5
+            DP_c_cstr = 1*1e5
         
             """
             Parameters Setting
@@ -1981,7 +1981,7 @@ if __name__ == "__main__":
         
             HX_test.set_parameters(
                                     n_series = 1, # [-]
-                                    n_parallel = 1, # [-]
+                                    n_parallel = 3, # [-]
     
                                     # OPTI -> Oui (regarder le papier pour déterminer ça)
         

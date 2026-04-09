@@ -55,28 +55,28 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
             k_cond = 20, # plate conductivity
             R_p = 1, # n_hot_channel_row / n_cold_channel_row
             
-            n_disc = 5,
+            n_disc = 50,
             
             Flow_Type = 'CounterFlow', 
             H_DP_ON = True, 
             C_DP_ON = True,
+            AS_Type = "HEOS"
             )
     
         H_Corr = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
         C_Corr = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
         
-        Corr_H_DP = {"SC" : "Darcy_Weisbach", "1P" : "Darcy_Weisbach"}
-        Corr_C_DP = {"SC" : "Darcy_Weisbach", "1P" : "Darcy_Weisbach"}  
+        Corr_H_DP = {"SC" : "Gnielinski_DP", "1P" : "Gnielinski_DP"}
+        Corr_C_DP = {"SC" : "Gnielinski_DP", "1P" : "Gnielinski_DP"}  
         
         # REC_sizing.set_htc(htc_type = 'Correlation_Disc', Corr_H = H_Corr, Corr_C = C_Corr)
         # REC_sizing.set_DP(DP_type="Correlation_Disc", Corr_C=Corr_C_DP, Corr_H=Corr_H_DP)
     
         REC_sizing.set_corr(H_Corr, C_Corr, Corr_H_DP, Corr_C_DP)
 
-    
-        L_x_bounds = np.array([0.1, 1.5])*1
-        L_y_bounds = np.array([0.1, 2.3])*1
-        L_z_bounds = np.array([0.1, 0.6])*1
+        L_x_bounds = np.array([0.2, 1.5])*1
+        L_y_bounds = np.array([0.2, 2.3])*1
+        L_z_bounds = np.array([0.2, 0.6])*1
     
         REC_sizing.set_bounds(
             alpha = [10,40], # [°]
@@ -91,7 +91,7 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
         DP_h_cstr = REC_model.DP_h
         
         REC_sizing.set_constraints(Q_dot = Q_dot_cstr, DP_h = DP_h_cstr, DP_c = DP_c_cstr)
-        REC_sizing.design_parallel(n_jobs=-1, n_particles = 50)
+        REC_sizing.design_parallel(n_jobs=-1, n_particles = 50, max_iter=50, patience=10)
 
     except Exception as e:
         print(f"⚠️ Failed to design Recuperator: {e}")
@@ -133,7 +133,7 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
     
         GH_sizing.set_parameters(
                                 n_series = 1, # [-]
-                                n_parallel = 1, # [-]
+                                n_parallel = 2, # [-]
                                 # OPTI -> Oui (regarder le papier pour déterminer ça)
     
                                 foul_t = 0.000176, # (m^2 * K/W)
@@ -212,7 +212,7 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
 
         CD_sizing.set_parameters(
                                 n_series = 1, # [-]
-                                n_parallel = 1, # [-]
+                                n_parallel = 3, # [-]
                                 # OPTI -> Oui (regarder le papier pour déterminer ça)
     
                                 foul_t = 0.000176, # (m^2 * K/W)
@@ -246,7 +246,7 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
                     }
 
         CD_sizing.set_bounds(bounds)
-        CD_sizing.set_constraints(Q_dot = CD_model.Q.Q_dot, DP_h = max(CD_model.DP_h, 1e3), DP_c = max(CD_model.DP_c, 1e3))
+        CD_sizing.set_constraints(Q_dot = CD_model.Q.Q_dot, DP_h = max(CD_model.DP_h, 1e4), DP_c = max(CD_model.DP_c, 1e4))
 
         global_best_position, global_best_score, best_particle = CD_sizing.opt_size()
         
@@ -604,6 +604,9 @@ class CO2RCOptimizer:
         self.potential_RC = []
         
         turb_choices = []
+        
+        if self.obj['W_dot'] >= 10*1e6:
+            self.turb_choice = 'Axial'
         
         for allowable_position in self.top_positions:
             
@@ -967,24 +970,24 @@ if __name__ == "__main__":
     
     T_test = 130 + 273.15 # K
     
-    n_MW = 1 # W
+    n_MW = 10 # W
     W_dot_obj = n_MW*1e6 # W
     
-    eta_obj = 0.12
+    eta_obj = 0.11
     
     # Create optimizer instance
     Optimizer = CO2RCOptimizer('CO2')
     
     # Sweep parameters
-    m_dot_HS_fact_bounds = [0.5,1]
-    m_dot_CS_fact_bounds = [10,40]
-    P_high_bounds = np.array([110, 180]) * 1e5
-    m_dot_bounds = np.array([25,50])*n_MW
+    m_dot_HS_fact_bounds = [0.5,8]
+    m_dot_CS_fact_bounds = [7,9]
+    P_high_bounds = np.array([130, 160]) * 1e5
+    m_dot_bounds = np.array([20,40])*n_MW
     
     # Discrete Variable choices
-    eta_gh_disc = np.arange(0.8,0.99,0.01)
+    eta_gh_disc = np.arange(0.9,0.98,0.02)
     PP_gh_disc = np.arange(1,10,1)
-    eta_rec_disc= np.arange(0.6,0.98,0.02)
+    eta_rec_disc= np.arange(0.6,0.96,0.02)
     PP_cd_disc = np.arange(1,10,1)
 
     # Set model parameters

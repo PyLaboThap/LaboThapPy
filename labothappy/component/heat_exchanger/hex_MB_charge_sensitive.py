@@ -83,6 +83,9 @@ HTC_correlations = {
 
 def propsfluid_AS(T_mean, P_mean, T_wall, fluid, incompr_flag, AS):
     
+    # print(f"P_mean : {P_mean}")
+    # print(f"T_mean : {T_mean}")
+    
     T_max = AS.Tmax() # K
     T_min = AS.Ttriple()
     
@@ -91,9 +94,9 @@ def propsfluid_AS(T_mean, P_mean, T_wall, fluid, incompr_flag, AS):
     
     P_min = AS.p()
     
-    P_mean = np.clip(P_mean, P_min, P_max)
-    T_mean = np.clip(T_mean, T_min, T_max)
-    T_wall = np.clip(T_wall, T_min, T_max)
+    P_mean = np.round(np.clip(P_mean, P_min, P_max),4)
+    T_mean = np.round(np.clip(T_mean, T_min, T_max),4)
+    T_wall = np.round(np.clip(T_wall, T_min, T_max),4)
     
     try:
         AS.update(CP.PT_INPUTS, P_mean, T_mean)    
@@ -1537,9 +1540,9 @@ class HexMBChargeSensitive(BaseComponent):
             raise ValueError(f"Pressure drop correlation {self.H.Correlation_DP['1P']} for '1P' phase conditions is not implemented in compute_cell_H_DP_1P method.")
             
         if np.isfinite(self.w[k]):
-            return DP_H*self.w[k]/max(sum(self.w),1)
+            return min(DP_H*self.w[k]/max(sum(self.w),1), p_h_mean*0.95)
         else:
-            return DP_H/self.params['n_disc']
+            return min(DP_H/self.params['n_disc'], p_h_mean*0.95)
         
     def compute_cell_H_DP_2P(self, k, Th_mean, p_h_mean, T_wall_h, G_h, havg_h, Th_sat_mean, h_out):
         
@@ -1580,9 +1583,9 @@ class HexMBChargeSensitive(BaseComponent):
             raise ValueError(f"Pressure drop correlation {self.H.Correlation_DP['2P']} for '2P' phase conditions is not implemented in compute_cell_H_DP_2P method.")
                         
         if np.isfinite(self.w[k]):
-            return DP_H*self.w[k]/max(sum(self.w),1)
+            return min(DP_H*self.w[k]/max(sum(self.w),1), p_h_mean*0.95)
         else:
-            return DP_H/self.params['n_disc']
+            return min(DP_H/self.params['n_disc'], p_h_mean*0.95)
         
 # -------------------------------------------------------------------------
 
@@ -1698,9 +1701,9 @@ class HexMBChargeSensitive(BaseComponent):
             raise ValueError(f"Pressure drop correlation {self.C.Correlation_DP['1P']} for '1P' phase conditions is not implemented in compute_cell_C_DP_1P method.")
         
         if np.isfinite(self.w[k]):
-            return DP_C*self.w[k]/max(sum(self.w),1)
+            return min(DP_C*self.w[k]/max(sum(self.w),1), p_c_mean*0.95)
         else:
-            return DP_C/self.params['n_disc']
+            return min(DP_C/self.params['n_disc'], p_c_mean*0.95)
 
     def compute_cell_C_DP_2P(self, k, Tc_mean, p_c_mean, T_wall_c, G_c, havg_c, Tc_sat_mean, h_out):
         
@@ -1750,9 +1753,9 @@ class HexMBChargeSensitive(BaseComponent):
             raise ValueError(f"Pressure drop correlation {self.C.Correlation_DP['2P']} for '2P' phase conditions is not implemented in compute_cell_C_DP_2P method.")
         
         if np.isfinite(self.w[k]):
-            return DP_C*self.w[k]/max(sum(self.w),1)
+            return min(DP_C*self.w[k]/max(sum(self.w),1), p_c_mean*0.95)
         else:
-            return DP_C/self.params['n_disc']
+            return min(DP_C/self.params['n_disc'], p_c_mean*0.95)
 
     #%% SOLVE RELATED METHODS
 
@@ -1917,12 +1920,27 @@ class HexMBChargeSensitive(BaseComponent):
         if self.h_incomp_flag:
             self.AS_H = CP.AbstractState("INCOMP", self.H_su.fluid)
         else:
-            self.AS_H = CP.AbstractState("BICUBIC&HEOS", self.H_su.fluid)  
+            if 'AS_Type' in self.params:
+                # print("OH")
+                if self.params['AS_Type'] == 'HEOS':
+                    self.AS_H = CP.AbstractState("HEOS", self.H_su.fluid)  
+                else:
+                    self.AS_H = CP.AbstractState("BICUBIC&HEOS", self.H_su.fluid)  
+            else:
+                self.AS_H = CP.AbstractState("BICUBIC&HEOS", self.H_su.fluid)  
             
         if self.c_incomp_flag:
             self.AS_C = CP.AbstractState("INCOMP", self.C_su.fluid)
         else:
-            self.AS_C = CP.AbstractState("BICUBIC&HEOS", self.C_su.fluid)    
+            if 'AS_Type' in self.params:
+                if self.params['AS_Type'] == 'HEOS':
+                    self.AS_C = CP.AbstractState("HEOS", self.C_su.fluid)  
+                else:
+                    self.AS_C = CP.AbstractState("BICUBIC&HEOS", self.C_su.fluid)  
+            else:    
+                self.AS_C = CP.AbstractState("BICUBIC&HEOS", self.C_su.fluid)  
+            
+            # self.AS_C = CP.AbstractState("BICUBIC&HEOS", self.C_su.fluid)    
 
         self.AS_C.update(CP.HmassP_INPUTS, self.h_ci, self.p_ci)
         self.AS_H.update(CP.HmassP_INPUTS, self.h_hi, self.p_hi)

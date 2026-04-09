@@ -106,7 +106,8 @@ if test_case == "TCO2_recup":
               'R_p': 1, # n_hot_channel_row / n_cold_channel_row
               't_2': 0.0012282802564224898, # Horizontal pitch
               't_3': 0.0009428803890487963, # Plate_thickness
-              'type_channel' : 'Zigzag'} 
+              'type_channel' : 'Zigzag',
+              "AS_Type" : "HEOS"} 
 
     Corr_H = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
     Corr_C = {"1P" : "Gnielinski", "SC" : "Gnielinski"}

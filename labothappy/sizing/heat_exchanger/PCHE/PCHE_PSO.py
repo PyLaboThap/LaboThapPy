@@ -156,7 +156,7 @@ class PCHESizingOpt(BaseComponent):
     
     def compute_score(self):
         
-        PF = 100
+        PF = 10
         
         # Objective Function : HX Mass
         rho_mat = 7850 # kg/m^3
@@ -309,7 +309,7 @@ class PCHESizingOpt(BaseComponent):
     
     #%%
     
-    def design_parallel(self, n_jobs=-1, backend="loky", chunksize="auto", n_particles = 30):
+    def design_parallel(self, n_jobs=-1, backend="loky", chunksize="auto", n_particles = 30, max_iter = None, patience = 10):
         # ---- fixed order + bounds ----
         ORDER = ['alpha', 'D_c', 'L_x', 'L_y', 'L_z']
         def bounds_dict_to_arrays(bounds_dict, order=ORDER):
@@ -328,8 +328,10 @@ class PCHESizingOpt(BaseComponent):
             bounds=(lb, ub)
         )
     
-        patience, tol = 10, 1e-3
-        max_iter = patience * 10
+        tol = 1e-3
+        
+        if max_iter is None:
+            max_iter = patience * 10
 
         # after creating `optimizer`
         try:
@@ -426,34 +428,35 @@ if __name__ == "__main__":
         HX_opt.set_inputs(
             # First fluid
             fluid_H = 'CO2',
-            T_su_H = 304.8, # K
-            P_su_H = 4389716, # Pa
-            m_dot_H = 30.9, # kg/s
+            T_su_H = 298.26, # K
+            P_su_H = 4292504, # Pa
+            m_dot_H = 298.27, # kg/s
     
             # Second fluid
             fluid_C = 'CO2',
             T_su_C = 286.1, # K
-            P_su_C = 14271953, # Pa
-            m_dot_C = 30.9, # kg/s  # Make sure to include fluid information
+            P_su_C = 15561277, # Pa
+            m_dot_C = 298.27, # kg/s  # Make sure to include fluid information
          )
         
     HX_opt.set_parameters(
         k_cond = 60, # plate conductivity
         R_p = 1, # n_hot_channel_row / n_cold_channel_row
         
-        n_disc = 10,
+        n_disc = 50,
         
         Flow_Type = 'CounterFlow', 
         H_DP_ON = True, 
         C_DP_ON = True,
         
+        AS_Type = "HEOS"
         )
 
     H_Corr = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
     C_Corr = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
     
-    H_DP = {"1P" : "Darcy_Weisbach", "SC" : "Darcy_Weisbach"}
-    C_DP = {"1P" : "Darcy_Weisbach", "SC" : "Darcy_Weisbach"}
+    H_DP = {"1P" : "Gnielinski_DP", "SC" : "Gnielinski_DP"}
+    C_DP = {"1P" : "Gnielinski_DP", "SC" : "Gnielinski_DP"}
     
     HX_opt.set_corr(H_Corr, C_Corr, H_DP, C_DP)
     
@@ -475,6 +478,6 @@ if __name__ == "__main__":
     
     HX_opt.set_constraints(Q_dot = Q_dot_cstr, DP_h = DP_h_cstr, DP_c = DP_c_cstr)
 
-    best_pos = HX_opt.design_parallel(n_jobs=1)
+    best_pos = HX_opt.design_parallel(n_jobs=-1)
     
     
