@@ -29,6 +29,8 @@ import numpy as np
 
 from toolbox.geometries.heat_exchanger.c_geometry_HXs_Zorlu import Zorlu_HXs
 
+debug = False
+
 class HexeNTU(BaseComponent):
     
     """
@@ -152,6 +154,8 @@ class HexeNTU(BaseComponent):
         self.H = self.H()
         self.C = self.C()
         
+        self.AS_C = None
+        self.AS_H = None
         # self.H = HexeNTU.H()
         # self.C = HexeNTU.C()
 
@@ -262,7 +266,7 @@ class HexeNTU(BaseComponent):
     
     
     # def set_DP(self, DP_type = None, Corr_H = None, Corr_C = None, UD_H_DP = None, UD_C_DP = None):
-    def set_DP(self, UD_H_DP = None, UD_C_DP = None):
+    def set_DP(self,DP_type = None, UD_H_DP = None, UD_C_DP = None):
         """
         General Parameters : 
             
@@ -275,7 +279,7 @@ class HexeNTU(BaseComponent):
         """
 
         # self.params['DP_type'] = DP_type
-        
+        self.params['DP_type'] = DP_type
         self.params['UD_H_DP'] = UD_H_DP
         self.params['UD_C_DP'] = UD_C_DP
         
@@ -283,19 +287,19 @@ class HexeNTU(BaseComponent):
         self.H.Correlation_DP = {}
         
         # if self.params['DP_type'] is None:
-        if self.params['UD_C_DP'] is None and self.params['UD_H_DP'] is None:
-
+        if self.params['DP_type'] == None or (self.params['UD_C_DP'] is None and self.params['UD_H_DP'] is None):
+        
             self.H.DP_val = None
             self.C.DP_val = None
 
-        # elif self.params['DP_type'] == 'User-Defined':
-        elif self.params['UD_C_DP'] is not None and self.params['UD_H_DP'] is not None:
-
+        elif self.params['DP_type'] == 'User-Defined':
+        # elif self.params['UD_C_DP'] is not None and self.params['UD_H_DP'] is not None:
             self.H.DP_val = UD_H_DP
             self.C.DP_val = UD_C_DP            
 
         
-        # elif self.params['DP_type'] == "Correlation":
+        elif self.params['DP_type'] == "Correlation":
+            print("Correlation-based pressure drops are not yet implemented")
             
         #     self.H.Correlation_DP["1P"] = Corr_H["1P"]
         #     if "2P" in Corr_H:
@@ -536,19 +540,26 @@ class HexeNTU(BaseComponent):
             
             h_h = self.compute_htc_H(k_h, Pr_h, self.su_H.T, self.su_H.p, T_w, mu_h, mu_h_w, G_h)
             h_c = self.compute_htc_C(k_h, Pr_h, self.su_C.T, self.su_C.p, T_w, mu_h, mu_h_w, G_h)
-
+            if debug:
+                print(f"h_c = {h_c}")
+                print(f"h_h = {h_h}")
             
             # h_c = gnielinski_pipe_htc(mu_c, Pr_c, Pr_c, k_c, G_c, self.params['D_h_C'], self.params['L_HTX'])[0]
             
             
             AU = self.AU_computation(h_h,h_c)
             # AU = (1/(self.params['A_htx']*h_h) + 1/(self.params['A_htx']*h_c) + self.params['t_plate']/(self.params['k_plate']*self.params['A_htx']) + self.params['fouling']/self.params['A_htx'])**(-1)         
-
+            if debug:
+                print(f"AU = {AU}")
+            
             NTU = AU/C_min
-                        
+            
+            if debug:
+                print(f"NTU = {NTU}")
             # --- Calculate effectiveness from NTU correlation ---
             eps = e_NTU(NTU, C_r, self.params)
-
+            if debug:
+                print(f"epsilon = {eps}")
                         
             # --- Estimate maximum heat transfer Q(ideal case with infinite area) ---
             # h_c_Th = PropsSI('H','T',self.su_hot.T,'P',self.su_cold.p,self.su_cold.fluid)
@@ -628,7 +639,16 @@ class HexeNTU(BaseComponent):
             # --- Set exhaust states (new enthalpies) and link to connectors ---
             self.ex_H.set_properties(H = self.su_H.h - Q/self.su_H.m_dot, fluid = self.su_H.fluid, m_dot = self.su_H.m_dot, P = self.ex_H.p)
             self.ex_C.set_properties(H = self.su_C.h + Q/self.su_C.m_dot, fluid = self.su_C.fluid, m_dot = self.su_C.m_dot, P = self.ex_C.p)
-
+            # print(f" --- T_ex_H = {self.ex_H.T}")
+            
+            
+            
+            self.AS_C.update(CP.HmassP_INPUTS, self.ex_C.h, self.ex_C.p)
+            self.ex_C.T = self.AS_C.T()
+            
+            self.AS_H.update(CP.HmassP_INPUTS, self.ex_H.h, self.ex_H.p)
+            self.ex_H.T = self.AS_H.T()
+            
             self.Q_hex.set_Q_dot(Q)
 
             self.defined = True
