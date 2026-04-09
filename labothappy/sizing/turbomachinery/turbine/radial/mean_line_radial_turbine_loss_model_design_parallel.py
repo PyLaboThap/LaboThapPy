@@ -87,7 +87,6 @@ class RadialTurbineMeanLineDesign(object):
 
         # Abstract State 
         self.fluid = fluid
-        self.AS = CP.AbstractState('HEOS', fluid)
         
         # Blade Dictionnary
         self.stages = []
@@ -99,10 +98,26 @@ class RadialTurbineMeanLineDesign(object):
         # Blade Row Efficiency
         self.eta_blade_row = None
         
-        self.total_states  = pd.DataFrame(columns=['H','S','P','D','A','V'], index = [1,2,3,4,5])
-        self.static_states = pd.DataFrame(columns=['H','S','P','D','A','V'], index = [1,2,3,4,5])
+        self.CAPEX = {}
+        
+        self.total_states = {
+            'H': np.empty(5, dtype=np.float64),
+            'S': np.empty(5, dtype=np.float64),
+            'P': np.empty(5, dtype=np.float64),
+            'D': np.empty(5, dtype=np.float64),
+            'A': np.empty(5, dtype=np.float64),
+            'V': np.empty(5, dtype=np.float64),
+        }
+        self.static_states = {
+            k: np.empty(5, dtype=np.float64) for k in self.total_states
+        }
+        
+        # self.total_states  = pd.DataFrame(columns=['H','S','P','D','A','V'], index = [1,2,3,4,5])
+        # self.static_states = pd.DataFrame(columns=['H','S','P','D','A','V'], index = [1,2,3,4,5])
         self.AS = CP.AbstractState('HEOS', fluid)
-            
+        
+        self.AS_bicubic = CP.AbstractState('BICUBIC&HEOS', fluid)
+        
         # Nozzle and rotor losses initiated to 0
         self.losses = { 
             'DP0_S_volute' : 0,
@@ -110,39 +125,123 @@ class RadialTurbineMeanLineDesign(object):
         }
         
     def update_total_AS(self, CP_INPUTS, input_1, input_2, position):
-        self.AS.update(CP_INPUTS, input_1, input_2)
         
-        self.total_states['H'][position] = self.AS.hmass()            
-        self.total_states['S'][position] = self.AS.smass()            
-        self.total_states['P'][position] = self.AS.p()            
-        self.total_states['D'][position] = self.AS.rhomass()            
+        try:
+            self.AS_bicubic.update(CP_INPUTS, input_1, input_2)
+            AS = self.AS_bicubic 
+        except:
+            self.AS.update(CP_INPUTS, input_1, input_2)
+            AS = self.AS
+        
+        position = position - 1
+        
+        self.total_states['H'][position] = AS.hmass()            
+        self.total_states['S'][position] = AS.smass()            
+        self.total_states['P'][position] = AS.p()            
+        self.total_states['D'][position] = AS.rhomass()            
 
         try:        
-            self.total_states['A'][position] = self.AS.speed_sound()            
+            self.total_states['A'][position] = AS.speed_sound()            
         except:
             self.total_states['A'][position] = -1  
             
-        self.total_states['V'][position] = self.AS.viscosity()            
+        self.total_states['V'][position] = AS.viscosity()            
         
         return
     
     def update_static_AS(self, CP_INPUTS, input_1, input_2, position):
-        self.AS.update(CP_INPUTS, input_1, input_2)
         
-        self.static_states['H'][position] = self.AS.hmass()            
-        self.static_states['S'][position] = self.AS.smass()            
-        self.static_states['P'][position] = self.AS.p()            
-        self.static_states['D'][position] = self.AS.rhomass()    
+        try:
+            self.AS_bicubic.update(CP_INPUTS, input_1, input_2)
+            AS = self.AS_bicubic 
+        except:
+            self.AS.update(CP_INPUTS, input_1, input_2)
+            AS = self.AS 
+                
+        position = position - 1
+        
+        self.static_states['H'][position] = AS.hmass()            
+        self.static_states['S'][position] = AS.smass()            
+        self.static_states['P'][position] = AS.p()            
+        self.static_states['D'][position] = AS.rhomass()    
         
         try:        
-            self.static_states['A'][position] = self.AS.speed_sound()            
+            self.static_states['A'][position] = AS.speed_sound()            
         except:
             self.static_states['A'][position] = -1            
             
-        self.static_states['V'][position] = self.AS.viscosity()            
+        self.static_states['V'][position] = AS.viscosity()            
 
         return
+    
+    # ---------------- Data Export ----------------------------------------------------------------------
+
+    def export_params_dict(self):
         
+        stator_vars = [
+            "h_blade_S", "chord_S", "xhi_S1", "xhi_S2",
+            "pitch_S", "o_S", "t_TE_S", "t_blade_S", "n_blade_S", "R_c_S"
+        ]
+        rotor_vars = [
+            "h_blade_R", "chord_R", "xhi_R1", "xhi_R2",
+            "pitch_R", "o_R", "t_TE_R", "t_blade_R", "n_blade_R", "R_c_R"
+        ]
+
+        def collect(var_list):
+            """For each variable, collect its value across all stages into a list."""
+            out = {}
+            for var in var_list:
+                values = [getattr(stage, var, None) for stage in self.stages]
+                if any(v is not None for v in values):
+                    out[var] = values
+            return out
+
+        param_keys = ["damping", "delta_tip", "N_lw", "D_lw", "e_blade", "Omega_rated"]
+
+
+        return {
+            "type": "Axial Turbine",
+            "mdot_rated": self.inputs['mdot'],
+            "Wdot_rated": self.inputs['W_dot'],
+            "N_rot_rated": self.Omega,
+            "total_to_static_efficiency": self.eta_is,
+            "DP_rated": round(self.inputs['p0_su']/self.inputs['p_ex'],2),
+            "n_stages": 1,
+            
+            "p0_su": self.inputs['p0_su'],
+            "T0_su": self.inputs['T0_su'],
+            "p_ex": self.inputs['p_ex'],
+                        
+            'cl_a': self.params['cl_a'],
+            'cl_r': self.params['cl_r'],
+            
+            'r2': self.params['r2'],
+            'r3': self.params['r3'],
+            'r4': self.params['r4'],
+            'r5': self.params['r5'],
+            'r5h': self.params['r5h'],
+            'r5t': self.params['r5t'],
+            
+            't2': self.params['t2'],
+            't3': self.params['t3'],
+            't4': self.params['t4'],
+            't5h': self.params['t5h'],
+            't5t':self.params['t5t'],
+            't_TE_S': self.params['t_TE_S'],
+
+            'b2': self.params['b2'],
+            'b3': self.params['b3'],
+            'b4': self.params['b4'],
+            'b5': self.params['b5'],
+            
+            'pitch_S': self.params['pitch_S'],
+            'chord_S': self.params['chord_S'],
+
+            'Lz': self.params['Lz'],
+            
+            "CAPEX": self.CAPEX,
+        }
+    
     # ---------------- Data Handling ----------------------------------------------------------------------
     
     def set_inputs(self, **parameters):
@@ -194,16 +293,16 @@ class RadialTurbineMeanLineDesign(object):
 
         "2.1) -------- (4) Rotor Inlet ------------------------"
         
-        self.update_total_AS(CP.HmassSmass_INPUTS, self.total_states['H'][3], self.total_states['S'][3], 4)
+        self.update_total_AS(CP.HmassSmass_INPUTS, self.total_states['H'][2], self.total_states['S'][2], 4)
         
-        h4 = self.total_states['H'][4] - self.Vel_Tri_R['v4']**2 / 2
+        h4 = self.total_states['H'][3] - self.Vel_Tri_R['v4']**2 / 2
         
-        self.update_static_AS(CP.HmassSmass_INPUTS, h4, self.total_states['S'][3], 4)
+        self.update_static_AS(CP.HmassSmass_INPUTS, h4, self.total_states['S'][2], 4)
         
-        self.M4 = self.Vel_Tri_R['v4']/self.static_states['A'][4]
-        self.M4_rel = self.Vel_Tri_R['w4']/self.static_states['A'][4]
+        self.M4 = self.Vel_Tri_R['v4']/self.static_states['A'][3]
+        self.M4_rel = self.Vel_Tri_R['w4']/self.static_states['A'][3]
         
-        self.A4 = self.inputs['mdot']/(self.Vel_Tri_R['vm4']*self.static_states['D'][4])
+        self.A4 = self.inputs['mdot']/(self.Vel_Tri_R['vm4']*self.static_states['D'][3])
         
         alpha4_deg = self.Vel_Tri_R['alpha4']*180/np.pi
         self.n_blades_R = np.ceil((np.pi*(110-alpha4_deg)*np.tan(self.Vel_Tri_R['alpha4']))/30) # Jamieson-Glassman
@@ -219,10 +318,10 @@ class RadialTurbineMeanLineDesign(object):
             self.update_static_AS(CP.HmassP_INPUTS, h5, self.inputs['p_ex'], 5)
             
             # Compute flow area
-            self.M5 = self.Vel_Tri_R['v5']/self.static_states['A'][5]
-            self.M5_rel = M5_rel = self.Vel_Tri_R['w5']/self.static_states['A'][5]
+            self.M5 = self.Vel_Tri_R['v5']/self.static_states['A'][4]
+            self.M5_rel = M5_rel = self.Vel_Tri_R['w5']/self.static_states['A'][4]
             
-            self.A5 = self.inputs['mdot']/(self.Vel_Tri_R['vm5']*self.static_states['D'][5])
+            self.A5 = self.inputs['mdot']/(self.Vel_Tri_R['vm5']*self.static_states['D'][4])
             
             # Compute geomtry satisfying the mass balance
             r5h = r5t*self.params['r5h_r5t_ratio']
@@ -259,9 +358,9 @@ class RadialTurbineMeanLineDesign(object):
             self.rotor_losses = rotor_losses(alpha4, beta4, beta5, b4, b5, self.params['cl_a'], self.params['cl_r'],
                                              gamma5, L_z, M5_rel, self.n_blades_R, r4, r5, r5h, r5t, t5t, u4, vm4, vm5, w4, w5)
             
-            self.eta_blade_rotor = (self.total_states['H'][4] - h5)/(self.total_states['H'][4]  - (h5 - self.rotor_losses['Dh_tot']))
+            self.eta_blade_rotor = (self.total_states['H'][3] - h5)/(self.total_states['H'][3]  - (h5 - self.rotor_losses['Dh_tot']))
 
-            self.AS.update(CP.PSmass_INPUTS, self.inputs['p_ex'], self.static_states['S'][4])         
+            self.AS.update(CP.PSmass_INPUTS, self.inputs['p_ex'], self.static_states['S'][3])         
             h5_is = self.AS.hmass()
             
             h5_new = h5_is + self.rotor_losses['Dh_tot']
@@ -271,7 +370,7 @@ class RadialTurbineMeanLineDesign(object):
             # Reconciliate with enthalpy guess
             self.update_static_AS(CP.HmassP_INPUTS, h5_new, self.inputs['p_ex'], 5)
                         
-            self.update_total_AS(CP.HmassSmass_INPUTS, h05, self.static_states['S'][5], 5)  
+            self.update_total_AS(CP.HmassSmass_INPUTS, h05, self.static_states['S'][4], 5)  
 
             f1 = (h5_new - h5)/h5
             f2 = (self.A5 - np.pi*(r5t**2 - r5h**2)*(1.0 - BK5))/self.A5
@@ -279,20 +378,20 @@ class RadialTurbineMeanLineDesign(object):
             
             return np.sum(np.array([f1, f2, f3])**2)
 
-        x0 = [self.static_states['H'][4]*1e-5, self.params['r5t_guess'], self.params['r4_guess']]
+        x0 = [self.static_states['H'][3]*1e-5, self.params['r5t_guess'], self.params['r4_guess']]
 
         self.AS.update(CP.PQ_INPUTS, self.inputs['p_ex'], 0.5)
 
         h_sat = self.AS.hmass()
 
         bounds = [
-            (h_sat*1.01*1e-5, self.static_states['H'][4] * 1e-5),
+            (h_sat*1.01*1e-5, self.static_states['H'][3] * 1e-5),
             (0.01, 1),
             (0.011, 1),
         ]
 
         self.sol_rotor = minimize(system_rotor, x0, method='L-BFGS-B', bounds=bounds,
-                        options={'ftol': 1e-8, 'gtol': 1e-8})
+                        options={'ftol': 1e-6, 'gtol': 1e-6})
         
         self.losses['Dh_R_incidence'] = self.rotor_losses['Dh_inc']
         self.losses['Dh_R_passage'] = self.rotor_losses['Dh_p']
@@ -308,7 +407,7 @@ class RadialTurbineMeanLineDesign(object):
   
         p0loss_volute = self.losses['DP0_S_volute'] # asssumption
         
-        p0_2 = self.total_states['P'][1] - p0loss_volute
+        p0_2 = self.total_states['P'][0] - p0loss_volute
         T0_2 = self.inputs['T0_su']
 
         self.update_total_AS(CP.PT_INPUTS, p0_2, T0_2, 2)        
@@ -341,18 +440,18 @@ class RadialTurbineMeanLineDesign(object):
             
             self.update_static_AS(CP.HmassSmass_INPUTS, h3, s3, 3)
 
-            p3 = self.static_states['P'][3]
+            p3 = self.static_states['P'][2]
             
             self.Vel_Tri_S['vu3'] = self.Vel_Tri_R['vu4']*self.params['r4']/self.params['r3']
-            self.Vel_Tri_S['vm3'] = self.inputs['mdot']/(2*np.pi*self.params['r3']*self.params['b3']*self.static_states['D'][3])
+            self.Vel_Tri_S['vm3'] = self.inputs['mdot']/(2*np.pi*self.params['r3']*self.params['b3']*self.static_states['D'][2])
             self.Vel_Tri_S['v3'] = v3 = np.sqrt(self.Vel_Tri_S['vm3']**2 + self.Vel_Tri_S['vu3']**2)
             self.Vel_Tri_S['alpha3'] = alpha3 = np.arctan(self.Vel_Tri_S['vu3']/self.Vel_Tri_S['vm3'])
     
             # Rodgers correlation for stator loss (1967)
-            self.Re_3 = Re_3 = v3*self.params['b3']/self.static_states['V'][3]
+            self.Re_3 = Re_3 = v3*self.params['b3']/self.static_states['V'][2]
             self.losses['Dh_S_nozzle'] = nozzle_losses(v3, Re_3, alpha3, S3, c, self.params['b3'])
             
-            self.AS.update(CP.PSmass_INPUTS, p3, self.total_states['S'][2])
+            self.AS.update(CP.PSmass_INPUTS, p3, self.total_states['S'][1])
 
             h3_new = self.AS.hmass() + self.losses['Dh_S_nozzle']
 
@@ -360,64 +459,64 @@ class RadialTurbineMeanLineDesign(object):
             
             h03 = h3_new + (self.Vel_Tri_S['v3']**2)/2 
             
-            self.update_total_AS(CP.HmassSmass_INPUTS, h03, self.static_states['S'][3], 3)
+            self.update_total_AS(CP.HmassSmass_INPUTS, h03, self.static_states['S'][2], 3)
                 
             "3) -------- (2-3) Stator Throat ------------------------"
 
             r_th = self.params['r3'] + c/2*np.sin(self.Vel_Tri_S['alpha3']-theta_n/2)          
 
             # r_th, rho_th
-            alpha_th = np.arctan((self.params['r3']/r_th)*(rho_th/self.static_states['D'][3])*np.tan(self.Vel_Tri_S['alpha3']))
+            alpha_th = np.arctan((self.params['r3']/r_th)*(rho_th/self.static_states['D'][2])*np.tan(self.Vel_Tri_S['alpha3']))
             # o_th = S3*np.cos(alpha_th)
             
             BK = n_s*tmax
             A_th = (2*np.pi*r_th - BK) * self.params['b3']
             v_th = self.inputs['mdot']/(rho_th*A_th)
             
-            h_th = self.total_states['H'][3] - v_th**2 / 2
+            h_th = self.total_states['H'][2] - v_th**2 / 2
 
-            self.AS.update(CP.HmassSmass_INPUTS, h_th, self.total_states['S'][3])
+            self.AS.update(CP.HmassSmass_INPUTS, h_th, self.total_states['S'][2])
 
             a_th = self.AS.speed_sound()
             
             self.M_th = v_th/a_th
             
             f1 = ((h3 - h3_new)/h3_new)**2
-            f2 = ((s3 - self.static_states['S'][3])/self.static_states['S'][3])**2
+            f2 = ((s3 - self.static_states['S'][2])/self.static_states['S'][2])**2
             f3 = ((rho_th - self.AS.rhomass())/self.AS.rhomass())**2
             f4 = ((self.M_th - self.params['Mth_target'])/self.params['Mth_target'])**2   # Mach at throat = target
             
             return np.sum(np.array([f1, f2, f3, 100*f4]))
 
         # Initial guess
-        # x0 = [self.static_states['H'][4] * 1e-5, self.static_states['P'][4] * 1e-5 * 1.5,  self.static_states['D'][4] * 1e-2, self.n_blades_R + 3]
-        x0 = [self.static_states['H'][4] * 1e-5, self.total_states['S'][2] * 1e-3,  self.static_states['D'][4] * 1e-2, self.n_blades_R + 3]
+        # x0 = [self.static_states['H'][3] * 1e-5, self.static_states['P'][3] * 1e-5 * 1.5,  self.static_states['D'][3] * 1e-2, self.n_blades_R + 3]
+        x0 = [self.static_states['H'][3] * 1e-5, self.total_states['S'][1] * 1e-3,  self.static_states['D'][3] * 1e-2, self.n_blades_R + 3]
         
         # Bounds (in minimize, you need a sequence of (low, high) tuples)
         
-        if self.total_states['S'][2] >= self.total_states['S'][4]:
+        if self.total_states['S'][1] >= self.total_states['S'][3]:
             bounds = [
-                (self.static_states['H'][4] * 1e-5, self.total_states['H'][2] * 1e-5),
-                (self.total_states['S'][2] * 1e-3, self.total_states['S'][2] * 1e-3* 1.05),
-                (self.static_states['D'][4] * 1e-2 * 0.5, self.static_states['D'][1] * 1e-2 * 2),
+                (self.static_states['H'][3] * 1e-5, self.total_states['H'][1] * 1e-5),
+                (self.total_states['S'][1] * 1e-3, self.total_states['S'][1] * 1e-3* 1.05),
+                (self.static_states['D'][3] * 1e-2 * 0.5, self.static_states['D'][0] * 1e-2 * 2),
                 (self.n_blades_R, self.n_blades_R * 2)
             ]
         else:
             # print(f"P4 : {self.static_states['P'][4]}")
             
-            self.AS.update(CP.PQ_INPUTS, self.static_states['P'][4], 1)
+            self.AS.update(CP.PQ_INPUTS, self.static_states['P'][3], 1)
             h_sat = self.AS.hmass() + 100
             
             bounds = [
-                (h_sat*1e-5, self.total_states['H'][2] * 1e-5),
-                (self.total_states['S'][2] * 1e-3, self.total_states['S'][4] * 1e-3),
-                (self.static_states['D'][4] * 1e-2 * 0.5, self.static_states['D'][1] * 1e-2 * 2),
+                (h_sat*1e-5, self.total_states['H'][1] * 1e-5),
+                (self.total_states['S'][1] * 1e-3, self.total_states['S'][3] * 1e-3),
+                (self.static_states['D'][3] * 1e-2 * 0.5, self.static_states['D'][0] * 1e-2 * 2),
                 (self.n_blades_R, self.n_blades_R * 2)
             ]
             
         # Call minimize (trust-constr works well with bounds, but L-BFGS-B is simpler)
         self.sol_stator1 = minimize(system_MB_stator, x0, method='L-BFGS-B', bounds=bounds,
-                       options={'ftol': 1e-8, 'gtol': 1e-8})
+                       options={'ftol': 1e-6, 'gtol': 1e-6})
         
         "4) -------- (2) Stator Inlet ------------------------"
         
@@ -441,23 +540,23 @@ class RadialTurbineMeanLineDesign(object):
         def stator_inlet_calc(x):
             rho2 = x[0]
             self.Vel_Tri_S['v2'] = v2 = self.inputs['mdot']/(2*np.pi*self.params['r2']*self.params['b2']*rho2)
-            h2 = self.total_states['H'][1] - v2**2 / 2
+            h2 = self.total_states['H'][0] - v2**2 / 2
             
-            self.AS.update(CP.HmassSmass_INPUTS, h2, self.total_states['S'][1])
+            self.AS.update(CP.HmassSmass_INPUTS, h2, self.total_states['S'][0])
             rho2_calc = self.AS.rhomass()
 
             return np.array([rho2 - rho2_calc])
 
-        x0 = [self.total_states['D'][1]]
+        x0 = [self.total_states['D'][0]]
         
-        [rho_lo] = [self.static_states['D'][3]]
-        [rho_hi] = [self.total_states['D'][1]]
+        [rho_lo] = [self.static_states['D'][2]]
+        [rho_hi] = [self.total_states['D'][0]]
         
         self.sol_stator2 = least_squares(stator_inlet_calc, x0,
                     bounds=([rho_lo],[rho_hi]),
-                    method='trf', xtol=1e-8, ftol=1e-8, gtol=1e-8)
+                    method='trf', xtol=1e-6, ftol=1e-6, gtol=1e-6)
 
-        h2 = self.total_states['H'][1] - self.Vel_Tri_S['v2']**2 / 2
+        h2 = self.total_states['H'][0] - self.Vel_Tri_S['v2']**2 / 2
         s2 = PropsSI('S', 'D', self.sol_stator2.x[0], 'H', h2, self.fluid)
 
         self.update_static_AS(CP.HmassSmass_INPUTS, h2, s2, 2)
@@ -476,11 +575,11 @@ class RadialTurbineMeanLineDesign(object):
         self.update_static_AS(CP.PT_INPUTS, self.inputs['p0_su'], self.inputs['T0_su'], 1)
         
         "------------- 1) Isentropic Expansion Calculation -----------------------------------------------" 
-        s_in = self.total_states['S'][1]
+        s_in = self.total_states['S'][0]
         self.AS.update(CP.PSmass_INPUTS, self.inputs['p_ex'], s_in)
         
         h_is_ex = self.AS.hmass()
-        Dh0s = self.total_states['H'][1] - h_is_ex
+        Dh0s = self.total_states['H'][0] - h_is_ex
                 
         self.Dh0 = self.inputs['W_dot']/self.inputs['mdot']
         self.eta_is = self.Dh0/Dh0s
@@ -502,8 +601,8 @@ class RadialTurbineMeanLineDesign(object):
             
             self.designStator()
 
-            p03_new = self.total_states['P'][3]
-            h03_new = self.total_states['H'][3]
+            p03_new = self.total_states['P'][2]
+            h03_new = self.total_states['H'][2]
             
             f1 = ((h03 - h03_new)/h03)**2
             f2 = ((p03 - p03_new)/p03)**2
@@ -526,11 +625,11 @@ class RadialTurbineMeanLineDesign(object):
                     raise TimeoutError("Optimization exceeded time limit")
             
             # Initial guess vector
-            x0_disc = np.concatenate(([self.total_states['H'][1]], [self.total_states['P'][1]]))*1e-5
-            bounds_arr= np.array([(self.total_states['H'][1]-self.Dh0, 
-                         self.total_states['H'][1]), 
+            x0_disc = np.concatenate(([self.total_states['H'][0]], [self.total_states['P'][0]]))*1e-5
+            bounds_arr= np.array([(self.total_states['H'][0]-self.Dh0, 
+                         self.total_states['H'][0]), 
                         (self.inputs['p_ex'], 
-                         self.total_states['P'][1])])*1e-5
+                         self.total_states['P'][0])])*1e-5
 
 
             sol = minimize(determine_stator_inlet, x0=x0_disc, bounds = bounds_arr, callback=time_limited_callback)     
@@ -547,10 +646,10 @@ class RadialTurbineMeanLineDesign(object):
             # print(f"Fail err: {obj}")
             return obj
 
-        hin = self.total_states['H'][1]
-        hout = self.static_states['H'][5]
+        hin = self.total_states['H'][0]
+        hout = self.static_states['H'][4]
         
-        self.AS.update(CP.PSmass_INPUTS, self.static_states['P'][5], self.static_states['S'][1])
+        self.AS.update(CP.PSmass_INPUTS, self.static_states['P'][4], self.static_states['S'][0])
 
         self.hout_s = self.AS.hmass()
         
@@ -562,7 +661,7 @@ class RadialTurbineMeanLineDesign(object):
         self.exit_loss = self.inputs['mdot']*(self.Vel_Tri_R['v5']**2)/2        
         
         if self.sol_rotor.success and self.sol_stator1.success and self.sol_stator2.success:
-            if self.static_states['S'][5] <= self.static_states['S'][1] or self.static_states['S'][5] <= self.static_states['S'][3] or self.static_states['S'][3] <= self.static_states['S'][1]:
+            if self.static_states['S'][4] <= self.static_states['S'][0] or self.static_states['S'][4] <= self.static_states['S'][2] or self.static_states['S'][2] <= self.static_states['S'][0]:
                 obj = 1000
                 # print(f"Fail entrop: {obj}")
                 return obj  
@@ -688,7 +787,7 @@ class RadialTurbineMeanLineDesign(object):
             bounds=bounds
         )
     
-        patience = 5
+        patience = 3
         tol = 1e-3
         max_iter = 2
         no_improve_counter = 0
@@ -731,8 +830,8 @@ class RadialTurbineMeanLineDesign(object):
             print(f"r5_r4_ratio : {self.params['r5_r4_ratio']}")
             print(f"r5h_r5t_ratio  : {self.params['r5h_r5t_ratio']}")
         
-            print(f"P_in : {self.total_states['P'][1]} [Pa]")
-            print(f"P_out: {self.static_states['P'][5]} [Pa]")
+            print(f"P_in : {self.total_states['P'][0]} [Pa]")
+            print(f"P_out: {self.static_states['P'][4]} [Pa]")
             print(f"Omega: {self.Omega} [RPM]")
             print(f"eta_is: {self.eta_is}")
             print(f"W_dot : {self.W_dot} [W]")
@@ -802,6 +901,7 @@ class RadialTurbineMeanLineDesign(object):
             self._last_batch_max_wdot = max(wdots) if wdots else self.inputs.get("W_dot", 0.0)
             return np.asarray(costs, dtype=float)
     
+    
         # --- PSO optimizer ---
         optimizer = ps.single.GlobalBestPSO(
             n_particles=n_particles, dimensions=dimensions,
@@ -809,7 +909,7 @@ class RadialTurbineMeanLineDesign(object):
             bounds=bounds
         )
     
-        patience, tol, max_iter = 5, 1e-3, max_iter
+        patience, tol, max_iter = 3, 1e-3, max_iter
         no_improve, best_cost = 0, float("inf")
     
         for i in range(max_iter):
@@ -840,7 +940,8 @@ class RadialTurbineMeanLineDesign(object):
         # Finalize
         self.design_system(best_pos)
         # self.cost_estimation()
-        
+        self.cost_estimation()
+
         if __name__ == "__main__":
             print(f"Work Coef : {self.inputs['psi']}")
             print(f"Flow Coef : {self.inputs['phi']}")
@@ -848,17 +949,15 @@ class RadialTurbineMeanLineDesign(object):
             print(f"r5_r4_ratio : {self.params['r5_r4_ratio']}")
             print(f"r5h_r5t_ratio  : {self.params['r5h_r5t_ratio']}")
         
-            print(f"P_in : {self.total_states['P'][1]} [Pa]")
-            print(f"P_out: {self.static_states['P'][5]} [Pa]")
+            print(f"P_in : {self.total_states['P'][0]} [Pa]")
+            print(f"P_out: {self.static_states['P'][4]} [Pa]")
             print(f"Omega: {self.Omega} [RPM]")
             print(f"eta_is: {self.eta_is}")
             print(f"W_dot : {self.W_dot} [W]")
             
             print(f"r4 : {self.params['r4']} [m]")
             print(f"r5 : {self.params['r5']} [m]")
-        
-        self.cost_estimation()
-        
+                
         return best_pos
 
 if __name__ == "__main__":
@@ -892,5 +991,5 @@ if __name__ == "__main__":
         r4_guess = 0.22, # [m]
         )
         
-    Turb.design_parallel(max_iter=3, n_jobs=1)
+    Turb.design_parallel(max_iter=3, n_jobs=-1)
 
