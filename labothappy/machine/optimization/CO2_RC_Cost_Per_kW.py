@@ -60,7 +60,7 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
             Flow_Type = 'CounterFlow', 
             H_DP_ON = True, 
             C_DP_ON = True,
-            AS_Type = "HEOS"
+            # AS_Type = "HEOS"
             )
     
         H_Corr = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
@@ -92,6 +92,9 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
         
         REC_sizing.set_constraints(Q_dot = Q_dot_cstr, DP_h = DP_h_cstr, DP_c = DP_c_cstr)
         REC_sizing.design_parallel(n_jobs=-1, n_particles = 50, max_iter=50, patience=10)
+
+        if REC_sizing.score == 1000000:
+            raise ValueError("Recuperator Sizing did not Converge")
 
     except Exception as e:
         print(f"⚠️ Failed to design Recuperator: {e}")
@@ -131,7 +134,7 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
             m_dot_C = GH_model.su_C.m_dot, # kg/s  # Make sure to include fluid information
             )
     
-        GH_sizing.set_parameters(
+        GH_sizing.set_parameters(  
                                 n_series = 1, # [-]
                                 n_parallel = 2, # [-]
                                 # OPTI -> Oui (regarder le papier pour déterminer ça)
@@ -970,7 +973,7 @@ if __name__ == "__main__":
     
     T_test = 130 + 273.15 # K
     
-    n_MW = 10 # W
+    n_MW = 20 # W
     W_dot_obj = n_MW*1e6 # W
     
     eta_obj = 0.11
@@ -1078,5 +1081,5 @@ if __name__ == "__main__":
     # t3 = time.perf_counter()
     # print(f"Second run time (warm): {t3 - t2:.4f} s")
 
-    Optimizer.cycle_design(ntop = 5, n_particles=200)
+    Optimizer.cycle_design(ntop = 5, n_particles=200, n_jobs=-1)
 

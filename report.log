@@ -1923,3 +1923,5 @@ Traceback (most recent call last):
 ValueError: shape mismatch: objects cannot be broadcast to a single shape.  Mismatch is between arg 0 with shape (40, 3) and arg 1 with shape (40, 4).
 2026-04-09 13:51:11,743 - asyncio - ERROR - Task was destroyed but it is pending!
 task: <Task pending name='Task-2' coro=<Kernel.poll_control_queue() running at C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\ipykernel\kernelbase.py:309> wait_for=<Future pending cb=[Task.task_wakeup()]> cb=[_chain_future.<locals>._call_set_state() at C:\Users\Basile\anaconda3\Lib\asyncio\futures.py:398]>
+2026-04-13 10:19:30,028 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Task-2' coro=<Kernel.poll_control_queue() running at C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\ipykernel\kernelbase.py:309> wait_for=<Future pending cb=[Task.task_wakeup()]> cb=[_chain_future.<locals>._call_set_state() at C:\Users\Basile\anaconda3\Lib\asyncio\futures.py:398]>

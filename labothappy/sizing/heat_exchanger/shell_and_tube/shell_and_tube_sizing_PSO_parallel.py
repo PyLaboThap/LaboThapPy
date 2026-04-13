@@ -166,7 +166,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
 
             # Pipe length
             L_tube = self.position['L_shell']
-            
+                        
             # Cross Passes
             Cross_Passes = round(self.position['L_shell']/self.position['Central_spac']) - 1
 
@@ -208,7 +208,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
                             A_eff = A_eff, S_V_tot = S_V_tot, Shell_ID = Shell_ID, T_V_tot = T_V_tot, Tube_L = L_tube, 
                             Tube_OD = D_o, Tube_t = Tube_t, central_spacing = self.position['Central_spac'], Tube_pass = self.position["Tube_pass"],
                             cross_passes = Cross_Passes, n_tubes = n_tubes, pitch_ratio = pitch_ratio, tube_layout = self.position["tube_layout"],
-                            Baffle_cut = self.position["Baffle_cut"]
+                            Baffle_cut = self.position["Baffle_cut"], n_parallel = self.position['n_parallel']
                             ) 
                         
             return
@@ -570,11 +570,11 @@ class ShellAndTubeSizingOpt(BaseComponent):
         
         Shell_OD = HX_params['Shell_ID'] + 2*shell_t       
         Shell_volume = np.pi*((Shell_OD/2)**2 - (HX_params['Shell_ID']/2)**2)*HX_params['Tube_L'] + shell_t*np.pi*Shell_OD**2/4 
-        Shell_mass = Shell_volume*rho_carbon_steel
+        Shell_mass = Shell_volume*rho_carbon_steel*HX_params['n_parallel']
         
         "Tube Mass"
         
-        T_mass = np.pi*((HX_params['Tube_OD']/2)**2 - ((HX_params['Tube_OD']-2*HX_params['Tube_t'])/2)**2)*HX_params['Tube_L']*HX_params['n_tubes']*rho_carbon_steel*HX_params['n_series']
+        T_mass = np.pi*((HX_params['Tube_OD']/2)**2 - ((HX_params['Tube_OD']-2*HX_params['Tube_t'])/2)**2)*HX_params['Tube_L']*HX_params['n_tubes']*rho_carbon_steel*HX_params['n_series']*HX_params['n_parallel']
 
         "Tube Sheet Mass"
         
@@ -582,7 +582,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
         Full_Tube_sheet_A = np.pi*(HX_params["Shell_ID"]/2)**2
         Tube_in_tube_sheet_A = HX_params["n_tubes"]*np.pi*(HX_params["Tube_OD"]/2)**2
         
-        TS_mass = TS_t*(Full_Tube_sheet_A - Tube_in_tube_sheet_A)*rho_carbon_steel*2*HX_params['n_series']
+        TS_mass = TS_t*(Full_Tube_sheet_A - Tube_in_tube_sheet_A)*rho_carbon_steel*2*HX_params['n_series']*HX_params['n_parallel']
         
         HX_params['t_TS'] = TS_t
         
@@ -598,7 +598,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
         Full_Baffle_A = np.pi*(HX_params["Shell_ID"]/2)**2 * (1-HX_params["Baffle_cut"]/100)
         Tube_in_Baffle_A = HX_params["n_tubes"]*(1-HX_params["Baffle_cut"]/100)*np.pi*(HX_params["Tube_OD"]/2)**2
 
-        B_mass = HX_params["cross_passes"] * B_t * (Full_Baffle_A - Tube_in_Baffle_A)*rho_carbon_steel*HX_params['n_series']
+        B_mass = HX_params["cross_passes"] * B_t * (Full_Baffle_A - Tube_in_Baffle_A)*rho_carbon_steel*HX_params['n_series']*HX_params['n_parallel']
         
         HX_params['t_B'] = B_t
         
@@ -1110,7 +1110,8 @@ def run_single_optimization(run_id, config, n_part, max_iter):
                             'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
                                 29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
                             'Tube_pass' : Tube_p_opt,
-                            'tube_layout' : [0,45,60]}
+                            'tube_layout' : [0,45,60],
+                            'n_parallel' : [1]}
         
         """
         'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
@@ -1210,7 +1211,8 @@ def run_single_optimization(run_id, config, n_part, max_iter):
                             'D_o_inch' : [0.375, 0.5],
                             'Shell_ID_inch' : [8, 10, 12],
                             'Tube_pass' : Tube_p_opt, # [1,2,4,6,8,10]
-                            'tube_layout' : [0,45,60]}
+                            'tube_layout' : [0,45,60],
+                            'n_parallel' : [1]}
         
         
         """
@@ -1261,7 +1263,6 @@ def run_single_optimization(run_id, config, n_part, max_iter):
     
         HX_test.set_parameters(
                                 n_series = 1, # [-]
-                                n_parallel = 1, # [-]
                                 # OPTI -> Oui (regarder le papier pour déterminer ça)
     
                                 foul_t = 0.000176, # (m^2 * K/W)
@@ -1301,7 +1302,8 @@ def run_single_optimization(run_id, config, n_part, max_iter):
                             'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
                                 29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
                             'Tube_pass' : [2], # [1,2,4,6,8,10]
-                            'tube_layout' : [0,45,60]} # [0,45,60]}
+                            'tube_layout' : [0,45,60],
+                            'n_parallel' : [1]} # [0,45,60]}
         
         """
         'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
@@ -1351,7 +1353,6 @@ def run_single_optimization(run_id, config, n_part, max_iter):
     
         HX_test.set_parameters(
                                 n_series = 1, # [-]
-                                n_parallel = 1, # [-]
 
                                 # OPTI -> Oui (regarder le papier pour déterminer ça)
     
@@ -1392,7 +1393,8 @@ def run_single_optimization(run_id, config, n_part, max_iter):
                             'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
                                 29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
                             'Tube_pass' : [2], # [1,2,4,6,8,10]
-                            'tube_layout' : [0,45,60]} # [0,45,60]}
+                            'tube_layout' : [0,45,60],
+                            'n_parallel' : [1]} # [0,45,60]}
         
         """
         'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
@@ -1442,7 +1444,6 @@ def run_single_optimization(run_id, config, n_part, max_iter):
     
         HX_test.set_parameters(
                                 n_series = 1, # [-]
-                                n_parallel = 1, # [-]
 
                                 # OPTI -> Oui (regarder le papier pour déterminer ça)
     
@@ -1731,7 +1732,7 @@ if __name__ == "__main__":
             df_updated.to_excel(excel_file, engine='openpyxl')
             #%%
     else:
-        test_case = "CO2_CD"
+        test_case = "CO2_GH"
 
         n_disc = 5
         n_opt_per_cond = 1
@@ -1752,7 +1753,8 @@ if __name__ == "__main__":
                                 'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
                                     29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
                                 'Tube_pass' : [2], # [1,2,4,8]
-                                'tube_layout' : [0,45,60]}
+                                'tube_layout' : [0,45,60],
+                                'n_parallel' : [1,2,3]}
             
             """
             'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
@@ -1802,7 +1804,7 @@ if __name__ == "__main__":
         
             HX_test.set_parameters(
                                     n_series = 1, # [-]
-                                    n_parallel = 1, # [-]
+                                    # n_parallel = 1, # [-]
     
                                     # OPTI -> Oui (regarder le papier pour déterminer ça)
         
@@ -1844,7 +1846,8 @@ if __name__ == "__main__":
                                 'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
                                     29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
                                 'Tube_pass' : [2], # [1,2,4,8]
-                                'tube_layout' : [60]} # [0,45,60]}
+                                'tube_layout' : [60],
+                                'n_parallel' : [1]} # [0,45,60]}
             
             """
             'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
@@ -1894,7 +1897,6 @@ if __name__ == "__main__":
         
             HX_test.set_parameters(
                                     n_series = 1, # [-]
-                                    n_parallel = 1, # [-]
                                     # OPTI -> Oui (regarder le papier pour déterminer ça)
         
                                     foul_t = 0.000176, # (m^2 * K/W)
@@ -1931,7 +1933,8 @@ if __name__ == "__main__":
                                 'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
                                     29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
                                 'Tube_pass' : [1,2,4], # 6,8,10],
-                                'tube_layout' : [0,45,60]} 
+                                'tube_layout' : [0,45,60],
+                                'n_parallel' : [1,2,3]} 
             
             """
             'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
@@ -1981,7 +1984,6 @@ if __name__ == "__main__":
         
             HX_test.set_parameters(
                                     n_series = 1, # [-]
-                                    n_parallel = 3, # [-]
     
                                     # OPTI -> Oui (regarder le papier pour déterminer ça)
         
@@ -2017,8 +2019,9 @@ if __name__ == "__main__":
                                 'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
                                 'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
                                     29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
-                                'Tube_pass' : [1,2,4,6,8,10],
-                                'tube_layout' : [0,45,60]} 
+                                'Tube_pass' : [1], #,2,4,6,8,10],
+                                'tube_layout' : [0,45,60],
+                                'n_parallel' : [1,2,3]}
             
             """
             'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
@@ -2068,7 +2071,6 @@ if __name__ == "__main__":
         
             HX_test.set_parameters(
                                     n_series = 1, # [-]
-                                    n_parallel = 1, # [-]
     
                                     # OPTI -> Oui (regarder le papier pour déterminer ça)
         

@@ -17,8 +17,6 @@ Modification w/r to previous version:
 import sys
 import os
     
-import correlations
-
 import CoolProp.CoolProp as CP
 from CoolProp.Plots import PropertyPlot
 from CoolProp.CoolProp import PropsSI
@@ -30,38 +28,38 @@ import copy
 
 "INTERNAL IMPORTS"
 
-from correlations.heat_exchanger.f_lmtd2 import f_lmtd2, F_shell_and_tube
-from correlations.heat_exchanger.find_2P_boundaries import find_2P_boundaries
+from labothappy.correlations.heat_exchanger.f_lmtd2 import f_lmtd2, F_shell_and_tube
+from labothappy.correlations.heat_exchanger.find_2P_boundaries import find_2P_boundaries
 
 # HTC Correlations
-from correlations.convection.plate_htc import han_BPHEX_DP, water_plate_HTC, martin_BPHEX_HTC, muley_manglik_BPHEX_HTC, han_boiling_BPHEX_HTC, han_cond_BPHEX_HTC, thonon_plate_HTC, kumar_plate_HTC, martin_holger_plate_HTC, amalfi_plate_HTC, shah_condensation_plate_HTC
-from correlations.convection.pipe_htc import gnielinski_pipe_htc, boiling_curve, horizontal_tube_internal_condensation, horizontal_flow_boiling, flow_boiling_gungor_winterton, Liu_sCO2, Cheng_sCO2, thome_condensation, choi_boiling
-from correlations.convection.shell_and_tube_htc import shell_bell_delaware_htc, shell_htc_kern
-from correlations.convection.tube_bank_htc import ext_tube_film_condens
-from correlations.convection.fins_htc import htc_tube_and_fins
-from correlations.convection.printed_circuit_htc import PCHE_Lee, PCHE_conv
+from labothappy.correlations.convection.plate_htc import han_BPHEX_DP, water_plate_HTC, martin_BPHEX_HTC, muley_manglik_BPHEX_HTC, han_boiling_BPHEX_HTC, han_cond_BPHEX_HTC, thonon_plate_HTC, kumar_plate_HTC, martin_holger_plate_HTC, amalfi_plate_HTC, shah_condensation_plate_HTC
+from labothappy.correlations.convection.pipe_htc import gnielinski_pipe_htc, boiling_curve, horizontal_tube_internal_condensation, horizontal_flow_boiling, flow_boiling_gungor_winterton, Liu_sCO2, Cheng_sCO2, thome_condensation, choi_boiling
+from labothappy.correlations.convection.shell_and_tube_htc import shell_bell_delaware_htc, shell_htc_kern
+from labothappy.correlations.convection.tube_bank_htc import ext_tube_film_condens
+from labothappy.correlations.convection.fins_htc import htc_tube_and_fins
+from labothappy.correlations.convection.printed_circuit_htc import PCHE_Lee, PCHE_conv
 
 # DP Correlations 
-from correlations.pressure_drop.shell_and_tube_DP import shell_DP_kern, shell_DP_donohue, shell_bell_delaware_DP
-from correlations.pressure_drop.pipe_DP import gnielinski_pipe_DP , Churchill_DP, Choi_DP, Muller_Steinhagen_Heck_DP, Cheng_CO2_DP, Darcy_Weisbach
-from correlations.pressure_drop.fins_DP import DP_tube_and_fins
+from labothappy.correlations.pressure_drop.shell_and_tube_DP import shell_DP_kern, shell_DP_donohue, shell_bell_delaware_DP
+from labothappy.correlations.pressure_drop.pipe_DP import gnielinski_pipe_DP , Churchill_DP, Choi_DP, Muller_Steinhagen_Heck_DP, Cheng_CO2_DP, Darcy_Weisbach
+from labothappy.correlations.pressure_drop.fins_DP import DP_tube_and_fins
 
 # Fluid Correlations
-from correlations.properties.thermal_conductivity import conducticity_R1233zd
+from labothappy.correlations.properties.thermal_conductivity import conducticity_R1233zd
 
 # Phase related correlations
-from correlations.properties.void_fraction import void_fraction
-from correlations.heat_exchanger.kim_dry_out_incipience import kim_dry_out_incipience
+from labothappy.correlations.properties.void_fraction import void_fraction
+from labothappy.correlations.heat_exchanger.kim_dry_out_incipience import kim_dry_out_incipience
 
 # Connectors
-from connector.mass_connector import MassConnector
-from connector.heat_connector import HeatConnector
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.connector.heat_connector import HeatConnector
 
 # Component base frame
-from component.base_component import BaseComponent
+from labothappy.component.base_component import BaseComponent
 
-from toolbox.heat_exchangers.hex_MB_charge_sensitive.cell_overlap_MBHX import determine_cell_overlap
-from toolbox.heat_exchangers.hex_MB_charge_sensitive.compute_LMTD_multipass import determine_LMTD_multipass
+from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.cell_overlap_MBHX import determine_cell_overlap
+from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.compute_LMTD_multipass import determine_LMTD_multipass
 
 #%%
 # Set to True to enable some debugging output to screen
@@ -81,7 +79,9 @@ HTC_correlations = {
     "htc_tube_and_fins": htc_tube_and_fins
 }
 
-def propsfluid_AS(T_mean, P_mean, T_wall, fluid, incompr_flag, AS):
+def propsfluid_AS(T_mean, P_mean, T_wall, fluid, incompr_flag, AS, h_mean):
+
+    # print(f"-"*20)
     
     # print(f"P_mean : {P_mean}")
     # print(f"T_mean : {T_mean}")
@@ -94,12 +94,15 @@ def propsfluid_AS(T_mean, P_mean, T_wall, fluid, incompr_flag, AS):
     
     P_min = AS.p()
     
-    P_mean = np.round(np.clip(P_mean, P_min, P_max),4)
-    T_mean = np.round(np.clip(T_mean, T_min, T_max),4)
-    T_wall = np.round(np.clip(T_wall, T_min, T_max),4)
+    P_mean = np.clip(P_mean, P_min, P_max)
+    T_mean = np.clip(T_mean, T_min, T_max)
+    T_wall = np.clip(T_wall, T_min, T_max)
+    
+    # print(f"P_mean : {P_mean}")
+    # print(f"T_mean : {T_mean}")
     
     try:
-        AS.update(CP.PT_INPUTS, P_mean, T_mean)    
+        AS.update(CP.HmassP_INPUTS, h_mean, P_mean)    
         mu = AS.viscosity()
         cp = AS.cpmass()
         
@@ -756,10 +759,12 @@ class HexMBChargeSensitive(BaseComponent):
             hvec_h = self.hvec_h_new.copy()
 
             # Adapt cold-side phase changes first
-            hvec_c, hvec_h = adapt_to_phase_changes(hvec_c, self.mdot_c, [self.h_cdew, self.h_cbubble], hvec_h, self.mdot_h)
+            if not self.SC_c:
+                hvec_c, hvec_h = adapt_to_phase_changes(hvec_c, self.mdot_c, [self.h_cdew, self.h_cbubble], hvec_h, self.mdot_h)
                             
             # Adapt hot-side phase changes next
-            hvec_h, hvec_c = adapt_to_phase_changes(hvec_h, self.mdot_h, [self.h_hdew, self.h_hbubble], hvec_c, self.mdot_c)
+            if not self.SC_h:
+                hvec_h, hvec_c = adapt_to_phase_changes(hvec_h, self.mdot_h, [self.h_hdew, self.h_hbubble], hvec_c, self.mdot_c)
             
             # Assign final grids
             if not np.all(np.diff(hvec_c) >= 0):
@@ -1072,12 +1077,12 @@ class HexMBChargeSensitive(BaseComponent):
     
     def compute_H_1P_HTC(self, k, Th_mean, p_h_mean, T_wall_h, G_h, havg_h):
         try:
-            mu_h, Pr_h, k_h, mu_h_w, mu_rat, Pr_h_w, _ = propsfluid_AS(Th_mean, p_h_mean, T_wall_h, self.H_su.fluid, False, self.AS_H)       
+            mu_h, Pr_h, k_h, mu_h_w, mu_rat, Pr_h_w, _ = propsfluid_AS(Th_mean, p_h_mean, T_wall_h, self.H_su.fluid, False, self.AS_H, havg_h)       
         except (ValueError):
             if self.phases_h[k] == "liquid":
-                mu_h, Pr_h, k_h, mu_h_w, mu_rat, Pr_h_w, _ = propsfluid_AS(Th_mean, p_h_mean, T_wall_h-1, self.H_su.fluid, False, self.AS_H)
+                mu_h, Pr_h, k_h, mu_h_w, mu_rat, Pr_h_w, _ = propsfluid_AS(Th_mean, p_h_mean, T_wall_h-1, self.H_su.fluid, False, self.AS_H, havg_h)
             elif self.phases_h[k] == "vapor":
-                mu_h, Pr_h, k_h, mu_h_w, mu_rat, Pr_h_w, _ = propsfluid_AS(Th_mean, p_h_mean, T_wall_h+1, self.H_su.fluid, False, self.AS_H)                
+                mu_h, Pr_h, k_h, mu_h_w, mu_rat, Pr_h_w, _ = propsfluid_AS(Th_mean, p_h_mean, T_wall_h+1, self.H_su.fluid, False, self.AS_H, havg_h)                
         if self.H.Correlation_1phase == "Gnielinski":
             if self.HTX_Type == 'Plate':
                 alpha_h, self.Re_h[k], self.Pr_h[k] = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['H_Dh'], self.params['l']) # Muley_Manglik_BPHEX_HTC(mu_h, mu_h_w, Pr_h, k_h, G_h, self.geom.H_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_h, Pr_h, k_h, G_h, self.geom.H_Dh) # 
@@ -1104,12 +1109,12 @@ class HexMBChargeSensitive(BaseComponent):
     def compute_C_1P_HTC(self, k, Tc_mean, p_c_mean, T_wall_c, G_c, havg_c):
         
         try:
-            mu_c, Pr_c, k_c, mu_c_w, mu_rat, Pr_c_w, _ = propsfluid_AS(Tc_mean, p_c_mean, T_wall_c, self.C_su.fluid, False, self.AS_C)
+            mu_c, Pr_c, k_c, mu_c_w, mu_rat, Pr_c_w, _ = propsfluid_AS(Tc_mean, p_c_mean, T_wall_c, self.C_su.fluid, False, self.AS_C, havg_c)
         except (ValueError):
             if self.phases_c[k] == "liquid":
-                mu_c, Pr_c, k_c, mu_c_w, mu_rat, Pr_c_w, _ = propsfluid_AS(Tc_mean-0.1, p_c_mean, T_wall_c, self.C_su.fluid, False, self.AS_C)
+                mu_c, Pr_c, k_c, mu_c_w, mu_rat, Pr_c_w, _ = propsfluid_AS(Tc_mean-0.1, p_c_mean, T_wall_c, self.C_su.fluid, False, self.AS_C, havg_c)
             elif self.phases_c[k] == "vapor":
-                mu_c, Pr_c, k_c, mu_c_w, mu_rat, Pr_c_w, _ = propsfluid_AS(Tc_mean+0.1, p_c_mean, T_wall_c, self.C_su.fluid, False, self.AS_C)
+                mu_c, Pr_c, k_c, mu_c_w, mu_rat, Pr_c_w, _ = propsfluid_AS(Tc_mean+0.1, p_c_mean, T_wall_c, self.C_su.fluid, False, self.AS_C, havg_c)
 
         if self.HTX_Type == 'Plate' and (self.C_su.fluid == 'water' or self.C_su.fluid == 'Water'):
             alpha_c = water_plate_HTC(mu_c, Pr_c, k_c, G_c, self.params['C_Dh'])
@@ -1143,12 +1148,12 @@ class HexMBChargeSensitive(BaseComponent):
 
     def compute_H_TC_HTC(self, k, Th_mean, p_h_mean, T_wall_h, G_h, havg_h):
         try:
-            mu_h, Pr_h, k_h, mu_h_w, mu_rat, Pr_h_w, _ = propsfluid_AS(Th_mean, p_h_mean, T_wall_h, self.H_su.fluid, False, self.AS_H)       
+            mu_h, Pr_h, k_h, mu_h_w, mu_rat, Pr_h_w, _ = propsfluid_AS(Th_mean, p_h_mean, T_wall_h, self.H_su.fluid, False, self.AS_H, havg_h)       
         except (ValueError):
             if self.phases_h[k] == "liquid":
-                mu_h, Pr_h, k_h, mu_h_w, mu_rat, Pr_h_w, _ = propsfluid_AS(Th_mean, p_h_mean, T_wall_h-1, self.H_su.fluid, False, self.AS_H)
+                mu_h, Pr_h, k_h, mu_h_w, mu_rat, Pr_h_w, _ = propsfluid_AS(Th_mean, p_h_mean, T_wall_h-1, self.H_su.fluid, False, self.AS_H, havg_h)
             elif self.phases_h[k] == "vapor":
-                mu_h, Pr_h, k_h, mu_h_w, mu_rat, Pr_h_w, _ = propsfluid_AS(Th_mean, p_h_mean, T_wall_h+1, self.H_su.fluid, False, self.AS_H)  
+                mu_h, Pr_h, k_h, mu_h_w, mu_rat, Pr_h_w, _ = propsfluid_AS(Th_mean, p_h_mean, T_wall_h+1, self.H_su.fluid, False, self.AS_H, havg_h)  
                 
         if self.H.Correlation_TC == "Gnielinski":
             if self.HTX_Type == 'Plate':
@@ -1199,12 +1204,12 @@ class HexMBChargeSensitive(BaseComponent):
     def compute_C_TC_HTC(self, k, Tc_mean, p_c_mean, T_wall_c, G_c, havg_c):
         
         try:
-            mu_c, Pr_c, k_c, mu_c_w, mu_rat, Pr_c_w, _ = propsfluid_AS(Tc_mean, p_c_mean, T_wall_c, self.C_su.fluid, False, self.AS_C)
+            mu_c, Pr_c, k_c, mu_c_w, mu_rat, Pr_c_w, _ = propsfluid_AS(Tc_mean, p_c_mean, T_wall_c, self.C_su.fluid, False, self.AS_C, havg_c)
         except (ValueError):
             if self.phases_c[k] == "liquid":
-                mu_c, Pr_c, k_c, mu_c_w, mu_rat, Pr_c_w, _ = propsfluid_AS(Tc_mean-0.1, p_c_mean, T_wall_c, self.C_su.fluid, False, self.AS_C)
+                mu_c, Pr_c, k_c, mu_c_w, mu_rat, Pr_c_w, _ = propsfluid_AS(Tc_mean-0.1, p_c_mean, T_wall_c, self.C_su.fluid, False, self.AS_C, havg_c)
             elif self.phases_c[k] == "vapor":
-                mu_c, Pr_c, k_c, mu_c_w, mu_rat, Pr_c_w, _ = propsfluid_AS(Tc_mean+0.1, p_c_mean, T_wall_c, self.C_su.fluid, False, self.AS_C)
+                mu_c, Pr_c, k_c, mu_c_w, mu_rat, Pr_c_w, _ = propsfluid_AS(Tc_mean+0.1, p_c_mean, T_wall_c, self.C_su.fluid, False, self.AS_C, havg_c)
         
         if self.C.Correlation_TC  == "Gnielinski":
             if self.HTX_Type == 'Plate':
@@ -1773,8 +1778,8 @@ class HexMBChargeSensitive(BaseComponent):
             G_c = (self.params["Tube_pass"]/self.params["n_parallel"])*(self.mdot_c/self.params['n_tubes'])/A_in_one_tube
         elif self.HTX_Type == 'PCHE': 
             A_in_one_channel = np.pi*(self.params['D_c']**2)/8
-            G_h = self.mdot_h/(A_in_one_channel*self.params['N_c']*self.params['N_p']*(self.params['R_p']/(1+self.params['R_p'])))
-            G_c = self.mdot_c/(A_in_one_channel*self.params['N_c']*self.params['N_p']*(1/(1+self.params['R_p'])))
+            G_h = self.mdot_h/(A_in_one_channel*self.params['N_c']*self.params['N_p']*(self.params['R_p']/(1+self.params['R_p'])))/self.params['n_parallel']
+            G_c = self.mdot_c/(A_in_one_channel*self.params['N_c']*self.params['N_p']*(1/(1+self.params['R_p'])))/self.params['n_parallel']
             
         return G_c, G_h
 
@@ -2502,8 +2507,8 @@ class HexMBChargeSensitive(BaseComponent):
                 else: 
                     R_fouling = 0
                 
-                self.A_c = 1/(1+self.params['R_p'])*self.params['N_c']*self.params['N_p']*(np.pi/2)*self.params['D_c']*self.params['L_c']
-                self.A_h = self.params['R_p']/(1+self.params['R_p'])*self.params['N_c']*self.params['N_p']*(np.pi/2)*self.params['D_c']*self.params['L_c']
+                self.A_c = 1/(1+self.params['R_p'])*self.params['N_c']*self.params['N_p']*(np.pi/2)*self.params['D_c']*self.params['L_c']*self.params['n_parallel']
+                self.A_h = self.params['R_p']/(1+self.params['R_p'])*self.params['N_c']*self.params['N_p']*(np.pi/2)*self.params['D_c']*self.params['L_c']*self.params['n_parallel']
                 
                 # self.t_e = ((self.params['D_c'] + self.params['t_3'])*(self.params['D_c']/2 + self.params['t_2']) - (1/8*np.pi*self.params['D_c']**2))/(self.params['D_c'] + self.params['t_3'])
                 self.t_e = self.params['t_3'] - np.pi*self.params['D_c']/8
@@ -2662,9 +2667,9 @@ class HexMBChargeSensitive(BaseComponent):
         if self.HTX_Type == 'Shell&Tube':
             row_sums = np.sum(self.overlap_matrix, axis=1)  # shape (len_c,)
         
-        if self.HTX_Type == 'Shell&Tube' and self.params['Shell_Side'] == 'H':
+        if self.HTX_Type == 'Shell&Tube' and self.params['Shell_Side'] == 'H' and "Tube_pass" in self.params and self.params['Tube_pass'] > 1:
             self.Qdot_matrix = self.F[0] * self.LMTD_matrix * self.UA_matrix * row_sums[:, np.newaxis]
-        elif self.HTX_Type == 'Shell&Tube':
+        elif self.HTX_Type == 'Shell&Tube' and "Tube_pass" in self.params and self.params['Tube_pass'] > 1:
             self.Qdot_matrix = self.F[0] * self.LMTD_matrix * self.UA_matrix * row_sums[np.newaxis, :]
         
         self.eval += 1      
@@ -2701,7 +2706,7 @@ class HexMBChargeSensitive(BaseComponent):
         
         while self.Q_dot > self.Qmax and it < max_iter:
             
-            self.Q_dot, self.results = scipy.optimize.brentq(self.objective_function, 1e-5, self.Qmax*0.999, rtol = 1e-5, xtol = 1e-5, full_output=True)
+            self.Q_dot, self.results = scipy.optimize.brentq(self.objective_function, 1e-5, self.Qmax*0.9999, rtol = 1e-8, xtol = 1e-8, full_output=True)
             
             "Pinch Analysis : Verification as pressure drops changed - Create a new HX to not impact computed results"
             

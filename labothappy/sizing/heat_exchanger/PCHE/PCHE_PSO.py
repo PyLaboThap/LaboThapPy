@@ -3,11 +3,11 @@ Author : Basile Chaudoir
 """
 
 import os
-os.environ.setdefault("OMP_NUM_THREADS", "1")
-os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
-os.environ.setdefault("MKL_NUM_THREADS", "1")
-os.environ.setdefault("VECLIB_MAXIMUM_THREADS", "1")
-os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
+# os.environ.setdefault("OMP_NUM_THREADS", "1")
+# os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+# os.environ.setdefault("MKL_NUM_THREADS", "1")
+# os.environ.setdefault("VECLIB_MAXIMUM_THREADS", "1")
+# os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
 
 from labothappy.component.base_component import BaseComponent
 from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
@@ -64,23 +64,36 @@ class PCHESizingOpt(BaseComponent):
 
     #%%
 
-    def set_corr(self, H_Corr=None, C_Corr=None, H_DP=None, C_DP=None, htc_type = "Correlation", DP_type = "Correlation", UD_H_HTC = None, UD_C_HTC = None, UD_H_DP = None, UD_C_DP = None):
+    def set_corr(self, H_Corr=None, C_Corr=None, H_DP=None, C_DP=None, htc_type="Correlation", DP_type="Correlation", UD_H_HTC=None, UD_C_HTC=None, UD_H_DP=None, UD_C_DP=None):
+    
+        # Sauvegarder pour réutilisation dans simulate_HX
+        self.corr_params = {
+            'H_Corr': H_Corr, 'C_Corr': C_Corr,
+            'H_DP': H_DP, 'C_DP': C_DP,
+            'htc_type': htc_type, 'DP_type': DP_type,
+            'UD_H_HTC': UD_H_HTC, 'UD_C_HTC': UD_C_HTC,
+            'UD_H_DP': UD_H_DP, 'UD_C_DP': UD_C_DP,
+        }
+    
+        self._apply_corr(self.HX)
+    
+    def _apply_corr(self, HX):
+        """Applique les corrélations sauvegardées sur n'importe quel objet HX."""
+        c = self.corr_params
+    
+        if c['htc_type'] == "Correlation":
+            HX.set_htc(Corr_H=c['H_Corr'], Corr_C=c['C_Corr'])
+        else:
+            HX.set_htc(UD_H_HTC=c['UD_H_HTC'], UD_C_HTC=c['UD_C_HTC'])
+    
+        HX.params['H_DP_ON'] = self.params['H_DP_ON']
+        HX.params['C_DP_ON'] = self.params['C_DP_ON']
+    
+        if c['DP_type'] == "Correlation":
+            HX.set_DP(DP_type='Correlation_Disc', Corr_H=c['H_DP'], Corr_C=c['C_DP'])
+        else:
+            HX.set_DP(DP_type='User-Defined', UD_H_DP=c['UD_H_DP'], UD_C_DP=c['UD_C_DP'])
 
-        # Set HTC
-        if htc_type == "Correlation":
-            self.HX.set_htc(Corr_H = H_Corr, Corr_C = C_Corr) 
-        else:
-            self.HX.set_htc(UD_H_HTC = UD_H_HTC, UD_C_HTC = UD_C_HTC)
-            
-        self.HX.params['H_DP_ON'] = self.params['H_DP_ON']
-        self.HX.params['C_DP_ON'] = self.params['C_DP_ON']
-        
-        if DP_type == "Correlation":
-            self.HX.set_DP(DP_type = 'Correlation_Disc', Corr_H = H_DP, Corr_C = C_DP)
-        else:
-            self.HX.set_DP(DP_type = 'User-Defined', UD_H_DP = UD_H_DP, UD_C_DP = UD_C_DP)
-        
-        return
 
     def set_bounds(self, **bounds):
         for key, value in bounds.items():
@@ -160,7 +173,7 @@ class PCHESizingOpt(BaseComponent):
         
         # Objective Function : HX Mass
         rho_mat = 7850 # kg/m^3
-        self.m_HX = rho_mat*(self.params['L_x'] * self.params['L_y'] * self.params['L_z'] - (self.params['C_V_tot'] + self.params['H_V_tot'])) 
+        self.m_HX = self.params['n_parallel']*rho_mat*(self.params['L_x'] * self.params['L_y'] * self.params['L_z'] - (self.params['C_V_tot'] + self.params['H_V_tot']))
         
         # Penalties 
         if self.Q_dot_constr:
@@ -177,12 +190,12 @@ class PCHESizingOpt(BaseComponent):
             self.pen_DP_c = pen_DP_c = max(self.HX.DP_c - self.DP_c_constr,0)
         else:
             pen_DP_c = 0
-
-        penalty = PF*(pen_DP_c + pen_DP_h + pen_Q)
         
-        score = self.m_HX + penalty
+        self.penalty = PF*(pen_DP_c + pen_DP_h + pen_Q)
         
-        return score
+        self.score = self.m_HX + self.penalty
+        
+        return self.score
     
     def cost_estimation(self):
         """
@@ -216,35 +229,33 @@ class PCHESizingOpt(BaseComponent):
     #%%
     
     def simulate_HX(self, x):
-        
+
         warnings.filterwarnings('ignore')
-        
+    
         self.params['alpha'] = x[0]
         self.params['D_c'] = x[1]
         self.params['L_x'] = x[2]
         self.params['L_y'] = x[3]
-        self.params['L_z'] = x[4]        
-        
-        # Set HX inputs
-        self.HX.set_inputs(**self.inputs)
-        
-        # Compute_geometry
+        self.params['L_z'] = x[4]
+        self.params['n_parallel'] = np.round(x[5])
+    
+        # HX frais à chaque évaluation → AS CoolProp propre
+        HX = HexMBChargeSensitive('PCHE')
+        HX.set_inputs(**self.inputs)
+        self._apply_corr(HX)
+    
         self.compute_geom()
-        
-        # Set HX params
-        self.HX.set_parameters(**self.params)
-        
-        # Compute HX 
+        HX.set_parameters(**self.params)
+    
         try:
-            self.HX.solve()
+            HX.solve()
         except:
-            # print("Error in Solving")
             return 1000000
-        
-        # Score
-        score = self.compute_score()
-        
-        return score
+    
+        # Stocker pour compute_score et cost_estimation
+        self.HX = HX
+    
+        return self.compute_score()
     
     #%%
     
@@ -309,9 +320,9 @@ class PCHESizingOpt(BaseComponent):
     
     #%%
     
-    def design_parallel(self, n_jobs=-1, backend="loky", chunksize="auto", n_particles = 30, max_iter = None, patience = 10):
+    def design_parallel(self, n_jobs=-1, backend="threading", chunksize="auto", n_particles = 30, max_iter = None, patience = 10):
         # ---- fixed order + bounds ----
-        ORDER = ['alpha', 'D_c', 'L_x', 'L_y', 'L_z']
+        ORDER = ['alpha', 'D_c', 'L_x', 'L_y', 'L_z', 'n_parallel']
         def bounds_dict_to_arrays(bounds_dict, order=ORDER):
             lb = np.array([bounds_dict[k][0] for k in order], dtype=float)
             ub = np.array([bounds_dict[k][1] for k in order], dtype=float)
@@ -389,6 +400,7 @@ class PCHESizingOpt(BaseComponent):
             print(f"L_x : {round(self.params['L_x'],3)} [m]")
             print(f"L_y : {round(self.params['L_y'],3)} [m]")
             print(f"L_z : {round(self.params['L_z'],3)} [m]")
+            print(f"n_parallel : {self.params['n_parallel']} [-]")
         
             print("\nResults")
             print("-------------")
@@ -449,7 +461,7 @@ if __name__ == "__main__":
         H_DP_ON = True, 
         C_DP_ON = True,
         
-        AS_Type = "HEOS"
+        # AS_Type = "HEOS"
         )
 
     H_Corr = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
@@ -470,14 +482,15 @@ if __name__ == "__main__":
         L_x = [0.2, 1.5], # [m] : 0.6 limit fixed by Heatric (PCHE manufacturer) : Fluid direction
         L_y = [0.3, 2.3], # [m] : 2.3 limit for shipping requirements : Vertical direction
         L_z = [0.2, 0.6], # [m] : 1.5 limit fixed by Heatric (PCHE manufacturer) : Width
+        n_parallel = [8,10]
         )
     
-    Q_dot_cstr = 308446
+    Q_dot_cstr = 3*1e6
     DP_c_cstr = 2*1e5
     DP_h_cstr = 4*1e5
     
     HX_opt.set_constraints(Q_dot = Q_dot_cstr, DP_h = DP_h_cstr, DP_c = DP_c_cstr)
 
-    best_pos = HX_opt.design_parallel(n_jobs=-1)
+    best_pos = HX_opt.design_parallel()
     
     
