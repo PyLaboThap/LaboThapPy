@@ -188,7 +188,7 @@ class HexeNTU(BaseComponent):
             if self.Corr_H == "Shell_Kern_HTC" or self.Corr_C == "Shell_Kern_HTC":
 
                 geometry_parameters = ['Baffle_cut', 'Shell_ID', 'Tube_L', 'Tube_OD', 'Tube_pass','Tube_t', 'central_spacing',
-                                    'cross_passes', 'foul_s', 'foul_t', 'n_series', 'n_parallel', 'n_tubes', 'pitch_ratio', 
+                                    'foul_s', 'foul_t', 'n_series', 'n_parallel', 'n_tubes', 'pitch_ratio', 
                                     'tube_cond', 'tube_layout', 'Shell_Side']
         
         elif self.hex_type == 'Tube&Fins':
@@ -364,7 +364,7 @@ class HexeNTU(BaseComponent):
                 elif self.Corr_H == "Shell_Bell_Delaware_HTC":
                     h_conv = shell_bell_delaware_htc(self.su_H.m_dot, T, T_w, p, self.su_H.fluid, self.params)
                 elif self.Corr_H == 'Shell_Kern_HTC':
-                    h_conv = shell_htc_kern(self.su_H.m_dot, T_w, T, p, self.AS_H, self.params)     
+                    h_conv = shell_htc_kern(self.su_H.m_dot, T_w, T, p, self.AS_H, self.params)[0]     
                 elif self.Corr_H == 'Tube_And_Fins':
                     h_conv = htc_tube_and_fins(self.su_H.fluid, self.params, p, self.su_H.h , self.su_H.m_dot, self.params['Fin_type'])[0]
                 elif self.Corr_H == 'water_plate_HTC':
@@ -425,7 +425,7 @@ class HexeNTU(BaseComponent):
                 elif self.Corr_C == "Shell_Bell_Delaware_HTC":
                     h_conv = shell_bell_delaware_htc(self.su_C.m_dot, T, T_w, p, self.su_C.fluid, self.params)
                 elif self.Corr_C == 'Shell_Kern_HTC':
-                    h_conv = shell_htc_kern(self.su_C.m_dot, T_w, T, p, self.AS_C, self.params)     
+                    h_conv = shell_htc_kern(self.su_C.m_dot, T_w, T, p, self.AS_C, self.params)[0]     
                 elif self.Corr_C == 'Tube_And_Fins':
                     h_conv = htc_tube_and_fins(self.su_C.fluid, self.params, p, self.su_C.h , self.su_C.m_dot, self.params['Fin_type'])[0]
                 elif self.Corr_C == 'water_plate_HTC':
@@ -533,7 +533,7 @@ class HexeNTU(BaseComponent):
             
             
             h_h = self.compute_htc_H(k_h, Pr_h, self.su_H.T, self.su_H.p, T_w, mu_h, mu_h_w, G_h)
-            h_c = self.compute_htc_C(k_h, Pr_h, self.su_C.T, self.su_C.p, T_w, mu_h, mu_h_w, G_h)
+            h_c = self.compute_htc_C(k_c, Pr_c, self.su_C.T, self.su_C.p, T_w, mu_c, mu_c_w, G_h)
             if debug:
                 print(f"h_c = {h_c}")
                 print(f"h_h = {h_h}")
@@ -550,8 +550,14 @@ class HexeNTU(BaseComponent):
             
             if debug:
                 print(f"NTU = {NTU}")
+            
+                
             # --- Calculate effectiveness from NTU correlation ---
-            eps = e_NTU(NTU, C_r, self.params)
+            if self.params['Flow_Type'] == 'CrossFlow':
+                eps = e_NTU(NTU, C_r, self.params, C_c, C_h)
+            else:
+                eps = e_NTU(NTU, C_r, self.params)
+            
             if debug:
                 print(f"epsilon = {eps}")
                         
@@ -634,7 +640,18 @@ class HexeNTU(BaseComponent):
             self.ex_H.set_properties(H = self.su_H.h - Q/self.su_H.m_dot, fluid = self.su_H.fluid, m_dot = self.su_H.m_dot, P = self.ex_H.p)
             self.ex_C.set_properties(H = self.su_C.h + Q/self.su_C.m_dot, fluid = self.su_C.fluid, m_dot = self.su_C.m_dot, P = self.ex_C.p)
             # print(f" --- T_ex_H = {self.ex_H.T}")
-            
+            if debug:                
+                print("Q =", Q)
+                print("m_dot =", self.su_C.m_dot)
+                print("h_su_C =", self.su_C.h)
+                print("h_ex_C =", self.ex_C.h)
+                print("p_su_C =", self.su_C.p)
+                print("p_ex_C =", self.ex_C.p)
+                print("h_su_H =", self.su_H.h)
+                print("h_ex_H =", self.ex_H.h)
+                print("p_su_H =", self.su_H.p)
+                print("p_ex_H =", self.ex_H.p)
+
             
             
             self.AS_C.update(CP.HmassP_INPUTS, self.ex_C.h, self.ex_C.p)
@@ -642,6 +659,7 @@ class HexeNTU(BaseComponent):
             
             self.AS_H.update(CP.HmassP_INPUTS, self.ex_H.h, self.ex_H.p)
             self.ex_H.T = self.AS_H.T()
+            
             
             self.Q_hex.set_Q_dot(Q)
 
@@ -669,7 +687,9 @@ class HexeNTU(BaseComponent):
 
         else:
             print("Heat Exchanger component is not defined. Ensure it is solved first.")
-            
+           
+    # def plot_TS(self):
+    #     self.plot_TS()
             
 # if __name__ == "__main__":
     # geom_obj = Zorlu_HXs()
