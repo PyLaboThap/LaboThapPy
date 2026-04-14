@@ -945,7 +945,7 @@ class CO2RCOptimizer:
             T_hot = int(self.HSource.T - 273.15)
             T_cold = int(self.CSource.T - 273.15)
             
-            folder_name = f"W{n_MW}_eta{eta:.2f}_TH{T_hot}_TC{T_cold}"
+            folder_name = f"W{n_MW}_eta{eta}_TH{T_hot}_TC{T_cold}"
             save_folder = os.path.join(self.params['save_file_path'], folder_name)
             
             # This guarantees the folder exists
@@ -953,7 +953,7 @@ class CO2RCOptimizer:
             
             for component in self.best_RC.components:
                 # Get parameters dictionary
-                data = self.best_RC.components[component].export_params_dict()
+                data = self.best_RC.components[component].sizing.export_params_dict()
     
                 # Create filename (customize as needed)
                 filename = f"{component}.json"
@@ -995,7 +995,8 @@ if __name__ == "__main__":
 
     # Set model parameters
     Optimizer.set_parameters(
-        save_file_path = r"C:\Users\Basile\Desktop\Travail\Thèse\Travail\WP1\Cycle Design\Optimization Results", # Save data in .json file/ Does not save if None
+        # save_file_path = r"C:\Users\Basile\Desktop\Travail\Thèse\Travail\WP1\Cycle Design\Optimization Results", # Save data in .json file/ Does not save if None
+        save_file_path = r"C:\Users\basil\OneDrive\Desktop\Travail\Thèse\WP1\Cycle Design\Opti",
         
         RC_ARCH= 'REC', # 'REC'
         

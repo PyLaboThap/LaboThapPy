@@ -283,7 +283,7 @@ class RadialPumpODDesign():
         index_omega, index_npp = self.pick_npp_by_threshold(self.eta_matrix)
 
         self.Omega = self.params['Omega_choices'][index_omega]
-        self.n_parallel = self.params["n_parallel_choices"][index_npp]
+        self.n_parallel = float(self.params["n_parallel_choices"][index_npp])
 
         self.Omega_system()
         self.cost_estimation()
@@ -300,11 +300,11 @@ if __name__ == "__main__":
         
         T_su = 5.15 + 273.15, # T
         
-        H1 = 0, # m
-        H2 = 0, # m
+        H1 = 0.0, # m
+        H2 = 0.0, # m
         
-        v1 = 0, # m/s
-        v2 = 0, # m/s
+        v1 = 0.0, # m/s
+        v2 = 0.0, # m/s
         
         m_dot = 500, # kg/s
         )
