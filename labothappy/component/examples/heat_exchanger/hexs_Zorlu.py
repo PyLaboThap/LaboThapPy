@@ -18,6 +18,14 @@ from toolbox.geometries.heat_exchanger.c_geometry_HXs_Zorlu import Zorlu_HXs
 import numpy as np
 
 HX_name = 'ACC'
+"""
+HX names:
+    PREHEATER
+    RECUPERATOR
+    ACC
+    IHX
+    HTHP_EVAP
+"""
 
 n_disc =30
     
@@ -221,8 +229,8 @@ elif HX_name == "ACC":
             m_dot_C = 2557, # kg/s  
             )
         
-        Corr_C = "Gnielinski"
-        Corr_H = "Tube_And_Fins"
+        Corr_C = "Tube_And_Fins"
+        Corr_H = "Gnielinski"
         HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation'
         
         
@@ -231,7 +239,8 @@ elif HX_name == "ACC":
         geom_obj.set_parameters("ORC_ACC")
         HX.set_parameters(**geom_obj.geom)
         geom_obj.set_DP("ORC_ACC")
-        HX.set_DP(**geom_obj.DP)
+        HX.set_DP()
+        # HX.set_DP(**geom_obj.DP)
         
         
         HX.solve()
@@ -243,106 +252,192 @@ elif HX_name == "ACC":
     
 
 elif HX_name == "IHX":
-    HX = HexMBChargeSensitive('Shell&Tube')
     
+    Type_HX = 'epsNTU'   # 'epsNTU'  or 'MB'
     
-
-    
-    HX.set_inputs(
-        fluid_H = 'Cyclopentane',
-        T_su_H = 139.8 + 273.15, # K
-        P_su_H = 9.744*1e5, # Pa
-        m_dot_H = 35.3, # kg/s
-    
-        # Second fluid
-        fluid_C = 'Cyclopentane',
-        T_su_C = 97.6 + 273.15, # K
-        P_su_C = 3.84*1e5, # Pa
-        m_dot_C = 35.3, # kg/s  
-        )
-    
-    "Set HTC"
-    Corr_H = {"1P" : "Gnielinski", "2P" : "Horizontal_Tube_Internal_Condensation"}
-    Corr_C = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
-    # Corr_H = {"1P" : "Tube&Fins", "2P" : "Tube&Fins"}
-    HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation'
-    
-    
-    "Set geometry"
-    geom_obj = Zorlu_HXs()
-    geom_obj.set_parameters("HTHP_IHX")
-    HX.set_parameters(**geom_obj.geom)
-    HX.set_parameters(n_disc=n_disc)
-    
-    "Set pressure drops"
-    # geom_obj.set_DP("ORC_recuperator")
-    # HX.set_DP(**geom_obj.DP) 
-    HX.set_DP() # if no pressure drops 
+    if Type_HX == 'MB':
         
-    "Solve the component"
+        HX = HexMBChargeSensitive('Shell&Tube')
+        
+        
+        HX.set_inputs(
+            fluid_H = 'Cyclopentane',
+            T_su_H = 139.8 + 273.15, # K
+            P_su_H = 9.744*1e5, # Pa
+            m_dot_H = 35.3, # kg/s
+        
+            # Second fluid
+            fluid_C = 'Cyclopentane',
+            T_su_C = 97.6 + 273.15, # K
+            P_su_C = 3.84*1e5, # Pa
+            m_dot_C = 35.3, # kg/s  
+            )
+        
+        "Set HTC"
+        Corr_H = {"1P" : "Gnielinski", "2P" : "Horizontal_Tube_Internal_Condensation"}
+        Corr_C = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
+        # Corr_H = {"1P" : "Tube&Fins", "2P" : "Tube&Fins"}
+        HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation'
+        
+        
+        "Set geometry"
+        geom_obj = Zorlu_HXs()
+        geom_obj.set_parameters("HTHP_IHX")
+        HX.set_parameters(**geom_obj.geom)
+        HX.set_parameters(n_disc=n_disc)
+        
+        "Set pressure drops"
+        # geom_obj.set_DP("ORC_recuperator")
+        # HX.set_DP(**geom_obj.DP) 
+        HX.set_DP() # if no pressure drops 
+            
+        "Solve the component"
+        
+        HX.solve() 
+        HX.print_states_connectors()
+        print(f'  - Q_dot = {HX.Q_dot/1000} kW')
+        
+        "Verification of epsilon"
+        C_dot_C = HX.su_C.m_dot * HX.su_C.cp
+        C_dot_H = HX.su_H.m_dot * HX.su_H.cp
+        C_dot_min = min(C_dot_C , C_dot_H)
+        epsilon_ihx = HX.Q_dot / (C_dot_min  * (HX.su_H.T - HX.su_C.T))
+        print(f'  - epsilon_ihx = {epsilon_ihx}')
     
-    HX.solve() 
-    HX.print_states_connectors()
-    print(f'  - Q_dot = {HX.Q_dot/1000} kW')
     
-    "Verification of epsilon"
-    C_dot_C = HX.su_C.m_dot * HX.su_C.cp
-    C_dot_H = HX.su_H.m_dot * HX.su_H.cp
-    C_dot_min = min(C_dot_C , C_dot_H)
-    epsilon_ihx = HX.Q_dot / (C_dot_min  * (HX.su_H.T - HX.su_C.T))
-    print(f'  - epsilon_ihx = {epsilon_ihx}')
-    
+    elif Type_HX =='epsNTU' :
+        
+        
+        HX = HexeNTU("Shell&Tube")
+        
+        
+        HX.set_inputs(
+            fluid_H = 'Cyclopentane',
+            T_su_H = 139.8 + 273.15, # K # 139.8
+            P_su_H = 9.744*1e5, # Pa
+            m_dot_H = 35.3, # kg/s
+        
+            # Second fluid
+            fluid_C = 'Cyclopentane',
+            T_su_C = 97.6 + 273.15, # K
+            P_su_C = 3.84*1e5, # Pa
+            m_dot_C = 35.3, # kg/s  
+            )
+        
+        Corr_C = "Shell_Kern_HTC"
+        Corr_H = "Gnielinski"
+        HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation'
+        
+        
+        
+        geom_obj = Zorlu_HXs()
+        geom_obj.set_parameters("HTHP_IHX")
+        HX.set_parameters(**geom_obj.geom)
+        geom_obj.set_DP("HTHP_IHX")
+        # HX.set_DP()
+        HX.set_DP(**geom_obj.DP)
+        
+        
+        HX.solve()
+        HX.print_results()
+        print(f"\n  - Q_dot = {HX.Q_hex.Q_dot/1000} kW")
+        print(f"  - T_ex_H = {HX.ex_H.T-273.15}°C\n  - T_ex_C = {HX.ex_C.T-273.15}°C")
+        T_ex_H_calc = PropsSI("T", "P", HX.ex_H.p, "H", HX.ex_H.h, "Cyclopentane")
+        print(f" - T_ex_H_calc = {T_ex_H_calc-273.15}°C")
+        # HX.plot_Ts(color = 'b', choose_HX_side = 'H')
     
 elif HX_name == "HTHP_EVAP":
-    HX = HexMBChargeSensitive('Shell&Tube')
     
     
-    T_ex_IHX = 115.9 + 273.15 #K
-    p_ex_IHX = 924.4 *1e3 # Pa
-    h_ex_IHX = PropsSI("H", "P", p_ex_IHX, "T", T_ex_IHX, "Cyclopentane")
-    h_su_ev = h_ex_IHX
+    Type_HX = 'epsNTU'   # 'epsNTU'  or 'MB'
     
-    HX.set_inputs(
-        fluid_H = 'Water',
-        T_su_H = 104.2 + 273.15, # K
-        P_su_H = 1.89*1e5, # Pa
-        m_dot_H = 857.9, # kg/s
-    
-        # Second fluid
-        fluid_C = 'Cyclopentane',
-        h_su_C = h_su_ev,
-        # T_su_C = 97.42 + 273.15 -0.01, # K  -0.01 to make it like a liquid 
-        P_su_C = 3.99*1e5, # Pa
-        m_dot_C = 35.3, # kg/s  
-        )
-    
-    "Set HTC"
-    Corr_H = {"1P" : "Gnielinski", "2P" : "Gnielinski"}
-    Corr_C = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
-    # Corr_H = {"1P" : "Tube&Fins", "2P" : "Tube&Fins"}
-    HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation'
-    
-    
-    "Set geometry"
-    geom_obj = Zorlu_HXs()
-    geom_obj.set_parameters("HTHP_evap")
-    HX.set_parameters(**geom_obj.geom)
-    HX.set_parameters(n_disc=n_disc)
-    
-    "Set pressure drops"
-    # geom_obj.set_DP("HTHP_evap")
-    # HX.set_DP(**geom_obj.DP) 
-    HX.set_DP() # if no pressure drops 
+    if Type_HX == 'MB':
         
-    "Solve the component"
+        
+        HX = HexMBChargeSensitive('Shell&Tube')
+        
+        T_ex_IHX = 115.9 + 273.15 #K
+        p_ex_IHX = 924.4 *1e3 # Pa
+        h_ex_IHX = PropsSI("H", "P", p_ex_IHX, "T", T_ex_IHX, "Cyclopentane")
+        h_su_ev = h_ex_IHX
+        
+        HX.set_inputs(
+            fluid_H = 'Water',
+            T_su_H = 104.2 + 273.15, # K
+            P_su_H = 1.89*1e5, # Pa
+            m_dot_H = 857.9, # kg/s
+        
+            # Second fluid
+            fluid_C = 'Cyclopentane',
+            h_su_C = h_su_ev,
+            # T_su_C = 97.42 + 273.15 -0.01, # K  -0.01 to make it like a liquid 
+            P_su_C = 3.99*1e5, # Pa
+            m_dot_C = 35.3, # kg/s  
+            )
+        
+        "Set HTC"
+        Corr_H = {"1P" : "Gnielinski", "2P" : "Gnielinski"}
+        Corr_C = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
+        # Corr_H = {"1P" : "Tube&Fins", "2P" : "Tube&Fins"}
+        HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation'
+        
+        
+        "Set geometry"
+        geom_obj = Zorlu_HXs()
+        geom_obj.set_parameters("HTHP_evap")
+        HX.set_parameters(**geom_obj.geom)
+        HX.set_parameters(n_disc=n_disc)
+        
+        "Set pressure drops"
+        # geom_obj.set_DP("HTHP_evap")
+        # HX.set_DP(**geom_obj.DP) 
+        HX.set_DP() # if no pressure drops 
+            
+        "Solve the component"
+        
+        HX.solve() 
+        HX.print_states_connectors()
+        print(f'  - Q_dot = {HX.Q_dot/1000} kW')
     
-    HX.solve() 
-    HX.print_states_connectors()
-    print(f'  - Q_dot = {HX.Q_dot/1000} kW')
-    
-    "Verification of epsilon"
-    # C_dot_C = HX.su_C.m_dot * HX.su_C.cp
-    # C_dot_H = HX.su_H.m_dot * HX.su_H.cp
-    # C_dot_min = min(C_dot_C , C_dot_H)
-    # epsilon_ihx = HX.Q_dot / (C_dot_min  * (HX.su_H.T - HX.su_C.T))
-    # print(f'  - epsilon_ihx = {epsilon_ihx}')
+    elif Type_HX =='epsNTU':
+        
+        
+        HX = HexeNTU("Shell&Tube")
+        
+        T_ex_IHX = 115.9 + 273.15 #K
+        p_ex_IHX = 924.4 *1e3 # Pa
+        h_ex_IHX = PropsSI("H", "P", p_ex_IHX, "T", T_ex_IHX, "Cyclopentane")
+        h_su_ev = h_ex_IHX
+        
+        HX.set_inputs(
+            fluid_H = 'Water',
+            T_su_H = 104.2 + 273.15, # K
+            P_su_H = 1.89*1e5, # Pa
+            m_dot_H = 857.9, # kg/s
+        
+            # Second fluid
+            fluid_C = 'Cyclopentane',
+            h_su_C = h_su_ev,
+            # T_su_C = 97.42 + 273.15 -0.01, # K  -0.01 to make it like a liquid 
+            P_su_C = 3.99*1e5, # Pa
+            m_dot_C = 35.3, # kg/s  
+            )
+        
+        Corr_C = "Shell_Kern_HTC"
+        Corr_H = "Gnielinski"
+        HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation'
+        
+        
+        
+        geom_obj = Zorlu_HXs()
+        geom_obj.set_parameters("HTHP_evap")
+        HX.set_parameters(**geom_obj.geom)
+        geom_obj.set_DP("HTHP_evap")
+        # HX.set_DP()
+        HX.set_DP(**geom_obj.DP)
+        
+        
+        HX.solve()
+        HX.print_results()
+        print(f"\n  - Q_dot = {HX.Q_hex.Q_dot/1000} kW")
+        print(f"  - T_ex_H = {HX.ex_H.T-273.15}°C\n  - T_ex_C = {HX.ex_C.T-273.15}°C")
