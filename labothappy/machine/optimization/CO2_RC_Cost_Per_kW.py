@@ -67,7 +67,7 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
         C_Corr = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
         
         Corr_H_DP = {"SC" : "Gnielinski_DP", "1P" : "Gnielinski_DP"}
-        Corr_C_DP = {"SC" : "Gnielinski_DP", "1P" : "Gnielinski_DP"}  
+        Corr_C_DP = {"SC" : "Gnielinski_DP", "1P" : "Gnielinski_DP"}
         
         # REC_sizing.set_htc(htc_type = 'Correlation_Disc', Corr_H = H_Corr, Corr_C = C_Corr)
         # REC_sizing.set_DP(DP_type="Correlation_Disc", Corr_C=Corr_C_DP, Corr_H=Corr_H_DP)
@@ -84,6 +84,7 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
             L_x = L_x_bounds, # [m] : 1.5 limit fixed by Heatric (PCHE manufacturer) : Fluid direction
             L_y = L_y_bounds, # [m] : 2.3 limit for shipping requirements : Vertical direction
             L_z = L_z_bounds, # [m] : 0.6 limit fixed by Heatric (PCHE manufacturer) : Width
+            n_parallel = [3,6] # [-]
             )
         
         Q_dot_cstr = REC_model.Q.Q_dot
@@ -114,7 +115,8 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
                             #     29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
                             'Shell_ID_inch' : [25, 27, 29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
                             'Tube_pass' : [1,2,4], # 6,8,10],
-                            'tube_layout' : [0,45,60]}
+                            'tube_layout' : [0,45,60],
+                            'n_parallel' : [1,2,3,4,5,6]}
     
         GH_sizing.set_choice_vectors(choice_vectors)
     
@@ -136,7 +138,6 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
     
         GH_sizing.set_parameters(  
                                 n_series = 1, # [-]
-                                n_parallel = 2, # [-]
                                 # OPTI -> Oui (regarder le papier pour déterminer ça)
     
                                 foul_t = 0.000176, # (m^2 * K/W)
@@ -193,7 +194,8 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
                             #     29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
                             'Shell_ID_inch' : [25, 27, 29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
                             'Tube_pass' : [1,2,4], # [1,2,4,6,8,10]
-                            'tube_layout' : [0,45,60]}
+                            'tube_layout' : [0,45,60],
+                            'n_parallel' : [1,2,3,4,5,6,7,8,9,10]}
     
         CD_sizing.set_choice_vectors(choice_vectors)
     
@@ -215,7 +217,6 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
 
         CD_sizing.set_parameters(
                                 n_series = 1, # [-]
-                                n_parallel = 3, # [-]
                                 # OPTI -> Oui (regarder le papier pour déterminer ça)
     
                                 foul_t = 0.000176, # (m^2 * K/W)
@@ -580,7 +581,7 @@ class CO2RCOptimizer:
                         
         index_of_min = RC_scores.index(np.min(RC_scores))
         
-        best_RC = self.potential_RC[index_of_min]
+        self.best_RC = best_RC = self.potential_RC[index_of_min]
         delta_dict = delta_dicts[index_of_min]
         
         new_params_dict = {}
@@ -931,37 +932,36 @@ class CO2RCOptimizer:
                     self.criterion = 0
                     break
             
-            it = it + 1
+            it = it + 1        
 
+        #%% 5) Save best candidate data
+
+        if self.params['save_file_path'] is not None:
+            import json
+            import os
             
-        # #%% 1) Import RC
-        
-        # self.opt_RC(n_jobs=n_jobs, n_particles=n_particles, max_iter=max_iter, patience=patience, tol=tol, ntop = ntop)
-        
-        # #%% 2) Size Components
-
-        # self.size_components()
-
-        # #%% 3) From best position update your performance guesses
-
-        # new_params, best_score, delta_dict = self.evaluate_systems()
-        
-        # print("\n")
-        # print("----------------------------------------")
-        # print(f"New Values - Best Score : {best_score}")
-        # print("----------------------------------------")
-
-        # print(f"eta_exp :   {new_params['eta_exp']}   - {delta_dict['eta_exp']*100}")
-        # print(f"eta_pp :    {new_params['eta_pp']}    - {delta_dict['eta_pp']*100}")
-        # print(f"DP_h_gh :   {new_params['DP_h_gh']}   - {delta_dict['DP_h_gh']*100}")
-        # print(f"DP_c_gh :   {new_params['DP_c_gh']}   - {delta_dict['DP_c_gh']*100}")
-        # print(f"DP_h_cond : {new_params['DP_h_cond']} - {delta_dict['DP_h_cond']*100}")
-        # print(f"DP_c_cond : {new_params['DP_c_cond']} - {delta_dict['DP_c_cond']*100}")
-        # print(f"DP_h_rec :  {new_params['DP_h_rec']}  - {delta_dict['DP_h_rec']*100}")
-        # print(f"DP_c_rec :  {new_params['DP_c_rec']}  - {delta_dict['DP_c_rec']*100}")
-        
-        # self.new_params = new_params
-        # self.delta_dict = delta_dict
+            n_MW = int(self.obj["W_dot"]*1e-6)
+            eta = int(self.obj["eta"]*100)
+            T_hot = int(self.HSource.T - 273.15)
+            T_cold = int(self.CSource.T - 273.15)
+            
+            folder_name = f"W{n_MW}_eta{eta:.2f}_TH{T_hot}_TC{T_cold}"
+            save_folder = os.path.join(self.params['save_file_path'], folder_name)
+            
+            # This guarantees the folder exists
+            os.makedirs(save_folder, exist_ok=True)
+            
+            for component in self.best_RC.components:
+                # Get parameters dictionary
+                data = self.best_RC.components[component].export_params_dict()
+    
+                # Create filename (customize as needed)
+                filename = f"{component}.json"
+                filepath = os.path.join(save_folder, filename)
+    
+                # Write JSON file
+                with open(filepath, "w") as f:
+                    json.dump(data, f, indent=4)
         
         return self.optimizer
 
@@ -995,6 +995,8 @@ if __name__ == "__main__":
 
     # Set model parameters
     Optimizer.set_parameters(
+        save_file_path = r"C:\Users\Basile\Desktop\Travail\Thèse\Travail\WP1\Cycle Design\Optimization Results", # Save data in .json file/ Does not save if None
+        
         RC_ARCH= 'REC', # 'REC'
         
         # Pump
@@ -1081,5 +1083,5 @@ if __name__ == "__main__":
     # t3 = time.perf_counter()
     # print(f"Second run time (warm): {t3 - t2:.4f} s")
 
-    Optimizer.cycle_design(ntop = 5, n_particles=200, n_jobs=-1)
+    Optimizer.cycle_design(ntop = 5, n_particles=50, n_jobs=-1)
 

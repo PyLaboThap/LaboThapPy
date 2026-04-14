@@ -191,7 +191,7 @@ class PCHESizingOpt(BaseComponent):
         else:
             pen_DP_c = 0
         
-        self.penalty = PF*(pen_DP_c + pen_DP_h + pen_Q)
+        self.penalty = PF*(abs(pen_DP_c) + abs(pen_DP_h) + abs(pen_Q))
         
         self.score = self.m_HX + self.penalty
         
@@ -229,33 +229,67 @@ class PCHESizingOpt(BaseComponent):
     #%%
     
     def simulate_HX(self, x):
-
         warnings.filterwarnings('ignore')
     
-        self.params['alpha'] = x[0]
-        self.params['D_c'] = x[1]
-        self.params['L_x'] = x[2]
-        self.params['L_y'] = x[3]
-        self.params['L_z'] = x[4]
-        self.params['n_parallel'] = np.round(x[5])
+        alpha      = x[0]
+        D_c        = x[1]
+        L_x        = x[2]
+        L_y        = x[3]
+        L_z        = x[4]
+        n_parallel = np.round(x[5])
     
-        # HX frais à chaque évaluation → AS CoolProp propre
+        # ---- local geometry ----
+        P_max = max(self.inputs['P_su_H'], self.inputs['P_su_C']) * 1.5
+        T_max = max(self.inputs['T_su_H'], self.inputs['T_su_C']) * 1.2
+    
+        t_2, t_3 = PCHE_thicknesses(D_c, P_max, T_max)
+        L_c = L_x / np.cos(np.pi * alpha / 180)
+        N_p = int(np.floor((L_y - t_3) / (D_c / 2 + t_3)))
+        N_c = int(np.floor((L_z - t_2) / (D_c + t_2)))
+    
+        V_channel = np.pi * D_c**2 / 8 * L_c
+        R_p = self.params['R_p']
+        C_V_tot = 1 / (1 + R_p) * N_p * N_c * V_channel
+        H_V_tot = R_p / (1 + R_p) * N_p * N_c * V_channel
+    
+        # ---- feasibility ----
+        V_block = L_x * L_y * L_z
+        if (C_V_tot + H_V_tot) >= V_block:
+            return 1e6
+    
+        # ---- build local param dict ----
+        local_params = {
+            **self.params,
+            'alpha': alpha, 'D_c': D_c, 'L_x': L_x, 'L_y': L_y, 'L_z': L_z,
+            'n_parallel': n_parallel,
+            't_2': t_2, 't_3': t_3, 'L_c': L_c,
+            'N_p': N_p, 'N_c': N_c,
+            'C_V_tot': C_V_tot, 'H_V_tot': H_V_tot,
+        }
+    
+        # ---- simulate ----
         HX = HexMBChargeSensitive('PCHE')
         HX.set_inputs(**self.inputs)
         self._apply_corr(HX)
-    
-        self.compute_geom()
-        HX.set_parameters(**self.params)
+        HX.set_parameters(**local_params)
     
         try:
             HX.solve()
-        except:
-            return 1000000
+        except Exception:
+            return 1e6
     
-        # Stocker pour compute_score et cost_estimation
-        self.HX = HX
+        # ---- score (fully local, no self writes) ----
+        rho_mat = 7850
+        m_HX = n_parallel * rho_mat * (V_block - C_V_tot - H_V_tot)
     
-        return self.compute_score()
+        PF = 10
+        pen_Q    = max(self.Q_dot_constr - HX.Q.Q_dot, 0) if self.Q_dot_constr else 0
+        pen_DP_h = max(HX.DP_h - self.DP_h_constr,    0) if self.DP_h_constr  else 0
+        pen_DP_c = max(HX.DP_c - self.DP_c_constr,    0) if self.DP_c_constr  else 0
+    
+        score = m_HX + PF * (pen_Q + pen_DP_h + pen_DP_c)
+    
+        return score
     
     #%%
     
@@ -309,7 +343,7 @@ class PCHESizingOpt(BaseComponent):
                 print("Stopping early due to stagnation.")
                 break
     
-        best_pos = optimizer.swarm.best_pos
+        self.best_pos = optimizer.swarm.best_pos
     
         # Final evaluation
         self.simulate_HX(best_pos)  # or best_params if simulateHX expects dict
@@ -385,7 +419,27 @@ class PCHESizingOpt(BaseComponent):
                 break
         
         best_pos = optimizer.swarm.best_pos
-        self.simulate_HX(best_pos)
+        self.score = optimizer.swarm.best_cost
+        
+        # Safe single-threaded final eval — write results to self
+        self.params.update({
+            'alpha': best_pos[0], 'D_c': best_pos[1],
+            'L_x': best_pos[2],   'L_y': best_pos[3], 'L_z': best_pos[4],
+            'n_parallel': np.round(best_pos[5]),
+        })
+        self.compute_geom()
+        
+        self.HX = HexMBChargeSensitive('PCHE')
+        self.HX.set_inputs(**self.inputs)
+        self._apply_corr(self.HX)
+        self.HX.set_parameters(**self.params)
+        self.HX.solve()
+        
+        self.m_HX = np.round(best_pos[5]) * 7850 * (
+            self.params['L_x'] * self.params['L_y'] * self.params['L_z']
+            - self.params['C_V_tot'] - self.params['H_V_tot']
+        )
+        
         self.cost_estimation()
     
         pbar.close()

@@ -2316,12 +2316,12 @@ class HexMBChargeSensitive(BaseComponent):
             # F correction factor for LMTD method:
             if self.params['Flow_Type'] != "CounterFlow":
                 try:
-                    self.AS_C.update(CP.PT_INPUTS, p_c_mean, Tc_mean)
+                    self.AS_C.update(CP.HmassP_INPUTS, havg_c, p_c_mean)
                     C_c = self.AS_C.cpmass()
                 except:
                     C_c = 20000
                 try:
-                    self.AS_H.update(CP.PT_INPUTS, p_h_mean, Th_mean)
+                    self.AS_H.update(CP.HmassP_INPUTS, havg_h, p_h_mean)
                     C_h = self.AS_H.cpmass()
                 except:
                     C_h = 20000
