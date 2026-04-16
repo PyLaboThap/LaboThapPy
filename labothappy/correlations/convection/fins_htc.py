@@ -8,6 +8,10 @@ Created on Mon Apr 22 17:34:23 2024
 import numpy as np
 from CoolProp.CoolProp import PropsSI
 
+
+debug = False
+
+
 def htc_tube_and_fins_annular(fluid, params, P_in, h_in, m_dot_in):
     """
     Parameters
@@ -50,12 +54,18 @@ def htc_tube_and_fins_annular(fluid, params, P_in, h_in, m_dot_in):
 
     n_tubes = params['n_tubes']
     Tube_ID = params['Tube_OD'] - 2*params['Tube_t']
-    n_tpr = n_tubes/(params['n_rows']*params['Tube_pass'])
+    if 'bundle_parallel' in params:
+        n_tpr = n_tubes/(params['n_rows']*params['Tube_pass']*params['bundle_parallel']) 
+    else:    
+        n_tpr = n_tubes/(params['n_rows']*params['Tube_pass']) 
+    
+    if debug:
+        print(f"n_tpr = {n_tpr}")
     
     if 'L' in params:
         HTX_L = params['L']
     else:
-        HTX_L = params['Tube_L'] # adding if no "L available
+        HTX_L = params['Tube_L'] # adding if no "L" available
     HTX_W = params['w']
     
     Fin_L = (params['Fin_OD'] - params['Tube_OD'])/2
@@ -93,19 +103,27 @@ def htc_tube_and_fins_annular(fluid, params, P_in, h_in, m_dot_in):
     
     # Fin conventional length
     D_fin_c = params['Tube_OD'] + (2*Fin_L*params['Fin_t'])/Fin_spacing
+    if debug:
+        print(f"D_fin_c = {D_fin_c}")
     
     if 'pitch_V' in params and 'pitch_H' in params:
         params['pitch'] = max(params['pitch_V'], params['pitch_H'])
     Tube_diag_pitch = np.sqrt(2)*params['pitch'] # Square staggered bank
     psi_c = (params['pitch'] - D_fin_c)/(Tube_diag_pitch - D_fin_c)
-
+    
+    if debug:
+        print(f"psi_c = {psi_c}")
     if psi_c > 2:
         S_flow = (HTX_L*HTX_W - n_tpr*D_fin_c*params['Tube_L'])*(2/psi_c)
     else:
         S_flow = (HTX_L*HTX_W - n_tpr*D_fin_c*params['Tube_L'])
-
+        if debug:
+            print(f"leftpart = {HTX_L*HTX_W} \nrightpart = {- n_tpr*D_fin_c*params['Tube_L']}")
+        
+        
     u_in_air = V_dot_in/S_flow
-    
+    if debug:
+        print(f"S_flow = {S_flow}\nV_dot_in = {V_dot_in} \nu_in_air = {u_in_air}")
     # print("HTX_W", HTX_W)
     # print("n_tpr*D_fin_c", n_tpr*D_fin_c)
     
