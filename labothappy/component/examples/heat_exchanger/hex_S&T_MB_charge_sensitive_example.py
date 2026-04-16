@@ -89,7 +89,6 @@ for i in range(len(n_disc_vec)):
         )
         
         "Geometry Loading"
-        
         params = {'n_series': 1,
                   'n_parallel': 1,
                   'foul_t': 0.0002,

@@ -937,15 +937,26 @@ class CO2RCOptimizer:
         #%% 5) Save best candidate data
 
         if self.params['save_file_path'] is not None:
+            
             import json
             import os
+            
+            class NumpyEncoder(json.JSONEncoder):
+                def default(self, obj):
+                    if isinstance(obj, np.integer):
+                        return int(obj)
+                    if isinstance(obj, np.floating):
+                        return float(obj)
+                    if isinstance(obj, np.ndarray):
+                        return obj.tolist()
+                    return super().default(obj)
             
             n_MW = int(self.obj["W_dot"]*1e-6)
             eta = int(self.obj["eta"]*100)
             T_hot = int(self.HSource.T - 273.15)
             T_cold = int(self.CSource.T - 273.15)
             
-            folder_name = f"W{n_MW}_eta{eta:.2f}_TH{T_hot}_TC{T_cold}"
+            folder_name = f"W{n_MW}_eta{eta}_TH{T_hot}_TC{T_cold}"
             save_folder = os.path.join(self.params['save_file_path'], folder_name)
             
             # This guarantees the folder exists
@@ -953,7 +964,7 @@ class CO2RCOptimizer:
             
             for component in self.best_RC.components:
                 # Get parameters dictionary
-                data = self.best_RC.components[component].export_params_dict()
+                data = self.best_RC.components[component].sizing.export_params_dict()
     
                 # Create filename (customize as needed)
                 filename = f"{component}.json"
@@ -961,7 +972,7 @@ class CO2RCOptimizer:
     
                 # Write JSON file
                 with open(filepath, "w") as f:
-                    json.dump(data, f, indent=4)
+                    json.dump(data, f, indent=4, cls=NumpyEncoder)
         
         return self.optimizer
 
@@ -971,21 +982,21 @@ if __name__ == "__main__":
     
     import matplotlib.pyplot as plt
     
-    T_test = 130 + 273.15 # K
+    T_test = 150 + 273.15 # K
     
-    n_MW = 20 # W
+    n_MW = 10 # W
     W_dot_obj = n_MW*1e6 # W
     
-    eta_obj = 0.11
+    eta_obj = 0.12
     
     # Create optimizer instance
     Optimizer = CO2RCOptimizer('CO2')
     
     # Sweep parameters
-    m_dot_HS_fact_bounds = [0.5,8]
-    m_dot_CS_fact_bounds = [7,9]
-    P_high_bounds = np.array([130, 160]) * 1e5
-    m_dot_bounds = np.array([20,40])*n_MW
+    m_dot_HS_fact_bounds = [0.5,2]
+    m_dot_CS_fact_bounds = [5,15]
+    P_high_bounds = np.array([110, 180]) * 1e5
+    m_dot_bounds = np.array([10,40])*n_MW
     
     # Discrete Variable choices
     eta_gh_disc = np.arange(0.9,0.98,0.02)
@@ -1000,7 +1011,7 @@ if __name__ == "__main__":
         RC_ARCH= 'REC', # 'REC'
         
         # Pump
-        eta_pp=0.8,
+        eta_pp=0.85,
         
         # GasHeater
         DP_h_gh = 100*1e3,
@@ -1012,7 +1023,7 @@ if __name__ == "__main__":
         DP_c_rec = 2*1e5,
         
         # Expander
-        eta_exp=0.9,
+        eta_exp=0.93,
         
         # Condenser
         SC_cd=0.1,
@@ -1083,5 +1094,5 @@ if __name__ == "__main__":
     # t3 = time.perf_counter()
     # print(f"Second run time (warm): {t3 - t2:.4f} s")
 
-    Optimizer.cycle_design(ntop = 5, n_particles=50, n_jobs=-1)
+    Optimizer.cycle_design(ntop = 5, n_particles=100, n_jobs=-1)
 
