@@ -242,10 +242,10 @@ elif HX_name == "ACC":
         HX.set_DP()
         # HX.set_DP(**geom_obj.DP)
         
-        
+
         HX.solve()
-        # HX.print_results()
-        # print(f"\n  - Q_dot = {HX.Q_hex.Q_dot/1000} kW")
+        HX.print_results()
+        print(f"\n  - Q_dot = {HX.Q_hex.Q_dot/1000} kW")
         
         
     
