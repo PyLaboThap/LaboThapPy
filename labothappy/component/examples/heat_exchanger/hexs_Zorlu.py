@@ -17,7 +17,7 @@ from toolbox.geometries.heat_exchanger.c_geometry_HXs_Zorlu import Zorlu_HXs
 
 import numpy as np
 
-HX_name = 'ACC'
+HX_name = 'RECUPERATOR'
 """
 HX names:
     PREHEATER
@@ -30,58 +30,97 @@ HX names:
 n_disc =30
     
 if HX_name == "PREHEATER":
-    HX = HexMBChargeSensitive('Shell&Tube')
+    Type_HX = 'MB'   # 'epsNTU'  or 'MB'
+    
+    if Type_HX == 'MB':
+    
+        HX = HexMBChargeSensitive('Shell&Tube')
+        
+        
+        HX.set_inputs(
+            fluid_H = 'Water',
+            T_su_H = 104.2 + 273.15, # K
+            P_su_H = 2.1*1e5, # Pa
+            m_dot_H = 171.6, # kg/s
+        
+            # Second fluid
+            fluid_C = 'Cyclopentane',
+            T_su_C = 50.1 + 273.15, # K
+            P_su_C = 7.75*1e5, # Pa
+            m_dot_C = 62.74, # kg/s  
+            )
+        
+        
+        geom_obj = Zorlu_HXs()
+        geom_obj.set_parameters("ORC_preheater")
+        HX.set_parameters(**geom_obj.geom)
+        HX.set_parameters(n_disc=30)
+        
+        # "Correlation Loading"
+        
+        Corr_C = {"1P" : "Gnielinski", "2P" : "Flow_boiling"}
+        Corr_H = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
+        
+        # Corr_H_DP = {"1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
+        # Corr_C_DP = {"1P" : "Gnielinski_DP", "2P" : "Choi_DP"}
+        # -------------------------------------------------------------------------------------------------------------
+         
+        # HEAT TRANSFER COEFFICIENT SETTING
+        
+        HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation' # 31
+        
+        # PRESSURE DROP SETTING
+        # HX.set_DP()
+        HX.set_DP(**geom_obj.DP) 
+        #geom_obj.set_DP("ORC_preheater")
+        
+        #HX.set_DP(**geom_obj.DP)
+        # HX.set_DP(DP_type="User-Defined", UD_C_DP = 10000, UD_H_DP = 10000) # Fixed User-Defined values, equally distributed over discretizations
+        # HX.set_DP(DP_type="Correlation_Global", Corr_C=Corr_C_DP, Corr_H=Corr_H_DP)
+        # HX.set_DP(DP_type="Correlation_Disc", Corr_C=Corr_C_DP, Corr_H=Corr_H_DP)
+        
+        "Solve the component"
+        
+        HX.solve()  # the function you want to profile
+        HX.print_states_connectors()
+        print(f"  - epsilon = {HX.epsilon_th}")
+        print(f'  - Q_dot = {HX.Q_dot/1000} kW')
     
     
-    HX.set_inputs(
-        fluid_H = 'Water',
-        T_su_H = 104.2 + 273.15, # K
-        P_su_H = 2.1*1e5, # Pa
-        m_dot_H = 171.6, # kg/s
-    
-        # Second fluid
-        fluid_C = 'Cyclopentane',
-        T_su_C = 50.1 + 273.15, # K
-        P_su_C = 7.75*1e5, # Pa
-        m_dot_C = 62.74, # kg/s  
-        )
-    
-    
-    geom_obj = Zorlu_HXs()
-    geom_obj.set_parameters("ORC_preheater")
-    HX.set_parameters(**geom_obj.geom)
-    HX.set_parameters(n_disc=30)
-    
-    # "Correlation Loading"
-    
-    Corr_C = {"1P" : "Gnielinski", "2P" : "Flow_boiling"}
-    Corr_H = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
-    
-    # Corr_H_DP = {"1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
-    # Corr_C_DP = {"1P" : "Gnielinski_DP", "2P" : "Choi_DP"}
-    # -------------------------------------------------------------------------------------------------------------
-     
-    # HEAT TRANSFER COEFFICIENT SETTING
-    
-    HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation' # 31
-    
-    # PRESSURE DROP SETTING
-    HX.set_DP()
-
-    #geom_obj.set_DP("ORC_preheater")
-    
-    #HX.set_DP(**geom_obj.DP)
-    # HX.set_DP(DP_type="User-Defined", UD_C_DP = 10000, UD_H_DP = 10000) # Fixed User-Defined values, equally distributed over discretizations
-    # HX.set_DP(DP_type="Correlation_Global", Corr_C=Corr_C_DP, Corr_H=Corr_H_DP)
-    # HX.set_DP(DP_type="Correlation_Disc", Corr_C=Corr_C_DP, Corr_H=Corr_H_DP)
-    
-    "Solve the component"
-    
-    HX.solve()  # the function you want to profile
-    HX.print_states_connectors()
-    print(f"  - epsilon = {HX.epsilon_th}")
-    print(f'  - Q_dot = {HX.Q_dot/1000} kW')
-    
+    elif Type_HX =='epsNTU' :
+        HX = HexeNTU("Shell&Tube")
+            
+        HX.set_inputs(
+            fluid_H = 'Water',
+            T_su_H = 104.2 + 273.15, # K
+            P_su_H = 2.1*1e5, # Pa
+            m_dot_H = 171.6, # kg/s
+        
+            # Second fluid
+            fluid_C = 'Cyclopentane',
+            T_su_C = 50.1 + 273.15, # K
+            P_su_C = 7.75*1e5, # Pa
+            m_dot_C = 62.74, # kg/s  
+            )
+        
+        Corr_C = "Shell_Kern_HTC"
+        Corr_H = "Gnielinski"
+        HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation'
+        
+        
+        
+        geom_obj = Zorlu_HXs()
+        geom_obj.set_parameters("ORC_preheater")
+        HX.set_parameters(**geom_obj.geom)
+        geom_obj.set_DP("ORC_preheater")
+        # HX.set_DP()
+        HX.set_DP(**geom_obj.DP)
+        
+        
+        HX.solve()
+        HX.print_results()
+        print(f"\n  - Q_dot = {HX.Q_hex.Q_dot/1000} kW")
+        
 
 elif HX_name == "RECUPERATOR":
     Type_HX = 'epsNTU'   # 'epsNTU'  or 'MB'
