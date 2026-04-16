@@ -1006,7 +1006,8 @@ if __name__ == "__main__":
 
     # Set model parameters
     Optimizer.set_parameters(
-        save_file_path = r"C:\Users\Basile\Desktop\Travail\Thèse\Travail\WP1\Cycle Design\Optimization Results", # Save data in .json file/ Does not save if None
+        # save_file_path = r"C:\Users\Basile\Desktop\Travail\Thèse\Travail\WP1\Cycle Design\Optimization Results", # Save data in .json file/ Does not save if None
+        save_file_path = r"C:\Users\basil\OneDrive\Desktop\Travail\Thèse\WP1\Cycle Design\Opti",
         
         RC_ARCH= 'REC', # 'REC'
         
