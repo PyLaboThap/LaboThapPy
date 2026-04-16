@@ -33,9 +33,26 @@ import CoolProp.CoolProp as CP
 
 
 """
-Main inputs that could change
+Main inputs that could change ; for initialisation
 """
-N_rot_pp = 3000
+N_rot_pp = 3000 # RPM
+T_brine = 104.2 # °C
+p_brine = 1.59e5 # Pa
+fluid_wh = "Water" # to be changed by implementing thing of Polimi/Turboden
+m_dot_brine_max = 857.9 # kg/s
+WH_use_pre = 0.2 # 20%
+
+T_amb = 15 # °C
+p_amb = 99.3e3 # Pa
+Glide_air = 10 # K
+fluid_air = 'Air'
+m_dot_air = 2557 # kg/s
+
+m_dot_eqwater = 1000 # kg/s
+T_PCM = 134.8 # °C
+fluid_eq = 'Water'
+p_eqwater = 8e5 # Pa 
+
 
 
 ORC = RecursiveCircuit('Cyclopentane')
@@ -169,29 +186,43 @@ ORC.link_components("TURB", "m-ex", "REC", "m-su_H")
 ORC.link_components("REC", "m-ex_H", "ACC", "m-su_H")
 ORC.link_components("ACC", "m-ex_H", "PP", "m-su")
 
+
+m_dot_brine = m_dot_brine_max * WH_use_pre
 Geo_brine = MassConnector()
 ORC.add_source("geo_brine", Geo_brine, ORC.components["PH"], "m-su_H")
+ORC.set_source_properties(T= T_brine, fluid= fluid_wh, m_dot= m_dot_brine, target='geo_brine', P = p_brine)
+
 
 Cooling_air = MassConnector()
 ORC.add_source("Cooling_air", Cooling_air, ORC.components["ACC"], "m-su_C")
+ORC.set_source_properties(T = T_amb, fluid = fluid_air, m_dot = m_dot_air, target='Cooling_air', P = p_amb)
+# ORC.set_source_properties(T= , fluid= , m_dot= , target='', P = )
 
 Eq_water = MassConnector()
 ORC.add_source("Eq_water", Eq_water, ORC.components["EV"], "m-su_H")
+ORC.set_source_properties(T = T_PCM, fluid= fluid_eq , m_dot= m_dot_eqwater, target='Eq_water', P = p_eqwater)
 
 
+p_low = 0.7*1e5 
+p_high = 7.66*1e5
 
-ORC.link_components("PH", "", "Spliter", "m-su")
+ORC.set_cycle_guess(target='PP:su', SC = 1, p = p_low, m_dot = 62.74)
+ORC.set_cycle_guess(target='PP:ex', p = p_high)
 
-ORC.link_components("TURB", "m-ex", "Mixer", "m-su_1")
-ORC.link_components("Expander_2", "m-ex", "Mixer", "m-su_2")
-ORC.link_components("Expander_3", "m-ex", "Mixer", "m-su_3")
+ORC.set_fixed_properties(target='PP:su', SC = 1)
 
-ORC.link_components("Mixer", "m-ex", "Condenser", "m-su_H")
-ORC.link_components("Condenser", "m-ex_H", "Pump", "m-su")
+ORC.set_iteration_variable(target=['ACC:ex_H'], variable='p', objective = 'PP:su-SC', tol = 1e-2, rel = 1, damping_factor = 0.2)
+
+
+ORC.set_residual_variable(target = "EV:ex_C" , variable='h', tol = 1e-2)
+ORC.set_residual_variable(target = "CD:ex_H" , variable='h', tol = 1e-2)
+ORC.set_residual_variable(target = "EV:ex_C" , variable='m_dot', tol = 1e-1)
+ORC.set_residual_variable(target = "CD:ex_H" , variable='m_dot', tol = 1e-1)
+
 
 
 if __name__ == "__main__":
-    
     d=1
+    # ORC.solve()
 
 
