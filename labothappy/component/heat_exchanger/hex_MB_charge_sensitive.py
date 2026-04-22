@@ -348,13 +348,13 @@ class HexMBChargeSensitive(BaseComponent):
 
                 geometry_parameters = ['Baffle_cut', 'D_OTL', 'N_strips', 'Shell_ID', 'Tube_L', 'Tube_OD', 'Tube_pass',
                                     'Tube_t', 'Tubesheet_t', 'central_spacing', 'clear_BS', 'clear_TB',
-                                    'cross_passes', 'foul_s', 'foul_t', 'inlet_spacing', 'n_series', 'n_parallel', 
+                                    'foul_s', 'foul_t', 'inlet_spacing', 'n_series', 'n_parallel', 
                                     'n_tubes', 'outlet_spacing', 'pitch_ratio', 'tube_cond', 'tube_layout', 'Shell_Side']
 
             if self.H.Correlation_1phase == "Shell_Kern_HTC" or self.C.Correlation_1phase == "Shell_Kern_HTC":
 
                 geometry_parameters = ['Baffle_cut', 'Shell_ID', 'Tube_L', 'Tube_OD', 'Tube_pass','Tube_t', 'central_spacing',
-                                    'cross_passes', 'foul_s', 'foul_t', 'n_series', 'n_parallel', 'n_tubes', 'pitch_ratio', 
+                                    'foul_s', 'foul_t', 'n_series', 'n_parallel', 'n_tubes', 'pitch_ratio', 
                                     'tube_cond', 'tube_layout', 'Shell_Side']
         
         elif self.HTX_Type == 'Tube&Fins':

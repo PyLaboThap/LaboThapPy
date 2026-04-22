@@ -1,8 +1,9 @@
 
 import numpy as np
 import CoolProp.CoolProp as CP
-from correlations.turbomachinery.correlations_0D import cordier_line
-from toolbox.economics.cpi_data import actualize_price
+
+from labothappy.correlations.turbomachinery.correlations_0D import cordier_line
+from labothappy.toolbox.economics.cpi_data import actualize_price
 
 class RadialPumpODDesign():
     
@@ -264,6 +265,10 @@ class RadialPumpODDesign():
             "P_su": self.inputs["P_su"],
             "P_ex": self.inputs["P_ex"],
             
+            "D": self.D,
+            "Omega_s": self.Omega_s,
+            "Omega_s_imp": self.Omega_s_imp,
+            
             "CAPEX": self.CAPEX,
         }
     
@@ -286,6 +291,8 @@ class RadialPumpODDesign():
         self.n_parallel = float(self.params["n_parallel_choices"][index_npp])
 
         self.Omega_system()
+    
+        
         self.cost_estimation()
         
         return 

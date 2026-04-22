@@ -523,7 +523,7 @@ def Recomp_CO2_TC_1_recup(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp,
 
 if __name__ == "__main__": 
 
-    study_case = "Recomp_1_recup"
+    study_case = "Recup"
 
     if study_case == "Simple":
         T_cold_source = 0.1+273.15
@@ -555,7 +555,7 @@ if __name__ == "__main__":
         CSource.set_properties(fluid = 'Water', T = T_cold_source, p = 5e5, m_dot = 10)
         
         CO2_TC = basic_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_is_pp, eta_is_exp, eta_gh, PPTD_cd, SC_cd, P_low_guess, P_high, m_dot,
-                            DP_h_gh = 50*1e3, DP_c_gh = 2*1e5, DP_h_cond = 1*1e5, DP_c_cond = 50*1e3, mute_print_flag=0)
+                            DP_h_gh = 50*1e3, DP_c_gh = 2*1e5, DP_h_cond = 1*1e5, DP_c_cond = 50*1e3, mute_print_flag=1)
                 
         CO2_TC.solve(method = 'wegstein')
 
@@ -888,5 +888,5 @@ if __name__ == "__main__":
         # print(f"Q_dot Recup HT : {CO2_TC.components['RecupHT'].model.Q}")
         # print(f"Q_dot Recup LT : {CO2_TC.components['RecupLT'].model.Q}")
         
-    # CO2_TC.plot_cycle_Ts()
+    CO2_TC.plot_cycle_Ts()
     # CO2_TC.Ts_gif()

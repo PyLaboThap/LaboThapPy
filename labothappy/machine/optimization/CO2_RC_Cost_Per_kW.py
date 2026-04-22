@@ -33,7 +33,6 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
     # Recuperator Sizing
     
     try:
-        
         REC_model = RC.components['Recuperator'].model
         REC_sizing = RC.components['Recuperator'].sizing = PCHESizingOpt()
                     
