@@ -662,6 +662,7 @@ class Circuit(BaseCircuit):
                 print(f"Setup failed. Blocking components: {blocking}")
             return
 
+        self.print_states()
 
         if self.print_flag:
             print(f"Setup complete. Solving order: {self.solving_order}")
@@ -693,7 +694,9 @@ class Circuit(BaseCircuit):
             except:
                 self.converged = False
                 return
-                
+         
+            self.print_states()   
+         
             current_snapshot = self._snapshot_connector_states()
             if self._check_convergence(current_snapshot):
                 if self.print_flag:

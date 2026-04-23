@@ -69,7 +69,7 @@ elif fluid == "CO2":
         eta_is_curve = eta_is_curve,
         NPSH_r_curve = NPSH_r_curve,
         N_rot_rated = N_rated,
-        mode = "P_M",  # Mode can be "M_N", "P_M", or "P_N"
+        mode = "P_N",  # Mode can be "M_N", "P_M", or "P_N"
     )
     
     # Set Inputs
@@ -77,8 +77,8 @@ elif fluid == "CO2":
         P_su=4559550.900413511,  # Suction pressure in Pascals
         T_su=283.34364983582685-1,  # Suction temperature in Kelvin
         P_ex=15254008.433412187,  # Exhaust pressure in Pascals
-        # N_rot=1589,  # Rotational speed in RPM
-        m_dot = 311.29856776173153,  # Mass flow rate in kg/s
+        N_rot=2900,  # Rotational speed in RPM
+        # m_dot = 311.29856776173153,  # Mass flow rate in kg/s
         fluid="CO2",  # Actual fluid type
     )
     

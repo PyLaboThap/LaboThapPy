@@ -1,9 +1,10 @@
-from connector.mass_connector import MassConnector
-from correlations.turbomachinery.aungier_axial_turbine import aungier_loss_model
-from component.base_component import BaseComponent
-from connector.mass_connector import MassConnector
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.correlations.turbomachinery.aungier_axial_turbine import aungier_loss_model
+from labothappy.component.base_component import BaseComponent
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.connector.work_connector import WorkConnector
+from labothappy.toolbox.turbomachinery.mean_line_axial_turbine_mapping import map_plot, map_plot_clean, plot_power_eta_vs_mdot, filter_sparse_by_proximity
 
-from toolbox.turbomachinery.mean_line_axial_turbine_mapping import map_plot, map_plot_clean, plot_power_eta_vs_mdot, filter_sparse_by_proximity
 from CoolProp.CoolProp import PropsSI
 from scipy.optimize import fsolve, minimize, differential_evolution
 import pyswarms as ps
@@ -17,7 +18,111 @@ import warnings
 warnings.filterwarnings("ignore")
 
 class AxialTurbineMeanLine(BaseComponent):
-
+    """
+    **Component**: Mean-Line 1D Axial Turbine Model
+ 
+    **Model**: Steady-state multi-stage mean-line turbine model (1D) with Aungier loss model.
+ 
+    **Description**:
+ 
+        This model simulates a large-scale axial flow turbine operating under steady-state conditions.
+        It computes the isentropic efficiency, the shaft power and the outlet pressure based on inlet
+        conditions (flow rate included) and an imposed rotational speed. Performance maps can be
+        approximated from this model with a built-in method (CFD is however advised for more precision).
+        Parameters for this model can be generated from the AxialTurbineMeanLineDesign sizing model.
+ 
+    **Assumptions**:
+ 
+        - Steady-state, one-dimensional flow.
+        - Losses expressed using the Aungier model.
+        - CoolProp is used for accurate fluid property evaluation.
+        - No heat losses to surroundings.
+ 
+    **Connectors**:
+ 
+        su (MassConnector): Supply (inlet) side of the turbine.
+ 
+        ex (MassConnector): Exhaust (outlet) side of the turbine.
+ 
+        W (WorkConnector): Shaft power output from the turbine.
+ 
+    **Parameters**:
+ 
+        r_m: Turbine mean radius [m]
+ 
+        nStages: Number of stages [-]
+ 
+        damping: Damping factor for stage iterations [-]
+ 
+        delta_tip: Blade tip clearance [m]
+ 
+        N_lw: Number of lashing wires [-]
+ 
+        D_lw: Lashing wire diameter [m]
+ 
+        e_blade: Blade roughness [m]
+       
+        mdot_rated: Rated mass flow rate [kg/s] (For map generation)
+ 
+        DP_rated: Rated pressure ratio [-] (For map generation)
+ 
+        N_rot_rated: Rated rotational speed [rpm] (For map generation)
+ 
+    **Stage Parameters (one value per stage, same parameters for rotor blades with R suffix)**:
+ 
+        h_blade_S: Stator Blade height [m]
+ 
+        chord_S: Stator chord length [m]
+ 
+        xhi_S1: Stator inlet blade angle [rad]
+ 
+        xhi_S2: Stator outlet blade angle [rad]
+ 
+        pitch_S: Stator blade pitch [m]
+           
+        o_S: Stator throat opening [m]
+       
+        A_th: Throat flow area [m²]
+       
+        t_TE_S: Stator blade trailing edge thickness [m]
+ 
+        t_blade_S: Stator blade thickness [m]
+ 
+        n_blade_S: Stator blade number [-]
+       
+        R_c_S = Stator blade suction side radius of curvature [m]        
+ 
+    **Inputs**:
+ 
+        m_dot: Mass flow rate [kg/s]
+       
+        P_su: Inlet pressure [Pa]
+ 
+        T_su or h_su: Inlet temperature [K] or enthalpy [J/kg]
+ 
+        fluid: Working fluid [-]
+ 
+        N_rot: Actual shaft rotational speed [rpm]
+ 
+        P_ex: Outlet pressure [Pa] (For map generation)
+ 
+    **Outputs**:
+ 
+        h_ex: Outlet enthalpy [J/kg]
+ 
+        eta_is: Isentropic efficiency [-]
+ 
+        W_dot: Shaft work output [W]
+ 
+        P_ex: Exhaust pressure [Pa] (Except for map generation)
+ 
+    **Notes**:
+ 
+        - Outlet State is the total state.
+        - No dynamic behavior is included; suitable for steady-state energy system simulations.
+       
+    """
+    
     def __init__(self, fluid):
         super().__init__()
         
@@ -39,8 +144,37 @@ class AxialTurbineMeanLine(BaseComponent):
 
         self.su = MassConnector()
         self.ex = MassConnector()
+        self.W = WorkConnector()
         
         self.Dh0_stage_guess = 0
+
+    def get_required_inputs(self):
+        """
+        Returns a list of required input variable names.
+        Used to check if the model has enough data to run.
+        """
+        return ["P_su", "T_su", "m_dot", "N_rot", "fluid"]
+    
+    def get_map_required_inputs(self):
+        """
+        Returns a list of required input variable names.
+        Used to check if the model has enough data to run.
+        """
+        return ["P_su", "P_ex", "T_su", "m_dot", "N_rot", "fluid"]
+    
+    def get_required_parameters(self):
+        """
+        Returns a list of required parameters needed for model execution.
+        """
+        return ["r_m", "nStages", "damping", "delta_tip", "N_lw", "D_lw", "e_blade"]
+    
+    def get_map_required_parameters(self):
+        """
+        Returns a list of required parameters needed for model execution.
+        """
+        return ["r_m", "nStages", "mdot_rated", "DP_rated",
+            "N_rot_rated", "damping", "delta_tip", "N_lw",
+            "D_lw", "e_blade"]
 
     # ---------------- Stage Sub Class ----------------------------------------------------------------------
     
@@ -152,7 +286,60 @@ class AxialTurbineMeanLine(BaseComponent):
                 if any((_ok(v) for v in vals)) and all((_ok(v) for v in vals)):
                     stage_params[k] = vals
         return base_inputs, base_params, stage_params
-                
+    
+    def _wegstein_solve(self, f, x0, tol=1e-8, max_iter=1000, q_min=-5.0, q_max=0.0):
+        """
+        Wegstein iteration to solve x = f(x).
+    
+        Uses a secant-based mixing weight computed from the last two iterates.
+        Falls back to a damped FPI step on the first iteration (no history yet).
+    
+        Parameters
+        ----------
+        f         : callable(x) -> x_out  (both in scaled units, e.g. *1e-5)
+        x0        : initial guess (numpy array)
+        tol       : convergence tolerance on sum of relative residuals
+        max_iter  : maximum iterations before raising RuntimeError
+        q_min/max : clamping bounds for the secant slope (controls stability)
+        """
+        x_in      = np.array(x0, dtype=float)
+        x_out_prev = None
+        x_in_prev  = None
+    
+        for c in range(max_iter):
+            x_out = np.array(f(x_in), dtype=float)
+    
+            res = np.sum(np.abs((x_in - x_out) / np.where(np.abs(x_out) > 1e-30, x_out, 1.0)))
+            
+            # print(f"res : {res}")
+            
+            if res < tol:
+                # Run one final evaluation at the converged point
+                f(x_out)
+                return x_out
+    
+            if x_in_prev is None:
+                # First step: plain damped FPI (no history to build secant)
+                x_new = (1.0 - self.params['damping']) * x_in + self.params['damping'] * x_out
+            else:
+                dx   = x_in  - x_in_prev
+                df   = x_out - x_out_prev
+                # Component-wise Wegstein weight; fall back to damped FPI where dx≈0
+                mask = np.abs(dx) > 1e-30
+                q    = np.where(mask, df / dx, 0.0)
+                q    = np.clip(q, q_min, q_max)
+                w    = np.where(mask, q / (q - 1.0), self.params['damping'])
+                x_new = w * x_in + (1.0 - w) * x_out
+    
+            x_in_prev  = x_in.copy()
+            x_out_prev = x_out.copy()
+            x_in       = x_new
+    
+        raise RuntimeError(
+            f"Wegstein failed to converge after {max_iter} iterations "
+            f"(final residual: {res:.3e})"
+        )
+    
     # ---------------- Loss Models ------------------------------------------------------------------------
 
     def stator_blade_row_system(self, x):
@@ -456,8 +643,11 @@ class AxialTurbineMeanLine(BaseComponent):
         if row_type == 'S': # Stator
             
             # print("Stator")
-        
-            RP_1_row = (self.inputs['P_su']/self.inputs['P_ex'])**(1/(2*self.nStages))
+            
+            if 'P_ex' not in self.inputs:
+                RP_1_row = 5**(1/(2*self.nStages)) 
+            else:
+                RP_1_row = (self.inputs['P_su']/self.inputs['P_ex'])**(1/(2*self.nStages))
             
             if self.Dh0_stage_guess !=0:
                 h_out_guess = stage.static_states['H'][1] - self.Dh0_stage_guess/2    
@@ -470,31 +660,7 @@ class AxialTurbineMeanLine(BaseComponent):
             # Initial guess vector
             x0_disc = np.concatenate(([h_out_guess], [pout_guess]))*1e-5
             
-            res = 1
-            x_in = x0_disc
-            
-            c = 0
-            
-            while res > 1e-8:
-                
-                if c > 1000:
-                    raise RuntimeError("Max iterations exceeded in computeBladeRow (stator/rotor/last stage).")
-                
-                # print(f"x_in : {x_in}")
-                
-                x_out = self.stator_blade_row_system(x_in)
-
-                # print(f"x_out : {x_out}")
-                
-                res_vec = abs((x_in - x_out)/x_out)
-                res = sum(res_vec)
-                
-                x_in = (1-self.params['damping'])*x_in + self.params['damping'] * x_out 
-                              
-                # print(f"new x_in : {x_in}")
-
-                c += 1
-                
+            x_out = self._wegstein_solve(self.stator_blade_row_system, x0_disc)
             self.stator_blade_row_system(x_out)
                         
             # print(f'Y_S : {stage.Y_vec_S}')
@@ -503,8 +669,11 @@ class AxialTurbineMeanLine(BaseComponent):
 
             # print("Rotor")
 
-            RP_1_row = (self.inputs['P_su']/self.inputs['P_ex'])**(1/(2*self.nStages))
-            
+            if 'P_ex' not in self.inputs:
+                RP_1_row = 5**(1/(2*self.nStages)) 
+            else:
+                RP_1_row = (self.inputs['P_su']/self.inputs['P_ex'])**(1/(2*self.nStages))
+                
             if self.Dh0_stage_guess !=0:
                 h_out_guess = stage.static_states['H'][2] - self.Dh0_stage_guess/2    
             else:
@@ -515,35 +684,10 @@ class AxialTurbineMeanLine(BaseComponent):
             
             # Initial guess vector
             x0_disc = np.concatenate(([h_out_guess], [pout_guess]))*1e-5
-
-            res = 1
-            x_in = x0_disc
-            
-            c = 0
-            
-            while res > 1e-8:
-
-                if c > 1000:
-                    raise RuntimeError("Max iterations exceeded in computeBladeRow (stator/rotor/last stage).")
-
-                # print(f"x_in : {x_in}")
-
-                x_out = self.rotor_blade_row_system(x_in) 
-
-                # print(f"x_out : {x_out}")
-
-                res_vec = abs((x_in - x_out)/x_out)
-                res = sum(res_vec)
-                
-                x_in = (1-self.params['damping'])*x_in + self.params['damping'] * x_out 
-                       
-                # print(f"new x_in : {x_in}")
-
-                c += 1
-            
-            self.rotor_blade_row_system(x_out)
-            self.compute_deviation_rotor(stage)
                         
+            x_out = self._wegstein_solve(self.rotor_blade_row_system, x0_disc)
+            self.rotor_blade_row_system(x_out)
+            
             # print(f'Y_R : {stage.Y_vec_R}')
 
         return
@@ -564,7 +708,7 @@ class AxialTurbineMeanLine(BaseComponent):
                 self.stages[i+1].Vel_Tri_S['beta1'] = self.stages[i].Vel_Tri_R['beta3']
 
                 self.Dh0_stage_guess = self.stages[i].total_states['H'][1] - self.stages[i].total_states['H'][3]
-
+                
             else:
                 self.stages[i].static_states.loc[1] = self.stages[i-1].static_states.loc[3]
                 
@@ -581,8 +725,11 @@ class AxialTurbineMeanLine(BaseComponent):
         
         stage.static_states.loc[1] = self.stages[-2].static_states.loc[3]
         
-        RP_1_row = (self.inputs['P_su']/self.inputs['P_ex'])**(1/(2*self.nStages))     
-        
+        if 'P_ex' not in self.inputs:
+            RP_1_row = 5**(1/(2*self.nStages)) 
+        else:
+            RP_1_row = (self.inputs['P_su']/self.inputs['P_ex'])**(1/(2*self.nStages))
+                
         h_out_guess = stage.static_states['H'][1] - self.Dh0_stage_guess/2  
         pout_guess = stage.static_states['P'][1]/RP_1_row
         # sol = minimize(self.last_blade_row_system, x0=(h_out_guess,pout_guess), bounds=[(self.stages[-1].static_states['H'][1], h_out_guess), (self.stages[-1].static_states['P'][1], pout_guess)])         
@@ -833,8 +980,21 @@ class AxialTurbineMeanLine(BaseComponent):
     
     def solve(self):
         
+        # Check if the component is calculable and parametrized
+        self.check_calculable()
+        self.check_parametrized()
+
+        if not (self.calculable and self.parametrized): # If the component is not calculable and/or not parametrized
+            self.solved = False
+            print("AxialTurbineMeanLine could not be solved. It is not calculable and/or not parametrized")
+            self.print_setup()
+            return
+
+        if self.su.m_dot is not None:
+            self.inputs['m_dot'] = self.su.m_dot
+        
         self.omega_rads = 2*np.pi*self.inputs['N_rot']/60
-        self.u = self.omega_rads*self.params['r_m']*2
+        self.u = self.omega_rads*self.params['r_m']
         
         self.stages[0].update_static_AS(CP.PT_INPUTS, self.su.p, self.su.T, 1)
         # self.stages.append(self.stage(self.fluid))
@@ -846,6 +1006,9 @@ class AxialTurbineMeanLine(BaseComponent):
         hin = self.stages[0].total_states['H'][1]
         hout = self.stages[-1].static_states['H'][2]
         
+        self.h_ex = hout
+        self.p_ex = self.stages[-1].static_states['P'][2]
+        
         self.AS.update(CP.PSmass_INPUTS, self.stages[-1].static_states['P'][2], self.stages[0].static_states['S'][1])
 
         hout_s = self.AS.hmass()
@@ -853,10 +1016,27 @@ class AxialTurbineMeanLine(BaseComponent):
         self.W_dot = self.inputs['m_dot']*(hin-hout)
                 
         self.eta_is = (hin - hout)/(hin - hout_s)
-        
+        self.update_connectors()
+
+        self.solved = True
+                
         return 
 
+    def update_connectors(self):
+        """Update the connectors with the calculated values."""
+        
+        self.ex.reset()
+        
+        self.ex.set_fluid(self.su.fluid)
+        self.ex.set_m_dot(self.su.m_dot)
+        self.ex.set_p(self.p_ex)
+        self.ex.set_h(self.h_ex)
 
+        self.W.set_W_dot(self.W_dot)
+        self.W.set_N_rot(self.inputs['N_rot'])
+        
+        return
+    
 #%%
 
 def _eval_point_from_snapshot(m, N, base_inputs, base_params, stage_params):
@@ -1034,22 +1214,587 @@ if __name__ == "__main__":
         
     elif case_study == "TCO2_ORC":
         Turb_OD = AxialTurbineMeanLine('CO2')
+    
+        turb_params = {'type': 'Axial Turbine',
+          'mdot_rated': 318.437021666738,
+          'Wdot_rated': 15149047.61803014,
+          'N_rot_rated': 2201.9292383818693,
+          'total_to_static_efficiency': 0.8918913361126354,
+          'DP_rated': 2.93,
+          'n_stages': 8,
+          'p0_su': 15309670.5,
+          'T0_su': 406.4,
+          'p_ex': 5220928,
+          'r_m': 0.2424432562137853,
+          'delta_tip': 0.0004,
+          'N_lw': 0,
+          'D_lw': 0,
+          'e_blade': 2e-06,
+          'stator': {'h_blade_S': [0.027129712191845578,
+            0.029658270219229916,
+            0.03257968025854356,
+            0.035956572944882276,
+            0.039861618532234466,
+            0.04437960089736192,
+            0.049608759632974515,
+            0.05566774162922002,
+            0.058599071296795195],
+          'chord_S': [0.013511359662391169,
+            0.014028083649020674,
+            0.014637713665581014,
+            0.015349906293429992,
+            0.016175091304622864,
+            0.01712470590035643,
+            0.018211169517019312,
+            0.019449229232574965,
+            0.020047912130238918],
+          'xhi_S1': [-0.6356400014580645,
+            -0.6356400014580645,
+            -0.6356400014580645,
+            -0.6356400014580645,
+            -0.6356400014580645,
+            -0.6356400014580645,
+            -0.6356400014580645,
+            -0.6356400014580645,
+            -0.6356400014580645],
+          'xhi_S2': [1.2113211735665192,
+            1.2113211735665192,
+            1.2113211735665192,
+            1.2113211735665192,
+            1.2113211735665192,
+            1.2113211735665192,
+            1.2113211735665192,
+            1.2113211735665192,
+            1.2113211735665192],
+          'pitch_S': [0.013134937068248984,
+            0.013637265273227886,
+            0.014229911172864795,
+            0.014922262318938251,
+            0.015724457913053796,
+            0.016647616519272383,
+            0.01770381157205685,
+            0.01890737930002005,
+            0.019489383064344484],
+          'o_S': [0.003775183728696827,
+            0.003919560611208578,
+            0.004089896193751755,
+            0.0042888886036597795,
+            0.004519452004032509,
+            0.004784782041861723,
+            0.0050883488086367655,
+            0.005434272757825279,
+            0.005601549626355477],
+          't_TE_S': [0.0005,
+            0.0005,
+            0.0005,
+            0.0005,
+            0.0005,
+            0.0005,
+            0.0005,
+            0.0005,
+            0.0005],
+          't_blade_S': [0.0018320275186014946,
+            0.0019218083226827988,
+            0.0020268089311736032,
+            0.0021329017027740434,
+            0.002240138294595593,
+            0.0023488859174960303,
+            0.0024852733652763366,
+            0.0026024429397798927,
+            0.0026780412271797437],
+          'n_blade_S': [116, 112, 107, 102, 97, 92, 86, 81, 78],
+          'R_c_S': [0.02161610169772873,
+            0.02244278076806165,
+            0.023418095226800897,
+            0.02455749412199926,
+            0.025877663488153915,
+            0.02739690109176542,
+            0.02913507612488498,
+            0.031115781648830443,
+            0.03207358239753057]},
+          'rotor': {'h_blade_R': [0.028299841921147508,
+            0.031006065260253488,
+            0.03413278574452733,
+            0.03774694200977252,
+            0.04192639330728815,
+            0.046762238719206164,
+            0.05236044258786883,
+            0.05884941443434066,
+            None],
+          'chord_R': [0.013752412553972845,
+            0.014312062993939407,
+            0.014968897751956336,
+            0.01573287734406901,
+            0.016614837213121982,
+            0.01762675393333128,
+            0.018781759644470535,
+            0.020095591613924796,
+            None],
+          'xhi_R1': [0.7347958438124123,
+            0.7347958438124123,
+            0.7347958438124123,
+            0.7347958438124123,
+            0.7347958438124123,
+            0.7347958438124123,
+            0.7347958438124123,
+            0.7347958438124123,
+            None],
+          'xhi_R2': [-1.2018078698570764,
+            -1.2018078698570764,
+            -1.2018078698570764,
+            -1.2018078698570764,
+            -1.2018078698570764,
+            -1.2018078698570764,
+            -1.2018078698570764,
+            -1.2018078698570764,
+            None],
+          'pitch_R': [0.011977859609954216,
+            0.012465295132576906,
+            0.013037374721346386,
+            0.013702773629594827,
+            0.014470929140613027,
+            0.015352272422314595,
+            0.016358241098895984,
+            0.017502541767555512,
+            None],
+          'o_R': [0.0027485430110031138,
+            0.0028603941716149692,
+            0.002991668489953377,
+            0.003144356664497973,
+            0.0033206242556974887,
+            0.003522864889341437,
+            0.0037537031413616907,
+            0.004016284245811816,
+            None],
+          't_TE_R': [0.0005,
+            0.0005,
+            0.0005,
+            0.0005,
+            0.0005,
+            0.0005,
+            0.0005,
+            0.0005,
+            None],
+          't_blade_R': [0.0013752412553972846,
+            0.0014312062993939408,
+            0.0014968897751956338,
+            0.001573287734406901,
+            0.0016614837213121984,
+            0.001762675393333128,
+            0.0018781759644470536,
+            0.00200955916139248,
+            None],
+          'n_blade_R': [127, 122, 117, 111, 105, 99, 93, 87, None],
+          'R_c_R': [0.022001749326772676,
+            0.02289710413397014,
+            0.023947938933921296,
+            0.02517018902353028,
+            0.02658118944829365,
+            0.028200100888758198,
+            0.0300479327530034,
+            0.032149862253444544,
+            None]},
+          'CAPEX': {'Turbine': 832340.4268232549,
+          'Alternator': 475326.0713036128,
+          'Installation': 457683.27434440365,
+          'Total': 1765349.7724712715}}
+        
+        
+        # turb_params = {'type': 'Axial Turbine',
+        #  'mdot_rated': 318.437021666738,
+        #  'Wdot_rated': 16525640.389554193,
+        #  'N_rot_rated': 2139.2697278709124,
+        #  'total_to_static_efficiency': 0.9238504768389768,
+        #  'DP_rated': 2.93,
+        #  'n_stages': 17,
+        #  'p0_su': 15309670.5,
+        #  'T0_su': 406.4,
+        #  'p_ex': 5220928,
+        #  'r_m': 0.2034514959316595,
+        #  'delta_tip': 0.0004,
+        #  'N_lw': 0,
+        #  'D_lw': 0,
+        #  'e_blade': 2e-06,
+        #  'stator': {'h_blade_S': [0.043675818843015114,
+        #    0.04555075447331882,
+        #    0.04756421118011338,
+        #    0.04972691902234203,
+        #    0.05205017510501014,
+        #    0.054546596942447775,
+        #    0.05722928920039919,
+        #    0.060112617286739035,
+        #    0.06321209857721537,
+        #    0.06654490533621829,
+        #    0.07012889817037861,
+        #    0.07398381132317491,
+        #    0.07813111368635203,
+        #    0.08259363826885417,
+        #    0.08739739527936775,
+        #    0.09257033527958411,
+        #    0.09814301040318812,
+        #    0.10106509645143522],
+        #   'chord_S': [0.014565147357473614,
+        #    0.01480943096399099,
+        #    0.015075739833271963,
+        #    0.01536524874907234,
+        #    0.01567912889606207,
+        #    0.016018669329296093,
+        #    0.0163851244995266,
+        #    0.016779838143617463,
+        #    0.01720421402838227,
+        #    0.017659790605438676,
+        #    0.018148061183290848,
+        #    0.01867066392643876,
+        #    0.019229341748854812,
+        #    0.01982586410819994,
+        #    0.020462313888188075,
+        #    0.021140853881350716,
+        #    0.021863805194343753,
+        #    0.022242295668683392],
+        #   'xhi_S1': [-0.45212668370301995,
+        #    -0.45212668370301995,
+        #    -0.45212668370301995,
+        #    -0.45212668370301995,
+        #    -0.45212668370301995,
+        #    -0.45212668370301995,
+        #    -0.45212668370301995,
+        #    -0.45212668370301995,
+        #    -0.45212668370301995,
+        #    -0.45212668370301995,
+        #    -0.45212668370301995,
+        #    -0.45212668370301995,
+        #    -0.45212668370301995,
+        #    -0.45212668370301995,
+        #    -0.45212668370301995,
+        #    -0.45212668370301995,
+        #    -0.45212668370301995,
+        #    -0.45212668370301995],
+        #   'xhi_S2': [1.1815777847522009,
+        #    1.1815777847522009,
+        #    1.1815777847522009,
+        #    1.1815777847522009,
+        #    1.1815777847522009,
+        #    1.1815777847522009,
+        #    1.1815777847522009,
+        #    1.1815777847522009,
+        #    1.1815777847522009,
+        #    1.1815777847522009,
+        #    1.1815777847522009,
+        #    1.1815777847522009,
+        #    1.1815777847522009,
+        #    1.1815777847522009,
+        #    1.1815777847522009,
+        #    1.1815777847522009,
+        #    1.1815777847522009,
+        #    1.1815777847522009],
+        #   'pitch_S': [0.014340200905962212,
+        #    0.014580711757621719,
+        #    0.01484290771038489,
+        #    0.015127945404460429,
+        #    0.015436977936556033,
+        #    0.015771274453355428,
+        #    0.016132070031673943,
+        #    0.01652068765548968,
+        #    0.016938509411618372,
+        #    0.01738704999158629,
+        #    0.017867779641003646,
+        #    0.01838231122429742,
+        #    0.018932360737599515,
+        #    0.019519670310785425,
+        #    0.020146290659181845,
+        #    0.02081435117280855,
+        #    0.021526137110781208,
+        #    0.02189878211805869],
+        #   'o_S': [0.005208284333331462,
+        #    0.005295636589336021,
+        #    0.005390864758173709,
+        #    0.0054943889253871074,
+        #    0.005606627889538167,
+        #    0.005728042597919949,
+        #    0.005859081623831385,
+        #    0.0060002254679831415,
+        #    0.006151976096920658,
+        #    0.006314883638511587,
+        #    0.006489482078104392,
+        #    0.0066763571994396175,
+        #    0.006876132243141885,
+        #    0.007089439941471828,
+        #    0.00731702510327684,
+        #    0.007559661111632391,
+        #    0.0078181779604366,
+        #    0.007953520635621198],
+        #   't_TE_S': [0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    0.0005],
+        #   't_blade_S': [0.002873334793915352,
+        #    0.002929701684898296,
+        #    0.0030135521719042804,
+        #    0.003069167448835821,
+        #    0.003154388975412103,
+        #    0.003241018376036457,
+        #    0.003329098410875826,
+        #    0.003418696869414256,
+        #    0.0035099092960128643,
+        #    0.0035631878913450514,
+        #    0.0036558599177864298,
+        #    0.0037504780951033443,
+        #    0.0038472621962256357,
+        #    0.00399581622006547,
+        #    0.004100639839190145,
+        #    0.004208772389728993,
+        #    0.004320647254195877,
+        #    0.004377395538210385],
+        #   'n_blade_S': [89,
+        #    88,
+        #    86,
+        #    85,
+        #    83,
+        #    81,
+        #    79,
+        #    77,
+        #    75,
+        #    74,
+        #    72,
+        #    70,
+        #    68,
+        #    65,
+        #    63,
+        #    61,
+        #    59,
+        #    58],
+        #   'R_c_S': [0.021374275566569574,
+        #    0.021732760447906438,
+        #    0.022123567284125116,
+        #    0.02254842006408143,
+        #    0.02300903749499203,
+        #    0.02350731125823086,
+        #    0.024045082253543307,
+        #    0.024624322407564403,
+        #    0.02524709174055817,
+        #    0.02591564792201565,
+        #    0.026632182374151173,
+        #    0.027399099094575358,
+        #    0.028218955800187365,
+        #    0.029094349160606794,
+        #    0.030028335796503665,
+        #    0.03102408959430885,
+        #    0.032085016765580995,
+        #    0.03264044950507237]},
+        #  'rotor': {'h_blade_R': [0.04463901386550254,
+        #    0.04658356426213087,
+        #    0.0486717482309841,
+        #    0.050914854071433466,
+        #    0.053324844149276726,
+        #    0.055914350111055416,
+        #    0.05869720192740975,
+        #    0.06168834199415402,
+        #    0.06490389260233821,
+        #    0.06836171319331613,
+        #    0.07208042173763626,
+        #    0.07608058437140806,
+        #    0.08038461889099627,
+        #    0.08501639257628242,
+        #    0.09000310695231376,
+        #    0.09537399662687153,
+        #    0.10116101737079411,
+        #    None],
+        #   'chord_R': [0.014691692713363517,
+        #    0.014947179258483243,
+        #    0.015225236215973392,
+        #    0.015527083786834149,
+        #    0.015853953554919285,
+        #    0.01620707828550691,
+        #    0.016587774192778914,
+        #    0.016997416201988986,
+        #    0.01743743839432239,
+        #    0.017909417206940486,
+        #    0.01841488909821388,
+        #    0.018955540396719053,
+        #    0.019533173914154756,
+        #    0.02014962496120879,
+        #    0.020807057041219323,
+        #    0.021507713925394085,
+        #    0.02225399673609491,
+        #    None],
+        #   'xhi_R1': [0.44794837042429314,
+        #    0.44794837042429314,
+        #    0.44794837042429314,
+        #    0.44794837042429314,
+        #    0.44794837042429314,
+        #    0.44794837042429314,
+        #    0.44794837042429314,
+        #    0.44794837042429314,
+        #    0.44794837042429314,
+        #    0.44794837042429314,
+        #    0.44794837042429314,
+        #    0.44794837042429314,
+        #    0.44794837042429314,
+        #    0.44794837042429314,
+        #    0.44794837042429314,
+        #    0.44794837042429314,
+        #    0.44794837042429314,
+        #    None],
+        #   'xhi_R2': [-1.2103795569237705,
+        #    -1.2103795569237705,
+        #    -1.2103795569237705,
+        #    -1.2103795569237705,
+        #    -1.2103795569237705,
+        #    -1.2103795569237705,
+        #    -1.2103795569237705,
+        #    -1.2103795569237705,
+        #    -1.2103795569237705,
+        #    -1.2103795569237705,
+        #    -1.2103795569237705,
+        #    -1.2103795569237705,
+        #    -1.2103795569237705,
+        #    -1.2103795569237705,
+        #    -1.2103795569237705,
+        #    -1.2103795569237705,
+        #    -1.2103795569237705,
+        #    None],
+        #   'pitch_R': [0.014515686298242616,
+        #    0.014768112115657546,
+        #    0.015042837952000385,
+        #    0.015341069390268617,
+        #    0.015664023259946775,
+        #    0.016012917557790274,
+        #    0.0163890527297408,
+        #    0.016793787229453454,
+        #    0.017228537957827104,
+        #    0.017694862466312748,
+        #    0.018194278806516355,
+        #    0.018728453104805354,
+        #    0.01929916657520216,
+        #    0.019908232541380466,
+        #    0.02055778858791782,
+        #    0.02125005160565259,
+        #    0.021987393951511107,
+        #    None],
+        #   'o_R': [0.005304932398056339,
+        #    0.005397184453480851,
+        #    0.00549758631942464,
+        #    0.005606578590715294,
+        #    0.005724605972344555,
+        #    0.005852113595897372,
+        #    0.005989576725006908,
+        #    0.0061374918229238915,
+        #    0.006296376713148282,
+        #    0.006466800621618437,
+        #    0.006649318338578578,
+        #    0.00684453876997805,
+        #    0.007053112881935934,
+        #    0.007275703375430132,
+        #    0.007513091456491554,
+        #    0.007766087314579369,
+        #    0.008035557956107168,
+        #    None],
+        #   't_TE_R': [0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    0.0005,
+        #    None],
+        #   't_blade_R': [0.0029339168824975563,
+        #    0.0029906358249125425,
+        #    0.003075651966960518,
+        #    0.0031621491077244,
+        #    0.003217899079117751,
+        #    0.0033057153990275227,
+        #    0.0033950293310365115,
+        #    0.0034859234193912745,
+        #    0.003578509603973971,
+        #    0.003672929300044586,
+        #    0.0037693633336161607,
+        #    0.0038680292077971096,
+        #    0.003969185344541105,
+        #    0.004073139878085224,
+        #    0.004180239496230803,
+        #    0.004290889279250552,
+        #    0.004405559116686325,
+        #    None],
+        #   'n_blade_R': [88,
+        #    87,
+        #    85,
+        #    83,
+        #    82,
+        #    80,
+        #    78,
+        #    76,
+        #    74,
+        #    72,
+        #    70,
+        #    68,
+        #    66,
+        #    64,
+        #    62,
+        #    60,
+        #    58,
+        #    None],
+        #   'R_c_R': [0.021559980197087613,
+        #    0.021934905330690042,
+        #    0.02234295242329613,
+        #    0.022785912113324047,
+        #    0.023265591743468497,
+        #    0.023783800390158066,
+        #    0.024342469590639706,
+        #    0.024943617040343095,
+        #    0.02558934724570997,
+        #    0.026281973619812878,
+        #    0.02702375090706352,
+        #    0.02781715378559627,
+        #    0.028664827871902193,
+        #    0.029569466474564345,
+        #    0.03053424452311857,
+        #    0.03156245473976845,
+        #    0.03265762075869161,
+        #    None]},
+        #  'CAPEX': {'Turbine': 871078.6076124497,
+        #   'Alternator': 497049.7207146683,
+        #   'Installation': 478844.91491449124,
+        #   'Total': 1846973.243241609}}
         
         Turb_OD.set_inputs(
-            m_dot = 5*100, # kg/s
-            P_su = 140*1e5, # Pa
-            T_su = 273.15 + 121, # K
-            fluid = 'CO2', 
-            N_rot = 1985.8640516476623, # RPM
-            P_ex = 39.8*1e5, # Pa
+            m_dot = turb_params['mdot_rated'], # kg/s
+            P_su = turb_params['p0_su'], # Pa 
+            T_su = turb_params['T0_su'], # K
+            fluid = 'CO2',
+            N_rot = turb_params['N_rot_rated'], # 1985.8640516476623, # RPM
+            P_ex = turb_params['p_ex'], # 5742510, # Pa
             )
-        
+
         Turb_OD.set_parameters(
-            r_m = 0.234769017407,
-            nStages = 7,
-            mdot_rated = 500,
-            DP_rated = 3.5175879397,
-            N_rot_rated = 1985.8640516476623, # RPM
+            r_m = turb_params['r_m'],
+            nStages = turb_params['n_stages'],
+            mdot_rated = turb_params['mdot_rated'],
+            DP_rated = turb_params['DP_rated'],
+            N_rot_rated = turb_params['N_rot_rated'], # RPM 
             damping = 0.3,
             delta_tip = 0.0004,
             N_lw = 0,
@@ -1058,34 +1803,36 @@ if __name__ == "__main__":
             )
         
         Turb_OD.set_stage_parameters(
-            # --- Stage geometry vectors ---
-            h_blade_S = [0.03073202408, 0.03537496698, 0.04115667196, 0.04836565367, 0.05737105876, 0.06865150342, 0.08283598027, 0.09050678143],
-            chord_S = [0.01152290153, 0.01225265229, 0.01317314506, 0.01431411044, 0.01571068703, 0.01740581498, 0.01945280172, 0.0205316737],
-            xhi_S1 = [-0.4167759648, -0.4167759648, -0.4167759648, -0.4167759648, -0.4167759648, -0.4167759648, -0.4167759648, -0.4167759648],
-            xhi_S2 = [1.118475049, 1.118475049, 1.118475049, 1.118475049, 1.118475049, 1.118475049, 1.118475049, 1.118475049],
-            pitch_S = [0.009902812531, 0.0105299623, 0.01132103625, 0.01230158497, 0.01350180664, 0.01495860415, 0.01671779005, 0.01764497553],
-            o_S = [0.003461958607, 0.00368120607, 0.003957760359, 0.004300553789, 0.00472014345, 0.005229430348, 0.005844430254, 0.006168568244],
-            t_TE_S = [0.0005, 0.0005, 0.0005, 0.0005, 0.0005, 0.0005, 0.0005, 0.0005],
-            t_blade_S = [0.004033015536, 0.004288428303, 0.00461060077, 0.005009938655, 0.005498740461, 0.006092035242, 0.006808480601, 0.007186085794],
-            n_blade_S = [149, 140, 130, 120, 109, 99, 88, 84],
-            R_c_S = [0.01610761461, 0.0171277174, 0.01841445431, 0.02000938512, 0.0219616293, 0.02433121196, 0.02719265041, 0.0287007822],
-
-            h_blade_R = [0.03286726306, 0.03802117726, 0.04444130041, 0.05245106386, 0.06246706441, 0.07503276664, 0.09086996303, None],
-            chord_R = [0.01185991693, 0.0126774635, 0.01369903834, 0.0149566343, 0.01648881371, 0.01834300018, 0.0205794408, None],
-            xhi_R1 = [0.4954042518, 0.4954042518, 0.4954042518, 0.4954042518, 0.4954042518, 0.4954042518, 0.4954042518, None],
-            xhi_R2 = [-1.121246962, -1.121246962, -1.121246962, -1.121246962, -1.121246962, -1.121246962, -1.121246962, None],
-            pitch_R = [0.009443352635, 0.01009431677, 0.01090773658, 0.0119090861, 0.01312907023, 0.0146054496, 0.01638619542, None],
-            o_R = [0.002868459972, 0.003066193195, 0.003313273048, 0.003617437378, 0.003988012932, 0.004436469671, 0.004977379059, None],
-            t_TE_R = [0.0005, 0.0005, 0.0005, 0.0005, 0.0005, 0.0005, 0.0005, None],
-            t_blade_R = [0.004043826837, 0.004364071844, 0.004722759647, 0.005103811805, 0.005554855605, 0.006018210679, 0.006547971457, None],
-            n_blade_R = [156, 146, 135, 124, 112, 101, 90, None],
-            R_c_R = [0.01657872114, 0.01772155179, 0.01914958914, 0.02090755531, 0.02304935574, 0.02564128287, 0.0287675548, None],
-            )
+            # --- Stator ---
+            h_blade_S  = turb_params['stator']['h_blade_S'],
+            chord_S    = turb_params['stator']['chord_S'],
+            xhi_S1     = turb_params['stator']['xhi_S1'],
+            xhi_S2     = turb_params['stator']['xhi_S2'],
+            pitch_S    = turb_params['stator']['pitch_S'],
+            o_S        = turb_params['stator']['o_S'],
+            t_TE_S     = turb_params['stator']['t_TE_S'],
+            t_blade_S  = turb_params['stator']['t_blade_S'],
+            n_blade_S  = turb_params['stator']['n_blade_S'],
+            R_c_S      = turb_params['stator']['R_c_S'],
+            # --- Rotor ---
+            h_blade_R  = turb_params['rotor']['h_blade_R'],
+            chord_R    = turb_params['rotor']['chord_R'],
+            xhi_R1     = turb_params['rotor']['xhi_R1'],
+            xhi_R2     = turb_params['rotor']['xhi_R2'],
+            pitch_R    = turb_params['rotor']['pitch_R'],
+            o_R        = turb_params['rotor']['o_R'],
+            t_TE_R     = turb_params['rotor']['t_TE_R'],
+            t_blade_R  = turb_params['rotor']['t_blade_R'],
+            n_blade_R  = turb_params['rotor']['n_blade_R'],
+            R_c_R      = turb_params['rotor']['R_c_R'],
+        )
+        
+        Turb_OD.solve()
         
     df_map = generate_map_processes(
         Turb_OD,
-        m_grid=np.linspace(0.6*Turb_OD.params['mdot_rated'], 1.4*Turb_OD.params['mdot_rated'], 20),
-        N_grid=np.linspace(0.3*Turb_OD.params['N_rot_rated'], 1.5*Turb_OD.params['N_rot_rated'], 20),
+        m_grid=np.linspace(0.6*Turb_OD.params['mdot_rated'], 1.8*Turb_OD.params['mdot_rated'], 50),
+        N_grid=np.linspace(0.3*Turb_OD.params['N_rot_rated'], 1.8*Turb_OD.params['N_rot_rated'], 50),
         max_workers=-2
     )
     

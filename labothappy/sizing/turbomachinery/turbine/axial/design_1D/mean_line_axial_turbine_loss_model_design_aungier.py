@@ -80,6 +80,7 @@ def _eval_particle(x, cls, fluid, params, stage_params, inputs):
         allow_rec = (
             _SOLVER.obj,
             _SOLVER.eta_is,
+            _SOLVER.W_dot,
             _SOLVER.psi, _SOLVER.phi, _SOLVER.R,
             _SOLVER.params['Re_min'],
             _SOLVER.r_m,
@@ -1251,8 +1252,8 @@ class AxialTurbineMeanLineDesign(object):
         Dh0s = self.stages[0].get_total_prop('H',1) - h_is_ex
 
         Dh0 = self.inputs['W_dot']/self.inputs['mdot']
-                
-        self.eta_is = Dh0/Dh0s
+        
+        # self.eta_is = Dh0/Dh0s
         
         "------------- 2) Velocity Triangle Computation (+ Solodity) -------------------------------------" 
         self.computeVelTriangle()
@@ -1282,9 +1283,9 @@ class AxialTurbineMeanLineDesign(object):
 
         if "Omega_choices" in self.params:
             self.omega_rads = self.params['Omega']*(2*np.pi)/60
-            self.r_m = self.Vel_Tri['u']/(2*self.omega_rads)
+            self.r_m = self.Vel_Tri['u']/(self.omega_rads)
         else:
-            self.omega_rads = self.Vel_Tri['u']/(2*self.r_m)
+            self.omega_rads = self.Vel_Tri['u']/(self.r_m)
             self.params['Omega'] = self.omega_rads*60/(2*np.pi)
         
         "------------- 5) Compute complete velocity triangles and exit losses ----------------------------" 
@@ -1361,7 +1362,7 @@ class AxialTurbineMeanLineDesign(object):
         self.penalty_2 = max(self.params['r_hub_tip_min'] - self.r_hub_tip[-1],0)*100
         
         if abs((self.inputs["p_ex"] - self.stages[-1].get_static_prop('P',2))/self.inputs["p_ex"]) >= self.params['p_rel_tol']:
-            self.penalty_3 = abs((self.inputs["p_ex"] - self.stages[-1].get_static_prop('P',2))/self.inputs["p_ex"])*10
+            self.penalty_3 = abs((self.inputs["p_ex"] - self.stages[-1].get_static_prop('P',2))/self.inputs["p_ex"])*100
             self.Pressure_Deviation = self.inputs["p_ex"] - self.stages[-1].get_static_prop('P',2)
         else:
             self.penalty_3 = 0
@@ -1376,8 +1377,8 @@ class AxialTurbineMeanLineDesign(object):
             # print("Bad eta_is")
             self.obj = 10000
 
-        if self.obj < 10000:
-            self.allowable_positions.append([self.obj, self.eta_is, self.psi, self.phi, self.R, self.params['Re_min'], self.r_m, self.params['M_1_st']])
+        if self.obj < 10000 and self.penalty < 1:
+            self.allowable_positions.append([self.obj, self.eta_is, self.W_dot, self.psi, self.phi, self.R, self.params['Re_min'], self.r_m, self.params['M_1_st']])
         
         # print(f"obj : {self.obj}")
         return self.obj
@@ -1598,10 +1599,14 @@ class AxialTurbineMeanLineDesign(object):
         self.allowable_positions.sort(key=lambda x: x[0])
         self.eta_is = 1.1
         
+        self.penalty = 10
+        
         i = 0
-        while self.eta_is >= 1:
+        while self.eta_is >= 1 and self.penalty != 0:
             # Finalize
-            self.design_system(self.allowable_positions[i][2:])
+            self.inputs['W_dot'] = self.allowable_positions[i][2]
+            
+            self.design_system(self.allowable_positions[i][3:])
             i = i + 1
 
         self.cost_estimation()
@@ -1703,25 +1708,55 @@ if __name__ == "__main__":
     
         Turb = AxialTurbineMeanLineDesign('CO2')
     
-        Turb.set_inputs(
-            mdot = 415.93, # kg/s
-            W_dot = 16537693, # W : 
-            p0_su = 14153425, # Pa
-            T0_su = 395.88, # K
-            p_ex = 5742510, # Pa
-            )
+        # Turb.set_inputs(
+        #     mdot = 415.93, # kg/s
+        #     W_dot = 16*1e6, # W : 
+        #     p0_su = 14153425, # Pa
+        #     T0_su = 395.88, # K
+        #     p_ex = 5742510, # 5742510, # Pa
+        #     )
         
+        # Turb.set_parameters(
+        #     Zweifel = 0.8, # [-]
+        #     AR_min = 0.8, # [-]
+        #     r_hub_tip_max = 0.95, # [-]
+        #     r_hub_tip_min = 0.6, # [-]
+        #     Re_bounds = [1*1e6,8*1e6], # [-]
+        #     psi_bounds = [0.5,1.9], # [-]
+        #     phi_bounds = [0.4,0.8], # [-]
+        #     R_bounds = [0.45,0.55], # [-]
+        #     M_1st_bounds = [0.2, 0.5], # [-]
+        #     r_m_bounds = [0.15, 0.6], # [m]
+        #     # Omega_choices = [500,750,1000,1500,3000], # [RPM] : [500,750,1000,1500,3000]
+        #     damping = 0.2, # [-]
+        #     p_rel_tol = 0.05, # [-]
+        #     delta_tip = 0.4*1e-3, # [m] : tip clearance
+        #     N_lw = 0, # [-] : Number of lashing wires
+        #     D_lw = 0, # [m] : Diameter of lashing wires
+        #     e_blade = 0.002*1e-3, # [m] : blade roughness
+        #     t_TE_o = 0.05, # [-] : trailing edge to throat opening ratio
+        #     t_TE_min = 5*1e-4, # [m]
+        #     )
+    
+        Turb.set_inputs(
+            mdot = 318.437021666738, # kg/s
+            W_dot = 15*1e6, # W : 
+            p0_su = 15309670.5, # Pa
+            T0_su = 406.4, # K
+            p_ex = 5220928, # 5742510, # Pa
+            )
+                
         Turb.set_parameters(
             Zweifel = 0.8, # [-]
             AR_min = 0.8, # [-]
             r_hub_tip_max = 0.95, # [-]
             r_hub_tip_min = 0.6, # [-]
             Re_bounds = [1*1e6,8*1e6], # [-]
-            psi_bounds = [0.5,1.9], # [-]
-            phi_bounds = [0.4,0.8], # [-]
+            psi_bounds = [0.5,2.5], # [-]
+            phi_bounds = [0.4,1], # [-]
             R_bounds = [0.45,0.55], # [-]
-            M_1st_bounds = [0.2, 0.5], # [-]
-            r_m_bounds = [0.15, 0.6], # [m]
+            M_1st_bounds = [0.2, 0.4], # [-]
+            r_m_bounds = [0.1, 0.6], # [m]
             # Omega_choices = [500,750,1000,1500,3000], # [RPM] : [500,750,1000,1500,3000]
             damping = 0.2, # [-]
             p_rel_tol = 0.05, # [-]
