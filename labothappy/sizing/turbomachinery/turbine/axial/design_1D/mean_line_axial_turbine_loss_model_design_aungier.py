@@ -1707,41 +1707,11 @@ if __name__ == "__main__":
     elif case_study == 'TCO2_ORC':
     
         Turb = AxialTurbineMeanLineDesign('CO2')
-    
-        # Turb.set_inputs(
-        #     mdot = 415.93, # kg/s
-        #     W_dot = 16*1e6, # W : 
-        #     p0_su = 14153425, # Pa
-        #     T0_su = 395.88, # K
-        #     p_ex = 5742510, # 5742510, # Pa
-        #     )
-        
-        # Turb.set_parameters(
-        #     Zweifel = 0.8, # [-]
-        #     AR_min = 0.8, # [-]
-        #     r_hub_tip_max = 0.95, # [-]
-        #     r_hub_tip_min = 0.6, # [-]
-        #     Re_bounds = [1*1e6,8*1e6], # [-]
-        #     psi_bounds = [0.5,1.9], # [-]
-        #     phi_bounds = [0.4,0.8], # [-]
-        #     R_bounds = [0.45,0.55], # [-]
-        #     M_1st_bounds = [0.2, 0.5], # [-]
-        #     r_m_bounds = [0.15, 0.6], # [m]
-        #     # Omega_choices = [500,750,1000,1500,3000], # [RPM] : [500,750,1000,1500,3000]
-        #     damping = 0.2, # [-]
-        #     p_rel_tol = 0.05, # [-]
-        #     delta_tip = 0.4*1e-3, # [m] : tip clearance
-        #     N_lw = 0, # [-] : Number of lashing wires
-        #     D_lw = 0, # [m] : Diameter of lashing wires
-        #     e_blade = 0.002*1e-3, # [m] : blade roughness
-        #     t_TE_o = 0.05, # [-] : trailing edge to throat opening ratio
-        #     t_TE_min = 5*1e-4, # [m]
-        #     )
-    
+
         Turb.set_inputs(
             mdot = 318.437021666738, # kg/s
             W_dot = 15*1e6, # W : 
-            p0_su = 15309670.5, # Pa
+            p0_su = 15309670.5, # Pa 
             T0_su = 406.4, # K
             p_ex = 5220928, # 5742510, # Pa
             )
@@ -1759,7 +1729,7 @@ if __name__ == "__main__":
             r_m_bounds = [0.1, 0.6], # [m]
             # Omega_choices = [500,750,1000,1500,3000], # [RPM] : [500,750,1000,1500,3000]
             damping = 0.2, # [-]
-            p_rel_tol = 0.05, # [-]
+            p_rel_tol = 0.01, # [-]
             delta_tip = 0.4*1e-3, # [m] : tip clearance
             N_lw = 0, # [-] : Number of lashing wires
             D_lw = 0, # [m] : Diameter of lashing wires

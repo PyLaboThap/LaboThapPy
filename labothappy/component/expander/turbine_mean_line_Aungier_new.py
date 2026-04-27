@@ -456,7 +456,7 @@ class AxialTurbineMeanLine(BaseComponent):
                 
         # 5) Loss model
         
-        stage.beta_g_R =  np.arcsin(stage.o_R/stage.pitch_R)  # mid-passage metal angle        
+        stage.beta_g_R = np.arcsin(stage.o_R/stage.pitch_R)  # mid-passage metal angle        
                 
         stage.Y_vec_R = aungier_loss_model(-stage.Vel_Tri_R['beta2'], -stage.Vel_Tri_R['beta3'], stage.beta_g_R*180/np.pi, -stage.xhi_R1, stage.chord_R, 
                                self.params['delta_tip'], self.params['D_lw'], self.params['e_blade'], stage.h_blade_R, stage.static_states['V'][3], 

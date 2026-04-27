@@ -2,10 +2,10 @@
 
 # --- loading libraries 
 
-from connector.mass_connector import MassConnector
-from correlations.turbomachinery.aungier_axial_turbine import aungier_loss_model
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.correlations.turbomachinery.aungier_axial_turbine import aungier_loss_model
 
-from component.expander.turbine_mean_line_Aungier import AxialTurbineMeanLine
+from labothappy.component.expander.turbine_mean_line_Aungier import AxialTurbineMeanLine
 from CoolProp.CoolProp import PropsSI
 from scipy.optimize import brentq, root
 import pyswarms as ps
@@ -1267,173 +1267,175 @@ class AxialTurbineMeanLineDesign(object):
         
         return best_pos
 
-case_study = "TCO2_ORC"
+if __name__ == "__main__":
 
-Turb = AxialTurbineMeanLineDesign('Cyclopentane')
-
-if case_study == 'Cuerva':
+    case_study = "TCO2_ORC"
 
     Turb = AxialTurbineMeanLineDesign('Cyclopentane')
     
-    Turb.set_inputs(
-        mdot = 46.18, # kg/s
-        W_dot = 4500*1e3, # W
-        p0_su = 1230*1e3, # Pa
-        T0_su = 273.15 + 158, # K
-        p_ex = 78300, # Pa
-        )
+    if case_study == 'Cuerva':
     
-    Turb.set_parameters(
-        Zweifel = 0.8, # [-]
-        AR_min = 0.8, # [-]
-        r_hub_tip_max = 0.95, # [-]
-        r_hub_tip_min = 0.6, # [-]
-        Re_bounds = [1*1e5,1*1e6], # [-]
-        psi_bounds = [1,2.5], # [-]
-        phi_bounds = [0.4,0.8], # [-]
-        R_bounds = [0.4,0.6], # [-]
-        r_m_bounds = [0.1, 0.6], # [m]
-        M_1_st = 0.3, # [-]
-        damping = 0.2, # [-]
-        delta_tip = 0.4*1e-3, # [m] : tip clearance
-        N_lw = 0, # [-] : Number of lashing wires
-        D_lw = 0, # [m] : Diameter of lashing wires
-        e_blade = 0.002*1e-3, # [m] : blade roughness
-        t_TE_o = 0.05, # [-] : trailing edge to throat opening ratio
-        t_TE_min = 5*1e-4, # [m]
-        )
-
-elif case_study == 'Zorlu':
+        Turb = AxialTurbineMeanLineDesign('Cyclopentane')
+        
+        Turb.set_inputs(
+            mdot = 46.18, # kg/s
+            W_dot = 4500*1e3, # W
+            p0_su = 1230*1e3, # Pa
+            T0_su = 273.15 + 158, # K
+            p_ex = 78300, # Pa
+            )
+        
+        Turb.set_parameters(
+            Zweifel = 0.8, # [-]
+            AR_min = 0.8, # [-]
+            r_hub_tip_max = 0.95, # [-]
+            r_hub_tip_min = 0.6, # [-]
+            Re_bounds = [1*1e5,1*1e6], # [-]
+            psi_bounds = [1,2.5], # [-]
+            phi_bounds = [0.4,0.8], # [-]
+            R_bounds = [0.4,0.6], # [-]
+            r_m_bounds = [0.1, 0.6], # [m]
+            M_1_st = 0.3, # [-]
+            damping = 0.2, # [-]
+            delta_tip = 0.4*1e-3, # [m] : tip clearance
+            N_lw = 0, # [-] : Number of lashing wires
+            D_lw = 0, # [m] : Diameter of lashing wires
+            e_blade = 0.002*1e-3, # [m] : blade roughness
+            t_TE_o = 0.05, # [-] : trailing edge to throat opening ratio
+            t_TE_min = 5*1e-4, # [m]
+            )
     
-    Turb = AxialTurbineMeanLineDesign('Cyclopentane')
-
-    Turb.set_inputs(
-        mdot = 34.51, # kg/s
-        W_dot = 2506000, # W
-        p0_su = 767800, # Pa
-        T0_su = 273.15 + 131, # K
-        p_ex = 82000, # Pa
-        )
+    elif case_study == 'Zorlu':
+        
+        Turb = AxialTurbineMeanLineDesign('Cyclopentane')
     
-    Turb.set_parameters(
-        Zweifel = 0.8, # [-]
-        AR_min = 0.8, # [-]
-        r_hub_tip_max = 0.95, # [-]
-        r_hub_tip_min = 0.6, # [-]
-        Re_bounds = [1*1e5,1*1e6], # [-]
-        psi_bounds = [1.3,2], # [-]
-        phi_bounds = [0.4,0.7], # [-]
-        R_bounds = [0.45,0.55], # [-]
-        r_m_bounds = [0.15, 0.5], # [m]
-        M_1_st = 0.3, # [-]
-        damping = 0.2, # [-]
-        delta_tip = 0.4*1e-3, # [m] : tip clearance
-        N_lw = 0, # [-] : Number of lashing wires
-        D_lw = 0, # [m] : Diameter of lashing wires
-        e_blade = 0.002*1e-3, # [m] : blade roughness
-        t_TE_o = 0.05, # [-] : trailing edge to throat opening ratio
-        t_TE_min = 5*1e-4, # [m]
-        )
+        Turb.set_inputs(
+            mdot = 34.51, # kg/s
+            W_dot = 2506000, # W
+            p0_su = 767800, # Pa
+            T0_su = 273.15 + 131, # K
+            p_ex = 82000, # Pa
+            )
+        
+        Turb.set_parameters(
+            Zweifel = 0.8, # [-]
+            AR_min = 0.8, # [-]
+            r_hub_tip_max = 0.95, # [-]
+            r_hub_tip_min = 0.6, # [-]
+            Re_bounds = [1*1e5,1*1e6], # [-]
+            psi_bounds = [1.3,2], # [-]
+            phi_bounds = [0.4,0.7], # [-]
+            R_bounds = [0.45,0.55], # [-]
+            r_m_bounds = [0.15, 0.5], # [m]
+            M_1_st = 0.3, # [-]
+            damping = 0.2, # [-]
+            delta_tip = 0.4*1e-3, # [m] : tip clearance
+            N_lw = 0, # [-] : Number of lashing wires
+            D_lw = 0, # [m] : Diameter of lashing wires
+            e_blade = 0.002*1e-3, # [m] : blade roughness
+            t_TE_o = 0.05, # [-] : trailing edge to throat opening ratio
+            t_TE_min = 5*1e-4, # [m]
+            )
+        
+    elif case_study == 'TCO2_ORC':
     
-elif case_study == 'TCO2_ORC':
-
-    Turb = AxialTurbineMeanLineDesign('CO2')
-
-    # Turb.set_inputs(
-    #     mdot = 10*100, # kg/s
-    #     W_dot = 10*4.69*1e6, # W
-    #     p0_su = 140*1e5, # Pa
-    #     T0_su = 273.15 + 121, # K
-    #     p_ex = 39.8*1e5, # Pa
-    #     )
+        Turb = AxialTurbineMeanLineDesign('CO2')
     
-    Turb.set_inputs(
-        mdot = 318.437021666738, # kg/s
-        W_dot = 15*1e6, # W : 
-        p0_su = 15309670.5, # Pa
-        T0_su = 406.4, # K
-        p_ex = 5220928, # 5742510, # Pa
-        )
+        # Turb.set_inputs(
+        #     mdot = 10*100, # kg/s
+        #     W_dot = 10*4.69*1e6, # W
+        #     p0_su = 140*1e5, # Pa
+        #     T0_su = 273.15 + 121, # K
+        #     p_ex = 39.8*1e5, # Pa
+        #     )
+        
+        Turb.set_inputs(
+            mdot = 318.437021666738, # kg/s
+            W_dot = 15*1e6, # W : 
+            p0_su = 15309670.5, # Pa
+            T0_su = 406.4, # K
+            p_ex = 5220928, # 5742510, # Pa
+            )
+        
+        # Turb.set_parameters(
+        #     Zweifel = 0.8, # [-]
+        #     AR_min = 0.8, # [-]
+        #     r_hub_tip_max = 0.95, # [-]
+        #     r_hub_tip_min = 0.6, # [-]
+        #     Re_bounds = [2*1e6,7*1e6], # [-]
+        #     psi_bounds = [1.2,2], # [-]
+        #     phi_bounds = [0.4,0.8], # [-]
+        #     R_bounds = [0.4,0.6], # [-]
+        #     r_m_bounds = [0.2, 0.5], # [m]
+        #     M_1_st = 0.3, # [-]
+        #     damping = 0.2, # [-]
+        #     delta_tip = 0.4*1e-3, # [m] : tip clearance
+        #     N_lw = 0, # [-] : Number of lashing wires
+        #     D_lw = 0, # [m] : Diameter of lashing wires
+        #     e_blade = 0.002*1e-3, # [m] : blade roughness
+        #     t_TE_o = 0.05, # [-] : trailing edge to throat opening ratio
+        #     t_TE_min = 5*1e-4, # [m]
+        #     )
     
-    # Turb.set_parameters(
-    #     Zweifel = 0.8, # [-]
-    #     AR_min = 0.8, # [-]
-    #     r_hub_tip_max = 0.95, # [-]
-    #     r_hub_tip_min = 0.6, # [-]
-    #     Re_bounds = [2*1e6,7*1e6], # [-]
-    #     psi_bounds = [1.2,2], # [-]
-    #     phi_bounds = [0.4,0.8], # [-]
-    #     R_bounds = [0.4,0.6], # [-]
-    #     r_m_bounds = [0.2, 0.5], # [m]
-    #     M_1_st = 0.3, # [-]
-    #     damping = 0.2, # [-]
-    #     delta_tip = 0.4*1e-3, # [m] : tip clearance
-    #     N_lw = 0, # [-] : Number of lashing wires
-    #     D_lw = 0, # [m] : Diameter of lashing wires
-    #     e_blade = 0.002*1e-3, # [m] : blade roughness
-    #     t_TE_o = 0.05, # [-] : trailing edge to throat opening ratio
-    #     t_TE_min = 5*1e-4, # [m]
-    #     )
-
-    Turb.set_parameters(
-        Zweifel = 0.8, # [-]
-        AR_min = 0.8, # [-]
-        r_hub_tip_max = 0.95, # [-]
-        r_hub_tip_min = 0.6, # [-]
-        Re_bounds = [1*1e6,8*1e6], # [-]
-        psi_bounds = [0.5,2.5], # [-]
-        phi_bounds = [0.4,1], # [-]
-        R_bounds = [0.45,0.55], # [-]
-        M_1_st = 0.4, # [-]
-        r_m_bounds = [0.1, 0.6], # [m]
-        # Omega_choices = [500,750,1000,1500,3000], # [RPM] : [500,750,1000,1500,3000]
-        damping = 0.2, # [-]
-        p_rel_tol = 0.05, # [-]
-        delta_tip = 0.4*1e-3, # [m] : tip clearance
-        N_lw = 0, # [-] : Number of lashing wires
-        D_lw = 0, # [m] : Diameter of lashing wires
-        e_blade = 0.002*1e-3, # [m] : blade roughness
-        t_TE_o = 0.05, # [-] : trailing edge to throat opening ratio
-        t_TE_min = 5*1e-4, # [m]
-        )
-
-elif case_study == 'Salah_Case':
-
-    Turb = AxialTurbineMeanLineDesign('CO2')
-
-    Turb.set_inputs(
-        mdot = 655.18, # kg/s
-        W_dot = 100*1e6, # W
-        p0_su = 250*1e5, # Pa
-        T0_su = 923, # K
-        p_ex = 100*1e5, # Pa
-        )
+        Turb.set_parameters(
+            Zweifel = 0.8, # [-]
+            AR_min = 0.8, # [-]
+            r_hub_tip_max = 0.95, # [-]
+            r_hub_tip_min = 0.6, # [-]
+            Re_bounds = [1*1e6,8*1e6], # [-]
+            psi_bounds = [0.5,2.5], # [-]
+            phi_bounds = [0.4,1], # [-]
+            R_bounds = [0.45,0.55], # [-]
+            M_1_st = 0.4, # [-]
+            r_m_bounds = [0.1, 0.6], # [m]
+            # Omega_choices = [500,750,1000,1500,3000], # [RPM] : [500,750,1000,1500,3000]
+            damping = 0.2, # [-]
+            p_rel_tol = 0.05, # [-]
+            delta_tip = 0.4*1e-3, # [m] : tip clearance
+            N_lw = 0, # [-] : Number of lashing wires
+            D_lw = 0, # [m] : Diameter of lashing wires
+            e_blade = 0.002*1e-3, # [m] : blade roughness
+            t_TE_o = 0.05, # [-] : trailing edge to throat opening ratio
+            t_TE_min = 5*1e-4, # [m]
+            )
     
-    Turb.set_parameters(
-        Zweifel = 0.8, # [-]
-        AR_min = 0.8, # [-]
-        r_hub_tip_max = 0.95, # [-]
-        r_hub_tip_min = 0.6, # [-]
-        Re_bounds = [1*1e6,7*1e6], # [-]
-        psi_bounds = [1.5,2.5], # [-]
-        phi_bounds = [0.6,0.9], # [-]
-        R_bounds = [0.45,0.55], # [-]
-        r_m_bounds = [0.15, 0.5], # [m]
-        M_1_st = 0.5, #0.3, # [-]
-        damping = 0.2, # [-]
-        delta_tip = 0.4*1e-3, # [m] : tip clearance
-        N_lw = 0, # [-] : Number of lashing wires
-        D_lw = 0, # [m] : Diameter of lashing wires
-        e_blade = 0.002*1e-3, # [m] : blade roughness
-        t_TE_o = 0.05, # [-] : trailing edge to throat opening ratio
-        t_TE_min = 5*1e-4, # [m]
-        )
+    elif case_study == 'Salah_Case':
     
-best_pos = Turb.design()
-
-Turb.plot_geometry()
-Turb.plot_n_blade()
-Turb.plot_radius_verif()
-Turb.plot_Mollier()
-
-# (1.4528688807250987, 0.4939933148314975, 0.42406128096733176, 6364578.748939947, 0.4557043394023795)
+        Turb = AxialTurbineMeanLineDesign('CO2')
+    
+        Turb.set_inputs(
+            mdot = 655.18, # kg/s
+            W_dot = 100*1e6, # W
+            p0_su = 250*1e5, # Pa
+            T0_su = 923, # K
+            p_ex = 100*1e5, # Pa
+            )
+        
+        Turb.set_parameters(
+            Zweifel = 0.8, # [-]
+            AR_min = 0.8, # [-]
+            r_hub_tip_max = 0.95, # [-]
+            r_hub_tip_min = 0.6, # [-]
+            Re_bounds = [1*1e6,7*1e6], # [-]
+            psi_bounds = [1.5,2.5], # [-]
+            phi_bounds = [0.6,0.9], # [-]
+            R_bounds = [0.45,0.55], # [-]
+            r_m_bounds = [0.15, 0.5], # [m]
+            M_1_st = 0.5, #0.3, # [-]
+            damping = 0.2, # [-]
+            delta_tip = 0.4*1e-3, # [m] : tip clearance
+            N_lw = 0, # [-] : Number of lashing wires
+            D_lw = 0, # [m] : Diameter of lashing wires
+            e_blade = 0.002*1e-3, # [m] : blade roughness
+            t_TE_o = 0.05, # [-] : trailing edge to throat opening ratio
+            t_TE_min = 5*1e-4, # [m]
+            )
+        
+    best_pos = Turb.design()
+    
+    Turb.plot_geometry()
+    Turb.plot_n_blade()
+    Turb.plot_radius_verif()
+    Turb.plot_Mollier()
+    
+    # (1.4528688807250987, 0.4939933148314975, 0.42406128096733176, 6364578.748939947, 0.4557043394023795)

@@ -1330,7 +1330,11 @@ class HexMBChargeSensitive(BaseComponent):
             alpha_h_2phase = shah_condensation_plate_HTC(self.params['H_Dh'], self.params['l_v'], self.params['w_v'], self.params['amplitude'], self.params['phi'], self.mdot_h, p_h_mean, self.params['H_n_canals'], self.AS_H)
         
         if self.H.Correlation_2phase == 'Thome_Condensation':
-            D_i = self.params['Tube_OD']-2*self.params['Tube_t']
+            if self.HTX_Type == "PCHE":
+                D_i = self.params['D_c']*(1/np.pi + 1/2)
+            else:
+                D_i = self.params['Tube_OD']-2*self.params['Tube_t']
+                
             alpha_h_2phase = thome_condensation(self.AS_H, D_i, G_h, p_h_mean, Th_sat_mean, T_wall_h, x_h)
 
         if self.H.Correlation_2phase == 'Tube_And_Fins':
@@ -1577,8 +1581,15 @@ class HexMBChargeSensitive(BaseComponent):
                 x_in = self.su_H.x
             else:              
                 x_in = 1
-
-            DP_H = Choi_DP(self.AS_H, G_c, rho_out, rho_h, p_h_mean, 0, x_in, self.params["Tube_L"]*self.params["Tube_pass"], self.params["Tube_OD"]-2*self.params["Tube_t"])
+            
+            if self.HTX_Type == "PCHE":
+                Tube_L = self.params['L_c']*self.params['n_series']          
+                D_in = np.pi*self.params['D_c']/(2+np.pi)
+            else: 
+                Tube_L = self.params["Tube_L"]*self.params["Tube_pass"]*self.params['n_series']        
+                D_in = self.params["Tube_OD"]-2*self.params["Tube_t"]
+            
+            DP_H = Choi_DP(self.AS_H, G_c, rho_out, rho_h, p_h_mean, 0, x_in, Tube_L, D_in)
         
         elif self.H.Correlation_DP['2P'] == "Tube_And_Fins_DP":
             
