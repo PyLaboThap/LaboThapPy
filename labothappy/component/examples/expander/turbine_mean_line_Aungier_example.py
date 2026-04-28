@@ -261,10 +261,6 @@ if __name__ == "__main__":
             n_blade_R  = stage_params['rotor']['n_blade_R'],
             R_c_R      = stage_params['rotor']['R_c_R'],
         )
-       
-    MAP_SAVE_PATH = r"C:\Users\Basile\Desktop\Travail\Thèse\Travail\WP1\Turbomachines\Save Maps\turb_map.parquet"   # <-- set your path here
-
-    df_map = Turb_OD.load_map_df(MAP_SAVE_PATH)
 
     # Turb_OD.solve_from_map()
     Turb_OD.solve()

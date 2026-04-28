@@ -2717,7 +2717,7 @@ class HexMBChargeSensitive(BaseComponent):
         
         while self.Q_dot > self.Qmax and it < max_iter:
             
-            self.Q_dot, self.results = scipy.optimize.brentq(self.objective_function, 1e-5, self.Qmax*0.9999, rtol = 1e-8, xtol = 1e-8, full_output=True)
+            self.Q_dot, self.results = scipy.optimize.brentq(self.objective_function, 1e-5, self.Qmax*0.9999, rtol = 1e-6, xtol = 1e-6, full_output=True)
             
             "Pinch Analysis : Verification as pressure drops changed - Create a new HX to not impact computed results"
             

@@ -1,14 +1,9 @@
 from labothappy.connector.mass_connector import MassConnector
 from labothappy.correlations.turbomachinery.aungier_axial_turbine import aungier_loss_model
 from labothappy.component.base_component import BaseComponent
-from labothappy.connector.mass_connector import MassConnector
-from labothappy.toolbox.turbomachinery.mean_line_axial_turbine_mapping import map_plot, map_plot_clean, plot_power_eta_vs_mdot, filter_sparse_by_proximity
 
-from CoolProp.CoolProp import PropsSI
-from scipy.optimize import fsolve, minimize, differential_evolution
 from scipy.interpolate import LinearNDInterpolator, NearestNDInterpolator, RBFInterpolator
 from scipy.spatial import Delaunay
-import pyswarms as ps
 
 import CoolProp.CoolProp as CP
 import matplotlib.pyplot as plt
@@ -45,7 +40,7 @@ class AxialTurbineMeanLine(BaseComponent):
 
         # Abstract State 
         self.fluid = fluid
-        self.AS = CP.AbstractState('HEOS', fluid)
+        self.AS = CP.AbstractState('BICUBIC&HEOS', fluid)
         
         # Blade Dictionnary
         self.stages = []
@@ -70,7 +65,7 @@ class AxialTurbineMeanLine(BaseComponent):
         def __init__(self, fluid):
             self.total_states = pd.DataFrame(columns=['H','S','P','D','A','V'], index = [1,2,3])
             self.static_states = pd.DataFrame(columns=['H','S','P','D','A','V'], index = [1,2,3])
-            self.AS = CP.AbstractState('HEOS', fluid)
+            self.AS = CP.AbstractState('BICUBIC&HEOS', fluid)
             
             self.eta_is_R = None
             self.eta_is_S = None
@@ -1026,8 +1021,8 @@ class AxialTurbineMeanLine(BaseComponent):
             x_in = x0_disc
             c = 0
             
-            while res > 1e-8:
-                if c > 1000:
+            while res > 1e-6:
+                if c > 100:
                     raise RuntimeError("Max iterations exceeded in computeBladeRow (stator/rotor/last stage).")
                 x_out = self.stator_blade_row_system(x_in)
                 res_vec = abs((x_in - x_out)/x_out)
@@ -1057,8 +1052,8 @@ class AxialTurbineMeanLine(BaseComponent):
             x_in = x0_disc
             c = 0
             
-            while res > 1e-8:
-                if c > 1000:
+            while res > 1e-6:
+                if c > 100:
                     raise RuntimeError("Max iterations exceeded in computeBladeRow (stator/rotor/last stage).")
                 x_out = self.rotor_blade_row_system(x_in) 
                 res_vec = abs((x_in - x_out)/x_out)
@@ -1118,8 +1113,8 @@ class AxialTurbineMeanLine(BaseComponent):
         x_in = x0_disc
         c = 0
             
-        while res > 1e-8:
-            if c > 1000:
+        while res > 1e-6:
+            if c > 100:
                 raise RuntimeError("Max iterations exceeded in computeBladeRow (stator/rotor/last stage).")
             x_out = self.last_blade_row_system(x_in) 
             res_vec = abs((x_in - x_out)/x_out)
