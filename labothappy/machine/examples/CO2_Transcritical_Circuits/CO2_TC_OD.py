@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 
 from labothappy.machine.circuit import Circuit
 from labothappy.connector.mass_connector import MassConnector
-from labothappy.component.expander.turbine_mean_line_Aungier_new import AxialTurbineMeanLine
+from labothappy.component.expander.turbine_mean_line_Aungier import AxialTurbineMeanLine
 from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
 from labothappy.component.pump.pump_curve_similarity import PumpCurveSimilarity
 
@@ -431,56 +431,9 @@ def CO2_OD_TC(mdot, P_high, mute_print=1):
 
     return CO2_TC
 
+#%%
 
-# -------- TARGET SPECIFICATIONS --------
-N_pump_target = 2900   # RPM
-SC_cd_target  = 5.0    # K
-
-# -------- SCALING FACTORS --------
-P_scale    = 1e5
-mdot_scale = 1.0
-
-last_obj = [np.inf]
-
-def cycle_objective(x):
-    P_high    = x[0] * P_scale
-    m_dot_CO2 = x[1] * mdot_scale
-
-    if P_high < 1e6 or m_dot_CO2 < 1.0:
-        last_obj[0] = 1e6
-        return 1e6
-
-    try:
-        CO2_TC = CO2_OD_TC(m_dot_CO2, P_high)
-        CO2_TC.mute_print()
-        CO2_TC.solve(method='wegstein', max_iter=100)
-
-
-        if not CO2_TC.converged:
-            print(f"  [NOT CONVERGED] P_HP={P_high/1e5:.2f} bar | mdot={m_dot_CO2:.2f} kg/s")
-            last_obj[0] = 1e6
-            return 1e6
-    
-        N_pump_actual = CO2_TC.components["Pump"].model.W.N_rot
-        SC_actual     = CO2_TC.components["Condenser"].model.ex_H.SC
-    
-        r0 = (N_pump_actual - N_pump_target) / N_pump_target
-        r1 = (SC_actual     - SC_cd_target)  / SC_cd_target
-    
-        obj = r0**2 + r1**2
-        last_obj[0] = obj  # cache for callback
-    
-        print(f"  P_HP={P_high/1e5:.2f} bar | mdot={m_dot_CO2:.2f} kg/s"
-              f" | N_pump={N_pump_actual:.1f} RPM | SC={SC_actual:.2f} K | obj={obj:.2e}")
-        
-    except Exception as e:
-        print(f"  [EXCEPTION] {e}")
-        last_obj[0] = 1e6
-        return 1e6
-    
-    return obj
-
-case_study = "Simulation"
+case_study = "Optimization_PSO"
 
 if case_study == "Simulation":
 
@@ -508,6 +461,16 @@ if case_study == "Simulation":
 
 elif case_study == "Sensitivity":
     
+    # -------- TARGET SPECIFICATIONS --------
+    N_pump_target = 2900   # RPM
+    SC_cd_target  = 5.0    # K
+    
+    # -------- SCALING FACTORS --------
+    P_scale    = 1e5
+    mdot_scale = 1.0
+    
+    last_obj = [np.inf]
+        
     import numpy as np
     import matplotlib.pyplot as plt
     
@@ -634,7 +597,11 @@ elif case_study == "Optimization_minimize":
     
     # -------- TARGET SPECIFICATIONS --------
     N_pump_target = 2900   # RPM
-    SC_cd_target  = 1.0    # K
+    SC_cd_target  = 5.0    # K
+    
+    # -------- SCALING FACTORS --------
+    P_scale    = 1e5
+    mdot_scale = 1.0
     
     #%% Minimize
 
@@ -778,7 +745,11 @@ elif case_study == "Optimization_PSO":
     
     # -------- TARGET SPECIFICATIONS --------
     N_pump_target = 2900   # RPM
-    SC_cd_target  = 1.0    # K
+    SC_cd_target  = 5.0    # K
+    
+    # -------- SCALING FACTORS --------
+    P_scale    = 1e5
+    mdot_scale = 1.0
 
     import pyswarms as ps
     from pyswarms.single import GlobalBestPSO
@@ -788,7 +759,7 @@ elif case_study == "Optimization_PSO":
     from tqdm import tqdm
     
     # -------- CONSTRAINT TOLERANCES --------
-    tol_N_pump = 0.01 * N_pump_target
+    tol_N_pump = 0.02 * N_pump_target
     tol_SC     = 0.1
     
     # -------- BOUNDS --------

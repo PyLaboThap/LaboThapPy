@@ -80,26 +80,6 @@ HTC_correlations = {
 }
 
 def propsfluid_AS(T_mean, P_mean, T_wall, fluid, incompr_flag, AS, h_mean):
-
-    # print(f"-"*20)
-    
-    # print(f"P_mean : {P_mean}")
-    # print(f"T_mean : {T_mean}")
-    
-    T_max = AS.Tmax() # K
-    T_min = AS.Ttriple()
-    
-    P_max = AS.pmax()
-    AS.update(CP.QT_INPUTS, 0.5, T_min+1)
-    
-    P_min = AS.p()
-    
-    P_mean = np.clip(P_mean, P_min, P_max)
-    T_mean = np.clip(T_mean, T_min, T_max)
-    T_wall = np.clip(T_wall, T_min, T_max)
-    
-    # print(f"P_mean : {P_mean}")
-    # print(f"T_mean : {T_mean}")
     
     try:
         AS.update(CP.HmassP_INPUTS, h_mean, P_mean)    

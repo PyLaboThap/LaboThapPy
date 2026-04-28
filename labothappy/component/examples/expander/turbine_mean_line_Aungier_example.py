@@ -8,13 +8,16 @@ Created on Wed Dec 17 12:50:00 2025
 import matplotlib.pyplot as plt
 import numpy as np
 
-from labothappy.toolbox.turbomachinery.mean_line_axial_turbine_mapping import map_plot, map_plot_clean, plot_power_eta_vs_mdot, filter_sparse_by_proximity
-from labothappy.component.expander.turbine_mean_line_Aungier_new_interp import AxialTurbineMeanLine #, generate_map_processes
+from labothappy.toolbox.turbomachinery.mean_line_axial_turbine_mapping import map_plot, plot_power_eta_vs_mdot, filter_sparse_by_proximity
+from labothappy.component.expander.turbine_mean_line_Aungier import AxialTurbineMeanLine, generate_map_processes
  
 if __name__ == "__main__":
-   
+    
+    solve_type = "map" # "map" for interpolated solving
     case_study = "TCO2_ORC"
-   
+    map_generation = False
+    
+    #%%
     if case_study == "Salah_Case":
         Turb_OD = AxialTurbineMeanLine('CO2')
        
@@ -62,7 +65,8 @@ if __name__ == "__main__":
             n_blade_R = [212, 202, 192, 182, 173, 164, 156, 147, 139, 131, 124, 117, None],
             R_c_R = [0.01388208476, 0.01456820328, 0.01530691263, 0.01610245309, 0.01695947464, 0.0178830808, 0.01887887765, 0.01995302875, 0.02111231693, 0.02236421375, 0.02371695786, 0.02517964358, None],
             )
-       
+    
+    #%%
     elif case_study == "TCO2_ORC":
         Turb_OD = AxialTurbineMeanLine('CO2')
         
@@ -75,21 +79,7 @@ if __name__ == "__main__":
             P_ex = 5220928, # 5742510, # Pa
             )
 
-        Turb_OD.set_parameters(
-            r_m = 0.2096,
-            nStages = 7,
-            mdot_rated = 318.44,
-            DP_rated = 2.93,
-            N_rot_rated = 2864.775, # RPM
-            damping = 0.3,
-            delta_tip = 0.0004,
-            N_lw = 0,
-            D_lw = 0,
-            e_blade = 2e-06,
-            solve_type = "map"
-            )
-    
-        stage_params = {'type': 'Axial Turbine',
+        turb_params = {'type': 'Axial Turbine',
             'mdot_rated': 318.437021666738,
             'Wdot_rated': 15244151.612636594,
             'N_rot_rated': 2864.775003723627,
@@ -237,78 +227,219 @@ if __name__ == "__main__":
               0.03905105977860335,
               None]}}
     
+        #%%
+    
+        Turb_OD.set_parameters(
+            r_m = turb_params['r_m'],
+            nStages = turb_params['n_stages'],
+            mdot_rated = turb_params['mdot_rated'],
+            DP_rated = turb_params['DP_rated'],
+            N_rot_rated = turb_params['N_rot_rated'], # RPM
+            damping = 0.3,
+            delta_tip = 0.0004,
+            N_lw = 0,
+            D_lw = 0,
+            e_blade = 2e-06,
+            solve_type = solve_type
+            )
+    
         Turb_OD.set_stage_parameters(
             # --- Stator ---
-            h_blade_S  = stage_params['stator']['h_blade_S'],
-            chord_S    = stage_params['stator']['chord_S'],
-            xhi_S1     = stage_params['stator']['xhi_S1'],
-            xhi_S2     = stage_params['stator']['xhi_S2'],
-            pitch_S    = stage_params['stator']['pitch_S'],
-            o_S        = stage_params['stator']['o_S'],
-            t_TE_S     = stage_params['stator']['t_TE_S'],
-            t_blade_S  = stage_params['stator']['t_blade_S'],
-            n_blade_S  = stage_params['stator']['n_blade_S'],
-            R_c_S      = stage_params['stator']['R_c_S'],
+            h_blade_S  = turb_params['stator']['h_blade_S'],
+            chord_S    = turb_params['stator']['chord_S'],
+            xhi_S1     = turb_params['stator']['xhi_S1'],
+            xhi_S2     = turb_params['stator']['xhi_S2'],
+            pitch_S    = turb_params['stator']['pitch_S'],
+            o_S        = turb_params['stator']['o_S'],
+            t_TE_S     = turb_params['stator']['t_TE_S'],
+            t_blade_S  = turb_params['stator']['t_blade_S'],
+            n_blade_S  = turb_params['stator']['n_blade_S'],
+            R_c_S      = turb_params['stator']['R_c_S'],
             # --- Rotor ---
-            h_blade_R  = stage_params['rotor']['h_blade_R'],
-            chord_R    = stage_params['rotor']['chord_R'],
-            xhi_R1     = stage_params['rotor']['xhi_R1'],
-            xhi_R2     = stage_params['rotor']['xhi_R2'],
-            pitch_R    = stage_params['rotor']['pitch_R'],
-            o_R        = stage_params['rotor']['o_R'],
-            t_TE_R     = stage_params['rotor']['t_TE_R'],
-            t_blade_R  = stage_params['rotor']['t_blade_R'],
-            n_blade_R  = stage_params['rotor']['n_blade_R'],
-            R_c_R      = stage_params['rotor']['R_c_R'],
+            h_blade_R  = turb_params['rotor']['h_blade_R'],
+            chord_R    = turb_params['rotor']['chord_R'],
+            xhi_R1     = turb_params['rotor']['xhi_R1'],
+            xhi_R2     = turb_params['rotor']['xhi_R2'],
+            pitch_R    = turb_params['rotor']['pitch_R'],
+            o_R        = turb_params['rotor']['o_R'],
+            t_TE_R     = turb_params['rotor']['t_TE_R'],
+            t_blade_R  = turb_params['rotor']['t_blade_R'],
+            n_blade_R  = turb_params['rotor']['n_blade_R'],
+            R_c_R      = turb_params['rotor']['R_c_R'],
         )
 
-    # Turb_OD.solve_from_map()
-    Turb_OD.solve()
+    if solve_type == "map":
+        MAP_SAVE_PATH = r"Your_Path.parquet"   # <-- set your path here
+        df_reloaded = Turb_OD.load_map_df(MAP_SAVE_PATH)   # also calls load_map()
 
-    # if map_case == 1 and case_study == "TCO2_ORC":
-       
-    #     df_map = generate_map_processes(
-    #         Turb_OD,
-    #         m_grid=np.linspace(0.6*Turb_OD.params['mdot_rated'], 1.4*Turb_OD.params['mdot_rated'], 30),
-    #         N_grid=np.linspace(0.1*Turb_OD.params['N_rot_rated'], 1.5*Turb_OD.params['N_rot_rated'], 30),
-    #         max_workers=-2
-    #     )
-       
-    #     df_clean = filter_sparse_by_proximity(df_map, rp_col=None, group_by='N_rot',
-    #                                           rp_tol_rel=0.6, m_tol_rel=0.6, min_neighbors=2)
-       
-    #     fig, ax = map_plot(
-    #         df_clean, rp_col='RP_calc',
-    #         use_grid=True, nx=600, ny=600,
-    #         # triangulation cleaning
-    #         min_circle_ratio=0.01,   # less aggressive
-    #         max_area_factor=50.0,     # allow larger cells before masking
-    #         long_edge_q=1,         # drop triangles that bridge big gaps
-    #         # hole filling + smoothing
-    #         fill_holes=True, hole_method='nearest', hole_smooth_sigma=0.8,
-    #         smooth_sigma=0.6,         # gentle overall blur
-    #         # cosmetics
-    #         show_points=True,        # hide all raw dots (see patch below for "used" only)
-    #         levels=24, focus_high=True, max_iso_speeds=4,
-    #         figsize=(9,6), dpi=220
-    #     )
+    else:
+        Turb_OD.solve()
+
+    #%%
+    if map_generation:
+        # -------------------------------------------------------------------------
+        # 1) Generate the performance map
+        # -------------------------------------------------------------------------
+        df_map = generate_map_processes(
+            Turb_OD,
+            m_grid=np.linspace(0.6*Turb_OD.params['mdot_rated'], 1.4*Turb_OD.params['mdot_rated'], 30),
+            N_grid=np.linspace(0.3*Turb_OD.params['N_rot_rated'], 1.5*Turb_OD.params['N_rot_rated'], 30),
+            max_workers=-2
+        )
+
+        # -------------------------------------------------------------------------
+        # 2) Save the raw DataFrame, then reload it from disk
+        #    → set MAP_SAVE_PATH to whatever directory you want
+        # -------------------------------------------------------------------------
+        MAP_SAVE_PATH = r"Your_Path.parquet"   # <-- set your path here
+
+        Turb_OD.save_map_df(MAP_SAVE_PATH, df_map)
+        df_reloaded = Turb_OD.load_map_df(MAP_SAVE_PATH)   # also calls load_map()
+
+        assert len(df_reloaded) == len(df_map), "Row count mismatch after reload!"
+        print(f"[check] DataFrame round-trip OK  ({len(df_reloaded)} rows)")
+
+        # -------------------------------------------------------------------------
+        # 3) Interpolation validation: raw map vs interpolated reconstruction
+        #
+        #    Strategy: build a fine regular grid that covers the convex hull of
+        #    the converged points, query the interpolator on every node, then plot
+        #    raw data (scatter) and interpolated surface (filled contour) side by
+        #    side for W_dot, eta_is and P_ex_calc.
+        # -------------------------------------------------------------------------
+        df_ok = df_reloaded[df_reloaded["converged"] == True].dropna(
+            subset=["W_dot", "eta_is", "P_ex_calc"]
+        )
+
+        # Fine query grid (denser than the original map)
+        N_GRID  = 120
+        m_fine  = np.linspace(df_ok["m_dot"].min(),  df_ok["m_dot"].max(),  N_GRID)
+        N_fine  = np.linspace(df_ok["N_rot"].min(),  df_ok["N_rot"].max(),  N_GRID)
+        MM, NN  = np.meshgrid(m_fine, N_fine)           # shape (N_GRID, N_GRID)
+        m_flat  = MM.ravel()
+        N_flat  = NN.ravel()
+
+        # Query the interpolator on the grid (NaN outside hull → shown as white)
+        interp  = Turb_OD.map_interpolator
+        res     = interp.query_batch(m_flat, N_flat)
+
+        W_grid   = res["W_dot"].reshape(N_GRID, N_GRID)   / 1e6   # → MW
+        eta_grid = res["eta_is"].reshape(N_GRID, N_GRID)
+        Pex_grid = res["P_ex_calc"].reshape(N_GRID, N_GRID) / 1e5  # → bar
+
+        # Mask out-of-hull cells so they don't pollute colour scaling
+        hull_mask = interp.hull_mask(m_flat, N_flat).reshape(N_GRID, N_GRID)
+        W_grid   = np.where(hull_mask, W_grid,   np.nan)
+        eta_grid = np.where(hull_mask, eta_grid, np.nan)
+        Pex_grid = np.where(hull_mask, Pex_grid, np.nan)
+
+        # ---- figure layout: 3 rows × 2 columns ---------------------------------
+        #   col 0 = raw scattered data   |   col 1 = interpolated contour
+        TARGETS = [
+            ("W_dot [MW]",    df_ok["W_dot"]    / 1e6,  W_grid,   "viridis"),
+            ("eta_is [–]",    df_ok["eta_is"],           eta_grid, "plasma"),
+            ("P_ex [bar]",    df_ok["P_ex_calc"] / 1e5,  Pex_grid, "cividis"),
+        ]
+        N_LEVELS = 20
+
+        fig, axes = plt.subplots(
+            nrows=3, ncols=2,
+            figsize=(13, 13),
+            constrained_layout=True,
+        )
+        fig.suptitle(
+            "Performance map  –  raw data (left)  vs  interpolated reconstruction (right)",
+            fontsize=13, fontweight="bold"
+        )
+
+        for row, (label, raw_vals, grid_vals, cmap) in enumerate(TARGETS):
+
+            vmin = float(np.nanmin(grid_vals))
+            vmax = float(np.nanmax(grid_vals))
+            levels = np.linspace(vmin, vmax, N_LEVELS + 1)
+
+            # ---- left: scatter of raw converged points -------------------------
+            ax_raw = axes[row, 0]
+            sc = ax_raw.scatter(
+                df_ok["m_dot"], df_ok["N_rot"],
+                c=raw_vals, cmap=cmap,
+                vmin=vmin, vmax=vmax,
+                s=40, edgecolors="k", linewidths=0.4, zorder=3
+            )
+            ax_raw.set_title(f"{label}  –  raw map points", fontsize=10)
+            ax_raw.set_xlabel("ṁ  [kg/s]")
+            ax_raw.set_ylabel("N  [rpm]")
+            fig.colorbar(sc, ax=ax_raw, label=label, pad=0.02)
+
+            # ---- right: filled contour of interpolated grid --------------------
+            ax_int = axes[row, 1]
+            cf = ax_int.contourf(
+                MM, NN, grid_vals,
+                levels=levels, cmap=cmap, extend="neither"
+            )
+            # overlay iso-lines
+            ax_int.contour(
+                MM, NN, grid_vals,
+                levels=levels, colors="white", linewidths=0.35, alpha=0.5
+            )
+            # overlay original scatter so position accuracy is visible
+            ax_int.scatter(
+                df_ok["m_dot"], df_ok["N_rot"],
+                c=raw_vals, cmap=cmap,
+                vmin=vmin, vmax=vmax,
+                s=25, edgecolors="k", linewidths=0.5, zorder=4
+            )
+            ax_int.set_title(
+                f"{label}  –  interpolated  "
+                f"(method={interp.method!r}, n={interp.n_points} pts)",
+                fontsize=10
+            )
+            ax_int.set_xlabel("ṁ  [kg/s]")
+            ax_int.set_ylabel("N  [rpm]")
+            fig.colorbar(cf, ax=ax_int, label=label, pad=0.02)
+
+        plt.show()
+
+        # ---- point-by-point residual table  ------------------------------------
+        #   Re-query the interpolator exactly at the raw map nodes and compare.
+        res_nodes = interp.query_batch(df_ok["m_dot"].to_numpy(),
+                                        df_ok["N_rot"].to_numpy())
+
+        err_W   = (res_nodes["W_dot"]     - df_ok["W_dot"].to_numpy())   / 1e6
+        err_eta = (res_nodes["eta_is"]    - df_ok["eta_is"].to_numpy())
+        err_Pex = (res_nodes["P_ex_calc"] - df_ok["P_ex_calc"].to_numpy()) / 1e5
+
+        print("\n── Interpolation residuals at map nodes ──────────────────────────────")
+        print(f"  W_dot    :  max |err| = {np.abs(err_W).max():.4f} MW   "
+              f"  RMS = {np.sqrt((err_W**2).mean()):.4f} MW")
+        print(f"  eta_is   :  max |err| = {np.abs(err_eta).max():.6f}    "
+              f"  RMS = {np.sqrt((err_eta**2).mean()):.6f}")
+        print(f"  P_ex_calc:  max |err| = {np.abs(err_Pex).max():.4f} bar "
+              f"  RMS = {np.sqrt((err_Pex**2).mean()):.4f} bar")
+        print("──────────────────────────────────────────────────────────────────────")
+
+        # -------------------------------------------------------------------------
+        # 4) Standard map plot (unchanged workflow)
+        # -------------------------------------------------------------------------
+        df_clean = filter_sparse_by_proximity(df_map, rp_col=None, group_by='N_rot',
+                                              rp_tol_rel=0.6, m_tol_rel=0.6, min_neighbors=2)
+
+        fig, ax = map_plot(
+            df_clean, rp_col='RP_calc',
+            use_grid=True, nx=600, ny=600,
+            min_circle_ratio=0.01,
+            max_area_factor=50.0,
+            long_edge_q=1,
+            fill_holes=True, hole_method='nearest', hole_smooth_sigma=0.8,
+            smooth_sigma=0.6,
+            show_points=True,
+            levels=24, focus_high=True, max_iso_speeds=4,
+            figsize=(9,6), dpi=220
+        )
+        plt.show()
+
+        _ = plot_power_eta_vs_mdot(df_map, speeds=None, max_lines=5)
+        plt.show()
         
-    #     plt.show()
-   
-    #     # fig, ax = map_plot_clean(
-    #     #     df_clean,
-    #     #     rp_col='RP_calc',          # or 'RP_calc' if that’s your chosen column
-    #     #     levels=24,
-    #     #     nx=500, ny=500,
-    #     #     min_circle_ratio=0.01,
-    #     #     long_edge_q=0.92,     # tighten to 0.90 if you still see bridging
-    #     #     smooth_sigma=0.6      # small smoothing of the gridded field
-    #     # )
-    #     # plt.show()
-       
-    #     _ = plot_power_eta_vs_mdot(df_map, speeds=None, max_lines=5)  # auto-picks up to 5 speeds
-    #     plt.show()
-   
-    # else:
-    # Turb_OD.solve()
- 
+        
+        

@@ -321,9 +321,7 @@ class HexCrossFlowTubeAndFinsFiniteVolume(BaseComponent):
         else: # 2 phase flow
             AS_t.update(CP.PQ_INPUTS, p_t_in, 0)
             P_sat = p_t_in
-            
-            AS, G, P_sat, x_in, x_out, q_pp, D_in, L, n_disc
-            
+                        
             DP_t = Muller_Steinhagen_Heck_DP(AS_t, G_1t, P_sat, x, self.params['Tube_L']/self.params['n_disc'], D_h_one_tube)           
             if T_wall <= T_t_in: # Condensation
                 alpha_t = horizontal_tube_internal_condensation(self.T_su.fluid,self.T_su.m_dot,P_sat,h_t_in,T_wall,self.params['Tube_OD'] - self.params['Tube_t'])

@@ -516,6 +516,7 @@ for i in range(len(n_disc_vec)):
     "Solve the component"
 
     HX.solve()  # the function you want to profile
+    HX.plot_cells()
     
     res_vec.append(HX.residual)
     
