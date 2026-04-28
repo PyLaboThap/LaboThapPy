@@ -514,7 +514,7 @@ Turbine.set_inputs(
 
 mdot_CO2_guess = 320 # kg/s
 P_LP_guess = PropsSI("P", "T", T_su_w_cd+10, "Q", 0, fluid)
-P_HP_guess = 151.5*1e5
+P_HP_guess = 151.4*1e5
 
 T_sat_LP_guess = PropsSI("T", "P", P_LP_guess, "Q", 0.5, fluid)
 h_SC_guess = PropsSI("H", "P", P_LP_guess, "T", T_sat_LP_guess - SC_cd, fluid)
