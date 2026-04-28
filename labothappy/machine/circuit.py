@@ -662,7 +662,7 @@ class Circuit(BaseCircuit):
                 print(f"Setup failed. Blocking components: {blocking}")
             return
 
-        self.print_states()
+        # self.print_states()
 
         if self.print_flag:
             print(f"Setup complete. Solving order: {self.solving_order}")
@@ -677,6 +677,10 @@ class Circuit(BaseCircuit):
         self.convergence_tolerance = tol
         use_wegstein = (method == 'wegstein')
 
+        self.turbine_mdot = []
+        self.turbine_ex_p = []
+        self.pump_su_p = []
+        self.pump_ex_p = []
 
         for i in range(max_iter):
             self._iteration_count += 1
@@ -689,13 +693,19 @@ class Circuit(BaseCircuit):
             self._enforce_fixed_properties()
             self._substitution_step(use_wegstein)
             
+            self.turbine_mdot.append(self.components['Turbine'].model.su.m_dot)
+            self.turbine_ex_p.append(self.components['Turbine'].model.ex.p)
+
+            self.pump_su_p.append(self.components['Pump'].model.su.p)
+            self.pump_ex_p.append(self.components['Pump'].model.ex.p)
+
             try:
                 self._sequential_sweep()
             except:
                 self.converged = False
                 return
          
-            self.print_states()   
+            # self.print_states()   
          
             current_snapshot = self._snapshot_connector_states()
             if self._check_convergence(current_snapshot):
