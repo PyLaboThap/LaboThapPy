@@ -2,7 +2,7 @@ import numpy as np
 from CoolProp.CoolProp import PropsSI
 import matplotlib.pyplot as plt
 
-from labothappy.machine.circuit import Circuit
+from labothappy.machine.circuit_fpi import CircuitFPI
 from labothappy.connector.mass_connector import MassConnector
 from labothappy.component.expander.expander_semi_empirical import ExpanderSE
 from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
@@ -56,7 +56,7 @@ class TS_curve_generator:
 
 # -------- 1) Instanciate Circuit --------
 fluid = 'R1233zd(E)'
-orc = Circuit(fluid)
+orc = CircuitFPI(fluid)
 
 # -------- 2) Create components --------
 Expander = ExpanderSE()
@@ -154,7 +154,7 @@ SC_cd = 7  # K
 N_exp = 6000 # RPM
 T_amb = 293 # K
 
-P_LP_guess = PropsSI("P", "T", T_su_w_cd+15, "Q", 0, fluid)
+P_LP_guess = PropsSI("P", "T", T_su_w_cd+10, "Q", 0, fluid)
 P_HP_guess = PropsSI("P", "T", T_su_w_ev-10, "Q", 1, fluid)
 
 T_sat_LP_guess = PropsSI("T", "P", P_LP_guess, "Q", 0.5, fluid)
@@ -176,16 +176,13 @@ orc.set_iteration_variable(
     damping_factor = 0.3,
 )
 
-orc.set_iteration_variable(
-    it_var  = 'Pump:ex-p',
-    objective = 'Expander:W-N_rot',
-    target_value = N_exp,
-    obj_type = "Target_val",
-    damping_factor = 0.1,
-)
-
-# 390277.22120227996
-# 123310.5005941549
+# orc.set_iteration_variable(
+#     it_var  = 'Pump:ex-p',
+#     objective = 'Expander:W-N_rot',
+#     target_value = N_exp,
+#     obj_type = "Target_val",
+#     damping_factor = 0.1,
+# )
 
 # -------- 8) Solve — swap method here for comparison --------
 METHOD = 'wegstein'   # <-- change to compare: 'successive_substitution',

@@ -1,4 +1,4 @@
-from labothappy.machine.circuit import Circuit
+from labothappy.machine.circuit_fpi import CircuitFPI
 
 from labothappy.connector.mass_connector import MassConnector
 from labothappy.component.compressor.compressor_csteff import CompressorCstEff
@@ -9,7 +9,7 @@ from CoolProp.CoolProp import PropsSI
 
 # Instanciate Circuit
 fluid = "Propane"
-HP = Circuit(fluid)
+HP = CircuitFPI(fluid)
 
 # Create components
 Compressor = CompressorCstEff()

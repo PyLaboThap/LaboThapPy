@@ -1,4 +1,4 @@
-from labothappy.machine.circuit import Circuit
+from labothappy.machine.circuit_fpi import CircuitFPI
 
 from labothappy.connector.mass_connector import MassConnector
 
@@ -12,11 +12,17 @@ from CoolProp.CoolProp import PropsSI
 import time
 import numpy as np
 
-SH_vec = np.linspace(1, 10, 10)
-SC_vec = np.linspace(1, 10, 10)
+# SH_vec = np.linspace(1, 10, 10)
+# SC_vec = np.linspace(1, 10, 10)
 
-PP_ev_vec = np.linspace(1,10,10)
-PP_cd_vec = np.linspace(1,10,10)
+# PP_ev_vec = np.linspace(1,10,10)
+# PP_cd_vec = np.linspace(1,10,10)
+
+SH_vec = np.linspace(3,3,1)
+SC_vec = np.linspace(3,3,1)
+
+PP_ev_vec = np.linspace(3,3,1)
+PP_cd_vec = np.linspace(3,3,1)
 
 eff_rec_vec = np.linspace(0.8, 0.8, 1)
 
@@ -24,16 +30,15 @@ avg_success_time = 0
 successes = 0
 tries = 0
 
-
 for PP_ev in PP_ev_vec:
     for PP_cd in PP_cd_vec:
         for eff_rec_val in eff_rec_vec:
-            for SH in SH_vec:
+            for SH in SH_vec: 
                 for SC in SC_vec:
                     tries +=1
                     
                     fluid = "Cyclopentane"
-                    HP = Circuit(fluid)
+                    HP = CircuitFPI(fluid)
                     
                     "Ignore debug printing"
                     HP.mute_print()

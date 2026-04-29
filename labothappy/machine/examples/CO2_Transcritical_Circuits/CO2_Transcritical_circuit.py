@@ -5,7 +5,7 @@ Created on Mon Feb  3 15:31:53 2025
 @author: Basile
 """
 
-from labothappy.machine.circuit import Circuit
+from labothappy.machine.circuit_fpi import CircuitFPI
 from CoolProp.CoolProp import PropsSI
 
 from labothappy.connector.mass_connector import MassConnector
@@ -26,7 +26,7 @@ def basic_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp,
                PP_cd, SC_cd, P_low, P_high, m_dot, DP_h_gh = 0, DP_c_gh = 0, DP_h_cond = 0,
                DP_c_cond = 0,mute_print_flag=1):
     
-    CO2_TC = Circuit('CO2')
+    CO2_TC = CircuitFPI('CO2')
     
     # Create components
     Expander = ExpanderCstEff()
@@ -97,7 +97,7 @@ def REC_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, e
                eta_rec, PP_cd, SC_cd, P_low, P_high, m_dot, DP_h_rec = 0, DP_c_rec = 0, 
                DP_h_gh = 0, DP_c_gh = 0, DP_h_cond = 0, DP_c_cond = 0, mute_print_flag=1):
 
-    CO2_TC = Circuit('CO2')
+    CO2_TC = CircuitFPI('CO2')
     
     # Create components
     Expander = ExpanderCstEff()
@@ -190,7 +190,7 @@ def REC_CO2_TC_sto(HSource, T_cold_source, Pinch_min_GH, Pinch_min_REC, eta_pp, 
                eta_rec, PP_cd, SC_cd, P_low, P_high, m_dot, DP_h_rec = 0, DP_c_rec = 0, 
                DP_h_gh = 0, DP_c_gh = 0, DP_cond = 0,mute_print_flag=1):
     
-    CO2_TC = Circuit('CO2')
+    CO2_TC = CircuitFPI('CO2')
     
     # Create components
     Expander = ExpanderCstEff()
@@ -276,7 +276,7 @@ def Recomp_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp
                PP_cd, SC_cd, P_low, P_high, m_dot, spliter_frac = 0.5, DP_h_gh = 0, DP_c_gh = 0, DP_h_cond = 0,
                DP_c_cond = 0 ,mute_print_flag=1):
     
-    CO2_TC = Circuit('CO2')
+    CO2_TC = CircuitFPI('CO2')
     
     rep_spliter = [spliter_frac, 1-spliter_frac]
     
@@ -406,7 +406,7 @@ def Recomp_CO2_TC_1_recup(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp,
                PP_cd, SC_cd, P_low, P_high, m_dot, spliter_frac = 0.5, DP_h_gh = 0, DP_c_gh = 0, DP_h_cond = 0,
                DP_c_cond = 0 ,mute_print_flag=1):
     
-    CO2_TC = Circuit('CO2')
+    CO2_TC = CircuitFPI('CO2')
     
     rep_spliter = [spliter_frac, 1-spliter_frac]
     
@@ -523,7 +523,7 @@ def Recomp_CO2_TC_1_recup(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp,
 
 if __name__ == "__main__": 
 
-    study_case = "Recup"
+    study_case = "Recomp_1_recup"
 
     if study_case == "Simple":
         T_cold_source = 0.1+273.15

@@ -53,7 +53,7 @@ class TS_curve_generator:
         # plt.title('TS Curve')
         plt.show()
 
-
+#%%
 # -------- 1) Instanciate Circuit --------
 fluid = 'R1233zd(E)'
 orc = IterativeCircuit(fluid)

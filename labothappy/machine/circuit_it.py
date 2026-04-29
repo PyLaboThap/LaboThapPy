@@ -419,7 +419,7 @@ class IterativeCircuit(BaseCircuit):
         if self.print_flag:            
             print(f"residuals : {residuals}")
             
-        self.print_states()
+        # self.print_states()
         
         return np.array(residuals, dtype=float)
 

@@ -12,12 +12,19 @@ from CoolProp.CoolProp import PropsSI
 import time
 import numpy as np
 
-SC_cd_vec = np.linspace(1,10,10)
-SH_ev_vec = np.linspace(1,10,10)
+# SC_cd_vec = np.linspace(1,10,10)
+# SH_ev_vec = np.linspace(1,10,10)
+# # eff_rec_vec = np.linspace(0, 1, 11)
+
+# PP_ev_vec = np.linspace(1,10,10)
+# PP_cd_vec = np.linspace(1,10,10)
+
+SC_cd_vec = np.linspace(3,3,1)
+SH_ev_vec = np.linspace(3,3,1)
 # eff_rec_vec = np.linspace(0, 1, 11)
 
-PP_ev_vec = np.linspace(1,10,10)
-PP_cd_vec = np.linspace(1,10,10)
+PP_ev_vec = np.linspace(3,3,1)
+PP_cd_vec = np.linspace(3,3,1)
 
 # Instanciate Circuit
 fluid = "Cyclopentane"

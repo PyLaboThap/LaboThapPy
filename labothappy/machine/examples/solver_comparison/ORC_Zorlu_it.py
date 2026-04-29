@@ -17,8 +17,8 @@ import numpy as np
 # T_guess_cd = np.linspace(-5,5,11) + 24+273.15
 # T_guess_ev = np.linspace(-5,5,11) + 141+273.15
 
-T_guess_cd = [24+273.15]
-T_guess_ev = [141+273.15]
+T_guess_cd = [24+273.15-5]
+T_guess_ev = [141+273.15+5] 
 
 SC_cd_vec = np.linspace(2,2,1)
 SH_ev_vec = np.linspace(3,3,1)

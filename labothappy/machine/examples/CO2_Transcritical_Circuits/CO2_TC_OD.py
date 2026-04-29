@@ -10,7 +10,7 @@ from CoolProp.CoolProp import PropsSI
 from scipy.optimize import fsolve, minimize
 import matplotlib.pyplot as plt
 
-from labothappy.machine.circuit import Circuit
+from labothappy.machine.circuit_fpi import CircuitFPI
 from labothappy.connector.mass_connector import MassConnector
 from labothappy.component.expander.turbine_mean_line_Aungier import AxialTurbineMeanLine
 from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
@@ -25,7 +25,7 @@ os.environ["OPENBLAS_NUM_THREADS"]= "1"    # same for OpenBLAS
 def CO2_OD_TC(mdot, P_high, mute_print=1):
     # -------- 1) Instanciate Circuit --------
     fluid = 'CO2'
-    CO2_TC = Circuit(fluid)
+    CO2_TC = CircuitFPI(fluid)
     
     if mute_print:
         CO2_TC.mute_print()

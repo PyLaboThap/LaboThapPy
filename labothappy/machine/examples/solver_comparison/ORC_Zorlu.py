@@ -1,4 +1,4 @@
-from labothappy.machine.circuit import Circuit
+from labothappy.machine.circuit_fpi import CircuitFPI
 
 from labothappy.connector.mass_connector import MassConnector
 
@@ -20,11 +20,17 @@ import numpy as np
 T_guess_cd = [24+273.15]
 T_guess_ev = [141+273.15]
 
-SC_cd_vec = np.linspace(1,10,10)
-SH_ev_vec = np.linspace(1,10,10)
+# SC_cd_vec = np.linspace(1,10,10)
+# SH_ev_vec = np.linspace(1,10,10)
 
-PP_ev_vec = np.linspace(1,10,10)
-PP_cd_vec = np.linspace(1,10,10)
+# PP_ev_vec = np.linspace(1,10,10)
+# PP_cd_vec = np.linspace(1,10,10)
+
+SC_cd_vec = np.linspace(3,3,1)
+SH_ev_vec = np.linspace(3,3,1)
+
+PP_ev_vec = np.linspace(3,3,1)
+PP_cd_vec = np.linspace(3,3,1)
 
 # Instanciate Circuit
 fluid = "Cyclopentane"
@@ -45,7 +51,7 @@ for PP_ev in PP_ev_vec:
                         
                         tries += 1
                         
-                        ORC = Circuit(fluid)
+                        ORC = CircuitFPI(fluid)
         
                         # Ignore debug printing
                         ORC.mute_print()
