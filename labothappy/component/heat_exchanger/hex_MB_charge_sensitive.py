@@ -94,13 +94,13 @@ def propsfluid_AS(T_mean, P_mean, T_wall, fluid, incompr_flag, AS, h_mean):
             Pr = AS.Prandtl()
             
     except:
-        mu, cp = PropsSI(("V", "CPMASS"), "P", P_mean, "T", T_mean, AS.fluid_names[0])
+        mu, cp = PropsSI(("V", "CPMASS"), "P", P_mean, "T", T_mean, AS.fluid_names()[0])
 
         if fluid == 'R1233zd(E)':
             k = conducticity_R1233zd(T_mean, P_mean)
             Pr = mu * cp / k
         else:
-            k, Pr = PropsSI(("L", "PRANDTL"), "P", P_mean, "T", T_mean, AS.fluid_names[0])
+            k, Pr = PropsSI(("L", "PRANDTL"), "P", P_mean, "T", T_mean, AS.fluid_names()[0])
 
     try: 
         AS.update(CP.PT_INPUTS, P_mean, T_wall)    
@@ -115,13 +115,13 @@ def propsfluid_AS(T_mean, P_mean, T_wall, fluid, incompr_flag, AS, h_mean):
             Pr_wall = AS.Prandtl()
         
     except:
-        mu_wall, cp_wall = PropsSI(("V", "CPMASS"), "P", P_mean, "T", T_wall, AS.fluid_names[0])
+        mu_wall, cp_wall = PropsSI(("V", "CPMASS"), "P", P_mean, "T", T_wall, AS.fluid_names()[0])
 
         if fluid == 'R1233zd(E)':
             k_wall = conducticity_R1233zd(T_mean, P_mean)
             Pr_wall = mu_wall * cp_wall / k_wall
         else:
-            k_wall, Pr_wall = PropsSI(("L", "PRANDTL"), "P", P_mean, "T", T_wall, AS.fluid_names[0])
+            k_wall, Pr_wall = PropsSI(("L", "PRANDTL"), "P", P_mean, "T", T_wall, AS.fluid_names()[0])
 
 
     mu_rat = mu/mu_wall

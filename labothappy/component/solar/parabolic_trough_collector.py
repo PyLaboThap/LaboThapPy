@@ -216,8 +216,8 @@ class PTCollector(BaseComponent):
             for i in range(len(self.Q_dot_disc)):
                 
                 self.Q_dot_disc[i] = self.DNI*np.cos(self.Theta)*self.L_disc*self.params['W']
-                self.Q_dot_abs_disc[i] = self.Q_dot_disc[i]*self.params['coll_eff'](self.DNI, (self.T[i] - self.Q_amb.T_cold))
-                self.eta_coll[i] = self.params['coll_eff'](self.DNI, (self.T[i] - self.Q_amb.T_cold))
+                self.Q_dot_abs_disc[i] = self.Q_dot_disc[i]*self.params['coll_eff'](self.DNI, (self.T[i] - self.Q_amb.T_amb))
+                self.eta_coll[i] = self.params['coll_eff'](self.DNI, (self.T[i] - self.Q_amb.T_amb))
 
                 self.h[i+1] = self.h[i] + self.Q_dot_abs_disc[i]/self.su.m_dot
                 self.p[i+1] = self.p[i]

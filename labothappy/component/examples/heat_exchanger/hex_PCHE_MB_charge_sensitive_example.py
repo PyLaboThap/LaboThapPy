@@ -151,5 +151,5 @@ HX.set_DP(DP_type="Correlation_Disc", Corr_C=Corr_C_DP, Corr_H=Corr_H_DP)
 
 # "Solve the component"
 HX.solve()
-# HX.plot_cells()
+HX.plot_cells()
 

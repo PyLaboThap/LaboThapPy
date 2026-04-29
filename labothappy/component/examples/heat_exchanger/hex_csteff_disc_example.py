@@ -1,8 +1,6 @@
 from labothappy.component.heat_exchanger.hex_csteff_disc import HexCstEffDisc
 
-
-
-case_study = "GasCooler"
+case_study = "RecupHT"
 
 #Exo ORC M&S
 HTX = HexCstEffDisc()
@@ -23,18 +21,6 @@ if case_study == 'GasCooler':
         P_su_H = 140*1e5,
     )
     
-    # HTX.set_inputs(
-    #     fluid_C = 'CO2',
-    #     T_su_C = 270.15,
-    #     m_dot_C = 0.16,
-    #     P_su_C = 2963161,
-    
-    #     fluid_H = 'CO2',
-    #     T_su_H = 314.75,
-    #     m_dot_H = 0.16,
-    #     P_su_H = 120*1e5,
-    # )
-    
     HTX.set_parameters(**{
         'eta_max' : 0.95,
         'n_disc' : 100, 
@@ -46,8 +32,8 @@ if case_study == 'GasCooler':
     HTX.solve()
     HTX.plot_disc()
     
-    # fig = HTX.plot_Ts(choose_HX_side='H')
-    # fig.show()
+    fig = HTX.plot_Ts(choose_HX_side='H')
+    fig.show()
 
 elif case_study == "RecupHT":
     
@@ -63,18 +49,6 @@ elif case_study == "RecupHT":
         P_su_H = 150*1e5,
     )
     
-    # HTX.set_inputs(
-    #     fluid_C = 'CO2',
-    #     T_su_C = 270.15,
-    #     m_dot_C = 0.16,
-    #     P_su_C = 2963161,
-    
-    #     fluid_H = 'CO2',
-    #     T_su_H = 314.75,
-    #     m_dot_H = 0.16,
-    #     P_su_H = 120*1e5,
-    # )
-    
     HTX.set_parameters(**{
         'eta_max' : 0.95,
         'n_disc' : 20, 
@@ -86,4 +60,3 @@ elif case_study == "RecupHT":
     HTX.solve()
     HTX.plot_disc()
     
-

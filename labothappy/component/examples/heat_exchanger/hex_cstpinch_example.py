@@ -7,13 +7,11 @@ import matplotlib.pyplot as plt
 
 from CoolProp.CoolProp import PropsSI
 
-case_test = 'EVAP_C5'
+case_test = 'COND_CO2'
 
 "Evaporator test"
 
-# {'T': 376.25000000112317, 'P': 448092.1358915291, 'H': 227308.5385466662, 'Q': 0.33354141364131273}
-
-if case_test == 'EVAP_C5':
+if case_test == 'COND_C5':
 
     # # # Exo ORC M&S
     EVAP = HexCstPinch()
@@ -82,7 +80,6 @@ elif case_test == 'EVAP_HP_ZORLU':
     EVAP.solve()
     EVAP.print_results()
     EVAP.print_states_connectors()
-    EVAP.plot_disc()
     
     fig = EVAP.plot_Ts(choose_HX_side='C')
     fig.show()
@@ -120,40 +117,6 @@ elif case_test == 'EVAP_C3':
     EVAP.plot_disc()
     
     # EVAP.equivalent_effectiveness()
-
-# elif case_test == 'COND_C5':
-
-#     "Condenser test"
-    
-#     COND = HexCstPinch()
-    
-#     COND.set_inputs(
-#         fluid_H = 'Cyclopentane',
-#         T_su_H = 45+273.15,
-#         P_su_H = 71.82*1e3,
-#         m_dot_H = 34.51,
-        
-#         fluid_C = 'Water',
-#         T_su_C = 24+273.15,
-#         P_su_C = 1e5,
-#         m_dot_C = 900
-#     )
-    
-#     COND.set_parameters(**{
-#         'Pinch': 3,
-#         'Delta_T_sh_sc': 1,
-#         'HX_type': 'condenser',
-#         # 'DP_c' : 30*1e3,
-#         # 'DP_h' : 15*1e3,
-#     })
-    
-#     COND.solve()
-    
-#     COND.print_results()
-#     COND.print_states_connectors()
-#     COND.plot_disc()
-    
-#     # COND.equivalent_effectiveness()
    
 elif case_test == 'COND_C5':
 
