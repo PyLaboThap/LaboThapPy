@@ -32,6 +32,6 @@ LV_Separator.solve()
 LV_Separator.print_results()
 LV_Separator.print_states_connectors()
 
-fig = LV_Separator.plot_thermo_states()
+fig = LV_Separator.plot_Ts()
 fig.show()
 

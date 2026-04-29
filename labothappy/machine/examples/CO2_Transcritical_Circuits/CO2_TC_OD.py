@@ -433,7 +433,7 @@ def CO2_OD_TC(mdot, P_high, mute_print=1):
 
 #%%
 
-case_study = "Optimization_PSO"
+case_study = "Simulation"
 
 if case_study == "Simulation":
 
