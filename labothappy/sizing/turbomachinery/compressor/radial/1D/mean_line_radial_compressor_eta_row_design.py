@@ -2,7 +2,7 @@
 
 # --- loading libraries 
 
-from connector.mass_connector import MassConnector
+from labothappy.connector.mass_connector import MassConnector
 from CoolProp.CoolProp import PropsSI
 from scipy.optimize import fsolve, minimize
 
@@ -377,7 +377,9 @@ class AxialCPMLEtaDesign(object):
 
         def find_r_m(x):
             self.r_m = x[0]
-    
+            
+            print(self.r_m)
+            
             self.r_tip = []
             self.r_hub = []
             self.r_hub_tip = []

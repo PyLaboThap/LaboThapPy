@@ -2374,7 +2374,8 @@ class HexMBChargeSensitive(BaseComponent):
                     alpha_h = self.H.h_tpdryout
                 elif self.phases_h[k] == "transcritical":
                     alpha_h = self.H.h_transcrit   
-                    
+
+                "3.1.b) Hot side - Correlation"
             elif self.H.HeatExchange_Correlation == "Correlation": # Heat transfer coefficient calculated from Correlations.
                 # 1 PHASE CORRELATION
                 if self.phases_h[k] == "liquid" or self.phases_h[k] == "vapor":
@@ -2401,6 +2402,7 @@ class HexMBChargeSensitive(BaseComponent):
                 elif self.phases_c[k] == "transcritical":
                     alpha_c = self.C.h_transcrit
 
+                "3.2.b) Cold side - Correlation"
             elif self.C.HeatExchange_Correlation == "Correlation": # Heat transfer coefficient calculated from Correlations:
                 # 1 PHASE CORRELATION
                 if self.phases_c[k] == "liquid" or self.phases_c[k] == "vapor":
@@ -2652,7 +2654,7 @@ class HexMBChargeSensitive(BaseComponent):
         
         self.Qdot_matrix = np.zeros([n_cells, n_cells])
         
-        if ('Tube_pass' in self.params) and np.all(np.isfinite(self.w)) and self.HTX_Type == 'Shell&Tube':
+        if ('Tube_pass' in self.params) and np.all(np.isfinite(self.w)) and self.HTX_Type == 'Shell&Tube' and self.params['Tube_pass'] > 1:
             self.overlap_matrix = determine_cell_overlap(self.w, self.params['Tube_pass'], self.params['n_disc'])
         
         if self.HTX_Type == 'Shell&Tube':

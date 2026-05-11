@@ -337,7 +337,7 @@ class RadialCPMLDesign(object):
         u1s = self.omega*r1s
         
         # Rotor inlet velocity triangle
-        self.A1_th = b1*pitch1
+        self.A1_th = b1*pitch1*(self.n_blade_R-1)
         
         def compute_h1_new(h1): 
             
@@ -373,11 +373,13 @@ class RadialCPMLDesign(object):
         
         def solve_h1_fixed_point(
             h0,
-            tol=1e-8,
+            tol=1e-5,
             max_iter=100,
             relaxation=0.3
         ):
-        
+            
+            print(h0)
+            
             h = h0
         
             for k in range(max_iter):
@@ -395,14 +397,14 @@ class RadialCPMLDesign(object):
                     return h_next
         
                 h = h_next
-        
+                            
             raise RuntimeError("Fixed-point iteration did not converge")
             
         h0 = self.total_states['H'][1]   # good initial guess
 
         h1_solution = solve_h1_fixed_point(
             h0,
-            tol=1e-8,
+            tol=1e-5,
             relaxation=0.3
         )
         
@@ -427,11 +429,11 @@ class RadialCPMLDesign(object):
         
         # Rotor Outlet Area
         self.params['pitch2'] = pitch2 = 2*np.pi*r2/(self.n_blade_R)
-        self.A2_th = b2*pitch2
+        self.A2_th = b2*pitch2*(self.n_blade_R-1)
         
         # Slip Factor
         
-        self.sigma = 1 - np.sqrt(np.cos(self.inputs['xhi2']))/(self.n_blade_R)**0.7 # Aungier
+        self.sigma = 1 - np.sqrt(np.cos(self.inputs['xhi2']*np.pi/180))/(self.n_blade_R)**0.7 # Aungier
         angle_star_deg = 19 + 0.2*(90 - self.inputs['xhi2']*180/np.pi)
         sigma_star = np.sin(np.pi/180 * angle_star_deg)
         
@@ -445,19 +447,22 @@ class RadialCPMLDesign(object):
         def system_rotor(x): # Mass Balance solving
             # guess outlet state (imposing input p_ex) and radii   
             h2 = x[0]*1e5
-            s2 = x[1]*1e3
+            p2 = x[1]*1e5
             
+            print(f"-------------------------")
             print(f"h2 : {h2}")
-            print(f"s2 : {s2}")
+            print(f"p2 : {p2}")
             
-            self.update_static_AS(CP.HmassSmass_INPUTS, h2, s2, 2)
+            self.update_static_AS(CP.HmassP_INPUTS, h2, p2, 2)
             rho2 = self.static_states['D'][2]
-            p2 = self.static_states['P'][2]
+            s2 = self.static_states['S'][2]
             
+            print(f"s2 : {s2}")
+
             self.Vel_Tri_R['vm2'] = vm2 = self.inputs['mdot']/(rho2*self.A2_th)
             self.Vel_Tri_R['vu2'] = vu2 = self.sigma*self.Vel_Tri_R['u2'] - vm2*np.tan(abs(np.pi*self.inputs['xhi2']/180))
             self.Vel_Tri_R['v2'] = v2 = np.sqrt(vm2**2 + vu2**2)
-
+                        
             self.Vel_Tri_R['beta2'] = beta2 = np.arctan(self.Vel_Tri_R['u2']/vm2)
             self.Vel_Tri_R['w2'] = w2 = vm2/np.cos(beta2)
             
@@ -475,24 +480,38 @@ class RadialCPMLDesign(object):
                 rho2 = self.static_states['D'][2], r1h = self.params['r1h'], r1s = self.params['r1s'], r2 = self.params['r2'], u2 = self.Vel_Tri_R['u2'], 
                 vu2 = vu2, v1m = self.Vel_Tri_R['vm1'], v2 = v2, w1 = self.Vel_Tri_R['w1'], w1_th = self.Vel_Tri_R['w1'],
                 w1s = self.w1s, w2 = w2, xhi1 = self.inputs['xhi1']*np.pi/180, xhi2 = self.inputs['xhi2']*np.pi/180)
-            
-            self.AS.update(CP.PSmass_INPUTS, p2, self.total_states['S'][1])
+                        
+            self.AS.update(CP.PSmass_INPUTS, p2, self.static_states['S'][1])
             
             h2_new = self.AS.hmass() + self.rotor_losses['tot']
-
-            self.update_static_AS(CP.HmassP_INPUTS, h2_new, p2, 2)
-
-            h02 = h2_new + (self.Vel_Tri_R['v2']**2)/2 
             
+            print(f"h2_id : {self.AS.hmass()}")
+            print(f"losses : {self.rotor_losses['tot']}")
+            
+            self.update_static_AS(CP.HmassP_INPUTS, h2_new, p2, 2)
+            
+            h02 = h2 + v2**2/2
             self.update_total_AS(CP.HmassSmass_INPUTS, h02, self.static_states['S'][2], 2)
 
+            # # To change from here
+            
+            # self.AS.update(CP.PSmass_INPUTS, p2, self.total_states['S'][1])
+            
+            # h2_new = self.AS.hmass() + self.rotor_losses['tot']
+
+            # self.update_static_AS(CP.HmassP_INPUTS, h2_new, p2, 2)
+
+            # h02 = h2_new + (self.Vel_Tri_R['v2']**2)/2 
+            
+            # self.update_total_AS(CP.HmassSmass_INPUTS, h02, self.static_states['S'][2], 2)
+
             f1 = ((h2 - h2_new)/h2_new)**2
-            f2 = ((s2 - self.static_states['S'][2])/self.static_states['S'][2])**2
+            f2 = ((p2 - self.static_states['P'][2])/self.static_states['P'][2])**2
             
             return np.sum(np.array([f1, f2]))
         
         # Initial guess
-        x0 = [self.static_states['H'][1] * 1e-5, self.total_states['S'][1] * 1e-3]
+        x0 = [self.static_states['H'][1] * 1e-5, self.inputs['p_ex'] * 1e-5]
         
         # Bounds (in minimize, you need a sequence of (low, high) tuples)
         
@@ -511,7 +530,7 @@ class RadialCPMLDesign(object):
         
         bounds = [
             (self.static_states['H'][1] * 1e-5, h_max * 1e-5),
-            (self.total_states['S'][1] * 1e-3, self.total_states['S'][1] * 1e-3 * 1.1)
+            (self.inputs['p_ex'] * 1e-5, self.inputs['p_ex'] * 1e-5 * 1.3)
         ]
         
         # Call minimize (trust-constr works well with bounds, but L-BFGS-B is simpler)
@@ -519,7 +538,6 @@ class RadialCPMLDesign(object):
                        options={'ftol': 1e-8, 'gtol': 1e-8})
         
         return
-    
     
     def designSystem(self):
         
@@ -545,8 +563,6 @@ class RadialCPMLDesign(object):
     # ---------------- Main Method ------------------------------------------------------------------------
     
     def design(self):
-        
-
         
         # # First Stator Instanciation
         # self.stages.append(self.stage(self.fluid))
@@ -703,16 +719,16 @@ Comp.set_inputs(
     mdot = 0.8, # kg/s
     W_dot = 200000, # W
     p0_su = 76.9*1e5, # Pa
-    T0_su = 306, # K
+    T0_su = 305.97, # K
     p_ex = 127*1e5, # Pa
         
     # Iteration variable : # !!! Look for other constraints
-    psi_is = 0.4,
-    Omega = 65000, 
+    psi_is = 1,
+    Omega = 60000, 
     r1s_r2 = 0.5, 
     r1h_r1s = 0.3,
-    b2_r2 = 0.3, 
-    xhi2 = 30,
+    b2_r2 = 0.1, 
+    xhi2 = 40,
     xhi1 = 50
     )
 
@@ -725,7 +741,7 @@ Comp.set_parameters(
     k_imp = 0.002*1e-3, # [m] : Impeller surface roughness
     
     b3_b2_ratio = 1, # [-] : Diffuser width ratio
-    CP = 0.44, # [-] : Diffuser pressure coefficient
+    CP = 0.45, # [-] : Diffuser pressure coefficient
     
     # Other
     M1_target = 0.5

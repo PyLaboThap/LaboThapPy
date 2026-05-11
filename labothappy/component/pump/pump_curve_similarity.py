@@ -360,6 +360,7 @@ class PumpCurveSimilarity(BaseComponent):
         # Actual enthalpy rise
         h_ex = self.su.h + (h_ex_s - self.su.h)/eta
         self.ex.set_h(h_ex)
+        self.ex.set_m_dot(self.su.m_dot)
 
         # 6. Power
         self.W_dot_hyd = g * H * self.m_dot  # Ideal hydraulic power [W]

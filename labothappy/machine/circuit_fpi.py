@@ -238,11 +238,13 @@ class CircuitFPI(BaseCircuit):
                     
                         return brentq(residual, P_min, P_max, xtol=self.tol)
 
+                    DP_gain          = self.find_link_DP(components)                    
+                    
                     it_connector = getattr(components[self.it_comp_name].model, self.it_connector_name)                    
                     obj_connector = getattr(components[self.obj_comp_name].model, self.obj_connector_name)
                     current_h_value = obj_connector.h
                     
-                    P_target = h_to_pressure_from_SC(current_h_value, self.target_value)
+                    P_target = h_to_pressure_from_SC(current_h_value, self.target_value) + DP_gain
                     
                     update_guess_target = self.it_comp_name + ":" + self.it_connector_name
 
@@ -255,7 +257,6 @@ class CircuitFPI(BaseCircuit):
                 else:
                     
                     if not self.history:
-                        print("He He")
                         obj_connector = getattr(components[self.obj_comp_name].model, self.obj_connector_name)
                         obj_current_value = getattr(obj_connector, self.obj_prop_name)
 
@@ -273,8 +274,6 @@ class CircuitFPI(BaseCircuit):
     
                     
                     else:                       
-                        print(f"history : {self.history}")
-
                         obj_connector = getattr(components[self.obj_comp_name].model, self.obj_connector_name)
                         obj_current_value = getattr(obj_connector, self.obj_prop_name)
 

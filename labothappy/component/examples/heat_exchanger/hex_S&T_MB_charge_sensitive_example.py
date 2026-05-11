@@ -11,6 +11,8 @@ Modification w/r to previous version:
     - x_di_c correct calculation.
 """
 
+from labothappy.toolbox.plots.plot_MB_STHE import plot_MB_STHE
+
 from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
 from CoolProp.CoolProp import PropsSI    
 
@@ -24,7 +26,7 @@ start_time = time.time()
 
 "HTX Instanciation"
 
-case_study = 'CO2_CD'
+case_study = 'R134a'
 n_disc = 30
         
 # # -------------------------------------------------------------------------------------------------------------
@@ -477,3 +479,5 @@ HX.set_DP(DP_type="Correlation_Disc", Corr_C=Corr_C_DP, Corr_H=Corr_H_DP)
 
 HX.solve()  # the function you want to profile
 HX.plot_cells()
+
+plot_MB_STHE(HX, props='htc')

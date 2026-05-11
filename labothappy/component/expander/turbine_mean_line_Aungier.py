@@ -500,25 +500,26 @@ class AxialTurbineMeanLine(BaseComponent):
             result = self.map_interpolator.query(_m, _N)
             self.inputs["m_dot"] = _m
             self.inputs["N_rot"] = _N
-
-        elif mode == "P_N":
+            self.m_dot_ex = _m
+            
+        elif mode == "P_N":            
             _N = float(N_rot if N_rot is not None else self.inputs["N_rot"])
             _P = float(P_ex  if P_ex  is not None else self.inputs.get("P_ex", float("nan")))
             result = self.map_interpolator.query_PN(_N, _P)
             self.inputs["N_rot"] = _N
-            self.inputs["m_dot"] = result["m_dot"]
-
+            self.m_dot_ex = result["m_dot"]
+            
         elif mode == "P_M":
             _m = float(m_dot if m_dot is not None else self.inputs["m_dot"])
             _P = float(P_ex  if P_ex  is not None else self.inputs.get("P_ex", float("nan")))
             result = self.map_interpolator.query_PM(_m, _P)
             self.inputs["m_dot"] = _m
-            self.inputs["N_rot"] = result["N_rot"]
-
+            self.W.set_N_rot(result["N_rot"])
+            self.m_dot_ex = _m
+            
         else:
             raise ValueError(f"mode must be 'M_N', 'P_N', or 'P_M'; got {mode!r}")
 
-        self.W_dot     = result.get("W_dot",     float("nan"))
         self.eta_is    = result.get("eta_is",    float("nan"))
         self.P_ex_calc = result.get("P_ex_calc", float("nan"))
 
@@ -532,8 +533,10 @@ class AxialTurbineMeanLine(BaseComponent):
         self.AS.update(CP.PSmass_INPUTS, self.P_ex_calc, self.su.s)
         h_ex_is   = self.AS.hmass()
         self.h_ex = self.su.h - self.eta_is * (self.su.h - h_ex_is)
+        self.W_dot     = self.m_dot_ex * (self.su.h - self.h_ex)
+        
         self.solved = True
-        self.update_connectors(self.P_ex_calc, self.h_ex)
+        self.update_connectors(self.P_ex_calc, self.h_ex, self.m_dot_ex)
 
     # =========================================================================
     #  Loss Models
@@ -898,11 +901,11 @@ class AxialTurbineMeanLine(BaseComponent):
                 self.stages[-1].static_states[2]['H'],
             )
 
-    def update_connectors(self, P_ex, h_ex):
+    def update_connectors(self, P_ex, h_ex, m_dot_ex):
         self.ex.reset()
         self.ex.set_p(P_ex)
         self.ex.set_h(h_ex)
-        self.ex.set_m_dot(self.su.m_dot)
+        self.ex.set_m_dot(m_dot_ex)
         self.ex.set_fluid(self.su.fluid)
         self.W.set_W_dot(self.W_dot)
         self.W.set_N_rot(self.inputs['N_rot'])
