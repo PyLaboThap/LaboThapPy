@@ -22,14 +22,14 @@ def rotor_incidence_losses(A1, A1_th, beta1, w1, xhi1):
     """    
 
     # Optimal incidence angle
-    beta1_opt = np.arctan((A1/A1_th)*xhi1)
+    beta1_opt = np.arctan((A1/A1_th)*np.tan(xhi1))
     
     # Losses
     Dh_inc = 0.5* w1**2 * np.sin(beta1-beta1_opt)**2
     
     return Dh_inc
 
-def rotor_friciton_losses(beta1h, beta1s, b2, C_fi, L_z, n_bl_r, r1h, r1s, r2, w1, w1_th, w2, xhi2):
+def rotor_friction_losses(beta1h, beta1s, b2, C_fi, L_z, n_bl_r, r1h, r1s, r2, w1, w1_th, w2, xhi2):
     """
     beta1h : Rotor inlet hub angle [rad]
     beta1s : Rotor inlet shroud angle [rad]
@@ -153,10 +153,10 @@ def rotor_mixing_losses(alpha2, v2):
     # xhi = 0.93 * eps_w**2 + 0.07*eps_w where xhi = 0.15 and b_star = 1 : solving 2nd degree equation for eps_w
     b_star = 1
     xhi = 0.15
-    eps_w = (-0.07 + np.sqrt(0.07**2 + 4*0.93*xhi))/2*0.93
-    
+    eps_w = (-0.07 + np.sqrt(0.07**2 + 4*0.93*xhi))/(2*0.93)
+        
     fact1 = 1/(1+np.tan(alpha2)**2)
-    fact2 = (1-eps_w-b_star/(1-eps_w))
+    fact2 = (1-eps_w-b_star)/(1-eps_w)
     
     # Losses
     Dh_ml = 0.5*v2**2 * fact1 * fact2**2
@@ -221,11 +221,9 @@ def rotor_recirculation_losses(alpha2, C_df, Dh0, n_bl_r, r1s, r2, u2, w1, w1s, 
     D_f = 1 - w2/w1 + C_df*(Dh0/u2**2)*(w2/w1s)/(n_bl_r/np.pi * (1-r1s/r2) + 2*r1s/r2)
     
     # Losses
-    Dh_rc = 8*1e-5*np.sinh(3.5*alpha2**3)*D_f**2*u2**2
+    Dh_rc = 8*1e-5*np.sinh(3.5*abs(alpha2)**3)*D_f**2*u2**2
     
-    print(D_f)
-    
-    return 0 # Dh_rc
+    return Dh_rc
 
 #%%
 
@@ -248,10 +246,10 @@ def stator_incidence_losses(A4, A4_th, beta4, w4, xhi4):
     """    
 
     # Optimal incidence angle
-    beta4_opt = np.atan((A4/A4_th)*xhi4)
+    beta4_opt = np.arctan((A4/A4_th)*np.tan(xhi4))
     
     # Losses
-    Dh_inc = 0.5 * w4**2 * np.sin(beta4_opt-beta4)
+    Dh_inc = 0.6 * w4**2 / 2 * np.sin(beta4_opt-beta4)**2
     
     return Dh_inc
 
@@ -317,13 +315,20 @@ def radial_compressor_rotor_losses(A1, A1_th, alpha2, beta1, beta1h, beta1s, b2,
     w2     : Rotor outlet relative velocity [m/s]
     xhi1 : Rotor Inlet Blade Angle [rad]
     xhi2   : Rotor Outlet Blade Angle [rad]
-    """
     
+    Reference
+    ---------
+    Design of centrifugal compressors for heat pump systems
+    Andrea Meroni, Benjamin Zühlsdorf, Brian Elmegaard, Fredrik Haglind
+    
+    Applied Energy (2018)
+    """
+
     Dh_rot = {}
     
     Dh_rot['inc'] = rotor_incidence_losses(A1, A1_th, beta1, w1, xhi1)
     
-    Dh_rot['f'] = rotor_friciton_losses(beta1h, beta1s, b2, C_fi, L_z, n_bl_r, r1h, r1s, r2, w1, w1_th, w2, xhi2)
+    Dh_rot['f'] = rotor_friction_losses(beta1h, beta1s, b2, C_fi, L_z, n_bl_r, r1h, r1s, r2, w1, w1_th, w2, xhi2)
     
     Dh_rot['bl'] = rotor_blade_loading_losses(C_df, Dh0, n_bl_r, r1s, r2, u2, w1, w1s, w2)
     
@@ -339,8 +344,37 @@ def radial_compressor_rotor_losses(A1, A1_th, alpha2, beta1, beta1h, beta1s, b2,
     
     return Dh_rot
 
-def radial_compressor_stator_losses():
+#%%
+
+def radial_compressor_stator_losses(A4, A4_th, beta4, C_f, r3, r4, r5, vm, w4, xhi3, xhi4, xhi5):
+    """
+    A4    : Stator inlet area [m2] (from blade pitch * height)
+    A4_th : Stator inlet throat area [m2] (from inlet throat opening * height)
+    beta4 : Stator Relative flow angle [rad]
+    C_f  : Stator friction coefficient [-] (=0.004 ?) : C_f =  k(1.8*1e5/ Re)**0.2 with k = 0.005
+    r3   : Stator inlet diameter [m]
+    r5   : Stator outlet diameter [m]
+    vm   : Stator meridional velocity [m/s]
+    w4    : Stator inlet relative velocity [m/s]
+    xhi3 : Stator Inlet Blade Angle [rad]
+    xhi4  : Stator Inlet Blade Angle [rad]
+    xhi5 : Stator Outlet Blade Angle [rad]
+
+    Reference
+    ---------
+    Design of centrifugal compressors for heat pump systems
+    Andrea Meroni, Benjamin Zühlsdorf, Brian Elmegaard, Fredrik Haglind
     
+    Applied Energy (2018)
+    """    
     
-    return
+    Dh_stat = {}
+    
+    Dh_stat['f'] = stator_friction_losses(C_f, r3, r5, vm, xhi3, xhi5)
+    
+    Dh_stat['inc'] = stator_incidence_losses(A4, A4_th, beta4, w4, xhi4)
+    
+    Dh_stat['tot'] = Dh_stat['f'] + Dh_stat['inc']
+    
+    return Dh_stat
 
