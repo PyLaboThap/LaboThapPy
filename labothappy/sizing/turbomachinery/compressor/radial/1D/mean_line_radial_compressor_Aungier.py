@@ -326,11 +326,11 @@ class RadialCPMLDesign(object):
         self.params['r1h'] = r1h = r1s*self.inputs['r1h_r1s']
         self.params['b1'] = b1 = r1s - r1h
         
-        self.params['r1'] = r1 = 0.5*(r1s+r1h)
+        self.params['r1'] = r1 = np.sqrt((r1s**2 + r1h**2) / 2)
 
         self.params['pitch1'] = pitch1 = 2*np.pi*r1/(self.n_blade_R)
         self.params['b2'] = b2 = r2*self.inputs['b2_r2']
-        
+
         self.params['r1'] = r1 = (r1s + r1h)/2
         self.Vel_Tri_R['u1'] = u1 = self.omega*r1
         
@@ -365,6 +365,32 @@ class RadialCPMLDesign(object):
             h1_new = (self.total_states['H'][1] - v1**2 / 2) 
                         
             return h1_new
+        
+        # def compute_h1_new(h1): 
+            
+        #     self.update_static_AS(CP.HmassSmass_INPUTS, h1, self.total_states['S'][1], 1) 
+                        
+        #     self.Vel_Tri_R['vm1'] = vm1 = self.inputs['mdot']/(self.static_states['D'][1]*self.A1_th)
+        #     self.Vel_Tri_R['vu1'] = vu1 = 0
+        #     self.Vel_Tri_R['wu1'] = wu1 = self.Vel_Tri_R['vu1'] - self.Vel_Tri_R['u1']
+
+        #     self.Vel_Tri_R['w1'] = w1 = np.sqrt(wu1**2 + vm1**2)
+        #     self.Vel_Tri_R['beta1'] = beta1 = np.arcsin(w1/self.Vel_Tri_R['wu1'])
+
+        #     # self.Vel_Tri_R['beta1'] = beta1 = np.pi/180*self.inputs['xhi1'] # np.arctan(u1/vm1)
+        #     # self.Vel_Tri_R['w1'] = w1 = vm1/np.cos(beta1)
+
+        #     self.Vel_Tri_R['v1'] = v1 = np.sqrt(vm1**2 + vu1**2)
+        #     self.Vel_Tri_R['alpha1'] = np.arccos(vm1/v1)
+            
+        #     self.beta1h = np.arctan(u1h/vm1)
+        #     self.beta1s = np.arctan(u1s/vm1)
+            
+        #     self.w1s = vm1/np.cos(self.beta1s)
+                        
+        #     h1_new = (self.total_states['H'][1] - v1**2 / 2) 
+                        
+        #     return h1_new
         
         def solve_h1_fixed_point(
             h0,
@@ -444,12 +470,15 @@ class RadialCPMLDesign(object):
             self.rotor_losses = radial_compressor_rotor_losses(
                 A1 = self.A1, A1_th = self.A1_th, alpha2 = alpha2, beta1 = self.Vel_Tri_R['beta1'], beta1h = self.beta1h, 
                 beta1s = self.beta1s, b2 = self.params['b2'], C_df = 0.004, C_fi = 0.004, Dh0 = self.dh0, eps_a = self.params['eps_imp'],
-                eps_b = self.params['eps_bf_imp'], eps_r = self.params['eps_imp'], L_z = L_z, mdot = self.inputs['mdot'], 
-                mu2 = self.static_states['V'][2], n_bl_r = self.n_blade_R, rho1 = self.static_states['D'][1], 
+                eps_b = self.params['eps_bf_imp'], eps_r = self.params['eps_imp'], k_roughness = self.params['k_imp'], L_z = L_z, mdot = self.inputs['mdot'], 
+                mu1 = self.static_states['V'][1], mu2 = self.static_states['V'][2], n_bl_r = self.n_blade_R, rho1 = self.static_states['D'][1], 
                 rho2 = self.static_states['D'][2], r1h = self.params['r1h'], r1s = self.params['r1s'], r2 = self.params['r2'], u2 = self.Vel_Tri_R['u2'], 
                 vu2 = vu2, v1m = self.Vel_Tri_R['vm1'], v2 = v2, w1 = self.Vel_Tri_R['w1'], w1_th = self.Vel_Tri_R['w1'],
                 w1s = self.w1s, w2 = w2, xhi1 = self.inputs['xhi1']*np.pi/180, xhi2 = self.inputs['xhi2']*np.pi/180)
-                        
+            
+            # print(self.rotor_losses['tot'])
+            # print("="*30)
+            
             self.AS.update(CP.PSmass_INPUTS, p2, self.static_states['S'][1])
             
             h2_new = self.AS.hmass() + self.rotor_losses['tot']
@@ -484,6 +513,28 @@ class RadialCPMLDesign(object):
         # Call minimize (trust-constr works well with bounds, but L-BFGS-B is simpler)
         self.sol_rotor_ex = minimize(system_rotor, x0, method='L-BFGS-B', bounds=bounds,
                        options={'ftol': 1e-8, 'gtol': 1e-8})
+        
+        "Compute constraint terms"
+        
+        # Mach relatif au shroud de l'inducteur (contrainte M1s_rel ≤ 1.4)
+        self.M1s_rel = self.w1s / self.static_states['A'][1]
+        
+        # Mach relatif moyen de l'inducteur (contrainte M1_rel ≤ 0.9)
+        w1_mean = self.Vel_Tri_R['w1']
+        self.M1_rel = w1_mean / self.static_states['A'][1]
+        
+        # Ratio de diffusion W2/W1s (contrainte ≥ 0.25)
+        self.W2_W1s = self.Vel_Tri_R['w2'] / self.w1s
+        
+        # Ouverture de gorge à l'inducteur o1 [m] — déjà calculée dans designRotor
+        # self.o1 est déjà dans ton code
+        
+        # Degré de réaction statique
+        # DR = (h2_static - h1_static) / (h02 - h01)  =  1 - (vu2 + vu1) / (2*u2)
+        vu1 = self.Vel_Tri_R['vu1']
+        vu2 = self.Vel_Tri_R['vu2']
+        u2  = self.Vel_Tri_R['u2']
+        self.DR = 1.0 - (vu2 + vu1) / (2.0 * u2)
         
         return
     
@@ -648,20 +699,66 @@ class RadialCPMLDesign(object):
         
         try:
             self.designRotor()
-    
+            
             self.designStator()
         except:
             return 1000
         
-        # Total to static efficiency
-        self.AS.update(CP.PSmass_INPUTS, self.inputs['p_ex'], self.static_states['S'][1])
+        # ------------------------------------------------------------------ #
+        # Contraintes physiques — Meroni et al. (2018), Additional constraints
+        # Retourne une pénalité si une contrainte est violée.
+        # ------------------------------------------------------------------ #
+    
+        p = self.params   # raccourci
+    
+        # # Pas de prérotation sans IGV
+        # if self.Vel_Tri_R['vu1'] > 0.1 * self.Vel_Tri_R['u1']:
+        #     return 1000
+            
+        # C1 — Mach relatif shroud inducteur : M1s_rel ≤ 1.4
+        if self.M1s_rel > p['M1s_rel_max']:
+            return 1000
+    
+        # C2 — Mach relatif moyen inducteur : M1_rel ≤ 0.9
+        if self.M1_rel > p['M1_rel_max']:
+            return 1000
+    
+        # C3 — Ratio de diffusion : W2/W1s ≥ 0.25
+        if self.W2_W1s < p['W2_W1s_min']:
+            return 1000
+    
+        # C4 — Angle absolu sortie rotor : alpha2 ≤ 85°
+        alpha2_deg = abs(self.Vel_Tri_R['alpha2']) * 180.0 / np.pi
+        if alpha2_deg > p['alpha2_max']:
+            return 1000
+    
+        # C5 — Ouverture gorge inducteur : 1.49 mm ≤ o1 ≤ 50 mm
+        if not (p['o1_min'] <= self.o1 <= p['o1_max']):
+            return 1000
+    
+        # C6 — Degré de réaction : -0.1 ≤ DR ≤ 0.9
+        if not (p['DR_min'] <= self.DR <= p['DR_max']):
+            return 1000
+    
+        # C7 — Tip speed : U2 ≤ 400 m/s
+        if self.Vel_Tri_R['u2'] > p['U2_max']:
+            return 1000
+    
+        # C8 — Ratio diffuseur vaneless : 1.05 ≤ r3/r2 ≤ 2.0
+        # Note : r3_r2 est déjà une variable de design dans x[5],
+        # mais on vérifie quand même les bornes physiques ici
+        if not (p['r3_r2_min'] <= self.inputs['r3_r2'] <= p['r3_r2_max']):
+            return 1000
+    
+        # ------------------------------------------------------------------ #
+        # Efficacité totale-statique (inchangée)
+        # ------------------------------------------------------------------ #
+        self.AS.update(CP.PSmass_INPUTS, self.inputs['p_ex'], self.total_states['S'][1])
         hout_is = self.AS.hmass()
+        self.eta_is = (hout_is - self.total_states['H'][1]) / \
+                      (self.static_states['H'][5] - self.total_states['H'][1])
     
-        self.eta_is = (hout_is - self.total_states['H'][1])/(self.static_states['H'][5] - self.total_states['H'][1])
-
         return -self.eta_is
-    
-    # ---------------- Main Method ------------------------------------------------------------------------
     
     def design(self):
 
@@ -700,9 +797,9 @@ class RadialCPMLDesign(object):
             bounds=bounds
         )
     
-        patience = 5
+        patience = 10
         tol = 1e-3
-        max_iter = 20
+        max_iter = 30
         no_improve_counter = 0
         best_cost = np.inf
     
@@ -746,8 +843,14 @@ Comp.set_inputs(
     p0_su = 76.9*1e5, # Pa
     T0_su = 305.97, # K
     p_ex = 127*1e5, # Pa
-        
     )
+
+# Comp.set_inputs(
+#     mdot = 200, # kg/s
+#     p0_su = 50*1e5, # Pa
+#     T0_su = 290, # K
+#     p_ex = 120*1e5, # Pa
+#     )
 
 Comp.set_parameters(
     # Fixed Values from source
@@ -766,14 +869,35 @@ Comp.set_parameters(
     # # Other
     # M1_target = 0.5, 
     
-    psi_is_bounds = [0.3, 1.1],
-    r1s_r2_bounds = [0.3, 0.7], 
-    r1h_r1s_bounds = [0.25, 0.7],
-    b2_r2_bounds = [0.02, 0.15], 
-    r5_r3_bounds = [1.01, 2],
-    r3_r2_bounds = [1.01, 2],
-    xhi2_bounds = [0, 50],
-    xhi1_bounds = [20, 70]
+    # psi_is_bounds = [0.3, 1.1],
+    # r1s_r2_bounds = [0.3, 0.7], 
+    # r1h_r1s_bounds = [0.25, 0.5],
+    # b2_r2_bounds = [0.02, 0.8], 
+    # r5_r3_bounds = [1.01, 2],
+    # r3_r2_bounds = [1.01, 2],
+    # xhi2_bounds = [0, 45],
+    # xhi1_bounds = [20, 70],
+    
+    psi_is_bounds = [0.7, 1.1],
+    r1s_r2_bounds = [0.4, 0.6], 
+    r1h_r1s_bounds = [0.25, 0.4],
+    b2_r2_bounds = [0.02, 0.08], 
+    r5_r3_bounds = [1.01, 1.5],
+    r3_r2_bounds = [1.01, 1.5],
+    xhi1_bounds = [40, 70],
+    xhi2_bounds = [20, 45],
+    
+    M1s_rel_max  = 1.4,    # Mach relatif shroud inducteur  ≤ 1.4
+    M1_rel_max   = 0.9,    # Mach relatif moyen inducteur   ≤ 0.9
+    W2_W1s_min   = 0.25,   # Ratio diffusion W2/W1s         ≥ 0.25
+    alpha2_max   = 85.0,   # Angle absolu sortie rotor [°]  ≤ 85°
+    o1_min       = 1.49e-3,# Ouverture gorge inducteur [m]  ≥ 1.49 mm
+    o1_max       = 50e-3,  # Ouverture gorge inducteur [m]  ≤ 50 mm
+    DR_min       = -0.1,   # Degré de réaction              ≥ -0.1
+    DR_max       = 0.9,    # Degré de réaction              ≤ 0.9
+    U2_max       = 400.0,  # Tip speed [m/s]                ≤ 400
+    r3_r2_min    = 1.05,   # Vaneless diffuser radius ratio ≥ 1.05
+    r3_r2_max    = 2.0,    # Vaneless diffuser radius ratio ≤ 2.0  
     )
     
 Comp.design()
