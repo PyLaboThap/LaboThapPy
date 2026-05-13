@@ -25,7 +25,10 @@ def rotor_incidence_losses(A1, A1_th, beta1, w1, xhi1):
     beta1_opt = np.arctan((A1/A1_th)*np.tan(xhi1))
     
     # Losses
-    Dh_inc = 0.5* (w1 * np.sin(beta1-beta1_opt))**2
+    Dh_inc = 0.5* (w1 * np.sin(abs(beta1)-abs(beta1_opt)))**2
+    
+    # print(f"beta1: {beta1}")
+    # print(f"beta1_opt: {beta1_opt}")
     
     return Dh_inc
 
@@ -78,88 +81,139 @@ def rotor_incidence_losses(A1, A1_th, beta1, w1, xhi1):
     
 #     return Dh_f
 
-def rotor_friction_losses(beta1h, beta1s, b2, C_fi, L_z, n_bl_r, r1h, r1s, r2,
-                           w1, w1_th, w2, xhi2,
-                           rho1, rho2, mu1, mu2, k_roughness):
+
+def rotor_friction_losses(beta1h, beta1s, beta2, b2, C_fi, L_z, n_bl_r, r1h, r1s, r2, w1, w1s, w1h, w1_th, w2, xhi2):
     """
-    ...paramètres existants...
+    beta1h : Rotor inlet hub angle [rad]
+    beta1s : Rotor inlet shroud angle [rad]
+    b2     : Rotor outlet passage height [m]
+    C_fi   : Rotor friction coefficient [-] : 0.004 ? 
+    L_z    : Rotor axial length [m]
+    n_bl_r : Rotor blade number [-]
+    r1h    : Rotor inlet hub radius [m]
+    r1s    : Rotor inlet shroud radius [m]
+    r2     : Rotor outlet radius [m]
+    w1     : Rotor inlet relative velocity [m/s]
+    w1_th  : Rotor inlet throat relative velocity [m/s]
+    w2     : Rotor outlet relative velocity [m/s]
+    xhi2   : Rotor Outlet Blade Angle [rad]
     
-    Nouveaux paramètres
-    -------------------
-    rho1        : Rotor inlet density [kg/m³]
-    rho2        : Rotor outlet density [kg/m³]
-    mu1         : Rotor inlet dynamic viscosity [Pa·s]
-    mu2         : Rotor outlet dynamic viscosity [Pa·s]
-    k_roughness : Blade surface roughness [m]  (self.params['k_imp'])
-
     References
-    ----------
-    Aungier, R.H., Centrifugal Compressors, ASME Press, 2000, §5.
-    Oh, H.W. et al., Proc. IMechE Part A, 211(4), 331–338, 1997.
-    Moody, L.F., Trans. ASME, 66(8), 671–684, 1944.
-    """
-
-    w_bar = np.max([np.sqrt((w1**2 + w2**2) / 2),
-                    np.sqrt((w1_th**2 + w2**2) / 2)])
-
-    # Blade length and hydraulic diameter (inchangés)
-    fact1 = 2*r2 - (r1s + r1h) - b2 + 2*L_z
-    fact2 = 2 / ((np.cos(beta1s) + np.cos(beta1h)) / 2 + np.cos(xhi2))
-    L_b   = (np.pi / 8) * fact1 * fact2
-
-    term1 = 2*r2 / (n_bl_r / (np.pi * np.cos(xhi2)) + 2*r2 / b2)
-    term2 = 2*r1s / (2 / (1 - r1h/r1s)
-            + 2*n_bl_r / (np.pi*(1 + r1h/r1s))
-            * np.sqrt(1 + np.tan(beta1s)**2 * (1 + (r1h/r1s)**2 / 2)))
-    D_hb  = term1 + term2
-
-    # ------------------------------------------------------------------ #
-    # Reynolds number — mean channel conditions (Aungier 2000, §5)
-    rho_mean = (rho1 + rho2) / 2
-    mu_mean  = (mu1  + mu2)  / 2
-    Re       = rho_mean * w_bar * D_hb / mu_mean
-
-    Re = max(Re, 1e3)   # évite division par zéro en cas dégénéré
-
-    # ------------------------------------------------------------------ #
-    # Friction coefficient — Colebrook-White via approximation
-    # explicite de Swamee & Jain (1976), valide Re > 5000
-    #
-    #   1/sqrt(f) = -2 log10(k/(3.7*Dh) + 2.51/(Re*sqrt(f)))
-    #
-    # Approximation explicite (erreur < 1%) :
-    #   f = 0.25 / [log10(k/(3.7*Dh) + 5.74/Re^0.9)]²
-    #
-    # Pour Re < 2300 (laminaire) : f = 64 / Re  (Hagen-Poiseuille)
-    # Pour 2300 < Re < 5000 (transition) : interpolation linéaire
-    #
-    # References : Moody (1944), Swamee & Jain (1976)
-    # ------------------------------------------------------------------ #
-    relative_roughness = k_roughness / D_hb
-
-    if Re < 2300:
-        # Laminaire — Hagen-Poiseuille
-        f_D = 64.0 / Re
-    elif Re < 5000:
-        # Zone de transition — interpolation linéaire
-        f_lam  = 64.0 / 2300
-        f_turb = 0.25 / (np.log10(relative_roughness / 3.7
-                                   + 5.74 / 5000**0.9))**2
-        t = (Re - 2300) / (5000 - 2300)
-        f_D = (1 - t) * f_lam + t * f_turb
-    else:
-        # Turbulent — Swamee & Jain (1976)
-        f_D = 0.25 / (np.log10(relative_roughness / 3.7
-                                + 5.74 / Re**0.9))**2
-
-    # Fanning friction factor : C_f = f_D / 4
-    C_fi_computed = f_D / 4
-
-    # ------------------------------------------------------------------ #
-    # Pertes de frottement (formule inchangée, C_fi remplacé)
-    Dh_f = 4 * C_fi_computed * (L_b / (2 * D_hb)) * w_bar**2
-
+    ---------
+    Aungier RH. Mean streamline aerodynamic performance analysis of centrifugal
+    compressors. J Turbomach 1995;117(3):360.
+    
+    Fortran program for predicting off-design performance of centrifugal
+    compressors. Tech Rep (NASA); 1973. - Galvas M. 
+    
+    Jansen W. A method for calculating the flow in a centrifugal impeller when entropy
+    gradients are present. In: Royal Society conference on internal aerodynamics 
+    (turbomachinery), 19-21 July, Cambridge, UK; 1967. p. 133–46.
+    """    
+    
+    # Max mean velocity
+    # w_bar = np.max([np.sqrt( (w1**2  + w2**2)/2 ), np.sqrt( (w1_th**2  + w2**2)/2 )])    
+    w_bar = (2*w2 + w1s + w1h)/4 
+    
+    # Blade length
+    fact1 = 2*r2 - (r1s+r1h) - b2 + 2*L_z
+    fact2 = 4/((np.cos(beta1s)+np.cos(beta1h)) + 2*np.cos(beta2))
+    
+    L_b = (np.pi/8)*fact1*(fact2)
+    
+    # Hydraulic diameter
+    term1 = 2*r2 / (n_bl_r/(np.pi*np.cos(xhi2)) + 2*r2/b2)
+    term2 = 2*r1s / (2/(1 - r1h/r1s) + 2*n_bl_r / (np.pi*(1+r1h/r1s)) * np.sqrt(1+np.tan(beta1s)**2*(1 + (r1h/r1s)**2 / 2)))
+    
+    D_hb = term1 + term2
+    
+    # Losses
+    Dh_f = 2* C_fi * (L_b/(D_hb)) * w_bar**2
+    
     return Dh_f
+
+# def rotor_friction_losses(beta1h, beta1s, b2, C_fi, L_z, n_bl_r, r1h, r1s, r2,
+#                             w1, w1_th, w2, xhi2,
+#                             rho1, rho2, mu1, mu2, k_roughness):
+#     """
+#     ...paramètres existants...
+    
+#     Nouveaux paramètres
+#     -------------------
+#     rho1        : Rotor inlet density [kg/m³]
+#     rho2        : Rotor outlet density [kg/m³]
+#     mu1         : Rotor inlet dynamic viscosity [Pa·s]
+#     mu2         : Rotor outlet dynamic viscosity [Pa·s]
+#     k_roughness : Blade surface roughness [m]  (self.params['k_imp'])
+
+#     References
+#     ----------
+#     Aungier, R.H., Centrifugal Compressors, ASME Press, 2000, §5.
+#     Oh, H.W. et al., Proc. IMechE Part A, 211(4), 331–338, 1997.
+#     Moody, L.F., Trans. ASME, 66(8), 671–684, 1944.
+#     """
+
+#     w_bar = np.max([np.sqrt((w1**2 + w2**2) / 2),
+#                     np.sqrt((w1_th**2 + w2**2) / 2)])
+
+#     # Blade length and hydraulic diameter (inchangés)
+#     fact1 = 2*r2 - (r1s + r1h) - b2 + 2*L_z
+#     fact2 = 2 / ((np.cos(beta1s) + np.cos(beta1h)) / 2 + np.cos(xhi2))
+#     L_b   = (np.pi / 8) * fact1 * fact2
+
+#     term1 = 2*r2 / (n_bl_r / (np.pi * np.cos(xhi2)) + 2*r2 / b2)
+#     term2 = 2*r1s / (2 / (1 - r1h/r1s)
+#             + 2*n_bl_r / (np.pi*(1 + r1h/r1s))
+#             * np.sqrt(1 + np.tan(beta1s)**2 * (1 + (r1h/r1s)**2 / 2)))
+#     D_hb  = term1 + term2
+
+#     # ------------------------------------------------------------------ #
+#     # Reynolds number — mean channel conditions (Aungier 2000, §5)
+#     rho_mean = (rho1 + rho2) / 2
+#     mu_mean  = (mu1  + mu2)  / 2
+#     Re       = rho_mean * w_bar * D_hb / mu_mean
+
+#     Re = max(Re, 1e3)   # évite division par zéro en cas dégénéré
+
+#     # ------------------------------------------------------------------ #
+#     # Friction coefficient — Colebrook-White via approximation
+#     # explicite de Swamee & Jain (1976), valide Re > 5000
+#     #
+#     #   1/sqrt(f) = -2 log10(k/(3.7*Dh) + 2.51/(Re*sqrt(f)))
+#     #
+#     # Approximation explicite (erreur < 1%) :
+#     #   f = 0.25 / [log10(k/(3.7*Dh) + 5.74/Re^0.9)]²
+#     #
+#     # Pour Re < 2300 (laminaire) : f = 64 / Re  (Hagen-Poiseuille)
+#     # Pour 2300 < Re < 5000 (transition) : interpolation linéaire
+#     #
+#     # References : Moody (1944), Swamee & Jain (1976)
+#     # ------------------------------------------------------------------ #
+#     relative_roughness = k_roughness / D_hb
+
+#     if Re < 2300:
+#         # Laminaire — Hagen-Poiseuille
+#         f_D = 64.0 / Re
+#     elif Re < 5000:
+#         # Zone de transition — interpolation linéaire
+#         f_lam  = 64.0 / 2300
+#         f_turb = 0.25 / (np.log10(relative_roughness / 3.7
+#                                     + 5.74 / 5000**0.9))**2
+#         t = (Re - 2300) / (5000 - 2300)
+#         f_D = (1 - t) * f_lam + t * f_turb
+#     else:
+#         # Turbulent — Swamee & Jain (1976)
+#         f_D = 0.25 / (np.log10(relative_roughness / 3.7
+#                                 + 5.74 / Re**0.9))**2
+
+#     # Fanning friction factor : C_f = f_D / 4
+#     C_fi_computed = f_D / 4
+
+#     # ------------------------------------------------------------------ #
+#     # Pertes de frottement (formule inchangée, C_fi remplacé)
+#     Dh_f = 4 * C_fi_computed * (L_b / (2 * D_hb)) * w_bar**2
+
+#     return Dh_f
 
 def rotor_blade_loading_losses(C_df, Dh0, n_bl_r, r1s, r2, u2, w1, w1s, w2):
     """
@@ -180,7 +234,12 @@ def rotor_blade_loading_losses(C_df, Dh0, n_bl_r, r1s, r2, u2, w1, w1s, w2):
     """    
     
     # Blade Diffusion Factor 
-    D_f = 1- w2/w1 + C_df*(Dh0/u2**2)*(w2/w1s)/(n_bl_r/np.pi * (1-r1s/r2) + 2*r1s/r2)
+    # D_f = 1- w2/w1 + C_df*(Dh0/u2**2)*(w2/w1s)/(n_bl_r/np.pi * (1-r1s/r2) + 2*r1s/r2)
+    
+    num = 0.75*Dh0/u2**2
+    den = w1s/w2 * (n_bl_r/np.pi * (1-r1s/r2) + 2*(r1s/r2))
+    
+    D_f = 1- w2/w1s + num/den
     
     # Losses
     Dh_bl = 0.05*D_f**2*u2**2
@@ -409,8 +468,8 @@ def stator_friction_losses(C_f, r3, r5, vm, xhi3, xhi5):
 # def radial_compressor_rotor_losses(A1, A1_th, alpha2, beta1, beta1h, beta1s, b2, C_df, C_fi, Dh0, eps_a, eps_b, eps_r, L_z, mdot, mu2, n_bl_r,
 #                                    rho1, rho2, r1h, r1s, r2, u2, vu2, v1m, v2, w1, w1_th, w1s, w2, xhi1, xhi2):
     
-def radial_compressor_rotor_losses(A1, A1_th, alpha2, beta1, beta1h, beta1s, b2, C_df, C_fi, Dh0, eps_a, eps_b, eps_r, k_roughness, L_z, mdot, mu1, mu2, n_bl_r,
-                                        rho1, rho2, r1h, r1s, r2, u2, vu2, v1m, v2, w1, w1_th, w1s, w2, xhi1, xhi2):
+def radial_compressor_rotor_losses(A1, A1_th, alpha2, beta1, beta1h, beta1s, beta2, b2, C_df, C_fi, Dh0, eps_a, eps_b, eps_r, k_roughness, L_z, mdot, mu1, mu2, n_bl_r,
+                                        rho1, rho2, r1h, r1s, r2, u2, vu2, v1m, v2, w1, w1_th, w1h, w1s, w2, xhi1, xhi2):
     """
     A1 : Rotor inlet area [m2] (from blade pitch * height)
     A1_th : Rotor inlet throat area [m2] (from inlet throat opening * height)
@@ -458,9 +517,46 @@ def radial_compressor_rotor_losses(A1, A1_th, alpha2, beta1, beta1h, beta1s, b2,
     Dh_rot['inc'] = rotor_incidence_losses(A1, A1_th, beta1, w1, xhi1)
     
     # Dh_rot['f'] = rotor_friction_losses(beta1h, beta1s, b2, C_fi, L_z, n_bl_r, r1h, r1s, r2, w1, w1_th, w2, xhi2)
-    Dh_rot['f'] = rotor_friction_losses(beta1h, beta1s, b2, C_fi, L_z, n_bl_r, r1h, r1s, r2, w1, w1_th, w2, xhi2, rho1=rho1, rho2=rho2, mu1=mu1, mu2=mu2, k_roughness=k_roughness)   # self.params['k_imp'])
+    # Dh_rot['f'] = rotor_friction_losses(beta1h, beta1s, b2, C_fi, L_z, n_bl_r, r1h, r1s, r2, w1, w1_th, w2, xhi2, rho1=rho1, rho2=rho2, mu1=mu1, mu2=mu2, k_roughness=k_roughness)   # self.params['k_imp'])
     
-    Dh_rot['bl'] = rotor_blade_loading_losses(C_df, Dh0, n_bl_r, r1s, r2, u2, w1, w1s, w2)
+    w_bar = (2*w2 + w1s + w1h)/4 
+    
+    # Blade length and hydraulic diameter (inchangés)
+    fact1 = 2*r2 - (r1s + r1h) - b2 + 2*L_z
+    fact2 = 2 / ((np.cos(beta1s) + np.cos(beta1h)) / 2 + np.cos(xhi2))
+    L_b   = (np.pi / 8) * fact1 * fact2
+
+    term1 = 2*r2 / (n_bl_r / (np.pi * np.cos(xhi2)) + 2*r2 / b2)
+    term2 = 2*r1s / (2 / (1 - r1h/r1s)
+            + 2*n_bl_r / (np.pi*(1 + r1h/r1s))
+            * np.sqrt(1 + np.tan(beta1s)**2 * (1 + (r1h/r1s)**2 / 2)))
+    D_hb  = term1 + term2
+
+    # ------------------------------------------------------------------ #
+    # Reynolds number — mean channel conditions (Aungier 2000, §5)
+    rho_mean = (rho1 + rho2) / 2
+    mu_mean  = (mu1  + mu2)  / 2
+    Re       = rho_mean * w_bar * D_hb / mu_mean
+
+    relative_roughness = k_roughness / D_hb
+
+    if Re < 2300:
+        f_D = 64.0 / Re
+    elif Re < 5000:
+        f_lam  = 64.0 / 2300
+        f_turb = 0.25 / (np.log10(relative_roughness / 3.7
+                                    + 5.74 / 5000**0.9))**2
+        t = (Re - 2300) / (5000 - 2300)
+        f_D = (1 - t) * f_lam + t * f_turb
+    else:
+        f_D = 0.25 / (np.log10(relative_roughness / 3.7
+                                + 5.74 / Re**0.9))**2
+
+    C_f_computed = f_D / 4
+    
+    Dh_rot['f'] = rotor_friction_losses(beta1h, beta1s, beta2, b2, C_f_computed, L_z, n_bl_r, r1h, r1s, r2, w1, w1s, w1h, w1_th, w2, xhi2)
+    
+    Dh_rot['bl'] = rotor_blade_loading_losses(C_f_computed, Dh0, n_bl_r, r1s, r2, u2, w1, w1s, w2)
     
     Dh_rot['cl'] = rotor_clearance_losses(b2, eps_a, eps_r, n_bl_r, rho1, rho2, r1h, r1s, r2, vu2, v1m)
     
@@ -468,10 +564,12 @@ def radial_compressor_rotor_losses(A1, A1_th, alpha2, beta1, beta1h, beta1s, b2,
     
     Dh_rot['df'] = rotor_disc_friction_losses(b2, eps_b, mdot, mu2, rho1, rho2, r2, u2)
     
-    Dh_rot['rc'] = rotor_recirculation_losses(alpha2, C_df, Dh0, n_bl_r, r1s, r2, u2, w1, w1s, w2)
+    Dh_rot['rc'] = rotor_recirculation_losses(alpha2, C_f_computed, Dh0, n_bl_r, r1s, r2, u2, w1, w1s, w2)
     
     Dh_rot['tot'] = Dh_rot['inc'] + Dh_rot['f'] + Dh_rot['bl'] + Dh_rot['cl'] + Dh_rot['ml'] + Dh_rot['df'] + Dh_rot['rc']
     
+    Dh_rot['Cfcomp'] = C_f_computed
+
     return Dh_rot
 
 #%%

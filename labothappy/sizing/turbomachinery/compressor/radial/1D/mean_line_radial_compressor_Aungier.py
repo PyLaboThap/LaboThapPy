@@ -343,43 +343,17 @@ class RadialCPMLDesign(object):
         
         self.A1_th = self.o1 * b1 * self.n_blade_R
         
-        def compute_h1_new(h1): 
-            
-            self.update_static_AS(CP.HmassSmass_INPUTS, h1, self.total_states['S'][1], 1) 
-                        
-            self.Vel_Tri_R['vm1'] = vm1 = self.inputs['mdot']/(self.static_states['D'][1]*self.A1_th)
-            
-            self.Vel_Tri_R['beta1'] = beta1 = np.pi/180*self.inputs['xhi1'] # np.arctan(u1/vm1)
-            self.Vel_Tri_R['w1'] = w1 = vm1/np.cos(beta1)
-            self.Vel_Tri_R['wu1'] = w1*np.sin(beta1)
-            
-            self.Vel_Tri_R['vu1'] = vu1 = self.Vel_Tri_R['wu1'] + self.Vel_Tri_R['u1']
-            self.Vel_Tri_R['v1'] = v1 = np.sqrt(vm1**2 + vu1**2)
-            self.Vel_Tri_R['alpha1'] = np.arccos(vm1/v1)
-            
-            self.beta1h = np.arctan(u1h/vm1)
-            self.beta1s = np.arctan(u1s/vm1)
-            
-            self.w1s = vm1/np.cos(self.beta1s)
-                        
-            h1_new = (self.total_states['H'][1] - v1**2 / 2) 
-                        
-            return h1_new
-        
         # def compute_h1_new(h1): 
             
         #     self.update_static_AS(CP.HmassSmass_INPUTS, h1, self.total_states['S'][1], 1) 
                         
         #     self.Vel_Tri_R['vm1'] = vm1 = self.inputs['mdot']/(self.static_states['D'][1]*self.A1_th)
-        #     self.Vel_Tri_R['vu1'] = vu1 = 0
-        #     self.Vel_Tri_R['wu1'] = wu1 = self.Vel_Tri_R['vu1'] - self.Vel_Tri_R['u1']
-
-        #     self.Vel_Tri_R['w1'] = w1 = np.sqrt(wu1**2 + vm1**2)
-        #     self.Vel_Tri_R['beta1'] = beta1 = np.arcsin(w1/self.Vel_Tri_R['wu1'])
-
-        #     # self.Vel_Tri_R['beta1'] = beta1 = np.pi/180*self.inputs['xhi1'] # np.arctan(u1/vm1)
-        #     # self.Vel_Tri_R['w1'] = w1 = vm1/np.cos(beta1)
-
+            
+        #     self.Vel_Tri_R['beta1'] = beta1 = np.pi/180*self.inputs['xhi1'] # np.arctan(u1/vm1)
+        #     self.Vel_Tri_R['w1'] = w1 = vm1/np.cos(beta1)
+        #     self.Vel_Tri_R['wu1'] = w1*np.sin(beta1)
+            
+        #     self.Vel_Tri_R['vu1'] = vu1 = self.Vel_Tri_R['wu1'] + self.Vel_Tri_R['u1']
         #     self.Vel_Tri_R['v1'] = v1 = np.sqrt(vm1**2 + vu1**2)
         #     self.Vel_Tri_R['alpha1'] = np.arccos(vm1/v1)
             
@@ -387,10 +361,38 @@ class RadialCPMLDesign(object):
         #     self.beta1s = np.arctan(u1s/vm1)
             
         #     self.w1s = vm1/np.cos(self.beta1s)
+        #     self.w1h = vm1/np.cos(self.beta1h)
                         
         #     h1_new = (self.total_states['H'][1] - v1**2 / 2) 
                         
         #     return h1_new
+        
+        def compute_h1_new(h1): 
+            
+            self.update_static_AS(CP.HmassSmass_INPUTS, h1, self.total_states['S'][1], 1) 
+                        
+            self.Vel_Tri_R['vm1'] = vm1 = self.inputs['mdot']/(self.static_states['D'][1]*self.A1_th)
+            self.Vel_Tri_R['vu1'] = vu1 = 0
+            self.Vel_Tri_R['wu1'] = wu1 = self.Vel_Tri_R['vu1'] - self.Vel_Tri_R['u1']
+
+            self.Vel_Tri_R['w1'] = w1 = np.sqrt(wu1**2 + vm1**2)
+            self.Vel_Tri_R['beta1'] = beta1 = np.arcsin(self.Vel_Tri_R['wu1']/w1)
+
+            # self.Vel_Tri_R['beta1'] = beta1 = np.pi/180*self.inputs['xhi1'] # np.arctan(u1/vm1)
+            # self.Vel_Tri_R['w1'] = w1 = vm1/np.cos(beta1)
+
+            self.Vel_Tri_R['v1'] = v1 = np.sqrt(vm1**2 + vu1**2)
+            self.Vel_Tri_R['alpha1'] = np.arccos(vm1/v1)
+            
+            self.beta1h = np.arctan(u1h/vm1)
+            self.beta1s = np.arctan(u1s/vm1)
+            
+            self.w1s = vm1/np.cos(self.beta1s)
+            self.w1h = vm1/np.cos(self.beta1h)   
+            
+            h1_new = (self.total_states['H'][1] - v1**2 / 2) 
+                        
+            return h1_new
         
         def solve_h1_fixed_point(
             h0,
@@ -424,7 +426,7 @@ class RadialCPMLDesign(object):
             tol=1e-5,
             relaxation=0.3
         )
-                
+                    
         "R2) Rotor Outlet"
         
         # Rotor Outlet Area
@@ -432,7 +434,6 @@ class RadialCPMLDesign(object):
         self.A2_th = b2*pitch2*self.n_blade_R
         
         # Slip Factor
-        
         self.sigma = 1 - np.sqrt(np.cos(self.inputs['xhi2']*np.pi/180))/(self.n_blade_R)**0.7 # Aungier
         angle_star_deg = 19 + 0.2*(90 - self.inputs['xhi2'])
         sigma_star = np.sin(np.pi/180 * angle_star_deg)
@@ -444,75 +445,132 @@ class RadialCPMLDesign(object):
             fact = 1 - (num/(1-sigma_star))
             self.sigma = self.sigma*fact
         
-        def system_rotor(x): # Mass Balance solving
-            # guess outlet state (imposing input p_ex) and radii   
-            h2 = x[0]*1e5
-            p2 = x[1]*1e5
+        # def system_rotor(x): # Mass Balance solving
+        #     # guess outlet state (imposing input p_ex) and radii   
+        #     h2 = x[0]*1e5
+        #     p2 = x[1]*1e5
             
-            self.update_static_AS(CP.HmassP_INPUTS, h2, p2, 2)
-            rho2 = self.static_states['D'][2]
-            s2 = self.static_states['S'][2]
+        #     self.update_static_AS(CP.HmassP_INPUTS, h2, p2, 2)
+        #     rho2 = self.static_states['D'][2]
+        #     s2 = self.static_states['S'][2]
             
-            self.Vel_Tri_R['vm2'] = self.Vel_Tri_R['wm2'] = vm2 = wm2 = self.inputs['mdot']/(rho2*self.A2_th)
-            self.Vel_Tri_R['vu2'] = vu2 = self.sigma*self.Vel_Tri_R['u2'] - vm2*np.tan(np.pi*self.inputs['xhi2']/180)
-            self.Vel_Tri_R['v2'] = v2 = np.sqrt(vm2**2 + vu2**2)
+        #     self.Vel_Tri_R['vm2'] = self.Vel_Tri_R['wm2'] = vm2 = wm2 = self.inputs['mdot']/(rho2*self.A2_th)
+        #     self.Vel_Tri_R['vu2'] = vu2 = self.sigma*self.Vel_Tri_R['u2'] - vm2*np.tan(abs(np.pi*self.inputs['xhi2']/180))
+        #     self.Vel_Tri_R['v2'] = v2 = np.sqrt(vm2**2 + vu2**2)
 
-            self.Vel_Tri_R['wu2'] = wu2 = vu2 - self.Vel_Tri_R['u2']
-            self.Vel_Tri_R['beta2'] = beta2 = np.arctan(wu2/wm2)
-            self.Vel_Tri_R['w2'] = w2 = vm2/np.cos(beta2)
+        #     self.Vel_Tri_R['wu2'] = wu2 = vu2 - self.Vel_Tri_R['u2']
+        #     self.Vel_Tri_R['beta2'] = beta2 = np.arctan(wu2/wm2)
+        #     self.Vel_Tri_R['w2'] = w2 = vm2/np.cos(beta2)
             
-            self.Vel_Tri_R['alpha2'] = alpha2 = np.arccos(self.Vel_Tri_R['vm2']/self.Vel_Tri_R['v2'])
+        #     self.Vel_Tri_R['alpha2'] = alpha2 = np.arccos(self.Vel_Tri_R['vm2']/self.Vel_Tri_R['v2'])
             
-            self.dh0 = vu2*self.Vel_Tri_R['u2'] - self.Vel_Tri_R['u1']*self.Vel_Tri_R['vu1']
+        #     self.dh0 = vu2*self.Vel_Tri_R['u2'] - self.Vel_Tri_R['u1']*self.Vel_Tri_R['vu1']
             
-            self.params['L_z'] = L_z = 1.5*self.params['b1'] # !!! Rule for turbines : check for replacement
+        #     self.params['L_z'] = L_z = 1.5*self.params['b1'] # !!! Rule for turbines : check for replacement
+            
+        #     self.rotor_losses = radial_compressor_rotor_losses(
+        #         A1 = self.A1, A1_th = self.A1_th, alpha2 = alpha2, beta1 = self.Vel_Tri_R['beta1'], beta1h = self.beta1h, 
+        #         beta1s = self.beta1s, beta2 = self.Vel_Tri_R['beta2'],  b2 = self.params['b2'], C_df = 0.004, C_fi = 0.004, Dh0 = self.dh0, eps_a = self.params['eps_imp'],
+        #         eps_b = self.params['eps_bf_imp'], eps_r = self.params['eps_imp'], k_roughness = self.params['k_imp'], L_z = L_z, mdot = self.inputs['mdot'], 
+        #         mu1 = self.static_states['V'][1], mu2 = self.static_states['V'][2], n_bl_r = self.n_blade_R, rho1 = self.static_states['D'][1], 
+        #         rho2 = self.static_states['D'][2], r1h = self.params['r1h'], r1s = self.params['r1s'], r2 = self.params['r2'], u2 = self.Vel_Tri_R['u2'], 
+        #         vu2 = vu2, v1m = self.Vel_Tri_R['vm1'], v2 = v2, w1 = self.Vel_Tri_R['w1'], w1_th = self.Vel_Tri_R['w1'], w1h = self.w1h,
+        #         w1s = self.w1s, w2 = w2, xhi1 = self.inputs['xhi1']*np.pi/180, xhi2 = self.inputs['xhi2']*np.pi/180)
+            
+        #     # print(self.rotor_losses['tot'])
+        #     # print("="*30)
+            
+        #     self.AS.update(CP.PSmass_INPUTS, p2, self.static_states['S'][1])
+            
+        #     h2_new = self.AS.hmass() + self.rotor_losses['tot']
+            
+        #     self.update_static_AS(CP.HmassP_INPUTS, h2_new, p2, 2)
+            
+        #     h02 = h2_new + v2**2/2
+        #     self.update_total_AS(CP.HmassSmass_INPUTS, h02, self.static_states['S'][2], 2)
+
+        #     h02_new = self.total_states['H'][1] + self.dh0
+
+        #     f1 = ((h2 - h2_new)/h2_new)**2
+        #     # f2 = ((p2 - self.static_states['P'][2])/self.static_states['P'][2])**2
+        #     f2 = ((h02-h02_new)/h02_new)**2
+            
+        #     return np.sum(np.array([f1, f2]))
+        
+        def system_rotor(vm2): # Mass Balance solving
+            # print(f"vm2 : {vm2}")    
+        
+            self.Vel_Tri_R['vm2'] = vm2
+        
+            rho2 = self.inputs['mdot']/(vm2*self.A2_th) # vm2 <-> rho2
+            
+            self.Vel_Tri_R['vu2'] = vu2 = self.sigma*self.Vel_Tri_R['u2'] - vm2*np.tan(self.inputs['xhi2']*np.pi/180) # vu2 <-> vm2
+            
+            self.dh0 = vu2*self.Vel_Tri_R['u2'] - self.Vel_Tri_R['vu1']*self.Vel_Tri_R['u1']
+            
+            h02 = self.total_states['H'][1] + self.dh0 # vu2 <-> h02
+            
+            self.Vel_Tri_R['v2'] = v2 = np.sqrt(vu2**2 + vm2**2)
+
+            h2 = h02 - v2**2 /2
+
+            s2 = PropsSI('S', 'H', h2, 'D', rho2, self.AS.fluid_names()[0]) 
+
+            self.update_static_AS(CP.HmassSmass_INPUTS, h2, s2, 2)
+            self.update_total_AS(CP.HmassSmass_INPUTS, h02, self.static_states['S'][2], 2)
+
+            self.AS.update(CP.PSmass_INPUTS, self.static_states['P'][2], self.total_states['S'][1]) # get p2 ? 
+            h_is = self.AS.hmass()
+            
+            self.Vel_Tri_R['alpha2'] = alpha2 = np.arccos(vm2/v2)
+            
+            self.params['L_z'] = L_z = 0.11 # (self.params['r2'] - self.params['r1']) / 2 # !!! Rule for turbines : check for replacemen
+            
+            self.Vel_Tri_R['wu2'] = wu2 =  self.Vel_Tri_R['vu2'] - self.Vel_Tri_R['u2']
+            
+            self.Vel_Tri_R['w2'] = w2 = np.sqrt(wu2**2 + vm2**2)
+            
+            self.Vel_Tri_R['beta2'] = beta2 = np.arccos(vm2/w2)
             
             self.rotor_losses = radial_compressor_rotor_losses(
                 A1 = self.A1, A1_th = self.A1_th, alpha2 = alpha2, beta1 = self.Vel_Tri_R['beta1'], beta1h = self.beta1h, 
-                beta1s = self.beta1s, b2 = self.params['b2'], C_df = 0.004, C_fi = 0.004, Dh0 = self.dh0, eps_a = self.params['eps_imp'],
+                beta1s = self.beta1s, beta2 = self.Vel_Tri_R['beta2'],  b2 = self.params['b2'], C_df = 0.004, C_fi = 0.004, Dh0 = self.dh0, eps_a = self.params['eps_imp'],
                 eps_b = self.params['eps_bf_imp'], eps_r = self.params['eps_imp'], k_roughness = self.params['k_imp'], L_z = L_z, mdot = self.inputs['mdot'], 
                 mu1 = self.static_states['V'][1], mu2 = self.static_states['V'][2], n_bl_r = self.n_blade_R, rho1 = self.static_states['D'][1], 
                 rho2 = self.static_states['D'][2], r1h = self.params['r1h'], r1s = self.params['r1s'], r2 = self.params['r2'], u2 = self.Vel_Tri_R['u2'], 
-                vu2 = vu2, v1m = self.Vel_Tri_R['vm1'], v2 = v2, w1 = self.Vel_Tri_R['w1'], w1_th = self.Vel_Tri_R['w1'],
+                vu2 = vu2, v1m = self.Vel_Tri_R['vm1'], v2 = v2, w1 = self.Vel_Tri_R['w1'], w1_th = self.Vel_Tri_R['w1'], w1h = self.w1h,
                 w1s = self.w1s, w2 = w2, xhi1 = self.inputs['xhi1']*np.pi/180, xhi2 = self.inputs['xhi2']*np.pi/180)
             
-            # print(self.rotor_losses['tot'])
-            # print("="*30)
+            h2_new = self.rotor_losses['tot'] + h_is
             
-            self.AS.update(CP.PSmass_INPUTS, p2, self.static_states['S'][1])
+            res = (h2 - h2_new)
             
-            h2_new = self.AS.hmass() + self.rotor_losses['tot']
-            
-            self.update_static_AS(CP.HmassP_INPUTS, h2_new, p2, 2)
-            
-            h02 = h2_new + v2**2/2
-            self.update_total_AS(CP.HmassSmass_INPUTS, h02, self.static_states['S'][2], 2)
+            # print(f"res : {res}")    
 
-            f1 = ((h2 - h2_new)/h2_new)**2
-            f2 = ((p2 - self.static_states['P'][2])/self.static_states['P'][2])**2
-            
-            return np.sum(np.array([f1, f2]))
+            return res
         
-        # Initial guess
-        x0 = [self.static_states['H'][1] * 1e-5, self.inputs['p_ex'] * 1e-5]
+        # # Initial guess
+        # x0 = [self.static_states['H'][1] * 1e-5, self.inputs['p_ex'] * 1e-5]
         
-        # Bounds (in minimize, you need a sequence of (low, high) tuples)
+        # # Bounds (in minimize, you need a sequence of (low, high) tuples)
         
-        if self.static_states['P'][1] <= self.AS.p_critical():
-            self.AS.update(CP.PQ_INPUTS, self.static_states['P'][1], 1)
-            h_sat = self.AS.hmass() - 100
-            h_max = h_sat
-        else:
-            h_max = self.static_states['H'][1] + self.Dh0s
+        # if self.static_states['P'][1] <= self.AS.p_critical():
+        #     self.AS.update(CP.PQ_INPUTS, self.static_states['P'][1], 1)
+        #     h_sat = self.AS.hmass() - 100
+        #     h_max = h_sat
+        # else:
+        #     h_max = self.static_states['H'][1] + self.Dh0s
         
-        bounds = [
-            (self.static_states['H'][1] * 1e-5, h_max * 1e-5),
-            (self.inputs['p_ex'] * 1e-5, self.inputs['p_ex'] * 1e-5 * 1.3)
-        ]
+        # bounds = [
+        #     (self.static_states['H'][1] * 1e-5, h_max * 1e-5),
+        #     (self.inputs['p_ex'] * 1e-5, self.inputs['p_ex'] * 1e-5 * 1.3)
+        # ]
         
         # Call minimize (trust-constr works well with bounds, but L-BFGS-B is simpler)
-        self.sol_rotor_ex = minimize(system_rotor, x0, method='L-BFGS-B', bounds=bounds,
-                       options={'ftol': 1e-8, 'gtol': 1e-8})
+        # self.sol_rotor_ex = minimize(system_rotor, x0, method='L-BFGS-B', bounds=bounds,
+        #                options={'ftol': 1e-8, 'gtol': 1e-8})
+        
+        self.sol_rotor_ex = brentq(system_rotor, 5, 150, xtol=1e-6)
         
         "Compute constraint terms"
         
@@ -587,6 +645,7 @@ class RadialCPMLDesign(object):
         self.update_total_AS(CP.HmassSmass_INPUTS, h04, s4, 4)
         self.params['r3'] = self.params['r2']*self.inputs['r3_r2']
         self.Vel_Tri_R['u3'] = self.Vel_Tri_R['u2']*self.inputs['r3_r2']
+        self.params['b3'] = self.params['b2'] *  self.params['b3_b2_ratio']
 
         self.params['pitch3'] = pitch3 = 2*np.pi*self.params['r3'] / self.n_blade_R  # n_blade_S = n_blade_R
         self.A3 = pitch3 * self.params['b2'] *  self.n_blade_R 
@@ -626,7 +685,7 @@ class RadialCPMLDesign(object):
         # alpha 5 so that p5 = p_ex
         self.params['r5'] = self.params['r3']*self.inputs['r5_r3']
         self.A5 = self.A3_th*self.params['b5_b3']*self.inputs['r5_r3']
-        
+        self.params['b5'] = self.params['b3']*self.params['b5_b3']
         # v5 = m_dot/(rho5 * np.cos(alpha5) * A5)
         
         def system_stator(x): # Mass Balance solving
@@ -641,7 +700,7 @@ class RadialCPMLDesign(object):
             h05 = self.total_states['H'][4]
             h5 = h05 - v5**2 / 2
                                     
-            self.stator_losses = radial_compressor_stator_losses(A4 = self.A3, A4_th = self.A3_th, beta4 = self.Vel_Tri_S['beta4'], C_f=0.004, 
+            self.stator_losses = radial_compressor_stator_losses(A4 = self.A3, A4_th = self.A3_th, beta4 = self.Vel_Tri_S['beta4'], C_f=0.004,
                                                                  r3 = self.params['r3'], r4 = self.params['r3'], r5 = self.params['r5'], 
                                                                  vm = self.Vel_Tri_S['vm5'], w4 = self.Vel_Tri_S['w4'], xhi3 = self.Vel_Tri_S['alpha3'], 
                                                                  xhi4 = self.Vel_Tri_S['alpha4'], xhi5 = self.Vel_Tri_S['alpha5'])
@@ -656,6 +715,8 @@ class RadialCPMLDesign(object):
             
             res1 = (h5 - h5_new)**2
             res2 = (self.inputs['mdot'] - self.static_states['D'][5]*np.cos(alpha5)*self.A5*v5)**2
+            
+            self.params['xhi5'] = alpha5
             
             return np.sum(np.array([res1, res2]))
         
@@ -699,7 +760,7 @@ class RadialCPMLDesign(object):
         
         try:
             self.designRotor()
-            
+        
             self.designStator()
         except:
             return 1000
@@ -797,7 +858,7 @@ class RadialCPMLDesign(object):
             bounds=bounds
         )
     
-        patience = 10
+        patience = 5
         tol = 1e-3
         max_iter = 30
         no_improve_counter = 0
@@ -883,7 +944,7 @@ Comp.set_parameters(
     r1h_r1s_bounds = [0.25, 0.4],
     b2_r2_bounds = [0.02, 0.08], 
     r5_r3_bounds = [1.01, 1.5],
-    r3_r2_bounds = [1.01, 1.5],
+    r3_r2_bounds = [1.01, 1.1],
     xhi1_bounds = [40, 70],
     xhi2_bounds = [20, 45],
     
