@@ -360,11 +360,21 @@ def rotor_recirculation_losses(alpha2, C_df, Dh0, n_bl_r, r1s, r2, u2, w1, w1s, 
     """    
     
     # Blade Diffusion Factor 
-    D_f = 1 - w2/w1 + C_df*(Dh0/u2**2)*(w2/w1s)/(n_bl_r/np.pi * (1-r1s/r2) + 2*r1s/r2)
+    # D_f = 1 - w2/w1 + C_df*(Dh0/u2**2)*(w2/w1s)/(n_bl_r/np.pi * (1-r1s/r2) + 2*r1s/r2)
+    
+    num = 0.75*Dh0/u2**2
+    den = w1s/w2 * (n_bl_r/np.pi * (1-r1s/r2) + 2*(r1s/r2))
+    
+    D_f = 1- w2/w1s + num/den
+    
+    # print(f"D_f : {D_f}")
     
     # Losses
-    Dh_rc = 8*1e-5*np.sinh(3.5*abs(alpha2)**3)*D_f**2*u2**2
-    
+    # Dh_rc = 8*1e-5*np.sinh(3.5*abs(alpha2)**3)*D_f**2*u2**2 # Oh et al.
+    Dh_rc = 0.02*np.tan(abs(alpha2))*D_f**2*u2**2 # Coppage et al.
+
+    # print(f"Dh_rc : {Dh_rc}")
+
     return Dh_rc
 
 #%%

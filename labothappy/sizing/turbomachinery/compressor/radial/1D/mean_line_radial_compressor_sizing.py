@@ -341,46 +341,20 @@ class RadialCPMLDesign(object):
         self.A1 = b1*pitch1*self.n_blade_R
         self.o1 = pitch1*np.cos(np.pi/180*self.inputs['xhi1']) - self.params['t_b']
         
-        self.A1_th = self.o1 * b1 * self.n_blade_R
-        
-        # def compute_h1_new(h1): 
-            
-        #     self.update_static_AS(CP.HmassSmass_INPUTS, h1, self.total_states['S'][1], 1) 
-                        
-        #     self.Vel_Tri_R['vm1'] = vm1 = self.inputs['mdot']/(self.static_states['D'][1]*self.A1_th)
-            
-        #     self.Vel_Tri_R['beta1'] = beta1 = np.pi/180*self.inputs['xhi1'] # np.arctan(u1/vm1)
-        #     self.Vel_Tri_R['w1'] = w1 = vm1/np.cos(beta1)
-        #     self.Vel_Tri_R['wu1'] = w1*np.sin(beta1)
-            
-        #     self.Vel_Tri_R['vu1'] = vu1 = self.Vel_Tri_R['wu1'] + self.Vel_Tri_R['u1']
-        #     self.Vel_Tri_R['v1'] = v1 = np.sqrt(vm1**2 + vu1**2)
-        #     self.Vel_Tri_R['alpha1'] = np.arccos(vm1/v1)
-            
-        #     self.beta1h = np.arctan(u1h/vm1)
-        #     self.beta1s = np.arctan(u1s/vm1)
-            
-        #     self.w1s = vm1/np.cos(self.beta1s)
-        #     self.w1h = vm1/np.cos(self.beta1h)
-                        
-        #     h1_new = (self.total_states['H'][1] - v1**2 / 2) 
-                        
-        #     return h1_new
-        
+        self.impeller_inlet_blockage = 1 - self.n_blade_R*self.params['t_b']/(np.pi*r1*2*np.sin(np.pi*abs(self.inputs['xhi1'])/180)) 
+        self.A1_th = np.pi*(r1s**2 - r1h**2)*self.impeller_inlet_blockage
+
         def compute_h1_new(h1): 
             
             self.update_static_AS(CP.HmassSmass_INPUTS, h1, self.total_states['S'][1], 1) 
                         
             self.Vel_Tri_R['vm1'] = vm1 = self.inputs['mdot']/(self.static_states['D'][1]*self.A1_th)
-            self.Vel_Tri_R['vu1'] = vu1 = 0
-            self.Vel_Tri_R['wu1'] = wu1 = self.Vel_Tri_R['vu1'] - self.Vel_Tri_R['u1']
-
-            self.Vel_Tri_R['w1'] = w1 = np.sqrt(wu1**2 + vm1**2)
-            self.Vel_Tri_R['beta1'] = beta1 = np.arcsin(self.Vel_Tri_R['wu1']/w1)
-
-            # self.Vel_Tri_R['beta1'] = beta1 = np.pi/180*self.inputs['xhi1'] # np.arctan(u1/vm1)
-            # self.Vel_Tri_R['w1'] = w1 = vm1/np.cos(beta1)
-
+            
+            self.Vel_Tri_R['beta1'] = beta1 = 0 # np.arctan(u1/vm1)
+            self.Vel_Tri_R['w1'] = w1 = vm1/np.cos(beta1)
+            self.Vel_Tri_R['wu1'] = w1*np.sin(beta1)
+            
+            self.Vel_Tri_R['vu1'] = vu1 = self.Vel_Tri_R['wu1'] + self.Vel_Tri_R['u1']
             self.Vel_Tri_R['v1'] = v1 = np.sqrt(vm1**2 + vu1**2)
             self.Vel_Tri_R['alpha1'] = np.arccos(vm1/v1)
             
@@ -388,50 +362,35 @@ class RadialCPMLDesign(object):
             self.beta1s = np.arctan(u1s/vm1)
             
             self.w1s = vm1/np.cos(self.beta1s)
-            self.w1h = vm1/np.cos(self.beta1h)   
-            
+            self.w1h = vm1/np.cos(self.beta1h)
+                        
             h1_new = (self.total_states['H'][1] - v1**2 / 2) 
                         
             return h1_new
-        
-        def solve_h1_fixed_point(
-            h0,
-            tol=1e-5,
-            max_iter=100,
-            relaxation=0.3
-        ):
-                        
-            h = h0
-        
-            for k in range(max_iter):
-        
-                h_new = compute_h1_new(h)
-        
-                # Under-relaxation
-                h_next = (1 - relaxation) * h + relaxation * h_new
-        
-                err = abs(h_next - h) / abs(h)
-                
-                if err < tol:
-                    return h_next
-        
-                h = h_next
-                            
-            raise RuntimeError("Fixed-point iteration did not converge")
-            
-        h0 = self.total_states['H'][1]   # good initial guess
 
-        h1_solution = solve_h1_fixed_point(
-            h0,
-            tol=1e-5,
-            relaxation=0.3
-        )
-                    
+
+        def residual_h1(h1):
+            
+            # print(f"x : {h1}")
+            res = h1 - compute_h1_new(h1)
+            
+            # print(f"res : {res}")
+
+            return res
+        
+        # Bounds for brentq
+        h1_min = self.total_states['H'][1] * 0.95   # large kinetic energy → low static h
+        h1_max = self.total_states['H'][1]           # zero velocity → h1 = h01
+        
+        h1_solution = brentq(residual_h1, h1_min, h1_max, xtol=1e-6)
+                
         "R2) Rotor Outlet"
         
         # Rotor Outlet Area
         self.params['pitch2'] = pitch2 = 2*np.pi*r2/self.n_blade_R
         self.A2_th = b2*pitch2*self.n_blade_R
+        
+        self.A2_th = (2*np.pi*r2*b2-self.n_blade_R*b2*self.params['t_b'])*np.cos(np.pi*abs(self.inputs['xhi2'])/180)
         
         # Slip Factor
         self.sigma = 1 - np.sqrt(np.cos(self.inputs['xhi2']*np.pi/180))/(self.n_blade_R)**0.7 # Aungier
@@ -445,61 +404,8 @@ class RadialCPMLDesign(object):
             fact = 1 - (num/(1-sigma_star))
             self.sigma = self.sigma*fact
         
-        # def system_rotor(x): # Mass Balance solving
-        #     # guess outlet state (imposing input p_ex) and radii   
-        #     h2 = x[0]*1e5
-        #     p2 = x[1]*1e5
-            
-        #     self.update_static_AS(CP.HmassP_INPUTS, h2, p2, 2)
-        #     rho2 = self.static_states['D'][2]
-        #     s2 = self.static_states['S'][2]
-            
-        #     self.Vel_Tri_R['vm2'] = self.Vel_Tri_R['wm2'] = vm2 = wm2 = self.inputs['mdot']/(rho2*self.A2_th)
-        #     self.Vel_Tri_R['vu2'] = vu2 = self.sigma*self.Vel_Tri_R['u2'] - vm2*np.tan(abs(np.pi*self.inputs['xhi2']/180))
-        #     self.Vel_Tri_R['v2'] = v2 = np.sqrt(vm2**2 + vu2**2)
-
-        #     self.Vel_Tri_R['wu2'] = wu2 = vu2 - self.Vel_Tri_R['u2']
-        #     self.Vel_Tri_R['beta2'] = beta2 = np.arctan(wu2/wm2)
-        #     self.Vel_Tri_R['w2'] = w2 = vm2/np.cos(beta2)
-            
-        #     self.Vel_Tri_R['alpha2'] = alpha2 = np.arccos(self.Vel_Tri_R['vm2']/self.Vel_Tri_R['v2'])
-            
-        #     self.dh0 = vu2*self.Vel_Tri_R['u2'] - self.Vel_Tri_R['u1']*self.Vel_Tri_R['vu1']
-            
-        #     self.params['L_z'] = L_z = 1.5*self.params['b1'] # !!! Rule for turbines : check for replacement
-            
-        #     self.rotor_losses = radial_compressor_rotor_losses(
-        #         A1 = self.A1, A1_th = self.A1_th, alpha2 = alpha2, beta1 = self.Vel_Tri_R['beta1'], beta1h = self.beta1h, 
-        #         beta1s = self.beta1s, beta2 = self.Vel_Tri_R['beta2'],  b2 = self.params['b2'], C_df = 0.004, C_fi = 0.004, Dh0 = self.dh0, eps_a = self.params['eps_imp'],
-        #         eps_b = self.params['eps_bf_imp'], eps_r = self.params['eps_imp'], k_roughness = self.params['k_imp'], L_z = L_z, mdot = self.inputs['mdot'], 
-        #         mu1 = self.static_states['V'][1], mu2 = self.static_states['V'][2], n_bl_r = self.n_blade_R, rho1 = self.static_states['D'][1], 
-        #         rho2 = self.static_states['D'][2], r1h = self.params['r1h'], r1s = self.params['r1s'], r2 = self.params['r2'], u2 = self.Vel_Tri_R['u2'], 
-        #         vu2 = vu2, v1m = self.Vel_Tri_R['vm1'], v2 = v2, w1 = self.Vel_Tri_R['w1'], w1_th = self.Vel_Tri_R['w1'], w1h = self.w1h,
-        #         w1s = self.w1s, w2 = w2, xhi1 = self.inputs['xhi1']*np.pi/180, xhi2 = self.inputs['xhi2']*np.pi/180)
-            
-        #     # print(self.rotor_losses['tot'])
-        #     # print("="*30)
-            
-        #     self.AS.update(CP.PSmass_INPUTS, p2, self.static_states['S'][1])
-            
-        #     h2_new = self.AS.hmass() + self.rotor_losses['tot']
-            
-        #     self.update_static_AS(CP.HmassP_INPUTS, h2_new, p2, 2)
-            
-        #     h02 = h2_new + v2**2/2
-        #     self.update_total_AS(CP.HmassSmass_INPUTS, h02, self.static_states['S'][2], 2)
-
-        #     h02_new = self.total_states['H'][1] + self.dh0
-
-        #     f1 = ((h2 - h2_new)/h2_new)**2
-        #     # f2 = ((p2 - self.static_states['P'][2])/self.static_states['P'][2])**2
-        #     f2 = ((h02-h02_new)/h02_new)**2
-            
-        #     return np.sum(np.array([f1, f2]))
-        
         def system_rotor(vm2): # Mass Balance solving
-            # print(f"vm2 : {vm2}")    
-        
+
             self.Vel_Tri_R['vm2'] = vm2
         
             rho2 = self.inputs['mdot']/(vm2*self.A2_th) # vm2 <-> rho2
@@ -513,18 +419,25 @@ class RadialCPMLDesign(object):
             self.Vel_Tri_R['v2'] = v2 = np.sqrt(vu2**2 + vm2**2)
 
             h2 = h02 - v2**2 /2
-
-            s2 = PropsSI('S', 'H', h2, 'D', rho2, self.AS.fluid_names()[0]) 
+            
+            try:
+                self.AS.update(CP.DmassHmass_INPUTS, h2, rho2)
+                s2 = self.AS.smass()
+            except:   
+                try:
+                    s2 = PropsSI('S', 'H', h2, 'D', rho2, self.AS.fluid_names()[0]) 
+                except:
+                    return 1e6
 
             self.update_static_AS(CP.HmassSmass_INPUTS, h2, s2, 2)
             self.update_total_AS(CP.HmassSmass_INPUTS, h02, self.static_states['S'][2], 2)
 
-            self.AS.update(CP.PSmass_INPUTS, self.static_states['P'][2], self.total_states['S'][1]) # get p2 ? 
+            self.AS.update(CP.PSmass_INPUTS, self.total_states['P'][2], self.total_states['S'][1]) # get p2 ? 
             h_is = self.AS.hmass()
             
             self.Vel_Tri_R['alpha2'] = alpha2 = np.arccos(vm2/v2)
             
-            self.params['L_z'] = L_z = 0.11 # (self.params['r2'] - self.params['r1']) / 2 # !!! Rule for turbines : check for replacemen
+            self.params['L_z'] = L_z = 0.3*self.params['r2'] # (self.params['r2'] - self.params['r1']) / 2 # !!! Rule for turbines : check for replacemen
             
             self.Vel_Tri_R['wu2'] = wu2 =  self.Vel_Tri_R['vu2'] - self.Vel_Tri_R['u2']
             
@@ -541,36 +454,36 @@ class RadialCPMLDesign(object):
                 vu2 = vu2, v1m = self.Vel_Tri_R['vm1'], v2 = v2, w1 = self.Vel_Tri_R['w1'], w1_th = self.Vel_Tri_R['w1'], w1h = self.w1h,
                 w1s = self.w1s, w2 = w2, xhi1 = self.inputs['xhi1']*np.pi/180, xhi2 = self.inputs['xhi2']*np.pi/180)
             
-            h2_new = self.rotor_losses['tot'] + h_is
+            h02_new = self.rotor_losses['tot'] + h_is
+            h2_new = h02_new - v2**2 /2
+            
+            self.update_static_AS(CP.HmassSmass_INPUTS, h2_new, self.static_states['S'][2], 2)
+            
+            try:
+                s2 = self.static_states['S'][2]
+                self.update_total_AS(CP.HmassSmass_INPUTS, h02, s2, 2)
+            except Exception:
+                return 1e6
             
             res = (h2 - h2_new)
             
-            # print(f"res : {res}")    
-
             return res
         
-        # # Initial guess
-        # x0 = [self.static_states['H'][1] * 1e-5, self.inputs['p_ex'] * 1e-5]
+        # Lower bound: vm2 that gives rho2 = 3x inlet density (physically motivated)
+        rho2_max_phys = 3.0 * self.static_states['D'][1]
+        vm2_min = self.inputs['mdot'] / (rho2_max_phys * self.A2_th)
         
-        # # Bounds (in minimize, you need a sequence of (low, high) tuples)
+        # Upper bound: vm2 that gives rho2 = inlet density (minimum compression)
+        vm2_max = self.inputs['mdot'] / (self.static_states['D'][1] * self.A2_th)
         
-        # if self.static_states['P'][1] <= self.AS.p_critical():
-        #     self.AS.update(CP.PQ_INPUTS, self.static_states['P'][1], 1)
-        #     h_sat = self.AS.hmass() - 100
-        #     h_max = h_sat
-        # else:
-        #     h_max = self.static_states['H'][1] + self.Dh0s
+        # Safety check: ensure sign change exists before calling brentq
+        res_min = system_rotor(vm2_min)
+        res_max = system_rotor(vm2_max)
         
-        # bounds = [
-        #     (self.static_states['H'][1] * 1e-5, h_max * 1e-5),
-        #     (self.inputs['p_ex'] * 1e-5, self.inputs['p_ex'] * 1e-5 * 1.3)
-        # ]
+        if res_min * res_max > 0:
+            return 3333  # no root in interval — penalize this design point
         
-        # Call minimize (trust-constr works well with bounds, but L-BFGS-B is simpler)
-        # self.sol_rotor_ex = minimize(system_rotor, x0, method='L-BFGS-B', bounds=bounds,
-        #                options={'ftol': 1e-8, 'gtol': 1e-8})
-        
-        self.sol_rotor_ex = brentq(system_rotor, 5, 150, xtol=1e-6)
+        self.sol_rotor_ex = brentq(system_rotor, vm2_min, vm2_max, xtol=1e-6)
         
         "Compute constraint terms"
         
@@ -584,11 +497,6 @@ class RadialCPMLDesign(object):
         # Ratio de diffusion W2/W1s (contrainte ≥ 0.25)
         self.W2_W1s = self.Vel_Tri_R['w2'] / self.w1s
         
-        # Ouverture de gorge à l'inducteur o1 [m] — déjà calculée dans designRotor
-        # self.o1 est déjà dans ton code
-        
-        # Degré de réaction statique
-        # DR = (h2_static - h1_static) / (h02 - h01)  =  1 - (vu2 + vu1) / (2*u2)
         vu1 = self.Vel_Tri_R['vu1']
         vu2 = self.Vel_Tri_R['vu2']
         u2  = self.Vel_Tri_R['u2']
@@ -686,69 +594,96 @@ class RadialCPMLDesign(object):
         self.params['r5'] = self.params['r3']*self.inputs['r5_r3']
         self.A5 = self.A3_th*self.params['b5_b3']*self.inputs['r5_r3']
         self.params['b5'] = self.params['b3']*self.params['b5_b3']
-        # v5 = m_dot/(rho5 * np.cos(alpha5) * A5)
         
-        def system_stator(x): # Mass Balance solving
-            
+        def system_stator(x):
+
             alpha5 = x[0]
-            v5 = x[1]
-            
+            v5     = x[1]
+        
+            vu5 = v5 * np.sin(alpha5)
+            vm5 = v5 * np.cos(alpha5)
+        
             self.Vel_Tri_S['alpha5'] = alpha5
-            self.Vel_Tri_S['vm5'] = self.Vel_Tri_S['v5'] = vm5 = v5
-            self.Vel_Tri_S['vu5'] = 0 # Assumed for design 
-            
+            self.Vel_Tri_S['vm5']    = vm5
+            self.Vel_Tri_S['v5']     = v5
+            self.Vel_Tri_S['vu5']    = vu5
+        
             h05 = self.total_states['H'][4]
-            h5 = h05 - v5**2 / 2
-                                    
-            self.stator_losses = radial_compressor_stator_losses(A4 = self.A3, A4_th = self.A3_th, beta4 = self.Vel_Tri_S['beta4'], C_f=0.004,
-                                                                 r3 = self.params['r3'], r4 = self.params['r3'], r5 = self.params['r5'], 
-                                                                 vm = self.Vel_Tri_S['vm5'], w4 = self.Vel_Tri_S['w4'], xhi3 = self.Vel_Tri_S['alpha3'], 
-                                                                 xhi4 = self.Vel_Tri_S['alpha4'], xhi5 = self.Vel_Tri_S['alpha5'])
-            
+            h5  = h05 - v5**2 / 2
+        
+            self.stator_losses = radial_compressor_stator_losses(
+                A4=self.A3, A4_th=self.A3_th, beta4=self.Vel_Tri_S['beta4'], C_f=0.004,
+                r3=self.params['r3'], r4=self.params['r3'], r5=self.params['r5'],
+                vm=vm5, w4=self.Vel_Tri_S['w4'], xhi3=self.Vel_Tri_S['alpha3'],
+                xhi4=self.Vel_Tri_S['alpha4'], xhi5=alpha5)
+        
             self.AS.update(CP.PSmass_INPUTS, self.inputs['p_ex'], self.static_states['S'][4])
             h5is = self.AS.hmass()
-            
+        
             h5_new = h5is + self.stator_losses['tot']
-
-            self.update_static_AS(CP.HmassP_INPUTS, h5_new, self.inputs['p_ex'], 5)
+            self.AS.update(CP.HmassSmass_INPUTS, h5_new, self.static_states['S'][4])
+            p5     = self.AS.p()
+            self.update_static_AS(CP.HmassP_INPUTS, h5_new, p5, 5)
             self.update_total_AS(CP.HmassSmass_INPUTS, h05, self.static_states['S'][5], 5)
-            
-            res1 = (h5 - h5_new)**2
-            res2 = (self.inputs['mdot'] - self.static_states['D'][5]*np.cos(alpha5)*self.A5*v5)**2
-            
+        
+            # Residual 1 — enthalpy consistency (normalized)
+            res1 = (h5 - h5_new) / h05
+        
+            # Residual 2 — exit pressure matches imposed back-pressure (normalized)
+            res2 = (p5 - self.inputs['p_ex']) / self.inputs['p_ex']
+        
             self.params['xhi5'] = alpha5
-            
-            return np.sum(np.array([res1, res2]))
         
+            return [res1, res2]
+        
+        from scipy.optimize import least_squares
+
         # Initial guess
-        x0 = [0, 1]
+        alpha5_guess = self.Vel_Tri_S['alpha4'] * 0.5  # some residual swirl
+        v5_guess     = self.inputs['mdot'] / (self.static_states['D'][4] * self.A5)
         
-        # Bounds (in minimize, you need a sequence of (low, high) tuples)
+        x0 = [alpha5_guess, v5_guess]
         
-        bounds = [
-            # alpha5: between 0 (purely axial) and alpha4 (no turning)
-            (0, self.Vel_Tri_S['alpha4']),
-            
-            # v5: between near-zero and v4 (diffuser decelerates flow)
-            (1, self.Vel_Tri_S['v4'])
-        ]
+        v5_upper = self.inputs['mdot'] / (self.static_states['D'][4] * self.A5)
         
-        # Call minimize (trust-constr works well with bounds, but L-BFGS-B is simpler)
-        self.sol_stator_ex = minimize(system_stator, x0, method='L-BFGS-B', bounds=bounds,
-                       options={'ftol': 1e-8, 'gtol': 1e-8})   
+        alpha5_lb = 0*np.pi/180
+        alpha5_ub = 85*np.pi/180
+        
+        sol = least_squares(
+            system_stator,
+            x0     = [alpha5_guess, v5_guess],
+            bounds = ([alpha5_lb, 1.0],          # lower bounds [alpha5, v5]
+                      [alpha5_ub, v5_upper]),     # upper bounds [alpha5, v5]
+            method = 'trf'                        # trust region reflective, handles bounds
+        )
+        
+        alpha5_sol, v5_sol = sol.x
         
         return
     
     def designSystem(self, x):
         
-        self.inputs['psi_is']   = x[0]
-        self.inputs['r1s_r2']   = x[1]
-        self.inputs['r1h_r1s']  = x[2]
-        self.inputs['b2_r2']    = x[3]
-        self.inputs['r5_r3']    = x[4]
-        self.inputs['r3_r2']    = x[5]
-        self.inputs['xhi1']     = x[6]
-        self.inputs['xhi2']     = x[7]
+        self.penalty_factor = 100
+        
+        if "Omega_bounds" in self.params or "omega_bounds" in self.params:   
+            self.inputs['psi_is']   = x[0]
+            self.inputs['r1s_r2']   = x[1]
+            self.inputs['r1h_r1s']  = x[2]
+            self.inputs['b2_r2']    = x[3]
+            self.inputs['r5_r3']    = x[4]
+            self.inputs['r3_r2']    = x[5]
+            self.inputs['xhi1']     = x[6]
+            self.inputs['xhi2']     = x[7]
+            self.inputs['Omega']  = self.params['Omega']   = x[8]
+        else:
+            self.inputs['psi_is']   = x[0]
+            self.inputs['r1s_r2']   = x[1]
+            self.inputs['r1h_r1s']  = x[2]
+            self.inputs['b2_r2']    = x[3]
+            self.inputs['r5_r3']    = x[4]
+            self.inputs['r3_r2']    = x[5]
+            self.inputs['xhi1']     = x[6]
+            self.inputs['xhi2']     = x[7]
         
         self.update_total_AS(CP.PT_INPUTS, self.inputs['p0_su'], self.inputs['T0_su'], 1)
         self.update_static_AS(CP.PT_INPUTS, self.inputs['p0_su'], self.inputs['T0_su'], 1)
@@ -758,12 +693,22 @@ class RadialCPMLDesign(object):
         # self.n_blade_R = np.floor(-4.527*np.exp(1.865/self.PR) + 32.22) # With splitters : PR between 1.8 and 8
         self.omega = self.params['Omega'] * (2*np.pi) / 60 # rad/s
         
-        try:
+        try:            
             self.designRotor()
+            
+            eta_diff_min = 0.9
+            
+            if self.total_states['P'][2] < self.inputs['p_ex'] / eta_diff_min:
+                return 1111
+
+        except:
+            return 2222
         
+        try:            
+
             self.designStator()
         except:
-            return 1000
+            return 1100
         
         # ------------------------------------------------------------------ #
         # Contraintes physiques — Meroni et al. (2018), Additional constraints
@@ -775,74 +720,167 @@ class RadialCPMLDesign(object):
         # # Pas de prérotation sans IGV
         # if self.Vel_Tri_R['vu1'] > 0.1 * self.Vel_Tri_R['u1']:
         #     return 1000
-            
-        # C1 — Mach relatif shroud inducteur : M1s_rel ≤ 1.4
+        
+        self.error_log = []
+        penalty = 0.0
+        
+        # C1 — Mach relatif shroud inducteur : M1s_rel ≤ M1s_rel_max
         if self.M1s_rel > p['M1s_rel_max']:
-            return 1000
-    
-        # C2 — Mach relatif moyen inducteur : M1_rel ≤ 0.9
+            delta = (self.M1s_rel - p['M1s_rel_max']) / p['M1s_rel_max']
+            penalty += delta
+            self.error_log.append(('M1s_rel', delta))
+        
+        # C2 — Mach relatif moyen inducteur : M1_rel ≤ M1_rel_max
         if self.M1_rel > p['M1_rel_max']:
-            return 1000
-    
-        # C3 — Ratio de diffusion : W2/W1s ≥ 0.25
+            delta = (self.M1_rel - p['M1_rel_max']) / p['M1_rel_max']
+            penalty += delta
+            self.error_log.append(('M1_rel', delta))
+        
+        # C3 — Ratio de diffusion : W2/W1s ≥ W2_W1s_min
         if self.W2_W1s < p['W2_W1s_min']:
-            return 1000
-    
-        # C4 — Angle absolu sortie rotor : alpha2 ≤ 85°
+            delta = (p['W2_W1s_min'] - self.W2_W1s) / p['W2_W1s_min']
+            penalty += delta
+            self.error_log.append(('W2_W1s', delta))
+        
+        # C4 — Angle absolu sortie rotor : alpha2 ≤ alpha2_max
         alpha2_deg = abs(self.Vel_Tri_R['alpha2']) * 180.0 / np.pi
         if alpha2_deg > p['alpha2_max']:
-            return 1000
-    
-        # C5 — Ouverture gorge inducteur : 1.49 mm ≤ o1 ≤ 50 mm
-        if not (p['o1_min'] <= self.o1 <= p['o1_max']):
-            return 1000
-    
-        # C6 — Degré de réaction : -0.1 ≤ DR ≤ 0.9
-        if not (p['DR_min'] <= self.DR <= p['DR_max']):
-            return 1000
-    
-        # C7 — Tip speed : U2 ≤ 400 m/s
+            delta = (alpha2_deg - p['alpha2_max']) / p['alpha2_max']
+            penalty += delta
+            self.error_log.append(('alpha2_deg', delta))
+        
+        # C5 — Ouverture gorge inducteur : o1_min ≤ o1 ≤ o1_max
+        if self.o1 < p['o1_min']:
+            delta = (p['o1_min'] - self.o1) / p['o1_min']
+            penalty += delta
+            self.error_log.append(('o1_low', delta))
+        elif self.o1 > p['o1_max']:
+            delta = (self.o1 - p['o1_max']) / p['o1_max']
+            penalty += delta
+            self.error_log.append(('o1_high', delta))
+        
+        # C6 — Degré de réaction : DR_min ≤ DR ≤ DR_max
+        if self.DR < p['DR_min']:
+            delta = (p['DR_min'] - self.DR) / (p['DR_max'] - p['DR_min'])
+            penalty += delta
+            self.error_log.append(('DR_low', delta))
+        elif self.DR > p['DR_max']:
+            delta = (self.DR - p['DR_max']) / (p['DR_max'] - p['DR_min'])
+            penalty += delta
+            self.error_log.append(('DR_high', delta))
+        
+        # C7 — Tip speed : U2 ≤ U2_max
         if self.Vel_Tri_R['u2'] > p['U2_max']:
-            return 1000
-    
-        # C8 — Ratio diffuseur vaneless : 1.05 ≤ r3/r2 ≤ 2.0
-        # Note : r3_r2 est déjà une variable de design dans x[5],
-        # mais on vérifie quand même les bornes physiques ici
-        if not (p['r3_r2_min'] <= self.inputs['r3_r2'] <= p['r3_r2_max']):
-            return 1000
-    
+            delta = (self.Vel_Tri_R['u2'] - p['U2_max']) / p['U2_max']
+            penalty += delta
+            self.error_log.append(('u2', delta))
+        
+        # C8 — Ratio diffuseur vaneless : r3_r2_min ≤ r3/r2 ≤ r3_r2_max
+        if self.inputs['r3_r2'] < p['r3_r2_min']:
+            delta = (p['r3_r2_min'] - self.inputs['r3_r2']) / p['r3_r2_min']
+            penalty += delta
+            self.error_log.append(('r3_r2_low', delta))
+        elif self.inputs['r3_r2'] > p['r3_r2_max']:
+            delta = (self.inputs['r3_r2'] - p['r3_r2_max']) / p['r3_r2_max']
+            penalty += delta
+            self.error_log.append(('r3_r2_high', delta))
+        
         # ------------------------------------------------------------------ #
-        # Efficacité totale-statique (inchangée)
+        # Efficacité totale-statique
         # ------------------------------------------------------------------ #
-        self.AS.update(CP.PSmass_INPUTS, self.inputs['p_ex'], self.total_states['S'][1])
+        self.AS.update(CP.PSmass_INPUTS, self.static_states['P'][5], self.total_states['S'][1])
         hout_is = self.AS.hmass()
         self.eta_is = (hout_is - self.total_states['H'][1]) / \
                       (self.static_states['H'][5] - self.total_states['H'][1])
-    
+        
+        # ------------------------------------------------------------------ #
+        # Efficacité totale-totale
+        # ------------------------------------------------------------------ #
+        self.AS.update(CP.PSmass_INPUTS, self.total_states['P'][5], self.total_states['S'][1])
+        hout_is = self.AS.hmass()
+        self.eta_is_tt = (hout_is - self.total_states['H'][1]) / \
+                         (self.total_states['H'][5] - self.total_states['H'][1])
+        
+        if penalty > 0:
+            return -self.eta_is + penalty*self.penalty_factor
+        
+        self.AS.update(CP.PSmass_INPUTS, self.total_states['P'][5], self.total_states['S'][1])
+        h05_is = self.AS.hmass()
+        self.Dh0s_2 = h05_is - self.total_states['H'][1]
+        
         return -self.eta_is
     
     def design(self):
-
-        bounds = (np.array([
-            self.params['psi_is_bounds'][0],
-            self.params['r1s_r2_bounds'][0],
-            self.params['r1h_r1s_bounds'][0],
-            self.params['b2_r2_bounds'][0],
-            self.params['r5_r3_bounds'][0],
-            self.params['r3_r2_bounds'][0],
-            self.params['xhi1_bounds'][0],
-            self.params['xhi2_bounds'][0],
-        ]),
-        np.array([
-            self.params['psi_is_bounds'][1],
-            self.params['r1s_r2_bounds'][1],
-            self.params['r1h_r1s_bounds'][1],
-            self.params['b2_r2_bounds'][1],
-            self.params['r5_r3_bounds'][1],
-            self.params['r3_r2_bounds'][1],
-            self.params['xhi1_bounds'][1],
-            self.params['xhi2_bounds'][1],
-        ]))
+        
+        if "omega_bounds" in self.params:
+            bounds = (np.array([
+                self.params['psi_is_bounds'][0],
+                self.params['r1s_r2_bounds'][0],
+                self.params['r1h_r1s_bounds'][0],
+                self.params['b2_r2_bounds'][0],
+                self.params['r5_r3_bounds'][0],
+                self.params['r3_r2_bounds'][0],
+                self.params['xhi1_bounds'][0],
+                self.params['xhi2_bounds'][0],
+                self.params['omega_bounds'][0],
+            ]),
+            np.array([
+                self.params['psi_is_bounds'][1],
+                self.params['r1s_r2_bounds'][1],
+                self.params['r1h_r1s_bounds'][1],
+                self.params['b2_r2_bounds'][1],
+                self.params['r5_r3_bounds'][1],
+                self.params['r3_r2_bounds'][1],
+                self.params['xhi1_bounds'][1],
+                self.params['xhi2_bounds'][1],
+                self.params['omega_bounds'][1],
+            ]))
+            
+        elif "Omega_bounds" in self.params:
+            bounds = (np.array([
+                self.params['psi_is_bounds'][0],
+                self.params['r1s_r2_bounds'][0],
+                self.params['r1h_r1s_bounds'][0],
+                self.params['b2_r2_bounds'][0],
+                self.params['r5_r3_bounds'][0],
+                self.params['r3_r2_bounds'][0],
+                self.params['xhi1_bounds'][0],
+                self.params['xhi2_bounds'][0],
+                self.params['Omega_bounds'][0],
+            ]),
+            np.array([
+                self.params['psi_is_bounds'][1],
+                self.params['r1s_r2_bounds'][1],
+                self.params['r1h_r1s_bounds'][1],
+                self.params['b2_r2_bounds'][1],
+                self.params['r5_r3_bounds'][1],
+                self.params['r3_r2_bounds'][1],
+                self.params['xhi1_bounds'][1],
+                self.params['xhi2_bounds'][1],
+                self.params['Omega_bounds'][1],
+            ]))
+            
+        else:
+            bounds = (np.array([
+                self.params['psi_is_bounds'][0],
+                self.params['r1s_r2_bounds'][0],
+                self.params['r1h_r1s_bounds'][0],
+                self.params['b2_r2_bounds'][0],
+                self.params['r5_r3_bounds'][0],
+                self.params['r3_r2_bounds'][0],
+                self.params['xhi1_bounds'][0],
+                self.params['xhi2_bounds'][0],
+            ]),
+            np.array([
+                self.params['psi_is_bounds'][1],
+                self.params['r1s_r2_bounds'][1],
+                self.params['r1h_r1s_bounds'][1],
+                self.params['b2_r2_bounds'][1],
+                self.params['r5_r3_bounds'][1],
+                self.params['r3_r2_bounds'][1],
+                self.params['xhi1_bounds'][1],
+                self.params['xhi2_bounds'][1],
+            ]))
     
         def objective_wrapper(x):
             costs, wdots = [], []
@@ -852,15 +890,15 @@ class RadialCPMLDesign(object):
             return np.asarray(costs, dtype=float)
     
         optimizer = ps.single.GlobalBestPSO(
-            n_particles=30,
-            dimensions=8,
+            n_particles=100,
+            dimensions=len(bounds[0]),
             options={'c1': 1.5, 'c2': 2.0, 'w': 0.7},
             bounds=bounds
         )
     
-        patience = 5
+        patience = 15
         tol = 1e-3
-        max_iter = 30
+        max_iter = 50
         no_improve_counter = 0
         best_cost = np.inf
     
@@ -894,72 +932,278 @@ class RadialCPMLDesign(object):
         
         return
 
-Comp = RadialCPMLDesign('CO2')
+if __name__ == "__main__":
 
-# Zorlu Case
+    fluid = "CO2"    
 
-Comp.set_inputs(
-    mdot = 0.8, # kg/s
-    W_dot = 200000, # W
-    p0_su = 76.9*1e5, # Pa
-    T0_su = 305.97, # K
-    p_ex = 127*1e5, # Pa
-    )
-
-# Comp.set_inputs(
-#     mdot = 200, # kg/s
-#     p0_su = 50*1e5, # Pa
-#     T0_su = 290, # K
-#     p_ex = 120*1e5, # Pa
-#     )
-
-Comp.set_parameters(
-    # Fixed Values from source
-    t_b = 2*1e-4, # [m] : blade thickness
+    if fluid == "CO2":
+        Comp = RadialCPMLDesign('CO2')
+        
+        # CO2 Case
+        Comp.set_inputs(
+            mdot = 0.8, # kg/s
+            p0_su = 76.9*1e5, # Pa
+            T0_su = 305.97, # K
+            p_ex = 127*1e5, # Pa
+            )
+        
+        # Comp.set_inputs(
+        #     mdot = 2.15, # kg/s
+        #     p0_su = 76.9*1e5, # Pa
+        #     T0_su = 305.97, # K
+        #     p_ex = 127*1e5, # Pa
+        #     )
+                
+        # Comp.set_inputs(
+        #     mdot = 2.15, # kg/s
+        #     p0_su = 76.9*1e5, # Pa
+        #     T0_su = 305.97, # K
+        #     p_ex = 96.894*1e5, # Pa
+        #     )
+        
+        Comp.set_parameters(
+            # Fixed Values from source
+            t_b = 0.762*1e-3, # [m] : blade thickness
+            
+            eps_imp = 0.15*1e-3, # [m] : Impeller clearance
+            eps_bf_imp = 1*1e-3, # [m] : Impeller back face clearance
+            k_imp = 0.01*1e-3, # [m] : Impeller surface roughness
+            
+            b3_b2_ratio = 1, # [-] : Diffuser width ratio
+            b5_b3 = 1, 
+        
+            CP = 0.44, # [-] : Diffuser pressure coefficient 0.44
+            Omega = 50000, 
+            
+            psi_is_bounds = [0.3, 1.1],
+            r1s_r2_bounds = [0.4, 0.7], 
+            r1h_r1s_bounds = [0.25, 0.4],
+            b2_r2_bounds = [0.02, 0.1], 
+            r5_r3_bounds = [1.01, 1.5],
+            r3_r2_bounds = [1.05, 2],
+            xhi1_bounds = [40, 70],
+            xhi2_bounds = [20, 55],
+            
+            M1s_rel_max  = 1.4,    # Mach relatif shroud inducteur  ≤ 1.4
+            M1_rel_max   = 0.9,    # Mach relatif moyen inducteur   ≤ 0.9
+            W2_W1s_min   = 0.25,   # Ratio diffusion W2/W1s         ≥ 0.25
+            alpha2_max   = 85.0,   # Angle absolu sortie rotor [°]  ≤ 85°
+            o1_min       = 1.49e-3,# Ouverture gorge inducteur [m]  ≥ 1.49 mm
+            o1_max       = 50e-3,  # Ouverture gorge inducteur [m]  ≤ 50 mm
+            DR_min       = -0.1,   # Degré de réaction              ≥ -0.1
+            DR_max       = 0.9,    # Degré de réaction              ≤ 0.9
+            U2_max       = 400.0,  # Tip speed [m/s]                ≤ 400
+            r3_r2_min    = 1.05,   # Vaneless diffuser radius ratio ≥ 1.05
+            r3_r2_max    = 2.0,    # Vaneless diffuser radius ratio ≤ 2.0  
+            )
+        
+        Comp.design()
     
-    eps_imp = 0.15*1e-3, # [m] : Impeller clearance
-    eps_bf_imp = 1*1e-3, # [m] : Impeller back face clearance
-    k_imp = 0.002*1e-3, # [m] : Impeller surface roughness
+    elif fluid == "R134a":
+        Comp = RadialCPMLDesign('R134a')
+        
+        # Zorlu Case
+        
+        Comp.set_inputs(
+            mdot = 0.039, # kg/s
+            p0_su = 1.65*1e5, # Pa
+            T0_su = 265, # K
+            p_ex = 3.8775*1e5, # Pa
+            )
+        
+        Comp.set_parameters(
+            # Fixed Values from source
+            t_b = 2*1e-4, # [m] : blade thickness
+            
+            eps_imp = 0.15*1e-3, # [m] : Impeller clearance
+            eps_bf_imp = 1*1e-3, # [m] : Impeller back face clearance
+            k_imp = 0.002*1e-3, # [m] : Impeller surface roughness
+            
+            b3_b2_ratio = 1, # [-] : Diffuser width ratio
+            b5_b3 = 1, 
+        
+            CP = 0.44, # [-] : Diffuser pressure coefficient 0.44
+            Omega = 180000, 
+            
+            # psi_is_bounds = [0.3, 1.1],
+            # r1s_r2_bounds = [0.4, 0.7], 
+            # r1h_r1s_bounds = [0.25, 0.4],
+            # b2_r2_bounds = [0.02, 0.8], 
+            # r5_r3_bounds = [1.01, 1.5],
+            # r3_r2_bounds = [1.05, 2],
+            # xhi1_bounds = [40, 70],
+            # xhi2_bounds = [20, 55],
+            
+            psi_is_bounds = [0.3, 0.5],
+            r1s_r2_bounds = [0.6, 0.7], 
+            r1h_r1s_bounds = [0.3, 0.4],
+            b2_r2_bounds = [0.02, 0.3], 
+            r5_r3_bounds = [1.01, 1.3],
+            r3_r2_bounds = [1.05, 1.2],
+            xhi1_bounds = [40, 60],
+            xhi2_bounds = [40, 55],
+            
+            M1s_rel_max  = 1.4,    # Mach relatif shroud inducteur  ≤ 1.4
+            M1_rel_max   = 0.9,    # Mach relatif moyen inducteur   ≤ 0.9
+            W2_W1s_min   = 0.25,   # Ratio diffusion W2/W1s         ≥ 0.25
+            alpha2_max   = 85.0,   # Angle absolu sortie rotor [°]  ≤ 85°
+            o1_min       = 1e-3,# Ouverture gorge inducteur [m]  ≥ 1.49 mm
+            o1_max       = 50e-3,  # Ouverture gorge inducteur [m]  ≤ 50 mm
+            DR_min       = -0.1,   # Degré de réaction              ≥ -0.1
+            DR_max       = 0.9,    # Degré de réaction              ≤ 0.9
+            U2_max       = 400.0,  # Tip speed [m/s]                ≤ 400
+            r3_r2_min    = 1.05,   # Vaneless diffuser radius ratio ≥ 1.05
+            r3_r2_max    = 2.0,    # Vaneless diffuser radius ratio ≤ 2.0  
+            )
+        
+        Comp.design()
     
-    b3_b2_ratio = 1, # [-] : Diffuser width ratio
-    b5_b3 = 1, 
-
-    CP = 0.44, # [-] : Diffuser pressure coefficient 0.44
-    Omega = 50000, 
+    elif fluid == "Air_1":
+        Comp = RadialCPMLDesign('Air')
+        
+        # Zorlu Case
+        
+        Comp.set_inputs(
+            mdot = 5.32, # kg/s
+            p0_su = 1.01*1e5, # Pa
+            T0_su = 288.15, # K
+            p_ex = 2.02*1e5, # Pa
+            )
+        
+        Comp.set_parameters(
+            # Fixed Values from source
+            t_b = 2*1e-4, # [m] : blade thickness
+            
+            eps_imp = 0.15*1e-3, # [m] : Impeller clearance
+            eps_bf_imp = 1*1e-3, # [m] : Impeller back face clearance
+            k_imp = 0.002*1e-3, # [m] : Impeller surface roughness
+            
+            b3_b2_ratio = 1, # [-] : Diffuser width ratio
+            b5_b3 = 1, 
+        
+            CP = 0.44, # [-] : Diffuser pressure coefficient 0.44
+            Omega = 14000, 
+            
+            psi_is_bounds = [0.3, 1.1],
+            r1s_r2_bounds = [0.4, 0.7], 
+            r1h_r1s_bounds = [0.25, 0.4],
+            b2_r2_bounds = [0.02, 0.8], 
+            r5_r3_bounds = [1.01, 1.5],
+            r3_r2_bounds = [1.05, 2],
+            xhi1_bounds = [40, 70],
+            xhi2_bounds = [20, 55],
+            
+            M1s_rel_max  = 1.4,    # Mach relatif shroud inducteur  ≤ 1.4
+            M1_rel_max   = 0.9,    # Mach relatif moyen inducteur   ≤ 0.9
+            W2_W1s_min   = 0.25,   # Ratio diffusion W2/W1s         ≥ 0.25
+            alpha2_max   = 85.0,   # Angle absolu sortie rotor [°]  ≤ 85°
+            o1_min       = 1e-3,# Ouverture gorge inducteur [m]  ≥ 1.49 mm
+            o1_max       = 50e-3,  # Ouverture gorge inducteur [m]  ≤ 50 mm
+            DR_min       = -0.1,   # Degré de réaction              ≥ -0.1
+            DR_max       = 0.9,    # Degré de réaction              ≤ 0.9
+            U2_max       = 400.0,  # Tip speed [m/s]                ≤ 400
+            r3_r2_min    = 1.05,   # Vaneless diffuser radius ratio ≥ 1.05
+            r3_r2_max    = 2.0,    # Vaneless diffuser radius ratio ≤ 2.0  
+            )
+        
+        Comp.design()
     
-    # # Other
-    # M1_target = 0.5, 
-    
-    # psi_is_bounds = [0.3, 1.1],
-    # r1s_r2_bounds = [0.3, 0.7], 
-    # r1h_r1s_bounds = [0.25, 0.5],
-    # b2_r2_bounds = [0.02, 0.8], 
-    # r5_r3_bounds = [1.01, 2],
-    # r3_r2_bounds = [1.01, 2],
-    # xhi2_bounds = [0, 45],
-    # xhi1_bounds = [20, 70],
-    
-    psi_is_bounds = [0.7, 1.1],
-    r1s_r2_bounds = [0.4, 0.6], 
-    r1h_r1s_bounds = [0.25, 0.4],
-    b2_r2_bounds = [0.02, 0.08], 
-    r5_r3_bounds = [1.01, 1.5],
-    r3_r2_bounds = [1.01, 1.1],
-    xhi1_bounds = [40, 70],
-    xhi2_bounds = [20, 45],
-    
-    M1s_rel_max  = 1.4,    # Mach relatif shroud inducteur  ≤ 1.4
-    M1_rel_max   = 0.9,    # Mach relatif moyen inducteur   ≤ 0.9
-    W2_W1s_min   = 0.25,   # Ratio diffusion W2/W1s         ≥ 0.25
-    alpha2_max   = 85.0,   # Angle absolu sortie rotor [°]  ≤ 85°
-    o1_min       = 1.49e-3,# Ouverture gorge inducteur [m]  ≥ 1.49 mm
-    o1_max       = 50e-3,  # Ouverture gorge inducteur [m]  ≤ 50 mm
-    DR_min       = -0.1,   # Degré de réaction              ≥ -0.1
-    DR_max       = 0.9,    # Degré de réaction              ≤ 0.9
-    U2_max       = 400.0,  # Tip speed [m/s]                ≤ 400
-    r3_r2_min    = 1.05,   # Vaneless diffuser radius ratio ≥ 1.05
-    r3_r2_max    = 2.0,    # Vaneless diffuser radius ratio ≤ 2.0  
-    )
-    
-Comp.design()
-
+    elif fluid == "Air_2":
+        Comp = RadialCPMLDesign('Air')
+        
+        # Zorlu Case
+        
+        Comp.set_inputs(
+            mdot = 4.54, # kg/s
+            p0_su = 1.01*1e5, # Pa
+            T0_su = 288.15, # K
+            p_ex = 1.8281*1e5, # Pa
+            )
+        
+        Comp.set_parameters(
+            # Fixed Values from source
+            t_b = 2*1e-4, # [m] : blade thickness
+            
+            eps_imp = 0.15*1e-3, # [m] : Impeller clearance
+            eps_bf_imp = 1*1e-3, # [m] : Impeller back face clearance
+            k_imp = 0.002*1e-3, # [m] : Impeller surface roughness
+            
+            b3_b2_ratio = 1, # [-] : Diffuser width ratio
+            b5_b3 = 1, 
+        
+            CP = 0.44, # [-] : Diffuser pressure coefficient 0.44
+            Omega = 14000, 
+            
+            psi_is_bounds = [0.3, 1.1],
+            r1s_r2_bounds = [0.4, 0.7], 
+            r1h_r1s_bounds = [0.25, 0.4],
+            b2_r2_bounds = [0.02, 0.8], 
+            r5_r3_bounds = [1.01, 1.5],
+            r3_r2_bounds = [1.05, 2],
+            xhi1_bounds = [40, 70],
+            xhi2_bounds = [20, 55],
+            
+            M1s_rel_max  = 1.4,    # Mach relatif shroud inducteur  ≤ 1.4
+            M1_rel_max   = 0.9,    # Mach relatif moyen inducteur   ≤ 0.9
+            W2_W1s_min   = 0.25,   # Ratio diffusion W2/W1s         ≥ 0.25
+            alpha2_max   = 85.0,   # Angle absolu sortie rotor [°]  ≤ 85°
+            o1_min       = 1e-3,# Ouverture gorge inducteur [m]  ≥ 1.49 mm
+            o1_max       = 50e-3,  # Ouverture gorge inducteur [m]  ≤ 50 mm
+            DR_min       = -0.1,   # Degré de réaction              ≥ -0.1
+            DR_max       = 0.9,    # Degré de réaction              ≤ 0.9
+            U2_max       = 400.0,  # Tip speed [m/s]                ≤ 400
+            r3_r2_min    = 1.05,   # Vaneless diffuser radius ratio ≥ 1.05
+            r3_r2_max    = 2.0,    # Vaneless diffuser radius ratio ≤ 2.0  
+            )
+        
+        Comp.design()
+        
+    elif fluid == "Air_3":
+        Comp = RadialCPMLDesign('Air')
+        
+        # Zorlu Case
+        
+        Comp.set_inputs(
+            mdot = 4.54, # kg/s
+            p0_su = 1.01*1e5, # Pa
+            T0_su = 288.15, # K
+            p_ex = 1.6867*1e5, # Pa
+            )
+        
+        Comp.set_parameters(
+            # Fixed Values from source
+            t_b = 2*1e-4, # [m] : blade thickness
+            
+            eps_imp = 0.254*1e-3, # [m] : Impeller clearance
+            eps_bf_imp = 1*1e-3, # [m] : Impeller back face clearance
+            k_imp = 0.002*1e-3, # [m] : Impeller surface roughness
+            
+            b3_b2_ratio = 1, # [-] : Diffuser width ratio
+            b5_b3 = 1, 
+        
+            CP = 0.44, # [-] : Diffuser pressure coefficient 0.44
+            Omega = 14000, 
+            
+            psi_is_bounds = [0.3, 1.1],
+            r1s_r2_bounds = [0.4, 0.7], 
+            r1h_r1s_bounds = [0.25, 0.4],
+            b2_r2_bounds = [0.02, 0.8], 
+            r5_r3_bounds = [1.01, 1.5],
+            r3_r2_bounds = [1.05, 2],
+            xhi1_bounds = [40, 70],
+            xhi2_bounds = [20, 55],
+            
+            M1s_rel_max  = 1.4,    # Mach relatif shroud inducteur  ≤ 1.4
+            M1_rel_max   = 0.9,    # Mach relatif moyen inducteur   ≤ 0.9
+            W2_W1s_min   = 0.25,   # Ratio diffusion W2/W1s         ≥ 0.25
+            alpha2_max   = 85.0,   # Angle absolu sortie rotor [°]  ≤ 85°
+            o1_min       = 1e-3,# Ouverture gorge inducteur [m]  ≥ 1.49 mm
+            o1_max       = 50e-3,  # Ouverture gorge inducteur [m]  ≤ 50 mm
+            DR_min       = -0.1,   # Degré de réaction              ≥ -0.1
+            DR_max       = 0.9,    # Degré de réaction              ≤ 0.9
+            U2_max       = 400.0,  # Tip speed [m/s]                ≤ 400
+            r3_r2_min    = 1.05,   # Vaneless diffuser radius ratio ≥ 1.05
+            r3_r2_max    = 2.0,    # Vaneless diffuser radius ratio ≤ 2.0  
+            )
+        
+        Comp.design()
