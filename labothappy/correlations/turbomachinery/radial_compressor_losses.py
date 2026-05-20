@@ -32,57 +32,7 @@ def rotor_incidence_losses(A1, A1_th, beta1, w1, xhi1):
     
     return Dh_inc
 
-# def rotor_friction_losses(beta1h, beta1s, b2, C_fi, L_z, n_bl_r, r1h, r1s, r2, w1, w1_th, w2, xhi2):
-#     """
-#     beta1h : Rotor inlet hub angle [rad]
-#     beta1s : Rotor inlet shroud angle [rad]
-#     b2     : Rotor outlet passage height [m]
-#     C_fi   : Rotor friction coefficient [-] : 0.004 ? 
-#     L_z    : Rotor axial length [m]
-#     n_bl_r : Rotor blade number [-]
-#     r1h    : Rotor inlet hub radius [m]
-#     r1s    : Rotor inlet shroud radius [m]
-#     r2     : Rotor outlet radius [m]
-#     w1     : Rotor inlet relative velocity [m/s]
-#     w1_th  : Rotor inlet throat relative velocity [m/s]
-#     w2     : Rotor outlet relative velocity [m/s]
-#     xhi2   : Rotor Outlet Blade Angle [rad]
-    
-#     References
-#     ---------
-#     Aungier RH. Mean streamline aerodynamic performance analysis of centrifugal
-#     compressors. J Turbomach 1995;117(3):360.
-    
-#     Fortran program for predicting off-design performance of centrifugal
-#     compressors. Tech Rep (NASA); 1973. - Galvas M. 
-    
-#     Jansen W. A method for calculating the flow in a centrifugal impeller when entropy
-#     gradients are present. In: Royal Society conference on internal aerodynamics 
-#     (turbomachinery), 19-21 July, Cambridge, UK; 1967. p. 133–46.
-#     """    
-    
-#     # Max mean velocity
-#     w_bar = np.max([np.sqrt( (w1**2  + w2**2)/2 ), np.sqrt( (w1_th**2  + w2**2)/2 )])    
-    
-#     # Blade length
-#     fact1 = 2*r2 - (r1s+r1h) - b2 + 2*L_z
-#     fact2 = 2/((np.cos(beta1s)+np.cos(beta1h))/2 + np.cos(xhi2))
-    
-#     L_b = (np.pi/8)*fact1*(fact2)
-    
-#     # Hydraulic diameter
-#     term1 = 2*r2 / (n_bl_r/(np.pi*np.cos(xhi2)) + 2*r2/b2)
-#     term2 = 2*r1s / (2/(1 - r1h/r1s) + 2*n_bl_r / (np.pi*(1+r1h/r1s)) * np.sqrt(1+np.tan(beta1s)**2*(1 + (r1h/r1s)**2 / 2)))
-    
-#     D_hb = term1 + term2
-    
-#     # Losses
-#     Dh_f = 4* C_fi * (L_b/(2*D_hb)) * w_bar**2
-    
-#     return Dh_f
-
-
-def rotor_friction_losses(beta1h, beta1s, beta2, b2, C_fi, L_z, n_bl_r, r1h, r1s, r2, w1, w1s, w1h, w1_th, w2, xhi2):
+def rotor_friction_losses(beta1h, beta1s, b2, C_fi, L_z, n_bl_r, r1h, r1s, r2, w1, w1_th, w2, xhi2):
     """
     beta1h : Rotor inlet hub angle [rad]
     beta1s : Rotor inlet shroud angle [rad]
@@ -112,12 +62,11 @@ def rotor_friction_losses(beta1h, beta1s, beta2, b2, C_fi, L_z, n_bl_r, r1h, r1s
     """    
     
     # Max mean velocity
-    # w_bar = np.max([np.sqrt( (w1**2  + w2**2)/2 ), np.sqrt( (w1_th**2  + w2**2)/2 )])    
-    w_bar = (2*w2 + w1s + w1h)/4 
+    w_bar = np.max([np.sqrt( (w1**2  + w2**2)/2 ), np.sqrt( (w1_th**2  + w2**2)/2 )])    
     
     # Blade length
     fact1 = 2*r2 - (r1s+r1h) - b2 + 2*L_z
-    fact2 = 4/((np.cos(beta1s)+np.cos(beta1h)) + 2*np.cos(beta2))
+    fact2 = 2/((np.cos(beta1s)+np.cos(beta1h))/2 + np.cos(xhi2))
     
     L_b = (np.pi/8)*fact1*(fact2)
     
@@ -128,9 +77,60 @@ def rotor_friction_losses(beta1h, beta1s, beta2, b2, C_fi, L_z, n_bl_r, r1h, r1s
     D_hb = term1 + term2
     
     # Losses
-    Dh_f = 2* C_fi * (L_b/(D_hb)) * w_bar**2
+    Dh_f = 4* C_fi * (L_b/(2*D_hb)) * w_bar**2
     
     return Dh_f
+
+
+# def rotor_friction_losses(beta1h, beta1s, beta2, b2, C_fi, L_z, n_bl_r, r1h, r1s, r2, w1, w1s, w1h, w1_th, w2, xhi2):
+#     """
+#     beta1h : Rotor inlet hub angle [rad]
+#     beta1s : Rotor inlet shroud angle [rad]
+#     b2     : Rotor outlet passage height [m]
+#     C_fi   : Rotor friction coefficient [-] : 0.004 ? 
+#     L_z    : Rotor axial length [m]
+#     n_bl_r : Rotor blade number [-]
+#     r1h    : Rotor inlet hub radius [m]
+#     r1s    : Rotor inlet shroud radius [m]
+#     r2     : Rotor outlet radius [m]
+#     w1     : Rotor inlet relative velocity [m/s]
+#     w1_th  : Rotor inlet throat relative velocity [m/s]
+#     w2     : Rotor outlet relative velocity [m/s]
+#     xhi2   : Rotor Outlet Blade Angle [rad]
+    
+#     References
+#     ---------
+#     Aungier RH. Mean streamline aerodynamic performance analysis of centrifugal
+#     compressors. J Turbomach 1995;117(3):360.
+    
+#     Fortran program for predicting off-design performance of centrifugal
+#     compressors. Tech Rep (NASA); 1973. - Galvas M. 
+    
+#     Jansen W. A method for calculating the flow in a centrifugal impeller when entropy
+#     gradients are present. In: Royal Society conference on internal aerodynamics 
+#     (turbomachinery), 19-21 July, Cambridge, UK; 1967. p. 133–46.
+#     """    
+    
+#     # Max mean velocity
+#     # w_bar = np.max([np.sqrt( (w1**2  + w2**2)/2 ), np.sqrt( (w1_th**2  + w2**2)/2 )])    
+#     w_bar = (2*w2 + w1s + w1h)/4 
+    
+#     # Blade length
+#     fact1 = 2*r2 - (r1s+r1h) - b2 + 2*L_z
+#     fact2 = 4/((np.cos(beta1s)+np.cos(beta1h)) + 2*np.cos(beta2))
+    
+#     L_b = (np.pi/8)*fact1*(fact2)
+    
+#     # Hydraulic diameter
+#     term1 = 2*r2 / (n_bl_r/(np.pi*np.cos(xhi2)) + 2*r2/b2)
+#     term2 = 2*r1s / (2/(1 - r1h/r1s) + 2*n_bl_r / (np.pi*(1+r1h/r1s)) * np.sqrt(1+np.tan(beta1s)**2*(1 + (r1h/r1s)**2 / 2)))
+    
+#     D_hb = term1 + term2
+    
+#     # Losses
+#     Dh_f = 2* C_fi * (L_b/(D_hb)) * w_bar**2
+    
+#     return Dh_f
 
 # def rotor_friction_losses(beta1h, beta1s, b2, C_fi, L_z, n_bl_r, r1h, r1s, r2,
 #                             w1, w1_th, w2, xhi2,
@@ -370,8 +370,8 @@ def rotor_recirculation_losses(alpha2, C_df, Dh0, n_bl_r, r1s, r2, u2, w1, w1s, 
     # print(f"D_f : {D_f}")
     
     # Losses
-    # Dh_rc = 8*1e-5*np.sinh(3.5*abs(alpha2)**3)*D_f**2*u2**2 # Oh et al.
-    Dh_rc = 0.02*np.tan(abs(alpha2))*D_f**2*u2**2 # Coppage et al.
+    Dh_rc = 8*1e-5*np.sinh(3.5*abs(alpha2)**3)*D_f**2*u2**2 # Oh et al.
+    # Dh_rc = 0.02*np.tan(abs(alpha2))*D_f**2*u2**2 # Coppage et al.
 
     # print(f"Dh_rc : {Dh_rc}")
 
@@ -564,7 +564,9 @@ def radial_compressor_rotor_losses(A1, A1_th, alpha2, beta1, beta1h, beta1s, bet
 
     C_f_computed = f_D / 4
     
-    Dh_rot['f'] = rotor_friction_losses(beta1h, beta1s, beta2, b2, C_f_computed, L_z, n_bl_r, r1h, r1s, r2, w1, w1s, w1h, w1_th, w2, xhi2)
+    Dh_rot['f'] = rotor_friction_losses(beta1h, beta1s, b2, C_f_computed, L_z, n_bl_r, r1h, r1s, r2, w1, w1_th, w2, xhi2)
+
+    # Dh_rot['f'] = rotor_friction_losses(beta1h, beta1s, beta2, b2, C_f_computed, L_z, n_bl_r, r1h, r1s, r2, w1, w1s, w1h, w1_th, w2, xhi2)
     
     Dh_rot['bl'] = rotor_blade_loading_losses(C_f_computed, Dh0, n_bl_r, r1s, r2, u2, w1, w1s, w2)
     

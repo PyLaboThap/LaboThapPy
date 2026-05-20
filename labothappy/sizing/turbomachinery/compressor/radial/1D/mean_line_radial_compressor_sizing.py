@@ -319,6 +319,10 @@ class RadialCPMLDesign(object):
         # Determine r2 from u2 and Omega
         self.params['r2'] = r2 = u2/self.omega
         
+        # Flow coefficient : THE DESIGN OF A FAMILY OF PROCESS COMPRESSOR STAGES - H. Hazby – M. Casey – C. Robinson – R. Spataro
+        self.Q = self.inputs['mdot']/self.total_states['D'][1] # volume flowrate based on inlet toal prop
+        self.phi = 4*self.Q/(np.pi*u2*(2*r2)**2)
+        
         "R1) Rotor Inlet"
         
         # Determine r1s, r1h, pitch1 and b2 from r2
@@ -437,8 +441,15 @@ class RadialCPMLDesign(object):
             
             self.Vel_Tri_R['alpha2'] = alpha2 = np.arccos(vm2/v2)
             
-            self.params['L_z'] = L_z = 0.3*self.params['r2'] # (self.params['r2'] - self.params['r1']) / 2 # !!! Rule for turbines : check for replacemen
+            # self.params['L_z'] = L_z = self.params['r2']*(0.08 + 3.16*self.phi) 
+            # From Aungier, R. H., (2000). Centrifugal compressors – a strategy for aerodynamic design and analysis, ASME Press, New York, USA 
             
+            if "L_z" not in self.params:
+                self.params['L_z'] = L_z = self.params['r2']*(0.1 + 2*self.phi) 
+                # From THE DESIGN OF A FAMILY OF PROCESS COMPRESSOR STAGES - H. Hazby – M. Casey – C. Robinson – R. Spataro (2017)  
+            else:
+                L_z = self.params['L_z'] 
+                
             self.Vel_Tri_R['wu2'] = wu2 =  self.Vel_Tri_R['vu2'] - self.Vel_Tri_R['u2']
             
             self.Vel_Tri_R['w2'] = w2 = np.sqrt(wu2**2 + vm2**2)
@@ -465,7 +476,8 @@ class RadialCPMLDesign(object):
             except Exception:
                 return 1e6
             
-            res = (h2 - h2_new)
+            res = (h2 - h2_new)/h2_new
+            self.res_rotor_ex = res
             
             return res
         
@@ -481,9 +493,12 @@ class RadialCPMLDesign(object):
         res_max = system_rotor(vm2_max)
         
         if res_min * res_max > 0:
-            return 3333  # no root in interval — penalize this design point
+            raise ValueError()  # no root in interval — penalize this design point
         
         self.sol_rotor_ex = brentq(system_rotor, vm2_min, vm2_max, xtol=1e-6)
+        
+        if self.rotor_losses['tot'] > self.dh0:
+            raise ValueError()
         
         "Compute constraint terms"
         
@@ -576,14 +591,16 @@ class RadialCPMLDesign(object):
             self.Vel_Tri_S['beta4'] = beta4 = np.arctan(wu4/wm4)
             
             res = (vm4 - self.inputs['mdot']/(self.static_states['D'][4]*self.A3))
-
+            
+            self.res_diff_in = res
+            
             return res
         
         self.AS.update(CP.PSmass_INPUTS, self.inputs['p_ex'], s4)
         h4_min = self.static_states['H'][3]*0.9  # entropy where h3 = h03, v3 = 0
         h4_max = self.total_states['H'][4]      
         
-        sol = brentq(vaned_diffuser_inlet_system, h4_min, h4_max, xtol=1e-6)
+        self.sol_vaned_diff = brentq(vaned_diffuser_inlet_system, h4_min, h4_max, xtol=1e-6)
         
         self.o4 = pitch3 * np.cos(self.Vel_Tri_S['alpha4']) - self.params['t_b']  # throat opening
         self.A3_th = self.o4 * self.params['b2'] * self.n_blade_R
@@ -649,7 +666,7 @@ class RadialCPMLDesign(object):
         alpha5_lb = 0*np.pi/180
         alpha5_ub = 85*np.pi/180
         
-        sol = least_squares(
+        self.sol_sys_stator = least_squares(
             system_stator,
             x0     = [alpha5_guess, v5_guess],
             bounds = ([alpha5_lb, 1.0],          # lower bounds [alpha5, v5]
@@ -657,7 +674,7 @@ class RadialCPMLDesign(object):
             method = 'trf'                        # trust region reflective, handles bounds
         )
         
-        alpha5_sol, v5_sol = sol.x
+        alpha5_sol, v5_sol = self.sol_sys_stator.x
         
         return
     
@@ -674,6 +691,10 @@ class RadialCPMLDesign(object):
             self.inputs['r3_r2']    = x[5]
             self.inputs['xhi1']     = x[6]
             self.inputs['xhi2']     = x[7]
+            
+            # omega_step = self.params.get('omega_step_rpm', 1000)
+            # x[8] = np.round(x[8] / omega_step) * omega_step
+            
             self.inputs['Omega']  = self.params['Omega']   = x[8]
         else:
             self.inputs['psi_is']   = x[0]
@@ -696,7 +717,7 @@ class RadialCPMLDesign(object):
         try:            
             self.designRotor()
             
-            eta_diff_min = 0.9
+            eta_diff_min = 0.95
             
             if self.total_states['P'][2] < self.inputs['p_ex'] / eta_diff_min:
                 return 1111
@@ -801,13 +822,17 @@ class RadialCPMLDesign(object):
         self.eta_is_tt = (hout_is - self.total_states['H'][1]) / \
                          (self.total_states['H'][5] - self.total_states['H'][1])
         
+        if self.res_rotor_ex > 1e-3:
+            penalty += self.res_rotor_ex
+            print(self.res_rotor_ex)
+            
         if penalty > 0:
             return -self.eta_is + penalty*self.penalty_factor
         
         self.AS.update(CP.PSmass_INPUTS, self.total_states['P'][5], self.total_states['S'][1])
         h05_is = self.AS.hmass()
         self.Dh0s_2 = h05_is - self.total_states['H'][1]
-        
+               
         return -self.eta_is
     
     def design(self):
@@ -898,7 +923,7 @@ class RadialCPMLDesign(object):
     
         patience = 15
         tol = 1e-3
-        max_iter = 50
+        max_iter = 100
         no_improve_counter = 0
         best_cost = np.inf
     
@@ -934,18 +959,18 @@ class RadialCPMLDesign(object):
 
 if __name__ == "__main__":
 
-    fluid = "CO2"    
+    fluid = "Air_1"    
 
     if fluid == "CO2":
         Comp = RadialCPMLDesign('CO2')
         
         # CO2 Case
-        Comp.set_inputs(
-            mdot = 0.8, # kg/s
-            p0_su = 76.9*1e5, # Pa
-            T0_su = 305.97, # K
-            p_ex = 127*1e5, # Pa
-            )
+        # Comp.set_inputs(
+        #     mdot = 0.8, # kg/s
+        #     p0_su = 76.9*1e5, # Pa
+        #     T0_su = 305.97, # K
+        #     p_ex = 127*1e5, # Pa
+        #     )
         
         # Comp.set_inputs(
         #     mdot = 2.15, # kg/s
@@ -954,26 +979,28 @@ if __name__ == "__main__":
         #     p_ex = 127*1e5, # Pa
         #     )
                 
-        # Comp.set_inputs(
-        #     mdot = 2.15, # kg/s
-        #     p0_su = 76.9*1e5, # Pa
-        #     T0_su = 305.97, # K
-        #     p_ex = 96.894*1e5, # Pa
-        #     )
+        Comp.set_inputs(
+            mdot = 2.15, # kg/s
+            p0_su = 76.9*1e5, # Pa
+            T0_su = 305.97, # K
+            p_ex = 96.894*1e5, # Pa
+            )
         
         Comp.set_parameters(
             # Fixed Values from source
             t_b = 0.762*1e-3, # [m] : blade thickness
             
-            eps_imp = 0.15*1e-3, # [m] : Impeller clearance
-            eps_bf_imp = 1*1e-3, # [m] : Impeller back face clearance
+            eps_imp = 0.254*1e-3, # [m] : Impeller clearance
+            eps_bf_imp = 0.254*1e-3, # [m] : Impeller back face clearance
             k_imp = 0.01*1e-3, # [m] : Impeller surface roughness
             
             b3_b2_ratio = 1, # [-] : Diffuser width ratio
             b5_b3 = 1, 
-        
+            
+            L_z = 0.1137,
+            
             CP = 0.44, # [-] : Diffuser pressure coefficient 0.44
-            Omega = 50000, 
+            # Omega = 50000, 
             
             psi_is_bounds = [0.3, 1.1],
             r1s_r2_bounds = [0.4, 0.7], 
@@ -983,6 +1010,7 @@ if __name__ == "__main__":
             r3_r2_bounds = [1.05, 2],
             xhi1_bounds = [40, 70],
             xhi2_bounds = [20, 55],
+            omega_bounds = np.array([30, 80])*1e3,
             
             M1s_rel_max  = 1.4,    # Mach relatif shroud inducteur  ≤ 1.4
             M1_rel_max   = 0.9,    # Mach relatif moyen inducteur   ≤ 0.9
@@ -1017,13 +1045,14 @@ if __name__ == "__main__":
             
             eps_imp = 0.15*1e-3, # [m] : Impeller clearance
             eps_bf_imp = 1*1e-3, # [m] : Impeller back face clearance
-            k_imp = 0.002*1e-3, # [m] : Impeller surface roughness
+            k_imp = 0.01*1e-3, # [m] : Impeller surface roughness
             
             b3_b2_ratio = 1, # [-] : Diffuser width ratio
             b5_b3 = 1, 
         
+            L_z = 0.007693,
             CP = 0.44, # [-] : Diffuser pressure coefficient 0.44
-            Omega = 180000, 
+            # Omega = 180000, 
             
             # psi_is_bounds = [0.3, 1.1],
             # r1s_r2_bounds = [0.4, 0.7], 
@@ -1042,7 +1071,8 @@ if __name__ == "__main__":
             r3_r2_bounds = [1.05, 1.2],
             xhi1_bounds = [40, 60],
             xhi2_bounds = [40, 55],
-            
+            omega_bounds = np.array([150, 210])*1e3,
+
             M1s_rel_max  = 1.4,    # Mach relatif shroud inducteur  ≤ 1.4
             M1_rel_max   = 0.9,    # Mach relatif moyen inducteur   ≤ 0.9
             W2_W1s_min   = 0.25,   # Ratio diffusion W2/W1s         ≥ 0.25
@@ -1074,15 +1104,16 @@ if __name__ == "__main__":
             # Fixed Values from source
             t_b = 2*1e-4, # [m] : blade thickness
             
-            eps_imp = 0.15*1e-3, # [m] : Impeller clearance
-            eps_bf_imp = 1*1e-3, # [m] : Impeller back face clearance
+            eps_imp = 0.372*1e-3, # [m] : Impeller clearance
+            eps_bf_imp = 0.372*1e-3, # [m] : Impeller back face clearance
             k_imp = 0.002*1e-3, # [m] : Impeller surface roughness
             
             b3_b2_ratio = 1, # [-] : Diffuser width ratio
             b5_b3 = 1, 
         
+            L_z = 0.13,
             CP = 0.44, # [-] : Diffuser pressure coefficient 0.44
-            Omega = 14000, 
+            # Omega = 14000, 
             
             psi_is_bounds = [0.3, 1.1],
             r1s_r2_bounds = [0.4, 0.7], 
@@ -1092,7 +1123,8 @@ if __name__ == "__main__":
             r3_r2_bounds = [1.05, 2],
             xhi1_bounds = [40, 70],
             xhi2_bounds = [20, 55],
-            
+            omega_bounds = np.array([10, 20])*1e3,
+
             M1s_rel_max  = 1.4,    # Mach relatif shroud inducteur  ≤ 1.4
             M1_rel_max   = 0.9,    # Mach relatif moyen inducteur   ≤ 0.9
             W2_W1s_min   = 0.25,   # Ratio diffusion W2/W1s         ≥ 0.25
@@ -1124,13 +1156,14 @@ if __name__ == "__main__":
             # Fixed Values from source
             t_b = 2*1e-4, # [m] : blade thickness
             
-            eps_imp = 0.15*1e-3, # [m] : Impeller clearance
-            eps_bf_imp = 1*1e-3, # [m] : Impeller back face clearance
+            eps_imp = 0.235*1e-3, # [m] : Impeller clearance
+            eps_bf_imp = 0.235*1e-3, # [m] : Impeller back face clearance
             k_imp = 0.002*1e-3, # [m] : Impeller surface roughness
             
             b3_b2_ratio = 1, # [-] : Diffuser width ratio
             b5_b3 = 1, 
         
+            L_z = 0.13,
             CP = 0.44, # [-] : Diffuser pressure coefficient 0.44
             Omega = 14000, 
             
@@ -1142,7 +1175,8 @@ if __name__ == "__main__":
             r3_r2_bounds = [1.05, 2],
             xhi1_bounds = [40, 70],
             xhi2_bounds = [20, 55],
-            
+            omega_bounds = np.array([10, 20])*1e3,
+
             M1s_rel_max  = 1.4,    # Mach relatif shroud inducteur  ≤ 1.4
             M1_rel_max   = 0.9,    # Mach relatif moyen inducteur   ≤ 0.9
             W2_W1s_min   = 0.25,   # Ratio diffusion W2/W1s         ≥ 0.25
@@ -1174,13 +1208,14 @@ if __name__ == "__main__":
             # Fixed Values from source
             t_b = 2*1e-4, # [m] : blade thickness
             
-            eps_imp = 0.254*1e-3, # [m] : Impeller clearance
-            eps_bf_imp = 1*1e-3, # [m] : Impeller back face clearance
+            eps_imp = 0.372*1e-3, # [m] : Impeller clearance
+            eps_bf_imp = 0.372*1e-3, # [m] : Impeller back face clearance
             k_imp = 0.002*1e-3, # [m] : Impeller surface roughness
             
             b3_b2_ratio = 1, # [-] : Diffuser width ratio
             b5_b3 = 1, 
         
+            L_z = 0.13,
             CP = 0.44, # [-] : Diffuser pressure coefficient 0.44
             Omega = 14000, 
             
@@ -1192,7 +1227,8 @@ if __name__ == "__main__":
             r3_r2_bounds = [1.05, 2],
             xhi1_bounds = [40, 70],
             xhi2_bounds = [20, 55],
-            
+            omega_bounds = np.array([10, 20])*1e3,
+
             M1s_rel_max  = 1.4,    # Mach relatif shroud inducteur  ≤ 1.4
             M1_rel_max   = 0.9,    # Mach relatif moyen inducteur   ≤ 0.9
             W2_W1s_min   = 0.25,   # Ratio diffusion W2/W1s         ≥ 0.25
