@@ -718,15 +718,19 @@ class RadialCPMLDesign(object):
             self.designRotor()
             
             eta_diff_min = 0.95
+            # eta_diff_min = 0.8
             
-            if self.total_states['P'][2] < self.inputs['p_ex'] / eta_diff_min:
-                return 1111
+            p_req = self.inputs['p_ex'] / eta_diff_min
+            
+            if self.total_states['P'][2] < p_req:
+                res = abs((p_req - self.total_states['P'][2])/p_req)
+                
+                return res*500
 
         except:
             return 2222
         
         try:            
-
             self.designStator()
         except:
             return 1100
@@ -824,7 +828,6 @@ class RadialCPMLDesign(object):
         
         if self.res_rotor_ex > 1e-3:
             penalty += self.res_rotor_ex
-            print(self.res_rotor_ex)
             
         if penalty > 0:
             return -self.eta_is + penalty*self.penalty_factor
@@ -960,286 +963,288 @@ class RadialCPMLDesign(object):
 if __name__ == "__main__":
 
     fluid = "Air_1"    
-
-    if fluid == "CO2":
-        Comp = RadialCPMLDesign('CO2')
+    
+    eta_is_vec = []
+    
+    for i in range(1):
         
-        # CO2 Case
-        # Comp.set_inputs(
-        #     mdot = 0.8, # kg/s
-        #     p0_su = 76.9*1e5, # Pa
-        #     T0_su = 305.97, # K
-        #     p_ex = 127*1e5, # Pa
-        #     )
-        
-        # Comp.set_inputs(
-        #     mdot = 2.15, # kg/s
-        #     p0_su = 76.9*1e5, # Pa
-        #     T0_su = 305.97, # K
-        #     p_ex = 127*1e5, # Pa
-        #     )
+        if fluid == "CO2":
+            Comp = RadialCPMLDesign('CO2')
+            
+            # CO2 Case
+            # Comp.set_inputs(
+            #     mdot = 0.8, # kg/s
+            #     p0_su = 76.9*1e5, # Pa
+            #     T0_su = 305.97, # K
+            #     p_ex = 127*1e5, # Pa
+            #     )
+            
+            # Comp.set_inputs(
+            #     mdot = 2.15, # kg/s
+            #     p0_su = 76.9*1e5, # Pa
+            #     T0_su = 305.97, # K
+            #     p_ex = 127*1e5, # Pa
+            #     )
+                    
+            Comp.set_inputs(
+                mdot = 2.15, # kg/s
+                p0_su = 76.9*1e5, # Pa
+                T0_su = 305.97, # K
+                p_ex = 96.894*1e5, # Pa
+                )
+            
+            Comp.set_parameters(
+                # Fixed Values from source
+                t_b = 0.762*1e-3, # [m] : blade thickness
                 
-        Comp.set_inputs(
-            mdot = 2.15, # kg/s
-            p0_su = 76.9*1e5, # Pa
-            T0_su = 305.97, # K
-            p_ex = 96.894*1e5, # Pa
-            )
+                eps_imp = 0.254*1e-3, # [m] : Impeller clearance
+                eps_bf_imp = 0.254*1e-3, # [m] : Impeller back face clearance
+                k_imp = 0.01*1e-3, # [m] : Impeller surface roughness
+                
+                b3_b2_ratio = 1, # [-] : Diffuser width ratio
+                b5_b3 = 1, 
+                
+                L_z = 0.1137,
+                
+                CP = 0.44, # [-] : Diffuser pressure coefficient 0.44
+                Omega = 50000, 
+                
+                psi_is_bounds = [0.3, 1.1],
+                r1s_r2_bounds = [0.4, 0.7], 
+                r1h_r1s_bounds = [0.25, 0.4],
+                b2_r2_bounds = [0.02, 0.1], 
+                r5_r3_bounds = [1.01, 1.5],
+                r3_r2_bounds = [1.05, 2],
+                xhi1_bounds = [40, 70],
+                xhi2_bounds = [20, 55],
+                # omega_bounds = np.array([30, 80])*1e3,
+                
+                M1s_rel_max  = 1.4,    # Mach relatif shroud inducteur  ≤ 1.4
+                M1_rel_max   = 0.9,    # Mach relatif moyen inducteur   ≤ 0.9
+                W2_W1s_min   = 0.25,   # Ratio diffusion W2/W1s         ≥ 0.25
+                alpha2_max   = 85.0,   # Angle absolu sortie rotor [°]  ≤ 85°
+                o1_min       = 1.49e-3,# Ouverture gorge inducteur [m]  ≥ 1.49 mm
+                o1_max       = 50e-3,  # Ouverture gorge inducteur [m]  ≤ 50 mm
+                DR_min       = -0.1,   # Degré de réaction              ≥ -0.1
+                DR_max       = 0.9,    # Degré de réaction              ≤ 0.9
+                U2_max       = 400.0,  # Tip speed [m/s]                ≤ 400
+                r3_r2_min    = 1.05,   # Vaneless diffuser radius ratio ≥ 1.05
+                r3_r2_max    = 2.0,    # Vaneless diffuser radius ratio ≤ 2.0  
+                )
+            
+            Comp.design()
         
-        Comp.set_parameters(
-            # Fixed Values from source
-            t_b = 0.762*1e-3, # [m] : blade thickness
+        elif fluid == "R134a":
+            Comp = RadialCPMLDesign('R134a')
             
-            eps_imp = 0.254*1e-3, # [m] : Impeller clearance
-            eps_bf_imp = 0.254*1e-3, # [m] : Impeller back face clearance
-            k_imp = 0.01*1e-3, # [m] : Impeller surface roughness
+            # Zorlu Case
             
-            b3_b2_ratio = 1, # [-] : Diffuser width ratio
-            b5_b3 = 1, 
+            Comp.set_inputs(
+                mdot = 0.039, # kg/s
+                p0_su = 1.65*1e5, # Pa
+                T0_su = 265, # K
+                p_ex = 3.8775*1e5, # Pa
+                )
             
-            L_z = 0.1137,
+            Comp.set_parameters(
+                # Fixed Values from source
+                t_b = 0.1*1e-3, # [m] : blade thickness
+                
+                eps_imp = 0.15*1e-3, # [m] : Impeller clearance
+                eps_bf_imp = 1*1e-3, # [m] : Impeller back face clearance
+                k_imp = 0.01*1e-3, # [m] : Impeller surface roughness
+                
+                b3_b2_ratio = 1, # [-] : Diffuser width ratio
+                b5_b3 = 1, 
             
-            CP = 0.44, # [-] : Diffuser pressure coefficient 0.44
-            # Omega = 50000, 
-            
-            psi_is_bounds = [0.3, 1.1],
-            r1s_r2_bounds = [0.4, 0.7], 
-            r1h_r1s_bounds = [0.25, 0.4],
-            b2_r2_bounds = [0.02, 0.1], 
-            r5_r3_bounds = [1.01, 1.5],
-            r3_r2_bounds = [1.05, 2],
-            xhi1_bounds = [40, 70],
-            xhi2_bounds = [20, 55],
-            omega_bounds = np.array([30, 80])*1e3,
-            
-            M1s_rel_max  = 1.4,    # Mach relatif shroud inducteur  ≤ 1.4
-            M1_rel_max   = 0.9,    # Mach relatif moyen inducteur   ≤ 0.9
-            W2_W1s_min   = 0.25,   # Ratio diffusion W2/W1s         ≥ 0.25
-            alpha2_max   = 85.0,   # Angle absolu sortie rotor [°]  ≤ 85°
-            o1_min       = 1.49e-3,# Ouverture gorge inducteur [m]  ≥ 1.49 mm
-            o1_max       = 50e-3,  # Ouverture gorge inducteur [m]  ≤ 50 mm
-            DR_min       = -0.1,   # Degré de réaction              ≥ -0.1
-            DR_max       = 0.9,    # Degré de réaction              ≤ 0.9
-            U2_max       = 400.0,  # Tip speed [m/s]                ≤ 400
-            r3_r2_min    = 1.05,   # Vaneless diffuser radius ratio ≥ 1.05
-            r3_r2_max    = 2.0,    # Vaneless diffuser radius ratio ≤ 2.0  
-            )
-        
-        Comp.design()
+                L_z = 0.007693,
+                CP = 0.44, # [-] : Diffuser pressure coefficient 0.44
+                Omega = 180000, 
+                
+                psi_is_bounds = [0.3, 0.5],
+                r1s_r2_bounds = [0.6, 0.7], 
+                r1h_r1s_bounds = [0.3, 0.4],
+                b2_r2_bounds = [0.02, 0.3], 
+                r5_r3_bounds = [1.01, 1.3],
+                r3_r2_bounds = [1.05, 1.2],
+                xhi1_bounds = [40, 60],
+                xhi2_bounds = [40, 55],
+                # omega_bounds = np.array([150, 210])*1e3,
     
-    elif fluid == "R134a":
-        Comp = RadialCPMLDesign('R134a')
-        
-        # Zorlu Case
-        
-        Comp.set_inputs(
-            mdot = 0.039, # kg/s
-            p0_su = 1.65*1e5, # Pa
-            T0_su = 265, # K
-            p_ex = 3.8775*1e5, # Pa
-            )
-        
-        Comp.set_parameters(
-            # Fixed Values from source
-            t_b = 2*1e-4, # [m] : blade thickness
+                M1s_rel_max  = 1.4,    # Mach relatif shroud inducteur  ≤ 1.4
+                M1_rel_max   = 0.9,    # Mach relatif moyen inducteur   ≤ 0.9
+                W2_W1s_min   = 0.25,   # Ratio diffusion W2/W1s         ≥ 0.25
+                alpha2_max   = 85.0,   # Angle absolu sortie rotor [°]  ≤ 85°
+                o1_min       = 1e-3,# Ouverture gorge inducteur [m]  ≥ 1.49 mm
+                o1_max       = 50e-3,  # Ouverture gorge inducteur [m]  ≤ 50 mm
+                DR_min       = -0.1,   # Degré de réaction              ≥ -0.1
+                DR_max       = 0.9,    # Degré de réaction              ≤ 0.9
+                U2_max       = 400.0,  # Tip speed [m/s]                ≤ 400
+                r3_r2_min    = 1.05,   # Vaneless diffuser radius ratio ≥ 1.05
+                r3_r2_max    = 2.0,    # Vaneless diffuser radius ratio ≤ 2.0  
+                )
             
-            eps_imp = 0.15*1e-3, # [m] : Impeller clearance
-            eps_bf_imp = 1*1e-3, # [m] : Impeller back face clearance
-            k_imp = 0.01*1e-3, # [m] : Impeller surface roughness
-            
-            b3_b2_ratio = 1, # [-] : Diffuser width ratio
-            b5_b3 = 1, 
+            Comp.design()
         
-            L_z = 0.007693,
-            CP = 0.44, # [-] : Diffuser pressure coefficient 0.44
-            # Omega = 180000, 
+        elif fluid == "Air_1":
+            Comp = RadialCPMLDesign('Air')
             
-            # psi_is_bounds = [0.3, 1.1],
-            # r1s_r2_bounds = [0.4, 0.7], 
-            # r1h_r1s_bounds = [0.25, 0.4],
-            # b2_r2_bounds = [0.02, 0.8], 
-            # r5_r3_bounds = [1.01, 1.5],
-            # r3_r2_bounds = [1.05, 2],
-            # xhi1_bounds = [40, 70],
-            # xhi2_bounds = [20, 55],
+            # Zorlu Case
             
-            psi_is_bounds = [0.3, 0.5],
-            r1s_r2_bounds = [0.6, 0.7], 
-            r1h_r1s_bounds = [0.3, 0.4],
-            b2_r2_bounds = [0.02, 0.3], 
-            r5_r3_bounds = [1.01, 1.3],
-            r3_r2_bounds = [1.05, 1.2],
-            xhi1_bounds = [40, 60],
-            xhi2_bounds = [40, 55],
-            omega_bounds = np.array([150, 210])*1e3,
-
-            M1s_rel_max  = 1.4,    # Mach relatif shroud inducteur  ≤ 1.4
-            M1_rel_max   = 0.9,    # Mach relatif moyen inducteur   ≤ 0.9
-            W2_W1s_min   = 0.25,   # Ratio diffusion W2/W1s         ≥ 0.25
-            alpha2_max   = 85.0,   # Angle absolu sortie rotor [°]  ≤ 85°
-            o1_min       = 1e-3,# Ouverture gorge inducteur [m]  ≥ 1.49 mm
-            o1_max       = 50e-3,  # Ouverture gorge inducteur [m]  ≤ 50 mm
-            DR_min       = -0.1,   # Degré de réaction              ≥ -0.1
-            DR_max       = 0.9,    # Degré de réaction              ≤ 0.9
-            U2_max       = 400.0,  # Tip speed [m/s]                ≤ 400
-            r3_r2_min    = 1.05,   # Vaneless diffuser radius ratio ≥ 1.05
-            r3_r2_max    = 2.0,    # Vaneless diffuser radius ratio ≤ 2.0  
-            )
-        
-        Comp.design()
+            Comp.set_inputs(
+                mdot = 5.32, # kg/s
+                p0_su = 1.01*1e5, # Pa
+                T0_su = 288.15, # K
+                p_ex = 2.02*1e5, # Pa
+                )
+            
+            Comp.set_parameters(
+                # Fixed Values from source
+                t_b = 2.11*1e-3, # [m] : blade thickness
+                
+                eps_imp = 0.372*1e-3, # [m] : Impeller clearance
+                eps_bf_imp = 0.372*1e-3, # [m] : Impeller back face clearance
+                k_imp = 0.002*1e-3, # [m] : Impeller surface roughness
+                
+                b3_b2_ratio = 1, # [-] : Diffuser width ratio
+                b5_b3 = 1, 
+            
+                L_z = 0.13,
+                CP = 0.44, # [-] : Diffuser pressure coefficient 0.44
+                Omega = 14000, 
+                
+                # psi_is_bounds = [0.3, 1.1],
+                psi_is_bounds = [0.3, 0.7],
+                r1s_r2_bounds = [0.4, 0.7], 
+                r1h_r1s_bounds = [0.25, 0.4],
+                b2_r2_bounds = [0.02, 0.8], 
+                r5_r3_bounds = [1.01, 1.5],
+                r3_r2_bounds = [1.05, 2],
+                xhi1_bounds = [40, 70],
+                xhi2_bounds = [20, 55],
+                # omega_bounds = np.array([10, 20])*1e3,
     
-    elif fluid == "Air_1":
-        Comp = RadialCPMLDesign('Air')
-        
-        # Zorlu Case
-        
-        Comp.set_inputs(
-            mdot = 5.32, # kg/s
-            p0_su = 1.01*1e5, # Pa
-            T0_su = 288.15, # K
-            p_ex = 2.02*1e5, # Pa
-            )
-        
-        Comp.set_parameters(
-            # Fixed Values from source
-            t_b = 2*1e-4, # [m] : blade thickness
+                M1s_rel_max  = 1.4,    # Mach relatif shroud inducteur  ≤ 1.4
+                M1_rel_max   = 0.9,    # Mach relatif moyen inducteur   ≤ 0.9
+                W2_W1s_min   = 0.25,   # Ratio diffusion W2/W1s         ≥ 0.25
+                alpha2_max   = 85.0,   # Angle absolu sortie rotor [°]  ≤ 85°
+                o1_min       = 1e-3,# Ouverture gorge inducteur [m]  ≥ 1.49 mm
+                o1_max       = 50e-3,  # Ouverture gorge inducteur [m]  ≤ 50 mm
+                DR_min       = -0.1,   # Degré de réaction              ≥ -0.1
+                DR_max       = 0.9,    # Degré de réaction              ≤ 0.9
+                U2_max       = 400.0,  # Tip speed [m/s]                ≤ 400
+                r3_r2_min    = 1.05,   # Vaneless diffuser radius ratio ≥ 1.05
+                r3_r2_max    = 2.0,    # Vaneless diffuser radius ratio ≤ 2.0  
+                )
             
-            eps_imp = 0.372*1e-3, # [m] : Impeller clearance
-            eps_bf_imp = 0.372*1e-3, # [m] : Impeller back face clearance
-            k_imp = 0.002*1e-3, # [m] : Impeller surface roughness
-            
-            b3_b2_ratio = 1, # [-] : Diffuser width ratio
-            b5_b3 = 1, 
+            Comp.design()
         
-            L_z = 0.13,
-            CP = 0.44, # [-] : Diffuser pressure coefficient 0.44
-            # Omega = 14000, 
+        elif fluid == "Air_2":
+            Comp = RadialCPMLDesign('Air')
             
-            psi_is_bounds = [0.3, 1.1],
-            r1s_r2_bounds = [0.4, 0.7], 
-            r1h_r1s_bounds = [0.25, 0.4],
-            b2_r2_bounds = [0.02, 0.8], 
-            r5_r3_bounds = [1.01, 1.5],
-            r3_r2_bounds = [1.05, 2],
-            xhi1_bounds = [40, 70],
-            xhi2_bounds = [20, 55],
-            omega_bounds = np.array([10, 20])*1e3,
-
-            M1s_rel_max  = 1.4,    # Mach relatif shroud inducteur  ≤ 1.4
-            M1_rel_max   = 0.9,    # Mach relatif moyen inducteur   ≤ 0.9
-            W2_W1s_min   = 0.25,   # Ratio diffusion W2/W1s         ≥ 0.25
-            alpha2_max   = 85.0,   # Angle absolu sortie rotor [°]  ≤ 85°
-            o1_min       = 1e-3,# Ouverture gorge inducteur [m]  ≥ 1.49 mm
-            o1_max       = 50e-3,  # Ouverture gorge inducteur [m]  ≤ 50 mm
-            DR_min       = -0.1,   # Degré de réaction              ≥ -0.1
-            DR_max       = 0.9,    # Degré de réaction              ≤ 0.9
-            U2_max       = 400.0,  # Tip speed [m/s]                ≤ 400
-            r3_r2_min    = 1.05,   # Vaneless diffuser radius ratio ≥ 1.05
-            r3_r2_max    = 2.0,    # Vaneless diffuser radius ratio ≤ 2.0  
-            )
-        
-        Comp.design()
+            # Zorlu Case
+            
+            Comp.set_inputs(
+                mdot = 4.54, # kg/s
+                p0_su = 1.01*1e5, # Pa
+                T0_su = 288.15, # K
+                p_ex = 1.8281*1e5, # Pa
+                )
+            
+            Comp.set_parameters(
+                # Fixed Values from source
+                t_b = 2.11*1e-3, # [m] : blade thickness
+                
+                eps_imp = 0.235*1e-3, # [m] : Impeller clearance
+                eps_bf_imp = 0.235*1e-3, # [m] : Impeller back face clearance
+                k_imp = 0.002*1e-3, # [m] : Impeller surface roughness
+                
+                b3_b2_ratio = 1, # [-] : Diffuser width ratio
+                b5_b3 = 1, 
+            
+                L_z = 0.13,
+                CP = 0.44, # [-] : Diffuser pressure coefficient 0.44
+                Omega = 14000, 
+                
+                psi_is_bounds = [0.3, 1.1],
+                r1s_r2_bounds = [0.4, 0.7], 
+                r1h_r1s_bounds = [0.25, 0.4],
+                b2_r2_bounds = [0.02, 0.8], 
+                r5_r3_bounds = [1.01, 1.5],
+                r3_r2_bounds = [1.05, 2],
+                xhi1_bounds = [40, 70],
+                xhi2_bounds = [20, 55],
+                # omega_bounds = np.array([10, 20])*1e3,
     
-    elif fluid == "Air_2":
-        Comp = RadialCPMLDesign('Air')
-        
-        # Zorlu Case
-        
-        Comp.set_inputs(
-            mdot = 4.54, # kg/s
-            p0_su = 1.01*1e5, # Pa
-            T0_su = 288.15, # K
-            p_ex = 1.8281*1e5, # Pa
-            )
-        
-        Comp.set_parameters(
-            # Fixed Values from source
-            t_b = 2*1e-4, # [m] : blade thickness
+                M1s_rel_max  = 1.4,    # Mach relatif shroud inducteur  ≤ 1.4
+                M1_rel_max   = 0.9,    # Mach relatif moyen inducteur   ≤ 0.9
+                W2_W1s_min   = 0.25,   # Ratio diffusion W2/W1s         ≥ 0.25
+                alpha2_max   = 85.0,   # Angle absolu sortie rotor [°]  ≤ 85°
+                o1_min       = 1e-3,# Ouverture gorge inducteur [m]  ≥ 1.49 mm
+                o1_max       = 50e-3,  # Ouverture gorge inducteur [m]  ≤ 50 mm
+                DR_min       = -0.1,   # Degré de réaction              ≥ -0.1
+                DR_max       = 0.9,    # Degré de réaction              ≤ 0.9
+                U2_max       = 400.0,  # Tip speed [m/s]                ≤ 400
+                r3_r2_min    = 1.05,   # Vaneless diffuser radius ratio ≥ 1.05
+                r3_r2_max    = 2.0,    # Vaneless diffuser radius ratio ≤ 2.0  
+                )
             
-            eps_imp = 0.235*1e-3, # [m] : Impeller clearance
-            eps_bf_imp = 0.235*1e-3, # [m] : Impeller back face clearance
-            k_imp = 0.002*1e-3, # [m] : Impeller surface roughness
+            Comp.design()
             
-            b3_b2_ratio = 1, # [-] : Diffuser width ratio
-            b5_b3 = 1, 
+        elif fluid == "Air_3":
+            Comp = RadialCPMLDesign('Air')
+            
+            # Zorlu Case
+            
+            Comp.set_inputs(
+                mdot = 4.54, # kg/s
+                p0_su = 1.01*1e5, # Pa
+                T0_su = 288.15, # K
+                p_ex = 1.6867*1e5, # Pa
+                )
+            
+            Comp.set_parameters(
+                # Fixed Values from source
+                t_b = 2.11*1e-3, # [m] : blade thickness
+                
+                eps_imp = 0.372*1e-3, # [m] : Impeller clearance
+                eps_bf_imp = 0.372*1e-3, # [m] : Impeller back face clearance
+                k_imp = 0.002*1e-3, # [m] : Impeller surface roughness
+                
+                b3_b2_ratio = 1, # [-] : Diffuser width ratio
+                b5_b3 = 1, 
+            
+                L_z = 0.13,
+                CP = 0.44, # [-] : Diffuser pressure coefficient 0.44
+                Omega = 14000, 
+                
+                psi_is_bounds = [0.3, 1.1],
+                r1s_r2_bounds = [0.4, 0.7], 
+                r1h_r1s_bounds = [0.25, 0.4],
+                b2_r2_bounds = [0.02, 0.8], 
+                r5_r3_bounds = [1.01, 1.5],
+                r3_r2_bounds = [1.05, 2],
+                xhi1_bounds = [40, 70],
+                xhi2_bounds = [20, 55],
+                # omega_bounds = np.array([10, 20])*1e3,
+    
+                M1s_rel_max  = 1.4,    # Mach relatif shroud inducteur  ≤ 1.4
+                M1_rel_max   = 0.9,    # Mach relatif moyen inducteur   ≤ 0.9
+                W2_W1s_min   = 0.25,   # Ratio diffusion W2/W1s         ≥ 0.25
+                alpha2_max   = 85.0,   # Angle absolu sortie rotor [°]  ≤ 85°
+                o1_min       = 1e-3,# Ouverture gorge inducteur [m]  ≥ 1.49 mm
+                o1_max       = 50e-3,  # Ouverture gorge inducteur [m]  ≤ 50 mm
+                DR_min       = -0.1,   # Degré de réaction              ≥ -0.1
+                DR_max       = 0.9,    # Degré de réaction              ≤ 0.9
+                U2_max       = 400.0,  # Tip speed [m/s]                ≤ 400
+                r3_r2_min    = 1.05,   # Vaneless diffuser radius ratio ≥ 1.05
+                r3_r2_max    = 2.0,    # Vaneless diffuser radius ratio ≤ 2.0  
+                )
+            
+            Comp.design()
         
-            L_z = 0.13,
-            CP = 0.44, # [-] : Diffuser pressure coefficient 0.44
-            Omega = 14000, 
-            
-            psi_is_bounds = [0.3, 1.1],
-            r1s_r2_bounds = [0.4, 0.7], 
-            r1h_r1s_bounds = [0.25, 0.4],
-            b2_r2_bounds = [0.02, 0.8], 
-            r5_r3_bounds = [1.01, 1.5],
-            r3_r2_bounds = [1.05, 2],
-            xhi1_bounds = [40, 70],
-            xhi2_bounds = [20, 55],
-            omega_bounds = np.array([10, 20])*1e3,
+        try:
+            eta_is_vec.append(Comp.eta_is)    
+        except:
+            eta_is_vec.append(-1)    
 
-            M1s_rel_max  = 1.4,    # Mach relatif shroud inducteur  ≤ 1.4
-            M1_rel_max   = 0.9,    # Mach relatif moyen inducteur   ≤ 0.9
-            W2_W1s_min   = 0.25,   # Ratio diffusion W2/W1s         ≥ 0.25
-            alpha2_max   = 85.0,   # Angle absolu sortie rotor [°]  ≤ 85°
-            o1_min       = 1e-3,# Ouverture gorge inducteur [m]  ≥ 1.49 mm
-            o1_max       = 50e-3,  # Ouverture gorge inducteur [m]  ≤ 50 mm
-            DR_min       = -0.1,   # Degré de réaction              ≥ -0.1
-            DR_max       = 0.9,    # Degré de réaction              ≤ 0.9
-            U2_max       = 400.0,  # Tip speed [m/s]                ≤ 400
-            r3_r2_min    = 1.05,   # Vaneless diffuser radius ratio ≥ 1.05
-            r3_r2_max    = 2.0,    # Vaneless diffuser radius ratio ≤ 2.0  
-            )
-        
-        Comp.design()
-        
-    elif fluid == "Air_3":
-        Comp = RadialCPMLDesign('Air')
-        
-        # Zorlu Case
-        
-        Comp.set_inputs(
-            mdot = 4.54, # kg/s
-            p0_su = 1.01*1e5, # Pa
-            T0_su = 288.15, # K
-            p_ex = 1.6867*1e5, # Pa
-            )
-        
-        Comp.set_parameters(
-            # Fixed Values from source
-            t_b = 2*1e-4, # [m] : blade thickness
-            
-            eps_imp = 0.372*1e-3, # [m] : Impeller clearance
-            eps_bf_imp = 0.372*1e-3, # [m] : Impeller back face clearance
-            k_imp = 0.002*1e-3, # [m] : Impeller surface roughness
-            
-            b3_b2_ratio = 1, # [-] : Diffuser width ratio
-            b5_b3 = 1, 
-        
-            L_z = 0.13,
-            CP = 0.44, # [-] : Diffuser pressure coefficient 0.44
-            Omega = 14000, 
-            
-            psi_is_bounds = [0.3, 1.1],
-            r1s_r2_bounds = [0.4, 0.7], 
-            r1h_r1s_bounds = [0.25, 0.4],
-            b2_r2_bounds = [0.02, 0.8], 
-            r5_r3_bounds = [1.01, 1.5],
-            r3_r2_bounds = [1.05, 2],
-            xhi1_bounds = [40, 70],
-            xhi2_bounds = [20, 55],
-            omega_bounds = np.array([10, 20])*1e3,
-
-            M1s_rel_max  = 1.4,    # Mach relatif shroud inducteur  ≤ 1.4
-            M1_rel_max   = 0.9,    # Mach relatif moyen inducteur   ≤ 0.9
-            W2_W1s_min   = 0.25,   # Ratio diffusion W2/W1s         ≥ 0.25
-            alpha2_max   = 85.0,   # Angle absolu sortie rotor [°]  ≤ 85°
-            o1_min       = 1e-3,# Ouverture gorge inducteur [m]  ≥ 1.49 mm
-            o1_max       = 50e-3,  # Ouverture gorge inducteur [m]  ≤ 50 mm
-            DR_min       = -0.1,   # Degré de réaction              ≥ -0.1
-            DR_max       = 0.9,    # Degré de réaction              ≤ 0.9
-            U2_max       = 400.0,  # Tip speed [m/s]                ≤ 400
-            r3_r2_min    = 1.05,   # Vaneless diffuser radius ratio ≥ 1.05
-            r3_r2_max    = 2.0,    # Vaneless diffuser radius ratio ≤ 2.0  
-            )
-        
-        Comp.design()
