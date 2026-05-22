@@ -96,7 +96,6 @@ class CircuitFPI(BaseCircuit):
             self.input_history:  list[float] = []
             self.output_history: list[float] = []
 
-
         def record_input(self, v: float):  self.input_history.append(float(v))
         def record_output(self, v: float): self.output_history.append(float(v))
 
@@ -210,12 +209,12 @@ class CircuitFPI(BaseCircuit):
             if self.obj_type == "Link":
                 if self.it_prop_name == self.obj_prop_name == 'p':
             
-                    self.DP_gain          = self.find_link_DP(components)                    
+                    DP_gain          = self.find_link_DP(components)                    
                     connector_obj = getattr(components[self.obj_comp_name].model, self.obj_connector_name)
                     value_obj     = getattr(connector_obj, self.obj_prop_name)
                     
                     update_guess_target = self.it_comp_name + ":" + self.it_connector_name                    
-                    cycle.set_cycle_guess(target=update_guess_target, **{self.it_prop_name: value_obj + self.DP_gain})
+                    cycle.set_cycle_guess(target=update_guess_target, **{self.it_prop_name: value_obj + DP_gain})
                                         
             else:
                 if self.obj_prop_name == "SC" and self.it_prop_name == 'p':
@@ -242,13 +241,13 @@ class CircuitFPI(BaseCircuit):
                     
                         return brentq(residual, P_min, P_max, xtol=1e-4)
 
-                    self.DP_gain          = self.find_link_DP(components)                    
+                    DP_gain          = self.find_link_DP(components)                    
                     
                     it_connector = getattr(components[self.it_comp_name].model, self.it_connector_name)                    
                     obj_connector = getattr(components[self.obj_comp_name].model, self.obj_connector_name)
                     current_h_value = obj_connector.h
                     
-                    P_target = h_to_pressure_from_SC(current_h_value, self.target_value) + self.DP_gain
+                    P_target = h_to_pressure_from_SC(current_h_value, self.target_value) + DP_gain
                     
                     update_guess_target = self.it_comp_name + ":" + self.it_connector_name
 
@@ -358,18 +357,6 @@ class CircuitFPI(BaseCircuit):
             self.AS = CP.AbstractState("HEOS", self.fluid)
         else:
             self.AS = None
-            
-        # Oscillation tracking in solve loop
-        self._snapshot_history:      list = []   # last N snapshots
-        self.it_var_obj_hist: dict = {}   # {it_var_name: [obj_values]}
-
-        self.oscillation_detected    = False
-        self._oscillation_damping:   dict = {}   # {guess_name: float}
-        self.oscillation_damping_default = 0.5
-        self.oscillation_damping_floor   = 0.05
-        self._oscillation_damping_locked  = False
-        self._oscillation_damping_counter = 0
-        self.oscillation_damping_duration = 5   # iterations to apply damping after detection
 
     #%% -----------------------------------------------------------------------
     # Connector snapshot helpers  (identical to circuit_rec)
@@ -559,83 +546,36 @@ class CircuitFPI(BaseCircuit):
     # Substitution-based iteration step
     # -----------------------------------------------------------------------
 
-    # def _substitution_step(self, use_wegstein: bool):
-    #     """
-    #     Read connector outputs, compute next guess via SS or Wegstein,
-    #     write back to connectors.
-    #     """
-    #     for guess_name, guess in self.guesses.items():
-    #         component_name, rest = guess_name.split(":")
-    #         port, var            = rest.split("-")
-    #         connector            = getattr(self.components[component_name].model, port)
-    #         f_curr               = float(getattr(connector, var))
-    #         x_curr               = guess.value
-
-    #         guess.record_input(x_curr)
-    #         guess.record_output(f_curr)
-
-    #         if use_wegstein and var not in ("SC", "SH"):
-    #             next_value = CircuitFPI._wegstein_update(
-    #                 x_prev=guess.prev_input,
-    #                 x_curr=x_curr,
-    #                 f_prev=guess.prev_output,
-    #                 f_curr=f_curr,
-    #                 q_min=self.wegstein_q_min,
-    #                 q_max=self.wegstein_q_max,
-    #             )
-    #             if self.print_flag:
-    #                 print(f"  Wegstein [{guess_name}]: "
-    #                       f"x={x_curr:.4g} f={f_curr:.4g} -> {next_value:.4g}")
-    #         else:
-    #             next_value = f_curr
-
-    #         self.set_cycle_guess(target=guess.target,
-    #                              **{guess.variable: next_value})
-    
-    @staticmethod
-    def _average_history(history: list, n: int = 4) -> float:
-        """Average the last n values from history to damp oscillations."""
-        if not history:
-            return None
-        recent = history[-n:]
-        return float(np.mean(recent))
-    
     def _substitution_step(self, use_wegstein: bool):
+        """
+        Read connector outputs, compute next guess via SS or Wegstein,
+        write back to connectors.
+        """
         for guess_name, guess in self.guesses.items():
             component_name, rest = guess_name.split(":")
             port, var            = rest.split("-")
             connector            = getattr(self.components[component_name].model, port)
             f_curr               = float(getattr(connector, var))
             x_curr               = guess.value
-    
+
             guess.record_input(x_curr)
             guess.record_output(f_curr)
-    
+
             if use_wegstein and var not in ("SC", "SH"):
-                if self.oscillation_detected:
-                    # Average over input history to cancel A/B oscillation pattern
-                    next_value = CircuitFPI._average_history(
-                        guess.input_history, n=self.oscillation_window)
-                    if next_value is None:
-                        next_value = f_curr
-                    if self.print_flag:
-                        print(f"  [history avg] [{guess_name}]: "
-                              f"x={x_curr:.4g} -> avg={next_value:.4g}")
-                else:
-                    next_value = CircuitFPI._wegstein_update(
-                        x_prev=guess.prev_input,
-                        x_curr=x_curr,
-                        f_prev=guess.prev_output,
-                        f_curr=f_curr,
-                        q_min=self.wegstein_q_min,
-                        q_max=self.wegstein_q_max,
-                    )
-                    if self.print_flag:
-                        print(f"  Wegstein [{guess_name}]: "
-                              f"x={x_curr:.4g} f={f_curr:.4g} -> {next_value:.4g}")
+                next_value = CircuitFPI._wegstein_update(
+                    x_prev=guess.prev_input,
+                    x_curr=x_curr,
+                    f_prev=guess.prev_output,
+                    f_curr=f_curr,
+                    q_min=self.wegstein_q_min,
+                    q_max=self.wegstein_q_max,
+                )
+                if self.print_flag:
+                    print(f"  Wegstein [{guess_name}]: "
+                          f"x={x_curr:.4g} f={f_curr:.4g} -> {next_value:.4g}")
             else:
                 next_value = f_curr
-    
+
             self.set_cycle_guess(target=guess.target,
                                  **{guess.variable: next_value})
         
@@ -657,13 +597,9 @@ class CircuitFPI(BaseCircuit):
             it_var = self.it_vars[it_var_name]
             
             if it_var.obj_type is not "Link":
+                
                 obj_connector = getattr(self.components[it_var.obj_comp_name].model, it_var.obj_connector_name)
                 obj_current_value = getattr(obj_connector, it_var.obj_prop_name)
-        
-                # Track history
-                if it_var_name not in self.it_var_obj_hist:
-                    self.it_var_obj_hist[it_var_name] = []
-                self.it_var_obj_hist[it_var_name].append(obj_current_value)
                 
                 if it_var.target_value != 0:
                     if obj_current_value is None:
@@ -688,102 +624,13 @@ class CircuitFPI(BaseCircuit):
             self.messages.append("Not all components solved.")
 
         return self.converged
-    
-    def _detect_oscillation(self) -> bool:
-        """
-        Detect oscillation by analysing the incremental changes (delta) between
-        consecutive snapshots. Works for any period and is robust to slow drift.
-        """
-        w = self.oscillation_window
-        if len(self._snapshot_history) < w:
-            return False
-    
-        try:
-            def snap_to_vector(snap):
-                vals = []
-                for comp_name in sorted(snap):
-                    for port_name in sorted(snap[comp_name]):
-                        vals.append(snap[comp_name][port_name]['p'])
-                        vals.append(snap[comp_name][port_name]['h'])
-                return np.array(vals, dtype=float)
-    
-            recent  = self._snapshot_history[-w:]
-            vectors = np.array([snap_to_vector(s) for s in recent])  # shape (w, n_vars)
-    
-            # Work on deltas between consecutive iterations to remove drift
-            deltas = np.diff(vectors, axis=0)   # shape (w-1, n_vars)
-    
-            # Normalise each variable by its own range to make p and h comparable
-            ranges = np.max(np.abs(deltas), axis=0)
-            ranges[ranges < 1e-10] = 1.0        # avoid division by zero for flat variables
-            deltas_norm = deltas / ranges        # shape (w-1, n_vars)
-    
-            # Collapse to scalar signal by taking the RMS across variables
-            signal = np.sqrt(np.mean(deltas_norm ** 2, axis=1))  # shape (w-1,)
-    
-            # Zero-mean
-            signal -= signal.mean()
-            if np.max(np.abs(signal)) < 1e-10:
-                return False
-    
-            # Normalised autocorrelation of the delta signal
-            autocorr = np.correlate(signal, signal, mode='full')
-            autocorr = autocorr[len(autocorr) // 2:]
-            autocorr /= autocorr[0]
-    
-            max_lag   = (w - 1) // 2
-            threshold = 0.6     # lower than before — delta signal is noisier
-    
-            for lag in range(2, max_lag + 1):
-                if autocorr[lag] > threshold:
-                    if self.print_flag:
-                        print(f"  [oscillation] period-{lag} pattern detected "
-                              f"(autocorr={autocorr[lag]:.3f})")
-                    return True
-    
-        except Exception:
-            return False
-    
-        return False
-    
-    def _apply_oscillation_damping(self):
-        """
-        When oscillation is detected, override the current guess values
-        with a damped blend toward f(x), and tighten per-guess damping.
-        """
-        for guess_name, guess in self.guesses.items():
-            if guess_name not in self._oscillation_damping:
-                self._oscillation_damping[guess_name] = self.oscillation_damping_default
-    
-            if self.oscillation_detected:
-                self._oscillation_damping[guess_name] = max(
-                    self.oscillation_damping_floor,
-                    self._oscillation_damping[guess_name] * 0.5
-                )
-            else:
-                self._oscillation_damping[guess_name] = min(
-                    self.oscillation_damping_default,
-                    self._oscillation_damping[guess_name] * 1.2
-                )
-    
-            if self.oscillation_detected:
-                d          = self._oscillation_damping[guess_name]
-                x_curr     = guess.value
-                # f(x) is the last recorded output
-                f_curr     = guess.output_history[-1] if guess.output_history else x_curr
-                damped_val = x_curr * (1 - d) + f_curr * d
-                self.set_cycle_guess(target=guess.target,
-                                     **{guess.variable: damped_val})
-                if self.print_flag:
-                    print(f"  [oscillation] {guess_name}: damping={d:.3f} "
-                          f"x={x_curr:.4g} -> {damped_val:.4g}")
 
     #%% -----------------------------------------------------------------------
     # Main solve entry point
     # -----------------------------------------------------------------------
 
     def solve(self, max_iter: int = 30, method: str = 'wegstein',
-              root_tol: float = 1e-10, tol=1e-5, oscillation_window = 6):
+              root_tol: float = 1e-10, tol=1e-5):
         """
         Solve the circuit.
 
@@ -798,9 +645,8 @@ class CircuitFPI(BaseCircuit):
         tol : float
             Tolerance passed to scipy root/fsolve (Newton-based methods only).
         """
-        self._iteration_count = 1        
-        self.oscillation_window      = oscillation_window         # must be even
-
+        self._iteration_count = 1
+        
         # if method not in _ALL_METHODS:
         #     raise ValueError(
         #         f"Unknown method '{method}'. "
@@ -856,45 +702,23 @@ class CircuitFPI(BaseCircuit):
 
         for i in range(max_iter):
             self._iteration_count += 1
+
             self.messages = []
-        
             if self.print_flag:
                 print(f"\n{'#'*30}\nIteration {i+1}\n{'#'*30}")
-        
+
+            self.update_iteration_variables()
             self._enforce_fixed_properties()
             self._substitution_step(use_wegstein)
-        
+
             try:
                 self._sequential_sweep()
             except:
                 self.converged = False
                 return
-        
-            current_snapshot = self._snapshot_connector_states()
-        
-            # --- Oscillation tracking ---
-            self._snapshot_history.append(current_snapshot)
-            
-            if self._oscillation_damping_locked:
-                self._oscillation_damping_counter += 1
-                if self._oscillation_damping_counter >= self.oscillation_damping_duration:
-                    # Release the lock and reset — give Wegstein another chance
-                    self._oscillation_damping_locked  = False
-                    self._oscillation_damping_counter = 0
-                    # Clear snapshot history so detection starts fresh
-                    self._snapshot_history = []
-                    if self.print_flag:
-                        print(f"  [oscillation] damping released at iteration {i+1} — resuming Wegstein")
-            else:
-                self.oscillation_detected = self._detect_oscillation()
-                if self.oscillation_detected:
-                    if self.print_flag:
-                        print(f"  [oscillation detected] iteration {i+1} — applying damping for {self.oscillation_damping_duration} iterations")
-                    self._oscillation_damping_locked  = True
-                    self._oscillation_damping_counter = 0
+         
             # self.print_states()   
-            self.update_iteration_variables()
-
+         
             current_snapshot = self._snapshot_connector_states()
             if self._check_convergence(current_snapshot):
                 if self.print_flag:

@@ -1,1 +1,7 @@
 2026-04-29 10:38:17,136 - pyswarms.single.global_best - INFO - Optimize for 30 iters with {'c1': 1.5, 'c2': 1.5, 'w': 0.7}
+2026-05-21 16:35:25,049 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Task-2' coro=<Kernel.poll_control_queue() running at C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\ipykernel\kernelbase.py:309> wait_for=<Future pending cb=[Task.task_wakeup()]> cb=[_chain_future.<locals>._call_set_state() at C:\Users\Basile\anaconda3\Lib\asyncio\futures.py:398]>
+2026-05-21 16:37:14,302 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Task-2' coro=<Kernel.poll_control_queue() running at C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\ipykernel\kernelbase.py:309> wait_for=<Future pending cb=[Task.task_wakeup()]> cb=[_chain_future.<locals>._call_set_state() at C:\Users\Basile\anaconda3\Lib\asyncio\futures.py:398]>
+2026-05-21 16:44:02,558 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Task-2' coro=<Kernel.poll_control_queue() running at C:\Users\Basile\AppData\Roaming\Python\Python312\site-packages\ipykernel\kernelbase.py:309> wait_for=<Future pending cb=[Task.task_wakeup()]> cb=[_chain_future.<locals>._call_set_state() at C:\Users\Basile\anaconda3\Lib\asyncio\futures.py:398]>

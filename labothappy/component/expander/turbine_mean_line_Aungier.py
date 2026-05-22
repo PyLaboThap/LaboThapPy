@@ -424,11 +424,11 @@ class AxialTurbineMeanLine(BaseComponent):
             print(
                 f"[load_map] {self.map_interpolator.n_points} pts loaded  "
                 f"| method={method!r}  "
-                f"| m ∈ [{self.map_interpolator.m_range[0]:.1f}, "
+                f"| m in [{self.map_interpolator.m_range[0]:.1f}, "
                 f"{self.map_interpolator.m_range[1]:.1f}] kg/s  "
-                f"| N ∈ [{self.map_interpolator.N_range[0]:.0f}, "
+                f"| N in [{self.map_interpolator.N_range[0]:.0f}, "
                 f"{self.map_interpolator.N_range[1]:.0f}] rpm  "
-                f"| P ∈ [{self.map_interpolator.P_range[0]/1e5:.2f}, "
+                f"| P in [{self.map_interpolator.P_range[0]/1e5:.2f}, "
                 f"{self.map_interpolator.P_range[1]/1e5:.2f}] bar"
             )
         return self.map_interpolator

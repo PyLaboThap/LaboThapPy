@@ -452,12 +452,12 @@ if case_study == "Simulation":
     W_turb = CO2_TC.components['Turbine'].model.W.W_dot
     Q_gh = CO2_TC.components['GasHeater'].model.Q.Q_dot
 
-    eta = (W_turb - W_pp)/Q_gh
+    # eta = (W_turb - W_pp)/Q_gh
 
-    print(f"W_pp : {W_pp}")
-    print(f"W_turb : {W_turb}")
-    print(f"Q_gh : {Q_gh}")
-    print(f"eta : {eta}")
+    # print(f"W_pp : {W_pp}")
+    # print(f"W_turb : {W_turb}")
+    # print(f"Q_gh : {Q_gh}")
+    # print(f"eta : {eta}")
 
 elif case_study == "Sensitivity":
     

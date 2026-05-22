@@ -22,7 +22,7 @@ os.environ["OMP_NUM_THREADS"]     = "1"    # same for OpenMP (numpy, scipy)
 os.environ["MKL_NUM_THREADS"]     = "1"    # same for MKL
 os.environ["OPENBLAS_NUM_THREADS"]= "1"    # same for OpenBLAS
 
-def CO2_OD_TC(mdot_CO2_guess, P_high, SC_target, mute_print=1):
+def CO2_OD_TC(mdot_CO2_guess, P_high, SC_target, N_pp, N_exp, mute_print=1):
     # -------- 1) Instanciate Circuit --------
     fluid = 'CO2'
     CO2_TC = CircuitFPI(fluid)
@@ -387,7 +387,7 @@ def CO2_OD_TC(mdot_CO2_guess, P_high, SC_target, mute_print=1):
 
     # -------- 6) Add fluid sources --------
     CD_source = MassConnector('Water')
-    T_su_w_cd = 0.1 + 273.15
+    T_su_w_cd = 15 + 273.15
     P_su_w_cd = 5e5
     m_dot_w_cd = 4542 # kg/s
     GH_source = MassConnector('Water')
@@ -404,7 +404,7 @@ def CO2_OD_TC(mdot_CO2_guess, P_high, SC_target, mute_print=1):
     # Set Inputs
     Pump.set_inputs(
         fluid="CO2",  # Actual fluid type
-        N_rot= N_pp_rated,
+        N_rot= N_pp,
     )
     
     N_turb = Turb_params['N_rot_rated'] # RPM
@@ -414,7 +414,7 @@ def CO2_OD_TC(mdot_CO2_guess, P_high, SC_target, mute_print=1):
     #     )
     
     Turbine.set_inputs(
-          N_rot = 2900, 
+          N_rot = N_exp, 
         )
     # -------- 8) Set cycle guesses --------
     
@@ -437,7 +437,8 @@ def CO2_OD_TC(mdot_CO2_guess, P_high, SC_target, mute_print=1):
         objective = 'Pump:su-SC',
         target_value = SC_target,
         obj_type = "Target_val",
-        damping_factor = 0.2,
+        damping_factor = 0.7,
+        tol = 0.1
     )
 
     return CO2_TC
@@ -451,11 +452,11 @@ if case_study == "Simulation":
     # # # -------- 8) Solve — swap method here for comparison --------
     METHOD = 'wegstein'   # <-- change to compare: 'successive_substitution',
 
-    SC_target = 0.05 # K
-    mdot_guess = 320 # kg/s
-    P_high_guess = 153*1e5 # Pa
-    CO2_TC = CO2_OD_TC(mdot_guess, P_high_guess, SC_target, mute_print=0)
-    CO2_TC.solve(method=METHOD, max_iter=100)
+    SC_target = 1 # K
+    mdot_guess = 280 # kg/s
+    P_high_guess = 150*1e5 # Pa
+    CO2_TC = CO2_OD_TC(mdot_guess, P_high_guess, SC_target, mute_print=0, N_pp = 2950, N_exp = 3150)
+    CO2_TC.solve(method=METHOD, max_iter=100, tol = 1*1e-3, oscillation_window = 10)
 
     W_pp = CO2_TC.components['Pump'].model.W.W_dot
     W_turb = CO2_TC.components['Turbine'].model.W.W_dot
@@ -478,6 +479,118 @@ if case_study == "Simulation":
 
     print(f"Q_gh : {Q_gh}")
     print(f"eta : {eta}")
+
+
+    # -*- coding: utf-8 -*-
+    """
+    Created on Fri May 22 12:05:06 2026
+    
+    @author: Basile
+    """
+    
+    """
+    plot_snapshot_history.py
+    
+    Plots the CO2_TC snapshot history: pressure and enthalpy convergence
+    across solver iterations for each component stream.
+    
+    Usage:
+        python plot_snapshot_history.py
+    
+    Requires: matplotlib, numpy
+        pip install matplotlib numpy
+    """
+    
+    import matplotlib.pyplot as plt
+    import matplotlib.ticker as ticker
+    import numpy as np
+    
+    # ── Snapshot data ──────────────────────────────────────────────────────────────
+    
+    snapshot_history = CO2_TC._snapshot_history
+    
+    # ── Extract time series ────────────────────────────────────────────────────────
+    
+    # Streams to plot: (component, port, label)
+    streams = [
+        ("Turbine",    "ex",   "Turbine ex"),
+        ("Condenser",  "ex_H", "Condenser ex_H"),
+        ("Pump",       "ex",   "Pump ex"),
+        ("GasHeater",  "ex_C", "GasHeater ex_C"),
+        ("Recuperator","ex_H", "Recuperator ex_H"),
+        ("Recuperator","ex_C", "Recuperator ex_C"),
+    ]
+    
+    n = len(snapshot_history)
+    iters = np.arange(n)
+    
+    data = {}
+    for comp, port, label in streams:
+        ps, hs = [], []
+        for snap in snapshot_history:
+            ps.append(snap[comp][port]["p"])
+            hs.append(snap[comp][port]["h"])
+        data[label] = {"p": np.array(ps), "h": np.array(hs)}
+    
+    # ── Colours ────────────────────────────────────────────────────────────────────
+    
+    colors = [
+        "#378ADD",  # blue   – Turbine
+        "#1D9E75",  # teal   – Condenser
+        "#D85A30",  # coral  – Pump
+        "#BA7517",  # amber  – GasHeater
+        "#7F77DD",  # purple – Recuperator ex_H
+        "#D4537E",  # pink   – Recuperator ex_C
+    ]
+    
+    # ── Plot ───────────────────────────────────────────────────────────────────────
+    
+    fig, (ax_p, ax_h, ax_it) = plt.subplots(3, 1, figsize=(11, 12), sharex=True)
+    fig.suptitle("CO₂ Transcritical Cycle — Snapshot History", fontsize=14, fontweight="medium", y=0.98)
+
+    
+    for (label, series), color in zip(data.items(), colors):
+        ax_p.plot(iters, series["p"] / 1e6, label=label, color=color, linewidth=1.8, marker="o", markersize=3)
+        ax_h.plot(iters, series["h"] / 1e3,  label=label, color=color, linewidth=1.8, marker="o", markersize=3)
+    
+    # Pressure axes
+    ax_p.set_ylabel("Pressure (MPa)")
+    ax_p.set_title("Pressure convergence", fontsize=11, fontweight="medium")
+    ax_p.yaxis.set_major_formatter(ticker.FormatStrFormatter("%.2f"))
+    ax_p.grid(True, linestyle="--", linewidth=0.5, alpha=0.5)
+    ax_p.legend(fontsize=8, ncol=3, loc="upper right", framealpha=0.8)
+    
+    # Enthalpy axes
+    ax_h.set_ylabel("Enthalpy (kJ/kg)")
+    ax_h.set_title("Enthalpy convergence", fontsize=11, fontweight="medium")
+    ax_h.set_xlabel("Solver iteration")
+    ax_h.xaxis.set_major_locator(ticker.MaxNLocator(integer=True))
+    ax_h.yaxis.set_major_formatter(ticker.FormatStrFormatter("%.1f"))
+    ax_h.grid(True, linestyle="--", linewidth=0.5, alpha=0.5)
+    ax_h.legend(fontsize=8, ncol=3, loc="upper right", framealpha=0.8)
+    
+    # Iteration variable objectives 
+    it_colors = ["#E63946", "#2A9D8F", "#E9C46A", "#F4A261"]
+    for (it_var_name, hist), color in zip(CO2_TC.it_var_obj_hist.items(), it_colors):
+        it_var     = CO2_TC.it_vars[it_var_name]
+        target_val = it_var.target_value
+        obj_prop   = it_var.obj_prop_name
+        iters_it   = np.arange(len(hist))
+    
+        ax_it.plot(iters_it, hist, label=f"{it_var_name} ({obj_prop})",
+                   color=color, linewidth=1.8, marker="o", markersize=3)
+        ax_it.axhline(target_val, color=color, linewidth=1.2,
+                      linestyle="--", alpha=0.7, label=f"Target={target_val}")
+    
+    ax_it.set_ylabel("Objective value")
+    ax_it.set_title("Iteration variable convergence", fontsize=11, fontweight="medium")
+    ax_it.set_xlabel("Solver iteration")
+    ax_it.xaxis.set_major_locator(ticker.MaxNLocator(integer=True))
+    ax_it.grid(True, linestyle="--", linewidth=0.5, alpha=0.5)
+    ax_it.legend(fontsize=8, ncol=2, loc="upper right", framealpha=0.8)
+    
+    plt.tight_layout()
+    plt.show()
 
 elif case_study == "Sensitivity":
     
