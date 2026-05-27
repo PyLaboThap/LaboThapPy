@@ -1,6 +1,6 @@
 from labothappy.component.heat_exchanger.hex_csteff_disc import HexCstEffDisc
 
-case_study = "RecupHT"
+case_study = "GasCooler"
 
 #Exo ORC M&S
 HTX = HexCstEffDisc()
@@ -18,7 +18,7 @@ if case_study == 'GasCooler':
         fluid_H = 'CO2',
         T_su_H = 450,
         m_dot_H = 0.16,
-        P_su_H = 140*1e5,
+        P_su_H = 180*1e5,
     )
     
     HTX.set_parameters(**{

@@ -392,8 +392,9 @@ def CO2_OD_TC(mdot_CO2_guess, P_high, SC_target, N_pp, N_exp, mute_print=1):
     m_dot_w_cd = 4542 # kg/s
     GH_source = MassConnector('Water')
     T_su_w_gh = 150+273.15
-    P_su_w_gh = 5e5
+    P_su_w_gh = 10e5
     m_dot_w_gh = 192.24 # kg/s
+    # m_dot_w_gh = 200 # kg/s
     
     CO2_TC.add_source("CD_Water", CD_source, CO2_TC.components["Condenser"], "m-su_C")
     CO2_TC.set_source_properties(T=T_su_w_cd, fluid='Water', P=P_su_w_cd, m_dot = m_dot_w_cd, target="CD_Water")
@@ -454,8 +455,8 @@ if case_study == "Simulation":
 
     SC_target = 1 # K
     mdot_guess = 280 # kg/s
-    P_high_guess = 150*1e5 # Pa
-    CO2_TC = CO2_OD_TC(mdot_guess, P_high_guess, SC_target, mute_print=0, N_pp = 2950, N_exp = 3150)
+    P_high_guess = 140*1e5 # Pa
+    CO2_TC = CO2_OD_TC(mdot_guess, P_high_guess, SC_target, mute_print=0, N_pp = 3000, N_exp = 3200)
     CO2_TC.solve(method=METHOD, max_iter=100, tol = 1*1e-3, oscillation_window = 10)
 
     W_pp = CO2_TC.components['Pump'].model.W.W_dot

@@ -453,7 +453,7 @@ def CO2_OD_TC(mdot_CO2_guess, P_high_guess, SC_target, T_su_w_cd, m_dot_w_cd, N_
     m_dot_w_cd = m_dot_w_cd # kg/s
     GH_source = MassConnector('Water')
     T_su_w_gh = 150+273.15
-    P_su_w_gh = 5e5
+    P_su_w_gh = 10e5
     m_dot_w_gh = 192.24 # kg/s
     
     CO2_TC.add_source("CD_Water", CD_source, CO2_TC.components["Condenser"], "m-su_C")
@@ -498,8 +498,8 @@ def CO2_OD_TC(mdot_CO2_guess, P_high_guess, SC_target, T_su_w_cd, m_dot_w_cd, N_
         objective = 'Pump:su-SC',
         target_value = SC_target,
         obj_type = "Target_val",
-        damping_factor = 0.3,
-        tol = 0.2
+        damping_factor = damping_it,
+        tol = 0.1
     )
     return CO2_TC
 
@@ -587,7 +587,7 @@ def plot_and_save(eta_2D, Wnet_2D, Phigh_2D,
 if __name__ == "__main__":
 
     # ---- Reference / nominal values -----------------------------------
-    MDOT_GUESS       = 320
+    MDOT_GUESS       = 280
     P_HIGH_GUESS_NOM = 140.0e5   # Pa — nominal high-side pressure guess
 
     N_PP_NOMINAL  = 2900.0
@@ -606,9 +606,9 @@ if __name__ == "__main__":
     #  Series B: vary m_dot_w_cd (T_su_w_cd  = T_CD_NOM)
     CASES = [
         # tag,  T_cd [K],               mdot_cd [kg/s],       filename
-        ("A4", 15 + 273.15,            MDOT_CD_NOM,          "CO2_OD_A4_Tcd_15.png"),
-        # ("A5", 20.0 + 273.15,            MDOT_CD_NOM,          "CO2_OD_A5_Tcd_20.png"),
-        #("A3", 10.0 + 273.15,           MDOT_CD_NOM,          "CO2_OD_A3_Tcd_10_0.png"),
+        # ("A4", 15 + 273.15,            MDOT_CD_NOM,          "CO2_OD_A4_Tcd_15.png"),
+        ("A5", 20.0 + 273.15,            MDOT_CD_NOM,          "CO2_OD_A5_Tcd_20.png"),
+        ("A3", 10.0 + 273.15,           MDOT_CD_NOM,          "CO2_OD_A3_Tcd_10_0.png"),
         #("B1", T_CD_NOM,                MDOT_CD_NOM * 0.85,   "CO2_OD_B1_mdot_cd_-15pct.png"),
         #("B2", T_CD_NOM,                MDOT_CD_NOM,          "CO2_OD_B2_mdot_cd_nom.png"),
         #("B3", T_CD_NOM,                MDOT_CD_NOM * 1.15,   "CO2_OD_B3_mdot_cd_+15pct.png"),
@@ -633,12 +633,12 @@ if __name__ == "__main__":
             mute_print     = 1, # 0 if verbose else 1,
         )
         # cyc.solve(method='wegstein', max_iter=max_iter, tol=1e-3)
-        cyc.solve(method='wegstein', max_iter=max_iter, tol=1e-2)
+        cyc.solve(method='wegstein', max_iter=max_iter, tol=1e-3)
         return cyc if cyc.converged else None
 
     # Damping ladder: start gentle, escalate if needed
-    DAMPING_LADDER = [0.1, 0.2, 0.3, 0.5]
-    MAX_ITER       = 50
+    DAMPING_LADDER = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+    MAX_ITER       = 100
 
     def evaluate_point(i, j, N_pp, N_exp, T_cd, mdot_cd, P_high_guess):
         nan_row = (i, j, np.nan, np.nan, np.nan)

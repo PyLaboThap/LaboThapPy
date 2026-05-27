@@ -783,7 +783,7 @@ class CircuitFPI(BaseCircuit):
     # -----------------------------------------------------------------------
 
     def solve(self, max_iter: int = 30, method: str = 'wegstein',
-              root_tol: float = 1e-10, tol=1e-5, oscillation_window = 6):
+              root_tol: float = 1e-10, tol=1e-5, oscillation_window = 10):
         """
         Solve the circuit.
 
