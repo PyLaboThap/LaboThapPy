@@ -17,12 +17,6 @@ warnings.filterwarnings("ignore")
 # Helper: create a blank state dict with keys H, S, P, D, A, V
 # indexed by integer positions 1–5 (matching the old DataFrame indices).
 # ---------------------------------------------------------------------------
-_STATE_KEYS = ('H', 'S', 'P', 'D', 'A', 'V')
-
-def _blank_states():
-    """Return {key: {1: nan, 2: nan, 3: nan, 4: nan, 5: nan}} for each key."""
-    return {k: {i: np.nan for i in range(1, 6)} for k in _STATE_KEYS}
-
 
 class RadialCPMLDesign(object):
 
@@ -47,10 +41,12 @@ class RadialCPMLDesign(object):
         # Blade Row Efficiency
         self.eta_blade_row = None
         
+        self._STATE_KEYS = ('H', 'S', 'P', 'D', 'A', 'V')
+        
         # State dicts – replaces pd.DataFrame(columns=[…], index=[1,2,3,4,5])
-        self.total_states  = _blank_states()
-        self.static_states = _blank_states()
-
+        self.total_states  = {k: {i: np.nan for i in range(1, 6)} for k in self._STATE_KEYS}
+        self.static_states = {k: {i: np.nan for i in range(1, 6)} for k in self._STATE_KEYS}
+        
         self.AS = CP.AbstractState('HEOS', fluid)
             
         # Nozzle and rotor losses initiated to 0
@@ -303,7 +299,7 @@ class RadialCPMLDesign(object):
                 self.computeBladeRow(self.stages[i], 'S')
             else:
                 # Copy position-3 states of previous stage into position-1 of current stage
-                for k in _STATE_KEYS:
+                for k in self._STATE_KEYS:
                     self.stages[i].static_states[k][1] = self.stages[i-1].static_states[k][3]
                 
                 self.computeBladeRow(self.stages[i], 'R')
@@ -785,7 +781,7 @@ class RadialCPMLDesign(object):
                
         return -self.eta_is
     
-    def design(self):
+    def design(self, n_particles = 100, max_iter = 100, patience = 15):
         
         if "omega_bounds" in self.params:
             bounds = (np.array([
@@ -865,15 +861,13 @@ class RadialCPMLDesign(object):
             return np.asarray(costs, dtype=float)
     
         optimizer = ps.single.GlobalBestPSO(
-            n_particles=100,
+            n_particles=n_particles,
             dimensions=len(bounds[0]),
             options={'c1': 1.5, 'c2': 2.0, 'w': 0.7},
             bounds=bounds,
         )
     
-        patience         = 15
         tol              = 1e-3
-        max_iter         = 100
         no_improve_counter = 0
         best_cost        = np.inf
     
@@ -907,7 +901,7 @@ class RadialCPMLDesign(object):
 
 if __name__ == "__main__":
 
-    fluid = "CO2"    
+    fluid = "CO2_MW" # CO2 / R134a / Air_1 / Air_2 / Air_3    
     
     eta_is_vec = []
     
@@ -933,6 +927,63 @@ if __name__ == "__main__":
                 L_z          = 0.1137,
                 CP           = 0.44,
                 Omega        = 50000,
+                psi_is_bounds  = [0.3, 1.1],
+                r1s_r2_bounds  = [0.4, 0.7],
+                r1h_r1s_bounds = [0.25, 0.4],
+                b2_r2_bounds   = [0.02, 0.1],
+                r5_r3_bounds   = [1.01, 1.5],
+                r3_r2_bounds   = [1.05, 2],
+                xhi1_bounds    = [40, 70],
+                xhi2_bounds    = [20, 55],
+                M1s_rel_max  = 1.4,
+                M1_rel_max   = 0.9,
+                W2_W1s_min   = 0.25,
+                alpha2_max   = 85.0,
+                o1_min       = 1.49e-3,
+                o1_max       = 50e-3,
+                DR_min       = -0.1,
+                DR_max       = 0.9,
+                U2_max       = 400.0,
+                r3_r2_min    = 1.05,
+                r3_r2_max    = 2.0,
+            )
+            
+            Comp_des.design()
+        
+        elif fluid == "CO2_MW":
+            Comp_des = RadialCPMLDesign('CO2')
+            
+            # Comp_des.set_inputs(
+            #     mdot  = 5*10.84,
+            #     p0_su = 4069717,
+            #     T0_su = 299.13,
+            #     p_ex  = 8406420,
+            # )
+            
+            # Comp_des.set_inputs(
+            #     mdot  = 5*10.84,
+            #     p0_su = 8406420,
+            #     T0_su = 65+273.15,
+            #     p_ex  = 17364328,
+            # )
+            
+            Comp_des.set_inputs(
+                mdot  = 5*10.84,
+                p0_su = 4069717,
+                T0_su = 299.13,
+                p_ex  = 17364328,
+            )
+            
+            Comp_des.set_parameters(
+                t_b          = 0.762*1e-3,
+                eps_imp      = 0.254*1e-3,
+                eps_bf_imp   = 0.254*1e-3,
+                k_imp        = 0.01*1e-3,
+                b3_b2_ratio  = 1,
+                b5_b3        = 1,
+                # L_z          = 0.1137,
+                CP           = 0.44,
+                Omega        = 20000,
                 psi_is_bounds  = [0.3, 1.1],
                 r1s_r2_bounds  = [0.4, 0.7],
                 r1h_r1s_bounds = [0.25, 0.4],

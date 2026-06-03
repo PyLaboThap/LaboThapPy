@@ -485,7 +485,7 @@ def Flash_CO2_HP_Series_CP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low
 
 if __name__ == "__main__":
 
-    study_case = "Simple"    
+    study_case = "Expander_IHX"    
 
     # Pressure levels
     P_low_guess = 40*1e5
@@ -504,7 +504,7 @@ if __name__ == "__main__":
     m_dot = 0.08
     
     # Hot Source
-    T_high = 50 + 273.15
+    T_high = 40 + 273.15
     p_high = 3e5
     fluid_high = 'Water'
     m_dot_high = 2
@@ -557,10 +557,29 @@ if __name__ == "__main__":
         CSource.set_properties(fluid = 'Water', T = T_low, p = p_low, m_dot = 2)
         
         CO2_HP = Exp_CO2_HP(HSource, CSource, eta_compressor, eta_exp, eta_GC, DT_pp_ev, SH_ev, P_low_guess, P_high, m_dot, mute_print_flag = 0)
-        
         CO2_HP.solve(method = 'successive_substitution')
     
         COP = CO2_HP.components["GasCooler"].model.Q.Q_dot/(CO2_HP.components["Compressor"].model.W.W_dot - CO2_HP.components["Expander"].model.W.W_dot)
     
+    elif study_case == "Expander_IHX":
+
+        # Compressor param
+        eta_exp = 0.7
+        eta_IHX = 0.8
+
+        HSource = MassConnector()
+        HSource.set_properties(fluid = 'Water', T = T_high, p = p_high, m_dot = 2)
+        
+        CSource = MassConnector()
+        CSource.set_properties(fluid = 'Water', T = T_low, p = p_low, m_dot = 2)
+        
+        CO2_HP = IHX_EXP_CO2_HP(HSource, CSource, eta_compressor, eta_GC, eta_IHX, eta_exp, DT_pp_ev, SH_ev, P_low_guess, P_high, m_dot, mute_print_flag = 0)
+        CO2_HP.solve(method = 'successive_substitution')
+    
+        COP = CO2_HP.components["GasCooler"].model.Q.Q_dot/(CO2_HP.components["Compressor"].model.W.W_dot - CO2_HP.components["Expander"].model.W.W_dot)
+    
+    
     CO2_HP.plot_cycle_Ts()
     
+    import matplotlib.pyplot as plt
+    plt.show()
