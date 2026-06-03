@@ -13,7 +13,7 @@ from labothappy.component.expander.turbine_mean_line_Aungier import AxialTurbine
 
 if __name__ == "__main__":
 
-    solve_type    = ""   # "map" or "mean_line"
+    solve_type    = "mean_line"   # "map" or "mean_line"
     map_mode      = "M_N"   # "M_N", "P_N", or "P_M"
     case_study    = "TCO2_ORC"
     map_generation = True
@@ -139,6 +139,7 @@ if __name__ == "__main__":
             e_blade     = 2e-06,
             solve_type  = solve_type,
         )
+        
         Turb_OD.set_stage_parameters(
             h_blade_S = turb_params['stator']['h_blade_S'],
             chord_S   = turb_params['stator']['chord_S'],

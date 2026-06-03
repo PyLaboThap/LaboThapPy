@@ -44,6 +44,34 @@ class AxialTurbineMeanLine(BaseComponent):
         self.Dh0_stage_guess  = 0
         self.map_interpolator = None
 
+    def get_required_inputs(self):
+        
+        if self.map_interpolator is None: # Mean-Line solving
+            return ["P_su", "T_su", "N_rot", "m_dot", "fluid"]
+        else: # map solving
+            if self.params['map_mode'] == "M_N": 
+                return ["P_su", "T_su", "N_rot", "m_dot", "fluid"]
+            elif self.params['map_mode'] == "P_M":
+                return ["P_su", "T_su", "P_ex", "m_dot", "fluid"]
+            elif self.params['map_mode'] == "P_N":
+                return ["P_su", "T_su", "N_rot", "P_ex", "fluid"]
+            else:
+                print("AxialTurbineMeanLine's 'map_mode' parameter can either be 'M_N', 'P_M' or 'P_N'.")
+            
+            return
+
+    def get_required_parameters(self):
+        
+        if self.map_interpolator is None: # Mean-Line solving
+            return ["r_m", "nStages", "mdot_rated", "DP_rated", "N_rot_rated", "damping", "N_lw", "D_lw", "e_blade", "delta_tip"]
+        
+        else: # map solving
+            if self.map_interpolator is None:
+                print("Use the 'load_map' method to enable map solving")
+            else:
+                return ['map_mode', 'solve_type']
+            
+
     # =========================================================================
     #  Inner class: stage
     # =========================================================================
@@ -867,7 +895,24 @@ class AxialTurbineMeanLine(BaseComponent):
     # =========================================================================
 
     def solve(self, map_case=False):
-
+        
+        self.check_calculable()
+        self.check_parametrized()
+        
+        if not self.calculable:
+            if self.print_flag:
+                print("AxialTurbineMeanLine could not be solved. It is not calculable.")
+            
+            self.solved = False
+            return
+        
+        if not self.parametrized:
+            if self.print_flag:
+                print("AxialTurbineMeanLine could not be solved. It is not parametrized.")
+            
+            self.solved = False
+            return
+        
         if self.params.get('solve_type') == "map":
             self.solve_from_map(mode = self.params['map_mode'])
             return
@@ -899,6 +944,7 @@ class AxialTurbineMeanLine(BaseComponent):
             self.update_connectors(
                 self.stages[-1].static_states[2]['P'],
                 self.stages[-1].static_states[2]['H'],
+                self.inputs['m_dot']
             )
 
     def update_connectors(self, P_ex, h_ex, m_dot_ex):
