@@ -139,6 +139,7 @@ if __name__ == "__main__":
             e_blade     = 2e-06,
             solve_type  = solve_type,
         )
+        
         Turb_OD.set_stage_parameters(
             h_blade_S = turb_params['stator']['h_blade_S'],
             chord_S   = turb_params['stator']['chord_S'],

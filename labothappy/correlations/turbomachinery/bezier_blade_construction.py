@@ -25,7 +25,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from math import comb
 
-
 # ─────────────────────────────────────────────
 #  Bézier d'ordre n  (Bernstein général)
 # ─────────────────────────────────────────────
@@ -357,7 +356,6 @@ def plot_meridional(
     ax.grid(True, ls=":", alpha=0.35)
     fig.tight_layout()
     return fig
-
 
 # ─────────────────────────────────────────────
 #  Exemple d'utilisation
