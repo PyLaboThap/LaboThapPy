@@ -38,7 +38,7 @@ Authors
 -------
 Based on circuit_rec.py  (Basile Chaudoir, 2024)
      and circuit_it.py   (Elise Neven, 2026)
-Unified by: <your name>
+Unified by: Basile Chaudoir, 2026
 """
 
 from __future__ import annotations
@@ -48,14 +48,13 @@ import numpy as np
 import CoolProp.CoolProp as CP
 from scipy.optimize import brentq
 
-from scipy.optimize import fsolve, root
+from scipy.optimize import fsolve, root, brentq
 
 from labothappy.connector.mass_connector import MassConnector
 from labothappy.connector.work_connector import WorkConnector
 from labothappy.connector.heat_connector import HeatConnector
 
 from machine.base_circuit import BaseCircuit
-
 
 # ---------------------------------------------------------------------------
 # Substitution-based methods supported natively
@@ -219,7 +218,6 @@ class CircuitFPI(BaseCircuit):
                                         
             else:
                 if self.obj_prop_name == "SC" and self.it_prop_name == 'p':
-                    from scipy.optimize import brentq
                     
                     def h_to_pressure_from_SC(h, SC_target):
                         """
@@ -238,9 +236,10 @@ class CircuitFPI(BaseCircuit):
                             return res
                     
                         P_min = cycle.AS.trivial_keyed_output(CP.iP_triple)  # adjust bounds to your fluid
-                        P_max = cycle.AS.p_critical()*0.98
-                    
+                        P_max = cycle.AS.p_critical()*0.99
+                        
                         return brentq(residual, P_min, P_max, xtol=1e-4)
+
 
                     self.DP_gain          = self.find_link_DP(components)                    
                     
@@ -248,7 +247,10 @@ class CircuitFPI(BaseCircuit):
                     obj_connector = getattr(components[self.obj_comp_name].model, self.obj_connector_name)
                     current_h_value = obj_connector.h
                     
-                    P_target = h_to_pressure_from_SC(current_h_value, self.target_value) + self.DP_gain
+                    try: 
+                        P_target = h_to_pressure_from_SC(current_h_value, self.target_value) + self.DP_gain
+                    except:
+                        P_target = it_connector.p + self.DP_gain
                     
                     update_guess_target = self.it_comp_name + ":" + self.it_connector_name
 
@@ -361,6 +363,8 @@ class CircuitFPI(BaseCircuit):
             
         # Oscillation tracking in solve loop
         self._snapshot_history:      list = []   # last N snapshots
+        self._snapshot_history_oscill:      list = []   # last N snapshots
+
         self.it_var_obj_hist: dict = {}   # {it_var_name: [obj_values]}
 
         self.oscillation_detected    = False
@@ -369,7 +373,7 @@ class CircuitFPI(BaseCircuit):
         self.oscillation_damping_floor   = 0.05
         self._oscillation_damping_locked  = False
         self._oscillation_damping_counter = 0
-        self.oscillation_damping_duration = 5   # iterations to apply damping after detection
+        self.oscillation_damping_duration = 10   # iterations to apply damping after detection
 
     #%% -----------------------------------------------------------------------
     # Connector snapshot helpers  (identical to circuit_rec)
@@ -695,7 +699,7 @@ class CircuitFPI(BaseCircuit):
         consecutive snapshots. Works for any period and is robust to slow drift.
         """
         w = self.oscillation_window
-        if len(self._snapshot_history) < w:
+        if len(self._snapshot_history_oscill) < w:
             return False
     
         try:
@@ -707,7 +711,7 @@ class CircuitFPI(BaseCircuit):
                         vals.append(snap[comp_name][port_name]['h'])
                 return np.array(vals, dtype=float)
     
-            recent  = self._snapshot_history[-w:]
+            recent  = self._snapshot_history_oscill[-w:]
             vectors = np.array([snap_to_vector(s) for s in recent])  # shape (w, n_vars)
     
             # Work on deltas between consecutive iterations to remove drift
@@ -874,15 +878,17 @@ class CircuitFPI(BaseCircuit):
         
             # --- Oscillation tracking ---
             self._snapshot_history.append(current_snapshot)
+            self._snapshot_history_oscill.append(current_snapshot)
             
             if self._oscillation_damping_locked:
                 self._oscillation_damping_counter += 1
                 if self._oscillation_damping_counter >= self.oscillation_damping_duration:
+                    self.oscillation_damping_duration += 5 
                     # Release the lock and reset — give Wegstein another chance
                     self._oscillation_damping_locked  = False
                     self._oscillation_damping_counter = 0
                     # Clear snapshot history so detection starts fresh
-                    self._snapshot_history = []
+                    self._snapshot_history_oscill = []
                     if self.print_flag:
                         print(f"  [oscillation] damping released at iteration {i+1} — resuming Wegstein")
             else:

@@ -13,7 +13,7 @@ from labothappy.component.expander.turbine_mean_line_Aungier import AxialTurbine
 
 if __name__ == "__main__":
 
-    solve_type    = ""   # "map" or "mean_line"
+    solve_type    = "mean_line"   # "map" or "mean_line"
     map_mode      = "M_N"   # "M_N", "P_N", or "P_M"
     case_study    = "TCO2_ORC"
     map_generation = True
@@ -272,7 +272,68 @@ if __name__ == "__main__":
     
         _ = plot_power_eta_vs_mdot(df_map, speeds=None, max_lines=5)
         plt.show()     
-
+        
+        # -------------------------------------------------------------------------
+        # Diagnose P_N inversion quality — does P_ex_calc actually vary with m_dot?
+        # -------------------------------------------------------------------------
+        fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+        fig.suptitle("P_N inversion diagnosis", fontsize=13, fontweight="bold")
+    
+        N_lines   = np.linspace(interp.N_range[0], interp.N_range[1], 7)
+        cmap      = plt.cm.viridis
+        colors    = [cmap(i / (len(N_lines) - 1)) for i in range(len(N_lines))]
+        N_rated  = turb_params['N_rot_rated']   # needed for the diagnosis labels
+    
+        for color, N_target in zip(colors, N_lines):
+            # Grab raw map points near this N_rot (±5% band)
+            mask = np.abs(df_ok["N_rot"] - N_target) / N_target < 0.05
+            sub  = df_ok[mask].sort_values("m_dot")
+            if len(sub) < 2:
+                continue
+            label = f"N = {N_target/N_rated*100:.0f}% N$_{{r}}$"
+    
+            # Left: raw (m_dot, P_ex_calc) — shows if P_ex varies with m_dot
+            axes[0].plot(sub["m_dot"], sub["P_ex_calc"] / 1e5,
+                         'o-', color=color, lw=1.5, ms=4, label=label)
+    
+            # Right: inversion result — query_PN over the P_ex range of this N slice
+            P_sweep = np.linspace(sub["P_ex_calc"].min(), sub["P_ex_calc"].max(), 40)
+            m_inv   = [interp.query_PN(N_target, P)["m_dot"] for P in P_sweep]
+            axes[1].plot(P_sweep / 1e5, m_inv,
+                         color=color, lw=1.8, label=label)
+    
+        axes[0].set_xlabel("$\\dot{m}$  [kg/s]",      fontsize=11)
+        axes[0].set_ylabel("$P_{ex,calc}$  [bar]",     fontsize=11)
+        axes[0].set_title("Raw map: $P_{ex}$ vs $\\dot{m}$ at fixed N\n"
+                          "(slope = sensitivity; flat = degenerate inverse)", fontsize=10)
+        axes[0].grid(True, alpha=0.3)
+    
+        axes[1].set_xlabel("$P_{ex}$  [bar]",          fontsize=11)
+        axes[1].set_ylabel("$\\dot{m}$ recovered  [kg/s]", fontsize=11)
+        axes[1].set_title("Interpolated inverse: $\\dot{m}$(N, $P_{ex}$)\n"
+                          "(should match left panel slope)", fontsize=10)
+        axes[1].grid(True, alpha=0.3)
+    
+        handles, labels_leg = axes[0].get_legend_handles_labels()
+        fig.legend(handles, labels_leg, loc='lower center', ncol=4,
+                   bbox_to_anchor=(0.5, -0.13), fontsize=9, framealpha=0.8)
+        plt.tight_layout()
+        plt.show()
+    
+        # Print the actual P_ex range per N slice to quantify degeneracy
+        print("\n── P_ex spread per iso-speed slice ───────────────────────────────────")
+        for N_target in N_lines:
+            mask  = np.abs(df_ok["N_rot"] - N_target) / N_target < 0.05
+            sub   = df_ok[mask]
+            if len(sub) < 2:
+                continue
+            dP    = sub["P_ex_calc"].max() - sub["P_ex_calc"].min()
+            dm    = sub["m_dot"].max()     - sub["m_dot"].min()
+            print(f"  N={N_target:7.1f} rpm  |  ΔP_ex={dP/1e5:6.2f} bar  |  "
+                  f"Δm_dot={dm:6.2f} kg/s  |  "
+                  f"sensitivity={dP/dm/1e5:.3f} bar/(kg/s)")
+        print("──────────────────────────────────────────────────────────────────────")
+            
     #%%
     # -------------------------------------------------------------------------
     # Solve

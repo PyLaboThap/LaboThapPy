@@ -130,6 +130,19 @@ class PumpCurveSimilarity(BaseComponent):
         self.check_parametrized()
         self.check_calculable()
 
+        # Check for sufficient subcooling
+        if 1 >= self.su.x > 0:
+            # print("OH")
+            P_su = self.su.p
+            m_dot = self.su.m_dot
+            self.su.reset()
+
+            self.su.set_p(P_su)
+            self.su.set_m_dot(m_dot)
+            self.su.set_x(0)
+        
+        self.ex.reset()
+        
         if not self.calculable or not self.parametrized:
             print("Component is not calculable or not parametrized")
             return

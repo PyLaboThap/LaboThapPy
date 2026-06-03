@@ -387,12 +387,13 @@ def CO2_OD_TC(mdot_CO2_guess, P_high, SC_target, N_pp, N_exp, mute_print=1):
 
     # -------- 6) Add fluid sources --------
     CD_source = MassConnector('Water')
-    T_su_w_cd = 15 + 273.15
-    P_su_w_cd = 5e5
+    T_su_w_cd = 10 + 273.15
+    P_su_w_cd = 1e5
     m_dot_w_cd = 4542 # kg/s
+    # m_dot_w_cd = 800 # kg/s
     GH_source = MassConnector('Water')
-    T_su_w_gh = 150+273.15
-    P_su_w_gh = 10e5
+    T_su_w_gh = 200+273.15
+    P_su_w_gh = 40e5
     m_dot_w_gh = 192.24 # kg/s
     # m_dot_w_gh = 200 # kg/s
     
@@ -419,11 +420,11 @@ def CO2_OD_TC(mdot_CO2_guess, P_high, SC_target, N_pp, N_exp, mute_print=1):
         )
     # -------- 8) Set cycle guesses --------
     
-    P_LP_guess = PropsSI("P", "T", T_su_w_cd+10, "Q", 0, fluid)
+    P_LP_guess = PropsSI("P", "T", T_su_w_cd+SC_target+10, "Q", 0, fluid)
     P_HP_guess = P_high
     
     T_sat_LP_guess = PropsSI("T", "P", P_LP_guess, "Q", 0.5, fluid)
-    h_SC_guess = PropsSI("H", "P", P_LP_guess, "T", T_sat_LP_guess - 5, fluid)
+    h_SC_guess = PropsSI("H", "P", P_LP_guess, "T", T_sat_LP_guess - SC_target, fluid)
     
     h_su_exp_guess = PropsSI("H", "P", P_HP_guess, "T", T_su_w_gh - 10, fluid) # J/kg
     
@@ -438,7 +439,7 @@ def CO2_OD_TC(mdot_CO2_guess, P_high, SC_target, N_pp, N_exp, mute_print=1):
         objective = 'Pump:su-SC',
         target_value = SC_target,
         obj_type = "Target_val",
-        damping_factor = 0.7,
+        damping_factor = 0.05,
         tol = 0.1
     )
 
@@ -453,11 +454,11 @@ if case_study == "Simulation":
     # # # -------- 8) Solve — swap method here for comparison --------
     METHOD = 'wegstein'   # <-- change to compare: 'successive_substitution',
 
-    SC_target = 1 # K
+    SC_target = 2 # K
     mdot_guess = 280 # kg/s
     P_high_guess = 140*1e5 # Pa
-    CO2_TC = CO2_OD_TC(mdot_guess, P_high_guess, SC_target, mute_print=0, N_pp = 3000, N_exp = 3200)
-    CO2_TC.solve(method=METHOD, max_iter=100, tol = 1*1e-3, oscillation_window = 10)
+    CO2_TC = CO2_OD_TC(mdot_guess, P_high_guess, SC_target, mute_print=0, N_pp = 3200, N_exp = 2800)
+    CO2_TC.solve(method=METHOD, max_iter=200, tol = 1*1e-3, oscillation_window = 8)
 
     W_pp = CO2_TC.components['Pump'].model.W.W_dot
     W_turb = CO2_TC.components['Turbine'].model.W.W_dot
@@ -480,7 +481,6 @@ if case_study == "Simulation":
 
     print(f"Q_gh : {Q_gh}")
     print(f"eta : {eta}")
-
 
     # -*- coding: utf-8 -*-
     """
@@ -1038,3 +1038,4 @@ elif case_study == "Optimization_PSO":
     ax.set_title("PSO Convergence")
     plt.tight_layout()
     plt.show()
+    

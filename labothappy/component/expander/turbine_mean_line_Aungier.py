@@ -182,27 +182,37 @@ class AxialTurbineMeanLine(BaseComponent):
                 P_raw         = df_ok["P_ex_calc"].to_numpy(dtype=float)
                 self._P_scale = (float(P_raw.min()), float(P_raw.max()))
 
-                # P_N mode: (N_rot, P_ex) -> m_dot
-                pts_PN = self._normalize_2d(N_raw, P_raw, self._N_scale, self._P_scale)
+                # P_N mode: (N_rot, DP=P_su-P_ex) -> m_dot  [DP replaces P_ex as input]
+                if "DP_calc" in df_ok.columns:
+                    DP_raw         = df_ok["DP_calc"].to_numpy(dtype=float)
+                    self._DP_scale = (float(DP_raw.min()), float(DP_raw.max()))
+                else:
+                    DP_raw         = df_ok["P_su"].to_numpy(dtype=float) - P_raw
+                    self._DP_scale = (float(DP_raw.min()), float(DP_raw.max()))
+
+                pts_PN = self._normalize_2d(N_raw, DP_raw, self._N_scale, self._DP_scale)
                 self._inv_primary["PN_to_m"] = self._build_interp(method, pts_PN, m_raw)
                 self._inv_nn["PN_to_m"]      = NearestNDInterpolator(pts_PN, m_raw)
                 try:    self._inv_hull["PN"] = Delaunay(pts_PN)
                 except: self._inv_hull["PN"] = None
 
-                # P_M mode: (m_dot, P_ex) -> N_rot
+                # P_M mode unchanged: (m_dot, P_ex) -> N_rot
                 pts_PM = self._normalize_2d(m_raw, P_raw, self._m_scale, self._P_scale)
                 self._inv_primary["PM_to_N"] = self._build_interp(method, pts_PM, N_raw)
                 self._inv_nn["PM_to_N"]      = NearestNDInterpolator(pts_PM, N_raw)
                 try:    self._inv_hull["PM"] = Delaunay(pts_PM)
                 except: self._inv_hull["PM"] = None
+
             else:
-                self._P_scale = (0.0, 1.0)
+                self._P_scale  = (0.0, 1.0)
+                self._DP_scale = (0.0, 1.0)
 
             self._pts_raw = np.column_stack([m_raw, N_raw])
             self.n_points = len(df_ok)
             self.m_range  = self._m_scale
             self.N_range  = self._N_scale
             self.P_range  = self._P_scale
+            self.DP_range = self._DP_scale
 
         # ------------------------------------------------------------------
         #  Private helpers
@@ -261,11 +271,14 @@ class AxialTurbineMeanLine(BaseComponent):
                 out[col] = self._query_interp(interp, self._nn[col], pts)
             return out
 
-        def query_PN(self, N_rot, P_ex):
-            """P_N mode: (N_rot, P_ex) -> m_dot, W_dot, eta_is."""
+        def query_PN(self, N_rot, P_ex, P_su):
+            """P_N mode: (N_rot, P_ex) -> m_dot, W_dot, eta_is.
+            Internally uses DP = P_su - P_ex as the interpolation coordinate.
+            """
+            DP    = P_su - P_ex
             pts   = self._normalize_2d(
-                np.array([N_rot], float), np.array([P_ex], float),
-                self._N_scale, self._P_scale,
+                np.array([N_rot], float), np.array([DP], float),
+                self._N_scale, self._DP_scale,
             )
             m_dot = float(self._query_interp(
                 self._inv_primary["PN_to_m"], self._inv_nn["PN_to_m"], pts
@@ -498,14 +511,17 @@ class AxialTurbineMeanLine(BaseComponent):
                         f"Operating point (m_dot={_m:.3f}, N_rot={_N:.1f}) outside hull."
                     )
             result = self.map_interpolator.query(_m, _N)
+            
             self.inputs["m_dot"] = _m
             self.inputs["N_rot"] = _N
             self.m_dot_ex = _m
             
-        elif mode == "P_N":            
-            _N = float(N_rot if N_rot is not None else self.inputs["N_rot"])
-            _P = float(P_ex  if P_ex  is not None else self.inputs.get("P_ex", float("nan")))
-            result = self.map_interpolator.query_PN(_N, _P)
+        elif mode == "P_N":
+            _N   = float(N_rot if N_rot is not None else self.inputs["N_rot"])
+            _P   = float(P_ex  if P_ex  is not None else self.inputs.get("P_ex", float("nan")))
+            _Psu = float(self.inputs.get("P_su", float("nan")))
+            result = self.map_interpolator.query_PN(_N, _P, _Psu)   # <-- add _Psu
+            
             self.inputs["N_rot"] = _N
             self.m_dot_ex = result["m_dot"]
             
@@ -513,6 +529,7 @@ class AxialTurbineMeanLine(BaseComponent):
             _m = float(m_dot if m_dot is not None else self.inputs["m_dot"])
             _P = float(P_ex  if P_ex  is not None else self.inputs.get("P_ex", float("nan")))
             result = self.map_interpolator.query_PM(_m, _P)
+
             self.inputs["m_dot"] = _m
             self.W.set_N_rot(result["N_rot"])
             self.m_dot_ex = _m
@@ -899,10 +916,13 @@ class AxialTurbineMeanLine(BaseComponent):
             self.update_connectors(
                 self.stages[-1].static_states[2]['P'],
                 self.stages[-1].static_states[2]['H'],
+                self.su.m_dot,
             )
 
     def update_connectors(self, P_ex, h_ex, m_dot_ex):
+        
         self.ex.reset()
+        
         self.ex.set_p(P_ex)
         self.ex.set_h(h_ex)
         self.ex.set_m_dot(m_dot_ex)
@@ -940,6 +960,7 @@ def _eval_point_from_snapshot(m, N, base_inputs, base_params, stage_params):
             return dict(
                 m_dot=float(m), N_rot=float(N),
                 P_su=float(base_inputs.get('P_su', np.nan)),
+                DP_calc = np.nan,
                 T_su=float(base_inputs.get('T_su', np.nan)),
                 P_ex_target=float(base_inputs.get('P_ex', np.nan)),
                 P_ex_calc=np.nan, RP_target=np.nan, RP_calc=np.nan,
@@ -953,6 +974,7 @@ def _eval_point_from_snapshot(m, N, base_inputs, base_params, stage_params):
             T_su        = float(turb.inputs['T_su']),
             P_ex_target = float(turb.inputs['P_ex']),
             P_ex_calc   = P_ex_calc,
+            DP_calc     = float(turb.inputs['P_su']) - P_ex_calc,
             RP_target   = RP_target,
             RP_calc     = RP_calc,
             W_dot       = float(getattr(turb, 'W_dot', np.nan)),
@@ -966,6 +988,7 @@ def _eval_point_from_snapshot(m, N, base_inputs, base_params, stage_params):
             m_dot=float(m), N_rot=float(N),
             P_su=float(base_inputs.get('P_su', np.nan)),
             T_su=float(base_inputs.get('T_su', np.nan)),
+            DP_calc = np.nan,
             P_ex_target=float(base_inputs.get('P_ex', np.nan)),
             P_ex_calc=np.nan, RP_target=np.nan, RP_calc=np.nan,
             W_dot=np.nan, eta_is=np.nan, converged=False, note=str(e),

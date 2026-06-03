@@ -1390,10 +1390,25 @@ class HexMBChargeSensitive(BaseComponent):
         elif self.C.Correlation_2phase == "amalfi_plate_HTC":
             alpha_c_2phase = amalfi_plate_HTC(self.params['C_Dh'], self.params['l'], self.params['w'], self.params['amplitude'], self.params['chevron_angle'], self.params['C_n_canals'], self.params['A_c'], self.mdot_c, p_c_mean, self.AS_C)
         elif self.C.Correlation_2phase == "Flow_boiling":
-            q = self.Qvec_c[k]/(self.params['A_eff']*self.w[k])
-            D_in = self.params['Tube_OD']-2*self.params['Tube_t']
             
-            alpha_c_2phase = horizontal_flow_boiling(self.AS_C, G_c, p_c_mean, x_c, D_in, q)
+            if self.HTX_Type == "PCHE":
+                A_c = 1/(1+self.params['R_p'])*self.params['N_c']*self.params['N_p']*(np.pi/2)*self.params['D_c']*self.params['L_c']*self.params['n_parallel']
+                A_h = self.params['R_p']/(1+self.params['R_p'])*self.params['N_c']*self.params['N_p']*(np.pi/2)*self.params['D_c']*self.params['L_c']*self.params['n_parallel']
+                
+                A_eff = (A_c + A_h)/2
+                
+                q = self.Qvec_c[k]/(A_eff*self.w[k])
+                Dh = np.pi*self.params['D_c']/(2+np.pi)
+
+                alpha_c_2phase = horizontal_flow_boiling(self.AS_C, G_c, p_c_mean, x_c, Dh, q)
+                
+            else:
+            
+            
+                q = self.Qvec_c[k]/(self.params['A_eff']*self.w[k])
+                D_in = self.params['Tube_OD']-2*self.params['Tube_t']
+                
+                alpha_c_2phase = horizontal_flow_boiling(self.AS_C, G_c, p_c_mean, x_c, D_in, q)
         
         elif self.C.Correlation_2phase == "Flow_boiling_gungor_winterton":
             q = self.Qvec_c[k]/(self.params['A_eff']*self.w[k])
@@ -1628,7 +1643,12 @@ class HexMBChargeSensitive(BaseComponent):
             G_c, G_h = self.G_h_c_computation()
             rho_out = CP.PropsSI('D', 'P', self.su_C.p, 'Q', 1, self.su_C.fluid)
             
-            DP_C = Choi_DP(self.su_C.fluid, G_c, rho_out, self.su_C.D, self.su_C.p, 1, self.su_C.x, self.params["Tube_L"]*self.params["Tube_pass"], self.params["Tube_OD"]-2*self.params["Tube_t"])
+            if self.HTX_Type == "PCHE":
+                Dh = np.pi*self.params['D_c']/(2+np.pi)
+                DP_C = Choi_DP(self.AS_C, G_c, rho_out, self.su_C.D, self.su_C.p, 1, self.su_C.x, self.params["L_c"], Dh)
+
+            else:
+                DP_C = Choi_DP(self.AS_C, G_c, rho_out, self.su_C.D, self.su_C.p, 1, self.su_C.x, self.params["Tube_L"]*self.params["Tube_pass"], self.params["Tube_OD"]-2*self.params["Tube_t"])
         
         elif self.C.Correlation_DP[phase_cond] == "Muller_Steinhagen_Heck_DP":
             G_c, G_h = self.G_h_c_computation()
@@ -1726,7 +1746,10 @@ class HexMBChargeSensitive(BaseComponent):
             if self.HTX_Type == "Plate":
                 DP_C = Choi_DP(self.AS_C, G_c, rho_out, rho_c, p_c_mean, 0, x_c, self.params["l"], self.params["H_Dh"])
 
-            else:    
+            elif self.HTX_Type == "PCHE":
+                Dh = np.pi*self.params['D_c']/(2+np.pi)
+                DP_C = Choi_DP(self.AS_C, G_c, rho_out, rho_c, p_c_mean, 0, x_c, self.params["L_c"], Dh)
+            else:
                 DP_C = Choi_DP(self.AS_C, G_c, rho_out, rho_c, p_c_mean, 0, x_c, self.params["Tube_L"]*self.params["Tube_pass"], self.params["Tube_OD"]-2*self.params["Tube_t"])
         
         elif self.C.Correlation_DP['2P'] == "Muller_Steinhagen_Heck_DP":
@@ -2143,18 +2166,20 @@ class HexMBChargeSensitive(BaseComponent):
             if and_solve:
                 
                 # Hot side
+                self.ex_H.reset()
+                
                 self.ex_H.set_fluid(self.H_su.fluid)
                 self.ex_H.set_p(self.pvec_h[0])
                 self.ex_H.set_h(self.hvec_h[0])
-                self.ex_H.set_T(self.Tvec_h[0])
                 self.ex_H.set_m_dot(self.H_su.m_dot)
                 self.H_ex = self.ex_H
                     
                 # Cold side
+                self.ex_C.reset()
+
                 self.ex_C.set_fluid(self.C_su.fluid)
                 self.ex_C.set_p(self.pvec_c[-1]) # Example temperature [K]
                 self.ex_C.set_h(self.hvec_c[-1]) # Example Pressure [Pa]
-                self.ex_C.set_T(self.Tvec_c[-1])
                 self.ex_C.set_m_dot(self.C_su.m_dot) 
                 self.C_ex = self.ex_C
                                             

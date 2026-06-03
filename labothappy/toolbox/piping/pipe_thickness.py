@@ -31,21 +31,21 @@ def Internal_Max_P_carbon_steel(D_o,t,T_tube):
     
     def S_fun(T):
         """Linear interpolation using fixed lookup table."""
+        if np.any(T < T_S_interp[0]) or np.any(T > T_S_interp[-1]):
+            raise ValueError(f"T={T}K hors plage ASME [{T_S_interp[0]:.1f}, {T_S_interp[-1]:.1f}] K")
         return np.interp(T, T_S_interp, S_interp)
     
     "Compute P_max for inputs"
     
     S_tube_calc = S_fun(T_tube)*1e6  # [Pa]
-
-    P_max = S_tube_calc*((2*t - 0.01*D_o)/(D_o - (t-0.005*D_o)))
-    
+        
     if D_o/t > 20: # Thin wall : Barlow
         P_max = (2 * S_tube_calc * t) / D_o
     else: # Thick wall : Lame
         r_o = D_o/2
         r_i = D_o/2 - t
         P_max = S_tube_calc * ((r_o**2 - r_i**2) / (r_o**2 + r_i**2))
-    
+        
     return P_max
 
 def External_Max_P_carbon_steel(D_o,t,T_tube):
@@ -67,7 +67,7 @@ def External_Max_P_carbon_steel(D_o,t,T_tube):
     """
     
     sigma = 250*1e6 # Pa : Yield strength for steel
-    E = 200*1e9 # Pa : Yield strength for steel
+    E = 200*1e9 # Pa : Young Modulus for steel
         
     """
     
@@ -79,9 +79,6 @@ def External_Max_P_carbon_steel(D_o,t,T_tube):
     "Compute P_max for inputs"
     
     mu = 0.3 # Poisson Ratio
-
-    # from in to m
-    D_o = D_o
 
     r = D_o/2
 
@@ -229,5 +226,5 @@ def carbon_steel_pipe_thickness_mm(D_o, tube_T, ext_p, int_p):
 if __name__ == "__main__":
     
     # t_test = carbon_steel_pipe_thickness_mm(1.5*25.4*1e-3, 273.15+26, 5*1e5, 180*1e5)
-    t_test = carbon_steel_pipe_thickness_mm(800*1e-3, 273.15+160, 1*1e5, 5*1e5)
+    t_test = carbon_steel_pipe_thickness_mm(900*1e-3, 273.15+160, 1*1e5, 5*1e5)
 

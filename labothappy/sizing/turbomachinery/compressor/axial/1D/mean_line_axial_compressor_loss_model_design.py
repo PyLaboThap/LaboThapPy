@@ -2,7 +2,7 @@
 
 # --- loading libraries 
 
-from connector.mass_connector import MassConnector
+from labothappy.connector.mass_connector import MassConnector
 from CoolProp.CoolProp import PropsSI
 from scipy.optimize import fsolve, minimize, differential_evolution
 import pyswarms as ps

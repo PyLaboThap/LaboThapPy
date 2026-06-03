@@ -57,7 +57,7 @@ def _get_worker_map():
 # =============================================================================
 ETA_MOTOR    = 0.95
 ETA_SEC_PUMP = 0.80
-SC_TARGET    = 1   
+SC_TARGET    = 2   
 
 MAP_SAVE_PATH = r"C:\Users\Basile\Desktop\Travail\Thèse\Travail\WP1\Turbomachines\Save Maps\turb_map.parquet"
 
@@ -587,8 +587,8 @@ def plot_and_save(eta_2D, Wnet_2D, Phigh_2D,
 if __name__ == "__main__":
 
     # ---- Reference / nominal values -----------------------------------
-    MDOT_GUESS       = 280
-    P_HIGH_GUESS_NOM = 140.0e5   # Pa — nominal high-side pressure guess
+    MDOT_GUESS       = 300
+    P_HIGH_GUESS_NOM = 150.0e5   # Pa — nominal high-side pressure guess
 
     N_PP_NOMINAL  = 2900.0
     N_EXP_NOMINAL = 2864.775
@@ -607,7 +607,7 @@ if __name__ == "__main__":
     CASES = [
         # tag,  T_cd [K],               mdot_cd [kg/s],       filename
         # ("A4", 15 + 273.15,            MDOT_CD_NOM,          "CO2_OD_A4_Tcd_15.png"),
-        ("A5", 20.0 + 273.15,            MDOT_CD_NOM,          "CO2_OD_A5_Tcd_20.png"),
+        # ("A5", 20.0 + 273.15,            MDOT_CD_NOM,          "CO2_OD_A5_Tcd_20.png"),
         ("A3", 10.0 + 273.15,           MDOT_CD_NOM,          "CO2_OD_A3_Tcd_10_0.png"),
         #("B1", T_CD_NOM,                MDOT_CD_NOM * 0.85,   "CO2_OD_B1_mdot_cd_-15pct.png"),
         #("B2", T_CD_NOM,                MDOT_CD_NOM,          "CO2_OD_B2_mdot_cd_nom.png"),
@@ -633,12 +633,12 @@ if __name__ == "__main__":
             mute_print     = 1, # 0 if verbose else 1,
         )
         # cyc.solve(method='wegstein', max_iter=max_iter, tol=1e-3)
-        cyc.solve(method='wegstein', max_iter=max_iter, tol=1e-3)
+        cyc.solve(method='wegstein', max_iter=max_iter, tol=1e-3, oscillation_window=10)
         return cyc if cyc.converged else None
 
     # Damping ladder: start gentle, escalate if needed
-    DAMPING_LADDER = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
-    MAX_ITER       = 100
+    DAMPING_LADDER = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5]
+    MAX_ITER       = 200
 
     def evaluate_point(i, j, N_pp, N_exp, T_cd, mdot_cd, P_high_guess):
         nan_row = (i, j, np.nan, np.nan, np.nan)
