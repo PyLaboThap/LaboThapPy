@@ -355,7 +355,7 @@ class EjectorCstEff(BaseComponent):
         rho_g_mix = self.AS.rhomass()
 
         self.AS.update(CP.HmassP_INPUTS, self.h_mix, self.P_mix)
-        self.x_mix = x_mix = self.AS.Q()
+        self.x_mix = self.AS.Q()
 
         eps = void_fraction(self.x_mix, rho_g_mix, rho_l_mix)[0]
         
@@ -364,7 +364,8 @@ class EjectorCstEff(BaseComponent):
             C_t_comp = 2*self.A_mix/A_d * self.rho_mix * (1-self.A_mix/A_d)*(1/(rho_l_mix*(1-eps)**2))
             return self.params['C_t'] - C_t_comp
         
-        self.A_d = brentq(res_C_t, 1e-7, 1e-4, xtol=1e-5, rtol=1e-6)
+        A_d_id = self.A_mix/np.sqrt(1 - 0.8)
+        self.A_d = brentq(res_C_t, self.A_mix, A_d_id, xtol=1e-10, rtol=1e-10)
         
         self.params['A_d'] = self.A_d
         self.params['A_mb'] = self.A_mb
