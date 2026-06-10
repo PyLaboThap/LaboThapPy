@@ -59,11 +59,11 @@ class EjectorCstEff(BaseComponent):
 
     def get_required_inputs(self):  # Used in check_calculablle to see if all of the required inputs are set
         # Return a list of required inputs
-        return []
+        return ['T_su_1', 'P_su_1', 'm_dot_su_1', 'fluid_su_1', 'T_su_2', 'P_su_2', 'm_dot_su_2', 'fluid_su_2']
 
     def get_required_parameters(self):
         # Return a list of model parameters required for solving
-        return []
+        return ['eta_m', 'eta_s', 'eta_mix', 'eta_d', 'C_t']
 
     def _kornhauser(self, h_mb, P_b):
         """
@@ -203,8 +203,9 @@ class EjectorCstEff(BaseComponent):
         v_sb = np.sqrt(2 * dh)
     
         # ── Density at (h_sb, P_b) ────────────────────────────────────────
-        rho_sb = CP.PropsSI('D', 'H', h_sb, 'P', P_b, fluid)
-    
+        self.AS.update(CP.HmassP_INPUTS, h_sb, P_b)
+        rho_sb = self.AS.rhomass()
+        
         # ── Area of secondary stream at P_b ───────────────────────────────
         # A_sb = A_mix - A_mb  where A_mix is from motive stream
         # In design mode : A_sb emerges, not fixed
@@ -222,7 +223,8 @@ class EjectorCstEff(BaseComponent):
         h_mix  = h0_mix - V_mix**2 / 2.0
     
         # Density of mixture at P_b
-        rho_mix = CP.PropsSI('D', 'H', h_mix, 'P', P_b, fluid)
+        self.AS.update(CP.HmassP_INPUTS, h_mix, P_b)
+        rho_mix = self.AS.rhomass()
     
         # Area balance : A_mix from mixture, A_mb + A_sb from individual streams
         A_mix_momentum = (1.0 + w) * self.su_1.m_dot / (rho_mix * V_mix)
@@ -262,9 +264,11 @@ class EjectorCstEff(BaseComponent):
         
         self.P_mix = (self.P_b_sonic*self.A_mb + eta_mix*self.rho_mb*self.A_mb*self.v_mb**2 + self.P_b_suction*self.A_sb + eta_mix*self.rho_sb*self.A_sb*self.v_sb**2)/self.A_mix - self.rho_mix*v_mix**2 
         
-        # self.AS.update(CP.DmassP_INPUTS, self.rho_mix, self.P_mix)
-        # self.h_mix = self.AS.hmass()
-        self.h_mix = CP.PropsSI('H', 'D', self.rho_mix, 'P', self.P_mix, self.su_1.fluid)
+        try:
+            self.AS.update(CP.DmassP_INPUTS, self.rho_mix, self.P_mix)
+            self.h_mix = self.AS.hmass()
+        except:
+            self.h_mix = CP.PropsSI('H', 'D', self.rho_mix, 'P', self.P_mix, self.su_1.fluid)
 
         return h_mix - self.h_mix
 
@@ -283,6 +287,8 @@ class EjectorCstEff(BaseComponent):
             )
             return
         
+        print("A")
+        
         "1) Motive nozzle"        
         # ── Recherche de P_b par Brent ──────────────────────────────────────────
         # Bornes : P_evap < P_b < P_gc
@@ -297,7 +303,7 @@ class EjectorCstEff(BaseComponent):
         if r_low * r_high > 0:
             raise ValueError("Could not solve motive nozzle, verify inlet pressures")
         
-        self.P_b_sonic = brentq(self.motive_nozzle, P_low, P_high, xtol=1e2, rtol=1e-6)
+        self.P_b_sonic = brentq(self.motive_nozzle, P_low, P_high, xtol=1e-5, rtol=1e-6)
         
         # ── État final à P_b sonique ────────────────────────────────────────────
         self.AS.update(CP.PSmass_INPUTS, self.P_b_sonic, self.su_1.s)
@@ -311,6 +317,8 @@ class EjectorCstEff(BaseComponent):
             
         self.A_mb = 1 / (self.rho_mb*self.v_mb*self.su_1.m_dot)
 
+        print("B")
+
         "2) Suction chamber"
         
         self.params['w'] = self.su_2.m_dot/self.su_1.m_dot # Entrainement ratio
@@ -319,8 +327,10 @@ class EjectorCstEff(BaseComponent):
         self.AS.update(CP.QT_INPUTS, 0, T_triple)
         P_Triple = self.AS.p()
         
-        self.P_b_suction = brentq(self.suction_chamber, P_Triple, self.su_2.p*0.999, xtol=1e-2, rtol=1e-6)
+        self.P_b_suction = brentq(self.suction_chamber, P_Triple, self.su_2.p*0.999, xtol=1e-5, rtol=1e-6)
         
+        print("C")
+
         "3) Mixing section"
         
         h0_mb  = self.h_mb + self.v_mb**2 / 2.0
@@ -332,7 +342,8 @@ class EjectorCstEff(BaseComponent):
         self.v_min = 1
         
         while converged is False:
-            if self.v_min == self.v_mb:
+            
+            if self.v_min >= self.v_mb:
                 raise ValueError("Mixing section could not find a solution")
                 return
     
@@ -341,23 +352,37 @@ class EjectorCstEff(BaseComponent):
                 converged = True
             except:
                 self.v_min += 1
+               
+        print("D")
         
         "4) Diffuser flow"
+
+        # Ideal exit: all kinetic energy recovered isentropically
+        h_ex_is = self.h_mix + 0.5 * self.v_mix**2  # isentropic total enthalpy
         
-        self.P_ex = self.params['C_t']*(0.5*self.rho_mix*self.v_mix**2) + self.P_mix # pressure recovery coefficient
-        self.h_ex = self.h_mix
+        # Real exit: only eta_d fraction of kinetic energy is recovered
+        # self.h_ex = self.h_mix - self.params['eta_d'] * (self.h_mix - h_ex_is)
+        self.h_ex = self.h_mix + (h_ex_is - self.h_mix)/self.params['eta_d']
+        
         self.m_dot_ex = self.su_1.m_dot + self.su_2.m_dot
         
+        self.P_ex = self.params['C_t']*(0.5*self.rho_mix*self.v_mix**2) + self.P_mix 
+        self.m_dot_ex = self.su_1.m_dot + self.su_2.m_dot
+                
         self.AS.update(CP.PQ_INPUTS, self.P_mix, 0)
         rho_l_mix = self.AS.rhomass()
         
         self.AS.update(CP.PQ_INPUTS, self.P_mix, 1)
         rho_g_mix = self.AS.rhomass()
+        
+        try:
+            self.AS.update(CP.HmassP_INPUTS, self.h_mix, self.P_mix)
+            self.x_mix = self.AS.Q()
+            eps = void_fraction(self.x_mix, rho_g_mix, rho_l_mix)[0]
 
-        self.AS.update(CP.HmassP_INPUTS, self.h_mix, self.P_mix)
-        self.x_mix = self.AS.Q()
-
-        eps = void_fraction(self.x_mix, rho_g_mix, rho_l_mix)[0]
+        except:
+            self.x_mix = -1
+            eps = 1
         
         def res_C_t(A_d):
             # Rouhani (1969) - Diffusing a homogenized two-phase flow - I. OWEN, A. ABDUL-GHANI and A. M. AMINI
@@ -365,15 +390,27 @@ class EjectorCstEff(BaseComponent):
             return self.params['C_t'] - C_t_comp
         
         A_d_id = self.A_mix/np.sqrt(1 - 0.8)
-        self.A_d = brentq(res_C_t, self.A_mix, A_d_id, xtol=1e-10, rtol=1e-10)
+        
+        try:
+            self.A_d = brentq(res_C_t, self.A_mix, A_d_id, xtol=1e-5, rtol=1e-6)
+            # Exit velocity
+            self.AS.update(CP.HmassP_INPUTS, self.h_ex, self.P_ex)
+            self.rho_ex = self.AS.rhomass()
+
+            self.v_ex = (self.rho_mix * self.v_mix * self.A_mix) / (self.rho_ex * self.A_d)
+        except:
+            self.A_d = None
         
         self.params['A_d'] = self.A_d
         self.params['A_mb'] = self.A_mb
         self.params['A_sb'] = self.A_sb
         self.params['A_mix'] = self.A_mix
         
+        print("E")
+
+        self.solved = True
         self.update_connectors(self.P_ex, self.h_ex, self.m_dot_ex)
-        
+
         return
 
     def update_connectors(self, P_ex, h_ex, m_dot_ex):
@@ -405,32 +442,4 @@ class EjectorCstEff(BaseComponent):
         print("Work connector:")
         print(f"  - W_dot_exp: {self.W.W_dot} [W]")
         print("=========================")
-
-if __name__ == "__main__":
-
-    ej = EjectorCstEff()
-    
-    P_su_1 = 100
-    P_su_2 = 39
-    
-    ej.set_inputs(
-        T_su_1 = 40 + 273.15, # K
-        P_su_1 = P_su_1*1e5, # Pa
-        m_dot_su_1 = 0.18, # kg/s
-        fluid_su_1 = 'CO2',
         
-        T_su_2 = 15 + 273.15, # K
-        P_su_2 = P_su_2*1e5, # Pa
-        m_dot_su_2 = 0.07, # kg/s
-        fluid_su_2 = 'CO2',
-        )
-    
-    ej.set_parameters(
-        eta_m = 0.9,
-        eta_s = 0.9,
-        eta_mix = 1,
-        C_t = 0.8,
-        )
-
-    ej.solve()
-    

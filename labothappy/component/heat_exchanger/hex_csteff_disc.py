@@ -246,7 +246,7 @@ class HexCstEffDisc(BaseComponent):
 
         if self.su_H.T < self.su_C.T:
             
-            if self.plot_flag:
+            if self.print_flag:
                 print("Switch sides")
             
             save = self.su_C
@@ -324,23 +324,22 @@ class HexCstEffDisc(BaseComponent):
     def update_connectors(self):
         
         "Mass Connectors"
+        self.ex_C.reset()
+
         self.ex_C.set_fluid(self.su_C.fluid)
         self.ex_C.set_m_dot(self.su_C.m_dot)
         self.ex_C.set_h(self.su_C.h + self.Q_dot/self.su_C.m_dot)
         self.ex_C.set_p(self.p_cold[-1])
-        
-        self.AS_C.update(CP.HmassP_INPUTS, self.ex_C.h, self.ex_C.p)
-        self.ex_C.set_T(self.AS_C.T())
+
+        self.ex_H.reset()
 
         self.ex_H.set_fluid(self.su_H.fluid)
         self.ex_H.set_m_dot(self.su_H.m_dot)
-        self.ex_H.set_h(self.su_H.h - self.Q_dot/self.su_H.m_dot)
         self.ex_H.set_p(self.p_hot[-1])
-        
-        self.AS_H.update(CP.HmassP_INPUTS, self.ex_H.h, self.ex_H.p)
-        self.ex_H.set_T(self.AS_H.T())
+        self.ex_H.set_h(self.su_H.h - self.Q_dot/self.su_H.m_dot)
         
         "Heat conector"
+        
         self.Q.set_Q_dot(self.Q_dot)
 
         return

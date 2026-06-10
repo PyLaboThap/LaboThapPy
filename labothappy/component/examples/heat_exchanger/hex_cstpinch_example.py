@@ -1,3 +1,4 @@
+import __init__
 
 from labothappy.component.heat_exchanger.hex_cstpinch import HexCstPinch
 
