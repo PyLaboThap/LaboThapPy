@@ -53,7 +53,6 @@ class TS_curve_generator:
         # plt.title('TS Curve')
         plt.show()
 
-
 # -------- 1) Instanciate Circuit --------
 fluid = 'R1233zd(E)'
 orc = IterativeCircuit(fluid)
@@ -242,7 +241,7 @@ plt.plot(s_c, T_c, color='red', linestyle='-', label='Heat source')
 for i, (s, T) in enumerate(zip(s_array, T_array)):
     plt.text(s, T, str(i+1), fontsize=12, color='black', ha='right', va='bottom')
 
-
 TS_curve = TS_curve_generator(fluid)
 TS_curve.points(s_array, T_array)
 
+# Delta P: comment les prendre en compte?
