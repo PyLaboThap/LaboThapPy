@@ -17,6 +17,11 @@ from tqdm import tqdm
 from multiprocessing import Pool
 from joblib import Parallel, delayed
 
+import warnings
+
+# Ignore all warnings
+warnings.filterwarnings("ignore")
+
 #%% Externalized cost function for multiprocessing
 
 def system_HP_parallel(x, input_data):
@@ -35,35 +40,52 @@ def system_HP_parallel(x, input_data):
     P_crit_CO2 = AS.p_critical()
     P_low_guess = 0.8 * min(P_sat_T_CSource, P_crit_CO2)
 
-    P_high, mdot, mdot_HS_fact = x
-    mdot_HS = mdot * mdot_HS_fact
-    HSource.set_properties(m_dot=mdot_HS)
+    if params['HP_ARCH'] == 'EXP_IHX':
+        P_high, mdot, mdot_HS_fact, eta_IHX = x
+        mdot_HS = mdot * mdot_HS_fact
+        HSource.set_properties(m_dot=mdot_HS)
+    else:
+        P_high, mdot, mdot_HS_fact = x
+        mdot_HS = mdot * mdot_HS_fact
+        HSource.set_properties(m_dot=mdot_HS)
 
     # try:
-    if params['HP_ARCH'] == 'IHX_EXP':
+    if params['HP_ARCH'] == 'EXP_IHX':
         HP = IHX_EXP_CO2_HP(HSource, CSource, params['eta_cp'], params['eta_gc'],
-                            params['eta_IHX'], params['eta_exp'],
+                            eta_IHX, params['eta_exp'],
                             params['PP_ev'], params['SH_ev'],
                             P_low_guess, P_high, mdot, mute_print_flag=1)
-    else:
+        
+    elif params['HP_ARCH'] == 'IHX':
+        HP = IHX_CO2_HP(HSource, CSource, params['eta_cp'], params['eta_gc'],
+                        params['eta_IHX'], params['PP_ev'], params['SH_ev'],
+                        P_low_guess, P_high, mdot, mute_print_flag=1)
+
+    elif params['HP_ARCH'] == 'Ejector_IHX':
         HP = IHX_CO2_HP(HSource, CSource.T, params['eta_cp'], params['eta_gc'],
                         params['eta_IHX'], params['PP_ev'], params['SH_ev'],
                         P_low_guess, P_high, mdot, mute_print_flag=1)
 
+
     HP.solve()
 
     # if not HP.converged:
-    #     print("OH")
     #     return 100
 
-    if params['HP_ARCH'] == 'IHX_EXP':
+    if params['HP_ARCH'] == 'EXP_IHX':
         COP = HP.components['GasCooler'].model.Q.Q_dot / (
             HP.components['Compressor'].model.W.W_dot - HP.components['Expander'].model.W.W_dot)
     else:
         COP = HP.components['GasCooler'].model.Q.Q_dot / HP.components['Compressor'].model.W.W_dot
 
     T_err = abs((HP.components['GasCooler'].model.ex_C.T - obj['T_high']) / obj['T_high'])
-    W_err = abs((HP.components['Compressor'].model.W.W_dot - obj['W_dot']) / obj['W_dot'])
+
+    if params['HP_ARCH'] == 'EXP_IHX':
+        W_dot_net = HP.components['Compressor'].model.W.W_dot - HP.components['Expander'].model.W.W_dot
+    else:
+        W_dot_net = HP.components['Compressor'].model.W.W_dot
+        
+    W_err = abs((W_dot_net - obj['W_dot']) / obj['W_dot'])
 
     penalty = 0
     if T_err > 1e-2:
@@ -102,10 +124,16 @@ class CO2HPOptimizer:
         import multiprocessing
         n_cores = multiprocessing.cpu_count()
         
-        bounds = (
-            np.array([self.params['P_high_min'], self.params['m_dot_min'], self.params['m_dot_HS_fact_min']]),
-            np.array([self.params['P_high_max'], self.params['m_dot_max'], self.params['m_dot_HS_fact_max']])
-        )
+        if self.params['HP_ARCH'] == 'EXP_IHX':
+            bounds = (
+                np.array([self.params['P_high_min'], self.params['m_dot_min'], self.params['m_dot_HS_fact_min'], self.params['eta_IHX_min']]),
+                np.array([self.params['P_high_max'], self.params['m_dot_max'], self.params['m_dot_HS_fact_max'], self.params['eta_IHX_max']])
+            )
+        else:
+            bounds = (
+                np.array([self.params['P_high_min'], self.params['m_dot_min'], self.params['m_dot_HS_fact_min']]),
+                np.array([self.params['P_high_max'], self.params['m_dot_max'], self.params['m_dot_HS_fact_max']])
+            )
     
         input_data = {
             'fluid': self.fluid,
@@ -132,16 +160,16 @@ class CO2HPOptimizer:
             
         self.optimizer = GlobalBestPSO(
             n_particles=100,
-            dimensions=3,
+            dimensions=len(bounds[0]),
             options={'c1': 1.5, 'c2': 2.0, 'w': 0.7},
             bounds=bounds
         )
 
         best_cost = np.inf
         no_improve_counter = 0
-        patience = 5
+        patience = 20
         tol = 1e-3
-        max_iter = 30
+        max_iter = 50
 
         for i in tqdm(range(max_iter), desc="Optimizing", ncols=80):
             self.optimizer.optimize(objective_wrapper, iters=1, verbose=False)
@@ -157,18 +185,29 @@ class CO2HPOptimizer:
             if no_improve_counter >= patience:
                 print("Stopping early due to stagnation.")
                 break
-    
-        # After optimization loop is done
-        best_P_high = self.optimizer.swarm.best_pos[0]
-        best_mdot = self.optimizer.swarm.best_pos[1]
-        best_mdot_HS_fact = self.optimizer.swarm.best_pos[2]
-        best_mdot_HS = best_mdot * best_mdot_HS_fact
         
         # Store best variables
-        self.it_var['P_high'] = best_P_high
-        self.it_var['mdot'] = best_mdot
-        self.it_var['mdot_HS'] = best_mdot_HS
-        
+        if self.params['HP_ARCH'] == 'EXP_IHX':
+            best_P_high = self.optimizer.swarm.best_pos[0]
+            best_mdot = self.optimizer.swarm.best_pos[1]
+            best_mdot_HS_fact = self.optimizer.swarm.best_pos[2]
+            best_mdot_HS = best_mdot * best_mdot_HS_fact
+            best_eta_IHX = self.optimizer.swarm.best_pos[3]
+            
+            self.it_var['P_high'] = best_P_high
+            self.it_var['mdot'] = best_mdot
+            self.it_var['mdot_HS'] = best_mdot_HS
+            self.it_var['eta_IHX'] = best_eta_IHX
+        else:
+            best_P_high = self.optimizer.swarm.best_pos[0]
+            best_mdot = self.optimizer.swarm.best_pos[1]
+            best_mdot_HS_fact = self.optimizer.swarm.best_pos[2]
+            best_mdot_HS = best_mdot * best_mdot_HS_fact
+            
+            self.it_var['P_high'] = best_P_high
+            self.it_var['mdot'] = best_mdot
+            self.it_var['mdot_HS'] = best_mdot_HS
+            
         # 🔁 Rebuild the HP circuit in the main process
         self.HSource.set_properties(m_dot=best_mdot_HS)
         AS = CP.AbstractState('HEOS', self.fluid)
@@ -177,13 +216,13 @@ class CO2HPOptimizer:
         P_crit_CO2 = AS.p_critical()
         P_low_guess = 0.8 * min(P_sat_T_CSource, P_crit_CO2)
         
-        if self.params['HP_ARCH'] == 'IHX_EXP':
+        if self.params['HP_ARCH'] == 'EXP_IHX':
             self.HP = IHX_EXP_CO2_HP(self.HSource, self.CSource, self.params['eta_cp'],
-                                      self.params['eta_gc'], self.params['eta_IHX'], self.params['eta_exp'],
+                                      self.params['eta_gc'], self.it_var['eta_IHX'], self.params['eta_exp'],
                                       self.params['PP_ev'], self.params['SH_ev'],
                                       P_low_guess, best_P_high, best_mdot, mute_print_flag=1)
         else:
-            self.HP = IHX_CO2_HP(self.HSource, self.CSource.T, self.params['eta_cp'],
+            self.HP = IHX_CO2_HP(self.HSource, self.CSource, self.params['eta_cp'],
                                  self.params['eta_gc'], self.params['eta_IHX'],
                                  self.params['PP_ev'], self.params['SH_ev'],
                                  P_low_guess, best_P_high, best_mdot, mute_print_flag=1)
@@ -191,7 +230,7 @@ class CO2HPOptimizer:
         # 🔁 Solve in main process and store COP
         try:
             self.HP.solve()
-            if self.params['HP_ARCH'] == 'IHX_EXP':
+            if self.params['HP_ARCH'] == 'EXP_IHX':
                 self.COP = self.HP.components['GasCooler'].model.Q.Q_dot / (
                     self.HP.components['Compressor'].model.W.W_dot - self.HP.components['Expander'].model.W.W_dot)
             else:
@@ -222,20 +261,23 @@ if __name__ == "__main__":
     m_dot_vec = []
     m_dot_HS_vec = []
     T_act_vec = []
+    eta_IHX_vec = []
     
     # Sweep parameters
     m_dot_HS_fact_min = np.array([0.2] * 6)
-    m_dot_HS_fact_max = np.array([0.8] * 6)
-    P_high_min = np.array([100, 100, 120, 130, 140, 150]) * 1e5
-    P_high_max = np.array([130, 150, 170, 180, 190, 200]) * 1e5
+    m_dot_HS_fact_max = np.array([0.9] * 6)
+    P_high_min = np.array([100, 110, 130, 130, 140, 150]) * 1e5
+    P_high_max = np.array([140, 150, 170, 180, 190, 200]) * 1e5
+    eta_IHX_min = np.array([0.1] * 6)
+    eta_IHX_max = np.array([0.8] * 6)
     
     for i in range(len(T_vec)):
         Optimizer.set_parameters(
-            HP_ARCH='IHX_EXP',
+            HP_ARCH='EXP_IHX',
             eta_cp=0.8,
             eta_gc=0.95,
             eta_IHX=0.8,
-            eta_exp=0.7,
+            eta_exp=0.8,
             PP_ev=5,
             SH_ev=0.1,
             P_high_min=P_high_min[i],
@@ -243,7 +285,9 @@ if __name__ == "__main__":
             m_dot_min=10,
             m_dot_max=20,
             m_dot_HS_fact_min=m_dot_HS_fact_min[i],
-            m_dot_HS_fact_max=m_dot_HS_fact_max[i]
+            m_dot_HS_fact_max=m_dot_HS_fact_max[i],
+            eta_IHX_min = eta_IHX_min[i],
+            eta_IHX_max = eta_IHX_max[i],
         )
     
         Optimizer.set_it_var(
@@ -278,6 +322,9 @@ if __name__ == "__main__":
         m_dot_vec.append(opt.swarm.best_pos[1])
         m_dot_HS_vec.append(opt.swarm.best_pos[1] * opt.swarm.best_pos[2])
         T_act_vec.append(T_vec[i] - 273.15)
+        
+        if 'eta_IHX' in Optimizer.it_var:
+            eta_IHX_vec.append(Optimizer.it_var['eta_IHX'])
     
     # Plotting
     plt.figure(figsize=(8, 5))
@@ -330,3 +377,10 @@ if __name__ == "__main__":
 
 # mdot_HS_vec = [12.392235492258568, 10.226879105272955, 7.796114170455033, 
 #                7.481034247657304, 6.4890594730472175, 5.70901076559547]
+
+
+# Optimizer.HP.components['Compressor'].model.W.W_dot
+# Out[21]: np.float64(999145.63881943)
+
+# Optimizer.HP.components['GasCooler'].model.Q.Q_dot
+# Out[22]: np.float64(3138128.7954499032)

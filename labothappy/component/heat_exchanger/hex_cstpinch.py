@@ -653,7 +653,14 @@ class HexCstPinch(BaseComponent):
         "Mass Connectors"
 
         if self.params['HX_type'] == 'evaporator':
-
+            
+            h_su_C = self.su_C.h
+            m_dot_su_C = self.su_C.m_dot
+            
+            self.su_C.reset()
+            
+            self.su_C.set_h(h_su_C)
+            self.su_C.set_m_dot(m_dot_su_C)
             self.su_C.set_p(self.P_ev_x0)
 
             self.ex_C.reset()
@@ -681,7 +688,14 @@ class HexCstPinch(BaseComponent):
 
         else: 
 
-            self.su_H.set_p(self.P_cd_x1)
+            h_su_H = self.su_H.h
+            m_dot_su_H = self.su_H.m_dot
+            
+            self.su_H.reset()
+            
+            self.su_H.set_h(h_su_H)
+            self.su_H.set_m_dot(m_dot_su_H)
+            self.su_H.set_p(self.P_cd_x1)            
 
             self.ex_H.reset()
 

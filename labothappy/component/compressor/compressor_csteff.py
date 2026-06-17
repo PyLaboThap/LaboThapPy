@@ -69,28 +69,27 @@ class CompressorCstEff(BaseComponent):
         ]
 
     def solve(self):
+        
+        self.solved = False
+        
         self.check_calculable()
         self.check_parametrized()
         # self.print_setup()
         self.AS = CP.AbstractState('HEOS', self.su.fluid)
 
-        try:
-            self.AS.update(CP.PSmass_INPUTS, self.ex.p, self.su.s)
-            self.h_ex_is = self.AS.hmass()
-            
-            self.AS.T()
-            
-            h_ex = self.su.h + (self.h_ex_is - self.su.h) / self.params['eta_is']
-            w = h_ex - self.su.h
-            W_dot = self.su.m_dot*w
-            self.update_connectors(h_ex, w, W_dot)
+        self.AS.update(CP.PSmass_INPUTS, self.ex.p, self.su.s)
+        self.h_ex_is = self.AS.hmass()
+        
+        self.AS.T()
+        
+        h_ex = self.su.h + (self.h_ex_is - self.su.h) / self.params['eta_is']
+        w = h_ex - self.su.h
+        W_dot = self.su.m_dot*w
+        self.update_connectors(h_ex, w, W_dot)
 
-            self.solved = True
-            # self.print_states_connectors()
-        except Exception as e:
-            print(f"Error: {e}")
-            self.solved = False
-            return
+        self.solved = True
+
+        return
     
     def update_connectors(self, h_ex, w, W_dot):
         

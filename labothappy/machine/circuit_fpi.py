@@ -524,10 +524,18 @@ class CircuitFPI(BaseCircuit):
         """One full pass through all components in DFS order."""
         self.reset_solved_marker()
         for component_name in self.solving_order:
+                        
             if self.print_flag:
                 print(f"--- Component : {component_name}")
                 
             self.components[component_name].solve()
+
+            print(f"--- CP_su_s : {self.components['Compressor'].model.su.s}")
+            print(f"--- CP_su_P : {self.components['Compressor'].model.su.h}")
+            print(f"--- CP_su_H : {self.components['Compressor'].model.su.p}")
+            print(f"--- CP_su_SH : {self.components['Compressor'].model.su.SH}")
+            
+            print(f"--- CP_ex_s : {self.components['Compressor'].model.ex.s}")
 
         return
 
@@ -608,8 +616,17 @@ class CircuitFPI(BaseCircuit):
         for guess_name, guess in self.guesses.items():
             component_name, rest = guess_name.split(":")
             port, var            = rest.split("-")
-            connector            = getattr(self.components[component_name].model, port)
-            f_curr               = float(getattr(connector, var))
+            connector            = getattr(self.components[component_name].model, port)       
+            
+            if var == "SH" or var == "SC":
+                
+                if getattr(connector, var) is None:
+                    f_curr = 0
+                else:
+                    f_curr               = float(getattr(connector, var))
+            else:
+                f_curr               = float(getattr(connector, var))
+    
             x_curr               = guess.value
     
             guess.record_input(x_curr)
@@ -822,11 +839,11 @@ class CircuitFPI(BaseCircuit):
 
         for start in self.solve_start_components:
             
-            try:
-                self.recursive_solve(start)
-            except:
-                self.converged = False
-                return
+            # try:
+            self.recursive_solve(start)
+            # except:
+            #     self.converged = False
+            #     return
             
             if self.check_all_component_solved():
                 break
@@ -872,6 +889,8 @@ class CircuitFPI(BaseCircuit):
             self._sequential_sweep()
             # except:
             #     self.converged = False
+            #     if self.print_flag:
+            #         print("Solver did not converge")
             #     return
         
             current_snapshot = self._snapshot_connector_states()

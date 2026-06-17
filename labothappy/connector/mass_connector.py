@@ -316,7 +316,10 @@ class MassConnector:
                     self.SH = None
                 elif self.SH >=0:
                     self.SC = None
-                
+            
+            if self.T > self.AS.T_critical():
+                self.SH = self.T - self.AS.T_critical()
+            
         except:
             warnings.warn("Error: This pair of inputs is not yet supported.")
             
