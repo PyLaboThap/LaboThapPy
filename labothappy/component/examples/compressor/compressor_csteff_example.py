@@ -22,3 +22,5 @@ CP.set_parameters(eta_is=0.8)
 CP.solve()
 CP.print_results()
 
+fig = CP.plot_Ts()
+fig.show()

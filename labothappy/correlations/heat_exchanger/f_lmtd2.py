@@ -38,6 +38,13 @@ from scipy import interpolate
 #     return F_fun
 
 def F_shell_and_tube(R1,P1,N):
+    """
+    R1 : (self.Tvec_h[-1] - self.Tvec_h[0])/(self.Tvec_c[-1] - self.Tvec_c[0])
+    P1 : (self.Tvec_c[-1] - self.Tvec_c[0])/(self.Tvec_h[-1] - self.Tvec_c[0]) 
+    A traduire en T_c_i, T_c_o, T_h_i, T_h_o
+    
+    N : number of shell in series
+    """
     if R1 == 1:
         W_prime = (N - N * P1) / (N - N * P1 + P1)
 

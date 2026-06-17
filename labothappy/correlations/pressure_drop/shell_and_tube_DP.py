@@ -6,7 +6,7 @@ Created on Wed Mar 13 10:36:53 2024
 """
 
 import numpy as np
-from CoolProp.CoolProp import PropsSI
+import CoolProp.CoolProp as CP
 
 def s_max_kern(Tube_OD, pitch_ratio, Shell_ID, central_spacing, tube_layout): # Maximum flow section (m**2)
     """
@@ -32,6 +32,7 @@ def s_max_kern(Tube_OD, pitch_ratio, Shell_ID, central_spacing, tube_layout): # 
     
     p_T = Tube_OD * pitch_ratio # Tube Pitch
     s_max = (Shell_ID / p_T)*(p_T -  Tube_OD) * central_spacing
+    # s_max = central_spacing*(Shell_ID - Tube_OD)*(p_T -  Tube_OD)/p_T
         
     return s_max
 
@@ -139,7 +140,7 @@ def d_h(Tube_OD, pitch_ratio, tube_layout): # Hydraulic diameter (m)
 
 #%%
 
-def shell_DP_kern(m_dot, T_wall, h_in, P_in, fluid, params):
+def shell_DP_kern(m_dot, T_wall, h_in, P_in, AS, params):
     """
     Inputs
     ----------
@@ -148,7 +149,7 @@ def shell_DP_kern(m_dot, T_wall, h_in, P_in, fluid, params):
     T_wall : Wall Temperature [K]
     h_in   : Inlet Enthalpy [K]
     P_in   : Inlet pressure [Pa]
-    fluid  : fluid name [-]
+    AS     : fluid AbstractState Object 
     params : HTX parameters [-]
 
     Outputs
@@ -162,78 +163,48 @@ def shell_DP_kern(m_dot, T_wall, h_in, P_in, fluid, params):
     Process Heat Transfer - D. Q. Kern
     """
     
-    "1) HTC"
+    "1) Reynolds"
     
-    (rho, mu) = PropsSI(('D','V'),'H',h_in, 'P',P_in,fluid)
+    AS.update(CP.HmassP_INPUTS, h_in, P_in)
     
-    mu_w = PropsSI('V','T',T_wall,'P',P_in,fluid)
+    rho = AS.rhomass()
+    mu = AS.viscosity()
+    
+    AS.update(CP.PT_INPUTS, P_in, T_wall)
+    mu_w = AS.viscosity()
 
-    S_T = s_max(params['Tube_OD'], params['pitch_ratio'], params['Shell_ID'], params['central_spacing'], params['tube_layout']) # m^2
+    S_T = s_max_kern(params['Tube_OD'], params['pitch_ratio'], params['Shell_ID'], params['central_spacing'], params['tube_layout']) # m^2
     D_hydro = d_h(params['Tube_OD'], params['pitch_ratio'], params['tube_layout'])
 
     V_t = m_dot/(S_T*rho)
     
-    Re = rho*V_t*(D_hydro/mu)
-    # print(Re)
+    Re = rho*V_t*(D_hydro/mu) 
     
+    # Re = m_dot*params['Tube_OD']/(S_T*mu)/2
+
     "2) DP"
     
+    Bo = 0.72
+    # f = 2*Bo*Re**(-0.15)
     f = np.e**(0.576 - 0.19*np.log(Re)) # [-] : Friction coefficient
     G = m_dot/S_T # kg/(m^2 * s)
     phi_s = (mu/mu_w)**(0.14)  
-
+    
     DP = (f*G**2 * params['Shell_ID'] * (params['cross_passes'] + 1))/(2*rho*D_hydro*phi_s)
     
+    print(f"rho :{rho}")
+    print(f"D_hydro:{D_hydro}")
+    print(f"phi_s :{phi_s}")
+    print(f"N_B :{params['cross_passes'] + 1}")
+    print(f"Shell_ID :{params['Shell_ID']}")
+    print(f"f :{f}")
+    print(f"G :{G}")
+        
     return DP
-
-# def shell_DP_kern(m_dot, T_wall, h_in, P_in, fluid, params):
-#     """
-#     Inputs
-#     ----------
-    
-#     m_dot  : Flow rate [kg/s]
-#     T_wall : Wall Temperature [K]
-#     h_in   : Inlet Enthalpy [K]
-#     P_in   : Inlet pressure [Pa]
-#     fluid  : fluid name [-]
-#     params : HTX parameters [-]
-
-#     Outputs
-#     -------
-    
-#     h = shell side heat transfer coefficient [W/(m^2 * K)]    
-#     DP = shell side pressure drop [Pa]
-    
-#     References
-#     -------
-#     Process Heat Transfer - D. Q. Kern
-#     """
-    
-#     "1) HTC"
-    
-#     (rho, mu) = PropsSI(('D','V'),'H',h_in, 'P',P_in,fluid)
-    
-#     mu_w = PropsSI('V','T',T_wall,'P',P_in,fluid)
-
-#     S_T = s_max_kern(params['Tube_OD'], params['pitch_ratio'], params['Shell_ID'], params['central_spacing'], params['tube_layout']) # m^2
-#     D_hydro = d_h(params['Tube_OD'], params['pitch_ratio'], params['tube_layout'])
-    
-#     V_s = m_dot/(S_T*rho)
-    
-#     Re = rho*V_s*(D_hydro/mu)
-    
-#     "2) DP"
-#     bo = 0.72
-    
-#     f = 2*bo*Re**(-0.15) # [-] : Friction coefficient
-
-#     DP = f*(rho*V_s**2 / 2)*(params['Tube_L']/params['central_spacing'])*(params['Shell_ID']/D_hydro) # (f*G**2 * params['Shell_ID'] * (params['cross_passes'] + 1))/(2*rho*D_hydro*phi_s)
-    
-#     return DP
 
 #%%
 
-def shell_DP_donohue(m_dot, T_in, P_in, fluid, params):
+def shell_DP_donohue(m_dot, T_in, P_in, AS, params):
     """
     Inputs
     ----------
@@ -241,7 +212,7 @@ def shell_DP_donohue(m_dot, T_in, P_in, fluid, params):
     m_dot  : Flow rate [kg/s]
     T_in   : Inlet Temperature [K]
     P_in   : Inlet pressure [Pa]
-    fluid  : fluid name [-]
+    AS     : fluid AbstractState Object 
     params : HTX geometrical parameters [-]
 
     Outputs
@@ -254,10 +225,10 @@ def shell_DP_donohue(m_dot, T_in, P_in, fluid, params):
     Process Heat Transfer - D. Q. Kern
     """
     
-    rho = PropsSI('D','T',T_in, 'P',P_in,fluid)
-    mu = PropsSI('V','T',T_in, 'P',P_in,fluid)
-    Pr = PropsSI('PRANDTL','T',T_in, 'P',P_in,fluid)
-    k = PropsSI('L','T',T_in, 'P',P_in,fluid)
+    AS.update(CP.PT_INPUTS, P_in, T_in)
+    
+    rho = AS.rhomass()
+    mu = AS.viscosity()
     
     S_T = s_max(params['Tube_OD'], params['pitch_ratio'], params['Shell_ID'], params['central_spacing'], params['tube_layout']) # m^2
     D_hydro = d_h(params['Tube_OD'], params['pitch_ratio'], params['tube_layout'])
@@ -379,7 +350,7 @@ def bell_delaware_coefs(layout_angle, Re):
 
 #%% 
 
-def shell_bell_delaware_DP(m_dot_shell, h_shell, P_shell, shell_fluid, params):
+def shell_bell_delaware_DP(m_dot_shell, h_shell, P_shell, AS, params):
     """
     Inputs
     ----------
@@ -407,13 +378,12 @@ def shell_bell_delaware_DP(m_dot_shell, h_shell, P_shell, shell_fluid, params):
     
     # Bulk fluid thermodynamical properties
     
-    rho = PropsSI('D','H',h_shell, 'P',P_shell,shell_fluid)
-    mu = PropsSI('V','H',h_shell, 'P',P_shell,shell_fluid)
-    cp = PropsSI('C','H',h_shell, 'P',P_shell,shell_fluid)
-
-    # Wall fluid thermodynamical properties
-    mu_w = PropsSI('V','H',h_shell, 'P',P_shell,shell_fluid)
+    AS.update(CP.HmassP_INPUTS, h_shell, P_shell)
     
+    rho = AS.rhomass()
+    mu = mu_w = AS.viscosity() # !!!
+    cp = AS.cpmass()
+
     # Effective sections and hydraulic diameter  
     S_T = s_max(params['Tube_OD'], params['pitch_ratio'], params['Shell_ID'], params['central_spacing'], params['tube_layout']) # m^2
     S_L = s_L(params['Baffle_cut'], params['Shell_ID'], params['n_tubes'], params['Tube_OD']) # m^2
@@ -431,7 +401,7 @@ def shell_bell_delaware_DP(m_dot_shell, h_shell, P_shell, shell_fluid, params):
     
     # Shell transverse mass Flux
     G_shell = m_dot_shell / (S_T)
-    
+        
     # Tube pitch
     P_T = params["Tube_OD"]*params["pitch_ratio"]
     
@@ -534,3 +504,29 @@ def shell_bell_delaware_DP(m_dot_shell, h_shell, P_shell, shell_fluid, params):
     DP_shell = DP_PE + DP_PC + DP_w
 
     return DP_shell
+
+if __name__ == "__main__":
+    
+    Ds = 1
+    
+    params = {
+        'Shell_ID': Ds,
+        'Tube_L': 5,
+        'Tube_OD': 0.027,
+        'Tube_t': 0.003,
+        'central_spacing':  Ds*0.6,
+        'pitch_ratio': 1.5,
+        'tube_layout': 45,
+        'Baffle_cut': 25,
+        'cross_passes' : np.ceil(5/Ds*0.6)
+        }
+    
+    AS = CP.AbstractState('HEOS', 'Water')
+    
+    P_in = 3*101325
+    T_in = 20+273.15
+    
+    h_in = CP.PropsSI('H', 'P', P_in, 'T', T_in, 'Water')
+    
+    DP =  shell_DP_kern(111.11, 534.09, h_in, P_in, AS, params)
+

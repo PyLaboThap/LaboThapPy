@@ -10,7 +10,7 @@ Created on Tue Dec 19 14:43:39 2023
 import numpy as np
 from CoolProp.CoolProp import PropsSI
 
-from component.tank.tank_LV_separator import TankLVSeparator
+from labothappy.component.tank.tank_LV_separator import TankLVSeparator
 
 "-----------------------------------------------------------  TEST   ----------------------------------------------------------------"
 
@@ -31,3 +31,7 @@ LV_Separator.set_parameters()
 LV_Separator.solve()
 LV_Separator.print_results()
 LV_Separator.print_states_connectors()
+
+fig = LV_Separator.plot_thermo_states()
+fig.show()
+

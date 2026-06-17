@@ -11,6 +11,9 @@ from CoolProp.CoolProp import PropsSI
 fluid = "Propane"
 HP = RecursiveCircuit(fluid)
 
+# Ignore debug printing
+HP.mute_print()
+
 # Create components
 Compressor = CompressorCstEff()
 Condenser = HexCstPinch()
@@ -47,14 +50,13 @@ HP.link_components("Recuperator", "m-ex_C", "Compressor", "m-su")
 
 # Add fluid sources
 CD_source = MassConnector('Water')
-T_su_w_cd = 40+273.15
+T_su_w_cd = 60+273.15
 P_su_w_cd = 3e5
 m_dot_w_cd = 0.5  # kg/s
 EV_source = MassConnector('Water')
-T_su_w_ev = 20+273.15
+T_su_w_ev = 10+273.15
 P_su_w_ev = 1e5
 m_dot_w_ev = 5  # kg/s
-
 
 HP.add_source("CD_Water", CD_source, HP.components["Condenser"], "m-su_C")
 HP.set_source_properties(T=T_su_w_cd, fluid='Water', P=P_su_w_cd, m_dot = m_dot_w_cd, target="CD_Water")
@@ -71,8 +73,8 @@ m_dot_CS = 5 # kg/s
 m_dot_ref = 0.2 # kg/s
 
 # Cycle guess values
-P_low = PropsSI("P", "T", T_CS-10, "Q", 1, fluid)
-P_high = PropsSI("P", "T", T_HS+10, "Q", 0, fluid)
+P_low = PropsSI("P", "T", T_CS-5, "Q", 1, fluid)
+P_high = PropsSI("P", "T", T_HS+5, "Q", 0, fluid)
 
 HP.set_cycle_guess(target="Compressor:su", m_dot = m_dot_ref, SH=SH_ev, p=P_low)
 HP.set_cycle_guess(target="Compressor:ex", p=P_high)
@@ -94,6 +96,9 @@ HP.set_residual_variable(target="ExpansionValve:ex", variable="h", tolerance=1e3
 HP.set_residual_variable(target="ExpansionValve:ex", variable="p", tolerance=1e3)
 
 HP.solve()
+
+HP.plot_cycle_Ts()
+
 print(f"Converged at P_HP = {Compressor.ex.p}, P_LP = {Compressor.su.p}")
 # HP.print_states()
 

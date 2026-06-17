@@ -40,3 +40,6 @@ HTX.set_parameters(**{
 
 HTX.solve()
 HTX.plot_disc()
+
+fig = HTX.plot_Ts(choose_HX_side='H')
+fig.show()

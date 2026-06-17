@@ -148,7 +148,9 @@ class PumpCurveSimilarity(BaseComponent):
 
         elif self.params["mode"] == "M_N": # Given P_su, T_su, N_rot, m_dot
             self.solve_MN()
-
+            
+        self.solved = True
+            
     def solve_PN(self):
         self.AS = CP.AbstractState("HEOS", self.su.fluid)
 

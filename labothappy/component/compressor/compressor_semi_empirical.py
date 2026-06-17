@@ -379,8 +379,8 @@ class CompressorSE(BaseComponent):
         self.Q_dot_amb = self.params['AU_amb']*(self.T_w-self.inputs['T_amb'])
         # Compression work and power
         W_dot_in = m_dot_in*w_in
-        W_dot_loss = self.params['alpha']*W_dot_in + self.params['W_dot_loss_0'] + self.params['C_loss']*(self.N_rot/60)*2*np.pi
-        self.W_dot_cp = W_dot_in + W_dot_loss
+        self.W_dot_loss = self.params['alpha']*W_dot_in + self.params['W_dot_loss_0'] + self.params['C_loss']*(self.N_rot/60)*2*np.pi
+        self.W_dot_cp = W_dot_in + self.W_dot_loss
         
         "9. Performances"
         # Isentropic efficiency
@@ -403,7 +403,7 @@ class CompressorSE(BaseComponent):
         self.epsilon_v_PT = m_dot_in/m_dot_th
         
         "10. Residue"
-        self.resE = abs((W_dot_loss - Q_dot_ex - Q_dot_su - self.Q_dot_amb)/(W_dot_loss))
+        self.resE = abs((self.W_dot_loss - Q_dot_ex - Q_dot_su - self.Q_dot_amb)/(self.W_dot_loss))
         self.res_h_ex1 = abs(h_ex1_bis-h_ex1)/h_ex1
         self.res_h_ex2 = abs((h_ex2_bis-h_ex2)/h_ex2)
         if self.params['mode'] == 'N_rot':
@@ -425,7 +425,7 @@ class CompressorSE(BaseComponent):
         if self.params['mode'] == 'N_rot':
             self.su.set_m_dot(self.m_dot)
         if self.params['mode'] == 'm_dot':
-            self.W.set_N(self.N_rot)
+            self.W.set_N_rot(self.N_rot)
             
         self.Q_amb.set_Q_dot(self.Q_dot_amb)
         self.Q_amb.set_T_hot(self.T_w)

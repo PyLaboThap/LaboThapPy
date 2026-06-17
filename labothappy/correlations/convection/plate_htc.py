@@ -9,6 +9,7 @@ import numpy as np
 from scipy.optimize import fsolve
 
 from CoolProp.CoolProp import PropsSI
+import CoolProp.CoolProp as CP
 
 # For one phase water heat transfer:
 def water_plate_HTC(mu, Pr, k, G, Dh):
@@ -132,28 +133,53 @@ def martin_holger_plate_HTC(mu, Pr, k, m_dot, nb_channels, T_mean, P_mean, fluid
     return h_conv
 
 # For the R1233zd(E) two phase (evaporation):
-def amalfi_plate_HTC(D_h, length, width, amplitude, chevron_angle, nb_channels, A_tot, m_dot, P_mean, fluid):
+def amalfi_plate_HTC(D_h, length, width, amplitude, chevron_angle, nb_channels, A_tot, m_dot, P_mean, AS):
 
-    def PHX_EV_Amalfi(x, D_h, length, width, amplitude, chevron_angle, A_tot, m_dot, P_mean, fluid):
+    def PHX_EV_Amalfi(x, D_h, length, width, amplitude, chevron_angle, A_tot, m_dot, P_mean, AS):
         " Gas properties "
-        rho_g = PropsSI('D','P', P_mean, 'Q', 1, fluid)
-        mu_g = PropsSI('V','P', P_mean, 'Q', 1, fluid)
-        h_g = PropsSI('H','P',P_mean,'Q',1, fluid)
+        AS.update(CP.PQ_INPUTS, P_mean, 1)
+        
+        rho_g = AS.rhomass()
+        T_sat = AS.T()
+        h_g = AS.hmass()
+
+        try:
+            mu_g = AS.viscosity()                                           # Liquid Viscosity Q = 0, Pa s^-1
+        except:
+            AS.update(CP.PT_INPUTS, P_mean, T_sat+0.001)
+            mu_g = AS.viscosity()  
+        
 
         " Liquid properties "    
-        rho_l = PropsSI('D','P', P_mean, 'Q', 0, fluid)
-        mu_l = PropsSI('V','P', P_mean, 'Q', 0, fluid)
-        DeltaH_lg =  PropsSI('H','P',P_mean,'Q',1, fluid)-PropsSI('H','P',P_mean,'Q',0, fluid)
+        AS.update(CP.PQ_INPUTS, P_mean, 0)
+        
+        rho_l = AS.rhomass()
+        h_l = AS.hmass()
+        
+        try:
+            mu_l = AS.viscosity()                                           # Liquid Viscosity Q = 0, Pa s^-1
+        except:
+            AS.update(CP.PT_INPUTS, P_mean, T_sat-0.001)
+            mu_l = AS.viscosity()     
+        
+        DeltaH_lg = h_g - h_l
 
         " Instant quality-properties "
-        rho_x = PropsSI('D','P', P_mean, 'Q', x, fluid)  
-        if fluid == 'R1233zd(E)':
-            T_mean = PropsSI('T','P',P_mean,'Q',1,fluid)
-            k_x = (0.09513*T_mean - 17.963)/1000
+        AS.update(CP.PQ_INPUTS, P_mean, x)
+        
+        rho_x = AS.rhomass()
+        if AS.fluid_names()[0] == 'R1233zd(E)':
+            k_x = (0.09513*T_sat - 17.963)/1000
         else:
-            k_x  = PropsSI('L','P', P_mean, 'Q', x, fluid)       
-        sigma_x = PropsSI('surface_tension', 'P', P_mean, 'Q', x, fluid)
-        h_r_x = PropsSI('H','P',P_mean,'Q', x, fluid)   
+            k_x  = AS.conductivity()   
+        
+        try:
+            sigma_x = AS.surface_tension()
+        except:
+            sigma_x = PropsSI('surface_tension', 'P', P_mean, 'Q', x, AS.fluid_names()[0])
+            
+        h_r_x = AS.hmass()
+        
 
         " Average conditions "
         x_m = 0.5*(0 + x)
@@ -236,14 +262,14 @@ def amalfi_plate_HTC(D_h, length, width, amplitude, chevron_angle, nb_channels, 
     
     " Heat transffer calculation:"
     for i in range (N_subdiv):
-        hcv[i], DeltaP_t = PHX_EV_Amalfi(x_vec[i], D_h, length, width, amplitude, chevron_angle, A_tot, m_dot, P_mean, fluid)
+        hcv[i], DeltaP_t = PHX_EV_Amalfi(x_vec[i], D_h, length, width, amplitude, chevron_angle, A_tot, m_dot, P_mean, AS)
     " Average calculation:"
     hcv_mean = np.mean(hcv)
 
     return hcv_mean
 
 # For the R1233zd(E) two phase (condensation):
-def shah_condensation_plate_HTC(D_h, L_p, B_p, b, phi, M_dot_r, P_mean, N_ch, refrigerant):
+def shah_condensation_plate_HTC(D_h, L_p, B_p, b, phi, M_dot_r, P_mean, N_ch, AS):
     """ Shah correlation for condensation in Plate heat Exchanger 2021, for Beta valid 35 and 70°
     
     This is correlation is based in the Longo et al. 2015 correlation. This works presents an 
@@ -268,26 +294,37 @@ def shah_condensation_plate_HTC(D_h, L_p, B_p, b, phi, M_dot_r, P_mean, N_ch, re
     M_dot_r : Refrigerant mass flow rate, kg s^-1
     P_mean : Condensation pressure, Pa,
     N_ch : Number of plates of the fluid, -
-    refrigerant : Fluid in condensation
-"""
-    def PHX_CD_Shah_x(x = 0.5, D_hyd = D_h, L_p = L_p, B_p = B_p, b = b, phi = phi, M_dot_r = M_dot_r, P_mean = P_mean, N_ch = N_ch, refrigerant = refrigerant):
+    AS : Fluid Abstract State
+    """
+    
+    def PHX_CD_Shah_x(x = 0.5, D_hyd = D_h, L_p = L_p, B_p = B_p, b = b, phi = phi, M_dot_r = M_dot_r, P_mean = P_mean, N_ch = N_ch, AS = AS):
         
         " Saturation conditions "
-        rho_g = PropsSI('D','P', P_mean, 'Q', 1, refrigerant)           # Vapor density Q =1, kg m^-3
-        rho_l = PropsSI('D','P', P_mean, 'Q', 0, refrigerant)           # Liquid density Q =0, kg m^-3
+        AS.update(CP.PQ_INPUTS, P_mean, 1)
+        rho_g = AS.rhomass()                                            # Vapor density Q =1, kg m^-3
+        
+        AS.update(CP.PQ_INPUTS, P_mean, 0)
+        rho_l = AS.rhomass()                                            # Liquid density Q = 0, kg m^-3
+        
+        cp_l = AS.cpmass()                                              # Liquid Specific Heat Q = 0, J/kg-K
+        T_sat = AS.T()                                                  # Liquid Temperature Q = 0, K
+                
+        try:
+            mu_l = AS.viscosity()                                           # Liquid Viscosity Q = 0, Pa s^-1
+        except:
+            AS.update(CP.PT_INPUTS, P_mean, T_sat-0.001)
+            mu_l = AS.viscosity()                                           # Liquid Viscosity Q = 0, Pa s^-1
+
         v_g = 1/rho_g                                                   # Liquid Volume Q = 1, kg m^-3
         v_l = 1/rho_l                                                   # Liquid Volume Q = 0, kg m^-3
-        mu_l = PropsSI('V','P', P_mean, 'Q', 0, refrigerant)            # Liquid Viscosity Q = 0, Pa s^-1
-        cp_l = PropsSI('C','P', P_mean, 'Q', 0, refrigerant)            # Liquid Specific Heat Q = 0, J/kg-K
-        T_sat = PropsSI('T','P', P_mean, 'Q', 0, refrigerant)           # Liquid Temperature Q = 0, K
-        
-        if refrigerant == 'R1233ZD(E)' or refrigerant == 'R1233zd(E)':
+
+        if AS.fluid_names()[0] == 'R1233ZD(E)' or AS.fluid_names()[0] == 'R1233zd(E)':
             k_l = (-0.2614*T_sat + 159.19)/1000
             Pr_l = cp_l*mu_l/k_l
 
         else:
-            k_l  = PropsSI('L','P', P_mean, 'Q', 0, refrigerant)        # Liquid Conductivity Q = 0, W m^-2 K^-1
-            Pr_l = PropsSI('Prandtl', 'P', P_mean,'Q', 0,refrigerant)   # Liquid Prandt number Q =0, -
+            k_l  = AS.conductivity()                                    # Liquid Conductivity Q = 0, W m^-2 K^-1
+            Pr_l = AS.Prandtl()                                         # Liquid Prandt number Q =0, -
 
         " Refrigerant mass flow rate per chanell"
         M_dot_r_ch = M_dot_r/N_ch                                      # Mass flow rate, kg s^-1
@@ -359,7 +396,7 @@ def shah_condensation_plate_HTC(D_h, L_p, B_p, b, phi, M_dot_r, P_mean, N_ch, re
                                 M_dot_r, 
                                 P_mean,
                                 N_ch, 
-                                refrigerant)
+                                AS)
  
     hcv_mean = np.mean(hcv)
     return hcv_mean
@@ -375,10 +412,10 @@ def thonon_plate_HTC(mu, Pr, k, G, Dh, chevron_angle):
     for the Chemical Industry, BHR Group Conference Series Publication, no. 18, pp. 37–47, 1995.
     """
     Re = G*Dh/mu
-    print('Re_c', Re)
-    print("G_c", G)
-    print("Dh_c", Dh)
-    print("mu_c", mu)
+    # print('Re_c', Re)
+    # print("G_c", G)
+    # print("Dh_c", Dh)
+    # print("mu_c", mu)
 
     if Re < 50 or Re > 15000:
         raise ValueError(f"Reynolds number ({Re:.2f}) is out of bounds for the Thonon correlation (50 <= Re <= 15,000).")

@@ -1,5 +1,3 @@
-# 
-
 import __init__
 
 """
@@ -27,7 +25,7 @@ from component.base_component import BaseComponent
 
 from CoolProp.CoolProp import AbstractState
 import CoolProp.CoolProp as CoolProp
-from scipy.optimize import fsolve, root, minimize
+from scipy.optimize import fsolve, root, minimize, brentq
 import numpy as np
 import math
 
@@ -219,65 +217,83 @@ class HexCstPinch(BaseComponent):
             self.epsilon = np.nan
 
     def system_evap(self, x):
-        P_ev = x[0]
         
+        "1) Initialise Values"
+        self.Q_dot_sc = 0
+        self.Q_dot_tp = 0
+        self.Q_dot_sh = 0
+        
+        self.P_ev = x
+        
+        # print(f"x : {self.P_ev}")
+                
         PP_list = []
-        
+        self.PP_array = []
+
         # Ensure the pressure is non-negative
         P_triple = self.AS_C.trivial_keyed_output(CoolProp.iP_triple)
-        if P_ev < P_triple:
-            P_ev = P_triple + 1
+        if self.P_ev < P_triple:
+            self.P_ev = P_triple + 1 - self.DP_c
         
         P_crit = self.AS_C.trivial_keyed_output(CoolProp.iP_critical)
-        if P_ev > P_crit:
-            P_ev = P_crit - 1000
-        # Get the temperature of the evaporator based on the pressure and quality
-        # Vapor zone
-        
-        self.AS_C.update(CoolProp.PQ_INPUTS, P_ev, 0.5)
-        T_sat_ev = self.AS_C.T()
-        self.T_sat_ev = T_sat_ev
-        self.su_C.p = P_ev
-        
-        "Refrigerant side calculations"
-        # Liquid zone
-        try:
-            self.AS_C.update(CoolProp.PT_INPUTS,P_ev,self.su_C.T)
-        except:
-            self.AS_C.update(CoolProp.PQ_INPUTS,P_ev,0)
+        if self.P_ev - self.DP_c > P_crit:
+            self.P_ev = P_crit - 1000 - self.DP_c
             
-        h_C_su = self.AS_C.hmass()
+        self.x_start_evap = max(0, self.su_C.x)
         
-        self.AS_C.update(CoolProp.PQ_INPUTS,P_ev,0)
-        h_C_x0 = self.AS_C.hmass()
-        
-        self.Q_dot_sc = self.su_C.m_dot * (h_C_x0 - h_C_su)
+        "2) Pressure Drop Repartition"
 
-        # Two-phase zone
-        self.AS_C.update(CoolProp.PQ_INPUTS,P_ev,1)
+        self.P_ev_x0 = self.P_ev + self.DP_c/2
+        self.P_ev_x1 = self.P_ev - self.DP_c/2
+        
+        # 2.1 Resulting saturation temperatures
+        self.AS_C.update(CoolProp.PQ_INPUTS, self.P_ev_x0, self.x_start_evap)
+        T_ev_x0 = self.AS_C.T()
+        self.T_ev_x0 = T_ev_x0
+
+        self.AS_C.update(CoolProp.PQ_INPUTS, self.P_ev_x1, 1)
+        T_ev_x1 = self.AS_C.T()
+        self.T_ev_x1 = T_ev_x1
+        
+        "3) Refrigerant side calculations"
+
+        self.h_C_su = self.su_C.h
+        
+        # 3.1) Subcooling computation
+        self.AS_C.update(CoolProp.PQ_INPUTS, self.P_ev_x0, self.x_start_evap)
+        self.h_C_x0 = self.AS_C.hmass()
+        
+        self.Q_dot_sc = self.su_C.m_dot * max(self.h_C_x0 - self.h_C_su, 0)
+
+        # 3.2) Two-phase zone computation
+        self.AS_C.update(CoolProp.PQ_INPUTS, self.P_ev_x1, 1)
         h_C_x1 = self.AS_C.hmass()
+        self.h_C_x1 = h_C_x1
 
-        if self.Q_dot_sc > 0:
-            self.Q_dot_tp = self.su_C.m_dot * (h_C_x1 - h_C_x0)
-        else:
-            self.Q_dot_sc = 0
-            self.Q_dot_tp = self.su_C.m_dot * (h_C_x1 - self.su_C.h)
+        self.Q_dot_tp = self.su_C.m_dot * min(self.h_C_x1 - self.h_C_x0, self.h_C_x1 - self.su_C.h)
             
-        # Vapor zone
-        self.T_C_ex = T_sat_ev + self.params['Delta_T_sh_sc']
-        self.AS_C.update(CoolProp.PT_INPUTS,P_ev,self.T_C_ex)
-        h_C_ex = self.AS_C.hmass()
-
-        if self.Q_dot_tp > 0:
-            self.Q_dot_sh = self.su_C.m_dot * (h_C_ex - h_C_x1)
+        # 3.3) Superheating computation
+        self.T_C_ex = self.T_ev_x1 + self.params['Delta_T_sh_sc']
+        self.AS_C.update(CoolProp.PT_INPUTS , self.P_ev_x1, self.T_C_ex)
+        
+        if self.AS_C.cpmass() < 0:
+            h_C_ex = CoolProp.PropsSI('H', 'P', self.P_ev_x1, 'T', self.T_C_ex, self.su_C.fluid) 
+            
         else:
-            self.Q_dot_tp = 0
-            self.Q_dot_sh = self.su_C.m_dot * (h_C_ex - self.su_C.h)
+            h_C_ex = self.AS_C.hmass()
+            
+            if h_C_ex < h_C_x1:
+                h_C_ex = CoolProp.PropsSI('H', 'P', self.P_ev_x1, 'T', self.T_C_ex, self.su_C.fluid) 
+            
+        self.h_C_ex = h_C_ex
+        
+        delta_h_sh = self.h_C_ex - max(self.h_C_x1, self.su_C.h)
+        self.Q_dot_sh = self.su_C.m_dot * max(0.0, delta_h_sh)
 
-        # Total heat transfer
+        # 3.4) Total heat transfer
         Q_dot_ev = self.Q_dot_sc + self.Q_dot_tp + self.Q_dot_sh
         
-        "Secondary fluid side calculations"
+        "4) Secondary fluid side calculations"
         # First zone - Superheating
         self.h_H_x1 = self.su_H.h - self.Q_dot_sh/self.su_H.m_dot
         self.AS_H.update(CoolProp.HmassP_INPUTS,self.h_H_x1,self.su_H.p)
@@ -296,7 +312,7 @@ class HexCstPinch(BaseComponent):
         PP_list.append(self.T_H_ex - self.su_C.T)
         
         if self.Q_dot_sc > 0:
-            PP_list.append(self.T_H_x0 - T_sat_ev)            
+            PP_list.append(self.T_H_x0 - self.T_ev_x0)            
 
         if self.Q_dot_sh > 0:
             PP_list.append(self.su_H.T - self.T_C_ex)
@@ -308,76 +324,85 @@ class HexCstPinch(BaseComponent):
 
         # PPTD = min(self.T_H_ex - self.su_C.T, self.T_H_x0 - T_sat_ev, self.T_H_x1 - T_sat_ev, self.su_H.T - self.T_C_ex)
 
-        self.res = abs(self.PPTD - self.params['Pinch'])
+        self.res = self.PPTD - self.params['Pinch']
         
         # Update the state of the working fluid
         self.Q_dot = Q_dot_ev
-        self.P_sat = P_ev
-        
-        return self.res
-    
-    def system_cond(self, x):
-        P_cd = x[0]
+        self.P_sat = self.P_ev
                 
-        PP_list = []
+        return self.res
+
+    def system_cond(self, x):
+                
+        "1) Initialize Values"        
+        self.Q_dot_sc = 0
+        self.Q_dot_tp = 0
+        self.Q_dot_sh = 0
         
+        P_cd = x
+        self.P_cd = P_cd 
+        
+        PP_list = []
+        self.PP_array = []
+
         # Ensure the pressure is non-negative
         P_triple = self.AS_H.trivial_keyed_output(CoolProp.iP_triple)
-        if P_cd < P_triple:
-            P_cd = P_triple*2
+        if self.P_cd < P_triple:
+            self.P_cd = P_triple + 1 + - self.DP_h
         
         P_crit = self.AS_H.trivial_keyed_output(CoolProp.iP_critical)
-        if P_cd > P_crit:
-            P_cd = P_crit - 1000
-                
-        # Get the temperature of the condenser based on pressure and quality
-        self.AS_H.update(CoolProp.PQ_INPUTS,P_cd,0.5)
-        T_sat_cd = self.AS_H.T()            
-        self.T_sat_cd = T_sat_cd
-        self.su_H.p = P_cd
+        if self.P_cd - self.DP_h > P_crit:
+            self.P_cd = P_crit - 1000 - self.DP_h
+            
+        self.x_start_cd = min(1, abs(self.su_H.x))
 
-        "Refrigerant side calculations"
-        # Vapor zone
-        try:
-            self.AS_H.update(CoolProp.PT_INPUTS,P_cd,self.su_H.T)
-        except:
-            self.AS_H.update(CoolProp.PQ_INPUTS,P_cd,1)
-        
-        h_H_su = self.AS_H.hmass()
-        self.su_H.h = h_H_su
-        
-        self.AS_H.update(CoolProp.PQ_INPUTS,P_cd,1)
-        h_H_x1 = self.AS_H.hmass()
-        
-        if T_sat_cd < self.su_H.T:
-            self.Q_dot_sh = self.su_H.m_dot * (h_H_su - h_H_x1)
-        else:
-            self.Q_dot_sh = 0
+        "2) Pressure Drop Repartition"
 
-        # Two-phase zone
-        self.AS_H.update(CoolProp.PQ_INPUTS,P_cd,0)
+        self.P_cd_x1 = self.P_cd + self.DP_h/2                
+        self.P_cd_x0 = self.P_cd - self.DP_h/2
+        
+        # 2.1 Resulting saturation temperatures
+        self.AS_H.update(CoolProp.PQ_INPUTS, self.P_cd_x1, self.x_start_cd)
+        T_cd_x1 = self.AS_H.T()
+        self.h_H_x1 = self.AS_H.hmass()
+        self.T_cd_x1 = T_cd_x1
+        
+        self.AS_H.update(CoolProp.PQ_INPUTS, self.P_cd_x0, 0)
+        T_cd_x0 = self.AS_H.T()
         h_H_x0 = self.AS_H.hmass()
-        
-        if self.Q_dot_sh > 0:
-            self.Q_dot_tp = self.su_H.m_dot * (h_H_x1 - h_H_x0)
-        else:
-            self.Q_dot_sh = 0
-            self.Q_dot_tp = self.su_H.m_dot * (self.su_H.h - h_H_x0)
-        
-        # Liquid zone
-        self.T_H_ex = T_sat_cd - self.params['Delta_T_sh_sc']
-        self.AS_H.update(CoolProp.PT_INPUTS,P_cd,self.T_H_ex)
-        h_H_ex = self.AS_H.hmass()
-        
-        if self.Q_dot_tp > 0:
-            self.Q_dot_sc = self.su_H.m_dot * (h_H_x0 - h_H_ex)
-        else:
-            self.Q_dot_tp = 0
-            self.Q_dot_sc = self.su_H.m_dot * (self.su_H.h - h_H_ex)
+        self.T_cd_x0 = T_cd_x0      
 
-        # Total heat transfer
-        Q_dot_cd = self.Q_dot_sh + self.Q_dot_tp + self.Q_dot_sc
+        "3) Refrigerant side calculations"
+
+        # 3.1) Superheating computation
+        self.h_H_su = self.su_H.h
+        self.Q_dot_sh = self.su_H.m_dot * max(self.h_H_su - self.h_H_x1, 0)
+
+        # 3.2) Two-phase zone computation
+        self.h_H_x0 = h_H_x0
+        self.Q_dot_tp = self.su_H.m_dot * max(min(self.h_H_x1 - self.h_H_x0, self.su_H.h - self.h_H_x0),0)
+
+        # 3.3) Subcooling computation
+        self.T_H_ex = self.T_cd_x0 - self.params['Delta_T_sh_sc']
+        self.AS_H.update(CoolProp.PT_INPUTS , self.P_cd_x0, self.T_H_ex)
         
+        if self.AS_H.cpmass() < 0:
+            h_H_ex = CoolProp.PropsSI('H', 'P', self.P_cd_x0, 'T', self.T_H_ex, self.su_H.fluid) 
+            
+        else:
+            h_H_ex = self.AS_H.hmass()
+            
+            if h_H_ex > h_H_x0:
+                h_H_ex = CoolProp.PropsSI('H', 'P', self.P_cd_x0, 'T', self.T_H_ex, self.su_H.fluid) 
+            
+        self.h_H_ex = h_H_ex
+       
+        delta_h_sc = min(self.h_H_x0, self.su_H.h) - self.h_H_ex
+        self.Q_dot_sc = self.su_H.m_dot * max(0.0, delta_h_sc)
+                
+        # 3.4) Total heat transfer
+        Q_dot_cd = self.Q_dot_sc + self.Q_dot_tp + self.Q_dot_sh
+                
         "Secondary fluid side calculations"
         # First zone
         self.h_C_x0 = self.su_C.h + self.Q_dot_sc/self.su_C.m_dot
@@ -394,106 +419,206 @@ class HexCstPinch(BaseComponent):
         self.AS_C.update(CoolProp.HmassP_INPUTS,self.h_C_ex,self.su_C.p)
         self.T_C_ex = self.AS_C.T()
         
-        PP_list.append(self.su_H.T - self.T_C_ex)
+        PP_list.append(self.su_H.T-self.T_C_ex)
         
-        if self.Q_dot_sh > 0:
-            PP_list.append(T_sat_cd - self.T_C_x1)            
+        if self.Q_dot_tp > 0:
+            PP_list.append(self.T_cd_x1-self.T_C_x1)            
 
         if self.Q_dot_sc > 0:
-            PP_list.append(self.T_H_ex - self.su_C.T)
-                
-        # Calculate pinch point and residual$
-        self.PP_array = np.array(PP_list)
+            PP_list.append(self.T_H_ex-self.su_C.T)
         
-        self.PPTD = min(self.PP_array)
+        self.PP_array = np.array(PP_list)
+        self.PPTD = np.min(self.PP_array)
         
         # Calculate residual
-        self.res = abs(self.PPTD  - self.params['Pinch'])
+        # self.res = (self.PPTD  - self.params['Pinch'])**2
+        self.res = self.PPTD  - self.params['Pinch']
         
         # Update the state of the working fluid
         self.Q_dot = Q_dot_cd
         self.P_sat = P_cd
-        
+
         return self.res
-
+    
     def solve(self):
-        # Ensure all required checks are performed
-
+        self.change_flag = 0
+        
         self.check_calculable()
         self.check_parametrized()
-
+        
+        # print(f"T_su_C : {self.su_C.T}")
+        # print(f"T_su_H : {self.su_H.T}")
+        
         if not (self.calculable and self.parametrized):
             print("HTX IS NOT CALCULABLE")
             return
-        
-        fluid_C = self.su_C.fluid  # Extract cold fluid name
-        self.AS_C = AbstractState("BICUBIC&HEOS", fluid_C)  # Create a reusable state object
-        
-        fluid_H = self.su_H.fluid  # Extract hot fluid name
-        self.AS_H = AbstractState("BICUBIC&HEOS", fluid_H)  # Create a reusable state object
 
         if 'DP_h' in self.params:
             self.DP_h = self.params['DP_h']
-
+        else:
+            self.DP_h = 0
+            
         if 'DP_c' in self.params:
             self.DP_c = self.params['DP_c']
+        else:
+            self.DP_c = 0
 
+        fluid_C = self.su_C.fluid  # Extract cold fluid name
+        self.AS_C = AbstractState("HEOS", fluid_C)  # Create a reusable state object
+        
+        fluid_H = self.su_H.fluid  # Extract hot fluid name
+        self.AS_H = AbstractState("HEOS", fluid_H)  # Create a reusable state object
+        
         # Determine the type of heat exchanger and set the initial guess for pressure
         if self.params['HX_type'] == 'evaporator':
-            guess_T_sat = self.su_H.T - self.params['Pinch'] - self.params['Delta_T_sh_sc']
-            
+            guess_T_sat_max = self.su_H.T
+                        
             # print(f"guess_T_sat: {guess_T_sat}")
-            self.AS_C.update(CoolProp.QT_INPUTS,0.5,guess_T_sat)
+            self.AS_C.update(CoolProp.QT_INPUTS,0.5,guess_T_sat_max)
             P_ev_guess = self.AS_C.p() # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
             x = [P_ev_guess]
 
-            try:
-                """EVAPORATOR MODEL"""
-                root(self.system_evap, x, method = 'lm', tol=1e-7)
-                
-                """Update connectors after the calculations"""
-                self.update_connectors()
+            """EVAPORATOR MODEL"""
 
-                # Mark the model as solved if successful
-                if self.res < 1e-2:
+            # Ensure the pressure is non-negative
+            P_triple = self.AS_C.trivial_keyed_output(CoolProp.iP_triple)
+            
+            P_crit = self.AS_C.trivial_keyed_output(CoolProp.iP_critical)
+            
+            max_iter = 1000
+            step = 0.1
+            max_step = 5.0
+
+            lower_bound = max(P_triple*1.1 + self.DP_c/2, 0.5*P_ev_guess)
+            upper_bound = P_ev_guess
+                        
+            for _ in range(max_iter):
+
+                res1 = self.system_evap(lower_bound)
+                res2 = self.system_evap(upper_bound)
+            
+                if res1 * res2 <= 0:
+                    break
+            
+                self.su_C.set_T(self.su_C.T - step)
+            
+                step = min(step * 2, max_step)   # accelerate
+
+            if res1 * res2 > 0:
+                raise ValueError("Could not bracket evaporator pressure root in evaporator.")
+            
+            self.P_solution, self.results = brentq(
+                self.system_evap,
+                max(P_triple*1.1+self.DP_c/2, 0.1*P_ev_guess), 
+                upper_bound,
+                xtol=1e-6,
+                rtol=1e-8,
+                maxiter=100,
+                full_output=True
+            )
+            
+            self.system_evap(self.P_solution)
+    
+            """Update connectors after the calculations"""
+            self.update_connectors()
+
+            # Mark the model as solved if successful
+            if self.results.converged:
+                if abs(self.res) < 1e-1:
                     self.solved = True
                 else:
-                    print("System not solved according to specified tolerance in Evaporator")
+                    if self.print_flag:
+                        print(f"System not solved according to specified tolerance in Evaporator - res = {self.res}")
                     self.solved = False
-                    
-            except Exception as e:
-                # Handle any errors that occur during solving
+            else:
+                if self.print_flag:
+                    print(f"System not solved according to specified tolerance in Evaporator - res = {self.res}")
                 self.solved = False
-                print(f"Convergence problem in evaporator model: {e}")
+                    
+            # except Exception as e:
+            #     # Handle any errors that occur during solving
+            #     self.solved = False
+                
+            #     if self.print_flag:
+            #         print(f"Convergence problem in evaporator model: {e}")
 
         elif self.params['HX_type'] == 'condenser':
-            guess_T_sat = self.su_C.T + self.params['Pinch'] + self.params['Delta_T_sh_sc']
+            guess_T_sat_min = self.su_C.T
             
-            self.AS_H.update(CoolProp.QT_INPUTS,0.5,guess_T_sat)
+            self.AS_H.update(CoolProp.QT_INPUTS,0.5,guess_T_sat_min)
             P_cd_guess = self.AS_H.p() # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
             x = [P_cd_guess]
 
-            try:
-                """CONDENSER MODEL"""
-                fsolve(self.system_cond, x)
+            # try:
+            # Ensure the pressure is non-negative
+            P_triple = self.AS_H.trivial_keyed_output(CoolProp.iP_triple)
+            P_crit = self.AS_H.trivial_keyed_output(CoolProp.iP_critical)
 
-                """Update connectors after the calculations"""
-                self.update_connectors()
+            
+            max_iter = 100
+            step = 0.1
+            max_step = 5.0
+            
+            for _ in range(max_iter):
+                
+                # Recalculer les bornes à chaque itération
+                self.AS_H.update(CoolProp.QT_INPUTS, 0.5, self.su_C.T)  # ← basé sur T_su_C + pinch
+                lower_bound = self.AS_H.p()
+                
+                self.AS_H.update(CoolProp.QT_INPUTS, 0.5, self.su_H.T)
+                upper_bound = max(P_crit * 0.95, self.AS_H.p())
+                
+                res1 = self.system_cond(lower_bound)
+                res2 = self.system_cond(upper_bound)
+                
+                if res1 * res2 <= 0:
+                    break
+                
+                self.su_H.set_T(self.su_H.T + step)
+                step = min(step * 2, max_step)
+            
+            if res1 * res2 > 0:
+                raise ValueError("Could not bracket condenser pressure root.")
+            
+            """CONDENSER MODEL"""
+            
+            self.P_solution, self.results = brentq(
+                self.system_cond,
+                max(P_triple*1.1+self.DP_h, 0.1*P_cd_guess), 
+                upper_bound,
+                xtol=1e-6,
+                rtol=1e-8,
+                maxiter=100,
+                full_output=True
+            )
+            
+            self.system_cond(self.P_solution)
+            
+            # self.results = minimize(self.system_evap, x, method="L-BFGS-B", tol=1e-8)
+            
+            """Update connectors after the calculations"""
+            self.update_connectors()
 
-                # Mark the model as solved if successful
-                self.solved = True
-            except Exception as e:
-                # Handle any errors that occur during solving
+            # Mark the model as solved if successful
+            if self.results.converged:
+                if abs(self.res) < 1e-1:
+                    self.solved = True
+                else:
+                    if self.print_flag:
+                        print(f"System not solved according to specified tolerance in Condenser - res = {self.results.fun}")
+                    self.solved = False
+            else:
+                if self.print_flag:
+                    print(f"System not solved according to specified tolerance in Condenser - res = {self.results.fun}")
                 self.solved = False
-                print(f"Convergence problem in condenser model: {e}")
-
-        """Compute HX Equivalent Efficiency"""
-        # External Pinching
-        
-
-        # Internal Pinching
-        
-
+                    
+                        
+            # except Exception as e:
+            #     # Handle any errors that occur during solving
+            #     self.solved = False
+                
+            #     if self.print_flag:
+            #         print(f"Convergence problem in condenser model: {e}")
 
     def update_connectors(self):
         
@@ -501,11 +626,17 @@ class HexCstPinch(BaseComponent):
 
         if self.params['HX_type'] == 'evaporator':
 
-            self.su_C.set_p(self.P_sat + self.DP_c)
+            self.su_C.set_p(self.P_ev_x0)
 
             self.ex_C.set_fluid(self.su_C.fluid)
-            self.ex_C.set_T(self.T_C_ex)
-            self.ex_C.set_p(self.P_sat)
+            self.ex_C.set_p(self.P_ev_x1)
+            
+            try:
+                self.ex_C.set_h(self.h_C_ex)
+            except:
+                print(self.ex_C.variables_input)
+                exit()
+                
             self.ex_C.set_m_dot(self.su_C.m_dot)
 
             self.ex_H.set_fluid(self.su_H.fluid)
@@ -518,18 +649,20 @@ class HexCstPinch(BaseComponent):
 
         else: 
 
-            self.su_H.set_p(self.P_sat + self.DP_h)
+            self.su_H.set_p(self.P_cd_x1)
 
             self.ex_H.set_fluid(self.su_H.fluid)
-            self.ex_H.set_T(self.T_H_ex)
-            self.ex_H.set_p(self.P_sat)
+            # self.ex_H.set_h(CoolProp.PropsSI('H', 'P', self.P_cd_x0, 'T', self.T_H_ex, self.su_H.fluid) )
+            self.ex_H.set_p(self.P_cd_x0)
+
+            self.ex_H.set_h(self.h_H_ex)
             self.ex_H.set_m_dot(self.su_H.m_dot)
 
             self.ex_C.set_fluid(self.su_C.fluid)
             self.ex_C.set_m_dot(self.su_C.m_dot)
             self.ex_C.set_p(self.su_C.p - self.DP_c)
             self.ex_C.set_T(self.T_C_ex)
-            
+                        
             "Heat conector"
             self.Q.set_Q_dot(self.Q_dot)
             
@@ -560,9 +693,9 @@ class HexCstPinch(BaseComponent):
         if self.params['HX_type'] == 'condenser':
             plt.figure()
             
-            plt.plot([0, self.Q_dot_sh]                          , [self.su_H.T, self.T_sat_cd]  , 'r', label='H')
-            plt.plot([self.Q_dot_sh, self.Q_dot_sh+self.Q_dot_tp], [self.T_sat_cd, self.T_sat_cd], 'r')
-            plt.plot([self.Q_dot_sh+self.Q_dot_tp, self.Q_dot]       , [self.T_sat_cd, self.ex_H.T], 'r')
+            plt.plot([0, self.Q_dot_sh]                          , [self.su_H.T, self.T_cd_x1]  , 'r', label='H')
+            plt.plot([self.Q_dot_sh, self.Q_dot_sh+self.Q_dot_tp], [self.T_cd_x1, self.T_cd_x0], 'r')
+            plt.plot([self.Q_dot_sh+self.Q_dot_tp, self.Q_dot]       , [self.T_cd_x0, self.ex_H.T], 'r')
 
             plt.plot([0, self.Q_dot_sh]                          , [self.ex_C.T, self.T_C_x1], 'b', label='C')
             plt.plot([self.Q_dot_sh, self.Q_dot_sh+self.Q_dot_tp], [self.T_C_x1, self.T_C_x0], 'b')
@@ -575,9 +708,9 @@ class HexCstPinch(BaseComponent):
         if self.params['HX_type'] == 'evaporator':
             plt.figure()
             
-            plt.plot([0, self.Q_dot_sc]                          , [self.su_C.T, self.T_sat_ev]  , 'b', label='C')
-            plt.plot([self.Q_dot_sc, self.Q_dot_sc+self.Q_dot_tp], [self.T_sat_ev, self.T_sat_ev], 'b')
-            plt.plot([self.Q_dot_sc+self.Q_dot_tp, self.Q_dot]       , [self.T_sat_ev, self.ex_C.T]  , 'b')
+            plt.plot([0, self.Q_dot_sc]                          , [self.su_C.T, self.T_ev_x0]  , 'b', label='C')
+            plt.plot([self.Q_dot_sc, self.Q_dot_sc+self.Q_dot_tp], [self.T_ev_x0, self.T_ev_x1], 'b')
+            plt.plot([self.Q_dot_sc+self.Q_dot_tp, self.Q_dot]   , [self.T_ev_x1, self.ex_C.T]  , 'b')
 
             plt.plot([0, self.Q_dot_sc]                          , [self.ex_H.T, self.T_H_x0], 'r', label='H')
             plt.plot([self.Q_dot_sc, self.Q_dot_sc+self.Q_dot_tp], [self.T_H_x0, self.T_H_x1], 'r')
