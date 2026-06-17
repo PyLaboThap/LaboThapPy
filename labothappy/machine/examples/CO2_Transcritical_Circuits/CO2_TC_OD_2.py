@@ -392,10 +392,10 @@ def CO2_OD_TC(mdot_CO2_guess, P_high, SC_target, N_pp, N_exp, mute_print=1):
     m_dot_w_cd = 4542 # kg/s
     # m_dot_w_cd = 800 # kg/s
     GH_source = MassConnector('Water')
-    T_su_w_gh = 200+273.15
+    T_su_w_gh = 135+273.15
     P_su_w_gh = 40e5
     m_dot_w_gh = 192.24 # kg/s
-    # m_dot_w_gh = 200 # kg/s
+    # m_dot_w_gh = 230.69 # kg/s
     
     CO2_TC.add_source("CD_Water", CD_source, CO2_TC.components["Condenser"], "m-su_C")
     CO2_TC.set_source_properties(T=T_su_w_cd, fluid='Water', P=P_su_w_cd, m_dot = m_dot_w_cd, target="CD_Water")
@@ -454,10 +454,10 @@ if case_study == "Simulation":
     # # # -------- 8) Solve — swap method here for comparison --------
     METHOD = 'wegstein'   # <-- change to compare: 'successive_substitution',
 
-    SC_target = 2 # K
+    SC_target = 3 # K
     mdot_guess = 280 # kg/s
     P_high_guess = 140*1e5 # Pa
-    CO2_TC = CO2_OD_TC(mdot_guess, P_high_guess, SC_target, mute_print=0, N_pp = 3200, N_exp = 2800)
+    CO2_TC = CO2_OD_TC(mdot_guess, P_high_guess, SC_target, mute_print=0, N_pp = 3200, N_exp = 3000)
     CO2_TC.solve(method=METHOD, max_iter=200, tol = 1*1e-3, oscillation_window = 8)
 
     W_pp = CO2_TC.components['Pump'].model.W.W_dot

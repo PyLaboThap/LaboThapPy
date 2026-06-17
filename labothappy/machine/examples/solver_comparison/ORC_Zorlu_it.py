@@ -20,8 +20,8 @@ import numpy as np
 T_guess_cd = [24+273.15-5]
 T_guess_ev = [141+273.15+5] 
 
-SC_cd_vec = np.linspace(2,2,1)
-SH_ev_vec = np.linspace(3,3,1)
+SC_cd_vec = np.linspace(1,10,10)
+SH_ev_vec = np.linspace(1,10,10)
 
 # Instanciate Circuit
 fluid = "Cyclopentane"
@@ -32,8 +32,8 @@ failures = 0
 success_time = 0
 tries = 0
 
-PP_ev_vec = np.linspace(3,3,1)
-PP_cd_vec = np.linspace(1,1,1)
+PP_ev_vec = np.linspace(1,10,10)
+PP_cd_vec = np.linspace(1,10,10)
 
 for PP_ev in PP_ev_vec:
     for PP_cd in PP_cd_vec:
@@ -42,12 +42,19 @@ for PP_ev in PP_ev_vec:
                 for SC_cd in SC_cd_vec:
                     for SH_ev in SH_ev_vec:
                         
+                        # print(f"="*20)
+
+                        # print(f"PP_ev : {PP_ev}")
+                        # print(f"PP_cd : {PP_cd}")
+                        # print(f"SC_cd : {SC_cd}")
+                        # print(f"SH_ev : {SH_ev}")
+                        
                         tries += 1
                         
                         ORC = IterativeCircuit(fluid)
         
                         # Ignore debug printing
-                        # ORC.mute_print()
+                        ORC.mute_print()
                         
                         # Create components
                         Pump = PumpCstEff()
@@ -205,7 +212,7 @@ for PP_ev in PP_ev_vec:
                         )
                         
                         start = time.perf_counter()
-                        ORC.solve(method='fsolve')
+                        ORC.solve(method='newton')
                         end = time.perf_counter()
         
                         elapsed = end - start

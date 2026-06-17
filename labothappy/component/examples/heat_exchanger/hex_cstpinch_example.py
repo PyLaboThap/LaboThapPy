@@ -7,11 +7,11 @@ import matplotlib.pyplot as plt
 
 from CoolProp.CoolProp import PropsSI
 
-case_test = 'COND_CO2'
+case_test = 'EVAP_C5'
 
 "Evaporator test"
 
-if case_test == 'COND_C5':
+if case_test == 'EVAP_C5':
 
     # # # Exo ORC M&S
     EVAP = HexCstPinch()

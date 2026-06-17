@@ -868,11 +868,11 @@ class CircuitFPI(BaseCircuit):
             self._enforce_fixed_properties()
             self._substitution_step(use_wegstein)
         
-            try:
-                self._sequential_sweep()
-            except:
-                self.converged = False
-                return
+            # try:
+            self._sequential_sweep()
+            # except:
+            #     self.converged = False
+            #     return
         
             current_snapshot = self._snapshot_connector_states()
         

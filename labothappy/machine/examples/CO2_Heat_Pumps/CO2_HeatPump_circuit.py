@@ -489,7 +489,7 @@ if __name__ == "__main__":
 
     # Pressure levels
     P_low_guess = 40*1e5
-    P_high = 120*1e5
+    P_high = 80*1e5
     
     # Compressor param
     eta_compressor = 0.7
@@ -504,15 +504,20 @@ if __name__ == "__main__":
     m_dot = 0.08
     
     # Hot Source
-    T_high = 40 + 273.15
-    p_high = 3e5
+    T_high = 30 + 273.15
+    p_high = 20e5
     fluid_high = 'Water'
-    m_dot_high = 2
+    m_dot_high = 0.04
 
     # Cold Source
-    T_low = 15 + 273.15
-    fluid_low = 'Water'
-    p_low = 3e5
+    # T_low = 15 + 273.15
+    # fluid_low = 'Water'
+    # p_low = 3e5
+    # m_dot_low = 2
+
+    T_low = -20 + 273.15
+    fluid_low = 'Hexane'
+    p_low = 1e5
     m_dot_low = 2
 
     if study_case == "IHX":
@@ -520,10 +525,10 @@ if __name__ == "__main__":
         eta_IHX = 0.8
 
         HSource = MassConnector()
-        HSource.set_properties(fluid = 'Water', T = T_high, p = p_high, m_dot = 2)
+        HSource.set_properties(fluid = fluid_high, T = T_high, p = p_high, m_dot = m_dot_high)
         
         CSource = MassConnector()
-        CSource.set_properties(fluid = 'Water', T = T_low, p = p_low, m_dot = 2)
+        CSource.set_properties(fluid = fluid_low, T = T_low, p = p_low, m_dot = m_dot_low)
         
         CO2_HP = IHX_CO2_HP(HSource, CSource, eta_compressor, eta_GC, eta_IHX, DT_pp_ev, SH_ev, P_low_guess, P_high, m_dot, mute_print_flag = 0)
         
@@ -534,10 +539,10 @@ if __name__ == "__main__":
     elif study_case == "Simple":
 
         HSource = MassConnector()
-        HSource.set_properties(fluid = 'Water', T = T_high, p = p_high, m_dot = 2)
+        HSource.set_properties(fluid = fluid_high, T = T_high, p = p_high, m_dot = m_dot_high)
         
         CSource = MassConnector()
-        CSource.set_properties(fluid = 'Water', T = T_low, p = p_low, m_dot = 2)
+        CSource.set_properties(fluid = fluid_low, T = T_low, p = p_low, m_dot = m_dot_low)
         
         CO2_HP = basic_CO2_HP(HSource, CSource, eta_compressor, eta_GC, DT_pp_ev, SH_ev, P_low_guess, P_high)
         
@@ -551,10 +556,10 @@ if __name__ == "__main__":
         eta_exp = 0.7
 
         HSource = MassConnector()
-        HSource.set_properties(fluid = 'Water', T = T_high, p = p_high, m_dot = 2)
+        HSource.set_properties(fluid = fluid_high, T = T_high, p = p_high, m_dot = m_dot_high)
         
         CSource = MassConnector()
-        CSource.set_properties(fluid = 'Water', T = T_low, p = p_low, m_dot = 2)
+        CSource.set_properties(fluid = fluid_low, T = T_low, p = p_low, m_dot = m_dot_low)
         
         CO2_HP = Exp_CO2_HP(HSource, CSource, eta_compressor, eta_exp, eta_GC, DT_pp_ev, SH_ev, P_low_guess, P_high, m_dot, mute_print_flag = 0)
         CO2_HP.solve(method = 'successive_substitution')
@@ -568,10 +573,10 @@ if __name__ == "__main__":
         eta_IHX = 0.8
 
         HSource = MassConnector()
-        HSource.set_properties(fluid = 'Water', T = T_high, p = p_high, m_dot = 2)
+        HSource.set_properties(fluid = fluid_high, T = T_high, p = p_high, m_dot = m_dot_high)
         
         CSource = MassConnector()
-        CSource.set_properties(fluid = 'Water', T = T_low, p = p_low, m_dot = 2)
+        CSource.set_properties(fluid = fluid_low, T = T_low, p = p_low, m_dot = m_dot_low)
         
         CO2_HP = IHX_EXP_CO2_HP(HSource, CSource, eta_compressor, eta_GC, eta_IHX, eta_exp, DT_pp_ev, SH_ev, P_low_guess, P_high, m_dot, mute_print_flag = 0)
         CO2_HP.solve(method = 'successive_substitution')

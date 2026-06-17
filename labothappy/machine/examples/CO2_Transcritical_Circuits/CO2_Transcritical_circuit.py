@@ -272,6 +272,8 @@ def REC_CO2_TC_sto(HSource, T_cold_source, Pinch_min_GH, Pinch_min_REC, eta_pp, 
     
     return CO2_TC
 
+#%%
+
 def Recomp_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, eta_cp, eta_rec, eta_gh, 
                PP_cd, SC_cd, P_low, P_high, m_dot, spliter_frac = 0.5, DP_h_gh = 0, DP_c_gh = 0, DP_h_cond = 0,
                DP_c_cond = 0 ,mute_print_flag=1):
