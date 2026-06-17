@@ -219,7 +219,7 @@ def IHX_CO2_HP(HSource, CSource, eta_cp, eta_gc, eta_IHX, PP_ev, SH_ev, P_low, P
     
     T_ex_valve_guess = CSource.T - PP_ev - SH_ev - 5
     
-    CO2_HP.set_cycle_guess(target='Compressor:su', m_dot = m_dot, SH = 20, p = P_low)
+    CO2_HP.set_cycle_guess(target='Compressor:su', m_dot = m_dot, T = 300, p = P_low)
     CO2_HP.set_cycle_guess(target='Compressor:ex', p = P_high)
 
     CO2_HP.set_cycle_guess(target='Valve:su', p = P_high, T = T_ex_valve_guess, m_dot = m_dot)    
@@ -302,7 +302,7 @@ def IHX_EXP_CO2_HP(HSource, CSource, eta_cp, eta_gc, eta_IHX, eta_exp, PP_ev, SH
     
     T_ex_exp_guess = CSource.T - PP_ev - SH_ev - 5
     
-    CO2_HP.set_cycle_guess(target='Compressor:su', m_dot = m_dot, SH = 20, p = P_low)
+    CO2_HP.set_cycle_guess(target='Compressor:su', m_dot = m_dot, T = 300, p = P_low)
     CO2_HP.set_cycle_guess(target='Compressor:ex', p = P_high)
 
     CO2_HP.set_cycle_guess(target='Expander:su', p = P_high, T = T_ex_exp_guess, m_dot = m_dot)    
@@ -507,7 +507,7 @@ if __name__ == "__main__":
     T_high = 30 + 273.15
     p_high = 20e5
     fluid_high = 'Water'
-    m_dot_high = 0.04
+    m_dot_high = 0.02
 
     # Cold Source
     # T_low = 15 + 273.15

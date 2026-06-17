@@ -927,6 +927,7 @@ if __name__ == "__main__":
                 L_z          = 0.1137,
                 CP           = 0.44,
                 Omega        = 50000,
+                
                 psi_is_bounds  = [0.3, 1.1],
                 r1s_r2_bounds  = [0.4, 0.7],
                 r1h_r1s_bounds = [0.25, 0.4],
@@ -935,6 +936,7 @@ if __name__ == "__main__":
                 r3_r2_bounds   = [1.05, 2],
                 xhi1_bounds    = [40, 70],
                 xhi2_bounds    = [20, 55],
+                
                 M1s_rel_max  = 1.4,
                 M1_rel_max   = 0.9,
                 W2_W1s_min   = 0.25,
