@@ -1,10 +1,9 @@
-import __init__
-
-from component.base_component import BaseComponent
-from connector.mass_connector import MassConnector
-from connector.work_connector import WorkConnector
+from labothappy.component.base_component import BaseComponent
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.connector.work_connector import WorkConnector
 
 from CoolProp.CoolProp import PropsSI
+from scipy.optimize import brentq
 import CoolProp.CoolProp as CP
 import numpy as np
 
@@ -66,7 +65,11 @@ class RadialCompressorMeanLine(BaseComponent):
         self.total_states  = {k: {i: np.nan for i in range(1, 6)} for k in _STATE_KEYS}
         self.static_states = {k: {i: np.nan for i in range(1, 6)} for k in _STATE_KEYS}
         
-    
+        # Velocity Triangle Data
+        self.Vel_Tri_R = {}
+        self.Vel_Tri_S = {}
+        
+        
     def update_total_AS(self, CP_INPUTS, input_1, input_2, position):
         self.AS.update(CP_INPUTS, input_1, input_2)
         
@@ -110,34 +113,127 @@ class RadialCompressorMeanLine(BaseComponent):
     #         'eta_is',
     #     ]
 
-    def solve_rotor(self):
+    def solve_Rotor(self):
+
+        self.impeller_inlet_blockage = (
+            1 - self.params['n_blade_R'] * self.params['t_b']
+            / (np.pi * self.params['r1'] * 2 * np.sin(np.pi * abs(self.params['xhi1']) / 180))
+        )
+        self.A1_th = np.pi * (self.params['r1s']**2 - self.params['r1h']**2) * self.impeller_inlet_blockage
+
+        self.Vel_Tri_R['alpha1'] = alpha1 = self.params['alpha1_des']*np.pi/180
+        self.Vel_Tri_R['u1'] = u1 = self.inputs['N_rot']*2*np.pi/60 * self.params['r1']
+        self.u1h = self.inputs['N_rot']*2*np.pi/60 * self.params['r1h']
+        self.u1s = self.inputs['N_rot']*2*np.pi/60 * self.params['r1s']
+
+        def compute_h1_new(h1): 
+            self.update_static_AS(CP.HmassSmass_INPUTS, h1, self.total_states['S'][1], 1)
+            
+            self.Vel_Tri_R['vm1'] = vm1 = self.inputs['m_dot'] / (self.static_states['D'][1] * self.A1_th)
+            self.Vel_Tri_R['vu1'] = vu1 = vm1*np.tan(self.Vel_Tri_R['alpha1'])
+            self.Vel_Tri_R['v1']  = v1  = np.sqrt(vm1**2 + vu1**2)
+
+            self.Vel_Tri_R['wu1'] = wu1 = vu1 - self.Vel_Tri_R['u1']
+            self.Vel_Tri_R['w1']  = w1  = np.sqrt(vm1**2 + wu1**2)
+            self.Vel_Tri_R['beta1'] = np.arccos(vm1/w1)
+            
+            self.beta1h = np.arctan(self.u1h / vm1)
+            self.beta1s = np.arctan(self.u1s / vm1)
+            
+            self.w1s = vm1 / np.cos(self.beta1s)
+            self.w1h = vm1 / np.cos(self.beta1h)
+                        
+            h1_new = self.total_states['H'][1] - v1**2 / 2
+                        
+            return h1_new
+
+        def residual_h1(h1):
+            return h1 - compute_h1_new(h1)
         
-        return
+        h1_min = self.total_states['H'][1] * 0.95
+        h1_max = self.total_states['H'][1]
+        
+        h1_solution = brentq(residual_h1, h1_min, h1_max, xtol=1e-6)
+
+        "R2) Rotor Outlet"
+        
+        self.params['pitch2'] = pitch2 = 2*np.pi*self.params['r2'] / self.params['n_blade_R']
+        self.A2_th = self.params['b2'] * pitch2 * self.params['n_blade_R']
+        
+        self.A2_th = (
+            (2*np.pi*self.params['r2']*self.params['b2'] - self.params['n_blade_R']*self.params['b2']*self.params['t_b'])
+            * np.cos(np.pi * abs(self.params['xhi2']) / 180)
+        )
+        
+        # Slip Factor
+        self.sigma = 1 - np.sqrt(np.cos(self.params['xhi2']*np.pi/180)) / self.params['n_blade_R']**0.7
+        angle_star_deg = 19 + 0.2*(90 - self.params['xhi2'])
+        sigma_star = np.sin(np.pi/180 * angle_star_deg)
+        
+        r1_r2_lim = (self.sigma - sigma_star) / (1 - sigma_star)
+        
+        if self.params['r1']/self.params['r2'] > r1_r2_lim:
+            num  = (self.params['r1']/self.params['r2']) - r1_r2_lim**(np.sqrt((90 - self.inputs['xhi2'])/10))
+            fact = 1 - (num / (1 - sigma_star))
+            self.sigma = self.sigma * fact
+
+#%%
 
     def solve(self):
+        
+        # 0) Setup the solving
+        
         self.check_calculable()
         self.check_parametrized()
-
+        # self.print_setup()
+        
         if not self.calculable:
-            if self.print_flag:
-                print("RadialCompressorMeanLine could not be solved. It is not calculable.")
             self.solved = False
+            print("CompressorRadialMeanLine could not be solved. It is not calculable.")
             return
-        
+            
         if not self.parametrized:
-            if self.print_flag:
-                print("RadialCompressorMeanLine could not be solved. It is not parametrized.")
             self.solved = False
+            print("CompressorRadialMeanLine could not be solved. It is not parametrized.")
             return
         
+        # 1) Setup the inlet
+
         self.AS = CP.AbstractState('HEOS', self.su.fluid)
+        self.update_total_AS(CP.PT_INPUTS, self.su.p, self.su.T, 1)
+        
+        # 2) Solve 
+        self.solve_Rotor()
 
-        self.update_total_AS(CP.PT_INPUTS, self.inputs['P_su'], self.inputs['T_su'], 1)
-        self.update_static_AS(CP.PT_INPUTS, self.inputs['P_su'], self.inputs['T_su'], 1)
 
-        self.solve_rotor()
+    # def solve_rotor(self):
+        
+    #     return
 
-        return
+    # def solve(self):
+    #     self.check_calculable()
+    #     self.check_parametrized()
+
+    #     if not self.calculable:
+    #         if self.print_flag:
+    #             print("RadialCompressorMeanLine could not be solved. It is not calculable.")
+    #         self.solved = False
+    #         return
+        
+    #     if not self.parametrized:
+    #         if self.print_flag:
+    #             print("RadialCompressorMeanLine could not be solved. It is not parametrized.")
+    #         self.solved = False
+    #         return
+        
+    #     self.AS = CP.AbstractState('HEOS', self.su.fluid)
+
+    #     self.update_total_AS(CP.PT_INPUTS, self.inputs['P_su'], self.inputs['T_su'], 1)
+    #     self.update_static_AS(CP.PT_INPUTS, self.inputs['P_su'], self.inputs['T_su'], 1)
+
+    #     self.solve_rotor()
+
+    #     return
     
     def update_connectors(self, h_ex, w, W_dot):
         
@@ -170,21 +266,31 @@ class RadialCompressorMeanLine(BaseComponent):
         print("=========================")
 
 if __name__ == "__main__":
-    
+        
     Comp = RadialCompressorMeanLine()
-    
+
     Comp.set_inputs(
         fluid = 'CO2',
-        P_su = 76.9*1e5, # Total inlet P : Pa
-        T_su = 305.97, # Total inlet T : K
-        m_dot  = 2.15, # kg/s
-        N_rot = 50000, # RPM
+        m_dot  = 2.15,
+        T_su = 305.97,
+        P_su = 76.9*1e5,
+        N_rot  = 50000,
+    )
+
+    Comp.set_parameters(
+        xhi1       = 43.1,
+        xhi2       = 36.37,
+        alpha1_des = 54.59, 
+        n_blade_R  = 15,
+        t_b        = 0.762*1e-3,
+        b2         = 0.001881,
+        r1         = 0.0068,
+        r1s        = 0.0105,
+        r1h        = 0.00305,
+        r2         = 0.02082,
         )
 
-    Comp.set_parameters()
-    
     Comp.solve()
-    
     
     
 

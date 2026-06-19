@@ -901,7 +901,7 @@ class RadialCPMLDesign(object):
 
 if __name__ == "__main__":
 
-    fluid = "CO2_MW" # CO2 / R134a / Air_1 / Air_2 / Air_3    
+    fluid = "CO2" # CO2 / R134a / Air_1 / Air_2 / Air_3    
     
     eta_is_vec = []
     
