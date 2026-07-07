@@ -530,13 +530,6 @@ class CircuitFPI(BaseCircuit):
                 
             self.components[component_name].solve()
 
-            print(f"--- CP_su_s : {self.components['Compressor'].model.su.s}")
-            print(f"--- CP_su_P : {self.components['Compressor'].model.su.h}")
-            print(f"--- CP_su_H : {self.components['Compressor'].model.su.p}")
-            print(f"--- CP_su_SH : {self.components['Compressor'].model.su.SH}")
-            
-            print(f"--- CP_ex_s : {self.components['Compressor'].model.ex.s}")
-
         return
 
     #%% -----------------------------------------------------------------------
@@ -804,7 +797,7 @@ class CircuitFPI(BaseCircuit):
     # -----------------------------------------------------------------------
 
     def solve(self, max_iter: int = 30, method: str = 'wegstein',
-              root_tol: float = 1e-10, tol=1e-5, oscillation_window = 10):
+              root_tol: float = 1e-8, tol=1e-5, oscillation_window = 10):
         """
         Solve the circuit.
 

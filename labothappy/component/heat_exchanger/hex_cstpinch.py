@@ -505,22 +505,28 @@ class HexCstPinch(BaseComponent):
             P_crit = self.AS_C.trivial_keyed_output(CoolProp.iP_critical)
             
             max_iter = 1000
-            step = 0.5
-            max_step = 5.0
+            step = 1
+            max_step = 5
 
             lower_bound = max(P_triple*1.1 + self.DP_c/2, 0.5*P_ev_guess)
             upper_bound = P_ev_guess
                         
-            for _ in range(max_iter):
-
+            for i in range(max_iter):
+                                
                 res1 = self.system_evap(lower_bound)
                 res2 = self.system_evap(upper_bound)
+            
+                # print(self.su_C.p)
+                # print(self.su_C.T)
+
+                # print(res1)
+                # print(res2)
             
                 if res1 * res2 <= 0:
                     break
             
                 self.su_C.set_T(self.su_C.T - step)
-                                
+                
                 step = min(step * 2, max_step)   # accelerate
 
             if res1 * res2 > 0:
@@ -528,13 +534,24 @@ class HexCstPinch(BaseComponent):
             
             self.P_solution, self.results = brentq(
                 self.system_evap,
-                max(P_triple*1.1+self.DP_c/2, 0.1*P_ev_guess), 
+                max(P_triple*1.1+self.DP_h, 0.1*P_ev_guess), 
                 upper_bound,
-                xtol=1e-6,
-                rtol=1e-8,
+                xtol=1e-4,
+                rtol=1e-7,
                 maxiter=100,
                 full_output=True
             )
+            
+            
+            # self.P_solution, self.results = brentq(
+            #     self.system_evap,
+            #     lower_bound, 
+            #     upper_bound,
+            #     xtol=1e-4,
+            #     rtol=1e-7,
+            #     maxiter=100,
+            #     full_output=True
+            # )
             
             # self.system_evap(self.P_solution)
     
@@ -579,8 +596,8 @@ class HexCstPinch(BaseComponent):
 
             
             max_iter = 100
-            step = 0.5
-            max_step = 5.0
+            step = 1
+            max_step = 5
             
             for _ in range(max_iter):
                 
@@ -614,11 +631,21 @@ class HexCstPinch(BaseComponent):
                 self.system_cond,
                 max(P_triple*1.1+self.DP_h, 0.1*P_cd_guess), 
                 upper_bound,
-                xtol=1e-6,
-                rtol=1e-8,
+                xtol=1e-4,
+                rtol=1e-7,
                 maxiter=100,
                 full_output=True
             )
+            
+            # self.P_solution, self.results = brentq(
+            #     self.system_cond,
+            #     lower_bound, 
+            #     upper_bound,
+            #     xtol=1e-4,
+            #     rtol=1e-7,
+            #     maxiter=100,
+            #     full_output=True
+            # )
             
             self.system_cond(self.P_solution)
             
@@ -685,7 +712,9 @@ class HexCstPinch(BaseComponent):
             
             "Heat conector"
             self.Q.set_Q_dot(self.Q_dot)
-
+            
+            # print(f"P_evap_model : {self.ex_C.p}")
+            
         else: 
 
             h_su_H = self.su_H.h

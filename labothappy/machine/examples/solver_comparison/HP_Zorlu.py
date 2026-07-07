@@ -12,17 +12,17 @@ from CoolProp.CoolProp import PropsSI
 import time
 import numpy as np
 
-# SH_vec = np.linspace(1, 10, 10)
-# SC_vec = np.linspace(1, 10, 10)
+SH_vec = np.linspace(1, 10, 10)
+SC_vec = np.linspace(1, 10, 10)
 
-# PP_ev_vec = np.linspace(1,10,10)
-# PP_cd_vec = np.linspace(1,10,10)
+PP_ev_vec = np.linspace(1,10,10)
+PP_cd_vec = np.linspace(1,10,10)
 
-SH_vec = np.linspace(3,3,1)
-SC_vec = np.linspace(3,3,1)
+# SH_vec = np.linspace(3,3,1)
+# SC_vec = np.linspace(3,3,1)
 
-PP_ev_vec = np.linspace(3,3,1)
-PP_cd_vec = np.linspace(3,3,1)
+# PP_ev_vec = np.linspace(3,3,1)
+# PP_cd_vec = np.linspace(3,3,1)
 
 eff_rec_vec = np.linspace(0.8, 0.8, 1)
 
@@ -127,11 +127,11 @@ for PP_ev in PP_ev_vec:
                                     
                     #%% Cycle guess values
                     
-                    P_LP_guess = PropsSI("P", "T", T_su_w_ev+50, "Q", 1, fluid)
+                    P_LP_guess = PropsSI("P", "T", T_su_w_ev+10, "Q", 1, fluid)
                     T_sat_LP_guess = PropsSI("T", "P", P_LP_guess, "Q", 1, fluid)
                     
-                    P_HP_guess = PropsSI("P", "T", T_su_w_cd+50, "Q", 0, fluid)
-                    h_su_vlv_guess = PropsSI('H', 'P', P_HP_guess, 'Q', 0, fluid) - SC_cd - 10000
+                    P_HP_guess = PropsSI("P", "T", T_su_w_cd+10, "Q", 0, fluid)
+                    h_su_vlv_guess = PropsSI('H', 'P', P_HP_guess, 'Q', 0, fluid) - SC_cd #- 10000
                     
                     HP.set_cycle_guess(target="Compressor:su", m_dot = m_dot_ref)
                     HP.set_cycle_guess(target="ExpansionValve:su", m_dot = m_dot_ref, h=h_su_vlv_guess, p = P_HP_guess)
@@ -142,7 +142,7 @@ for PP_ev in PP_ev_vec:
                     
                     
                     start = time.perf_counter()
-                    HP.solve(max_iter=100, method='wegstein')
+                    HP.solve(max_iter=100, method='successive_substitution') # "successive_substitution" or "wegstein"
                     end = time.perf_counter()
                     
                     elapsed = end - start

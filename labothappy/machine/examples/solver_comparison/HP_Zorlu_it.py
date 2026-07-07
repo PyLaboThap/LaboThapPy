@@ -14,17 +14,15 @@ import numpy as np
 
 # SC_cd_vec = np.linspace(1,10,10)
 # SH_ev_vec = np.linspace(1,10,10)
-# # eff_rec_vec = np.linspace(0, 1, 11)
 
 # PP_ev_vec = np.linspace(1,10,10)
 # PP_cd_vec = np.linspace(1,10,10)
 
 SC_cd_vec = np.linspace(3,3,1)
 SH_ev_vec = np.linspace(3,3,1)
-# eff_rec_vec = np.linspace(0, 1, 11)
 
 PP_ev_vec = np.linspace(3,3,1)
-PP_cd_vec = np.linspace(3,3,1)
+PP_cd_vec = np.linspace(10,10,1)
 
 # Instanciate Circuit
 fluid = "Cyclopentane"
@@ -34,6 +32,9 @@ successes = 0
 failures = 0
 
 success_time = 0
+
+n_it = []
+tries_comb = []
 
 # for eff_rec_val in eff_rec_vec:
 for PP_ev in PP_ev_vec:
@@ -60,12 +61,12 @@ for PP_ev in PP_ev_vec:
                 eta_is_cp = 0.8 # -
                 
                 # Condenser
-                Pinch_cd = 10  # K
+                Pinch_cd = PP_cd  # 10 K
                 SC_cd = SC_cd # 3  # K
                 DP_h_cd = 0
                 
                 # Evaporator
-                Pinch_ev = 3  # K
+                Pinch_ev = PP_ev  # 3 K
                 SH_ev = SH_ev # 5 # K
                 DP_c_ev = 0
         
@@ -148,21 +149,21 @@ for PP_ev in PP_ev_vec:
                     target=["ExpansionValve:su", "Compressor:ex"],
                     variable="p",
                     guess=P_HP_guess,
-                    tolerance=1e-6
+                    tolerance=1e-3
                 )
                 
                 HP.set_iteration_variable(
                     target=["ExpansionValve:ex", "Compressor:su"],
                     variable="p",
                     guess=P_LP_guess,
-                    tolerance=1e-6
+                    tolerance=1e-3
                 )
                 
                 HP.set_iteration_variable(
                     target="ExpansionValve:su",
                     variable="h",
                     guess=h_su_vlv_guess,
-                    tolerance=1e-6
+                    tolerance=1e-3
                 )
                 
                 #%%
@@ -184,11 +185,14 @@ for PP_ev in PP_ev_vec:
                 )
                 
                 start = time.perf_counter()
-                HP.solve(method='lm')
+                HP.solve(method='newton')
                 end = time.perf_counter()
         
                 elapsed = end - start
-        
+                
+                n_it.append(HP.n_it)
+                tries_comb.append([PP_ev, SH_ev, PP_cd, SC_cd])
+                
                 if HP.converged:
                     # print(f"Converged in {HP.n_it} iterations !") # res_energy : {HP.res_energy}")
                     successes += 1

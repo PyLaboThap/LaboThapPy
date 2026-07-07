@@ -17,11 +17,28 @@ import numpy as np
 # T_guess_cd = np.linspace(-5,5,11) + 24+273.15
 # T_guess_ev = np.linspace(-5,5,11) + 141+273.15
 
-T_guess_cd = [24+273.15-5]
-T_guess_ev = [141+273.15+5] 
+T_guess_cd = [24+273.15]
+T_guess_ev = [141+273.15] 
 
-SC_cd_vec = np.linspace(1,10,10)
-SH_ev_vec = np.linspace(1,10,10)
+# T_guess_cd = [24+273.15]
+# T_guess_ev = [141+273.15] 
+
+# SC_cd_vec = np.linspace(1,1,1)
+# SH_ev_vec = np.linspace(1,10,10)
+
+# PP_ev_vec = np.linspace(1,10,10)
+# PP_cd_vec = np.linspace(1,10,10)
+
+SC_cd_vec = np.linspace(1,1,1)
+SH_ev_vec = np.linspace(3,3,1)
+
+PP_ev_vec = np.linspace(4,4,1)
+PP_cd_vec = np.linspace(10,10,1)
+
+# PP_ev : 2.0
+# PP_cd : 6.0
+# SH_ev : 2.0
+# SC_cd : 3.0
 
 # Instanciate Circuit
 fluid = "Cyclopentane"
@@ -31,9 +48,6 @@ failures = 0
 
 success_time = 0
 tries = 0
-
-PP_ev_vec = np.linspace(1,10,10)
-PP_cd_vec = np.linspace(1,10,10)
 
 for PP_ev in PP_ev_vec:
     for PP_cd in PP_cd_vec:
@@ -152,14 +166,14 @@ for PP_ev in PP_ev_vec:
                         m_dot_ref = 34.51 # kg/s
                         
                         #%% Cycle guess values
-                        T_sat_guess_cd = T_cd
-                        T_sat_guess_ev = T_ev
+                        T_sat_guess_cd = T_cd + 3 + 5
+                        T_sat_guess_ev = T_ev - 3 - 10
                         
                         P_low = PropsSI("P", "T", T_sat_guess_cd, "Q", 1, fluid)
                         P_high = PropsSI("P", "T", T_sat_guess_ev, "Q", 0, fluid)
                         
                         h_pp_guess = PropsSI("H", "T", T_sat_guess_cd-SC_cd, "P", P_low, fluid)
-                        h_exp_guess = PropsSI("H", "T", T_sat_guess_ev+2*SH_ev, "P", P_high, fluid)
+                        h_exp_guess = PropsSI("H", "T", T_sat_guess_ev+SH_ev, "P", P_high, fluid)
         
                         #%%
                                         
@@ -168,7 +182,7 @@ for PP_ev in PP_ev_vec:
                                         
                         # ORC.set_cycle_guess(target="Recuperator:su_C", p=P_high, m_dot=m_dot_ref, T=T_su_w_cd+Pinch_cd)
                         
-                        ORC.set_cycle_guess(target="Expander:su", p=P_high, m_dot = m_dot_ref, SH=SH_ev*2)
+                        ORC.set_cycle_guess(target="Expander:su", p=P_high, m_dot = m_dot_ref, SH=SH_ev)
                         ORC.set_cycle_guess(target="Expander:ex", p=P_low)
                         
                         #%% CYCLE FIXED VARIABLES AND ITERATION VARIABLE
@@ -233,7 +247,7 @@ for PP_ev in PP_ev_vec:
                             print(f"Tries : {tries}")
                 
                 
-avg_success_time = success_time/successes
+avg_success_time = success_time/(successes+1e-9)
 conv_prop = successes/tries
 
 print(f"avg_success_time : {avg_success_time}")
@@ -412,3 +426,20 @@ print(f"conv_prop : {conv_prop}")
 # plt.savefig("convergence_maps.png", bbox_inches='tight', dpi=150)
 # plt.show()
 # print("Figures saved.")
+
+import matplotlib.pyplot as plt
+
+P_evap = []
+
+for x in ORC.x_log:
+    P_evap.append(x[1]*1e-5)
+    
+plt.plot(P_evap)
+plt.ylabel("$P_{evap}$ [bar]", fontsize=12)
+plt.xlabel("Iteration [-]", fontsize=12)
+plt.plot([0,len(P_evap)], [6.938, 6.938])
+
+plt.grid()
+
+plt.show()
+    

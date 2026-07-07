@@ -54,7 +54,7 @@ for PP_ev in PP_ev_vec:
                         ORC = CircuitFPI(fluid)
         
                         # Ignore debug printing
-                        ORC.mute_print()
+                        # ORC.mute_print()
                         
                         # Create components
                         Pump = PumpCstEff()
@@ -185,7 +185,7 @@ for PP_ev in PP_ev_vec:
                         )
                         
                         start = time.perf_counter()
-                        ORC.solve(max_iter=100, method='wegstein')
+                        ORC.solve(max_iter=100, method='wegstein', tol=1e-3)
                         end = time.perf_counter()
         
                         elapsed = end - start

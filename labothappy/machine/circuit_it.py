@@ -345,6 +345,11 @@ class IterativeCircuit(BaseCircuit):
                         
         self.n_it += 1
 
+        # print(f"Evap P_sat : {self.components['Evaporator'].model.su_C.p}")
+
+        # print(f"x : {x}")
+        self.x_log.append(x)
+
         if self.print_flag:            
             print(f"="*30)
             print(f"Iteration : {self.n_it}")
@@ -500,13 +505,13 @@ class IterativeCircuit(BaseCircuit):
           'krylov'  — matrix-free, efficient for large systems
         """
         result = root(self._solve_circuit, x0, method=root_method,
-                      options={'maxfev': 2000, 'xtol': 1e-8})
+                      options={'maxfev': 2000, 'xtol': 1e-5})
         if not result.success:
             print(f"[root/{root_method}] did not converge: {result.message}")
         return result.x
     
     
-    def _solve_newton(self, x0, tol=1e-8, max_iter=100, eps=1e-6):
+    def _solve_newton(self, x0, tol=1e-5, max_iter=100, eps=1e-6):
         """
         Baseline Newton-Raphson with finite-difference Jacobian.
     
@@ -515,11 +520,13 @@ class IterativeCircuit(BaseCircuit):
         """
         x = np.array(x0, dtype=float)
         n = len(x)
-    
+        
+        
         for it in range(max_iter):
             self.n_it += 1
             F = np.array(self._solve_circuit(x), dtype=float)
-    
+            # print(f"Evap P_sat : {self.components['Evaporator'].model.ex_C.p}")
+
             norm = np.linalg.norm(F)
             if norm < tol:
                 if self.print_flag:
@@ -533,10 +540,12 @@ class IterativeCircuit(BaseCircuit):
                 x_fwd[j] += eps
                 F_fwd = np.array(self._solve_circuit(x_fwd), dtype=float)
                 J[:, j] = (F_fwd - F) / eps
-    
+                # print(f"Evap P_sat : {self.components['Evaporator'].model.su_C.p}")
+                
             # Newton step  J·dx = -F
             try:
                 dx = np.linalg.solve(J, -F)
+                # print(f"Evap P_sat : {self.components['Evaporator'].model.su_C.p}")
             except np.linalg.LinAlgError:
                 print("[newton] singular Jacobian — aborting")
                 self.converged = False
@@ -544,6 +553,9 @@ class IterativeCircuit(BaseCircuit):
     
             x = x + dx
     
+            # print(f"x : {x}")
+        
+        
         print(f"[newton] reached max_iter={max_iter} without converging "
               f"(|F|={np.linalg.norm(np.array(self._solve_circuit(x))):.2e})")
         return x
@@ -566,7 +578,9 @@ class IterativeCircuit(BaseCircuit):
             self._build_solve_order()
         self.reset_solved_marker()
         x0 = self._get_iteration_vector()
-    
+        
+        self.x_log = [x0]
+        
         try:
             if method == 'fsolve':
                 sol = self._solve_fsolve(x0)
