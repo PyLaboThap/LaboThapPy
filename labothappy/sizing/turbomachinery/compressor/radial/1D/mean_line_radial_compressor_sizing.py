@@ -98,214 +98,8 @@ class RadialCPMLDesign(object):
     def set_parameters(self, **parameters):
             for key, value in parameters.items():
                 self.params[key] = value
-    
-    # ---------------- Result Plot Methods ----------------------------------------------------------------
-
-    def plot_geometry(self, fontsize = 16, ticksize = 12):
-        
-        r_m_line = np.ones(len(self.r_tip))*self.r_m
-        
-        x = np.linspace(0,len(self.r_tip)-1, len(self.r_tip))
-        
-        labels = []
-        i = 1
-        
-        while len(labels) < len(x):
-            labels.append("S" + str(i))
-            labels.append("R" + str(i))
-            i += 1
-        
-        plt.figure()
-        plt.plot(self.r_tip)
-        plt.plot(self.r_hub)
-        plt.plot(r_m_line)
-                
-        plt.axis([-0.5, len(self.r_tip)-0.5, 0, max(self.r_tip)*1.2])
-        plt.legend(["$r_{tip}$", "$r_{hub}$", "$r_{m}$"])
-        plt.xticks(ticks=x, labels=labels, size=ticksize)
-        plt.grid()
-        plt.ylabel("Length or radius [m]", fontsize= fontsize)
-        plt.show()
-
-    def plot_n_blade(self, fontsize = 16, ticksize = 12):
-        n_blade_plot = self.n_blade.flatten()
-
-        x = np.linspace(0,len(n_blade_plot)-1, len(n_blade_plot))
-        
-        labels = []
-        i = 1
-        
-        while len(labels) < len(x):
-            labels.append("S" + str(i))
-            labels.append("R" + str(i))
-            i += 1
-
-        for i in range(len(n_blade_plot)*2):
-              if np.mod(i,4) == 1 or np.mod(i,4) == 2: # Stator
-                    n_blade_plot = np.insert(n_blade_plot,i,None)      
-
-        n_blade_plot = n_blade_plot.reshape(int(len(n_blade_plot)/2),2)
-
-        plt.figure()
-        plt.plot(n_blade_plot[:, 0], 'o', label="Stator Blades")
-        plt.plot(n_blade_plot[:, 1], 'o', label="Rotor Blades")
-        plt.axis([-0.5, len(self.r_tip)-0.5, 0, max(n_blade_plot.flatten())*1.2])
-        plt.xticks(ticks=x, labels=labels, size=ticksize)
-        plt.legend()
-        plt.grid()
-        plt.ylabel("Blade number [-]", fontsize= fontsize)
-        plt.show()
-
-    def plot_radius_verif(self, fontsize = 16, ticksize = 12):
-        
-        x = np.linspace(0,len(self.r_ratio2)-1, len(self.r_ratio2))
-        
-        labels = []
-        i = 1
-        
-        while len(labels) < len(x):
-            labels.append("S" + str(i))
-            labels.append("R" + str(i))
-            i += 1
-            
-        plt.figure()
-        plt.plot(self.r_ratio2)
-        plt.axis([-0.5, len(self.r_ratio2)-0.5, 0, max(self.r_ratio2)*1.2])
-        plt.xticks(ticks=x, labels=labels, size=ticksize)
-        plt.grid()
-        plt.ylabel("$\\left[ r_{ext}/r_{hub} \\right]^2$ [-]", fontsize= fontsize)
-        plt.show()
-
-        plt.figure()
-        plt.plot(self.r_hub_tip)
-        plt.axis([-0.5, len(self.r_hub_tip)-0.5, 0, 1])
-        plt.xticks(ticks=x, labels=labels, size=ticksize)
-        plt.grid()
-        plt.ylabel("$\\left[ r_{hub}/r_{tip} \\right]$ [-]", fontsize= fontsize)
-        plt.show()
-
-    def plot_Mollier(self, fontsize = 16, ticksize = 12):
-        x = np.linspace(0, len(self.r_tip)-1, len(self.r_tip))
-        
-        labels = []
-        i = 1
-        while len(labels) < len(x):
-            labels.append("S" + str(i))
-            labels.append("R" + str(i))
-            i += 1
-        
-        x2 = np.linspace(0, len(self.r_tip), len(self.r_tip)+1)
-        labels2 = ['0'] + labels
-        
-        p = [self.stages[0].static_states['P'][1]]
-        s = [self.stages[0].static_states['S'][1]]
-        h = [self.stages[0].static_states['H'][1]]
-        
-        for i in range(self.nStages):
-            p.append(self.stages[i].static_states['P'][2])
-            p.append(self.stages[i].static_states['P'][3])
-        
-            s.append(self.stages[i].static_states['S'][2])
-            s.append(self.stages[i].static_states['S'][3])
-            
-            h.append(self.stages[i].static_states['H'][2])
-            h.append(self.stages[i].static_states['H'][3])
-        
-        plt.figure()
-        plt.plot(np.array(p)*1e-3)
-        plt.axis([-0.5, len(self.r_tip)+0.5, 0, max(np.array(p)*1e-3)*1.2])
-        plt.xticks(ticks=x2, labels=labels2, size=ticksize)
-        plt.grid()
-        plt.ylabel("Outlet Pressure [kPa]", fontsize= fontsize)
-        plt.show()
-        
-        plt.figure()
-        plt.plot(s, h)
-        plt.plot([s[0], s[0]], [h[0], h[-1]])
-        
-        entropy_range = np.linspace(s[0], s[-1], 100)
-        
-        for P in p:
-            enthalpy = [PropsSI('H', 'S', s, 'P', P, self.fluid) for s in entropy_range]
-            entropy = entropy_range
-            plt.plot(entropy, enthalpy, color='grey', alpha=0.3, label=f'P = {P/1e5} bar')
-        
-        plt.ylabel("$Enthalpy$ [J/kg]", fontsize= fontsize)
-        plt.xlabel("$Entropy$ [J/(kg x K)]", fontsize= fontsize)
-        plt.legend(["real", "isentropic"])
-        plt.show()
-
 
     # ---------------- Flow Computations ------------------------------------------------------------------
-
-    def computeVelTriangle(self):
-
-        self.Vel_Tri['vu2OverU'] = (2*(1-self.inputs['R']) + self.inputs['psi'])/2
-        self.Vel_Tri['vu3OverU'] = (2*(1-self.inputs['R']) - self.inputs['psi'])/2
-        self.Vel_Tri['vmOverU']  = self.inputs['phi']
-        
-        self.Vel_Tri['wu2OverU']  = self.Vel_Tri['vu2OverU'] - 1
-        self.Vel_Tri['wu3OverU']  = self.Vel_Tri['vu3OverU'] - 1
-
-        self.Vel_Tri['v2OverU']  = np.sqrt(self.Vel_Tri['vu2OverU']**2 + self.Vel_Tri['vmOverU']**2)
-        self.Vel_Tri['w2OverU']  = np.sqrt(self.Vel_Tri['wu2OverU']**2 + self.Vel_Tri['vmOverU']**2)
-        self.Vel_Tri['v3OverU']  = np.sqrt(self.Vel_Tri['vu3OverU']**2 + self.Vel_Tri['vmOverU']**2)
-        self.Vel_Tri['w3OverU']  = np.sqrt(self.Vel_Tri['wu3OverU']**2 + self.Vel_Tri['vmOverU']**2)
-
-        self.Vel_Tri['alpha1'] = self.Vel_Tri['alpha3'] = np.arctan(self.Vel_Tri['vu3OverU']/self.Vel_Tri['vmOverU'])
-        self.Vel_Tri['alpha2'] = np.arctan(self.Vel_Tri['vu2OverU']/self.Vel_Tri['vmOverU'])
-
-        self.Vel_Tri['beta1'] = self.Vel_Tri['beta3'] = np.arctan(self.Vel_Tri['wu3OverU']/self.Vel_Tri['vmOverU'])
-        self.Vel_Tri['beta2'] = np.arctan(self.Vel_Tri['wu2OverU']/self.Vel_Tri['vmOverU'])
-        
-        return 
-    
-    def computeBladeRow(self, stage, row_type):
-        if row_type == 'S':  # Stator
-            hin = stage.static_states['H'][2]
-            h0in = hin + (self.Vel_Tri['vu2']**2 + self.Vel_Tri['vm']**2)/2
-
-            stage.update_total_AS(CP.HmassSmass_INPUTS, h0in, stage.static_states['S'][2], 2)
-            
-            hout = h0in - (self.Vel_Tri['vu3']**2 + self.Vel_Tri['vm']**2)/2
-            hout_s = hin + (hout - hin)*self.eta_blade_row
-            
-            self.AS.update(CP.HmassSmass_INPUTS, hout_s, stage.total_states['S'][2])
-            pout = self.AS.p()
-            
-            stage.update_static_AS(CP.HmassP_INPUTS, hout, pout, 3)
-                        
-        else:  # Rotor
-            hin = stage.static_states['H'][1]
-            h0in = hin + (self.Vel_Tri['wu1']**2 + self.Vel_Tri['vm']**2)/2
-                        
-            stage.update_total_AS(CP.HmassSmass_INPUTS, h0in, stage.static_states['S'][1], 1)
-            
-            hout = h0in - (self.Vel_Tri['wu2']**2 + self.Vel_Tri['vm']**2)/2
-            hout_s = hin + (hout - hin)*self.eta_blade_row
-            
-            self.AS.update(CP.HmassSmass_INPUTS, hout_s, stage.total_states['S'][1])
-            pout = self.AS.p()
-            
-            stage.update_static_AS(CP.HmassP_INPUTS, hout, pout, 2)
-        
-        return
-            
-    def computeRepeatingStages(self):
-        
-        for i in range(int(self.nStages)):
-            if i == 0:
-                self.computeBladeRow(self.stages[i], 'R')
-                self.computeBladeRow(self.stages[i], 'S')
-            else:
-                # Copy position-3 states of previous stage into position-1 of current stage
-                for k in self._STATE_KEYS:
-                    self.stages[i].static_states[k][1] = self.stages[i-1].static_states[k][3]
-                
-                self.computeBladeRow(self.stages[i], 'R')
-                self.computeBladeRow(self.stages[i], 'S')
-            
-        return
     
     def designRotor(self):
         
@@ -504,7 +298,9 @@ class RadialCPMLDesign(object):
         self.DR = 1.0 - (vu2 + vu1) / (2.0 * u2)
         
         return
-    
+
+#%%
+
     def designStator(self):
 
         "S3) Vaneless Space Exhaust"
@@ -577,7 +373,6 @@ class RadialCPMLDesign(object):
             self.res_diff_in = res
             return res
         
-        self.AS.update(CP.PSmass_INPUTS, self.inputs['p_ex'], s4)
         h4_min = self.static_states['H'][3] * 0.9
         h4_max = self.total_states['H'][4]
         
@@ -586,6 +381,8 @@ class RadialCPMLDesign(object):
         self.o4    = pitch3 * np.cos(self.Vel_Tri_S['alpha4']) - self.params['t_b']
         self.A3_th = self.o4 * self.params['b2'] * self.n_blade_R
         
+        self.params['xhi4'] = self.Vel_Tri_S['alpha4']
+
         "S5) Vaned Diffuser Outlet"
         
         self.params['r5'] = self.params['r3'] * self.inputs['r5_r3']
@@ -624,7 +421,7 @@ class RadialCPMLDesign(object):
             self.update_total_AS(CP.HmassSmass_INPUTS, h05, self.static_states['S'][5], 5)
         
             res1 = (h5 - h5_new) / h05
-            res2 = (p5 - self.inputs['p_ex']) / self.inputs['p_ex']
+            res2 = (self.A5*self.Vel_Tri_S['vm5']*self.static_states['D'][5] - self.inputs['mdot'])/self.inputs['mdot']
         
             self.params['xhi5'] = alpha5
         
@@ -649,7 +446,9 @@ class RadialCPMLDesign(object):
         alpha5_sol, v5_sol = self.sol_sys_stator.x
         
         return
-    
+
+#%%
+
     def designSystem(self, x):
         
         self.penalty_factor = 100
