@@ -5,7 +5,6 @@ from labothappy.component.heat_exchanger.hex_cstpinch import HexCstPinch
 from labothappy.component.valve.valve_isenthalpic import ValveIsenthalpic
 
 from CoolProp.CoolProp import PropsSI
-from scipy.optimize import fsolve
 import numpy as np
 
 # Instanciate Circuit

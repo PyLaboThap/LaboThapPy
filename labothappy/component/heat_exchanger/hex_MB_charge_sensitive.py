@@ -49,7 +49,7 @@ from correlations.pressure_drop.fins_DP import DP_tube_and_fins
 from correlations.properties.thermal_conductivity import conducticity_R1233zd
 
 # Phase related correlations
-from correlations.properties.void_fraction import void_fraction
+from labothappy.correlations.properties.void_fraction_old import void_fraction
 from correlations.heat_exchanger.kim_dry_out_incipience import kim_dry_out_incipience
 
 # Connectors
