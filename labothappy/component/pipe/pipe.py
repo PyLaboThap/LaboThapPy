@@ -1,12 +1,8 @@
 
 from labothappy.component.base_component import BaseComponent
 from labothappy.connector.mass_connector import MassConnector
-# from labothappy.connector.heat_connector import HeatConnector
-
 from labothappy.component.pipe.straight_pipe import StraightPipe
 from labothappy.component.pipe.curved_elbow import CurvedElbow
-import CoolProp.CoolProp as CP
-import numpy as np
 
 class Pipe(BaseComponent):
     """
@@ -26,6 +22,9 @@ class Pipe(BaseComponent):
         self.segments = []
         self.components = []  # Store component instances for diagnostics
 
+    def get_required_inputs(self):
+        return ['P_su', 'h_su', 'm_dot', 'fluid']
+
     def add_straight(self, D, L, K=0.0, theta=0.0):
         """Add a straight pipe section."""
         self.segments.append({
@@ -41,13 +40,18 @@ class Pipe(BaseComponent):
             'D': D, 'delta': delta, 'R0_D': R0_D
         })
         return self
-    
+
+
     def solve(self):
         """Solve all segments sequentially and accumulate charge and pressure drop."""
+
+        self.check_calculable()
+        
         current_state = self.su
-        self.components = []  # Reset component list
-        self.m_charge = 0.0  # Initialize total charge
-        self.deltaP_total = 0.0  # Initialize total pressure drop
+        # print(f"Starting Pipe solve with inlet state: p={current_state.p:.2f} Pa, h={current_state.h:.2f} J/kg, m_dot={current_state.m_dot:.4f} kg/s")
+        self.components = []
+        self.m_charge = 0.0
+        self.deltaP_total = 0.0
         
         for i, seg in enumerate(self.segments):
             if seg['type'] == 'straight':
@@ -57,22 +61,24 @@ class Pipe(BaseComponent):
                 component = CurvedElbow()
                 component.set_parameters(D=seg['D'], delta=seg['delta'], R0_D=seg['R0_D'])
 
-            # Connect and solve
+            # Connect inlet
             component.su = current_state
+            
+            # Solve
             component.solve()
             current_state = component.ex
             
-            # Accumulate charge and pressure drop
+            # Accumulate
             self.m_charge += component.m_charge
             self.deltaP_total += component.deltaP
-            
-            # Store component for diagnostics
             self.components.append(component)
 
         # Set outlet
-        self.ex = current_state
+        self.ex.set_fluid(self.su.fluid)
+        self.ex.set_m_dot(self.su.m_dot)
+        self.ex.set_h(self.su.h)
+        self.ex.set_p(self.su.p - self.deltaP_total)
         self.solved = True
-
 
     def print_results(self):
         """Print summary of all segments and total charge."""

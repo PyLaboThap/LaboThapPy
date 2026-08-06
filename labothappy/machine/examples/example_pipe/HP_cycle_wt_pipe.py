@@ -3,6 +3,7 @@ from labothappy.connector.mass_connector import MassConnector
 from labothappy.component.compressor.compressor_csteff import CompressorCstEff
 from labothappy.component.heat_exchanger.hex_cstpinch import HexCstPinch
 from labothappy.component.valve.valve_isenthalpic import ValveIsenthalpic
+from labothappy.component.pipe.pipe import Pipe
 
 from CoolProp.CoolProp import PropsSI
 import numpy as np
@@ -34,11 +35,29 @@ HP.add_component(Condenser, "Condenser")
 HP.add_component(ExpansionValve, "ExpansionValve")
 HP.add_component(Evaporator, "Evaporator")
 
-# Link components with mass connectors
-HP.link_components("Compressor", "m-ex", "Condenser", "m-su_H")
+# With pipe routing
+HP.link_components(
+    "Compressor", "m-ex", "Condenser", "m-su_H",
+    pipe_routing=[
+        {'type': 'straight', 'D': 0.012, 'L': 1.0, 'theta': 0.0},
+        {'type': 'curved_elbow', 'D': 0.012, 'delta': 90, 'R0_D': 1.5},
+        {'type': 'straight', 'D': 0.012, 'L': 3.0, 'theta': 90.0}
+    ]
+)
+
 HP.link_components("Condenser", "m-ex_H", "ExpansionValve", "m-su")
-HP.link_components("ExpansionValve", "m-ex", "Evaporator", "m-su_C")
-HP.link_components("Evaporator", "m-ex_C", "Compressor", "m-su")
+
+HP.link_components("ExpansionValve", "m-ex", "Evaporator", "m-su_C",
+    pipe_routing=[
+        {'type': 'curved_elbow', 'D': 0.012, 'delta': 90, 'R0_D': 1.5},
+    ])
+
+HP.link_components("Evaporator", "m-ex_C", "Compressor", "m-su",
+    pipe_routing=[
+        {'type': 'straight', 'D': 0.012, 'L': 1.0, 'theta': 0.0},       
+    ]
+)
+
 
 # Add fluid sources
 CD_source = MassConnector('Water')
@@ -105,4 +124,4 @@ HP.set_residual_variable(
 # Solve circuit
 HP.solve()
 print(f"Converged at P_HP = {Compressor.ex.p}, P_LP = {Compressor.su.p}")
-HP.print_states()
+# HP.print_states()

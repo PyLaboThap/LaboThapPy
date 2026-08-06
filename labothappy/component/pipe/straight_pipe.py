@@ -152,8 +152,9 @@ class StraightPipe(BaseComponent):
         theta = self.params.get('theta', 0.0)
         K = self.params.get('K', 0.0)
         
-        self.deltaP = pressure_drop_two_phase(self.inputs['m_dot'], self.params['D'], self.params['L'], rho_l, rho_g, x, mu_l, mu_g, sigma, K, theta, self.AS)
-
+        self.deltaP = pressure_drop_two_phase(self.inputs['m_dot'], self.params['D'], self.params['L'], rho_l, rho_g, x, self.AS,
+                            mu_l, mu_g, sigma, K, theta)
+        print(f"Two-phase pressure drop: {self.deltaP:.2f} Pa")
         # Compute void fraction and mass inventory
         alpha = compute_void_fraction(x, rho_l, rho_g, slip_model='Zivi') # Uses Zivi correlation for void fraction
         rho_tp = compute_two_phase_density(x, rho_l, rho_g, alpha)

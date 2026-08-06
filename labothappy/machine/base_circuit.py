@@ -158,12 +158,82 @@ class BaseCircuit:
             return self.components[name]
         raise ValueError(f"Component '{name}' not found")
 
-    def link_components(self, component1_name, output_connector, component2_name, input_connector):
-        # Link two components through specified connectors
+    def link_components(self, component1_name, output_connector, component2_name, 
+                   input_connector, pipe_routing=None):
+        """
+        Link two components through specified connectors.
+        
+        Optionally insert a pipe routing (as list of segments) between them.
+        """
+        
         component1 = self.get_component(component1_name)
         component2 = self.get_component(component2_name)
-        component1.link(output_connector, component2, input_connector)
         
+        # ====================================================================
+        # Case 1: No pipe (direct connection)
+        # ====================================================================
+        if pipe_routing is None:
+            component1.link(output_connector, component2, input_connector)
+            return
+        
+        # ====================================================================
+        # Case 2: Pipe routing (list of segments)
+        # ====================================================================
+        
+        if not isinstance(pipe_routing, list):
+            raise ValueError("pipe_routing must be a list of segment dicts or None")
+        
+        # Create Pipe component
+        from labothappy.component.pipe.pipe import Pipe
+        pipe_obj = Pipe()
+        
+        # Add all segments to pipe
+        for seg in pipe_routing:
+            seg_type = seg.get('type')
+            
+            if seg_type == 'straight':
+                pipe_obj.segments.append({
+                    'type': 'straight',
+                    'D': seg['D'],
+                    'L': seg['L'],
+                    'K': seg.get('K', 0.0),
+                    'theta': seg.get('theta', 0.0)
+                })
+            
+            elif seg_type == 'curved_elbow':
+                pipe_obj.segments.append({
+                    'type': 'curved_elbow',
+                    'D': seg['D'],
+                    'delta': seg['delta'],
+                    'R0_D': seg['R0_D']
+                })
+            
+            else:
+                raise ValueError(f"Unknown segment type: {seg_type}")
+        
+        pipe_name = f"Pipe_{component1_name}_to_{component2_name}"
+                
+        # ====================================================================
+        # Insert pipe AFTER component1
+        # ====================================================================
+        comp_names = list(self.components.keys())
+        comp1_index = comp_names.index(component1_name)
+        
+        # Insert position: right after component1
+        insert_index = comp1_index + 1
+        
+        new_components = {}
+        for i, (name, comp) in enumerate(self.components.items()):
+            new_components[name] = comp
+            if i == comp1_index:  # After component1
+                new_components[pipe_name] = BaseCircuit.Component(pipe_name, pipe_obj, self.fluid)
+        
+        self.components = new_components
+        
+        # Link: source → pipe → target
+        component1.link(output_connector, self.get_component(pipe_name), "m-su")
+        self.get_component(pipe_name).link("m-ex", component2, input_connector)
+
 #%% Source related methods
 
     def add_source(self, name, connector, next_comp, next_comp_input_port):

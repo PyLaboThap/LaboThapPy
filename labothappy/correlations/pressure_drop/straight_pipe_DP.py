@@ -27,6 +27,8 @@ Moody, L.F. (1944). Friction factors for pipe flow. Transactions of the ASME,
 """
 
 import math
+import CoolProp.CoolProp as CP
+
 from labothappy.correlations.properties.dimensionless import (
     compute_reynolds,
     compute_froude,
@@ -482,7 +484,7 @@ def pressure_drop_acceleration_two_phase(m_dot, D, rho_l, rho_g, x_inlet,
     f_inlet = f_acceleration(x_inlet, rho_l, rho_g, slip_model)
     f_outlet = f_acceleration(x_outlet, rho_l, rho_g, slip_model)
 
-    dP_acceleration = G ** 2 * (f_outlet - f_inlet)
+    dP_acceleration = G ** 2 * (f_inlet - f_outlet)
 
     return dP_acceleration
 
@@ -541,7 +543,7 @@ def pressure_drop_gravity_two_phase(m_dot, D, L, rho_l, rho_g, x_inlet,
 # ============================================================================
 
 
-def pressure_drop_two_phase(m_dot, D, L, rho_l, rho_g, x_inlet, x_outlet,
+def pressure_drop_two_phase(m_dot, D, L, rho_l, rho_g, x_inlet, AS,
                             mu_l, mu_g, sigma, K=0.0, theta=0.0, 
                             slip_model=None, include_acceleration=True, 
                             include_gravity=True):
@@ -613,11 +615,23 @@ def pressure_drop_two_phase(m_dot, D, L, rho_l, rho_g, x_inlet, x_outlet,
 
     ACHP Documentation: https://achp.readthedocs.io/en/latest/ACHPComponents/FluidCorrelations.html
     """
+
+    # ========== STEP 1: Compute friction ΔP ==========
+
     # Frictional pressure drop
     dP_friction = pressure_drop_frictional_two_phase(
-        m_dot, D, L, rho_l, rho_g, (x_inlet + x_outlet) / 2.0,
+        m_dot, D, L, rho_l, rho_g, x_inlet,
         mu_l, mu_g, sigma, K
     )
+
+    # ========== STEP 2: Estimate outlet pressure & compute x_outlet ==========
+    p_inlet = AS.p()  # Inlet pressure
+    h = AS.hmass()   # Specific enthalpy (assumed constant)
+    p_outlet = p_inlet - dP_friction
+    
+    # Get outlet quality at (p_outlet, h)
+    AS.update(CP.HmassP_INPUTS, p_outlet, h)
+    x_outlet = AS.Q()  # Quality at outlet
 
     # Acceleration pressure drop
     if include_acceleration:
@@ -634,13 +648,7 @@ def pressure_drop_two_phase(m_dot, D, L, rho_l, rho_g, x_inlet, x_outlet,
         )
     else:
         dP_gravity = 0.0
-
     # Total pressure drop
     dP_total = dP_friction + dP_acceleration + dP_gravity
 
-    return {
-        "dP_total": dP_total,
-        "dP_friction": dP_friction,
-        "dP_acceleration": dP_acceleration,
-        "dP_gravity": dP_gravity,
-    }
+    return dP_total
