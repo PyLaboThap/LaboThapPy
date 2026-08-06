@@ -43,18 +43,23 @@ Pipe_Evaporator_to_Compressor.add_straight(D=0.012, L=1.0, theta = 0)
 
 # Add components to circuit
 HP.add_component(Compressor, "Compressor")
+HP.add_component(Pipe_Compressor_to_Condenser, "Pipe_Compressor_to_Condenser")
 HP.add_component(Condenser, "Condenser")
+HP.add_component(Pipe_Condenser_to_ExpansionValve, "Pipe_Condenser_to_ExpansionValve")
 HP.add_component(ExpansionValve, "ExpansionValve")
+HP.add_component(Pipe_ExpansionValve_to_Evaporator, "Pipe_ExpansionValve_to_Evaporator")
 HP.add_component(Evaporator, "Evaporator")
+HP.add_component(Pipe_Evaporator_to_Compressor, "Pipe_Evaporator_to_Compressor")
 
-# With pipe routing
-HP.link_components("Compressor", "m-ex", "Condenser", "m-su_H")
-
-HP.link_components("Condenser", "m-ex_H", "ExpansionValve", "m-su")
-
-HP.link_components("ExpansionValve", "m-ex", "Evaporator", "m-su_C")
-
-HP.link_components("Evaporator", "m-ex_C", "Compressor", "m-su")
+# Without pipe routing
+HP.link_components("Compressor", "m-ex", "Pipe_Compressor_to_Condenser", "m-su")
+HP.link_components("Pipe_Compressor_to_Condenser", "m-ex", "Condenser", "m-su_H")
+HP.link_components("Condenser", "m-ex_H", "Pipe_Condenser_to_ExpansionValve", "m-su")
+HP.link_components("Pipe_Condenser_to_ExpansionValve", "m-ex", "ExpansionValve", "m-su")
+HP.link_components("ExpansionValve", "m-ex", "Pipe_ExpansionValve_to_Evaporator", "m-su")
+HP.link_components("Pipe_ExpansionValve_to_Evaporator", "m-ex", "Evaporator", "m-su_C")
+HP.link_components("Evaporator", "m-ex_C",  "Pipe_Evaporator_to_Compressor", "m-su")
+HP.link_components("Pipe_Evaporator_to_Compressor", "m-ex",  "Compressor", "m-su")
 
 
 # Add fluid sources
