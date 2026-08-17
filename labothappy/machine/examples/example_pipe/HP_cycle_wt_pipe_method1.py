@@ -40,7 +40,7 @@ HP.link_components(
     "Compressor", "m-ex", "Condenser", "m-su_H",
     pipe_routing=[
         {'type': 'straight', 'D': 0.012, 'L': 1.0, 'theta': 0.0},
-        {'type': 'curved_elbow', 'D': 0.012, 'delta': 90, 'R0_D': 1.5},
+        {'type': 'curved_elbow', 'D': 0.012, 'delta': 90, 'R': 0.5},
         {'type': 'straight', 'D': 0.012, 'L': 3.0, 'theta': 90.0}
     ]
 )
@@ -49,7 +49,7 @@ HP.link_components("Condenser", "m-ex_H", "ExpansionValve", "m-su")
 
 HP.link_components("ExpansionValve", "m-ex", "Evaporator", "m-su_C",
     pipe_routing=[
-        {'type': 'curved_elbow', 'D': 0.012, 'delta': 90, 'R0_D': 1.5},
+        {'type': 'curved_elbow', 'D': 0.012, 'delta': 90, 'R': 0.5},
     ])
 
 HP.link_components("Evaporator", "m-ex_C", "Compressor", "m-su",

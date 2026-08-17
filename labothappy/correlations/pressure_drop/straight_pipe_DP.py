@@ -321,8 +321,8 @@ def pressure_drop_single_phase(L, d_hyd, rho, v, K, mu, theta=0.0):
     Notes
     -----
     - For large pressure drops (ΔP > 0.05·P_inlet), use mean density
-    - Positive theta = upward flow (increases ΔP)
-    - Negative theta = downward flow (decreases ΔP)
+    - Positive theta = downward flow (increases ΔP)
+    - Negative theta = upward flow (decreases ΔP)
 
     References
     ----------

@@ -205,7 +205,7 @@ class BaseCircuit:
                     'type': 'curved_elbow',
                     'D': seg['D'],
                     'delta': seg['delta'],
-                    'R0_D': seg['R0_D']
+                    'R': seg['R']
                 })
             
             else:

@@ -33,11 +33,11 @@ class Pipe(BaseComponent):
         })
         return self  # ← Returns the Pipe object itself for chaining
 
-    def add_curved_elbow(self, D, delta, R0_D):
+    def add_curved_elbow(self, D, delta, R):
         """Add a curved elbow."""
         self.segments.append({
             'type': 'curved_elbow',
-            'D': D, 'delta': delta, 'R0_D': R0_D
+            'D': D, 'delta': delta, 'R': R
         })
         return self
 
@@ -59,7 +59,7 @@ class Pipe(BaseComponent):
                 component.set_parameters(D=seg['D'], L=seg['L'], K=seg['K'], theta=seg['theta'])
             elif seg['type'] == 'curved_elbow':
                 component = CurvedElbow()
-                component.set_parameters(D=seg['D'], delta=seg['delta'], R0_D=seg['R0_D'])
+                component.set_parameters(D=seg['D'], delta=seg['delta'], R=seg['R'])
 
             # Connect inlet
             component.su = current_state
