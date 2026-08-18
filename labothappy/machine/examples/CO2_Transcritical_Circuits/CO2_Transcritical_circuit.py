@@ -22,7 +22,7 @@ from labothappy.component.tank.tank_spliter import TankSpliter
 
 #%%
 
-def basic_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, eta_gh, 
+def basic_CO2_TC(HSource, CSource, Pinch_min_GH, eta_pp, eta_exp, eta_gh, 
                PP_cd, SC_cd, P_low, P_high, m_dot, DP_h_gh = 0, DP_c_gh = 0, DP_h_cond = 0,
                DP_c_cond = 0,mute_print_flag=1):
     
@@ -184,94 +184,6 @@ def REC_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, e
     
     return CO2_TC
 
-#%% 
-
-def REC_CO2_TC_sto(HSource, T_cold_source, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, eta_gh, 
-               eta_rec, PP_cd, SC_cd, P_low, P_high, m_dot, DP_h_rec = 0, DP_c_rec = 0, 
-               DP_h_gh = 0, DP_c_gh = 0, DP_cond = 0,mute_print_flag=1):
-    
-    CO2_TC = CircuitFPI('CO2')
-    
-    # Create components
-    Expander = ExpanderCstEff()
-    GasHeater = HexCstEffDisc()
-    Rec = HexCstEffDisc()
-    Pump = PumpCstEff()
-    Condenser = StorageLatentIsothermalCstePinch()
-    
-    # Pump PARAMETERS
-    
-    Pump.set_parameters(eta_is=eta_pp)
-
-    # Expander PARAMETERS
-    
-    Expander.set_parameters(eta_is=eta_exp)
-
-    # Recuperator PARAMETERS
-    
-    Rec.set_parameters(**{
-        'eta_max': eta_rec, 'n_disc' : 20, 'Pinch_min' : Pinch_min_REC, 'DP_h' : DP_h_rec, 'DP_c' : DP_c_rec,
-    })    
-    
-    # GASCOOLER PARAMETERS
-    
-    GasHeater.set_parameters(**{
-        'eta_max': eta_gh, 'n_disc' : 20, 'Pinch_min' : Pinch_min_GH, 'DP_h' : DP_h_gh, 'DP_c' : DP_c_gh,
-    })
-    
-    # EVAPORATOR PARAMETERS
-    
-    Condenser.set_inputs(**{
-        'sto_fluid': 'Water',
-    })
-    
-    Condenser.set_parameters(**{
-        'Pinch': PP_cd,
-        'Delta_T_sh_sc': SC_cd,
-        'T_sto' : T_cold_source,
-        'DP' : DP_cond, 
-    })
-    
-    # ADD AND LINK COMPONENTS
-    
-    # Add components
-    CO2_TC.add_component(Expander, "Expander")
-    CO2_TC.add_component(GasHeater, "GasHeater")
-    CO2_TC.add_component(Pump, "Pump")
-    CO2_TC.add_component(Condenser, "Condenser")
-    CO2_TC.add_component(Rec, "Recuperator")
-            
-    if mute_print_flag:
-        CO2_TC.mute_print()
-    
-    # Link components
-    CO2_TC.link_components("Pump", "m-ex", "Recuperator", "m-su_C")
-    CO2_TC.link_components("Recuperator", "m-ex_C", "GasHeater", "m-su_C")
-    CO2_TC.link_components("GasHeater", "m-ex_C", "Expander", "m-su")
-    CO2_TC.link_components("Expander", "m-ex", "Recuperator", "m-su_H")
-    CO2_TC.link_components("Recuperator", "m-ex_H", "Condenser", "m-su")
-    CO2_TC.link_components("Condenser", "m-ex", "Pump", "m-su")
-    
-    # SOURCES AND SINKS
-    
-    Gas_heater_source = MassConnector()
-    CO2_TC.add_source("GH_Water", Gas_heater_source, CO2_TC.components["GasHeater"], "m-su_H")
-    CO2_TC.set_source_properties(T=HSource.T, fluid=HSource.fluid, m_dot=HSource.m_dot, target='GH_Water', P = HSource.p)
-       
-    # CYCLE GUESSES
-    
-    CO2_TC.set_cycle_guess(target='Pump:su', m_dot = m_dot, SC = 5, p = P_low)
-    CO2_TC.set_cycle_guess(target='Pump:ex', p = P_high)
-
-    CO2_TC.set_cycle_guess(target='Expander:su', p = P_high, T = HSource.T, m_dot = m_dot)    
-    CO2_TC.set_cycle_guess(target='Expander:ex', p = P_low)
-    
-    # ITERATION VARIABLES
-    
-    CO2_TC.set_iteration_variable(target=['Expander:ex'], variable='p', objective = 'Link:Condenser:su-p', tol = 1e-2, rel = 1, damping_factor = 0.2, cycle = CO2_TC)
-    
-    return CO2_TC
-
 #%%
 
 def Recomp_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, eta_cp, eta_rec, eta_gh, 
@@ -406,7 +318,7 @@ def Recomp_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp
 
 def Recomp_CO2_TC_1_recup(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, eta_cp, eta_rec, eta_gh, 
                PP_cd, SC_cd, P_low, P_high, m_dot, spliter_frac = 0.5, DP_h_gh = 0, DP_c_gh = 0, DP_h_cond = 0,
-               DP_c_cond = 0 ,mute_print_flag=1):
+               DP_c_cond = 0, DP_h_rec = 0, DP_c_rec = 0, mute_print_flag=1):
     
     CO2_TC = CircuitFPI('CO2')
     
@@ -433,7 +345,7 @@ def Recomp_CO2_TC_1_recup(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp,
     # GASCOOLER PARAMETERS
     
     GasHeater.set_parameters(**{
-        'eta_max': eta_gh, 'n_disc' : 50, 'Pinch_min' : 1
+        'eta_max': eta_gh, 'n_disc' : 50, 'Pinch_min' : 1, 'DP_h' : DP_h_gh, 'DP_c' : DP_c_gh, 
     })
     
     # EVAPORATOR PARAMETERS
@@ -441,7 +353,9 @@ def Recomp_CO2_TC_1_recup(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp,
     Condenser.set_parameters(**{
         'Pinch': PP_cd,
         'Delta_T_sh_sc': SC_cd,
-        'HX_type': 'condenser'
+        'HX_type': 'condenser',
+        'DP_h' : DP_h_cond, 
+        'DP_c' : DP_c_cond, 
     })
     
     # Recup LT PARAMETERS
@@ -450,6 +364,8 @@ def Recomp_CO2_TC_1_recup(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp,
         'eta_max': eta_rec, 
         'n_disc' : 20, 
         'Pinch_min' : Pinch_min_REC, 
+        'DP_h' : DP_h_rec, 
+        'DP_c' : DP_c_rec, 
         })
 
     # GASCOOLER PARAMETERS
@@ -498,7 +414,7 @@ def Recomp_CO2_TC_1_recup(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp,
     
     # CYCLE GUESSES
     
-    CO2_TC.set_cycle_guess(target='Condenser:su_H', m_dot = m_dot*rep_spliter[0], T = CSource.T + 10, p = P_low)
+    CO2_TC.set_cycle_guess(target='Spliter:su', m_dot = m_dot, T = CSource.T + 10, p = P_low)
     CO2_TC.set_cycle_guess(target='Pump:ex', p = P_high)
         
     CO2_TC.set_cycle_guess(target='Expander:ex', p = P_low)
@@ -517,15 +433,13 @@ def Recomp_CO2_TC_1_recup(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp,
         obj_type = "Link"
     )
     
-
-    
     return CO2_TC
 
 #%%
 
 if __name__ == "__main__": 
 
-    study_case = "Recomp_1_recup"
+    study_case = "Recomp"
 
     if study_case == "Simple":
         T_cold_source = 0.1+273.15
@@ -556,49 +470,15 @@ if __name__ == "__main__":
         CSource = MassConnector()
         CSource.set_properties(fluid = 'Water', T = T_cold_source, p = 5e5, m_dot = 10)
         
-        CO2_TC = basic_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_is_pp, eta_is_exp, eta_gh, PPTD_cd, SC_cd, P_low_guess, P_high, m_dot,
+        CO2_TC = basic_CO2_TC(HSource, CSource, Pinch_min_GH, eta_is_pp, eta_is_exp, eta_gh, PPTD_cd, SC_cd, P_low_guess, P_high, m_dot,
                             DP_h_gh = 50*1e3, DP_c_gh = 2*1e5, DP_h_cond = 1*1e5, DP_c_cond = 50*1e3, mute_print_flag=1)
-                
-        CO2_TC.solve(method = 'wegstein')
-
-    elif study_case == "Recup_sto":
-        T_cold_source = 0.1+273.15
-        T_hot_source = 130+273.15
-
-        m_dot = 0.08
-
-        eta_is_pp = 0.7
-        eta_is_exp = 0.8
-        eta_gh = 0.9
-        eta_rec = 0.3
-
-        PPTD_cd = 5
-        SC_cd = 5
-
-        Pinch_min_GH = 3
-        Pinch_min_REC = 3
-
-        P_high = 140*1e5
-        P_sat_T_CSource = PropsSI('P', 'T', T_cold_source,'Q',0.5,'CO2')
-        P_crit_CO2 = PropsSI('PCRIT','CO2')
-
-        P_low_guess = min(1.3*P_sat_T_CSource,0.8*P_crit_CO2)   
-        
-        HSource = MassConnector()
-        HSource.set_properties(fluid = 'Water', T = T_hot_source, p = 5e5, m_dot = 0.1)
-        
-        CSource = MassConnector()
-        CSource.set_properties(fluid = 'R22', T = T_cold_source, p = 5e5, m_dot = 1)
-        
-        CO2_TC = REC_CO2_TC_sto(HSource, T_cold_source, Pinch_min_GH, Pinch_min_REC, eta_is_pp, eta_is_exp, eta_gh, eta_rec, PPTD_cd, SC_cd, P_low_guess, P_high, m_dot,
-                            DP_h_rec = 1*1e5, DP_c_rec = 2*1e5, DP_h_gh = 50*1e3, DP_c_gh = 2*1e5, DP_cond = 1*1e5, mute_print_flag=0)
                 
         CO2_TC.solve(method = 'wegstein')
      
     elif study_case == "Recup":
         
-        T_cold_source = 15+273.15
-        T_hot_source = 130+273.15
+        T_cold_source = 5+273.15
+        T_hot_source = 150+273.15
 
         m_dot = 3.00123861e+01
 
@@ -619,7 +499,7 @@ if __name__ == "__main__":
 
         P_low_guess = min(1.3*P_sat_T_CSource,0.8*P_crit_CO2)   
         
-        T_cold_source = 0.1+273.15
+        # T_cold_source = 0.1+273.15
         
         HSource = MassConnector()
         HSource.set_properties(fluid = 'Water', T = T_hot_source, p = 5e5, m_dot = m_dot*1)
@@ -640,25 +520,25 @@ if __name__ == "__main__":
         CO2_TC = REC_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_is_pp, eta_is_exp, eta_gh, eta_rec, PPTD_cd, SC_cd, P_low_guess, P_high, m_dot,
                             DP_h_rec = DP_h_rec, DP_c_rec = DP_c_rec, DP_h_gh = DP_h_gh, DP_c_gh = DP_c_gh, DP_h_cond = DP_h_cond, DP_c_cond = DP_c_cond, mute_print_flag=1)
                 
-        CO2_TC.solve(method = 'wegstein')
+        CO2_TC.solve(method = 'wegstein', tol=1e-6)
  
     elif study_case == "Recomp":
         
         import numpy as np
         
-        T_cold_source = 0.1+273.15
-        T_hot_source = 150+273.15
+        T_cold_source = 10+273.15
+        T_hot_source = 200+273.15
 
-        m_dot = 3.00123861e+01
+        m_dot = 0.04
 
-        eta_is_pp = 0.8
-        eta_is_cp = 0.8
+        eta_is_pp = 0.9
+        eta_is_cp = 0.7
         eta_is_exp = 0.9
         eta_gh = 0.95
         eta_rec = 0.95
 
-        PPTD_cd = 5
-        SC_cd = 0.1
+        PPTD_cd = 3
+        SC_cd = 2
 
         Pinch_min_GH = 5
         Pinch_min_REC = 0
@@ -666,12 +546,10 @@ if __name__ == "__main__":
         P_sat_T_CSource_PP = PropsSI('P', 'T', T_cold_source + PPTD_cd,'Q',0.5,'CO2')
         P_crit_CO2 = PropsSI('PCRIT','CO2')
 
-        P_low_guess = P_sat_T_CSource_PP # 0.6*P_crit_CO2 # min(1.3*P_sat_T_CSource,0.6*P_crit_CO2)   
-        
-        T_cold_source = 0.1+273.15
-        
+        P_low_guess = min(2*P_sat_T_CSource_PP, 0.8*P_crit_CO2) # P_sat_T_CSource_PP # 0.6*P_crit_CO2 # min(1.3*P_sat_T_CSource,0.6*P_crit_CO2)   
+                
         HSource = MassConnector()
-        HSource.set_properties(fluid = 'Water', T = T_hot_source, p = 5e5, m_dot = m_dot*1)
+        HSource.set_properties(fluid = 'Water', T = T_hot_source, p = 5e5, m_dot = m_dot*100)
         
         CSource = MassConnector()
         CSource.set_properties(fluid = 'Water', T = T_cold_source, p = 5e5, m_dot = 10000)
@@ -700,20 +578,98 @@ if __name__ == "__main__":
 
         CO2_TC = Recomp_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_is_pp, eta_is_exp, 
                                 eta_is_cp, eta_gh, eta_rec, PPTD_cd, SC_cd, P_low_guess, 150*1e5, 
-                                m_dot, spliter_frac = 0.8, mute_print_flag=0)
+                                m_dot, spliter_frac = 1, mute_print_flag=0)
                 
         CO2_TC.solve(method = 'wegstein', max_iter=50)
 
     elif study_case == "Recomp_1_recup":
+
+        import numpy as np
+        
+        T_cold_source = 10+273.15
+        T_hot_source = 100+273.15
+
+        m_dot = 30.526725090894885 # 30
+
+        eta_is_pp = 0.8
+        eta_is_cp = 0.8
+        eta_is_exp = 0.9
+        eta_gh = 0.95
+        eta_rec = 0.95
+
+        PPTD_cd = 3
+        SC_cd = 2
+
+        Pinch_min_GH = 5
+        Pinch_min_REC = 0
+
+        P_sat_T_CSource_PP = PropsSI('P', 'T', T_cold_source + PPTD_cd,'Q',0.5,'CO2')
+        P_crit_CO2 = PropsSI('PCRIT','CO2')
+
+        P_low_guess = min(1.5*P_sat_T_CSource_PP, 0.8*P_crit_CO2) # P_sat_T_CSource_PP # 0.6*P_crit_CO2 # min(1.3*P_sat_T_CSource,0.6*P_crit_CO2)   
+        
+        m_dot_H = 38.305712021488546 # m_dot*100
+        
+        HSource = MassConnector()
+        HSource.set_properties(fluid = 'Water', T = T_hot_source, p = 5e5, m_dot = m_dot_H)
+        
+        CSource = MassConnector()
+        CSource.set_properties(fluid = 'Water', T = T_cold_source, p = 5e5, m_dot = 10000)
+        
+        DP_h_rec = 100*1e3
+        DP_c_rec = 100*1e3
+        
+        DP_h_gh = 0*1e3
+        DP_c_gh = 100*1e3
+        
+        DP_h_cond = 100*1e3
+        DP_c_cond = 0*1e3
+                
+        # DP_h_rec = 0*1e3
+        # DP_c_rec = 0*1e3
+        
+        # DP_h_gh = 0*1e3
+        # DP_c_gh = 0*1e3
+        
+        # DP_h_cond = 0*1e3
+        # DP_c_cond = 0*1e3
+        
+        spliter_frac = 0.9980980282294012 # 0.5
+        P_high = 15448318.680095742 # 140*1e5
+        
+        #  'mdot_HS': 38.305712021488546,
+        #  'mdot': 30.526725090894885,
+        
+        CO2_TC = Recomp_CO2_TC_1_recup(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_is_pp, eta_is_exp, 
+                                eta_is_cp, eta_gh, eta_rec, PPTD_cd, SC_cd, P_low_guess, P_high, 
+                                m_dot, spliter_frac=spliter_frac, DP_h_gh=DP_h_gh, DP_c_gh=DP_c_gh, DP_h_cond=DP_h_cond,
+                                DP_c_cond=DP_c_cond, DP_h_rec=DP_h_rec, DP_c_rec=DP_c_rec, mute_print_flag=0)
+                
+                
+        # CO2_TC.solve(method = 'wegstein', max_iter=50, tol=1e-8)
+        CO2_TC.solve(method = 'successive_substitution', max_iter=50, tol=1e-8)
+        
+        if CO2_TC.converged:
+            
+            W_exp = CO2_TC.components['Expander'].model.W.W_dot
+            Q_cd = CO2_TC.components['Condenser'].model.Q.Q_dot
+            W_cp = CO2_TC.components['Compressor'].model.W.W_dot
+            W_pp = CO2_TC.components['Pump'].model.W.W_dot
+            Q_gh = CO2_TC.components['GasHeater'].model.Q.Q_dot
+
+            W_dot_net = (W_exp - W_pp - W_cp)
+            eta = W_dot_net/Q_gh
+
+    elif study_case == "Recomp_1_recup_sens":
         
         import numpy as np
         
         T_cold_source = 10+273.15
-        T_hot_source = 130+273.15
+        T_hot_source = 240+273.15
 
         m_dot = 3.00123861e+01
 
-        eta_is_pp = 0.8
+        eta_is_pp = 0.9
         eta_is_cp = 0.8
         eta_is_exp = 0.9
         eta_gh = 0.95
@@ -728,7 +684,7 @@ if __name__ == "__main__":
         P_sat_T_CSource_PP = PropsSI('P', 'T', T_cold_source + PPTD_cd,'Q',0.5,'CO2')
         P_crit_CO2 = PropsSI('PCRIT','CO2')
 
-        P_low_guess = P_sat_T_CSource_PP # 0.6*P_crit_CO2 # min(1.3*P_sat_T_CSource,0.6*P_crit_CO2)   
+        P_low_guess = min(2*P_sat_T_CSource_PP, 0.8*P_crit_CO2) # P_sat_T_CSource_PP # 0.6*P_crit_CO2 # min(1.3*P_sat_T_CSource,0.6*P_crit_CO2)   
                 
         HSource = MassConnector()
         HSource.set_properties(fluid = 'Water', T = T_hot_source, p = 5e5, m_dot = m_dot*100)
@@ -745,7 +701,7 @@ if __name__ == "__main__":
         DP_h_cond = 100*1e3
         DP_c_cond = 0*1e3
         
-        spliter_fracs = np.linspace(0,1,11)
+        spliter_fracs = np.linspace(0.1,1,10)
         P_high_vec = np.linspace(100,200,11)*1e5
         
         # spliter_fracs = np.array([0.1])
@@ -763,7 +719,8 @@ if __name__ == "__main__":
 
                 CO2_TC = Recomp_CO2_TC_1_recup(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_is_pp, eta_is_exp, 
                                         eta_is_cp, eta_gh, eta_rec, PPTD_cd, SC_cd, P_low_guess, P_high, 
-                                        m_dot, spliter_frac = spliter_frac, mute_print_flag=1)
+                                        m_dot, spliter_frac=spliter_frac, DP_h_gh=DP_h_gh, DP_c_gh=DP_c_gh, DP_h_cond=DP_h_cond,
+                                        DP_c_cond=DP_c_cond, DP_h_rec=DP_h_rec, DP_c_rec=DP_c_rec, mute_print_flag=1)
                         
                 CO2_TC.solve(method = 'wegstein', max_iter=50)
                 
@@ -780,7 +737,13 @@ if __name__ == "__main__":
                     res_energy = ((W_exp + Q_cd) - (W_cp + W_pp + Q_gh))/max_power
                     
                     if abs(res_energy) < 1e-3:
-                        eta_mat[i][j] = (W_exp - W_pp - W_cp)/(Q_gh)
+                        eta = (W_exp - W_pp - W_cp)/(Q_gh)
+                        
+                        if eta > 0:
+                            eta_mat[i][j] = eta 
+                        else:
+                            eta_mat[i][j] = None
+                        
                     else:
                         eta_mat[i][j] = None
                         

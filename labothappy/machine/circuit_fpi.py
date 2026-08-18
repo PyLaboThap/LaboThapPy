@@ -204,19 +204,63 @@ class CircuitFPI(BaseCircuit):
             self.DP       = sum(delta_Ps.values())
             return self.DP
     
-        def update_it_var(self, components, cycle):
+        # def update_it_var(self, components, cycle):
             
+        #     if self.obj_type == "Link":
+        #         if self.it_prop_name == self.obj_prop_name == 'p':
+            
+        #             self.DP_gain          = self.find_link_DP(components)                    
+        #             connector_obj = getattr(components[self.obj_comp_name].model, self.obj_connector_name)
+        #             value_obj     = getattr(connector_obj, self.obj_prop_name)
+                    
+        #             update_guess_target = self.it_comp_name + ":" + self.it_connector_name                    
+        #             cycle.set_cycle_guess(target=update_guess_target, **{self.it_prop_name: value_obj + self.DP_gain})
+                                        
+        #     else:
+        def update_it_var(self, components, cycle):
+    
             if self.obj_type == "Link":
                 if self.it_prop_name == self.obj_prop_name == 'p':
-            
-                    self.DP_gain          = self.find_link_DP(components)                    
+        
+                    self.DP_gain  = self.find_link_DP(components)                    
                     connector_obj = getattr(components[self.obj_comp_name].model, self.obj_connector_name)
                     value_obj     = getattr(connector_obj, self.obj_prop_name)
-                    
+        
+                    # --- Original: update the guess at the iteration connector ---
                     update_guess_target = self.it_comp_name + ":" + self.it_connector_name                    
                     cycle.set_cycle_guess(target=update_guess_target, **{self.it_prop_name: value_obj + self.DP_gain})
-                                        
+        
+                    P_current = value_obj + self.DP_gain  # P_low at path start
+                    
+                    for comp_name, entrance_port, exit_port in self.path:
+                        comp_model = components[comp_name].model
+                    
+                        # Strip graph edge prefix if present (e.g. 'm-ex' → 'ex', 'm-su' → 'su')
+                        entrance_attr = entrance_port.split('-')[-1] if entrance_port is not None else None
+                        exit_attr     = exit_port.split('-')[-1]     if exit_port     is not None else None
+                    
+                        # Push inlet pressure if entrance port is known
+                        if entrance_attr is not None:
+                            su_connector = getattr(comp_model, entrance_attr)
+                            su_connector.set_properties(p=P_current)
+                            cycle.set_cycle_guess(
+                                target=comp_name + ":" + entrance_attr,
+                                **{self.it_prop_name: P_current}
+                            )
+                    
+                        # Step down by this component's ΔP
+                        P_current -= self.delta_Ps.get(comp_name, 0.0)
+                    
+                        # Push outlet pressure if exit port is known
+                        if exit_attr is not None:
+                            ex_connector = getattr(comp_model, exit_attr)
+                            ex_connector.set_properties(p=P_current)
+                            cycle.set_cycle_guess(
+                                target=comp_name + ":" + exit_attr,
+                                **{self.it_prop_name: P_current}
+                            )
             else:
+            
                 if self.obj_prop_name == "SC" and self.it_prop_name == 'p':
                     
                     def h_to_pressure_from_SC(h, SC_target):
@@ -878,13 +922,13 @@ class CircuitFPI(BaseCircuit):
             self._enforce_fixed_properties()
             self._substitution_step(use_wegstein)
         
-            # try:
-            self._sequential_sweep()
-            # except:
-            #     self.converged = False
-            #     if self.print_flag:
-            #         print("Solver did not converge")
-            #     return
+            try:
+                self._sequential_sweep()
+            except:
+                self.converged = False
+                if self.print_flag:
+                    print("Solver did not converge")
+                return
         
             current_snapshot = self._snapshot_connector_states()
         

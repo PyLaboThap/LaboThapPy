@@ -886,7 +886,9 @@ class CO2RCOptimizer:
             self.opt_RC(n_jobs=n_jobs, n_particles=n_particles, max_iter=max_iter, patience=patience, tol=tol, ntop = ntop)
             
             #%% 2) Size Components
-    
+            
+            return
+            
             self.size_components()
     
             #%% 3) From best position update your performance guesses

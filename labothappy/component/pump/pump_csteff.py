@@ -97,6 +97,9 @@ class PumpCstEff(BaseComponent):
         
     def update_connectors(self, h_ex, w_pp, W_dot_pp):
         """Update the connectors with the calculated values."""
+        self.ex.reset()
+
+        self.ex.set_p(self.inputs['P_ex'])        
         self.ex.set_h(h_ex)
         self.ex.set_fluid(self.su.fluid)
         self.ex.set_m_dot(self.su.m_dot)

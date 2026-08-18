@@ -191,12 +191,18 @@ class TankMixer(BaseComponent):
 
                 
         # Final enthalpy and pressure computation
-        mean_h = mean_h/(sum(m_dot))
+        
+        if sum(m_dot) > 0:
+            mean_h = mean_h/(sum(m_dot))
+        else:
+            mean_h = self.su_1.h
+
         mean_p = np.mean(pressures)
         
         if len(set(fluids)) == 1: # All fluids are the same
             tolerance = 100
             if self.are_pressures_close(pressures, tolerance):
+                self.ex.reset()
                 self.ex.set_fluid(self.su_1.fluid)
                 self.ex.set_p(mean_p)
                 self.ex.set_m_dot(sum(m_dot))
@@ -204,8 +210,16 @@ class TankMixer(BaseComponent):
                 
                 self.solved = True
             else:
-                self.solved = False
-                print("Pressure difference between inlets exceeds tolerance.")
+                self.ex.reset()
+                self.ex.set_fluid(self.su_1.fluid)
+                self.ex.set_p(min(pressures))
+                self.ex.set_m_dot(sum(m_dot))
+                self.ex.set_h(mean_h)
+
+                self.solved = True
+                
+                # self.solved = False
+                # print("Pressure difference between inlets exceeds tolerance.")
                 return
         else:
             raise ValueError("Mixing different fluids in 'Mixer'")

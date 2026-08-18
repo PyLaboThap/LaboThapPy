@@ -244,15 +244,6 @@ class HexCstEffDisc(BaseComponent):
         self.check_calculable()
         self.check_parametrized()
 
-        if self.su_H.T < self.su_C.T:
-            
-            if self.print_flag:
-                print("Switch sides")
-            
-            save = self.su_C
-            self.su_C = self.su_H
-            self.su_H = save
-
         if 'DP_h' in self.params:
             self.DP_h = self.params['DP_h']
             
@@ -269,52 +260,85 @@ class HexCstEffDisc(BaseComponent):
 
         self.AS_H = CP.AbstractState('BICUBIC&HEOS', self.su_H.fluid)
         self.AS_C = CP.AbstractState('BICUBIC&HEOS', self.su_C.fluid)
+    
+        if self.su_H.T < self.su_C.T:
+            
+            if self.print_flag:
+                print("ByPass")
+            
+            self.epsilon = 0
+            self.Q_dot = 0
+            
+            self.h_C_ex = self.su_C.h
+            self.p_C_ex = self.su_C.p - self.DP_c
 
-        if self.T_hot is None:
-            # Allocate arrays
-            self.h_hot = np.zeros(self.params['n_disc']+1)
-            self.h_cold = np.zeros(self.params['n_disc']+1)
-            self.T_hot = np.zeros(self.params['n_disc']+1)
-            self.T_cold = np.zeros(self.params['n_disc']+1)
-
-            self.p_hot = np.zeros(self.params['n_disc']+1)
-            self.p_cold = np.zeros(self.params['n_disc']+1)
+            self.h_H_ex = self.su_H.h
+            self.p_H_ex = self.su_H.p - self.DP_h
                 
-            # Establish pressure drops 
-            DP_h_disc = self.DP_h/self.params['n_disc']
-            DP_c_disc = self.DP_c/self.params['n_disc']
+        elif self.su_C.m_dot == 0 or self.su_H.m_dot == 0:
             
-            self.p_hot[0] = self.su_H.p
-            self.p_cold[0] = self.su_C.p
-            
-            for i in range(self.params['n_disc']):
-                self.p_hot[i+1] = self.p_hot[i] - DP_h_disc
-                self.p_cold[i+1] = self.p_cold[i] - DP_c_disc
-            
-        "Find Q_dot_max"
+            self.epsilon = 0
+            self.Q_dot = 0
 
-        self.DT_pinch = -1
+            self.h_C_ex = self.su_C.h
+            self.p_C_ex = self.su_C.p - self.DP_c
 
-        self.find_Q_dot_max()
-
-        self.DT_pinch = -1
-
-        self.epsilon = self.params['eta_max']
-
-        while self.DT_pinch <= self.params['Pinch_min']:
-            self.counterflow_discretized(self.epsilon)
-
-            if self.DT_pinch <= self.params['Pinch_min']:
-                self.epsilon -= 0.01
-                                
-                if self.epsilon <= 0:
-                    self.solved = False
+            self.h_H_ex = self.su_H.h
+            self.p_H_ex = self.su_H.p - self.DP_h
+        
+        else:
+    
+            if self.T_hot is None:
+                # Allocate arrays
+                self.h_hot = np.zeros(self.params['n_disc']+1)
+                self.h_cold = np.zeros(self.params['n_disc']+1)
+                self.T_hot = np.zeros(self.params['n_disc']+1)
+                self.T_cold = np.zeros(self.params['n_disc']+1)
+    
+                self.p_hot = np.zeros(self.params['n_disc']+1)
+                self.p_cold = np.zeros(self.params['n_disc']+1)
                     
-                    if self.print_flag:
-                        print("No eta satisfies Pinch_min in HXEffCstDisc")
+                # Establish pressure drops 
+                DP_h_disc = self.DP_h/self.params['n_disc']
+                DP_c_disc = self.DP_c/self.params['n_disc']
+                
+                self.p_hot[0] = self.su_H.p
+                self.p_cold[0] = self.su_C.p
+                
+                for i in range(self.params['n_disc']):
+                    self.p_hot[i+1] = self.p_hot[i] - DP_h_disc
+                    self.p_cold[i+1] = self.p_cold[i] - DP_c_disc
+                
+            "Find Q_dot_max"
+    
+            self.DT_pinch = -1
+    
+            self.find_Q_dot_max()
+    
+            self.DT_pinch = -1
+    
+            self.epsilon = self.params['eta_max']
+    
+            while self.DT_pinch <= self.params['Pinch_min']:
+                self.counterflow_discretized(self.epsilon)
+    
+                if self.DT_pinch <= self.params['Pinch_min']:
+                    self.epsilon -= 0.01
+                                    
+                    if self.epsilon <= 0:
+                        self.solved = False
                         
-                    return
+                        if self.print_flag:
+                            print("No eta satisfies Pinch_min in HXEffCstDisc")
+                            
+                        return
+                    
+            self.h_C_ex = self.su_C.h + self.Q_dot/self.su_C.m_dot
+            self.p_C_ex = self.p_cold[-1]
 
+            self.h_H_ex = self.su_H.h - self.Q_dot/self.su_H.m_dot
+            self.p_H_ex = self.p_hot[-1]
+            
         "Outlet states"   
         
         self.update_connectors()
@@ -328,15 +352,15 @@ class HexCstEffDisc(BaseComponent):
 
         self.ex_C.set_fluid(self.su_C.fluid)
         self.ex_C.set_m_dot(self.su_C.m_dot)
-        self.ex_C.set_h(self.su_C.h + self.Q_dot/self.su_C.m_dot)
-        self.ex_C.set_p(self.p_cold[-1])
+        self.ex_C.set_h(self.h_C_ex)
+        self.ex_C.set_p(self.p_C_ex)
 
         self.ex_H.reset()
 
         self.ex_H.set_fluid(self.su_H.fluid)
         self.ex_H.set_m_dot(self.su_H.m_dot)
-        self.ex_H.set_p(self.p_hot[-1])
-        self.ex_H.set_h(self.su_H.h - self.Q_dot/self.su_H.m_dot)
+        self.ex_H.set_p(self.p_H_ex)
+        self.ex_H.set_h(self.h_H_ex)
         
         "Heat conector"
         

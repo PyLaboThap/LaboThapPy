@@ -333,9 +333,7 @@ class HexCstPinch(BaseComponent):
         return self.res
 
     def system_cond(self, x):
-        
-        # print(f"x : {x}")
-        
+
         "1) Initialize Values"        
         self.Q_dot_sc = 0
         self.Q_dot_tp = 0
@@ -440,8 +438,6 @@ class HexCstPinch(BaseComponent):
         self.Q_dot = Q_dot_cd
         self.P_sat = P_cd
 
-        # print(f"res : {self.res}")
-
         return self.res
     
     def solve(self):
@@ -457,7 +453,7 @@ class HexCstPinch(BaseComponent):
         if not (self.calculable and self.parametrized):
             print("HTX IS NOT CALCULABLE")
             return
-
+        
         if 'DP_h' in self.params:
             self.DP_h = self.params['DP_h']
         else:
@@ -467,7 +463,7 @@ class HexCstPinch(BaseComponent):
             self.DP_c = self.params['DP_c']
         else:
             self.DP_c = 0
-
+    
         # self.su_C_save = {'T': self.su_C.T,
         #                   'P': self.su_C.p,
         #                   'H': self.su_C.h,
@@ -490,183 +486,221 @@ class HexCstPinch(BaseComponent):
         # Determine the type of heat exchanger and set the initial guess for pressure
         if self.params['HX_type'] == 'evaporator':
     
-            guess_T_sat_max = self.su_H.T
-                        
-            # print(f"guess_T_sat: {guess_T_sat}")
-            self.AS_C.update(CoolProp.QT_INPUTS,0.5,guess_T_sat_max)
-            P_ev_guess = self.AS_C.p() # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
-            x = [P_ev_guess]
+            if self.su_C.m_dot == 0 or self.su_H.m_dot == 0:
+                  
+                self.Q_dot = 0
 
-            """EVAPORATOR MODEL"""
-
-            # Ensure the pressure is non-negative
-            P_triple = self.AS_C.trivial_keyed_output(CoolProp.iP_triple)
-            
-            P_crit = self.AS_C.trivial_keyed_output(CoolProp.iP_critical)
-            
-            max_iter = 1000
-            step = 1
-            max_step = 5
-
-            lower_bound = max(P_triple*1.1 + self.DP_c/2, 0.5*P_ev_guess)
-            upper_bound = P_ev_guess
-                        
-            for i in range(max_iter):
-                                
-                res1 = self.system_evap(lower_bound)
-                res2 = self.system_evap(upper_bound)
-            
-                # print(self.su_C.p)
-                # print(self.su_C.T)
-
-                # print(res1)
-                # print(res2)
-            
-                if res1 * res2 <= 0:
-                    break
-            
-                self.su_C.set_T(self.su_C.T - step)
+                self.P_ev_x0 = self.su_C.p 
+                self.P_ev_x1 = self.su_C.p - self.DP_c
                 
-                step = min(step * 2, max_step)   # accelerate
-
-            if res1 * res2 > 0:
-                raise ValueError("Could not bracket evaporator pressure root in evaporator.")
-            
-            self.P_solution, self.results = brentq(
-                self.system_evap,
-                max(P_triple*1.1+self.DP_h, 0.1*P_ev_guess), 
-                upper_bound,
-                xtol=1e-4,
-                rtol=1e-7,
-                maxiter=100,
-                full_output=True
-            )
-            
-            
-            # self.P_solution, self.results = brentq(
-            #     self.system_evap,
-            #     lower_bound, 
-            #     upper_bound,
-            #     xtol=1e-4,
-            #     rtol=1e-7,
-            #     maxiter=100,
-            #     full_output=True
-            # )
-            
-            # self.system_evap(self.P_solution)
+                self.h_C_ex = self.su_C.h
+                self.h_H_ex = self.su_H.h
+                
+                self.update_connectors()
+                self.solved = True
+                # print(f"P_evap_model : {self.ex_C.p}")
+            else:
+                guess_T_sat_max = self.su_H.T
+                            
+                # print(f"guess_T_sat: {guess_T_sat}")
+                self.AS_C.update(CoolProp.QT_INPUTS,0.5,guess_T_sat_max)
+                P_ev_guess = self.AS_C.p() # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
+                x = [P_ev_guess]
     
-            """Update connectors after the calculations"""
-            self.update_connectors()
+                """EVAPORATOR MODEL"""
+    
+                # Ensure the pressure is non-negative
+                P_triple = self.AS_C.trivial_keyed_output(CoolProp.iP_triple)
+                
+                P_crit = self.AS_C.trivial_keyed_output(CoolProp.iP_critical)
+                
+                max_iter = 1000
+                step = 1
+                max_step = 5
+    
+                lower_bound = max(P_triple*1.1 + self.DP_c/2, 0.5*P_ev_guess)
+                upper_bound = P_ev_guess
+                            
+                for i in range(max_iter):
+                                    
+                    res1 = self.system_evap(lower_bound)
+                    res2 = self.system_evap(upper_bound)
+                
+                    # print(self.su_C.p)
+                    # print(self.su_C.T)
+    
+                    # print(res1)
+                    # print(res2)
+                
+                    if res1 * res2 <= 0:
+                        break
+                
+                    self.su_C.set_T(self.su_C.T - step)
+                    
+                    step = min(step * 2, max_step)   # accelerate
+    
+                if res1 * res2 > 0:
+                    raise ValueError("Could not bracket evaporator pressure root in evaporator.")
+                
+                self.P_solution, self.results = brentq(
+                    self.system_evap,
+                    lower_bound, 
+                    upper_bound,
+                    xtol=1e-4,
+                    rtol=1e-7,
+                    maxiter=100,
+                    full_output=True
+                )
+                
+                
+                # self.P_solution, self.results = brentq(
+                #     self.system_evap,
+                #     lower_bound, 
+                #     upper_bound,
+                #     xtol=1e-4,
+                #     rtol=1e-7,
+                #     maxiter=100,
+                #     full_output=True
+                # )
+                
+                # self.system_evap(self.P_solution)
+        
+                """Update connectors after the calculations"""
+                self.update_connectors()
 
-            # Mark the model as solved if successful
-            if self.results.converged:
-                if abs(self.res) < 1e-1:
-                    self.solved = True
+                # Mark the model as solved if successful
+                if self.results.converged:
+                    if abs(self.res) < 1e-1:
+                        self.solved = True
+                    else:
+                        if self.print_flag:
+                            print(f"System not solved according to specified tolerance in Evaporator - res = {self.res}")
+                        self.solved = False
                 else:
                     if self.print_flag:
                         print(f"System not solved according to specified tolerance in Evaporator - res = {self.res}")
                     self.solved = False
-            else:
-                if self.print_flag:
-                    print(f"System not solved according to specified tolerance in Evaporator - res = {self.res}")
-                self.solved = False
+                        
+                # except Exception as e:
+                #     # Handle any errors that occur during solving
+                #     self.solved = False
                     
-            # except Exception as e:
-            #     # Handle any errors that occur during solving
-            #     self.solved = False
-                
-            #     if self.print_flag:
-            #         print(f"Convergence problem in evaporator model: {e}")
+                #     if self.print_flag:
+                #         print(f"Convergence problem in evaporator model: {e}")
 
         elif self.params['HX_type'] == 'condenser':
             # print("="*30)
             # print(f"CD Solve - T_su_H {self.su_H.T} - P_su_H {self.su_H.p}")
             # print("="*30)
             
-            guess_T_sat_min = self.su_C.T
-                        
-            self.AS_H.update(CoolProp.QT_INPUTS,0.5,guess_T_sat_min)
-            P_cd_guess = self.AS_H.p() # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
-            x = [P_cd_guess]
-            
-            # try:
-            # Ensure the pressure is non-negative
-            P_triple = self.AS_H.trivial_keyed_output(CoolProp.iP_triple)
-            P_crit = self.AS_H.trivial_keyed_output(CoolProp.iP_critical)
+            if self.su_C.m_dot == 0 or self.su_H.m_dot == 0:
+                  
+                self.Q_dot = 0
 
-            
-            max_iter = 100
-            step = 1
-            max_step = 5
-            
-            for _ in range(max_iter):
+                self.P_cd_x0 = self.su_H.p - self.DP_h
+                self.P_cd_x1 = self.su_H.p
                 
-                # print(f"su_H.T : {self.su_H.T}")
+                self.h_C_ex = self.su_C.h
+                self.h_H_ex = self.su_H.h
+            
+                self.update_connectors()
+                self.solved = True
                 
-                # Recalculer les bornes à chaque itération
-                self.AS_H.update(CoolProp.QT_INPUTS, 0.5, self.su_C.T)  # ← basé sur T_su_C + pinch
-                lower_bound = self.AS_H.p()
+            else:
                 
-                self.AS_H.update(CoolProp.QT_INPUTS, 0.5, self.su_H.T)
-                upper_bound = min(P_crit * 0.95, self.AS_H.p())
-
-                # print(f"T_su_H: {self.su_H.T}")
+                guess_T_sat_min = self.su_C.T
+                            
+                self.AS_H.update(CoolProp.QT_INPUTS,0.5,guess_T_sat_min)
+                P_cd_guess = self.AS_H.p() # Guess the saturation pressure, first checks if P_sat is in the guesses dictionary, if not it calculates it
+                x = [P_cd_guess]
                 
-                res1 = self.system_cond(lower_bound)
-                res2 = self.system_cond(upper_bound)
+                # try:
+                # Ensure the pressure is non-negative
+                P_triple = self.AS_H.trivial_keyed_output(CoolProp.iP_triple)
+                P_crit = self.AS_H.trivial_keyed_output(CoolProp.iP_critical)
+    
                 
-                if res1 * res2 <= 0:
-                    break
+                max_iter = 100
+                step = 1
+                max_step = 5
                 
-                self.su_H.set_T(self.su_H.T + step)
-                                
-                step = min(step * 2, max_step)
-            
-            if res1 * res2 > 0:
-                raise ValueError("Could not bracket condenser pressure root.")
-            
-            """CONDENSER MODEL"""
-            
-            self.P_solution, self.results = brentq(
-                self.system_cond,
-                max(P_triple*1.1+self.DP_h, 0.1*P_cd_guess), 
-                upper_bound,
-                xtol=1e-4,
-                rtol=1e-7,
-                maxiter=100,
-                full_output=True
-            )
-            
-            # self.P_solution, self.results = brentq(
-            #     self.system_cond,
-            #     lower_bound, 
-            #     upper_bound,
-            #     xtol=1e-4,
-            #     rtol=1e-7,
-            #     maxiter=100,
-            #     full_output=True
-            # )
-            
-            self.system_cond(self.P_solution)
-            
-            # self.results = minimize(self.system_evap, x, method="L-BFGS-B", tol=1e-8)
-            
-            """Update connectors after the calculations"""
-            self.update_connectors()
-
-            # Mark the model as solved if successful
-            if self.results.converged:
-                if abs(self.res) < 1e-1:
-                    self.solved = True
+                for _ in range(max_iter):
+                    
+                    # print(f"su_H.T : {self.su_H.T}")
+                    
+                    # print(self.su_C.p)
+                    # print(self.su_C.T)
+                    
+                    # Recalculer les bornes à chaque itération
+                    self.AS_H.update(CoolProp.QT_INPUTS, 0.5, self.su_C.T)  # ← basé sur T_su_C + pinch
+                    lower_bound = self.AS_H.p()
+                    
+                    self.AS_H.update(CoolProp.QT_INPUTS, 0.5, self.su_H.T)
+                    upper_bound = min(P_crit * 0.95, self.AS_H.p())
+    
+                    # print(f"T_su_H: {self.su_H.T}")
+                    
+                    res1 = self.system_cond(lower_bound)
+                    res2 = self.system_cond(upper_bound)
+                    
+                    # print(f"lower_bound : {lower_bound}")
+                    # print(f"upper_bound : {upper_bound}")
+                    
+                    # print(f"res1 : {res1}")
+                    # print(f"res2 : {res2}")
+                    
+                    if res1 * res2 <= 0:
+                        break
+                    
+                    self.su_H.set_T(self.su_H.T + step)
+                                    
+                    step = min(step * 2, max_step)
+                
+                if res1 * res2 > 0:
+                    raise ValueError("Could not bracket condenser pressure root.")
+                
+                """CONDENSER MODEL"""
+                
+                self.P_solution, self.results = brentq(
+                    self.system_cond,
+                    lower_bound, 
+                    upper_bound,
+                    xtol=1e-4,
+                    rtol=1e-7,
+                    maxiter=100,
+                    full_output=True
+                )
+                
+                # self.P_solution, self.results = brentq(
+                #     self.system_cond,
+                #     lower_bound, 
+                #     upper_bound,
+                #     xtol=1e-4,
+                #     rtol=1e-7,
+                #     maxiter=100,
+                #     full_output=True
+                # )
+                
+                self.system_cond(self.P_solution)
+        
+                # self.results = minimize(self.system_evap, x, method="L-BFGS-B", tol=1e-8)
+                
+                """Update connectors after the calculations"""
+                self.update_connectors()
+    
+                # Mark the model as solved if successful
+                if self.results.converged:
+                    if abs(self.res) < 1e-1:
+                        self.solved = True
+                    else:
+                        if self.print_flag:
+                            print(f"System not solved according to specified tolerance in Condenser - res = {self.results.fun}")
+                        self.solved = False
                 else:
                     if self.print_flag:
                         print(f"System not solved according to specified tolerance in Condenser - res = {self.results.fun}")
                     self.solved = False
-            else:
-                if self.print_flag:
-                    print(f"System not solved according to specified tolerance in Condenser - res = {self.results.fun}")
-                self.solved = False
-                    
+                        
                         
             # except Exception as e:
             #     # Handle any errors that occur during solving
@@ -716,15 +750,14 @@ class HexCstPinch(BaseComponent):
             # print(f"P_evap_model : {self.ex_C.p}")
             
         else: 
-
             h_su_H = self.su_H.h
             m_dot_su_H = self.su_H.m_dot
             
             self.su_H.reset()
             
+            self.su_H.set_p(self.P_cd_x1)            
             self.su_H.set_h(h_su_H)
             self.su_H.set_m_dot(m_dot_su_H)
-            self.su_H.set_p(self.P_cd_x1)            
 
             self.ex_H.reset()
 
@@ -739,7 +772,7 @@ class HexCstPinch(BaseComponent):
             self.ex_C.set_fluid(self.su_C.fluid)
             self.ex_C.set_m_dot(self.su_C.m_dot)
             self.ex_C.set_p(self.su_C.p - self.DP_c)
-            self.ex_C.set_T(self.T_C_ex)
+            self.ex_C.set_h(self.h_C_ex)
                         
             "Heat conector"
             self.Q.set_Q_dot(self.Q_dot)
