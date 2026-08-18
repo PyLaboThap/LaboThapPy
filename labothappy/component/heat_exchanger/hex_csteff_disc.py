@@ -1,8 +1,8 @@
 
-from connector.mass_connector import MassConnector
-from connector.heat_connector import HeatConnector
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.connector.heat_connector import HeatConnector
 
-from component.base_component import BaseComponent
+from labothappy.component.base_component import BaseComponent
 
 # from component.heat_exchanger.moving_boundary.simple_model.modules.U import U_Gnielinski_calibrated, U_DittusBoelter, U_Cooper_calibrater, U_Thonon
 

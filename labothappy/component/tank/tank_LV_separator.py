@@ -24,8 +24,8 @@ import __init__
  
 "INTERNAL IMPORTS"
 
-from connector.mass_connector import MassConnector
-from component.base_component import BaseComponent
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.component.base_component import BaseComponent
 
 # !!! Put what you need to import here from the library
 

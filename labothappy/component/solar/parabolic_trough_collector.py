@@ -16,10 +16,9 @@ import __init__
 #import component.solar.parabolictroughcollector as parabolictroughcollector
 import CoolProp.CoolProp as CP
 import numpy as np
-from component.base_component import BaseComponent
-
-from connector.mass_connector import MassConnector
-from connector.heat_connector import HeatConnector
+from labothappy.component.base_component import BaseComponent
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.connector.heat_connector import HeatConnector
 
 
 class PTCollector(BaseComponent):

@@ -10,25 +10,25 @@ from scipy.optimize import fsolve
 import CoolProp.CoolProp as CP
 
 # Connectors
-from connector.mass_connector import MassConnector
-from connector.heat_connector import HeatConnector
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.connector.heat_connector import HeatConnector
 
 # HTC correlations
-from correlations.convection.fins_htc import htc_tube_and_fins
-from correlations.convection.pipe_htc import gnielinski_pipe_htc
-from correlations.convection.pipe_htc import horizontal_tube_internal_condensation
-from correlations.convection.pipe_htc import horizontal_flow_boiling
+from labothappy.correlations.convection.fins_htc import htc_tube_and_fins
+from labothappy.correlations.convection.pipe_htc import gnielinski_pipe_htc
+from labothappy.correlations.convection.pipe_htc import horizontal_tube_internal_condensation
+from labothappy.correlations.convection.pipe_htc import horizontal_flow_boiling
 
 #Pressure drop correlations
-from correlations.pressure_drop.fins_DP import DP_tube_and_fins
-from correlations.pressure_drop.pipe_DP import gnielinski_pipe_DP, Muller_Steinhagen_Heck_DP
+from labothappy.correlations.pressure_drop.fins_DP import DP_tube_and_fins
+from labothappy.correlations.pressure_drop.pipe_DP import gnielinski_pipe_DP, Muller_Steinhagen_Heck_DP_Simple
 
 
 # Phase related import
-from correlations.properties.void_fraction import void_fraction
+from labothappy.correlations.properties.void_fraction import void_fraction
 
 # Component base frame
-from component.base_component import BaseComponent
+from labothappy.component.base_component import BaseComponent
 
 class HexCrossFlowTubeAndFinsFiniteVolume(BaseComponent):
     """
@@ -322,7 +322,7 @@ class HexCrossFlowTubeAndFinsFiniteVolume(BaseComponent):
             AS_t.update(CP.PQ_INPUTS, p_t_in, 0)
             P_sat = p_t_in
                         
-            DP_t = Muller_Steinhagen_Heck_DP(AS_t, G_1t, P_sat, x, self.params['Tube_L']/self.params['n_disc'], D_h_one_tube)           
+            DP_t = Muller_Steinhagen_Heck_DP_Simple(AS_t, G_1t, P_sat, x, x, self.params['Tube_L']/self.params['n_disc'], D_h_one_tube)           
             if T_wall <= T_t_in: # Condensation
                 alpha_t = horizontal_tube_internal_condensation(self.T_su.fluid,self.T_su.m_dot,P_sat,h_t_in,T_wall,self.params['Tube_OD'] - self.params['Tube_t'])
             else: # Evaporation

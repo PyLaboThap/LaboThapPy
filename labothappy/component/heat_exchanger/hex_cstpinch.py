@@ -17,11 +17,11 @@ if project_root not in sys.path:
 
 #%%
 
-from connector.mass_connector import MassConnector
-from connector.work_connector import WorkConnector
-from connector.heat_connector import HeatConnector
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.connector.work_connector import WorkConnector
+from labothappy.connector.heat_connector import HeatConnector
 
-from component.base_component import BaseComponent
+from labothappy.component.base_component import BaseComponent
 
 from CoolProp.CoolProp import AbstractState
 import CoolProp.CoolProp as CoolProp

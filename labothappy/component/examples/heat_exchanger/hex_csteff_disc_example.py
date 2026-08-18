@@ -1,6 +1,6 @@
 from labothappy.component.heat_exchanger.hex_csteff_disc import HexCstEffDisc
 
-case_study = "GasCooler"
+case_study = "RecupHT"
 
 #Exo ORC M&S
 HTX = HexCstEffDisc()
@@ -32,8 +32,7 @@ if case_study == 'GasCooler':
     HTX.solve()
     HTX.plot_disc()
     
-    fig = HTX.plot_Ts(choose_HX_side='H')
-    fig.show()
+    # fig = HTX.plot_Ts(choose_HX_side='H')
 
 elif case_study == "RecupHT":
     

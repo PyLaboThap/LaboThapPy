@@ -286,9 +286,7 @@ class EjectorCstEff(BaseComponent):
                 "EjectorCstEff could not be solved. It is not calculable and/or not parametrized"
             )
             return
-        
-        print("A")
-        
+                
         "1) Motive nozzle"        
         # ── Recherche de P_b par Brent ──────────────────────────────────────────
         # Bornes : P_evap < P_b < P_gc
@@ -317,8 +315,6 @@ class EjectorCstEff(BaseComponent):
             
         self.A_mb = 1 / (self.rho_mb*self.v_mb*self.su_1.m_dot)
 
-        print("B")
-
         "2) Suction chamber"
         
         self.params['w'] = self.su_2.m_dot/self.su_1.m_dot # Entrainement ratio
@@ -329,8 +325,6 @@ class EjectorCstEff(BaseComponent):
         
         self.P_b_suction = brentq(self.suction_chamber, P_Triple, self.su_2.p*0.999, xtol=1e-5, rtol=1e-6)
         
-        print("C")
-
         "3) Mixing section"
         
         h0_mb  = self.h_mb + self.v_mb**2 / 2.0
@@ -352,9 +346,7 @@ class EjectorCstEff(BaseComponent):
                 converged = True
             except:
                 self.v_min += 1
-               
-        print("D")
-        
+                       
         "4) Diffuser flow"
 
         # Ideal exit: all kinetic energy recovered isentropically
@@ -406,8 +398,6 @@ class EjectorCstEff(BaseComponent):
         self.params['A_sb'] = self.A_sb
         self.params['A_mix'] = self.A_mix
         
-        print("E")
-
         self.solved = True
         self.update_connectors(self.P_ex, self.h_ex, self.m_dot_ex)
 

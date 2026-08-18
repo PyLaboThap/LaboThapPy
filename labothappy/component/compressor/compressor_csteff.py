@@ -1,8 +1,8 @@
 import __init__
 
-from component.base_component import BaseComponent
-from connector.mass_connector import MassConnector
-from connector.work_connector import WorkConnector
+from labothappy.component.base_component import BaseComponent
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.connector.work_connector import WorkConnector
 
 from CoolProp.CoolProp import PropsSI
 import CoolProp.CoolProp as CP

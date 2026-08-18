@@ -30,5 +30,4 @@ for i in range(len(spliter.outlet_repartition)):
 
 # Plot States
 fig = spliter.plot_Ts()
-fig.show()
 

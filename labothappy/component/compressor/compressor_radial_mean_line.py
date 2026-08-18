@@ -2,11 +2,12 @@ from labothappy.component.base_component import BaseComponent
 from labothappy.connector.mass_connector import MassConnector
 from labothappy.connector.work_connector import WorkConnector
 
+from labothappy.correlations.turbomachinery.radial_compressor_losses import radial_compressor_rotor_losses, radial_compressor_stator_losses
+
 from CoolProp.CoolProp import PropsSI
 import CoolProp.CoolProp as CP
 import numpy as np
 from scipy.optimize import minimize, brentq
-from labothappy.correlations.turbomachinery.radial_compressor_losses import radial_compressor_rotor_losses, radial_compressor_stator_losses
 
 class CompressorRadialMeanLine(BaseComponent):
     """
@@ -270,7 +271,7 @@ class CompressorRadialMeanLine(BaseComponent):
         res_max = system_rotor(vm2_max)
         
         if res_min * res_max > 0:
-            raise ValueError()
+            raise ValueError("CompressorRadialMeanLine: No solution can be found in rotor exhaust solving.")
         
         self.sol_rotor_ex = brentq(system_rotor, vm2_min, vm2_max, xtol=1e-6)
         
@@ -351,7 +352,7 @@ class CompressorRadialMeanLine(BaseComponent):
             self.Vel_Tri_S['vu4'] = vu4 = self.Vel_Tri_S['vu3']
             self.Vel_Tri_S['vm4'] = vm4 = np.sqrt(max(v4**2 - vu4**2, 0))
             self.Vel_Tri_S['alpha4'] = alpha4 = np.arctan(vu4 / vm4)
-            
+                        
             self.Vel_Tri_S['u4']   = u4  = self.Vel_Tri_R['u3']
             self.Vel_Tri_S['wu4']  = wu4 = vu4 - u4
             self.Vel_Tri_S['wm4']  = wm4 = vm4
@@ -363,7 +364,7 @@ class CompressorRadialMeanLine(BaseComponent):
             return res
         
         h4_min = self.static_states['H'][3] * 0.9
-        h4_max = self.total_states['H'][4]
+        h4_max = self.total_states['H'][4]*0.999
         
         self.sol_vaned_diff = brentq(vaned_diffuser_inlet_system, h4_min, h4_max, xtol=1e-6)
         
@@ -480,15 +481,19 @@ class CompressorRadialMeanLine(BaseComponent):
         hout_is = self.AS.hmass()
         self.eta_is_tt = (hout_is - self.total_states['H'][1]) / \
                          (self.total_states['H'][5] - self.total_states['H'][1])
+        
+        w = self.total_states['H'][5] - self.total_states['H'][1]
+        
+        self.update_connectors(self.total_states['H'][5], self.total_states['P'][5], w, w*self.inputs['m_dot']) 
                
         return 
     
-    def update_connectors(self, h_ex, w, W_dot):
+    def update_connectors(self, h_ex, p_ex, w, W_dot):
         
         self.ex.reset()
         
         self.ex.set_h(h_ex)
-        self.ex.set_p(self.inputs['P_ex'])
+        self.ex.set_p(p_ex)
         self.ex.set_fluid(self.su.fluid)
         self.ex.set_m_dot(self.su.m_dot)
         
@@ -502,8 +507,11 @@ class CompressorRadialMeanLine(BaseComponent):
         print(f"  - ex: fluid={self.ex.fluid}, T={self.ex.T}, p={self.ex.p}, h={self.ex.h}")
 
         print("\nResults:")
+        print(f"  - p_ex: {self.ex.p}")
         print(f"  - h_ex: {self.ex.h}")
         print(f"  - T_ex: {self.ex.T}")
+        print(f"  - eta_is_tt: {self.eta_is_tt}")
+        print(f"  - W_dot: {self.W.W_dot}")
         print("=========================")
 
     def print_states_connectors(self):
@@ -512,48 +520,3 @@ class CompressorRadialMeanLine(BaseComponent):
         print(f"  - su: fluid={self.su.fluid}, T={self.su.T} [K], p={self.su.p} [Pa], h={self.su.h} [J/kg], s={self.su.s} [J/K.kg], m_dot={self.su.m_dot} [kg/s]")
         print(f"  - ex: fluid={self.ex.fluid}, T={self.ex.T} [K], p={self.ex.p} [Pa], h={self.ex.h} [J/kg], s={self.ex.s} [J/K.kg], m_dot={self.ex.m_dot} [kg/s]")
         print("=========================")
-
-if __name__ == "__main__":
-    
-    Comp = CompressorRadialMeanLine()
-
-    Comp.set_inputs(
-        fluid = 'CO2',
-        m_dot  = 1.5*2.15,
-        T_su = 305.97,
-        P_su = 76.9*1e5,
-        N_rot  = 50000,
-    )
-
-    Comp.set_parameters(
-        alpha1_des = 1.063  *180/np.pi,
-        n_blade_R = 15, 
-        t_b = 0.762*1e-3,
-        
-        b1 = 0.00684,
-        b2 = 0.00216,
-        b3 = 0.00216,        
-        b5 = 0.00216,
-        
-        CP           = 0.44,
-
-        eps_imp      = 0.254*1e-3,
-        eps_bf_imp   = 0.254*1e-3,
-        k_imp        = 0.01*1e-3,
-                
-        L_z = 0.1137,
-        
-        r1 = 0.0077,
-        r1s = 0.011,
-        r1h = 0.0042,
-        r2 = 0.0217, 
-        r3 = 0.0396,
-        r5 = 0.0494,
-        
-        xhi1 = 46.89,
-        xhi2 = 43.44,
-        xhi4 = 1.433    *180/np.pi,
-        xhi5 = 0.00036  *180/np.pi,
-        )
-
-    Comp.solve()

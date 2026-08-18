@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 from CoolProp.CoolProp import PropsSI
 
-case_test = 'EVAP_C5'
+case_test = 'COND_CO2'
 
 "Evaporator test"
 
@@ -165,8 +165,8 @@ elif case_test == 'COND_CO2':
     COND.set_inputs(
         fluid_H = 'CO2',
         T_su_H = 30+273.15,
-        P_su_H = 55*1e5,
-        m_dot_H = 30,
+        P_su_H = 60*1e5,
+        m_dot_H = 15,
         
         fluid_C = 'Water',
         T_su_C = 15+273.15,

@@ -29,4 +29,3 @@ Valve.solve()
 Valve.print_results()
 
 fig = Valve.plot_Ts()
-fig.show()

@@ -5,8 +5,8 @@ Created on Fri May 10 14:31:24 2024
 @author: Basile - Marie 
 """
 
-from connector.mass_connector import MassConnector
-from component.base_component import BaseComponent
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.component.base_component import BaseComponent
 import numpy as np         
             
             

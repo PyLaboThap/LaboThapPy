@@ -28,7 +28,7 @@ from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HexMBCha
 
 HX = HexMBChargeSensitive('Plate')
 
-case_study = "R1233zd(E)_COND"
+case_study = "C5_COND"
 
 # "Setting inputs"
 if case_study == "C5_COND":

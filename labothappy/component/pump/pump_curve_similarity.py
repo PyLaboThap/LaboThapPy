@@ -4,9 +4,9 @@ from scipy.optimize import root_scalar
 import CoolProp.CoolProp as CP
 
 # Internal imports
-from component.base_component import BaseComponent
-from connector.mass_connector import MassConnector
-from connector.work_connector import WorkConnector
+from labothappy.component.base_component import BaseComponent
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.connector.work_connector import WorkConnector
 
 class PumpCurveSimilarity(BaseComponent):
     """
@@ -141,8 +141,6 @@ class PumpCurveSimilarity(BaseComponent):
             self.su.set_m_dot(m_dot)
             self.su.set_x(0)
         
-        self.ex.reset()
-        
         if not self.calculable or not self.parametrized:
             print("Component is not calculable or not parametrized")
             return
@@ -161,6 +159,8 @@ class PumpCurveSimilarity(BaseComponent):
 
         elif self.params["mode"] == "M_N": # Given P_su, T_su, N_rot, m_dot
             self.solve_MN()
+            
+        self.update_connectors(self.ex.h, self.ex.h - self.su.h, self.W.W_dot)
             
         self.solved = True
             
@@ -518,3 +518,16 @@ class PumpCurveSimilarity(BaseComponent):
 
         plt.tight_layout()
         plt.show()
+
+    def update_connectors(self, h_ex, w_pp, W_dot_pp):
+        """Update the connectors with the calculated values."""
+        self.ex.reset()
+
+        self.ex.set_p(self.inputs['P_ex'])        
+        self.ex.set_h(h_ex)
+        self.ex.set_fluid(self.su.fluid)
+        self.ex.set_m_dot(self.su.m_dot)
+        self.W.set_w(w_pp)
+        self.W.set_W_dot(W_dot_pp)
+        
+        

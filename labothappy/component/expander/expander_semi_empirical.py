@@ -12,10 +12,10 @@ from scipy.optimize import fsolve
 import numpy as np
 
 "Internal modules"
-from component.base_component import BaseComponent
-from connector.mass_connector import MassConnector
-from connector.work_connector import WorkConnector
-from connector.heat_connector import HeatConnector
+from labothappy.component.base_component import BaseComponent
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.connector.work_connector import WorkConnector
+from labothappy.connector.heat_connector import HeatConnector
 
 class ExpanderSE(BaseComponent):
     """

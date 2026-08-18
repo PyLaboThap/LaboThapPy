@@ -83,64 +83,64 @@ def Darcy_Weisbach(mu, rho, G, Dh, L):
     
     return DP
 
-# def Muller_Steinhagen_Heck_DP(AS, G, P_sat, x_in, x_out, L, D_in):
-#     """
-#     Pressure drop correlation for two-phase flow (condensation & evaporation)
-#     in smooth tubes, based on the Müller-Steinhagen and Heck model.
+def Muller_Steinhagen_Heck_DP_Simple(AS, G, P_sat, x_in, x_out, L, D_in):
+    """
+    Pressure drop correlation for two-phase flow (condensation & evaporation)
+    in smooth tubes, based on the Müller-Steinhagen and Heck model.
 
-#     Inputs:
-#     -------
-#     fluid : Fluid name (e.g., 'R134a')
-#     G : Mass flux [kg/(m^2*s)]
-#     P_sat : Saturation pressure [Pa]
-#     x : Vapor quality (mass fraction, 0 <= x <= 1)
-#     L : Tube length [m]
-#     D_in : Hydraulic diameter [m]
+    Inputs:
+    -------
+    fluid : Fluid name (e.g., 'R134a')
+    G : Mass flux [kg/(m^2*s)]
+    P_sat : Saturation pressure [Pa]
+    x : Vapor quality (mass fraction, 0 <= x <= 1)
+    L : Tube length [m]
+    D_in : Hydraulic diameter [m]
 
-#     Returns:
-#     --------
-#     DP : Pressure drop [Pa]
+    Returns:
+    --------
+    DP : Pressure drop [Pa]
 
-#     Reference:
-#     ----------
-#     Müller-Steinhagen, H., & Heck, K. (1986). A general correlation for pressure drops in two-phase flow in pipes. 
-#     Int. J. Heat Mass Transfer, 29(3), 381–388.
-#     """    
+    Reference:
+    ----------
+    Müller-Steinhagen, H., & Heck, K. (1986). A general correlation for pressure drops in two-phase flow in pipes. 
+    Int. J. Heat Mass Transfer, 29(3), 381–388.
+    """    
     
-#     # Get liquid properties at saturation
-#     AS.update(CP.PQ_INPUTS, P_sat, 0)
+    # Get liquid properties at saturation
+    AS.update(CP.PQ_INPUTS, P_sat, 0)
     
-#     mu_l = AS.viscosity()  # Dynamic viscosity [Pa·s]
-#     rho_l = AS.rhomass()  # Density [kg/m³]
+    mu_l = AS.viscosity()  # Dynamic viscosity [Pa·s]
+    rho_l = AS.rhomass()  # Density [kg/m³]
     
-#     # Get vapor properties at saturation
-#     AS.update(CP.PQ_INPUTS, P_sat, 1)
+    # Get vapor properties at saturation
+    AS.update(CP.PQ_INPUTS, P_sat, 1)
     
-#     mu_v = AS.viscosity()  # Dynamic viscosity [Pa·s]
-#     rho_v = AS.rhomass()  # Density [kg/m³]
+    mu_v = AS.viscosity()  # Dynamic viscosity [Pa·s]
+    rho_v = AS.rhomass()  # Density [kg/m³]
 
-#     # Reynolds numbers
-#     Re_l = G * D_in / mu_l
-#     Re_v = G * D_in / mu_v
+    # Reynolds numbers
+    Re_l = G * D_in / mu_l
+    Re_v = G * D_in / mu_v
 
-#     # Friction factors (Blasius correlation for turbulent flow)
-#     f_l = 0.079 / Re_l**0.25
-#     f_v = 0.079 / Re_v**0.25
+    # Friction factors (Blasius correlation for turbulent flow)
+    f_l = 0.079 / Re_l**0.25
+    f_v = 0.079 / Re_v**0.25
 
-#     # Pressure gradient terms
-#     A = f_l * 2 * G**2 / (D_in * rho_l)
-#     B = f_v * 2 * G**2 / (D_in * rho_v)
+    # Pressure gradient terms
+    A = f_l * 2 * G**2 / (D_in * rho_l)
+    B = f_v * 2 * G**2 / (D_in * rho_v)
 
-#     # Müller-Steinhagen-Heck pressure gradient model
-#     # Y = A + 2 * (B - A) * x
-#     # DP_dz = Y * (1 - x)**(1/3) + B * x**3
-#     F = lambda x: -(3/4)*(1-x)**(4/3)*(A + 2*(B-A)*x) + (1/4)*B*x**4 - (9/14)*(B-A)*(1-x)**(7/3)
-#     DP = F(x_out) - F(x_in)
+    # Müller-Steinhagen-Heck pressure gradient model
+    # Y = A + 2 * (B - A) * x
+    # DP_dz = Y * (1 - x)**(1/3) + B * x**3
+    F = lambda x: -(3/4)*(1-x)**(4/3)*(A + 2*(B-A)*x) + (1/4)*B*x**4 - (9/14)*(B-A)*(1-x)**(7/3)
+    DP = F(x_out) - F(x_in)
     
-#     # # Total pressure drop over length L
-#     # DP = DP_dz * L
+    # # Total pressure drop over length L
+    # DP = DP_dz * L
 
-#     return DP
+    return DP
 
 def Muller_Steinhagen_Heck_DP(
     AS, G, P_sat, x_in, x_out, q_pp, D_in, L, n_disc

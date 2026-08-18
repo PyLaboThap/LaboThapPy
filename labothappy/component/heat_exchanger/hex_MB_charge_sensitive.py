@@ -2346,9 +2346,9 @@ class HexMBChargeSensitive(BaseComponent):
                 C_max = max(C_c,C_h)
                 C_r = C_min/C_max
                                 
-                if self.params['n_series'] > 1:
-                    self.R = (Thi - Tho)/(Tco - Tci)
-                    self.P = (Tco - Tci)/(Thi - Tci)
+                # if self.params['n_series'] > 1:
+                self.R = (Thi - Tho)/(Tco - Tci)
+                self.P = (Tco - Tci)/(Thi - Tci)
                                     
                 if self.params['Flow_Type'] == 'Shell&Tube':
 
@@ -2693,15 +2693,6 @@ class HexMBChargeSensitive(BaseComponent):
         self.eval += 1      
         
         self.w_prev = [0]
-        
-        # print(Q)
-        # print(self.w)
-        # print(self.hvec_c)
-        # print(self.hvec_h)
-        # print(self.F)
-        # print(self.LMTD)
-        # print(self.UA_avail)
-        # print(self.UA_req)
 
         # print("=="*20)
         

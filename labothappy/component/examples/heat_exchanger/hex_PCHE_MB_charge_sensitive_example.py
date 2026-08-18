@@ -24,7 +24,7 @@ from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HexMBCha
 
 HX = HexMBChargeSensitive('PCHE')
 
-test_case = "TCO2_recup"
+test_case = "test_CO2"
 
 # # "Setting inputs"
 

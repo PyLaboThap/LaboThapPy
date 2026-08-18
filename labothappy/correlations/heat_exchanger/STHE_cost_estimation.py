@@ -15,7 +15,7 @@ Antonio C. Caputo, Pacifico M. Pelagagge, Paolo Salini
 import numpy as np
 import matplotlib.pyplot as plt
 
-from toolbox.economics.cpi_data import actualize_price
+from labothappy.toolbox.economics.cpi_data import actualize_price
 
 def total_STHE_cost(HX, n_y=10, h_per_y=7000, C_e=0.12, i=0.1, eta_pp=0.8):
     """

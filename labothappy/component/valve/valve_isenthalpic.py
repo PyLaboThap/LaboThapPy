@@ -1,5 +1,5 @@
-from component.base_component import BaseComponent
-from connector.mass_connector import MassConnector
+from labothappy.component.base_component import BaseComponent
+from labothappy.connector.mass_connector import MassConnector
 
 
 class ValveIsenthalpic(BaseComponent):
