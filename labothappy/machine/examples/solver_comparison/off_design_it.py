@@ -234,3 +234,5 @@ for i, (s, T) in enumerate(zip(s_array, T_array)):
 
 TS_curve = TS_curve_generator(fluid)
 TS_curve.points(s_array, T_array)
+
+orc.plot_cycle_Ts()

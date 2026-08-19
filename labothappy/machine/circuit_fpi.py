@@ -204,19 +204,6 @@ class CircuitFPI(BaseCircuit):
             self.DP       = sum(delta_Ps.values())
             return self.DP
     
-        # def update_it_var(self, components, cycle):
-            
-        #     if self.obj_type == "Link":
-        #         if self.it_prop_name == self.obj_prop_name == 'p':
-            
-        #             self.DP_gain          = self.find_link_DP(components)                    
-        #             connector_obj = getattr(components[self.obj_comp_name].model, self.obj_connector_name)
-        #             value_obj     = getattr(connector_obj, self.obj_prop_name)
-                    
-        #             update_guess_target = self.it_comp_name + ":" + self.it_connector_name                    
-        #             cycle.set_cycle_guess(target=update_guess_target, **{self.it_prop_name: value_obj + self.DP_gain})
-                                        
-        #     else:
         def update_it_var(self, components, cycle):
     
             if self.obj_type == "Link":

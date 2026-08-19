@@ -55,8 +55,8 @@ class IterativeCircuit(BaseCircuit):
                 "value": value
             }
 
-        # Apply immediately
-        connector.set_properties(**kwargs)
+    #     # Apply immediately
+    #     connector.set_properties(**kwargs)
 
     def _apply_source_inputs(self):
 
