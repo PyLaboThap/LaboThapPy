@@ -7,7 +7,7 @@ CO2 Transcritical Rankine Cycle Optimizer
 
 #%% Imports
 
-from labothappy.machine.examples.CO2_Transcritical_Circuits.CO2_Transcritical_circuit import REC_CO2_TC, basic_CO2_TC
+from labothappy.machine.examples.ORC.fpi_TC_orc_example import REC_CO2_TC, basic_CO2_TC
 from labothappy.connector.mass_connector import MassConnector
 
 import numpy as np
@@ -19,7 +19,6 @@ import multiprocessing
 
 import warnings
 warnings.filterwarnings('ignore')
-
 
 #%% Top-level parallel evaluation function
 # Must be defined at module level for joblib/loky to pickle it.
@@ -297,7 +296,7 @@ class CO2RCOptimizer:
 
     # ------------------------------------------------------------------ optimise
 
-    def opt_RC(self, n_particles=100, max_iter=30, patience=None,
+    def opt_RC(self, n_jobs = 1, n_particles=100, max_iter=30, patience=None,
                init_pos=None, warm_spread=0.05, warm_fraction=0.5):
         """
         PSO optimisation with parallel particle evaluation via joblib.
@@ -315,8 +314,6 @@ class CO2RCOptimizer:
         """
         if patience is None:
             patience = max(1, max_iter // 5)
-
-        n_cores = multiprocessing.cpu_count()
 
         # --- bounds ---
         lb = np.array([
@@ -370,7 +367,7 @@ class CO2RCOptimizer:
         # --- parallel objective wrapper ---
         def objective_wrapper(X):
             return np.array(
-                Parallel(n_jobs=n_cores - 1, backend='loky')(
+                Parallel(n_jobs=n_jobs, backend='loky')(
                     delayed(system_RC_parallel)(x, input_data) for x in X
                 )
             )
@@ -448,11 +445,12 @@ class CO2RCOptimizer:
         self.penalty_log = {}
         return optimizer
 
-
 #%% Main
 
 if __name__ == "__main__":
 
+    n_cores = multiprocessing.cpu_count()
+    
     import matplotlib.pyplot as plt
 
     # ---- sweep ----
@@ -505,7 +503,7 @@ if __name__ == "__main__":
         Optimizer.set_HSource(T=T,           P=10e5, fluid='Water', m_dot=50.0)
 
         Optimizer.set_RC()
-        Optimizer.opt_RC(n_particles=100, max_iter=30)
+        Optimizer.opt_RC(n_jobs = n_cores - 1, n_particles=100, max_iter=30)
 
         eta_vec.append(Optimizer.eta)
         P_high_vec.append(Optimizer.it_var['P_high'])

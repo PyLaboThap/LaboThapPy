@@ -2,18 +2,152 @@ import numpy as np
 from CoolProp.CoolProp import PropsSI
 import matplotlib.pyplot as plt
 
-from labothappy.machine.circuit_fpi import CircuitFPI
+from labothappy.machine.circuit_it import IterativeCircuit
 from labothappy.connector.mass_connector import MassConnector
+
 from labothappy.component.expander.expander_semi_empirical import ExpanderSE
+from labothappy.component.expander.expander_csteff import ExpanderCstEff
+
 from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
+from labothappy.component.heat_exchanger.hex_cstpinch import HexCstPinch
+from labothappy.component.heat_exchanger.hex_csteff import HexCstEff
+
 from labothappy.component.pump.pump_curve_similarity import PumpCurveSimilarity
+from labothappy.component.pump.pump_csteff import PumpCstEff
+
+# Geometries
 from labothappy.toolbox.geometries.heat_exchanger.geometry_plate_hx_swep import PlateGeomSWEP
+
+#%%
+
+def preheated_rec_orc(fluid, CSource, HSource, PREsource, P_high, P_low, m_dot, eta_pp, eta_exp, PP_cd, SC_cd, PP_ev, SH_ev, eff_rec):
+
+    # 1) Instanciate Circuit 
+    orc = IterativeCircuit(fluid)
+    # orc.mute_print()
+    
+    # 2) Create components 
+    Pump = PumpCstEff()
+    Condenser = HexCstPinch()
+    Expander = ExpanderCstEff()
+    Evaporator = HexCstPinch()
+    Recuperator = HexCstEff()
+    Preheater = HexCstEff()
+    
+    # 3) Components parameters
+    # Pump
+    Pump.set_parameters(eta_is=eta_pp)
+    
+    # Condenser
+    Condenser.set_parameters(**{
+        'Pinch': PP_cd,
+        'Delta_T_sh_sc': SC_cd,
+        'HX_type': 'condenser'
+    })
+    
+    # Evaporator
+    Evaporator.set_parameters(**{
+        'Pinch': PP_ev,
+        'Delta_T_sh_sc': SH_ev,
+        'HX_type': 'evaporator'
+    })
+
+    # Expander
+    Expander.set_parameters(eta_is=eta_exp)
+
+    # Recuperator 
+    Recuperator.set_parameters(
+        eta=eff_rec)
+    
+    # Preheater 
+    Preheater.set_parameters(
+        eta=eff_rec)
+    
+    # 4) Add and link components
+    # Add components to circuit
+    orc.add_component(Pump, "Pump")
+    orc.add_component(Condenser, "Condenser")
+    orc.add_component(Expander, "Expander")
+    orc.add_component(Evaporator, "Evaporator")
+    orc.add_component(Recuperator, "Recuperator")
+    orc.add_component(Preheater, "Preheater")
+    
+    # Link components
+    orc.link_components("Pump", "m-ex", "Recuperator", "m-su_C")
+    orc.link_components("Recuperator", "m-ex_C", "Preheater", "m-su_C")
+    orc.link_components("Preheater", "m-ex_C", "Evaporator", "m-su_C")
+    orc.link_components("Evaporator", "m-ex_C", "Expander", "m-su")
+    orc.link_components("Expander", "m-ex", "Recuperator", "m-su_H")
+    orc.link_components("Recuperator", "m-ex_H", "Condenser", "m-su_H")
+    orc.link_components("Condenser", "m-ex_H", "Pump", "m-su")
+    
+    # 5) Add sources
+    orc.add_source("CD_Water", CSource, orc.components["Condenser"], "m-su_C")
+    orc.set_source_properties(T=CSource.T, fluid='Water', P=CSource.p, m_dot = CSource.m_dot, target="Condenser:su_C")
+    
+    orc.add_source("EV_Water", HSource, orc.components["Evaporator"], "m-su_H")
+    orc.set_source_properties(T=HSource.T, fluid='Water', P=HSource.p, m_dot = HSource.m_dot, target="Evaporator:su_H")
+    
+    orc.add_source("PRE_Water", PREsource, orc.components["Preheater"], "m-su_H")
+    orc.set_source_properties(T=PREsource.T, fluid='Water', P=PREsource.p, m_dot = PREsource.m_dot, target="Preheater:su_H")
+    
+    # 6) Set cycle guesses
+    h_pp_guess = PropsSI("H", "T", CSource.T-SC_cd, "P", P_low, fluid)
+    h_exp_guess = PropsSI("H", "T", HSource.T+SH_ev, "P", P_high, fluid)
+
+    orc.set_cycle_guess(target="Pump:su", m_dot = m_dot, h=h_pp_guess, p=P_low)
+    orc.set_cycle_guess(target="Pump:ex", p=P_high)
+        
+    orc.set_cycle_guess(target="Expander:su", p=P_high, m_dot = m_dot, SH=SH_ev*2)
+    orc.set_cycle_guess(target="Expander:ex", p=P_low)
+
+    # 7) Set iteration variables
+    orc.set_iteration_variable(
+        target  = 'Expander:ex',
+        variable = 'p',
+        guess = P_low,
+        tolerance=1e-6
+        )
+                    
+    orc.set_iteration_variable(
+        target  = ['Pump:ex', 'Expander:su'],
+        variable = 'p',
+        guess=P_high,
+        tolerance=1e-6
+        )
+    
+    orc.set_iteration_variable(
+        target="Expander:su",
+        variable="h",
+        guess=h_exp_guess,
+        tolerance=1e-6
+        )
+    
+    # 8) Set residual variables
+    orc.set_residual_variable(
+        target="Expander:su-p",
+        tolerance=1e-3
+    )
+    
+    orc.set_residual_variable(
+        target="Pump:su-p",
+        tolerance=1e-3
+    )
+    
+    orc.set_residual_variable(
+        target="Expander:su-h",
+        tolerance=1e-3
+    )
+    
+    return orc
+
+#%%
 
 def off_design_orc(fluid, CSource, HSource, guesses, inputs, exp_params, evap_SWEP_model, cond_SWEP_model, pump_params):
     
     # 1) Instanciate Circuit 
-    orc = CircuitFPI(fluid)
-
+    orc = IterativeCircuit(fluid)
+    
     # 2) Create components 
     Expander = ExpanderSE()
     Condenser = HexMBChargeSensitive('Plate')
@@ -75,9 +209,9 @@ def off_design_orc(fluid, CSource, HSource, guesses, inputs, exp_params, evap_SW
     
     # 6) Add fluid sources
     orc.add_source("CD_Water", CSource, orc.components["Condenser"], "m-su_C")
-    orc.set_source_properties(T=CSource.T, fluid=CSource.fluid, P=CSource.p, m_dot = CSource.m_dot, target="CD_Water")
+    orc.set_source_properties(T=CSource.T, fluid=CSource.fluid, P=CSource.p, m_dot = CSource.m_dot, target="Condenser:su_C")
     orc.add_source("EV_Water", HSource, orc.components["Evaporator"], "m-su_H")
-    orc.set_source_properties(T=HSource.T, fluid=HSource.fluid, P=HSource.p, m_dot = HSource.m_dot, target="EV_Water")
+    orc.set_source_properties(T=HSource.T, fluid=HSource.fluid, P=HSource.p, m_dot = HSource.m_dot, target="Evaporator:su_H")
         
     # 7) Set inputs and guesses
     P_low = guesses["P_low"]
@@ -92,22 +226,33 @@ def off_design_orc(fluid, CSource, HSource, guesses, inputs, exp_params, evap_SW
 
     h_SC_guess = PropsSI("H", "P", P_low, "T", T_sat_LP_guess - SC_cd, fluid)
 
-    orc.set_cycle_guess(target="Pump:su", m_dot = m_dot_ref, h=h_SC_guess, p=P_low)
-    orc.set_cycle_guess(target="Pump:ex", p=P_high)
+    orc.set_cycle_input(target="Pump:su", m_dot = m_dot_ref, SC=SC_cd, P=P_high)
+    orc.set_cycle_input(target="Expander:su", p = P_low)
+    orc.set_cycle_input(target="Expander:W", N_rot = N_exp)
+    orc.set_cycle_input(target="Expander:Q_amb", T_amb=T_amb)
 
-    orc.set_cycle_guess(target="Expander:W", N_rot = N_exp)
-    orc.set_cycle_guess(target="Expander:Q_amb", T_amb=T_amb)
-    orc.set_cycle_guess(target="Expander:ex",    p=P_low)
-
+    # 8) Set iteration variables
     orc.set_iteration_variable(
-        it_var  = 'Expander:ex-p',
-        objective = 'Pump:su-SC',
-        target_value = SC_cd,
-        obj_type = "Target_val",
-        damping_factor = inputs['damping_factor_SC'],
+        target=["Expander:ex"],
+        variable="p",
+        guess=P_low,
+        tolerance=1e-6
     )
     
+    orc.set_iteration_variable(
+        target="Pump:ex",
+        variable="p",
+        guess=P_high,
+        tolerance=1e-6
+    )
+    
+    # -------- 9) Set residual variables --------
+    orc.set_residual_variable(target="Condenser:ex_H-SC",  target_value=SC_cd, tolerance=1e-3)
+    orc.set_residual_variable(target="Expander:W-N_rot" ,  target_value=N_exp, scale=N_exp, tolerance=1e-3)
+    
     return orc
+
+#%%
 
 if __name__ == "__main__":
     
@@ -131,7 +276,7 @@ if __name__ == "__main__":
             'alpha'       : 1.16e-1, 
             'C_loss'      : 1.13, 
             'rv_in'       : 1.7, 
-            'V_s'         : 2*0.0000712, 
+            'V_s'         : 3*0.0000712, 
             'mode'        :'P_M',
             'T_amb'       : 293, 
             }
@@ -167,14 +312,55 @@ if __name__ == "__main__":
             'T_amb'     : 293, # K
             'damping_factor_SC' : 0.3
         }
-            
+        
         guesses = {
             'P_low'  : PropsSI("P", "T", CSource.T+10, "Q", 0, fluid),
             'P_high' : PropsSI("P", "T", HSource.T-10, "Q", 1, fluid)
         }
         
         orc = off_design_orc(fluid = fluid, CSource = CSource, HSource = HSource, guesses = guesses, inputs = inputs, exp_params=exp_params, evap_SWEP_model = evap_SWEP_model, cond_SWEP_model = cond_SWEP_model, pump_params=pump_params)
-        orc.solve(method="wegstein", max_iter=100)
+        orc.solve()
         
         orc.plot_cycle_Ts()
+    
+    elif study_case == "Zorlu":
         
+        fluid = "Cyclopentane"
+        
+        # Hot Source
+        T_HS = 141+273.15 # K
+        p_HS = 10e5 # bar
+        fluid_HS = 'Water'
+        m_dot_HS = 10000 # kg/s : emulates PCM
+    
+        # Cold Source
+        T_CS = 24 + 273.15
+        fluid_CS = 'Water'
+        p_CS = 3e5
+        m_dot_CS = 900
+    
+        # Preheater Source
+        T_PRE = 113.1 + 273.15
+        fluid_PRE = 'Water'
+        p_PRE = 2e5
+        m_dot_PRE = 60
+    
+        # Pressure Guesses
+        P_high = PropsSI('P', 'T', T_HS, 'Q', 0.5, fluid)
+        P_low  = PropsSI('P', 'T', T_CS, 'Q', 0.5, fluid)
+        
+        m_dot = 34.51      
+
+        HSource = MassConnector()
+        HSource.set_properties(fluid = 'Water', T = T_HS, p = p_HS, m_dot = m_dot_HS)
+        
+        CSource = MassConnector()
+        CSource.set_properties(fluid = fluid_CS, T = T_CS, p = p_CS, m_dot = m_dot_CS)
+        
+        PREsource = MassConnector('Water')
+        PREsource.set_properties(fluid = fluid_CS, T = T_CS, p = p_CS, m_dot = m_dot_CS)
+
+        orc = preheated_rec_orc(fluid=fluid, HSource=HSource, CSource=CSource, PREsource = PREsource, P_high=P_high, P_low=P_low, m_dot=m_dot, eta_pp=0.7, eta_exp=0.8, PP_cd = 5, SC_cd = 3, PP_ev = 5, SH_ev = 3, eff_rec = 0.8)
+        orc.solve(method="newton")
+        
+        orc.plot_cycle_Ts()

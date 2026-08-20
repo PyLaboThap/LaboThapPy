@@ -7,7 +7,7 @@ Created on Wed Jul 16 11:12:02 2025
 
 #%% Imports
 
-from labothappy.machine.examples.CO2_Transcritical_Circuits.CO2_Transcritical_circuit import REC_CO2_TC, basic_CO2_TC
+from labothappy.machine.examples.ORC.fpi_TC_orc_example import REC_CO2_TC, basic_CO2_TC
 from connector.mass_connector import MassConnector
 
 import numpy as np
@@ -16,7 +16,7 @@ from pyswarms.single import GlobalBestPSO
 from tqdm import tqdm
 from joblib import Parallel, delayed
 
-from labothappy.sizing.turbomachinery.turbine.axial.design_1D.mean_line_axial_turbine_loss_model_design_aungier import AxialTurbineMeanLineDesign
+from labothappy.sizing.turbomachinery.turbine.axial.sizing_1D.mean_line_axial_turbine_loss_model_design_aungier import AxialTurbineMeanLineDesign
 from labothappy.sizing.turbomachinery.turbine.radial.mean_line_radial_turbine_loss_model_design_parallel import RadialTurbineMeanLineDesign
 from labothappy.sizing.heat_exchanger.shell_and_tube.shell_and_tube_sizing_PSO_parallel import ShellAndTubeSizingOpt
 from labothappy.sizing.heat_exchanger.PCHE.PCHE_PSO import PCHESizingOpt
@@ -608,7 +608,7 @@ class CO2RCOptimizer:
         
         turb_choices = []
         
-        if self.obj['W_dot'] >= 10*1e6:
+        if self.obj['W_dot'] >= 9*1e6:
             self.turb_choice = 'Axial'
         
         for allowable_position in self.top_positions:
@@ -886,9 +886,7 @@ class CO2RCOptimizer:
             self.opt_RC(n_jobs=n_jobs, n_particles=n_particles, max_iter=max_iter, patience=patience, tol=tol, ntop = ntop)
             
             #%% 2) Size Components
-            
-            return
-            
+                        
             self.size_components()
     
             #%% 3) From best position update your performance guesses

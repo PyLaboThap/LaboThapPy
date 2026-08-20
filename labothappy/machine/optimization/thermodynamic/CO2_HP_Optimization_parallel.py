@@ -7,7 +7,7 @@ Adapted for multiprocessing-based PSO with optimizer return
 
 #%% Imports
 
-from labothappy.machine.examples.CO2_Heat_Pumps.CO2_HeatPump_circuit import IHX_CO2_HP, IHX_EXP_CO2_HP
+from labothappy.machine.examples.Heat_Pumps.fpi_TC_HeatPump_example import IHX_CO2_HP, IHX_EXP_CO2_HP
 from labothappy.connector.mass_connector import MassConnector
 
 import numpy as np
@@ -120,10 +120,8 @@ class CO2HPOptimizer:
     def set_obj(self, **kwargs):
         self.obj.update(kwargs)
 
-    def opt_HP(self):
-        import multiprocessing
-        n_cores = multiprocessing.cpu_count()
-        
+    def opt_HP(self, n_jobs = 1, patience = 10, max_iter = 50):
+
         if self.params['HP_ARCH'] == 'EXP_IHX':
             bounds = (
                 np.array([self.params['P_high_min'], self.params['m_dot_min'], self.params['m_dot_HS_fact_min'], self.params['eta_IHX_min']]),
@@ -154,7 +152,7 @@ class CO2HPOptimizer:
     
         # ✅ Open pool once and keep it open during the loop
         def objective_wrapper(X):
-            return np.array(Parallel(n_jobs=n_cores - 1, backend='loky', prefer="processes")(
+            return np.array(Parallel(n_jobs=n_jobs, backend='loky', prefer="processes")(
                 delayed(system_HP_parallel)(x, input_data) for x in X
             ))
             
@@ -167,9 +165,7 @@ class CO2HPOptimizer:
 
         best_cost = np.inf
         no_improve_counter = 0
-        patience = 20
         tol = 1e-3
-        max_iter = 50
 
         for i in tqdm(range(max_iter), desc="Optimizing", ncols=80):
             self.optimizer.optimize(objective_wrapper, iters=1, verbose=False)
@@ -312,9 +308,12 @@ if __name__ == "__main__":
             P=10e5,
             fluid='Water'
         )
-    
+        
+        import multiprocessing
+        n_cores = multiprocessing.cpu_count()
+        
         # Run optimization and get optimizer instance
-        opt = Optimizer.opt_HP()
+        opt = Optimizer.opt_HP(n_jobs = n_cores - 1)
     
         # Store results
         COP_vec.append(Optimizer.COP)
@@ -365,22 +364,4 @@ if __name__ == "__main__":
     plt.legend()
     plt.tight_layout()
     plt.show()
-    
-# COP_vec = [4.697249244448596, 4.3895555255356085, 4.050117334016632, 
-#            4.026683891241342, 3.7880968812034888, 3.5983675455471418]
 
-# P_high_vec = [12331249.06403394, 13392550.320759114, 16319829.434295718, 
-#               17739417.348679177, 17709543.51810449, 19081338.907870803]
-
-# mdot_vec = [17.30013398744241, 15.670235783606566, 13.076689048124113, 
-#                12.787677902485882, 11.890533504136116, 11.045665619017555]
-
-# mdot_HS_vec = [12.392235492258568, 10.226879105272955, 7.796114170455033, 
-#                7.481034247657304, 6.4890594730472175, 5.70901076559547]
-
-
-# Optimizer.HP.components['Compressor'].model.W.W_dot
-# Out[21]: np.float64(999145.63881943)
-
-# Optimizer.HP.components['GasCooler'].model.Q.Q_dot
-# Out[22]: np.float64(3138128.7954499032)

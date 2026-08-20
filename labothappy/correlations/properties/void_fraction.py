@@ -137,8 +137,7 @@ if test_rho == 1:
 
 #%%
 
-test = 0
-if test == 1:
+if __name__ == "__main__":
 
     wf = "Cyclopentane"
     P_vect = [34*1e5,0.8*1e5] # Sat pressure

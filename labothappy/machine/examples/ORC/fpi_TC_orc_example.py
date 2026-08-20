@@ -852,6 +852,11 @@ if __name__ == "__main__":
         # print(f"eta_th : {eta}")
         # print(f"Q_dot Recup HT : {CO2_TC.components['RecupHT'].model.Q}")
         # print(f"Q_dot Recup LT : {CO2_TC.components['RecupLT'].model.Q}")
-        
+    
+    elif study_case == "off_design":
+
+        print()        
+
+    
     CO2_TC.plot_cycle_Ts()
     # CO2_TC.Ts_gif()

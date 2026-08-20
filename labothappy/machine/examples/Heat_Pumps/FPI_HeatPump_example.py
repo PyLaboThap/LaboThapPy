@@ -180,7 +180,7 @@ def basic_IHX_HP(fluid, HSource, CSource, eta_cp, eff_rec, PP_cd, SC_cd, PP_ev, 
 
 if __name__ == "__main__":
     
-    study_case = "Example"    
+    study_case = "IHX"    
     
     if study_case == "Example":
         
@@ -219,7 +219,7 @@ if __name__ == "__main__":
     
         HP_example.plot_cycle_Ts()
         
-    elif study_case == "Zorlu":
+    elif study_case == "IHX":
 
         fluid = "Cyclopentane"
         
@@ -237,12 +237,12 @@ if __name__ == "__main__":
     
         # Pressure Guesses
         P_high_guess = PropsSI('P', 'T', T_HS, 'Q', 0.5, fluid)
-        P_low_guess  = PropsSI('P', 'T', T_CS-5, 'Q', 0.5, fluid)
+        P_low_guess  = PropsSI('P', 'T', T_CS, 'Q', 0.5, fluid)
         
-        mdot = 20       
+        mdot = 34.51 # kg/s       
 
         HSource = MassConnector()
-        HSource.set_properties(fluid = 'Water', T = T_HS, p = p_HS, m_dot = m_dot_HS)
+        HSource.set_properties(fluid = fluid_HS, T = T_HS, p = p_HS, m_dot = m_dot_HS)
         
         CSource = MassConnector()
         CSource.set_properties(fluid = fluid_CS, T = T_CS, p = p_CS, m_dot = m_dot_CS)
