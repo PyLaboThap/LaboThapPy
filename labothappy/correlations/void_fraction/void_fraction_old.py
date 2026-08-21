@@ -178,7 +178,7 @@ if test == 1:
         eps_SR = (1 + S_gl*((1-Q)/Q)*(rho_g/rho_l))**(-1)
         eps_SR_plot = eps_SR
         
-        "1.1) Homogeneous model"
+        "1.1) Homogeneous model"# !!!!!!!!!! OKAY
         # v_g = v_l 
         # Good when flow is 1 phase
         #x_valid_SRH = 
@@ -189,26 +189,26 @@ if test == 1:
         eps_SRH = (1 + ((1-Q)/Q)*(rho_g/rho_l))**(-1)
         eps_SRH_plot = eps_SRH*x_valid_SRH
         
-        "1.2) Fauske Method (1962)"
+        "1.2) Fauske Method (1962)"# !!!!!!!!!! OKAY
         eps_SR_Fauske = (1 + ((1-Q)/Q)*(rho_g/rho_l)**(1/2))**(-1)
         eps_SR_Fauske_plot = eps_SR_Fauske*x_valid_SRH
         
-        "1.3) Moody Method (1966)"
+        "1.3) Moody Method (1966)" # !!!!!!!!!! OKAY
         eps_SR_Moody = (1 + ((1-Q)/Q)*(rho_g/rho_l)**(2/3))**(-1)
         eps_SR_Moody_plot = eps_SR_Moody*x_valid_SRH
         
         #%%
-        "2) K eps_h methods"
+        "2) K eps_h methods" # !!!!!!!!!! OKAY
         
         ranges_K_eps_h = [(20,80)]
         x_valid_K_eps_h = generate_boolean_vector(len(Q), ranges_K_eps_h)
         
-        "2.1) Armand and Treschev (1947)"
+        "2.1) Armand and Treschev (1947)" # !!!!!!!!!! OKAY
         K_AT = 0.833 + 0.167*Q
         eps_AT = K_AT*eps_SRH
         eps_AT_plot = eps_AT*x_valid_K_eps_h
         
-        "2.2) Bankoff (1960)"
+        "2.2) Bankoff (1960)" # !!!!!!!!!! OKAY
         K_Bankoff = 0.71 + 0.0145*(P/1e6)
         eps_Bankoff = K_Bankoff*eps_SRH
         eps_Bankoff_plot = eps_Bankoff*x_valid_K_eps_h
