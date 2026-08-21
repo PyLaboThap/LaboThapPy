@@ -203,7 +203,7 @@ def compute_reynolds_correction_turbulent(Re, R0_d_hyd):
 # ============================================================================
 
 
-def compute_zeta_LOC(d_hyd, R0, delta_rad, K, rho, mu, m_dot):
+def compute_zeta_LOC(d_hyd, R, delta_rad, K, rho, mu, m_dot):
     """
     Compute local resistance coefficient ζ_LOC for curved bends.
 
@@ -221,7 +221,7 @@ def compute_zeta_LOC(d_hyd, R0, delta_rad, K, rho, mu, m_dot):
     ----------
     d_hyd : float
         Hydraulic diameter [m]
-    R0 : float
+    R : float
         Bend radius (centerline) [m]
     delta_rad : float
         Deflection angle [radians]
@@ -254,7 +254,7 @@ def compute_zeta_LOC(d_hyd, R0, delta_rad, K, rho, mu, m_dot):
     Re = compute_reynolds(rho, v, d_hyd, mu)
 
     # Get Idelchik coefficients
-    coeffs = compute_idelchik_coefficients(d_hyd, R0, delta_rad)
+    coeffs = compute_idelchik_coefficients(d_hyd, R, delta_rad)
     A1 = coeffs["A1"]
     A2 = coeffs["A2"]
     B1 = coeffs["B1"]

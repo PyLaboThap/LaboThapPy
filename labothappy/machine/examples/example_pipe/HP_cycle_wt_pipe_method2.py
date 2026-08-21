@@ -35,9 +35,9 @@ Condenser.set_parameters(Pinch=Pinch_cd, Delta_T_sh_sc=SC_cd, HX_type="condenser
 Evaporator.set_parameters(Pinch=Pinch_ev, Delta_T_sh_sc=SH_ev, HX_type="evaporator")
 
 # Pipes geometries
-Pipe_Compressor_to_Condenser.add_straight(D=0.012, L=1.0, theta = 0).add_curved_elbow(D=0.012, delta=90, R=1.5).add_straight(D=0.012, L=0.5, theta = 90) # 10mm diameter, 1.5m long
+Pipe_Compressor_to_Condenser.add_straight(D=0.012, L=1.0, theta = 0).add_curved_elbow(D=0.012, delta=90, R0=1.5).add_straight(D=0.012, L=0.5, theta = 90) # 10mm diameter, 1.5m long
 Pipe_Condenser_to_ExpansionValve.add_straight(D=0.012, L=1.0, theta = 0)
-Pipe_ExpansionValve_to_Evaporator.add_curved_elbow(D=0.012, delta=90, R=0.3)
+Pipe_ExpansionValve_to_Evaporator.add_curved_elbow(D=0.012, delta=90, R0=0.3)
 Pipe_Evaporator_to_Compressor.add_straight(D=0.012, L=1.0, theta = 0)
 
 

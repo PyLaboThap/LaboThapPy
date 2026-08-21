@@ -114,12 +114,12 @@ class StraightPipe(BaseComponent):
 
         K = self.params.get('K', 0.0)
         theta = self.params.get('theta', 0.0)
-        self.deltaP, f, Re = pressure_drop_single_phase(self.params['L'], self.params['D'], rho_su, v, K, mu, theta)
+        self.dP, f, Re = pressure_drop_single_phase(self.params['L'], self.params['D'], rho_su, v, K, mu, theta)
 
         self.ex.set_fluid(self.su.fluid)
         self.ex.set_m_dot(self.su.m_dot)
         self.ex.set_h(self.su.h)
-        self.ex.set_p(self.su.p - self.deltaP)
+        self.ex.set_p(self.su.p - self.dP)
 
         self.rho_ex = self.ex.D
 
@@ -152,9 +152,9 @@ class StraightPipe(BaseComponent):
         theta = self.params.get('theta', 0.0)
         K = self.params.get('K', 0.0)
         
-        self.deltaP = pressure_drop_two_phase(self.inputs['m_dot'], self.params['D'], self.params['L'], rho_l, rho_g, x, self.AS,
+        self.dP = pressure_drop_two_phase(self.inputs['m_dot'], self.params['D'], self.params['L'], rho_l, rho_g, x, self.AS,
                             mu_l, mu_g, sigma, K, theta)
-        print(f"Two-phase pressure drop: {self.deltaP:.2f} Pa")
+        print(f"Two-phase pressure drop: {self.dP:.2f} Pa")
         # Compute void fraction and mass inventory
         alpha = compute_void_fraction(x, rho_l, rho_g, slip_model='Zivi') # Uses Zivi correlation for void fraction
         rho_tp = compute_two_phase_density(x, rho_l, rho_g, alpha)
@@ -163,11 +163,11 @@ class StraightPipe(BaseComponent):
         self.ex.set_fluid(self.su.fluid)
         self.ex.set_m_dot(self.su.m_dot)
         self.ex.set_h(self.su.h)
-        self.ex.set_p(self.su.p - self.deltaP)
+        self.ex.set_p(self.su.p - self.dP)
         
         self.quality = x
         self.void_fraction = alpha
-        self.dP_total = self.deltaP
+
 
 
     def print_results(self):
@@ -192,5 +192,5 @@ class StraightPipe(BaseComponent):
             print(f"Void fraction α   : {self.void_fraction:.4f}")
             print(f"Mass inventory    : {self.m_charge:.4f} kg")
         
-        print(f"Pressure drop ΔP  : {self.deltaP:.2f} Pa")
+        print(f"Pressure drop ΔP  : {self.dP:.2f} Pa")
         print("=" * 60)

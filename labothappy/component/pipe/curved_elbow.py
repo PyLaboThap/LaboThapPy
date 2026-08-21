@@ -45,7 +45,7 @@ class CurvedElbow(BaseComponent):
         Pipe inner diameter [m]
     delta : float
         Bend angle [deg]
-    R : float
+    R0 : float
         Curvature radius [m]
     K : float, optional
         Absolute surface roughness [m]. Default: 0 (smooth pipe)
@@ -80,7 +80,7 @@ class CurvedElbow(BaseComponent):
         return ['P_su', 'h_su', 'm_dot', 'fluid']
 
     def get_required_parameters(self):
-        return ['D', 'delta', 'R']
+        return ['D', 'delta', 'R0']
 
     def solve(self):
         """Main solve method: detect phase and dispatch to appropriate solver."""
@@ -108,24 +108,24 @@ class CurvedElbow(BaseComponent):
 
         # Bend geometry
         delta_rad = self.params['delta'] * np.pi / 180
-        R = self.params['R']
+        R0 = self.params['R0']
         K = self.params.get('K', 0.0)
 
         # Pressure drop
-        self.deltaP = pressure_drop_curved_elbow(self.params['D'], R, delta_rad, K, rho_su, mu, self.su.m_dot)
+        self.dP = pressure_drop_curved_elbow(self.params['D'], R0, delta_rad, K, rho_su, mu, self.su.m_dot)
 
         # Set outlet
         self.ex.set_fluid(self.su.fluid)
         self.ex.set_m_dot(self.su.m_dot)
         self.ex.set_h(self.su.h)
-        self.ex.set_p(self.su.p - self.deltaP)
+        self.ex.set_p(self.su.p - self.dP)
 
         # Get outlet density
         rho_ex = self.ex.D
 
         # Charge using mean density
         rho_mean = (rho_su + rho_ex) / 2.0
-        L = abs(delta_rad) * R  # Arc length
+        L = abs(delta_rad) * R0  # Arc length
         self.m_charge = A_cross * L * rho_mean
 
         # Store diagnostics
@@ -160,20 +160,20 @@ class CurvedElbow(BaseComponent):
 
         # Bend geometry
         delta_rad = self.params['delta'] * np.pi / 180
-        R = self.params['R']
+        R0 = self.params['R0']
         K = self.params.get('K', 0.0)
 
         # Pressure drop
-        self.deltaP = pressure_drop_curved_elbow(self.params['D'], R, delta_rad, K, rho_h, mu, self.su.m_dot)
+        self.dP = pressure_drop_curved_elbow(self.params['D'], R0, delta_rad, K, rho_h, mu, self.su.m_dot)
 
         # Set outlet
         self.ex.set_fluid(self.su.fluid)
         self.ex.set_m_dot(self.su.m_dot)
         self.ex.set_h(self.su.h)
-        self.ex.set_p(self.su.p - self.deltaP)
+        self.ex.set_p(self.su.p - self.dP)
 
         # Charge using homogeneous density (constant along short bend)
-        L = abs(delta_rad) * R  # Arc length
+        L = abs(delta_rad) * R0  # Arc length
         self.m_charge = A_cross * L * rho_h
 
         # Store diagnostics

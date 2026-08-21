@@ -94,8 +94,8 @@ def friction_factor_churchill(K, d_hyd, Re):
     laminar_term = (8.0 / Re_safe) ** 12
 
     # Turbulent term with roughness correction
-    relative_roughness = K / max(EPS, d_hyd)
-    ln_arg = 1.0 / ((7.0 / Re_safe) ** 0.9 + 0.27 * relative_roughness)
+    k_rel = K / max(EPS, d_hyd)
+    ln_arg = 1.0 / ((7.0 / Re_safe) ** 0.9 + 0.27 * k_rel)
     A = (2.457 * math.log(max(EPS, ln_arg))) ** 16
     B = (37530.0 / Re_safe) ** 16
 
@@ -145,8 +145,8 @@ def friction_factor_swamee_jain(K, d_hyd, Re):
     Re_safe = max(EPS, Re)
     d_hyd_safe = max(EPS, d_hyd)
 
-    relative_roughness = K / d_hyd_safe
-    log_arg = relative_roughness / 3.7 + 5.74 / (Re_safe ** 0.9)
+    k_rel = K / d_hyd_safe
+    log_arg = k_rel / 3.7 + 5.74 / (Re_safe ** 0.9)
 
     return 0.25 / (math.log10(max(EPS, log_arg)) ** 2)
 

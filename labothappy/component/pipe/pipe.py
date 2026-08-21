@@ -33,11 +33,11 @@ class Pipe(BaseComponent):
         })
         return self  # ← Returns the Pipe object itself for chaining
 
-    def add_curved_elbow(self, D, delta, R):
+    def add_curved_elbow(self, D, delta, R0):
         """Add a curved elbow."""
         self.segments.append({
             'type': 'curved_elbow',
-            'D': D, 'delta': delta, 'R': R
+            'D': D, 'delta': delta, 'R0': R0
         })
         return self
 
@@ -51,7 +51,7 @@ class Pipe(BaseComponent):
         # print(f"Starting Pipe solve with inlet state: p={current_state.p:.2f} Pa, h={current_state.h:.2f} J/kg, m_dot={current_state.m_dot:.4f} kg/s")
         self.components = []
         self.m_charge = 0.0
-        self.deltaP_total = 0.0
+        self.dP_total = 0.0
         
         for i, seg in enumerate(self.segments):
             if seg['type'] == 'straight':
@@ -59,7 +59,7 @@ class Pipe(BaseComponent):
                 component.set_parameters(D=seg['D'], L=seg['L'], K=seg['K'], theta=seg['theta'])
             elif seg['type'] == 'curved_elbow':
                 component = CurvedElbow()
-                component.set_parameters(D=seg['D'], delta=seg['delta'], R=seg['R'])
+                component.set_parameters(D=seg['D'], delta=seg['delta'], R0=seg['R0'])
 
             # Connect inlet
             component.su = current_state
@@ -70,14 +70,14 @@ class Pipe(BaseComponent):
             
             # Accumulate
             self.m_charge += component.m_charge
-            self.deltaP_total += component.deltaP
+            self.dP_total += component.dP
             self.components.append(component)
 
         # Set outlet
         self.ex.set_fluid(self.su.fluid)
         self.ex.set_m_dot(self.su.m_dot)
         self.ex.set_h(self.su.h)
-        self.ex.set_p(self.su.p - self.deltaP_total)
+        self.ex.set_p(self.su.p - self.dP_total)
         self.solved = True
 
     def print_results(self):
@@ -91,7 +91,7 @@ class Pipe(BaseComponent):
         
         for i, comp in enumerate(self.components):
             seg_type = "Straight" if isinstance(comp, StraightPipe) else "Curved Elbow"
-            dp = comp.deltaP
+            dp = comp.dP
             charge = comp.m_charge
             
             print(f"{i+1:<10} {seg_type:<12} {dp:<15.2f} {charge:<15.6f}")
