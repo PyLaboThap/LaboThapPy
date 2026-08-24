@@ -120,6 +120,7 @@ class MassConnector:
             try:
                 try: 
                     self.AS = CP.AbstractState("BICUBIC&HEOS", fluid) 
+                    self.AS_sat = CP.AbstractState("BICUBIC&HEOS", fluid) 
                     self.fluid = fluid
                 except:
                     if "INCOMP" in fluid:
@@ -174,6 +175,8 @@ class MassConnector:
         self.D = None
         self.x = None
         self.cp = None
+        self.SC = None
+        self.SH = None
     
     def check_completely_known(self):
         if self.fluid != None:
@@ -280,7 +283,12 @@ class MassConnector:
 
         
         # 2) Calculate properties based on two known variables
-        AS_inputs, reversed_flag = self.get_AS_inputs(self.variables_input[0][0], self.variables_input[1][0])
+        
+        if len(self.variables_input) > 1:
+            AS_inputs, reversed_flag = self.get_AS_inputs(self.variables_input[0][0], self.variables_input[1][0])
+        else:
+            return
+        
         try:
             if not reversed_flag:
                 self.AS.update(AS_inputs, self.variables_input[0][1], self.variables_input[1][1])
@@ -295,6 +303,22 @@ class MassConnector:
             self.cp = self.AS.cpmass()
             self.x = self.AS.Q()
             self.state_known = True
+            
+            # Compute SH et SC
+            if hasattr(self, "AS_sat") and self.T < self.AS.T_critical() and self.p < self.AS.p_critical():
+                self.AS_sat.update(CP.PQ_INPUTS, self.p, 0.5)
+                T_sat = self.AS_sat.T()
+                
+                self.SC = T_sat - self.T
+                self.SH = self.T - T_sat
+                
+                if self.SC >= 0:
+                    self.SH = None
+                elif self.SH >=0:
+                    self.SC = None
+            
+            if self.T > self.AS.T_critical():
+                self.SH = self.T - self.AS.T_critical()
             
         except:
             warnings.warn("Error: This pair of inputs is not yet supported.")
@@ -332,6 +356,8 @@ class MassConnector:
             else:
                 warnings.warn(f"Error: Invalid property '{key}'")
         
+        self.calculate_properties()
+        
     def set_fluid(self, value):
         # print('set_fluid', value)
         if self.fluid != None:
@@ -340,6 +366,7 @@ class MassConnector:
             try:
                 try: 
                     self.AS = CP.AbstractState("BICUBIC&HEOS", value) 
+                    self.AS_sat = CP.AbstractState("BICUBIC&HEOS", value) 
                     self.fluid = value
                 except:
                     if "INCOMP" in value:
@@ -511,12 +538,70 @@ class MassConnector:
     def set_SC(self, value):
         self.SC = value
         self.SH = None  # enforce exclusivity
-        self.check_completely_known()
-
+    
+        # If state was already fully defined, reset it and keep only p or T
+        # so we don't end up with 3 variables in variables_input
+        if len(self.variables_input) >= 2:
+            if self.p is not None:
+                # Keep p, drop everything else — SC will resolve T
+                self.variables_input = [['P', self.p]]
+                self.T = None; self.h = None; self.s = None
+                self.D = None; self.x = None; self.state_known = False
+            elif self.T is not None:
+                # Keep T, drop everything else — SC will resolve p
+                self.variables_input = [['T', self.T]]
+                self.p = None; self.h = None; self.s = None
+                self.D = None; self.x = None; self.state_known = False
+    
+        if self.p is not None:
+            try:
+                self.AS.update(CP.PQ_INPUTS, self.p, 0)
+                T_sat = self.AS.T()
+                self.set_T(T_sat - self.SC)
+            except Exception as e:
+                warnings.warn(f"set_SC: could not resolve T from p: {e}")
+        elif self.T is not None:
+            try:
+                self.AS.update(CP.QT_INPUTS, 0, self.T + self.SC)
+                self.set_p(self.AS.p())
+            except Exception as e:
+                warnings.warn(f"set_SC: could not resolve p from T: {e}")
+        else:
+            self.check_completely_known()
+ 
     def set_SH(self, value):
         self.SH = value
         self.SC = None  # enforce exclusivity
-        self.check_completely_known()
+    
+        # If state was already fully defined, reset it and keep only p or T
+        # so we don't end up with 3 variables in variables_input
+        if len(self.variables_input) >= 2:
+            if self.p is not None:
+                # Keep p, drop everything else — SH will resolve T
+                self.variables_input = [['P', self.p]]
+                self.T = None; self.h = None; self.s = None
+                self.D = None; self.x = None; self.state_known = False
+            elif self.T is not None:
+                # Keep T, drop everything else — SH will resolve p
+                self.variables_input = [['T', self.T]]
+                self.p = None; self.h = None; self.s = None
+                self.D = None; self.x = None; self.state_known = False
+    
+        if self.p is not None:
+            try:
+                self.AS.update(CP.PQ_INPUTS, self.p, 1)
+                T_sat = self.AS.T()
+                self.set_T(T_sat + self.SH)
+            except Exception as e:
+                warnings.warn(f"set_SH: could not resolve T from p: {e}")
+        elif self.T is not None:
+            try:
+                self.AS.update(CP.QT_INPUTS, 1, self.T - self.SH)
+                self.set_p(self.AS.p())
+            except Exception as e:
+                warnings.warn(f"set_SH: could not resolve p from T: {e}")
+        else:
+            self.check_completely_known()
 
             
     def print_resume(self, unit_T='K', unit_p='Pa'):
@@ -557,8 +642,6 @@ class MassConnector:
         print("Mass density: " + str(self.D) + "[kg/m^3]")
         print("Quality: " + str(self.x) + "[-]")
 
+        print("SH: " + str(self.SH) + "[-]")
+        print("SC: " + str(self.SC) + "[-]")
 
-    def reset(self):
-        self.T = None
-        self.h = None
-        self.m_dot = None

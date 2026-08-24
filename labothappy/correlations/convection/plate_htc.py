@@ -11,7 +11,8 @@ from scipy.optimize import fsolve
 from CoolProp.CoolProp import PropsSI
 import CoolProp.CoolProp as CP
 
-# For one phase water heat transfer:
+#%% 1 phase - water
+
 def water_plate_HTC(mu, Pr, k, G, Dh):
     """
     Calibrated heat transfer coefficient correlation for water side
@@ -56,6 +57,44 @@ def water_plate_HTC(mu, Pr, k, G, Dh):
 
     return h_conv
 
+def PHX_Water(B_p ,                     # Port-port centerline distance (Width), m
+              Beta,                         # beta angles chevron   
+              b,                       # Corrugation height or amplitude             
+              M_dot_w,                       # Water mass flow rate
+              P_mean,                  # Water Pressure
+              T_mean,              # Water Temperature
+              N_ch):                        # Chanel number
+    
+    fluid = 'Water' 
+
+    " Beta angle from degree to radians"
+    beta_r = Beta*np.pi/180                                         # Chevron angle, in Radians
+    
+    " Hydraulic diameter definition"
+    D_hyd = B_p
+    
+    " Thermodynamics properties:"
+    mu =  PropsSI('V','P', P_mean,'T',T_mean, fluid)          # Viscosity, Pa s
+    rho = PropsSI('D','P', P_mean,'T',T_mean, fluid)          # Density, kg m^-3
+    k  =  PropsSI('L','P', P_mean,'T',T_mean, fluid)          # Thermal conductivity, W m^-1 K^-1
+    Pr = PropsSI('PRANDTL', 'P', P_mean,'T',T_mean, fluid)    # Number of Prandtl, -
+
+    " Mass velocity for chanel"
+    G_ch = M_dot_w/(b*B_p*rho*N_ch)                                 # Mass velocity in chanels, kg m^2 s^-1
+    Re = rho*G_ch*D_hyd/mu                                          # Reynolds Number, -
+    
+    " Factor for correlations: Magnekick et al."
+    if Re >= 1000:                                                  # Regimen: Turbulent
+        Nu = (0.2668-0.006967*beta_r+7.244e-05*beta_r**2)*Re**(0.728+0.0543*np.sin(np.pi*beta_r/45+3.71))*Pr**(1/3)*(1)**0.14
+        hcv_w = Nu*k/D_hyd           
+        
+    elif Re <1000:                                                  # Regime: Laminar
+        hcv_w = 0.277*(k/D_hyd)*Re**(2/3)*Pr**(1/3)
+    
+    return hcv_w
+
+#%% 1 phase - refrigerant
+
 # For the R1233zd(E) one phase:
 def martin_holger_plate_HTC(mu, Pr, k, m_dot, nb_channels, T_mean, P_mean, fluid, D_h, length, width, amplitude, chevron_angle):
     """
@@ -68,11 +107,7 @@ def martin_holger_plate_HTC(mu, Pr, k, m_dot, nb_channels, T_mean, P_mean, fluid
     """
 
     " Thermodynamics properties:"
-    # mu =  PropsSI('V','P', P_mean,'T',T_mean, refrigerant)          # Viscosity, Pa s
-    rho = PropsSI('D','P', P_mean,'T',T_mean, fluid)          # Density, kg m^-3
-    # cp = PropsSI('C','P', P_mean,'T',T_mean, refrigerant)           # Specific Heat, J/kg-K
-    
-    
+    rho = PropsSI('D','P', P_mean,'T',T_mean, fluid)          # Density, kg m^-3    
 
     " Mass flow rate per plate"
     m_dot_ch = m_dot/nb_channels                                      # Mass flow rate in the chanels, kg s^-1
@@ -114,296 +149,110 @@ def martin_holger_plate_HTC(mu, Pr, k, m_dot, nb_channels, T_mean, P_mean, fluid
     c_q = 0.122
     q = 0.374
     
-    # " Wall temperature "
-    # T_wall = T_mean-5                                                # Wall Temperature, K
-    # if T_wall<273.15:
-    #     T_wall = 274.15
-        
-    # mu_w =  PropsSI('V','P', P_mean,'T',T_wall, refrigerant)          # Viscosity at wall T, Pa s
-    
     " Nusslet number: "
-    # Nu = c_q*Pr**(1/3)*(mu/mu_w)**(1/6)*(2*Hg*np.sin(2*beta_r))**q
     Nu = c_q*Pr**(1/3)*(2*Hg*np.sin(2*beta_r))**q
     h_conv = Nu*k/D_h
-    # print(f' Nu: {Nu}')
-    # print(f' mu_w: {mu_w}')
-    # print(f' T_wall : {T_wall}')
-    # print(f' Result: {(mu/mu_w)**(1/6)}')
+
+    return h_conv
+
+def martin_BPHEX_HTC(mu, mu_w, Pr, k, G, Dh, chevron_angle):
+    "Martin Holger: Correlation from the VDI Atlas p.1515"
+ 
+    beta = chevron_angle
+    Re = G*Dh/mu
+    
+    "Factor for correlations: provided by Focke et al."
+    if Re >= 2000: # Regime : Turbulent
+        xhi_0   = (1.8*np.log(Re)-1.5)**-2
+        xhi_1_0 = 39/Re**0.289
+    elif Re < 2000: # Regime: Laminar
+        xhi_0   = 64/Re
+        xhi_1_0 = 597/Re +3.85
+    
+    "Constant given by Martin"
+    a = 3.8
+    b = 0.18 
+    c = 0.36    
+    
+    "Factor xhi"
+    xhi_1 = a*xhi_1_0
+    
+    "Friction factor"    
+    f = (np.cos(beta)/np.sqrt(b*np.tan(beta) + c*np.sin(beta) + xhi_0/np.cos(beta)) +(1 - np.cos(beta))/np.sqrt(xhi_1))**(-2)
+    
+    "Hagen number"
+    Hg = f*Re**2/2
+    
+    "Extracted from the comparison with Heavear et al. [10]"
+    c_q = 0.122
+    q = 0.374
+    
+    "Nusslet number:"
+    Nu = c_q*Pr**(1/3)*(mu/mu_w)**(1/6)*(2*Hg*np.sin(2*beta))**q
+    
+    "Heat Transffer Coefficient [W m^-2]:"
+    hcv = Nu*k/Dh
+    
+    return hcv 
+
+def muley_manglik_BPHEX_HTC(mu, mu_w, Pr, k, G, Dh, chevron_angle):
+    # Reynolds number
+    Re = G*Dh/mu
+    
+    beta = 180*chevron_angle/np.pi
+    
+    C = 0.2668 - 0.006967*beta + 7.244*1e-5*beta**2
+    C_2 = Re**(0.728 + 0.0543*np.sin((2*np.pi*beta/90) + 3.7))
+    
+    Nu = C * C_2 * Pr**(1/3) * (mu/mu_w)**(0.14)
+        
+    h_conv = (k/Dh)*Nu
     
     return h_conv
 
-# For the R1233zd(E) two phase (evaporation):
-def amalfi_plate_HTC(D_h, length, width, amplitude, chevron_angle, nb_channels, A_tot, m_dot, P_mean, AS):
 
-    def PHX_EV_Amalfi(x, D_h, length, width, amplitude, chevron_angle, A_tot, m_dot, P_mean, AS):
-        " Gas properties "
-        AS.update(CP.PQ_INPUTS, P_mean, 1)
-        
-        rho_g = AS.rhomass()
-        T_sat = AS.T()
-        h_g = AS.hmass()
-
-        try:
-            mu_g = AS.viscosity()                                           # Liquid Viscosity Q = 0, Pa s^-1
-        except:
-            AS.update(CP.PT_INPUTS, P_mean, T_sat+0.001)
-            mu_g = AS.viscosity()  
-        
-
-        " Liquid properties "    
-        AS.update(CP.PQ_INPUTS, P_mean, 0)
-        
-        rho_l = AS.rhomass()
-        h_l = AS.hmass()
-        
-        try:
-            mu_l = AS.viscosity()                                           # Liquid Viscosity Q = 0, Pa s^-1
-        except:
-            AS.update(CP.PT_INPUTS, P_mean, T_sat-0.001)
-            mu_l = AS.viscosity()     
-        
-        DeltaH_lg = h_g - h_l
-
-        " Instant quality-properties "
-        AS.update(CP.PQ_INPUTS, P_mean, x)
-        
-        rho_x = AS.rhomass()
-        if AS.fluid_names()[0] == 'R1233zd(E)':
-            k_x = (0.09513*T_sat - 17.963)/1000
-        else:
-            k_x  = AS.conductivity()   
-        
-        try:
-            sigma_x = AS.surface_tension()
-        except:
-            sigma_x = PropsSI('surface_tension', 'P', P_mean, 'Q', x, AS.fluid_names()[0])
-            
-        h_r_x = AS.hmass()
-        
-
-        " Average conditions "
-        x_m = 0.5*(0 + x)
-        rho_m = (x_m/rho_g + (1-x_m)/rho_l)**-1
-    
-        " Mass velocity"
-        G = m_dot/(2*amplitude*width)
-
-        " Heat Flux:"
-        Q_dot = m_dot*(h_g - h_r_x)
-        q_dot = Q_dot/A_tot 
-
-        " Boiling Number"
-        Bo = q_dot/(G*DeltaH_lg)
-      
-        " Weber number"
-        We = G**2*D_h/(rho_m*sigma_x)
-
-        " Reynolds as fully Liquid"
-        Re_LT = G*D_h/mu_l
-    
-        " Reynolds with only the gas fraction "                    
-        Re_GS = G*x*D_h/mu_g             
-    
-        " Bond Number "
-        g = 9.81
-        Bd = (rho_l-rho_x)*g*D_h**2/sigma_x   
-         
-        " Normalization of the density"
-        ratio_rho  = rho_x/rho_l 
-        
-        " Normalization of the Beta angles, Maximum 70"
-        chevron_angle = chevron_angle
-        ratio_beta = chevron_angle/70  
-
-        " Boiling condition for compute the Nusslet Number:"
-        if Bd<4:
-            Nu_TP = 982*ratio_beta**(1.101)*We**(0.315)*Bo**(0.320)*ratio_rho**(-0.224)
-            
-        elif Bd>=4:
-            Nu_TP = 18.495**ratio_beta**0.248 * Re_GS**0.135 * Re_LT**0.351 * Bd**0.235 * Bo**0.198 * ratio_rho**-0.223      
-        hcv_r = Nu_TP*k_x/D_h    
-
-        " Pressure"
-        v_g = 1/rho_g                                                 # Liquid Volume Q = 1, kg m^-3
-        v_l = 1/rho_l                                                 # Liquid Volume Q = 0, kg m^-3
-
-        " Mass velocity per total"  
-        G = m_dot/nb_channels/(width*amplitude)
-
-        " Pressure Drop: Extracted from Longo et al, and based in his ref 16.(Collier et Thome)"
-        " Decelaration pressure:"
-        DeltaP_a = G**2*(v_g-v_l)*(1-0)
-        
-        " Gravity pressure rise (elevation):"
-        g = 9.81
-        DeltaP_g = g*rho_m*length
-        
-        " Manifold and ports pressure drops (Shah and Focke correlation 1988):"
-        DeltaP_c = 1.5*G**2/(2*rho_m)
-        
-        " Friction pressure drops Longo et al."
-        KEV = G**2/(2*rho_m)
-        DeltaP_f = 1.95*KEV*1000   # kPa, This values depends on the refrigerant in Longo et al. he uses 2.0
-        
-        " Total pressure Drop:"
-        DeltaP_t = DeltaP_a + DeltaP_g + DeltaP_c + DeltaP_f
-        
-        " Total Pressure drop:"
-        DeltaP_t = DeltaP_a + DeltaP_g + DeltaP_c + DeltaP_f    
-        # print(f' hcv_r: {hcv_r}')
-        return hcv_r, DeltaP_t
-    
-    " Quality subdivision "
-    N_subdiv = 100
-    x_vec = np.linspace(0.1, 1, N_subdiv)
-
-    " h_cv vector "
-    hcv = np.zeros(N_subdiv)
-    
-    " Heat transffer calculation:"
-    for i in range (N_subdiv):
-        hcv[i], DeltaP_t = PHX_EV_Amalfi(x_vec[i], D_h, length, width, amplitude, chevron_angle, A_tot, m_dot, P_mean, AS)
-    " Average calculation:"
-    hcv_mean = np.mean(hcv)
-
-    return hcv_mean
-
-# For the R1233zd(E) two phase (condensation):
-def shah_condensation_plate_HTC(D_h, L_p, B_p, b, phi, M_dot_r, P_mean, N_ch, AS):
-    """ Shah correlation for condensation in Plate heat Exchanger 2021, for Beta valid 35 and 70°
-    
-    This is correlation is based in the Longo et al. 2015 correlation. This works presents an 
-    imporvement in the prediction.
- 
-        Shah (2021) Corr. for Condensation in corrugated PHX
-        Range: Water, ammmonia, R1234ZE ... (18 fluids)
-        Corrugation height (b): [1.2 - 5.0] mm
-        Beta : [30-75]°
-        Corr. Pitch (lambda): [4.9-12.7]mm
-        G : [2.3 - 165] kg/(m2 s)
-        x : [0-1] 
-        µ
-
-    Inputs:
-    -------
-    D_h : Hydraulic Diameter, m
-    L_p : Port-port centerline distance (Length), m
-    B_p : Port-port centerline distance (Width), m
-    b : Corrugation height or amplitude, m
-    phi : Enlargement factor, -
-    M_dot_r : Refrigerant mass flow rate, kg s^-1
-    P_mean : Condensation pressure, Pa,
-    N_ch : Number of plates of the fluid, -
-    AS : Fluid Abstract State
+def Yan_Plate_HTC(b, W, N, D_hyd, t_mean_r, P_mean, t_mean_s, refrigerant, m_dot_r):
     """
+    Evaporation Heat Transfer and Pressure Drop of Refrigerant R-134a in a Plate Heat Exchanger
     
-    def PHX_CD_Shah_x(x = 0.5, D_hyd = D_h, L_p = L_p, B_p = B_p, b = b, phi = phi, M_dot_r = M_dot_r, P_mean = P_mean, N_ch = N_ch, AS = AS):
-        
-        " Saturation conditions "
-        AS.update(CP.PQ_INPUTS, P_mean, 1)
-        rho_g = AS.rhomass()                                            # Vapor density Q =1, kg m^-3
-        
-        AS.update(CP.PQ_INPUTS, P_mean, 0)
-        rho_l = AS.rhomass()                                            # Liquid density Q = 0, kg m^-3
-        
-        cp_l = AS.cpmass()                                              # Liquid Specific Heat Q = 0, J/kg-K
-        T_sat = AS.T()                                                  # Liquid Temperature Q = 0, K
-                
-        try:
-            mu_l = AS.viscosity()                                           # Liquid Viscosity Q = 0, Pa s^-1
-        except:
-            AS.update(CP.PT_INPUTS, P_mean, T_sat-0.001)
-            mu_l = AS.viscosity()                                           # Liquid Viscosity Q = 0, Pa s^-1
-
-        v_g = 1/rho_g                                                   # Liquid Volume Q = 1, kg m^-3
-        v_l = 1/rho_l                                                   # Liquid Volume Q = 0, kg m^-3
-
-        if AS.fluid_names()[0] == 'R1233ZD(E)' or AS.fluid_names()[0] == 'R1233zd(E)':
-            k_l = (-0.2614*T_sat + 159.19)/1000
-            Pr_l = cp_l*mu_l/k_l
-
-        else:
-            k_l  = AS.conductivity()                                    # Liquid Conductivity Q = 0, W m^-2 K^-1
-            Pr_l = AS.Prandtl()                                         # Liquid Prandt number Q =0, -
-
-        " Refrigerant mass flow rate per chanell"
-        M_dot_r_ch = M_dot_r/N_ch                                      # Mass flow rate, kg s^-1
-        
-        " Mass velocity per total"  
-        G = M_dot_r_ch/(B_p*b)
-        
-        " Reynolds number  in liquid phase flow:"
-        Re_LS = G*(1-x)*D_hyd/mu_l
-
-        " Equivalent mass velocity: "
-        G_eq = G*((1-x)+x*(rho_l/rho_g)**0.5)
-        
-        " Equivalent Reynolds number:"
-        Re_eq = G_eq*D_hyd/mu_l
-
-        " Heat transffer coefficient in forced convection regime (Longo et al. 2015):"
-        hcv_fc = 1.875*(k_l/D_hyd)*phi*Re_eq**0.445*Pr_l**(1/3)
-        
-        " Heat transffer coefficient in gravity controlled regime (Shah et al. 2021):"
-        g = 9.81
-        hcv_grav = 1.32*phi*Re_LS**(-1/3) *((rho_l*(rho_l-rho_g)*g*k_l**3)/mu_l**2)**(1/3)
-
-        " Shah did not find a consistent trend for the following control:"
-        if Re_eq >= 1600:
-            hcv_r = hcv_fc
-        else:
-            hcv_r = max(hcv_grav, hcv_fc)
-            
-        " Pressure Drop: Extracted from Longo et al, and based in his ref 16.(Collier et Thome)"
-        " Decelaration pressure:"
-        DeltaP_a = G**2*(v_g-v_l)*(1-0)
-        
-        " Gravity pressure rise (elevation):"
-        x_m = 0.5
-        rho_m = (x_m/rho_g + (1-x_m)/rho_l)**(-1)
-        DeltaP_g = g*rho_m*L_p
-        
-        " Manifold and ports pressure drops (Shah and Focke correlation 1988):"
-        DeltaP_c = 1.5*G**2/(2*rho_m)
-        
-        " Friction pressure drops Longo et al."
-        KEV = G**2/(2*rho_m)
-        DeltaP_f = 1.95*KEV*1000   # kPa, This values depends on the refrigerant in Longo et al. he uses 2.0
-        
-        " Total pressure Drop:"
-        DeltaP_t = DeltaP_a + DeltaP_g + DeltaP_c + DeltaP_f
-
-        return hcv_r, DeltaP_t
+    Y.-Y. Yan, T.-F. Lin (1999)
+    """
+    T_wall=(t_mean_s+t_mean_r)/2
+    mu_wall = PropsSI('V','P', P_mean, 'T', T_wall, refrigerant)            # Liquid Viscosity Q = 0, Pa s^-1
+    v_mass_r = m_dot_r/(b*W)/(N-1)*2    
     
-    " Quality  calculation: "
+    " Thermodynamics properties:"
+    mu =  PropsSI('V','P', P_mean,'T',t_mean_s, refrigerant)          # Viscosity, Pa s
+    rho = PropsSI('D','P', P_mean,'T',t_mean_s, refrigerant)          # Density, kg m^-3
+    cp = PropsSI('C','P', P_mean,'T',t_mean_s, refrigerant)           # Specific Heat, J/kg-K
+    k  =  PropsSI('L','P', P_mean,'T',t_mean_s, refrigerant)          # Thermal conductivity, W m^-1 K^-1
+    Pr = PropsSI('PRANDTL', 'P', P_mean,'T',t_mean_s, refrigerant)    # Number of Prandtl, -
+        
+    nu_r = mu / rho
+    v_r = v_mass_r /rho
+    Re = v_r* D_hyd /nu_r    
+    h = 0.2121*(k/D_hyd)*Re**0.78*Pr**(1/3)*(mu/mu_wall)**0.14
     
-    " Number of subdivision "
-    N_subdiv = 100
+    return h
+
+def Incropera_Plate_HTC(mu, Pr, k, G, Dh):
+    """
+    Incropera's Principles of Heat Transfer 
+    """
+    # Reynolds number
+    Re = G*Dh/mu
     
-    " Vector of quality, x=1, problem in Re_L"
-    x_vec = np.linspace(0, 0.99, N_subdiv) 
-    hcv = np.zeros(N_subdiv)
+    if Re < 5*1e5:
+        # All Prandtl numbers : Churchill & Ozoe
+        Nu = 0.3387*Re**(1/2)*Pr**(1/3)/(1+(0.0468/Pr)**(2/3))**(1/4)
+    else: # Colburn analogy
+        # 0.6 <= Pr <= 60
+        Nu = 0.0296*Re**(4/5)*Pr**(1/3)
+        
+    h_conv = (k/Dh)*Nu
     
-    " Calculation along the differents qualities"
-    for i in range (N_subdiv):
-        " Instant heat transfer calculation "
-        hcv[i], DeltaP_t = PHX_CD_Shah_x(x_vec[i],
-                                D_h,
-                                L_p,
-                                B_p,
-                                b, 
-                                phi, 
-                                M_dot_r, 
-                                P_mean,
-                                N_ch, 
-                                AS)
- 
-    hcv_mean = np.mean(hcv)
-    return hcv_mean
+    return h_conv
 
-
-
-# POUR LE 1 PHASE
 def thonon_plate_HTC(mu, Pr, k, G, Dh, chevron_angle):
     """
     Reference
@@ -565,79 +414,145 @@ def kumar_plate_HTC(mu, Pr, k, G, Dh, mu_wall, chevron_angle):
 
     h_conv = (k/Dh)*Nu
     return h_conv
+
+#%% 2 EVAPORATION
+
+# For the R1233zd(E) two phase (evaporation):
+def amalfi_plate_HTC(D_h, length, width, amplitude, chevron_angle, nb_channels, A_tot, m_dot, P_mean, AS):
+
+    def PHX_EV_Amalfi(x, D_h, length, width, amplitude, chevron_angle, A_tot, m_dot, P_mean, AS):
+        " Gas properties "
+        AS.update(CP.PQ_INPUTS, P_mean, 1)
+        
+        rho_g = AS.rhomass()
+        T_sat = AS.T()
+        h_g = AS.hmass()
+
+        try:
+            mu_g = AS.viscosity()                                           # Liquid Viscosity Q = 0, Pa s^-1
+        except:
+            AS.update(CP.PT_INPUTS, P_mean, T_sat+0.001)
+            mu_g = AS.viscosity()  
         
 
-def simple_plate_HTC(mu, Pr, k, G, Dh):
-    # Reynolds number
-    Re = G*Dh/mu
-    
-    if Re < 5*1e5:
-        Nu = 0.3387*Re**(1/2)*Pr**(1/3)/(1+(0.0468/Pr)**(2/3))**(1/4)
-    else:
-        Nu = 0.0296*Re**(4/5)*Pr**(1/3)
+        " Liquid properties "    
+        AS.update(CP.PQ_INPUTS, P_mean, 0)
         
-    h_conv = (k/Dh)*Nu
-    
-    return h_conv
-
-
-def muley_manglik_BPHEX_HTC(mu, mu_w, Pr, k, G, Dh, chevron_angle):
-    # Reynolds number
-    Re = G*Dh/mu
-    
-    beta = 180*chevron_angle/np.pi
-    
-    C = 0.2668 - 0.006967*beta + 7.244*1e-5*beta**2
-    C_2 = Re**(0.728 + 0.0543*np.sin((2*np.pi*beta/90) + 3.7))
-    
-    Nu = C * C_2 * Pr**(1/3) * (mu/mu_w)**(0.14)
+        rho_l = AS.rhomass()
+        h_l = AS.hmass()
         
-    h_conv = (k/Dh)*Nu
-    
-    return h_conv
+        try:
+            mu_l = AS.viscosity()                                           # Liquid Viscosity Q = 0, Pa s^-1
+        except:
+            AS.update(CP.PT_INPUTS, P_mean, T_sat-0.001)
+            mu_l = AS.viscosity()     
+        
+        DeltaH_lg = h_g - h_l
 
-def martin_BPHEX_HTC(mu, mu_w, Pr, k, G, Dh, chevron_angle):
-    "Martin Holger: Correlation from the VDI Atlas p.1515"
- 
-    beta = chevron_angle
-    Re = G*Dh/mu
-    
-    "Factor for correlations: provided by Focke et al."
-    if Re >= 2000: # Regime : Turbulent
-        xhi_0   = (1.8*np.log(Re)-1.5)**-2
-        xhi_1_0 = 39/Re**0.289
-    elif Re < 2000: # Regime: Laminar
-        xhi_0   = 64/Re
-        xhi_1_0 = 597/Re +3.85
-    
-    "Constant given by Martin"
-    a = 3.8
-    b = 0.18 
-    c = 0.36    
-    
-    "Factor xhi"
-    xhi_1 = a*xhi_1_0
-    
-    "Friction factor"    
-    f = (np.cos(beta)/np.sqrt(b*np.tan(beta) + c*np.sin(beta) + xhi_0/np.cos(beta)) +(1 - np.cos(beta))/np.sqrt(xhi_1))**(-2)
-    
-    "Hagen number"
-    Hg = f*Re**2/2
-    
-    "Extracted from the comparison with Heavear et al. [10]"
-    c_q = 0.122
-    q = 0.374
-    
-    "Nusslet number:"
-    Nu = c_q*Pr**(1/3)*(mu/mu_w)**(1/6)*(2*Hg*np.sin(2*beta))**q
-    
-    "Heat Transffer Coefficient [W m^-2]:"
-    hcv = Nu*k/Dh
-    
-    return hcv 
+        " Instant quality-properties "
+        AS.update(CP.PQ_INPUTS, P_mean, x)
+        
+        rho_x = AS.rhomass()
+        if AS.fluid_names()[0] == 'R1233zd(E)':
+            k_x = (0.09513*T_sat - 17.963)/1000
+        else:
+            k_x  = AS.conductivity()   
+        
+        try:
+            sigma_x = AS.surface_tension()
+        except:
+            sigma_x = PropsSI('surface_tension', 'P', P_mean, 'Q', x, AS.fluid_names()[0])
+            
+        h_r_x = AS.hmass()
+        
 
+        " Average conditions "
+        x_m = 0.5*(0 + x)
+        rho_m = (x_m/rho_g + (1-x_m)/rho_l)**-1
+    
+        " Mass velocity"
+        G = m_dot/(2*amplitude*width)
 
-#%%
+        " Heat Flux:"
+        Q_dot = m_dot*(h_g - h_r_x)
+        q_dot = Q_dot/A_tot 
+
+        " Boiling Number"
+        Bo = q_dot/(G*DeltaH_lg)
+      
+        " Weber number"
+        We = G**2*D_h/(rho_m*sigma_x)
+
+        " Reynolds as fully Liquid"
+        Re_LT = G*D_h/mu_l
+    
+        " Reynolds with only the gas fraction "                    
+        Re_GS = G*x*D_h/mu_g             
+    
+        " Bond Number "
+        g = 9.81
+        Bd = (rho_l-rho_x)*g*D_h**2/sigma_x   
+         
+        " Normalization of the density"
+        ratio_rho  = rho_x/rho_l 
+        
+        " Normalization of the Beta angles, Maximum 70"
+        chevron_angle = chevron_angle
+        ratio_beta = chevron_angle/70  
+
+        " Boiling condition for compute the Nusslet Number:"
+        if Bd<4:
+            Nu_TP = 982*ratio_beta**(1.101)*We**(0.315)*Bo**(0.320)*ratio_rho**(-0.224)
+            
+        elif Bd>=4:
+            Nu_TP = 18.495**ratio_beta**0.248 * Re_GS**0.135 * Re_LT**0.351 * Bd**0.235 * Bo**0.198 * ratio_rho**-0.223      
+        hcv_r = Nu_TP*k_x/D_h    
+
+        " Pressure"
+        v_g = 1/rho_g                                                 # Liquid Volume Q = 1, kg m^-3
+        v_l = 1/rho_l                                                 # Liquid Volume Q = 0, kg m^-3
+
+        " Mass velocity per total"  
+        G = m_dot/nb_channels/(width*amplitude)
+
+        " Pressure Drop: Extracted from Longo et al, and based in his ref 16.(Collier et Thome)"
+        " Decelaration pressure:"
+        DeltaP_a = G**2*(v_g-v_l)*(1-0)
+        
+        " Gravity pressure rise (elevation):"
+        g = 9.81
+        DeltaP_g = g*rho_m*length
+        
+        " Manifold and ports pressure drops (Shah and Focke correlation 1988):"
+        DeltaP_c = 1.5*G**2/(2*rho_m)
+        
+        " Friction pressure drops Longo et al."
+        KEV = G**2/(2*rho_m)
+        DeltaP_f = 1.95*KEV*1000   # kPa, This values depends on the refrigerant in Longo et al. he uses 2.0
+        
+        " Total pressure Drop:"
+        DeltaP_t = DeltaP_a + DeltaP_g + DeltaP_c + DeltaP_f
+        
+        " Total Pressure drop:"
+        DeltaP_t = DeltaP_a + DeltaP_g + DeltaP_c + DeltaP_f    
+        # print(f' hcv_r: {hcv_r}')
+        return hcv_r, DeltaP_t
+    
+    " Quality subdivision "
+    N_subdiv = 100
+    x_vec = np.linspace(0.1, 1, N_subdiv)
+
+    " h_cv vector "
+    hcv = np.zeros(N_subdiv)
+    
+    " Heat transffer calculation:"
+    for i in range (N_subdiv):
+        hcv[i], DeltaP_t = PHX_EV_Amalfi(x_vec[i], D_h, length, width, amplitude, chevron_angle, A_tot, m_dot, P_mean, AS)
+    " Average calculation:"
+    hcv_mean = np.mean(hcv)
+
+    return hcv_mean
+
 def han_boiling_BPHEX_HTC(x, mu_l, k_l, Pr_l, rho_l, rho_v, i_fg, G, DT_log, Qdot, hconv_h, Dh, theta, pitch_co):
     """
     Inputs
@@ -698,7 +613,189 @@ def han_boiling_BPHEX_HTC(x, mu_l, k_l, Pr_l, rho_l, rho_v, i_fg, G, DT_log, Qdo
     
     h_boiling = h
     
-    return h_boiling, Nu
+    return h_boiling # , Nu
+
+def Yan_boiling_PHX(x, b, W, L, N, D_hyd, t_mean_r, P_mean, t_mean_s, refrigerant, m_dot_r):
+    """
+    Evaporation Heat Transfer and Pressure Drop of Refrigerant R-134a in a Plate Heat Exchanger
+    
+    Y.-Y. Yan, T.-F. Lin (1999)
+    """
+    T_wall=(t_mean_s+t_mean_r)/2
+    mu_wall = PropsSI('V','P', P_mean, 'T', T_wall, refrigerant)            # Liquid Viscosity Q = 0, Pa s^-1
+    v_mass_r = m_dot_r/(b*W)/(N-1)*2
+    A = L*W *(N - 2)
+    
+    " Saturation conditions "
+    rho_g = PropsSI('D','P', P_mean, 'Q', 1, refrigerant)           # Vapor density Q =1, kg m^-3
+    rho_l = PropsSI('D','P', P_mean, 'Q', 0, refrigerant)           # Liquid density Q =0, kg m^-3
+    v_g = 1/rho_g                                                   # Liquid Volume Q = 1, kg m^-3
+    v_l = 1/rho_l                                                   # Liquid Volume Q = 0, kg m^-3
+    mu_l = PropsSI('V','P', P_mean, 'Q', 0, refrigerant)            # Liquid Viscosity Q = 0, Pa s^-1
+    mu_g = PropsSI('V','P', P_mean, 'Q', 1, refrigerant)            # Liquid Viscosity Q = 0, Pa s^-1
+    h_l = PropsSI('H','P', P_mean, 'Q', 0, refrigerant)           # Liquid density Q =0, kg m^-3    
+    h_g = PropsSI('H','P', P_mean, 'Q', 1, refrigerant)           # Liquid density Q =0, kg m^-3
+    cp_l = PropsSI('C','P', P_mean, 'Q', 0, refrigerant)            # Liquid Specific Heat Q = 0, J/kg-K
+    T_sat = PropsSI('T','P', P_mean, 'Q', 0, refrigerant)           # Liquid Temperature Q = 0, K
+    k_l  = PropsSI('L','P', P_mean, 'Q', 0, refrigerant)            # Liquid Conductivity Q = 0, W m^-2 K^-1
+    Pr_l = PropsSI('Prandtl', 'P', P_mean,'Q', 0,refrigerant)       # Liquid Prandt number Q =0, -
+    
+    "Heat flux:"
+    Q_dot = m_dot_r*(h_g-h_l)
+    q_dot = Q_dot/A    
+    
+    G_eq = v_mass_r * ((1 - x) + x * (rho_l / rho_g)**0.5)
+    Re_eq = G_eq * D_hyd / mu_l
+    Co = (rho_g / rho_l) * ((1 - x)/x)**0.8
+    h_fg = h_g - h_l
+    Bo = q_dot / (v_mass_r * h_fg)
+    Re = v_mass_r*D_hyd/mu_l
+
+    mu_m=mu_l*(1-x)+mu_g*x
+    
+    " Liquid Heat transffer"
+    h_l = 0.2092*(k_l/D_hyd)*Re**0.78*Pr_l**(1/3)*(mu_m/mu_wall)**0.14
+    
+    " Correction Factor Quingfa:"
+    Nu = 2.17*Re_eq**0.495*Re**0.05*Pr_l**(1/3)
+    h_tp = Nu *k_l/D_hyd 
+    
+    return h_tp
+
+#%% 3 CONDENSATION
+
+# For the R1233zd(E) two phase (condensation):
+def shah_condensation_plate_HTC(D_h, L_p, B_p, b, phi, M_dot_r, P_mean, N_ch, AS):
+    """ Shah correlation for condensation in Plate heat Exchanger 2021, for Beta valid 35 and 70°
+    
+    This is correlation is based in the Longo et al. 2015 correlation. This works presents an 
+    imporvement in the prediction.
+ 
+        Shah (2021) Corr. for Condensation in corrugated PHX
+        Range: Water, ammmonia, R1234ZE ... (18 fluids)
+        Corrugation height (b): [1.2 - 5.0] mm
+        Beta : [30-75]°
+        Corr. Pitch (lambda): [4.9-12.7]mm
+        G : [2.3 - 165] kg/(m2 s)
+        x : [0-1] 
+        µ
+
+    Inputs:
+    -------
+    D_h : Hydraulic Diameter, m
+    L_p : Port-port centerline distance (Length), m
+    B_p : Port-port centerline distance (Width), m
+    b : Corrugation height or amplitude, m
+    phi : Enlargement factor, -
+    M_dot_r : Refrigerant mass flow rate, kg s^-1
+    P_mean : Condensation pressure, Pa,
+    N_ch : Number of plates of the fluid, -
+    AS : Fluid Abstract State
+    """
+    
+    def PHX_CD_Shah_x(x = 0.5, D_hyd = D_h, L_p = L_p, B_p = B_p, b = b, phi = phi, M_dot_r = M_dot_r, P_mean = P_mean, N_ch = N_ch, AS = AS):
+        
+        " Saturation conditions "
+        AS.update(CP.PQ_INPUTS, P_mean, 1)
+        rho_g = AS.rhomass()                                            # Vapor density Q =1, kg m^-3
+        
+        AS.update(CP.PQ_INPUTS, P_mean, 0)
+        rho_l = AS.rhomass()                                            # Liquid density Q = 0, kg m^-3
+        
+        cp_l = AS.cpmass()                                              # Liquid Specific Heat Q = 0, J/kg-K
+        T_sat = AS.T()                                                  # Liquid Temperature Q = 0, K
+                
+        try:
+            mu_l = AS.viscosity()                                           # Liquid Viscosity Q = 0, Pa s^-1
+        except:
+            AS.update(CP.PT_INPUTS, P_mean, T_sat-0.001)
+            mu_l = AS.viscosity()                                           # Liquid Viscosity Q = 0, Pa s^-1
+
+        v_g = 1/rho_g                                                   # Liquid Volume Q = 1, kg m^-3
+        v_l = 1/rho_l                                                   # Liquid Volume Q = 0, kg m^-3
+
+        if AS.fluid_names()[0] == 'R1233ZD(E)' or AS.fluid_names()[0] == 'R1233zd(E)':
+            k_l = (-0.2614*T_sat + 159.19)/1000
+            Pr_l = cp_l*mu_l/k_l
+
+        else:
+            k_l  = AS.conductivity()                                    # Liquid Conductivity Q = 0, W m^-2 K^-1
+            Pr_l = AS.Prandtl()                                         # Liquid Prandt number Q =0, -
+
+        " Refrigerant mass flow rate per chanell"
+        M_dot_r_ch = M_dot_r/N_ch                                      # Mass flow rate, kg s^-1
+        
+        " Mass velocity per total"  
+        G = M_dot_r_ch/(B_p*b)
+        
+        " Reynolds number  in liquid phase flow:"
+        Re_LS = G*(1-x)*D_hyd/mu_l
+
+        " Equivalent mass velocity: "
+        G_eq = G*((1-x)+x*(rho_l/rho_g)**0.5)
+        
+        " Equivalent Reynolds number:"
+        Re_eq = G_eq*D_hyd/mu_l
+
+        " Heat transffer coefficient in forced convection regime (Longo et al. 2015):"
+        hcv_fc = 1.875*(k_l/D_hyd)*phi*Re_eq**0.445*Pr_l**(1/3)
+        
+        " Heat transffer coefficient in gravity controlled regime (Shah et al. 2021):"
+        g = 9.81
+        hcv_grav = 1.32*phi*Re_LS**(-1/3) *((rho_l*(rho_l-rho_g)*g*k_l**3)/mu_l**2)**(1/3)
+
+        " Shah did not find a consistent trend for the following control:"
+        if Re_eq >= 1600:
+            hcv_r = hcv_fc
+        else:
+            hcv_r = max(hcv_grav, hcv_fc)
+            
+        " Pressure Drop: Extracted from Longo et al, and based in his ref 16.(Collier et Thome)"
+        " Decelaration pressure:"
+        DeltaP_a = G**2*(v_g-v_l)*(1-0)
+        
+        " Gravity pressure rise (elevation):"
+        x_m = 0.5
+        rho_m = (x_m/rho_g + (1-x_m)/rho_l)**(-1)
+        DeltaP_g = g*rho_m*L_p
+        
+        " Manifold and ports pressure drops (Shah and Focke correlation 1988):"
+        DeltaP_c = 1.5*G**2/(2*rho_m)
+        
+        " Friction pressure drops Longo et al."
+        KEV = G**2/(2*rho_m)
+        DeltaP_f = 1.95*KEV*1000   # kPa, This values depends on the refrigerant in Longo et al. he uses 2.0
+        
+        " Total pressure Drop:"
+        DeltaP_t = DeltaP_a + DeltaP_g + DeltaP_c + DeltaP_f
+
+        return hcv_r, DeltaP_t
+    
+    " Quality  calculation: "
+    
+    " Number of subdivision "
+    N_subdiv = 100
+    
+    " Vector of quality, x=1, problem in Re_L"
+    x_vec = np.linspace(0, 0.99, N_subdiv) 
+    hcv = np.zeros(N_subdiv)
+    
+    " Calculation along the differents qualities"
+    for i in range (N_subdiv):
+        " Instant heat transfer calculation "
+        hcv[i], DeltaP_t = PHX_CD_Shah_x(x_vec[i],
+                                D_h,
+                                L_p,
+                                B_p,
+                                b, 
+                                phi, 
+                                M_dot_r, 
+                                P_mean,
+                                N_ch, 
+                                AS)
+ 
+    hcv_mean = np.mean(hcv)
+    return hcv_mean # , DeltaP_t, hcv
 
 def han_cond_BPHEX_HTC(x, mu_l, k_l, Pr_l, rho_l, rho_v, G, Dh, pitch_co, beta, L_v, N_cp, m_dot, D_p):
     """
@@ -745,87 +842,5 @@ def han_cond_BPHEX_HTC(x, mu_l, k_l, Pr_l, rho_l, rho_v, G, Dh, pitch_co, beta, 
     Nu = Ge1*Re_eq**Ge2*Pr_l**(1/3)
     h_cond = Nu*k_l/Dh
     
-    # Pressure drop
-    Ge3 = 3521.1*(pitch_co/Dh)**(4.17)*(theta)**(-7.75)
-    Ge4 = -1.024*(pitch_co/Dh)**(0.0925)*(theta)**(-1.3)
-    
-    f = Ge3*Re_eq**Ge4
-    
-    # Two phase related pressure drop
-    DP_tp = f*(L_v*N_cp/Dh)*G_eq**2*rho_l
-    
-    # Port pressure drop
-    m_dot_eq = m_dot*(1 - x + x*(rho_l/rho_v)**0.5)
-    G_p = 4*(m_dot_eq/(np.pi*D_p**2))
-    rho_m = 1/( (x/rho_v) + (1 - x)/rho_l )
+    return h_cond # , Nu
 
-    DP_port = 1.4*G_p**2/(2*rho_m)
-
-    # Static head loss
-    DP_stat = -rho_m*g*L_v # negative because downward flow <-> Condenser
-
-    # The acceleration pressure drop for condensation is expressed as : ??? 
-    
-    DP_tot = DP_tp + DP_port + DP_stat
-    
-    return h_cond, Nu, DP_tot
-
-def han_BPHEX_DP(mu, G, Dh, beta, pitch_co, rho_v, rho_l, L_v, N_cp, m_dot, D_p): 
-    """
-    Inputs
-    ------
-    mu       : viscosity [Pa*s]
-    rho_l    : Liquid density [kg/m^3]
-    rho_v    : Vapor density [kg/m^3]
-    G        : Mass flux [kg/(m^2 * s)]
-    Dh       : Plate spacing [m]
-    pitch_co : Corrugated pitch [m]
-    beta     : Chevron angle [°]
-    L_v      : Vertical length between fluid ports [m]
-    N_cp     : Number of canals [-]
-    m_dot    : Flowrate [kg/s]
-    D_p      : Port diameter [m]
-    
-    Outputs
-    -------
-    h_cond : Condensation HTC [W/(m^2*K)]
-    Nu     : Nusselt Number [-]
-    DP_tot : Total Pressure Drop [Pa]
-    
-    Reference
-    ---------
-    "The caracteristics of condensation in brazed plate heat exchangers with different chevron angles", Journal of the Korean Physical Society, 2003
-    Han et. al
-    
-    """
-    
-    # Preliminary calculations
-    theta = np.pi/2 - beta
-    g = 9.81 # gravity acceleration
-    
-    Re_eq = G*Dh/mu
-    
-    # Pressure drop
-    Ge3 = 3521.1*(pitch_co/Dh)**(4.17)*(theta)**(-7.75)
-    Ge4 = -1.024*(pitch_co/Dh)**(0.0925)*(theta)**(-1.3)
-    
-    f = Ge3*Re_eq**Ge4
-    
-    rho = rho_v + rho_l
-    
-    # Two phase related pressure drop
-    DP_tp = f*(L_v*N_cp/Dh)*G**2*rho
-    
-    # Port pressure drop
-    G_p = 4*(m_dot/(np.pi*D_p**2))
-
-    DP_port = 1.4*G_p**2/(2*rho)
-
-    # Static head loss
-    DP_stat = -rho*g*L_v # negative because downward flow <-> Condenser
-
-    # The acceleration pressure drop for condensation is expressed as : ??? 
-    
-    DP_tot = DP_tp + DP_port + DP_stat
-    
-    return DP_tot

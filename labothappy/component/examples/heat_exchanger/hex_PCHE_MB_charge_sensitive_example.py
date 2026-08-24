@@ -106,7 +106,8 @@ if test_case == "TCO2_recup":
               'R_p': 1, # n_hot_channel_row / n_cold_channel_row
               't_2': 0.0012282802564224898, # Horizontal pitch
               't_3': 0.0009428803890487963, # Plate_thickness
-              'type_channel' : 'Zigzag'} 
+              'type_channel' : 'Zigzag',
+              "AS_Type" : "HEOS"} 
 
     Corr_H = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
     Corr_C = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
@@ -114,8 +115,8 @@ if test_case == "TCO2_recup":
     # H_DP = "Gnielinski_DP"
     # C_DP = "Gnielinski_DP"    
     
-    H_DP = {"SC" : "Darcy_Weisbach", "1P" : "Darcy_Weisbach"}
-    C_DP = {"SC" : "Darcy_Weisbach", "1P" : "Darcy_Weisbach"}  
+    Corr_H_DP = {"SC" : "Darcy_Weisbach", "1P" : "Darcy_Weisbach"}
+    Corr_C_DP = {"SC" : "Darcy_Weisbach", "1P" : "Darcy_Weisbach"}  
     
     # ---------------------------------------------------------------------------------------------------------
     # "Parameters Setting"
@@ -140,7 +141,7 @@ if test_case == "TCO2_recup":
 #             'Dryout' : 10000,
 #             'Transcritical' : 200}
 
-HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation' # 28
+HX.set_htc(htc_type = 'Correlation_Disc', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation' # 28
 # HX.set_htc(htc_type = 'User-Defined', UD_H_HTC = UD_H_HTC, UD_C_HTC = UD_C_HTC) # 'User-Defined' or 'Correlation'
 
 # HX.set_DP() # equivalent to HX.set_DP(DP_type = None)
@@ -150,5 +151,5 @@ HX.set_DP(DP_type="Correlation_Disc", Corr_C=Corr_C_DP, Corr_H=Corr_H_DP)
 
 # "Solve the component"
 HX.solve()
-# HX.plot_cells()
+HX.plot_cells()
 
