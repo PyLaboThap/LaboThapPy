@@ -422,6 +422,8 @@ class DrumSeparator(BaseComponent):
         
         self.mdot_ex_oil = self.su_oil['m_dot']*(1-self.eta_total)
         
+        self.x_ex_oil = (self.mdot_ex_oil/self.su_gas['m_dot'])/100
+        
         return
 
 #%%
@@ -434,13 +436,13 @@ if __name__ == "__main__":
         Drum = DrumSeparator()
     
         Drum.set_inputs(
-            T_su_gas = 50+273.15, # K
+            T_su_gas = 40+273.15, # K
             P_su_gas = 1*1e5, # Pa
             V_dot_gas = 52/3600, # m^3/s
             fluid_gas = 'Air',
             
             fluid_oil = 'Jet II',
-            T_su_oil = 50+273.15, # K
+            T_su_oil = 40+273.15, # K
             P_su_oil = 1*1e5, # Pa
             V_dot_oil = (650/1000)/3600, # m^3/s
             rho_oil = 1003.5, # kg/m^3
@@ -449,7 +451,7 @@ if __name__ == "__main__":
             )
         
         Drum.set_parameters(
-            BD=0.5,   # m body diameter
+            BD=0.9,   # m body diameter
             # BH=0.22,   # m body height
             D_in=0.0141, # inlet pipe inner diameter
             # S=0.120,    # m outlet pipe length

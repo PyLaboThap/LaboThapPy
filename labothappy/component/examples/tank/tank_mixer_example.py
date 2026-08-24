@@ -44,6 +44,5 @@ try:
 except:
     print("Could not calculate outlet temperature.")
     
-fig = Mixer.plot_thermo_states()
-fig.show()
+fig = Mixer.plot_Ts()
 

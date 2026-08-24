@@ -1,12 +1,14 @@
+import __init__
 
 from labothappy.component.heat_exchanger.hex_cstpinch import HexCstPinch
 
 # from simulation_model import HXPinchCst
 import numpy as np
+import matplotlib.pyplot as plt
 
 from CoolProp.CoolProp import PropsSI
 
-case_test = 'COND_C5'
+case_test = 'COND_CO2'
 
 "Evaporator test"
 
@@ -17,19 +19,19 @@ if case_test == 'EVAP_C5':
     
     EVAP.set_inputs(
         fluid_C = 'Cyclopentane',
-        T_su_C = 110+273.15,
-        P_su_C = 831.8*1e3,
-        m_dot_C = 51.03,
+        P_su_C = 448092.1358915291,
+        h_su_C = 227308.5385466662,
+        m_dot_C = 20,
     
-        fluid_H = 'Water', #Oil
-        T_su_H = 145+273.15,
-        P_su_H = 5*1e5,
-        m_dot_H = 400,
+        fluid_H = 'Water', 
+        T_su_H = 386.25,
+        P_su_H = 2*1e5,
+        m_dot_H = 500,
     )
     
     EVAP.set_parameters(**{
-        'Pinch': 4,
-        'Delta_T_sh_sc': 10,
+        'Pinch': 3,
+        'Delta_T_sh_sc': 1,
         'HX_type': 'evaporator'
     })
     
@@ -38,10 +40,20 @@ if case_test == 'EVAP_C5':
     EVAP.print_states_connectors()
     EVAP.plot_disc()
     
-    fig = EVAP.plot_Ts(choose_HX_side='C')
-    fig.show()
+    # fig = EVAP.plot_Ts(choose_HX_side='C')
+    # fig.show()
     
-    EVAP.equivalent_effectiveness()
+    # EVAP.equivalent_effectiveness()
+
+    # p_vec = np.linspace(280791, 561582, 10000)
+    # res_vec = []
+
+    # for p in p_vec:
+    #     res = EVAP.system_evap(p)
+        
+    #     res_vec.append(res)
+
+    # plt.plot(p_vec,res_vec)
 
 elif case_test == 'EVAP_HP_ZORLU':
 
@@ -69,7 +81,6 @@ elif case_test == 'EVAP_HP_ZORLU':
     EVAP.solve()
     EVAP.print_results()
     EVAP.print_states_connectors()
-    EVAP.plot_disc()
     
     fig = EVAP.plot_Ts(choose_HX_side='C')
     fig.show()
@@ -107,40 +118,6 @@ elif case_test == 'EVAP_C3':
     EVAP.plot_disc()
     
     # EVAP.equivalent_effectiveness()
-
-# elif case_test == 'COND_C5':
-
-#     "Condenser test"
-    
-#     COND = HexCstPinch()
-    
-#     COND.set_inputs(
-#         fluid_H = 'Cyclopentane',
-#         T_su_H = 45+273.15,
-#         P_su_H = 71.82*1e3,
-#         m_dot_H = 34.51,
-        
-#         fluid_C = 'Water',
-#         T_su_C = 24+273.15,
-#         P_su_C = 1e5,
-#         m_dot_C = 900
-#     )
-    
-#     COND.set_parameters(**{
-#         'Pinch': 3,
-#         'Delta_T_sh_sc': 1,
-#         'HX_type': 'condenser',
-#         # 'DP_c' : 30*1e3,
-#         # 'DP_h' : 15*1e3,
-#     })
-    
-#     COND.solve()
-    
-#     COND.print_results()
-#     COND.print_states_connectors()
-#     COND.plot_disc()
-    
-#     # COND.equivalent_effectiveness()
    
 elif case_test == 'COND_C5':
 
@@ -188,8 +165,8 @@ elif case_test == 'COND_CO2':
     COND.set_inputs(
         fluid_H = 'CO2',
         T_su_H = 30+273.15,
-        P_su_H = 55*1e5,
-        m_dot_H = 30,
+        P_su_H = 60*1e5,
+        m_dot_H = 15,
         
         fluid_C = 'Water',
         T_su_C = 15+273.15,

@@ -15,7 +15,7 @@ Antonio C. Caputo, Pacifico M. Pelagagge, Paolo Salini
 import numpy as np
 import matplotlib.pyplot as plt
 
-from toolbox.economics.cpi_data import actualize_price
+from labothappy.toolbox.economics.cpi_data import actualize_price
 
 def total_STHE_cost(HX, n_y=10, h_per_y=7000, C_e=0.12, i=0.1, eta_pp=0.8):
     """
@@ -69,6 +69,8 @@ def total_STHE_cost(HX, n_y=10, h_per_y=7000, C_e=0.12, i=0.1, eta_pp=0.8):
         OPEX += OPEX_n/((1+i)**y)
     
     return OPEX + CAPEX
+
+#%%
 
 class EconomicParameters:
     """Economic parameters for cost calculations"""
@@ -927,6 +929,39 @@ class HeatExchangerCost:
         plt.figtext(0.5, -0.05, "Breakdown of total manufacturing costs.", ha="center", fontsize=10)
         plt.tight_layout()
         plt.show()
+        
+#%%
+
+def krishna_cost_correlation_STHE(m_HX, n_B, n_tubes, tube_L, tube_OD):
+    """
+    Technoeconomic optimization of superalloy supercritical CO2 microtube shell-and-tube-heat exchangers
+    Akshay Bharadwaj Krishna, Kaiyuan Jin, Portonovo S. Ayyaswamy, Ivan Catton, Timothy S. Fisher ∗
+    """
+    year = 2023
+    currency = "USD"
+    
+    # Labor + Procurement Costs
+    
+    # A = 255 $/kg for Nickel Superalloy -> Says 255 $/kg in the source but other metnion 15-80 $/kg
+    # A = 5   # $/kg for A304L
+    # A = 7   # $/kg for A316L
+
+    A = 2.5   # $/kg for A106 Gr.B / API 5L Gr.B Carbon Steel
+    B = 5     # $ * mm
+    C = 14    # $
+    D = 2     # $ * m
+    E = 2     # $
+    F = 4000  # $
+    
+    A_term = A*m_HX
+    B_term = B*n_tubes / (1000*tube_OD)
+    C_term = C*n_tubes
+    D_term = D*n_tubes/tube_L
+    E_term = E*n_B*n_tubes
+    
+    C_cap = A_term + B_term + C_term + D_term + E_term + F
+    
+    return C_cap
 
 if __name__ == "__main__":
     import numpy as np

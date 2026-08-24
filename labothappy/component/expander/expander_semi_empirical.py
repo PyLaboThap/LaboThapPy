@@ -12,10 +12,10 @@ from scipy.optimize import fsolve
 import numpy as np
 
 "Internal modules"
-from component.base_component import BaseComponent
-from connector.mass_connector import MassConnector
-from connector.work_connector import WorkConnector
-from connector.heat_connector import HeatConnector
+from labothappy.component.base_component import BaseComponent
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.connector.work_connector import WorkConnector
+from labothappy.connector.heat_connector import HeatConnector
 
 class ExpanderSE(BaseComponent):
     """
@@ -333,10 +333,14 @@ class ExpanderSE(BaseComponent):
             h_su2 = min(h_max, max(max(h_ex_is, self.AS.hmass()), h_su1 - Q_dot_su/self.m_dot))
         
         P_su2 = P_su1 # No pressure drop just heat transfer
-        self.AS.update(CoolProp.HmassP_INPUTS, h_su2, P_su2)
-        rho_su2 = self.AS.rhomass()
-        s_su2 = self.AS.smass()
+        # self.AS.update(CoolProp.HmassP_INPUTS, h_su2, P_su2)
+        # rho_su2 = self.AS.rhomass()
+        # s_su2 = self.AS.smass()
         
+        rho_su2 = rho_su
+        s_su2 = s_su
+        h_su2 = h_su
+
         #------------------------------------------------------------------------------------------------
         "4. Leakage"
         try:
@@ -466,6 +470,7 @@ class ExpanderSE(BaseComponent):
         print(f"  - epsilon_is: {self.epsilon_is} [-]")
         print(f"  - m_dot: {self.m_dot} [kg/s]")
         print(f"  - epsilon_v: {self.epsilon_v} [-]")
+        print(f"  - N_rot: {self.W.N_rot} [-]")
         print("=========================")
 
     def print_states_connectors(self):

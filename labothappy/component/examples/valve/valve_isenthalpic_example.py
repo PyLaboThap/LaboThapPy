@@ -20,15 +20,12 @@ Valve.set_inputs(
     P_su = 3*1e5, # Pa
     P_ex = 1e5, # kg/s
     fluid = 'R1233zd(E)',
-
     )
 
 "--------- 2) Solve ------------------------------------------------------------------------------------------"
 Valve.solve()
 
-
 "--------- 3) Results ------------------------------------------------------------------------------------------"
 Valve.print_results()
 
-fig = Valve.plot_thermo_states()
-fig.show()
+fig = Valve.plot_Ts()
