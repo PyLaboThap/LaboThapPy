@@ -527,15 +527,15 @@ if __name__ == "__main__":
         import numpy as np
         
         T_cold_source = 10+273.15
-        T_hot_source = 200+273.15
+        T_hot_source = 350+273.15
 
-        m_dot = 0.04
+        m_dot = 30
 
         eta_is_pp = 0.9
-        eta_is_cp = 0.7
+        eta_is_cp = 0.8
         eta_is_exp = 0.9
         eta_gh = 0.95
-        eta_rec = 0.95
+        eta_rec = 0.9
 
         PPTD_cd = 3
         SC_cd = 2
@@ -554,13 +554,13 @@ if __name__ == "__main__":
         CSource = MassConnector()
         CSource.set_properties(fluid = 'Water', T = T_cold_source, p = 5e5, m_dot = 10000)
         
-        DP_h_rec = 0*1e5
-        DP_c_rec = 0*1e5
+        DP_h_rec = 100*1e3
+        DP_c_rec = 100*1e3
         
         DP_h_gh = 0*1e3
-        DP_c_gh = 0*1e5
+        DP_c_gh = 100*1e3
         
-        DP_h_cond = 0*1e5
+        DP_h_cond = 100*1e3
         DP_c_cond = 0*1e3
         
         spliter_fracs = np.linspace(0,1,11)
@@ -578,24 +578,36 @@ if __name__ == "__main__":
 
         CO2_TC = Recomp_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_is_pp, eta_is_exp, 
                                 eta_is_cp, eta_gh, eta_rec, PPTD_cd, SC_cd, P_low_guess, 150*1e5, 
-                                m_dot, spliter_frac = 1, mute_print_flag=0)
+                                m_dot, spliter_frac = 0.5, mute_print_flag=0)
                 
-        CO2_TC.solve(method = 'wegstein', max_iter=50)
+        CO2_TC.solve(method = 'wegstein', max_iter=100)
+
+        if CO2_TC.converged:
+            
+            W_exp = CO2_TC.components['Expander'].model.W.W_dot
+            Q_cd = CO2_TC.components['Condenser'].model.Q.Q_dot
+            W_cp = CO2_TC.components['Compressor'].model.W.W_dot
+            W_pp = CO2_TC.components['Pump'].model.W.W_dot
+            Q_gh = CO2_TC.components['GasHeater'].model.Q.Q_dot
+
+            W_dot_net = (W_exp - W_pp - W_cp)
+            eta = W_dot_net/Q_gh
+
 
     elif study_case == "Recomp_1_recup":
 
         import numpy as np
         
         T_cold_source = 10+273.15
-        T_hot_source = 100+273.15
+        T_hot_source = 350+273.15
 
         m_dot = 30.526725090894885 # 30
 
-        eta_is_pp = 0.8
+        eta_is_pp = 0.9
         eta_is_cp = 0.8
         eta_is_exp = 0.9
         eta_gh = 0.95
-        eta_rec = 0.95
+        eta_rec = 0.9
 
         PPTD_cd = 3
         SC_cd = 2
@@ -608,7 +620,7 @@ if __name__ == "__main__":
 
         P_low_guess = min(1.5*P_sat_T_CSource_PP, 0.8*P_crit_CO2) # P_sat_T_CSource_PP # 0.6*P_crit_CO2 # min(1.3*P_sat_T_CSource,0.6*P_crit_CO2)   
         
-        m_dot_H = 38.305712021488546 # m_dot*100
+        m_dot_H = m_dot*100
         
         HSource = MassConnector()
         HSource.set_properties(fluid = 'Water', T = T_hot_source, p = 5e5, m_dot = m_dot_H)
@@ -634,7 +646,7 @@ if __name__ == "__main__":
         # DP_h_cond = 0*1e3
         # DP_c_cond = 0*1e3
         
-        spliter_frac = 0.9980980282294012 # 0.5
+        spliter_frac = 0.5 # 0.5
         P_high = 15448318.680095742 # 140*1e5
         
         #  'mdot_HS': 38.305712021488546,
