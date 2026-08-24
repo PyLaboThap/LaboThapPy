@@ -6,7 +6,7 @@ Created on Mon Feb  3 15:31:53 2025
 """
 
 
-from labothappy.machine.circuit_rec import RecursiveCircuit
+from labothappy.machine.circuit_fpi import CircuitFPI
 from CoolProp.CoolProp import PropsSI
 
 from labothappy.connector.mass_connector import MassConnector
@@ -23,7 +23,7 @@ from labothappy.component.tank.tank_LV_separator import TankLVSeparator
 
 def basic_CO2_HP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low, P_high):
     
-    CO2_HP = RecursiveCircuit('CO2')
+    CO2_HP = CircuitFPI('CO2')
     
     # Create components
     Compressor = CompressorCstEff()
@@ -80,23 +80,10 @@ def basic_CO2_HP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low, P_high):
         
     CO2_HP.set_cycle_guess(target='Valve:ex', p = P_low)
     
-    #%% CYCLE RESIDUAL VARIABLES
-    CO2_HP.set_residual_variable(target='Valve:ex', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Valve:ex', variable='p', tolerance= 1e-3)
-
-    CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='p', tolerance= 1e-3)
-
-    CO2_HP.set_residual_variable(target='Compressor:ex', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Compressor:ex', variable='p', tolerance= 1e-3)
-
-    CO2_HP.set_residual_variable(target='GasCooler:ex_H', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='GasCooler:ex_H', variable='p', tolerance= 1e-3)
-    
     return CO2_HP
 
 def Exp_CO2_HP(HSource, CSource, eta_cp, eta_exp, eta_gc, PP_ev, SH_ev, P_low, P_high, m_dot, mute_print_flag):
-    CO2_HP = RecursiveCircuit('CO2')
+    CO2_HP = CircuitFPI('CO2')
     
     # Create components
     Compressor = CompressorCstEff()
@@ -157,16 +144,12 @@ def Exp_CO2_HP(HSource, CSource, eta_cp, eta_exp, eta_gc, PP_ev, SH_ev, P_low, P
         
     CO2_HP.set_cycle_guess(target='Expander:ex', p = P_low)
     
-    #%% CYCLE RESIDUAL VARIABLES
-    CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='GasCooler:ex_H', variable='h', tolerance= 1e-3)
-    
     return CO2_HP
     
     # self.HSource, self.CSource, self.params['eta_cp'], self.params['eta_gc'], self.params['eta_IHX'], self.params['PP_ev'], self.params['SH_ev'], P_low_guess, self.it_var['P_high'], self.it_var['mdot'], mute_print_flag = 0
 
 def IHX_CO2_HP(HSource, CSource, eta_cp, eta_gc, eta_IHX, PP_ev, SH_ev, P_low, P_high, m_dot, mute_print_flag):
-    CO2_HP = RecursiveCircuit('CO2')
+    CO2_HP = CircuitFPI('CO2')
     
     n_disc_HX = 50
     PP_min_HX = 5
@@ -236,29 +219,16 @@ def IHX_CO2_HP(HSource, CSource, eta_cp, eta_gc, eta_IHX, PP_ev, SH_ev, P_low, P
     
     T_ex_valve_guess = CSource.T - PP_ev - SH_ev - 5
     
-    CO2_HP.set_cycle_guess(target='Compressor:su', m_dot = m_dot, SH = 20, p = P_low)
+    CO2_HP.set_cycle_guess(target='Compressor:su', m_dot = m_dot, T = 300, p = P_low)
     CO2_HP.set_cycle_guess(target='Compressor:ex', p = P_high)
 
     CO2_HP.set_cycle_guess(target='Valve:su', p = P_high, T = T_ex_valve_guess, m_dot = m_dot)    
     CO2_HP.set_cycle_guess(target='Valve:ex', p = P_low)
     
-    #%% CYCLE RESIDUAL VARIABLES
-    CO2_HP.set_residual_variable(target='Valve:ex', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Valve:ex', variable='p', tolerance= 1e-3)
-
-    CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='p', tolerance= 1e-3)
-
-    CO2_HP.set_residual_variable(target='Compressor:ex', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Compressor:ex', variable='p', tolerance= 1e-3)
-
-    CO2_HP.set_residual_variable(target='GasCooler:ex_H', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='GasCooler:ex_H', variable='p', tolerance= 1e-3)
-    
     return CO2_HP
 
 def IHX_EXP_CO2_HP(HSource, CSource, eta_cp, eta_gc, eta_IHX, eta_exp, PP_ev, SH_ev, P_low, P_high, m_dot, mute_print_flag):
-    CO2_HP = RecursiveCircuit('CO2')
+    CO2_HP = CircuitFPI('CO2')
     
     n_disc_HX = 50
     PP_min_HX = 5
@@ -332,29 +302,16 @@ def IHX_EXP_CO2_HP(HSource, CSource, eta_cp, eta_gc, eta_IHX, eta_exp, PP_ev, SH
     
     T_ex_exp_guess = CSource.T - PP_ev - SH_ev - 5
     
-    CO2_HP.set_cycle_guess(target='Compressor:su', m_dot = m_dot, SH = 20, p = P_low)
+    CO2_HP.set_cycle_guess(target='Compressor:su', m_dot = m_dot, T = 300, p = P_low)
     CO2_HP.set_cycle_guess(target='Compressor:ex', p = P_high)
 
     CO2_HP.set_cycle_guess(target='Expander:su', p = P_high, T = T_ex_exp_guess, m_dot = m_dot)    
     CO2_HP.set_cycle_guess(target='Expander:ex', p = P_low)
     
-    #%% CYCLE RESIDUAL VARIABLES
-    CO2_HP.set_residual_variable(target='Expander:ex', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Expander:ex', variable='p', tolerance= 1e-3)
-
-    CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='p', tolerance= 1e-3)
-
-    CO2_HP.set_residual_variable(target='Compressor:ex', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Compressor:ex', variable='p', tolerance= 1e-3)
-
-    CO2_HP.set_residual_variable(target='GasCooler:ex_H', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='GasCooler:ex_H', variable='p', tolerance= 1e-3)
-    
     return CO2_HP
 
 def Flash_CO2_HP_Parallel_CP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low, P_mid, P_high):
-    CO2_HP = RecursiveCircuit('CO2')
+    CO2_HP = CircuitFPI('CO2')
 
     # Create components
     Compressor_1 = CompressorCstEff()
@@ -438,18 +395,10 @@ def Flash_CO2_HP_Parallel_CP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_l
     CO2_HP.set_cycle_guess(target='Valve_HP:ex', p = P_mid)
     CO2_HP.set_cycle_guess(target='Valve_LP:ex', p = P_low)
     
-    #%% CYCLE RESIDUAL VARIABLES
-    CO2_HP.set_residual_variable(target='Mixer:ex', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Mixer:ex', variable='m_dot', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='m_dot', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Valve_HP:ex', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Valve_HP:ex', variable='m_dot', tolerance= 1e-3)
-    
     return CO2_HP
 
 def Flash_CO2_HP_Series_CP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low, P_mid, P_high):
-    CO2_HP = RecursiveCircuit('CO2')
+    CO2_HP = CircuitFPI('CO2')
 
     # Create components
     Compressor_1 = CompressorCstEff()
@@ -532,23 +481,15 @@ def Flash_CO2_HP_Series_CP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low
     CO2_HP.set_cycle_guess(target='Valve_HP:ex', p = P_mid)
     CO2_HP.set_cycle_guess(target='Valve_LP:ex', p = P_low)
     
-    #%% CYCLE RESIDUAL VARIABLES
-    CO2_HP.set_residual_variable(target='Mixer:ex', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Mixer:ex', variable='m_dot', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Evaporator:ex_C', variable='m_dot', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Valve_HP:ex', variable='h', tolerance= 1e-3)
-    CO2_HP.set_residual_variable(target='Valve_HP:ex', variable='m_dot', tolerance= 1e-3)
-    
     return CO2_HP
 
 if __name__ == "__main__":
 
-    study_case = "IHX"    
+    study_case = "Expander_IHX"    
 
     # Pressure levels
     P_low_guess = 40*1e5
-    P_high = 120*1e5
+    P_high = 80*1e5
     
     # Compressor param
     eta_compressor = 0.7
@@ -563,15 +504,20 @@ if __name__ == "__main__":
     m_dot = 0.08
     
     # Hot Source
-    T_high = 50 + 273.15
-    p_high = 3e5
+    T_high = 30 + 273.15
+    p_high = 20e5
     fluid_high = 'Water'
-    m_dot_high = 2
+    m_dot_high = 0.02
 
     # Cold Source
-    T_low = 15 + 273.15
-    fluid_low = 'Water'
-    p_low = 3e5
+    # T_low = 15 + 273.15
+    # fluid_low = 'Water'
+    # p_low = 3e5
+    # m_dot_low = 2
+
+    T_low = -20 + 273.15
+    fluid_low = 'Hexane'
+    p_low = 1e5
     m_dot_low = 2
 
     if study_case == "IHX":
@@ -579,28 +525,28 @@ if __name__ == "__main__":
         eta_IHX = 0.8
 
         HSource = MassConnector()
-        HSource.set_properties(fluid = 'Water', T = T_high, p = p_high, m_dot = 2)
+        HSource.set_properties(fluid = fluid_high, T = T_high, p = p_high, m_dot = m_dot_high)
         
         CSource = MassConnector()
-        CSource.set_properties(fluid = 'Water', T = T_low, p = p_low, m_dot = 2)
+        CSource.set_properties(fluid = fluid_low, T = T_low, p = p_low, m_dot = m_dot_low)
         
         CO2_HP = IHX_CO2_HP(HSource, CSource, eta_compressor, eta_GC, eta_IHX, DT_pp_ev, SH_ev, P_low_guess, P_high, m_dot, mute_print_flag = 0)
         
-        CO2_HP.solve()
+        CO2_HP.solve(method = 'successive_substitution')
 
         # COP = CO2_HP.components["GasCooler"].model.Q.Q_dot/(CO2_HP.components["Compressor"].model.W.W_dot)
 
     elif study_case == "Simple":
 
         HSource = MassConnector()
-        HSource.set_properties(fluid = 'Water', T = T_high, p = p_high, m_dot = 2)
+        HSource.set_properties(fluid = fluid_high, T = T_high, p = p_high, m_dot = m_dot_high)
         
         CSource = MassConnector()
-        CSource.set_properties(fluid = 'Water', T = T_low, p = p_low, m_dot = 2)
+        CSource.set_properties(fluid = fluid_low, T = T_low, p = p_low, m_dot = m_dot_low)
         
         CO2_HP = basic_CO2_HP(HSource, CSource, eta_compressor, eta_GC, DT_pp_ev, SH_ev, P_low_guess, P_high)
         
-        CO2_HP.solve()      
+        CO2_HP.solve(method = 'successive_substitution')
 
         COP = CO2_HP.components["GasCooler"].model.Q.Q_dot/(CO2_HP.components["Compressor"].model.W.W_dot)
 
@@ -610,16 +556,35 @@ if __name__ == "__main__":
         eta_exp = 0.7
 
         HSource = MassConnector()
-        HSource.set_properties(fluid = 'Water', T = T_high, p = p_high, m_dot = 2)
+        HSource.set_properties(fluid = fluid_high, T = T_high, p = p_high, m_dot = m_dot_high)
         
         CSource = MassConnector()
-        CSource.set_properties(fluid = 'Water', T = T_low, p = p_low, m_dot = 2)
+        CSource.set_properties(fluid = fluid_low, T = T_low, p = p_low, m_dot = m_dot_low)
         
         CO2_HP = Exp_CO2_HP(HSource, CSource, eta_compressor, eta_exp, eta_GC, DT_pp_ev, SH_ev, P_low_guess, P_high, m_dot, mute_print_flag = 0)
-        
-        CO2_HP.solve()      
+        CO2_HP.solve(method = 'successive_substitution')
     
         COP = CO2_HP.components["GasCooler"].model.Q.Q_dot/(CO2_HP.components["Compressor"].model.W.W_dot - CO2_HP.components["Expander"].model.W.W_dot)
     
+    elif study_case == "Expander_IHX":
+
+        # Compressor param
+        eta_exp = 0.7
+        eta_IHX = 0.8
+
+        HSource = MassConnector()
+        HSource.set_properties(fluid = fluid_high, T = T_high, p = p_high, m_dot = m_dot_high)
+        
+        CSource = MassConnector()
+        CSource.set_properties(fluid = fluid_low, T = T_low, p = p_low, m_dot = m_dot_low)
+        
+        CO2_HP = IHX_EXP_CO2_HP(HSource, CSource, eta_compressor, eta_GC, eta_IHX, eta_exp, DT_pp_ev, SH_ev, P_low_guess, P_high, m_dot, mute_print_flag = 0)
+        CO2_HP.solve(method = 'successive_substitution')
+    
+        COP = CO2_HP.components["GasCooler"].model.Q.Q_dot/(CO2_HP.components["Compressor"].model.W.W_dot - CO2_HP.components["Expander"].model.W.W_dot)
+    
+    
     CO2_HP.plot_cycle_Ts()
     
+    import matplotlib.pyplot as plt
+    plt.show()
