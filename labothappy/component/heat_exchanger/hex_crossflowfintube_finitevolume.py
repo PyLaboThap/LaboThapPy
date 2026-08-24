@@ -25,7 +25,7 @@ from correlations.pressure_drop.pipe_DP import gnielinski_pipe_DP, Muller_Steinh
 
 
 # Phase related import
-from labothappy.correlations.properties.void_fraction_old import void_fraction
+from labothappy.correlations.void_fraction.void_fraction_old import void_fraction
 
 # Component base frame
 from component.base_component import BaseComponent

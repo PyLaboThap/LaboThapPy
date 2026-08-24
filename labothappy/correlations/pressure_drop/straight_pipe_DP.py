@@ -34,7 +34,7 @@ from labothappy.correlations.properties.dimensionless import (
     compute_froude,
     compute_weber,
 )
-from labothappy.correlations.properties.void_fraction import compute_void_fraction
+from labothappy.correlations.void_fraction.void_fraction import compute_void_fraction
 from labothappy.correlations.properties.two_phase import compute_two_phase_density
 
 EPS = 1e-12

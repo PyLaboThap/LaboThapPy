@@ -33,7 +33,7 @@ from correlations.heat_exchanger.f_lmtd2 import f_lmtd2, F_shell_and_tube
 from correlations.heat_exchanger.find_2P_boundaries import find_2P_boundaries
 
 # HTC Correlations
-from correlations.convection.plate_htc import han_BPHEX_DP, water_plate_HTC, martin_BPHEX_HTC, muley_manglik_BPHEX_HTC, han_boiling_BPHEX_HTC, han_cond_BPHEX_HTC, thonon_plate_HTC, kumar_plate_HTC, martin_holger_plate_HTC, amalfi_plate_HTC, shah_condensation_plate_HTC
+from labothappy.correlations.convection.plate_htc_old import han_BPHEX_DP, water_plate_HTC, martin_BPHEX_HTC, muley_manglik_BPHEX_HTC, han_boiling_BPHEX_HTC, han_cond_BPHEX_HTC, thonon_plate_HTC, kumar_plate_HTC, martin_holger_plate_HTC, amalfi_plate_HTC, shah_condensation_plate_HTC
 from correlations.convection.pipe_htc import gnielinski_pipe_htc, boiling_curve, horizontal_tube_internal_condensation, horizontal_flow_boiling, flow_boiling_gungor_winterton, Liu_sCO2, Cheng_sCO2, thome_condensation, choi_boiling
 from correlations.convection.shell_and_tube_htc import shell_bell_delaware_htc, shell_htc_kern
 from correlations.convection.tube_bank_htc import ext_tube_film_condens
@@ -49,7 +49,7 @@ from correlations.pressure_drop.fins_DP import DP_tube_and_fins
 from correlations.properties.thermal_conductivity import conducticity_R1233zd
 
 # Phase related correlations
-from labothappy.correlations.properties.void_fraction_old import void_fraction
+from labothappy.correlations.void_fraction.void_fraction_old import void_fraction
 from correlations.heat_exchanger.kim_dry_out_incipience import kim_dry_out_incipience
 
 # Connectors

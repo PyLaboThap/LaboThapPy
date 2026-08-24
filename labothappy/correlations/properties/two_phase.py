@@ -1,5 +1,5 @@
 
-from correlations.properties.void_fraction import compute_void_fraction
+from labothappy.correlations.void_fraction.void_fraction import compute_void_fraction
 EPS = 1e-12
 
 def compute_two_phase_density(x, rho_l, rho_g, alpha=None):

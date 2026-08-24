@@ -7,7 +7,7 @@ from labothappy.connector.mass_connector import MassConnector
 
 from correlations. pressure_drop.local_losses.curved_elbow import pressure_drop_curved_elbow
 from correlations.properties.dimensionless import compute_reynolds
-from correlations.properties.void_fraction import compute_void_fraction
+from labothappy.correlations.void_fraction.void_fraction import compute_void_fraction
 
 # ============================================================================
 # MODELICA DISSIPATION LIBRARY PORT: Curved Bends

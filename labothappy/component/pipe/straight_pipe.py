@@ -8,7 +8,7 @@ from labothappy.connector.mass_connector import MassConnector
 from correlations.pressure_drop.straight_pipe_DP import pressure_drop_single_phase
 from correlations.pressure_drop.straight_pipe_DP import pressure_drop_two_phase
 from correlations.properties.two_phase import compute_two_phase_density
-from correlations.properties.void_fraction import compute_void_fraction
+from labothappy.correlations.void_fraction.void_fraction import compute_void_fraction
 
 PI = math.pi
 EPS = 1e-12
