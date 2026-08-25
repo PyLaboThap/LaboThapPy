@@ -31,8 +31,10 @@ import copy
 from labothappy.correlations.heat_exchanger.f_lmtd2 import f_lmtd2, F_shell_and_tube
 from labothappy.correlations.heat_exchanger.find_2P_boundaries import find_2P_boundaries
 
+from labothappy.correlations.properties.two_phase import compute_two_phase_density
+
 # HTC Correlations
-from labothappy.correlations.convection.plate_htc import han_BPHEX_DP, water_plate_HTC, martin_BPHEX_HTC, muley_manglik_BPHEX_HTC, han_boiling_BPHEX_HTC, han_cond_BPHEX_HTC, thonon_plate_HTC, kumar_plate_HTC, martin_holger_plate_HTC, amalfi_plate_HTC, shah_condensation_plate_HTC
+from labothappy.correlations.convection.plate_htc import han_boiling_BPHEX_HTC, water_plate_HTC, martin_BPHEX_HTC, muley_manglik_BPHEX_HTC, han_boiling_BPHEX_HTC, han_cond_BPHEX_HTC, thonon_plate_HTC, kumar_plate_HTC, martin_holger_plate_HTC, amalfi_plate_HTC, shah_condensation_plate_HTC
 from labothappy.correlations.convection.pipe_htc import gnielinski_pipe_htc, boiling_curve, horizontal_tube_internal_condensation, horizontal_flow_boiling, flow_boiling_gungor_winterton, Liu_sCO2, Cheng_sCO2, thome_condensation, choi_boiling
 from labothappy.correlations.convection.shell_and_tube_htc import shell_bell_delaware_htc, shell_htc_kern
 from labothappy.correlations.convection.tube_bank_htc import ext_tube_film_condens
@@ -48,7 +50,7 @@ from labothappy.correlations.pressure_drop.fins_DP import DP_tube_and_fins
 from labothappy.correlations.properties.thermal_conductivity import conducticity_R1233zd
 
 # Phase related correlations
-from labothappy.correlations.properties.void_fraction import void_fraction
+from labothappy.correlations.void_fraction.void_fraction import compute_void_fraction
 from labothappy.correlations.heat_exchanger.kim_dry_out_incipience import kim_dry_out_incipience
 
 # Connectors
@@ -66,7 +68,7 @@ from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.compute_LMTD_mul
 debug = False
 
 HTC_correlations = {
-    "han_BPHEX_DP": han_BPHEX_DP,
+    "han_BPHEX_DP": han_boiling_BPHEX_HTC,
     "water_plate_HTC": water_plate_HTC,
     "martin_BPHEX_HTC": martin_BPHEX_HTC,
     "muley_manglik_BPHEX_HTC": muley_manglik_BPHEX_HTC,
@@ -2100,14 +2102,15 @@ class HexMBChargeSensitive(BaseComponent):
                     self.AS_H.update(CP.HmassP_INPUTS, self.hvec_h[i], self.pvec_h[i])
                     self.Dvec_h[i] = self.AS_H.rhomass()
                     self.eps_void_h[i] = -1
-                else:
+                else: # Two phase zone
+                    self.eps_void_h[i] = compute_void_fraction(self.AS_H, self.params, self.su_H.m_dot, void_fraction_model = 'Zivi') # void_fraction(self.x_vec_h[i], rho_g, rho_l)
+
                     self.AS_H.update(CP.PQ_INPUTS, self.pvec_h[i], 1)
                     rho_g = self.AS_H.rhomass()
 
                     self.AS_H.update(CP.PQ_INPUTS, self.pvec_h[i], 0)
                     rho_l = self.AS_H.rhomass()
-
-                    self.eps_void_h[i], self.Dvec_h[i] = void_fraction(self.x_vec_h[i], rho_g, rho_l)
+                    self.Dvec_h[i] = compute_two_phase_density(x = self.x_vec_h[i], rho_l = rho_l, rho_g = rho_g, alpha = self.eps_void_h[i])
                     
             for i in range(len(self.hvec_c)-1):
                 if self.x_vec_c[i] <= 0 or self.x_vec_c[i] >= 1: 
@@ -2119,13 +2122,16 @@ class HexMBChargeSensitive(BaseComponent):
                     self.Dvec_c[i] = self.AS_C.rhomass()
                     self.eps_void_c[i] = -1
                 else:
+                    self.eps_void_c[i] = compute_void_fraction(self.AS_C, self.params, self.su_C.m_dot, void_fraction_model = 'Zivi') # void_fraction(self.x_vec_c[i], rho_g, rho_l)
+
                     self.AS_C.update(CP.PQ_INPUTS, self.pvec_c[i], 1)
                     rho_g = self.AS_C.rhomass()
 
                     self.AS_C.update(CP.PQ_INPUTS, self.pvec_c[i], 0)
                     rho_l = self.AS_C.rhomass()
 
-                    self.eps_void_c[i], self.Dvec_c[i] = void_fraction(self.x_vec_c[i], rho_g, rho_l)
+                    self.Dvec_c[i] = compute_two_phase_density(x = self.x_vec_c[i], rho_l = rho_l, rho_g = rho_g, alpha = self.eps_void_c[i])
+                                        
             
             "5.5) Computation of the fluid mass inside the HTX"
             
