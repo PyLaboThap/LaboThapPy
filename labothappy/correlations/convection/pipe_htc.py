@@ -168,7 +168,7 @@ def thome_condensation(AS, D_i, G, P_sat, T_sat, T_wall, x):
     h_tp : Condensing heat transfer coefficient
     """
     
-    from correlations.properties.void_fraction import void_fraction
+    from labothappy.correlations.void_fraction.void_fraction_old import void_fraction
     g = 9.81 # m/s^2
     
     # Flow Area

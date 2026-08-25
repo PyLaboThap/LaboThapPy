@@ -377,46 +377,46 @@ def Churchill_DP(mu, rho, G, Dh, L):
 
     return DP
 
-def pipe_internal_DP(mu, rho, m_dot, params):
-    """
-    Inputs
-    ------
+# def pipe_internal_DP(mu, rho, m_dot, params):
+#     """
+#     Inputs
+#     ------
     
-    mu   : Dynamic Viscosity [Pa*s]
-    Np   : Number of tube passes [-]
-    rho  : Density [kg/m^3]
-    G    : Flow rate per cross section area [kg/(m^2 * s)]
-    Dh   : Hydraulic diameter [m]
-    L    : Flow length [m]
+#     mu   : Dynamic Viscosity [Pa*s]
+#     Np   : Number of tube passes [-]
+#     rho  : Density [kg/m^3]
+#     G    : Flow rate per cross section area [kg/(m^2 * s)]
+#     Dh   : Hydraulic diameter [m]
+#     L    : Flow length [m]
     
-    Outputs
-    -------
+#     Outputs
+#     -------
     
-    DP : Pipe pressure drop [Pa]
+#     DP : Pipe pressure drop [Pa]
     
-    Reference
-    ---------
-    ?
-    """
+#     Reference
+#     ---------
+#     ?
+#     """
     
-    A_in_1_tube = np.pi*(params["Tube_OD"] - 2*params["Tube_t"])**2 / 4
-    A_in_tubes = A_in_1_tube*params["n_tubes"]
+#     A_in_1_tube = np.pi*(params["Tube_OD"] - 2*params["Tube_t"])**2 / 4
+#     A_in_tubes = A_in_1_tube*params["n_tubes"]
 
-    G = m_dot/A_in_tubes
+#     G = m_dot/A_in_tubes
 
-    # Reynolds number
-    Re = G*(params["Tube_OD"] - 2*params["Tube_t"])/mu
+#     # Reynolds number
+#     Re = G*(params["Tube_OD"] - 2*params["Tube_t"])/mu
     
-    # Flow speed
-    u = G/rho
+#     # Flow speed
+#     u = G/rho
     
-    # Friction coefficient
-    f = (1.8*log10(Re) - 1.5)**(-2)
+#     # Friction coefficient
+#     f = (1.8*log10(Re) - 1.5)**(-2)
     
-    # Pressure drop (Np : number of passes)
-    DP = (4*f*params["Tube_L"]*params["Tube_pass"]/params["Tube_OD"] + 4*params["Tube_pass"])*rho*(u**2)/2
+#     # Pressure drop (Np : number of passes)
+#     DP = (4*f*params["Tube_L"]*params["Tube_pass"]/params["Tube_OD"] + 4*params["Tube_pass"])*rho*(u**2)/2
     
-    return DP
+#     return DP
 
 from CoolProp.CoolProp import PropsSI
 

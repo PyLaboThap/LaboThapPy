@@ -25,7 +25,9 @@ from labothappy.correlations.pressure_drop.pipe_DP import gnielinski_pipe_DP, Mu
 
 
 # Phase related import
-from labothappy.correlations.properties.void_fraction import void_fraction
+# from labothappy.correlations.void_fraction.void_fraction import compute_void_fraction
+from labothappy.correlations.properties.two_phase import compute_two_phase_density
+
 
 # Component base frame
 from labothappy.component.base_component import BaseComponent
@@ -457,9 +459,9 @@ class HexCrossFlowTubeAndFinsFiniteVolume(BaseComponent):
                 AS.update(CP.PQ_INPUTS, P_vec[j], 0)
                 rho_l = AS.rhomass()
 
-                eps_void, rho_avg = void_fraction(x, rho_g, rho_l)
-                D_vec[j] = rho_avg
-                M_vec[j] = rho_avg * Volume
+                rho_h = compute_two_phase_density(x, rho_l, rho_g)
+                D_vec[j] = rho_h
+                M_vec[j] = rho_h * Volume
 
         return [D_vec, M_vec, x_vec]
 
