@@ -12,10 +12,10 @@ from scipy.optimize import fsolve
 import numpy as np
 
 "Internal modules"
-from component.base_component import BaseComponent
-from connector.mass_connector import MassConnector
-from connector.work_connector import WorkConnector
-from connector.heat_connector import HeatConnector
+from labothappy.component.base_component import BaseComponent
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.connector.work_connector import WorkConnector
+from labothappy.connector.heat_connector import HeatConnector
 
 class ExpanderSE(BaseComponent):
     """
@@ -260,7 +260,7 @@ class ExpanderSE(BaseComponent):
 
     def system(self, x):
         """System of equations to solve the expander model."""
-        # print('N_rot=', self.W.N_rot)
+
         if self.params['mode'] == 'P_N': # The rotational speed is given as an input
             self.m_dot, self.T_w = x # Values on which the system iterates
             self.N_rot = self.inputs['N_rot']
@@ -284,7 +284,6 @@ class ExpanderSE(BaseComponent):
         h_su = self.su.h
         s_su = self.su.s
         rho_su = self.su.D
-        # print('x_su', self.su.x)
         P_ex = self.ex.p
 
         self.AS.update(CoolProp.PSmass_INPUTS, P_ex, s_su)
@@ -333,17 +332,15 @@ class ExpanderSE(BaseComponent):
             self.AS.update(CoolProp.PQ_INPUTS, P_su1, 0.1)
             h_su2 = min(h_max, max(max(h_ex_is, self.AS.hmass()), h_su1 - Q_dot_su/self.m_dot))
         
-        # print("h_su", h_su, "h_su2", h_su2)
         P_su2 = P_su1 # No pressure drop just heat transfer
-        # rho_su2 = PropsSI("D", "H", h_su2, "P", P_su2, self.su.fluid)
-        # s_su2 = PropsSI("S", "H", h_su2, "P", P_su2, self.su.fluid)
         # self.AS.update(CoolProp.HmassP_INPUTS, h_su2, P_su2)
-        rho_su2 = rho_su # /!\ le AS ne fonctionne pas ici!!!
-        # # rho_su2 = PropsSI()
-        # rho_su2 = rho_su # Pq est-ce que le rho_su2 est si différent?
-        # s_su2 =  self.AS.smass()
-        s_su2 =  s_su
+        # rho_su2 = self.AS.rhomass()
+        # s_su2 = self.AS.smass()
         
+        rho_su2 = rho_su
+        s_su2 = s_su
+        h_su2 = h_su
+
         #------------------------------------------------------------------------------------------------
         "4. Leakage"
         try:
@@ -368,8 +365,6 @@ class ExpanderSE(BaseComponent):
         elif self.params['mode'] == 'P_M':
             m_dot_in = self.m_dot-m_dot_leak
             self.N_rot = (m_dot_in/(self.params['V_s']*rho_su2))*60 # rotational speed calculation
-            # print('N_rot', self.N_rot)
-            # print('rho2', rho_su2)
         elif self.params['mode'] == 'M_N': 
             m_dot_in = (self.N_rot/60)*self.params['V_s']*rho_su2
             m_dot_leak_bis = self.m_dot-m_dot_in # residual on the leakage flow rate to get the right mass flow rate
@@ -479,14 +474,13 @@ class ExpanderSE(BaseComponent):
         print("=========================")
 
     def print_states_connectors(self):
-        print("=== Expander States ===")
+        print("=== Expander Results ===")
         print("Mass connectors:")
         print(f"  - su: fluid={self.su.fluid}, T={self.su.T} [K], p={self.su.p} [Pa], h={self.su.h} [J/kg], s={self.su.s} [J/K.kg], m_dot={self.su.m_dot} [kg/s]")
         print(f"  - ex: fluid={self.ex.fluid}, T={self.ex.T} [K], p={self.ex.p} [Pa], h={self.ex.h} [J/kg], s={self.ex.s} [J/K.kg], m_dot={self.ex.m_dot} [kg/s]")
         print("=========================")
         print("Work connector:")
         print(f"  - W_dot_exp: {self.W.W_dot} [W]")
-        print(f"  - N_exp: {self.W.N_rot} [RPM]")
         print("=========================")
         print("Heat connector:")
         print(f"  - Q_dot_amb: {self.Q_amb.Q_dot} [W]")

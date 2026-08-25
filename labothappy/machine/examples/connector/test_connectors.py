@@ -7,7 +7,7 @@ Created on Fri June 19 2024
 """
 
 from CoolProp.CoolProp import PropsSI
-from connector.mass_connector import MassConnector
+from labothappy.connector.mass_connector import MassConnector
 
 
 #------------------Example of a mass connector------------------#
@@ -26,5 +26,3 @@ point.set_p(200000)
 # Put three properties at the same time
 point = MassConnector()
 point.set_properties(T=500, m_dot=0.5, fluid = 'INCOMP::DowQ', P=101325, H=100000)
-
-

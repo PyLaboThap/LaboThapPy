@@ -1,7 +1,7 @@
 
 from labothappy.component.expander.expander_semi_empirical import ExpanderSE
 
-simu_mode = "M_N"
+simu_mode = "P_M"
 
 "Example of a semi-empirical expander component"
 # Inputs: N_rot, T_amb, P_su, h_su, P_ex, fluid 
@@ -114,7 +114,7 @@ elif simu_mode == "M_N":
     
     
     # # Set rotational speed
-    expander.W.set_N_rot(8055.33)
+    expander.W.set_N_rot(6000)
     
     
     #Set ambient temperature

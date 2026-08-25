@@ -45,27 +45,25 @@ D_o = 1 + 1/2 [in] => Pitch_ratio = (1+7/8)/D_o
 Baffle_cut = 0.25 # Could be varied from 0.15 to 0.4 but 0.25 is usual value for liquid flow
 """
 
-import __init__
-
 # Connector import
-from connector.mass_connector import MassConnector
+from labothappy.connector.mass_connector import MassConnector
 
 # Component import
-from component.base_component import BaseComponent
-from component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
+from labothappy.component.base_component import BaseComponent
+from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
 
 # Cost model import
-from correlations.heat_exchanger.STHE_cost_estimation import HeatExchangerCost, total_STHE_cost
+from labothappy.correlations.heat_exchanger.STHE_cost_estimation import HeatExchangerCost, total_STHE_cost
 
 # Shell and tube related toolbox
-from toolbox.heat_exchangers.shell_and_tubes.pitch_ratio_shell_and_tube import pitch_ratio_fun
-from toolbox.heat_exchangers.shell_and_tubes.estimate_tube_in_shell import estimate_number_of_tubes
-from toolbox.heat_exchangers.shell_and_tubes.shell_toolbox import shell_thickness
-from toolbox.heat_exchangers.shell_and_tubes.tubesheet_toolbox import tube_sheet_thickness
-from toolbox.heat_exchangers.shell_and_tubes.baffle_toolbox import baffle_thickness, find_divisors_between_bounds
+from labothappy.toolbox.heat_exchangers.shell_and_tubes.pitch_ratio_shell_and_tube import pitch_ratio_fun
+from labothappy.toolbox.heat_exchangers.shell_and_tubes.estimate_tube_in_shell import estimate_number_of_tubes
+from labothappy.toolbox.heat_exchangers.shell_and_tubes.shell_toolbox import shell_thickness
+from labothappy.toolbox.heat_exchangers.shell_and_tubes.tubesheet_toolbox import tube_sheet_thickness
+from labothappy.toolbox.heat_exchangers.shell_and_tubes.baffle_toolbox import baffle_thickness, find_divisors_between_bounds
 
 # Piping toolbox
-from toolbox.piping.pipe_thickness import carbon_steel_pipe_thickness_mm
+from labothappy.toolbox.piping.pipe_thickness import carbon_steel_pipe_thickness_mm
 
 # External imports
 from CoolProp.CoolProp import PropsSI
@@ -259,13 +257,13 @@ class ShellAndTubeSizingOpt(BaseComponent):
                         
             try:
                 self.HX.solve()
-                self.Q = self.HX.Q
+                self.Q = self.HX.Q.Q_dot
                 self.DP_h = self.HX.DP_h
                 self.DP_c = self.HX.DP_c
     
-                self.Q_guess = self.HX.Q
+                self.Q_guess = self.HX.Q.Q_dot
     
-                return self.HX.Q, self.HX.DP_h, self.HX.DP_c
+                return self.HX.Q.Q_dot, self.HX.DP_h, self.HX.DP_c
             
             except:
                 
@@ -646,7 +644,6 @@ class ShellAndTubeSizingOpt(BaseComponent):
                 particle.set_score(total)
                 return total
                 
-        
         particle.HeatTransferRate(self.inputs, self.params)
         
         if self.obj == 'mass':
@@ -943,6 +940,11 @@ class ShellAndTubeSizingOpt(BaseComponent):
                 print(f"Best Part Velocity : {self.best_particle.velocity}")
                 
         return self.global_best_position, self.global_best_score, self.best_particle
+    
+    def CAPEX_computation(self):
+        
+        return 
+    
     
     def opt_size(self, n_particles = 50, max_iter = 50, obj = 'mass', print_flag = 0):
         

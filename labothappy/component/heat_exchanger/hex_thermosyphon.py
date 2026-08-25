@@ -10,13 +10,13 @@ import CoolProp.CoolProp as CP
 import matplotlib.pyplot as plt
 from scipy.optimize import fsolve
 
-from connector.mass_connector import MassConnector
-from connector.heat_connector import HeatConnector
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.connector.heat_connector import HeatConnector
 
 from toolbox.nozzle.airflow import nozzle
-from correlations.heat_pipe.HP_h_coeffs import fg_radiative_htc_corr, radiative_htc_fg, external_flow_inline_bank, external_flow_staggered_bank, ext_conv_boil #, h_cond_Th66, external_flow_finnedtubebank
+from labothappy.correlations.heat_pipe.HP_h_coeffs import fg_radiative_htc_corr, radiative_htc_fg, external_flow_inline_bank, external_flow_staggered_bank, ext_conv_boil #, h_cond_Th66, external_flow_finnedtubebank
 
-from component.base_component import BaseComponent
+from labothappy.component.base_component import BaseComponent
 
 class HexThermosyphon(BaseComponent):
     """

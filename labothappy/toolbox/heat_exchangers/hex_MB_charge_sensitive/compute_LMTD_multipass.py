@@ -6,7 +6,7 @@ Created on Sat Jan 10 10:03:56 2026
 """
 
 import numpy as np
-from toolbox.heat_exchangers.hex_MB_charge_sensitive.cell_overlap_MBHX import determine_cell_overlap
+from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.cell_overlap_MBHX import determine_cell_overlap
 
 def compute_cell_x_intersection(cell1, cell2):
     """

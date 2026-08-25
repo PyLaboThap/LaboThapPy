@@ -37,7 +37,7 @@ def s_max_kern(Tube_OD, pitch_ratio, Shell_ID, central_spacing, tube_layout): # 
     return s_max
 
 
-def s_max(Tube_OD, pitch_ratio, Shell_ID, central_spacing, tube_layout): # Maximum flow section (m**2)
+def s_max(Tube_OD, pitch_ratio, Shell_ID, D_OTL, central_spacing, tube_layout): # Maximum flow section (m**2)
     """
     Input
     -----
@@ -59,52 +59,53 @@ def s_max(Tube_OD, pitch_ratio, Shell_ID, central_spacing, tube_layout): # Maxim
     
     """
     
-    p_T = Tube_OD * pitch_ratio # Tube Pitch
-    s_max_coef = (Shell_ID / p_T)*(p_T -  Tube_OD) * central_spacing
+    p_T = Tube_OD * pitch_ratio
     
     if tube_layout == 0: # Squared Inline tube arrangement
     
-        s_max = s_max_coef
+        p_T_eff = p_T
     
-    elif tube_layout == 45: # Squared Staggered tube arrangement
+    elif tube_layout == 45: # Triangular Staggered tube arrangement
     
-        s_max = (2/3**(1/2))*s_max_coef
-
-    elif tube_layout == 60: # Triangular Staggered tube arrangement
+        p_T_eff = (2**(1/2))*p_T
     
-        s_max = (2**(1/2))*s_max_coef
+    elif tube_layout == 60: # Squared Staggered tube arrangement
+    
+        p_T_eff = (2/3**(1/2))*p_T
     
     else:
         
         print("Tube arrangement shall be either square Inline (tube_layout = 0), square Staggered (tube_layout = 45) or triangular staggered (tube_layout = 60)")
         return 0
-        
+
+    s_max = central_spacing * ((Shell_ID - D_OTL) + (D_OTL - Tube_OD)*(p_T-Tube_OD))/p_T_eff   
+    
     return s_max
 
-def s_L(Baffle_cut, Shell_ID, n_tubes, Tube_OD):
-    """
-    Input
-    -----
+# def s_L(Baffle_cut, Shell_ID, n_tubes, Tube_OD):
+#     """
+#     Input
+#     -----
     
-    Baffle_cut      : Proportions of shell area not blocked by the baffles [-]
-    Shell_ID        : Shell inside diameter [m]
-    n_tubes         : Number of tubes [-]
-    Tube_OD         : Tube outside diameter [m]
+#     Baffle_cut      : Proportions of shell area not blocked by the baffles [-]
+#     Shell_ID        : Shell inside diameter [m]
+#     n_tubes         : Number of tubes [-]
+#     Tube_OD         : Tube outside diameter [m]
     
-    Output
-    ------
+#     Output
+#     ------
     
-    s_L : Maximum flow area in the tube bank in longitudinal shell direction [m^2]
+#     s_L : Maximum flow area in the tube bank in longitudinal shell direction [m^2]
     
-    Reference
-    ---------
-    https://cheguide.com/heat_exchanger_rating.html
+#     Reference
+#     ---------
+#     https://cheguide.com/heat_exchanger_rating.html
     
-    """
+#     """
     
-    S_L = (Baffle_cut/100)*(np.pi * Shell_ID/4 - n_tubes*np.pi*Tube_OD**2/4)
+#     S_L = (Baffle_cut/100)*(np.pi * Shell_ID/4 - n_tubes*np.pi*Tube_OD**2/4)
     
-    return S_L
+#     return S_L
 
 def d_h(Tube_OD, pitch_ratio, tube_layout): # Hydraulic diameter (m)
     """
@@ -180,8 +181,6 @@ def shell_htc_kern(m_dot, T_wall, T_in, P_in, AS, params):
 
     S_T = s_max_kern(params['Tube_OD'], params['pitch_ratio'], params['Shell_ID'], params['central_spacing'], params['tube_layout']) # m^
     D_hydro = d_h(params['Tube_OD'], params['pitch_ratio'], params['tube_layout'])
-
-    print(mu)
 
     V_t = m_dot/(S_T*rho)
     
@@ -372,6 +371,15 @@ def shell_bell_delaware_htc(m_dot_shell, T_shell, T_shell_w, P_shell, shell_flui
     References
     -------
     https://cheguide.com/heat_exchanger_rating.html
+    
+    + 
+    
+    https://fr.scribd.com/document/351507985/Shell-and-Tube-HX
+    
+    tube_layout : 
+        30° or 60° (depends on definition) - Clean fluid (laminar + turbulent) (best for compactness)
+        45° - Fouled + Laminar
+        0 or 90° - Fouled + Turbulent (best for maintenance)
     """
     
     "1) HTC"
@@ -391,11 +399,10 @@ def shell_bell_delaware_htc(m_dot_shell, T_shell, T_shell_w, P_shell, shell_flui
         mu_w = PropsSI('V','T',T_shell, 'P',P_shell,shell_fluid)
 
     # Effective sections and hydraulic diameter
-    S_T = s_max(params['Tube_OD'], params['pitch_ratio'], params['Shell_ID'], params['central_spacing'], params['tube_layout']) # m^2
-    S_L = s_L(params['Baffle_cut'], params['Shell_ID'], params['n_tubes'], params['Tube_OD']) # m^2
+    S_m = s_max(params['Tube_OD'], params['pitch_ratio'], params['Shell_ID'], params['D_OTL'], params['central_spacing'], params['tube_layout']) # m^2
     
     # Transversal to tube Flow speed and Reynolds number
-    G_s = m_dot_shell/S_T
+    G_s = m_dot_shell/S_m
     
     Re = G_s*(params['Tube_OD']/mu)
         
@@ -405,7 +412,7 @@ def shell_bell_delaware_htc(m_dot_shell, T_shell, T_shell_w, P_shell, shell_flui
     j_i = a_vec[0]*(1.33/params['pitch_ratio'])**a * Re**a_vec[1]
         
     # Ideal Tube bank heat transfer coefficient
-    h_id = j_i * cp * (m_dot_shell/S_T) * (Pr)**(-2/3) * (mu/mu_w)**0.14 
+    h_id = j_i * cp * (m_dot_shell/S_m) * (Pr)**(-2/3) * (mu/mu_w)**0.14 
         
     "1.2) Correction factor for Baffle Window Flow : J_c"
     
@@ -419,12 +426,13 @@ def shell_bell_delaware_htc(m_dot_shell, T_shell, T_shell_w, P_shell, shell_flui
     J_c = 0.55 + 0.72*F_c
     
     "1.3) Correction factor for Baffle Leakage : J_l"
-
+    theta_ds = 2*np.arccos(1-2*(params['Baffle_cut']/100))
+    
     # Clearances (tube to baffle and shell to baffle)
-    S_tb = params['clear_TB'] # (np.pi/4)*((geom.Tube_OD + geom.clear_TB)**2 - geom.Tube_OD**2)*geom.n_tubes*(1-F_w)
-    S_sb = params['clear_BS']
-
-    r_L = (S_sb + S_tb)/S_L
+    S_tb = (np.pi/4)*((params['Tube_OD'] + params['clear_TB'])**2 - params['Tube_OD']**2)*params['n_tubes']*(1-F_w) # clear_TB - max - 0.794 mm in TEMA stdrads and between 0.397 mm 
+    S_sb = 0.00436 * params['Shell_ID'] * params['clear_BS'] * (180/np.pi) * (2*np.pi - theta_ds) # - L_sb = 2 mm if D_s < 0.4m and = 1.6 + 0.004*D_s
+    
+    r_L = (S_sb + S_tb)/S_m
     r_S = S_sb /(S_sb + S_tb)
 
     J_l = 0.44*(1-r_S) + (1 - 0.44*(1-r_S))*np.e**(-2.2*r_L)
@@ -462,7 +470,7 @@ def shell_bell_delaware_htc(m_dot_shell, T_shell, T_shell_w, P_shell, shell_flui
         else:
             C_j = 1.25
             
-        J_b = np.e**(-C_j*(S_b / S_T)*(1 - (2*r_ss)**(1/3)))
+        J_b = np.e**(-C_j*(S_b / S_m)*(1 - (2*r_ss)**(1/3)))
     
     "1.5) Correction factor for adverse temperature gradient : J_r"
     
@@ -497,14 +505,13 @@ def shell_bell_delaware_htc(m_dot_shell, T_shell, T_shell_w, P_shell, shell_flui
     
     h = h_id*J_c*J_l*J_b*J_r*J_s
     
-    print(f"h_id : {h_id}")
-    print(f"J_c : {J_c}")
-    print(f"J_l : {J_l}")
-    print(f"J_b : {J_b}")
-    print(f"J_r : {J_r}")
-    print(f"J_s : {J_s}")
+    # print(f"h_id : {h_id}")
+    # print(f"J_c : {J_c}")
+    # print(f"J_l : {J_l}")
+    # print(f"J_b : {J_b}")
+    # print(f"J_r : {J_r}")
+    # print(f"J_s : {J_s}")
 
-    
     return h
 
 
@@ -538,6 +545,20 @@ if __name__ == "__main__":
     
     h_kern, Re_kern, Pr_kern = shell_htc_kern(m_dot, T_wall, T_in, P_in, AS, params)
 
-
     h_BD = shell_bell_delaware_htc(m_dot, T_in, T_wall, P_in, fluid, params)
 
+    # params = {
+    #     'clear_TB' : 0.00622,
+    #     if tube_OD > 0.03175: 
+    #       clear_TB = 0.8 mm 
+    #     
+    #     else:
+    #       
+    
+    
+    #     'clear_BS' : 0.01487, 3.1*1e-3 + 4*1e-3*Shell_ID
+    #     'D_OTL' : Ds-0.02,
+    #     'inlet_spacing' : 0.6*Ds,        
+    #     'outlet_spacing' : 0.6*Ds,
+    #     'N_strips' : 2,
+    #     }

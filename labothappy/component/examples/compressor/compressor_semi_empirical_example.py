@@ -55,7 +55,7 @@ compressor.su.set_properties(P=319296.5575177148, T=331.033964665788, m_dot=0.2,
 compressor.ex.set_properties(P=606240.1433176235)
 
 # Set ambient temperature
-compressor.Q_amb.set_T_cold(293)
+compressor.Q_amb.set_T_amb(293)
 
 # Set rotational speed
 compressor.W.set_N_rot(6000)

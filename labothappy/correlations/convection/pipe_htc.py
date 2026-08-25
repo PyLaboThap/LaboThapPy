@@ -512,6 +512,7 @@ def horizontal_flow_boiling(AS, G, P_sat, x, D_in, q):
         "Nitrogen": 4380, "N2": 4380,
         "Argon": 3870, "Ar": 3870,
         "Oxygen": 4120, "O2": 4120,
+        "CarbonDioxide": 5500, "CO2": 5500,
     } # W/(m**2 * K)
     
     a_0 = a_0_dict[fluid]
