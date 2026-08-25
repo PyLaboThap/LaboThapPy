@@ -570,10 +570,10 @@ def void_fraction_rouhani_axelsson(rho_l, rho_v, x, G, sigma):
     Formula:
     --------
     J_l = (1-x)*G/rho_l          (liquid superficial velocity)
-    J_g = x*G/rho_g              (vapor superficial velocity)
+    J_v = x*G/rho_v              (vapor superficial velocity)
     C0 = 1 + 0.2*(1-x)           (distribution parameter)
-    V_drift = 1.18 * (g*sigma*(rho_l-rho_g)/rho_l^2)^0.25
-    alpha = J_g / (C0*(J_l+J_g) + V_drift)
+    V_drift = 1.18 * (g*sigma*(rho_l-rho_v)/rho_l^2)^0.25
+    alpha = J_v / (C0*(J_l+J_v) + V_drift)
 
     Parameters
     ----------
@@ -607,33 +607,18 @@ def void_fraction_rouhani_axelsson(rho_l, rho_v, x, G, sigma):
     Journal of Heat and Mass Transfer, 13, pp. 383-393.
     """
     J_l = (1 - x) * G / rho_l
-    J_g = x * G / rho_v
+    J_v = x * G / rho_v
 
     C0 = 1 + 0.2 * (1 - x)
     V_drift = 1.18 * ((G_GRAVITY * sigma * (rho_l - rho_v)) / (rho_l ** 2)) ** 0.25
 
-    alpha = J_g / (C0 * (J_l + J_g) + V_drift)
+    alpha = J_v / (C0 * (J_l + J_v) + V_drift)
 
     return alpha
 
 #======================================================================
 # Chexal/Dix void fraction model (Drift-flux correlations)
 #======================================================================
-
-def void_fraction_dix(x, rho_l, rho_g, G, sigma):
-    """
-
-
-    References
-    ----------
-    Dix, G. E. (1971). "Vapor void fractions for forced convection with
-    subcooled boiling at low flow rates." PhD thesis (or ANS/Berkeley
-    report), University of California, Berkeley.
-    Chexal, B., Horowitz, J., Lellouche, G. (1986). "An assessment of
-    eight void fraction models for vertical flows." EPRI Report
-    NSAC-107, Palo Alto, USA.
-    """
-
 
 def void_fraction_dix(rho_l, rho_v, x, G, sigma):
     """
@@ -642,11 +627,11 @@ def void_fraction_dix(rho_l, rho_v, x, G, sigma):
     Formula:
     --------
     J_l = (1-x)*G/rho_l          (liquid superficial velocity)
-    J_g = x*G/rho_g              (vapor superficial velocity)
-    n = (rho_g/rho_l)^0.1
-    C0 = (J_g/(J_l+J_g)) * (1 + (J_l/J_g)^n)
-    V_drift = 2.9 * (g*sigma*(rho_l-rho_g)/rho_l^2)^0.25
-    alpha = J_g / (C0*(J_l+J_g) + V_drift)
+    J_v = x*G/rho_v              (vapor superficial velocity)
+    n = (rho_v/rho_l)^0.1
+    C0 = (J_v/(J_l+J_v)) * (1 + (J_l/J_v)^n)
+    V_drift = 2.9 * (g*sigma*(rho_l-rho_v)/rho_l^2)^0.25
+    alpha = J_v / (C0*(J_l+J_v) + V_drift)
 
     Parameters
     ----------
@@ -684,13 +669,13 @@ def void_fraction_dix(rho_l, rho_v, x, G, sigma):
     NSAC-107, Palo Alto, USA.
     """
     J_l = (1 - x) * G / rho_l
-    J_g = x * G / rho_v
+    J_v = x * G / rho_v
 
     n = (rho_v / rho_l) ** 0.1
-    C0 = J_g / (J_l + J_g) * (1 + (J_l / J_g) ** n)
+    C0 = J_v / (J_l + J_v) * (1 + (J_l / J_v) ** n)
     V_drift = 2.9 * ((G_GRAVITY * sigma * (rho_l - rho_v)) / (rho_l ** 2)) ** 0.25
 
-    alpha = J_g / (C0 * (J_l + J_g) + V_drift)
+    alpha = J_v / (C0 * (J_l + J_v) + V_drift)
 
     return alpha
 
@@ -710,12 +695,12 @@ def void_fraction_woldesemayat_ghajar(rho_l, rho_v, x, G, sigma, D, P, theta=np.
     Formula:
     -------
     J_l = (1-x)*G/rho_l          (liquid superficial velocity)
-    J_g = x*G/rho_g              (vapor superficial velocity)
-    n = (rho_g/rho_l)^0.1
-    C0 = (J_g/(J_l+J_g)) * (1 + (J_l/J_g)^n)
-    V_drift = 2.9 * (g*sigma*D*(1+cos(theta))*(rho_l-rho_g)/rho_l^2)^0.25
+    J_v = x*G/rho_v              (vapor superficial velocity)
+    n = (rho_v/rho_l)^0.1
+    C0 = (J_v/(J_l+J_v)) * (1 + (J_l/J_v)^n)
+    V_drift = 2.9 * (g*sigma*D*(1+cos(theta))*(rho_l-rho_v)/rho_l^2)^0.25
                 * (1.22 + 1.22*sin(theta))^(101325/P)
-    alpha = J_g / (C0*(J_l+J_g) + V_drift)
+    alpha = J_v / (C0*(J_l+J_v) + V_drift)
 
     Parameters
     ----------
@@ -758,15 +743,15 @@ def void_fraction_woldesemayat_ghajar(rho_l, rho_v, x, G, sigma, D, P, theta=np.
     33, pp. 347-370.
     """
     J_l = (1 - x) * G / rho_l
-    J_g = x * G / rho_v
+    J_v = x * G / rho_v
 
     n = (rho_v / rho_l) ** 0.1
-    C0 = J_g / (J_l + J_g) * (1 + (J_l / J_g) ** n)
+    C0 = J_v / (J_l + J_v) * (1 + (J_l / J_v) ** n)
 
     V_drift = (2.9 * ((G_GRAVITY * sigma * D * (1 + np.cos(theta)) * (rho_l - rho_v)) / (rho_l ** 2)) ** 0.25
                    * (1.22 + 1.22 * np.sin(theta)) ** (101325 / P))
 
-    alpha = J_g / (C0 * (J_l + J_g) + V_drift)
+    alpha = J_v / (C0 * (J_l + J_v) + V_drift)
 
     return alpha
 
@@ -873,7 +858,7 @@ def compute_void_fraction(AS, params, m_dot = None, void_fraction_model='Homogen
     elif void_fraction_model == 'Premoli':
         mu_l = AS_l.viscosity()
         sigma = AS.surface_tension()
-        d_hyd = params.get('d_hyd')
+        d_hyd = params.get('d_hyd', params.get('D'))
         A_cross = PI * d_hyd ** 2 / 4.0
         G = m_dot / A_cross  # kg/(m²·s)
         alpha = void_fraction_premoli(rho_l, rho_v, x, mu_l, sigma, d_hyd, G)
@@ -886,13 +871,13 @@ def compute_void_fraction(AS, params, m_dot = None, void_fraction_model='Homogen
     elif void_fraction_model == 'Hughmark':
         mu_l = AS_l.viscosity()
         mu_v = AS_v.viscosity()
-        d_hyd = params.get('d_hyd')
+        d_hyd = params.get('d_hyd', params.get('D'))
         A_cross = PI * d_hyd ** 2 / 4.0
         G = m_dot / A_cross  # kg/(m²·s)
         alpha = void_fraction_hughmark(rho_l, rho_v, x, mu_l, mu_v, d_hyd, G)
 
     elif void_fraction_model == 'Graham':
-        d_hyd = params.get('d_hyd')
+        d_hyd = params.get('d_hyd', params.get('D'))
         A_cross = PI * d_hyd ** 2 / 4.0
         G = m_dot / A_cross  # kg/(m²·s)
         alpha = void_fraction_graham(rho_v, x, d_hyd, G)
@@ -904,21 +889,21 @@ def compute_void_fraction(AS, params, m_dot = None, void_fraction_model='Homogen
         alpha = void_fraction_bankoff(rho_l, rho_v, x, P)
 
     elif void_fraction_model == 'Rouhani-Axelsson':
-        d_hyd = params.get('d_hyd')
+        d_hyd = params.get('d_hyd', params.get('D'))
         A_cross = PI * d_hyd ** 2 / 4.0
         G = m_dot / A_cross  # kg/(m²·s)
         sigma = AS.surface_tension()
         alpha = void_fraction_rouhani_axelsson(rho_l, rho_v, x, G, sigma)
 
     elif void_fraction_model == 'DIX':
-        d_hyd = params.get('d_hyd')
+        d_hyd = params.get('d_hyd', params.get('D'))
         A_cross = PI * d_hyd ** 2 / 4.0
         G = m_dot / A_cross  # kg/(m²·s)
         sigma = AS.surface_tension()
         alpha = void_fraction_dix(rho_l, rho_v, x, G, sigma)
 
     elif void_fraction_model == 'Woldesemayat-Ghajar':
-        d_hyd = params.get('d_hyd')
+        d_hyd = params.get('d_hyd', params.get('D'))
         A_cross = PI * d_hyd ** 2 / 4.0
         G = m_dot / A_cross  # kg/(m²·s)
         sigma = AS.surface_tension()

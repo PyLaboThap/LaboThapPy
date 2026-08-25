@@ -251,7 +251,7 @@ def compute_zeta_LOC(d_hyd, R, delta_rad, K, rho, mu, m_dot):
     """
     A_cross = PI * d_hyd ** 2 / 4.0
     v = abs(m_dot) / max(EPS, rho * A_cross)
-    Re = compute_reynolds(rho, v, d_hyd, mu)
+    Re = compute_reynolds(d_hyd, mu, rho, v)
 
     # Get Idelchik coefficients
     coeffs = compute_idelchik_coefficients(d_hyd, R, delta_rad)
@@ -353,7 +353,7 @@ def compute_cf_fri(zeta_LOC, d_hyd, R0, delta_rad, K, rho, mu, m_dot):
     """
     A_cross = PI * d_hyd ** 2 / 4.0
     v = abs(m_dot) / max(EPS, rho * A_cross)
-    Re = compute_reynolds(rho, v, d_hyd, mu)
+    Re = compute_reynolds(d_hyd, mu, rho, v)
 
     # Arc length of the bend
     L_arc = abs(delta_rad) * R0

@@ -48,7 +48,7 @@ class Pipe(BaseComponent):
         self.check_calculable()
         
         current_state = self.su
-        # print(f"Starting Pipe solve with inlet state: p={current_state.p:.2f} Pa, h={current_state.h:.2f} J/kg, m_dot={current_state.m_dot:.4f} kg/s")
+        
         self.components = []
         self.m_charge = 0.0
         self.dP_total = 0.0

@@ -89,7 +89,7 @@ def friction_factor_churchill(K, d_hyd, Re):
         Chemical Engineering, 84(24), 91-92.
     """
     Re_safe = max(EPS, Re)
-
+    
     # Laminar term
     laminar_term = (8.0 / Re_safe) ** 12
 
@@ -101,7 +101,9 @@ def friction_factor_churchill(K, d_hyd, Re):
 
     turbulent_term = 1.0 / (A + B) ** 1.5
 
-    return 8.0 * (laminar_term + turbulent_term) ** (1.0 / 12.0)
+    f = 8.0 * (laminar_term + turbulent_term) ** (1.0 / 12.0)
+
+    return f
 
 
 def friction_factor_swamee_jain(K, d_hyd, Re):
@@ -233,12 +235,12 @@ def friedel_multiplier(m_dot, x, D, rho_l, rho_g, mu_l, mu_g, sigma, K=0.0):
     # ====================================================================
     # Liquid (at total mass flow)
     v_l = m_dot / (rho_l * A_cross)
-    Re_l = compute_reynolds(rho_l, v_l, D, mu_l)
+    Re_l = compute_reynolds(D, mu_l, rho_l, v_l)
     f_l = friction_factor_churchill(K, D, Re_l)
 
     # Vapor (at total mass flow)
     v_g = m_dot / (rho_g * A_cross)
-    Re_g = compute_reynolds(rho_g, v_g, D, mu_g)
+    Re_g = compute_reynolds(D, mu_g, rho_g, v_g)
     f_g = friction_factor_churchill(K, D, Re_g)
 
     # ====================================================================
@@ -332,7 +334,7 @@ def pressure_drop_single_phase(L, d_hyd, rho, v, K, mu, theta=0.0):
     Moody, L.F. (1944). Friction factors for pipe flow. Transactions of the
         ASME, 66(8), 671-684.
     """
-    Re = compute_reynolds(rho, v, d_hyd, mu)
+    Re = compute_reynolds(d_hyd, mu, rho, v)
     f = friction_factor_churchill(K, d_hyd, Re)
 
     # Frictional pressure drop (Darcy-Weisbach)
@@ -400,7 +402,7 @@ def pressure_drop_frictional_two_phase(m_dot, D, L, rho_l, rho_g, x,
 
     # Single-phase pressure drop (liquid only, at total mass flow)
     v_l = m_dot / (rho_l * A_cross)
-    Re_l = compute_reynolds(rho_l, v_l, D, mu_l)
+    Re_l = compute_reynolds(D, mu_l, rho_l, v_l)
     f_l = friction_factor_churchill(K, D, Re_l)
     dP_lo = f_l * (L / D) * (rho_l * v_l ** 2 / 2.0)
 

@@ -134,7 +134,7 @@ class CurvedElbow(BaseComponent):
         self.rho_g = None
         self.rho_h = None
         self.velocity = v
-        self.Re = compute_reynolds(rho_su, v, self.params['D'], mu)
+        self.Re = compute_reynolds(self.params['D'], mu, rho_su, v)
 
         self.solved = True
 
@@ -149,11 +149,10 @@ class CurvedElbow(BaseComponent):
         
         rho_l = AS_sat_l.rhomass()
         rho_g = AS_sat_g.rhomass()
-        mu = AS_sat_l.viscosity()
 
         # Homogeneous density
-        alpha = compute_void_fraction(x, rho_l, rho_g)
-        rho_h = 1.0 / (alpha / rho_g + (1.0 - alpha) / rho_l)
+        alpha_h = compute_void_fraction(self.AS, self.params, void_fraction_model='Homogeneous')
+        rho_h = 1.0 / (alpha_h / rho_g + (1.0 - alpha_h) / rho_l)
 
         A_cross = PI * self.params['D']**2 / 4 # Cross-sectional area [m²]
         v = self.su.m_dot / (rho_h * A_cross) # Mean velocity [m/s]
@@ -164,6 +163,7 @@ class CurvedElbow(BaseComponent):
         K = self.params.get('K', 0.0)
 
         # Pressure drop
+        mu = AS_sat_l.viscosity()
         self.dP = pressure_drop_curved_elbow(self.params['D'], R0, delta_rad, K, rho_h, mu, self.su.m_dot)
 
         # Set outlet
@@ -182,7 +182,7 @@ class CurvedElbow(BaseComponent):
         self.rho_g = rho_g
         self.rho_h = rho_h
         self.velocity = v
-        self.Re = compute_reynolds(rho_h, v, self.params['D'], mu)
+        self.Re = compute_reynolds(self.params['D'], mu, rho_h, v)
 
         self.solved = True
 

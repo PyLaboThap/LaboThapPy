@@ -27,7 +27,7 @@ EPS = 1e-12
 #     """
 #     return max(1.0, rho * v * d_hyd / max(EPS, mu))
 
-# Changed to be able to take as inputs also G (to check if necessary!!)
+
 def compute_reynolds(d_hyd, mu, rho=None, v=None, G=None):
     """
     Compute Reynolds number.
@@ -56,7 +56,6 @@ def compute_reynolds(d_hyd, mu, rho=None, v=None, G=None):
         if rho is None or v is None:
             raise ValueError("Provide either G, or both rho and v.")
         G = rho * v
-
     return max(1.0, G * d_hyd / max(EPS, mu))
 
 

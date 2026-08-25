@@ -3,7 +3,7 @@ from CoolProp.CoolProp import PropsSI
 
 # Simple: chain fluently
 pipe = Pipe()
-pipe.add_straight(D=0.01, L=1.0, theta = 80).add_curved_elbow(D=0.01, delta=90, R0=0.5).add_straight(D=0.01, L=0.5, theta = 0.0) # 10mm diameter, 1.5m long
+pipe.add_straight(D=0.01, L=0.5, theta = 0).add_curved_elbow(D=0.01, delta=90, R0=0.5).add_straight(D=0.01, L=0.5, theta = 0.0) # 10mm diameter, 1.5m long
 
 pipe.su.set_p(101325)
 pipe.su.set_h(100000)
@@ -11,7 +11,6 @@ pipe.su.set_m_dot(0.5)
 pipe.su.set_fluid('Water')
 
 pipe.solve()
-print(pipe.ex.p)  # Outlet pressure after all losses
 print(f"Mass inventory: {pipe.m_charge:.2f} kg")
 
 
