@@ -1,7 +1,6 @@
 import numpy as np
 import CoolProp.CoolProp as CP
-from labothappy.correlations.void_fraction.void_fraction_new import compute_void_fraction
-# import CoolProp.CoolProp as CP
+from labothappy.correlations.void_fraction.void_fraction import compute_void_fraction
 
 # ----------------------------------------------------------------------
 # Initialize CoolProp fluid (R410A in this example)
@@ -12,17 +11,12 @@ AS = CP.AbstractState("HEOS", fluid_name)
 # Test conditions
 P = 1.2e6  # pressure [Pa]
 
-sigma = 0.007       # surface tension [N/m]
 d_hyd = 0.008       # hydraulic diameter [m]
-D = 0.008           # pipe diameter [m]
-G = 300.0           # mass flux [kg/(m2.s)]
-P = 1.2e6           # pressure [Pa]
+m_dot = 300 * (np.pi * d_hyd ** 2 / 4.0)
+
 
 params = {
-    "sigma": sigma,
     "d_hyd": d_hyd,
-    "D": D,
-    "G": G,
 }
 
 models = [
@@ -43,7 +37,7 @@ for x in qualities:
     # Set state with pressure and quality
     AS.update(CP.PQ_INPUTS, P, x)
     for name in models:
-        alpha = compute_void_fraction(AS, params, void_fraction_model=name)
+        alpha = compute_void_fraction(AS, params, m_dot, void_fraction_model=name)
         results[name].append(alpha)
 
 # ----------------------------------------------------------------------
