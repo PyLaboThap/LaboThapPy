@@ -107,7 +107,7 @@ class TankSpliter(BaseComponent):
                         connector.set_p(self.su.p)
                         connector.set_h(self.su.h)
                         connector.set_m_dot(self.su.m_dot*self.outlet_repartition[i])
-            
+                                                
                     self.solved = True
                 else:
                     raise ValueError(f"'Spliter' total outlet repartition is too far from 1 (tolerance : {tolerance}).")

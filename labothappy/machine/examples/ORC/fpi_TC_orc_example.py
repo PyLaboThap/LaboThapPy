@@ -186,9 +186,9 @@ def REC_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, e
 
 #%%
 
-def Recomp_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, eta_cp, eta_rec, eta_gh, 
+def Recomp_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, eta_cp, eta_rec_LT, eta_rec_HT, eta_gh, 
                PP_cd, SC_cd, P_low, P_high, m_dot, spliter_frac = 0.5, DP_h_gh = 0, DP_c_gh = 0, DP_h_cond = 0,
-               DP_c_cond = 0 ,mute_print_flag=1):
+               DP_c_cond = 0, DP_h_rec = 0, DP_c_rec = 0, mute_print_flag=1):
     
     CO2_TC = CircuitFPI('CO2')
     
@@ -206,21 +206,17 @@ def Recomp_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp
     Mixer = TankMixer(n_inlets = 2)
     
     # Pump PARAMETERS
-    
     Pump.set_parameters(eta_is=eta_pp)
 
     # Expander PARAMETERS
-    
     Expander.set_parameters(eta_is=eta_exp)
     
     # GASCOOLER PARAMETERS
-    
     GasHeater.set_parameters(**{
         'eta_max': eta_gh, 'n_disc' : 20, 'Pinch_min' : 5
     })
     
     # EVAPORATOR PARAMETERS
-    
     Condenser.set_parameters(**{
         'Pinch': PP_cd,
         'Delta_T_sh_sc': SC_cd,
@@ -228,23 +224,24 @@ def Recomp_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp
     })
     
     # Recup LT PARAMETERS
-    
     RecupLT.set_parameters(**{
-        'eta_max': eta_rec, 
+        'eta_max': eta_rec_LT, 
         'n_disc' : 20, 
         'Pinch_min' : Pinch_min_REC, 
+        'DP_h' : DP_h_rec, 
+        'DP_c' : DP_c_rec,
         })
 
     # Recup HT PARAMETERS
-    
     RecupHT.set_parameters(**{
-        'eta_max': eta_rec, 
+        'eta_max': eta_rec_HT, 
         'n_disc' : 20, 
         'Pinch_min' : Pinch_min_REC, 
+        'DP_h' : DP_h_rec, 
+        'DP_c' : DP_c_rec,
         })    
     
     # GASCOOLER PARAMETERS
-    
     Compressor.set_parameters(eta_is=eta_cp)
     
     # ADD AND LINK COMPONENTS
@@ -292,19 +289,18 @@ def Recomp_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp
     
     # CYCLE GUESSES
     
-    CO2_TC.set_cycle_guess(target='Pump:su', m_dot = m_dot*rep_spliter[0], SC = 5, p = P_low)
+    CO2_TC.set_cycle_guess(target='Spliter:su', m_dot = m_dot, T = CSource.T + 10, p = P_low)
     CO2_TC.set_cycle_guess(target='Pump:ex', p = P_high)
         
     CO2_TC.set_cycle_guess(target='Expander:ex', p = P_low)
     
-    CO2_TC.set_cycle_guess(target='Compressor:su', m_dot = m_dot*rep_spliter[1], T = CSource.T + 10, p = P_low)
+    # CO2_TC.set_cycle_guess(target='Compressor:su', m_dot = m_dot*rep_spliter[1], T = CSource.T, p = P_low)
     CO2_TC.set_cycle_guess(target='Compressor:ex', p = P_high)
 
-    CO2_TC.set_cycle_guess(target='RecupHT:su_C', m_dot = m_dot, T = CSource.T+30, p = P_high)
-    CO2_TC.set_cycle_guess(target='RecupHT:su_H', m_dot = m_dot, T = CSource.T+50, p = P_low)
+    CO2_TC.set_cycle_guess(target='RecupHT:su_C', m_dot = m_dot, T = CSource.T, p = P_high)
+    CO2_TC.set_cycle_guess(target='RecupHT:su_H', m_dot = m_dot, T = HSource.T, p = P_low)
         
     CO2_TC.set_fixed_properties(target='Pump:su', SC = SC_cd)    
-    # CO2_TC.set_iteration_variable(target=['Expander:ex'], variable='p', objective = 'Link:Condenser:su_H-p', tol = 1e-2, rel = 1, damping_factor = 0.2, cycle = CO2_TC)
     
     CO2_TC.set_iteration_variable(
         it_var  = 'Expander:ex-p',
@@ -425,7 +421,6 @@ def Recomp_CO2_TC_1_recup(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp,
     CO2_TC.set_cycle_guess(target='RecupLT:su_H', m_dot = m_dot, T = CSource.T+50, p = P_low)
         
     CO2_TC.set_fixed_properties(target='Pump:su', SC = SC_cd)    
-    # CO2_TC.set_iteration_variable(target=['Expander:ex'], variable='p', objective = 'Link:Condenser:su_H-p', tol = 1e-2, rel = 1, damping_factor = 0.2, cycle = CO2_TC)
     
     CO2_TC.set_iteration_variable(
         it_var  = 'Expander:ex-p',
@@ -535,7 +530,8 @@ if __name__ == "__main__":
         eta_is_cp = 0.8
         eta_is_exp = 0.9
         eta_gh = 0.95
-        eta_rec = 0.9
+        eta_rec_LT = 0.9
+        eta_rec_HT = 0.9
 
         PPTD_cd = 3
         SC_cd = 2
@@ -577,7 +573,7 @@ if __name__ == "__main__":
                 # P_high = P_high_vec[j]
 
         CO2_TC = Recomp_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_is_pp, eta_is_exp, 
-                                eta_is_cp, eta_gh, eta_rec, PPTD_cd, SC_cd, P_low_guess, 150*1e5, 
+                                eta_is_cp, eta_gh, eta_rec_LT, eta_rec_HT, PPTD_cd, SC_cd, P_low_guess, 150*1e5, 
                                 m_dot, spliter_frac = 0.5, mute_print_flag=0)
                 
         CO2_TC.solve(method = 'wegstein', max_iter=100)
@@ -637,20 +633,8 @@ if __name__ == "__main__":
         DP_h_cond = 100*1e3
         DP_c_cond = 0*1e3
                 
-        # DP_h_rec = 0*1e3
-        # DP_c_rec = 0*1e3
-        
-        # DP_h_gh = 0*1e3
-        # DP_c_gh = 0*1e3
-        
-        # DP_h_cond = 0*1e3
-        # DP_c_cond = 0*1e3
-        
         spliter_frac = 0.5 # 0.5
         P_high = 15448318.680095742 # 140*1e5
-        
-        #  'mdot_HS': 38.305712021488546,
-        #  'mdot': 30.526725090894885,
         
         CO2_TC = Recomp_CO2_TC_1_recup(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_is_pp, eta_is_exp, 
                                 eta_is_cp, eta_gh, eta_rec, PPTD_cd, SC_cd, P_low_guess, P_high, 

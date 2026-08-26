@@ -560,7 +560,7 @@ class CircuitFPI(BaseCircuit):
                 print(f"--- Component : {component_name}")
                 
             self.components[component_name].solve()
-
+                
         return
 
     #%% -----------------------------------------------------------------------
@@ -863,11 +863,11 @@ class CircuitFPI(BaseCircuit):
 
         for start in self.solve_start_components:
             
-            # try:
-            self.recursive_solve(start)
-            # except:
-            #     self.converged = False
-            #     return
+            try:
+                self.recursive_solve(start)
+            except:
+                self.converged = False
+                return
             
             if self.check_all_component_solved():
                 break
@@ -877,6 +877,8 @@ class CircuitFPI(BaseCircuit):
                 blocking = [c for c in self.components
                             if not self.components[c].model.check_calculable()]
                 print(f"Setup failed. Blocking components: {blocking}")
+                # raise ValueError(f"Setup failed. Blocking components: {blocking}")
+
             return
 
         # self.print_states()

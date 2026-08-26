@@ -453,7 +453,7 @@ class HexCstPinch(BaseComponent):
         if not (self.calculable and self.parametrized):
             print("HTX IS NOT CALCULABLE")
             return
-        
+                
         if 'DP_h' in self.params:
             self.DP_h = self.params['DP_h']
         else:
@@ -623,7 +623,7 @@ class HexCstPinch(BaseComponent):
                 max_iter = 100
                 step = 1
                 max_step = 5
-                
+                                
                 for _ in range(max_iter):
                     
                     # print(f"su_H.T : {self.su_H.T}")
@@ -652,8 +652,7 @@ class HexCstPinch(BaseComponent):
                     if res1 * res2 <= 0:
                         break
                     
-                    self.su_H.set_T(self.su_H.T + step)
-                                    
+                    self.su_H.set_T(self.su_H.T + step)                    
                     step = min(step * 2, max_step)
                 
                 if res1 * res2 > 0:
@@ -690,7 +689,7 @@ class HexCstPinch(BaseComponent):
     
                 # Mark the model as solved if successful
                 if self.results.converged:
-                    if abs(self.res) < 1e-1:
+                    if abs(self.res) < 5e-2:
                         self.solved = True
                     else:
                         if self.print_flag:
@@ -750,13 +749,13 @@ class HexCstPinch(BaseComponent):
             # print(f"P_evap_model : {self.ex_C.p}")
             
         else: 
-            h_su_H = self.su_H.h
+            T_su_H = self.su_H.T          
             m_dot_su_H = self.su_H.m_dot
             
             self.su_H.reset()
             
             self.su_H.set_p(self.P_cd_x1)            
-            self.su_H.set_h(h_su_H)
+            self.su_H.set_T(T_su_H)
             self.su_H.set_m_dot(m_dot_su_H)
 
             self.ex_H.reset()

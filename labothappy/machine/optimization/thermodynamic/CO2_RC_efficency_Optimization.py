@@ -7,7 +7,7 @@ CO2 Transcritical Rankine Cycle Optimizer
 
 #%% Imports
 
-from labothappy.machine.examples.ORC.fpi_TC_orc_example import REC_CO2_TC, basic_CO2_TC, Recomp_CO2_TC
+from labothappy.machine.examples.ORC.fpi_TC_orc_example import REC_CO2_TC, basic_CO2_TC, Recomp_CO2_TC, Recomp_CO2_TC_1_recup
 from labothappy.connector.mass_connector import MassConnector
 
 import numpy as np
@@ -81,6 +81,9 @@ def system_RC_parallel(x, input_data):
                 params['eta_gh'],
                 params['PP_cd'], params['SC_cd'],
                 P_low_guess, P_high, m_dot,
+                DP_h_gh   = params.get('DP_h_gh',   0.5e5),
+                DP_c_gh   = params.get('DP_c_gh',   2.0e5),
+                DP_h_cond = params.get('DP_cond',   1.0e5),
                 mute_print_flag=1,
             )
         elif arch == "Recomp":
@@ -90,7 +93,18 @@ def system_RC_parallel(x, input_data):
                 HSource, CSource, 
                 params['PP_gh'], params['PP_rec'], 
                 params['eta_pp'], params['eta_exp'], params['eta_cp'], 
-                params['eta_gh'], params['eta_rec'],
+                params['eta_rec'], params['eta_rec_HT'], params['eta_gh'],
+                params['PP_cd'], params['SC_cd'],
+                P_low_guess, P_high, m_dot, spliter_frac,
+                mute_print_flag=1)
+        elif arch == "Recomp_1_recup":
+            spliter_frac = x[3]
+
+            RC = Recomp_CO2_TC_1_recup(
+                HSource, CSource, 
+                params['PP_gh'], params['PP_rec'], 
+                params['eta_pp'], params['eta_exp'], params['eta_cp'], 
+                params['eta_rec'], params['eta_gh'],
                 params['PP_cd'], params['SC_cd'],
                 P_low_guess, P_high, m_dot, spliter_frac,
                 mute_print_flag=1)
@@ -122,7 +136,7 @@ def system_RC_parallel(x, input_data):
 
     # --- Power and efficiency ---
     try:
-        if arch == "Recomp":
+        if arch == "Recomp" or arch == "Recomp_1_recup":
             W_cp = RC.components['Compressor'].model.W.W_dot
         else:
             W_cp = 0
@@ -214,10 +228,10 @@ class CO2RCOptimizer:
         if arch == 'REC':
             self.RC = REC_CO2_TC(
                 HSource, CSource,
-                self.params['PP_gh'], self.params['PP_rec'],
+                self.it_var['PP_gh'], self.params['PP_rec'],
                 self.params['eta_pp'], self.params['eta_exp'],
-                self.params['eta_gh'], self.params['eta_rec'],
-                self.params['PP_cd'], self.params['SC_cd'],
+                self.it_var['eta_gh'], self.it_var['eta_rec'],
+                self.it_var['PP_cd'], self.params['SC_cd'],
                 P_low_guess, self.it_var['P_high'], self.it_var['mdot'],
                 DP_h_rec  = self.params.get('DP_h_rec',  1.0e5),
                 DP_c_rec  = self.params.get('DP_c_rec',  2.0e5),
@@ -229,10 +243,10 @@ class CO2RCOptimizer:
         elif arch == 'basic':
             self.RC = basic_CO2_TC(
                 HSource, CSource,
-                self.params['PP_gh'], self.params['PP_rec'],
+                self.it_var['PP_gh'], self.params['PP_rec'],
                 self.params['eta_pp'], self.params['eta_exp'],
-                self.params['eta_gh'],
-                self.params['PP_cd'], self.params['SC_cd'],
+                self.it_var['eta_gh'],
+                self.it_var['PP_cd'], self.params['SC_cd'],
                 P_low_guess, self.it_var['P_high'], self.it_var['mdot'],
                 mute_print_flag=1,
             )
@@ -241,12 +255,21 @@ class CO2RCOptimizer:
                 HSource, CSource, 
                 self.params['PP_gh'], self.params['PP_rec'], 
                 self.params['eta_pp'], self.params['eta_exp'], self.params['eta_cp'], 
-                self.params['eta_gh'], self.params['eta_rec'],
+                self.params['eta_rec'], self.params['eta_rec_HT'], self.params['eta_gh'],
+                self.params['PP_cd'], self.params['SC_cd'],
+                P_low_guess, self.it_var['P_high'], self.it_var['mdot'], self.it_var['spliter_frac'],
+                mute_print_flag=1)
+        elif arch == 'Recomp_1_recup':
+            self.RC = Recomp_CO2_TC_1_recup(
+                HSource, CSource, 
+                self.params['PP_gh'], self.params['PP_rec'], 
+                self.params['eta_pp'], self.params['eta_exp'], self.params['eta_cp'], 
+                self.params['eta_rec'], self.params['eta_gh'],
                 self.params['PP_cd'], self.params['SC_cd'],
                 P_low_guess, self.it_var['P_high'], self.it_var['mdot'], self.it_var['spliter_frac'],
                 mute_print_flag=1)
         else:
-            raise ValueError("'RC_ARCH' parameter shall be either 'basic', 'REC', 'Recomp")
+            raise ValueError("'RC_ARCH' parameter shall be either 'basic', 'REC', 'Recomp', 'Recomp_1_recup'")
 
     def _log_penalty(self, reason):
         self.penalty_log[reason] = self.penalty_log.get(reason, 0) + 1
@@ -259,7 +282,7 @@ class CO2RCOptimizer:
         populates self.eta, self.W_dot_net, self.RC, self.it_var.
         Mirrors system_RC_parallel exactly so there is no disconnect.
         """
-        if self.params['RC_ARCH'] == "Recomp":
+        if self.params['RC_ARCH'] == "Recomp" or self.params['RC_ARCH'] == "Recomp_1_recup":
             P_high, m_dot, m_dot_HS_fact, spliter_frac = best_pos
             m_dot_HS = m_dot * m_dot_HS_fact
             self.it_var['spliter_frac'] = spliter_frac
@@ -307,7 +330,7 @@ class CO2RCOptimizer:
             self.eta = self.W_dot_net = None
             return
         
-        if self.params['RC_ARCH'] == "Recomp":
+        if self.params['RC_ARCH'] == "Recomp" or self.params['RC_ARCH'] == "Recomp_1_recup":
             W_cp = RC.components['Compressor'].model.W.W_dot
         else:
             W_cp = 0
@@ -352,7 +375,7 @@ class CO2RCOptimizer:
         if patience is None:
             patience = max(1, max_iter // 5)
         
-        if self.params['RC_ARCH'] == "Recomp":
+        if self.params['RC_ARCH'] == "Recomp" or self.params['RC_ARCH'] == "Recomp_1_recup":
             # --- bounds ---
             lb = np.array([
                 self.params['P_high_min'],
@@ -507,7 +530,7 @@ if __name__ == "__main__":
 
     # ---- sweep ----
     T_vec = np.linspace(100, 350, 6) + 273.15
-    # T_vec = np.array([200]) + 273.15
+    # T_vec = np.array([350]) + 273.15
 
     eta_vec      = []
     P_high_vec   = []
@@ -528,6 +551,7 @@ if __name__ == "__main__":
             eta_pp  = 0.8,
             eta_gh  = 0.95,
             eta_rec = 0.9,
+            eta_rec_HT = 0.9, # Recompression Case
             eta_exp = 0.9,
             eta_cp = 0.8,
 
@@ -552,7 +576,7 @@ if __name__ == "__main__":
             spliter_frac_max = 1
         )
         
-        if Optimizer.params['RC_ARCH'] == "Recomp":
+        if Optimizer.params['RC_ARCH'] == "Recomp" or Optimizer.params['RC_ARCH'] == "Recomp_1_recup":
             Optimizer.set_it_var(P_high=100e5, mdot=20.0, mdot_HS=15.0, spliter_frac = 1)
         else:
             Optimizer.set_it_var(P_high=100e5, mdot=20.0, mdot_HS=15.0)
