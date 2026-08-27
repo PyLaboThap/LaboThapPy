@@ -34,18 +34,21 @@ from labothappy.correlations.properties.dimensionless import (
     compute_froude,
     compute_weber,
 )
-from labothappy.correlations.void_fraction.void_fraction_old2 import compute_void_fraction
-from labothappy.correlations.properties.two_phase import compute_two_phase_density
+
+from labothappy.correlations.void_fraction.void_fraction import (
+    compute_void_fraction,
+    void_fraction_homogeneous,
+    void_fraction_zivi,
+)
+from labothappy.correlations.properties.two_phase import compute_two_phase_density, get_saturated_phase_properties
 
 EPS = 1e-12
 PI = math.pi
 G_GRAVITY = 9.81  # m/s²
 
-
 # ============================================================================
 # FRICTION FACTOR CORRELATIONS
 # ============================================================================
-
 
 def friction_factor_churchill(K, d_hyd, Re):
     """
@@ -157,7 +160,7 @@ def friction_factor_swamee_jain(K, d_hyd, Re):
 # TWO-PHASE FRICTION MULTIPLIER
 # ============================================================================
 
-def friedel_multiplier(m_dot, x, D, rho_l, rho_g, mu_l, mu_g, sigma, K=0.0):
+def friedel_multiplier(AS, m_dot, D, K=0.0):
     """
     Compute Friedel two-phase friction multiplier Φ_l².
 
@@ -180,22 +183,14 @@ def friedel_multiplier(m_dot, x, D, rho_l, rho_g, mu_l, mu_g, sigma, K=0.0):
 
     Parameters
     ----------
+    AS : CoolProp.AbstractState
+        Two-phase fluid state (quality and pressure already set). Liquid
+        and vapor properties (ρ_l, ρ_v, μ_l, μ_v, σ) are derived from it via
+        `get_saturated_phase_properties`.
     m_dot : float
         Mass flow rate [kg/s]
-    x : float
-        Vapor quality (dryness fraction) [0, 1]
     D : float
         Pipe inner diameter [m]
-    rho_l : float
-        Liquid density [kg/m³]
-    rho_g : float
-        Vapor density [kg/m³]
-    mu_l : float
-        Liquid dynamic viscosity [Pa·s]
-    mu_g : float
-        Vapor dynamic viscosity [Pa·s]
-    sigma : float
-        Surface tension [N/m]
     K : float, optional
         Absolute roughness [m] (default: 0.0, smooth pipe)
 
@@ -217,8 +212,13 @@ def friedel_multiplier(m_dot, x, D, rho_l, rho_g, mu_l, mu_g, sigma, K=0.0):
         horizontal and vertical two-phase pipe flow. European Two-Phase Flow
         Group Meeting, Ispra, Italy.
     """
-    # Safeguard quality
-    x = max(EPS, min(1.0 - EPS, x))
+    props = get_saturated_phase_properties(AS)
+    x = props["x"]
+    rho_l = props["rho_l"]
+    rho_v = props["rho_v"]
+    mu_l = props["mu_l"]
+    mu_v = props["mu_v"]
+    sigma = props["sigma"]
 
     # Cross-sectional area and mass velocity
     A_cross = PI * D ** 2 / 4.0
@@ -227,8 +227,7 @@ def friedel_multiplier(m_dot, x, D, rho_l, rho_g, mu_l, mu_g, sigma, K=0.0):
     # ====================================================================
     # Homogeneous two-phase properties
     # ====================================================================
-    alpha_h = compute_void_fraction(x, rho_l, rho_g, slip_model=None)
-    rho_h = compute_two_phase_density(x, rho_l, rho_g, alpha=alpha_h)
+    rho_h = compute_two_phase_density(x, rho_l, rho_v)
 
     # ====================================================================
     # Single-phase friction factors
@@ -239,9 +238,9 @@ def friedel_multiplier(m_dot, x, D, rho_l, rho_g, mu_l, mu_g, sigma, K=0.0):
     f_l = friction_factor_churchill(K, D, Re_l)
 
     # Vapor (at total mass flow)
-    v_g = m_dot / (rho_g * A_cross)
-    Re_g = compute_reynolds(D, mu_g, rho_g, v_g)
-    f_g = friction_factor_churchill(K, D, Re_g)
+    v_v = m_dot / (rho_v * A_cross)
+    Re_v = compute_reynolds(D, mu_v, rho_v, v_v)
+    f_v = friction_factor_churchill(K, D, Re_v)
 
     # ====================================================================
     # Dimensionless numbers (using homogeneous density)
@@ -256,12 +255,12 @@ def friedel_multiplier(m_dot, x, D, rho_l, rho_g, mu_l, mu_g, sigma, K=0.0):
     F = (x ** 0.78) * ((1.0 - x) ** 0.224)
 
     # H factor: H = (ρ_l/ρ_g)^0.91 · (μ_g/μ_l)^0.19 · (1 - μ_g/μ_l)^0.7
-    rho_ratio = rho_l / rho_g
-    mu_ratio = mu_g / mu_l
+    rho_ratio = rho_l / rho_v
+    mu_ratio = mu_v / mu_l
     H = (rho_ratio ** 0.91) * (mu_ratio ** 0.19) * ((1.0 - mu_ratio) ** 0.7)
 
     # E factor: E = (1-x)² + x² · (ρ_l·f_g / ρ_g·f_l)
-    E = (1.0 - x) ** 2 + x ** 2 * (rho_l * f_g) / (rho_g * f_l)
+    E = (1.0 - x) ** 2 + x ** 2 * (rho_l * f_v) / (rho_v * f_l)
 
     # ====================================================================
     # Two-phase multiplier Φ_l²
@@ -277,13 +276,13 @@ def friedel_multiplier(m_dot, x, D, rho_l, rho_g, mu_l, mu_g, sigma, K=0.0):
 # ============================================================================
 
 
-def pressure_drop_single_phase(L, d_hyd, rho, v, K, mu, theta=0.0):
+def pressure_drop_pipe_single_phase(AS, params, m_dot, P_su=None, T_su=None, correlation='Churchill'):
     """
     Compute total pressure drop in a straight pipe (single-phase flow).
 
     Combines frictional (Darcy-Weisbach) and gravitational pressure drops.
-    Uses Churchill correlation for friction factor, valid across all Reynolds
-    numbers and surface roughness conditions.
+    The friction factor is computed with the correlation selected via
+    `correlation` ('Churchill' or 'Swamee-Jain').
 
     Formula
     -------
@@ -291,38 +290,34 @@ def pressure_drop_single_phase(L, d_hyd, rho, v, K, mu, theta=0.0):
     ΔP_gravity = ρ·g·L·sin(θ)
     ΔP_total = ΔP_friction + ΔP_gravity
 
-    where f is computed using Churchill (1977) correlation.
-
     Parameters
     ----------
-    L : float
-        Pipe length [m]
-    d_hyd : float
-        Hydraulic diameter [m]
-    rho : float
-        Fluid density [kg/m³].
-        Use average density if pressure drop > 5% of inlet pressure.
-    v : float
-        Mean flow velocity [m/s]
-    K : float
-        Absolute surface roughness [m]
-    mu : float
-        Dynamic viscosity [Pa·s]
-    theta : float, optional
-        Pipe inclination angle from horizontal [degrees] (default: 0)
+    AS : CoolProp.AbstractState
+        Single-phase fluid state. If `P_su`/`T_su` are not given, AS must
+        already have its state set (e.g. via HmassP_INPUTS) by the caller.
+    params : dict
+        Pipe geometry: 'D' (or 'd_hyd') [m], 'L' [m], and optionally
+        'K' (absolute roughness [m], default 0.0) and 'theta' (inclination
+        from horizontal [degrees], default 0.0).
+    m_dot : float
+        Mass flow rate [kg/s]
+    P_su : float, optional
+        Inlet pressure [Pa]. If given together with `T_su`, AS is updated
+        to this (P, T) state before computing properties.
+    T_su : float, optional
+        Inlet temperature [K]. See `P_su`.
+    correlation : str, optional
+        Friction factor correlation: 'Churchill' (default, valid across all
+        Reynolds numbers) or 'Swamee-Jain' (explicit, turbulent flow only).
 
     Returns
     -------
-    deltaP_total : float
+    dP_total : float
         Total pressure drop [Pa]
-    f : float
-        Darcy friction factor [-] (for diagnostics)
-    Re : float
-        Reynolds number [-] (for diagnostics)
 
     Notes
     -----
-    - For large pressure drops (ΔP > 0.05·P_inlet), use mean density
+    - For large pressure drops (ΔP > 0.05·P_inlet), consider using mean density
     - Positive theta = downward flow (increases ΔP)
     - Negative theta = upward flow (decreases ΔP)
 
@@ -334,8 +329,30 @@ def pressure_drop_single_phase(L, d_hyd, rho, v, K, mu, theta=0.0):
     Moody, L.F. (1944). Friction factors for pipe flow. Transactions of the
         ASME, 66(8), 671-684.
     """
+    if (P_su is None) != (T_su is None):
+        raise ValueError("P_su and T_su must be given together, or not at all.")
+    if P_su is not None and T_su is not None:
+        AS.update(CP.PT_INPUTS, P_su, T_su)
+
+    d_hyd = params.get('d_hyd', params.get('D'))
+    A_cross = PI * d_hyd ** 2 / 4.0
+    L = params['L']
+    theta = params.get('theta', 0.0)
+    K = params.get('K', 0.0)
+
+    mu = AS.viscosity()
+    rho = AS.rhomass()
+
+    v = m_dot / (rho * A_cross)  # Mean velocity [m/s]
+
     Re = compute_reynolds(d_hyd, mu, rho, v)
-    f = friction_factor_churchill(K, d_hyd, Re)
+
+    if correlation == 'Churchill':
+        f = friction_factor_churchill(K, d_hyd, Re)
+    elif correlation == 'Swamee-Jain':
+        f = friction_factor_swamee_jain(K, d_hyd, Re)
+    else:
+        raise ValueError(f"Unknown single-phase friction correlation: {correlation!r}")
 
     # Frictional pressure drop (Darcy-Weisbach)
     dP_friction = f * (L / d_hyd) * (rho * v ** 2 / 2.0)
@@ -346,46 +363,35 @@ def pressure_drop_single_phase(L, d_hyd, rho, v, K, mu, theta=0.0):
     # Total pressure drop
     dP_total = dP_friction + dP_gravity
 
-    return dP_total, f, Re
+    return dP_total
 
 
 # ============================================================================
 # TWO-PHASE PRESSURE DROP COMPONENTS
 # ============================================================================
 
-
-def pressure_drop_frictional_two_phase(m_dot, D, L, rho_l, rho_g, x, 
-                                        mu_l, mu_g, sigma, K=0.0):
+def pressure_drop_pipe_frictional_two_phase(AS, params, m_dot, correlation='Friedel'):
     """
     Compute frictional pressure drop in two-phase flow.
 
-    Uses Friedel correlation: ΔP_f = ΔP_lo · Φ_l²
-
-    where ΔP_lo is single-phase pressure drop (liquid only, at total mass flow)
-    and Φ_l² is the Friedel two-phase multiplier.
+    Uses ΔP_f = ΔP_lo · Φ_l², where ΔP_lo is the single-phase pressure drop
+    (liquid only, at total mass flow) and Φ_l² is the two-phase friction
+    multiplier from the selected `correlation`.
 
     Parameters
     ----------
+    AS : CoolProp.AbstractState
+        Two-phase fluid state (quality and pressure already set). Liquid
+        properties are derived from it via `get_saturated_phase_properties`.
+    params : dict
+        Pipe geometry: 'D' (or 'd_hyd') [m], 'L' [m], and optionally
+        'K' (absolute roughness [m], default 0.0). Also passed through to
+        `friedel_multiplier` / `compute_void_fraction`.
     m_dot : float
         Mass flow rate [kg/s]
-    D : float
-        Pipe inner diameter [m]
-    L : float
-        Pipe length [m]
-    rho_l : float
-        Liquid density [kg/m³]
-    rho_g : float
-        Vapor density [kg/m³]
-    x : float
-        Vapor quality [0, 1]
-    mu_l : float
-        Liquid dynamic viscosity [Pa·s]
-    mu_g : float
-        Vapor dynamic viscosity [Pa·s]
-    sigma : float
-        Surface tension [N/m]
-    K : float, optional
-        Absolute roughness [m] (default: 0.0, smooth pipe)
+    correlation : str, optional
+        Two-phase friction multiplier correlation. Only 'Friedel' (default)
+        is currently implemented.
 
     Returns
     -------
@@ -398,25 +404,35 @@ def pressure_drop_frictional_two_phase(m_dot, D, L, rho_l, rho_g, x,
         horizontal and vertical two-phase pipe flow. European Two-Phase Flow
         Group Meeting, Ispra, Italy.
     """
+    props = get_saturated_phase_properties(AS)
+    rho_l = props["rho_l"]
+    mu_l = props["mu_l"]
+
+    D = params.get('D', params.get('d_hyd'))
     A_cross = PI * D ** 2 / 4.0
+    L = params['L']
+    K = params.get('K', 0.0)
 
     # Single-phase pressure drop (liquid only, at total mass flow)
     v_l = m_dot / (rho_l * A_cross)
     Re_l = compute_reynolds(D, mu_l, rho_l, v_l)
     f_l = friction_factor_churchill(K, D, Re_l)
-    dP_lo = f_l * (L / D) * (rho_l * v_l ** 2 / 2.0)
+    dP_l = f_l * (L / D) * (rho_l * v_l ** 2 / 2.0)
 
     # Two-phase multiplier
-    Phi_l2 = friedel_multiplier(m_dot, x, D, rho_l, rho_g, mu_l, mu_g, sigma, K)
+    if correlation == 'Friedel':
+        Phi_l2 = friedel_multiplier(AS, m_dot, D, K)
+    else:
+        raise ValueError(f"Unknown two-phase friction correlation: {correlation!r}")
 
     # Frictional pressure drop
-    dP_friction = dP_lo * Phi_l2
+    dP_friction = dP_l * Phi_l2
 
     return dP_friction
 
 
-def pressure_drop_acceleration_two_phase(m_dot, D, rho_l, rho_g, x_inlet, 
-                                          x_outlet, slip_model=None):
+def pressure_drop_pipe_acceleration_two_phase(m_dot, D, rho_l, rho_g, x_inlet, 
+                                          x_outlet, void_fraction_model=None):
     """
     Compute acceleration pressure drop in two-phase flow.
 
@@ -445,7 +461,7 @@ def pressure_drop_acceleration_two_phase(m_dot, D, rho_l, rho_g, x_inlet,
         Vapor quality at inlet [0, 1]
     x_outlet : float
         Vapor quality at outlet [0, 1]
-    slip_model : str, optional
+    void_fraction_model : str, optional
         Slip ratio model: None/'Homogeneous' (default), 'Zivi'
 
     Returns
@@ -464,14 +480,22 @@ def pressure_drop_acceleration_two_phase(m_dot, D, rho_l, rho_g, x_inlet,
     ACHP Documentation: https://achp.readthedocs.io/en/latest/ACHPComponents/FluidCorrelations.html
     """
 
-    def f_acceleration(x, rho_l, rho_g, slip_model):
+    def f_acceleration(x, rho_l, rho_g, void_fraction_model):
         """Helper: f(x) = x²·v_g/α + (1-x)²·v_l/(1-α)"""
         if abs(x) < EPS:
             return 1.0 / rho_l
         elif abs(1.0 - x) < EPS:
             return 1.0 / rho_g
         else:
-            alpha = compute_void_fraction(x, rho_l, rho_g, slip_model=slip_model)
+            if void_fraction_model in (None, 'Homogeneous'):
+                alpha = void_fraction_homogeneous(rho_l, rho_g, x)
+            elif void_fraction_model == 'Zivi':
+                alpha = void_fraction_zivi(rho_l, rho_g, x)
+            else:
+                raise ValueError(
+                    f"Unsupported void_fraction_model for acceleration pressure drop: {void_fraction_model!r} "
+                    "(only 'Homogeneous'/None and 'Zivi' are supported here)"
+                )
             v_l = 1.0 / rho_l
             v_g = 1.0 / rho_g
 
@@ -483,15 +507,15 @@ def pressure_drop_acceleration_two_phase(m_dot, D, rho_l, rho_g, x_inlet,
     A_cross = PI * D ** 2 / 4.0
     G = m_dot / A_cross  # kg/(m²·s)
 
-    f_inlet = f_acceleration(x_inlet, rho_l, rho_g, slip_model)
-    f_outlet = f_acceleration(x_outlet, rho_l, rho_g, slip_model)
+    f_inlet = f_acceleration(x_inlet, rho_l, rho_g, void_fraction_model)
+    f_outlet = f_acceleration(x_outlet, rho_l, rho_g, void_fraction_model)
 
     dP_acceleration = G ** 2 * (f_inlet - f_outlet)
 
     return dP_acceleration
 
 
-def pressure_drop_gravity_two_phase(m_dot, D, L, rho_l, rho_g, x_inlet, 
+def pressure_drop_pipe_gravity_two_phase(L, rho_l, rho_g, x_inlet, 
                                      x_outlet, theta):
     """
     Compute gravitational pressure drop in two-phase flow.
@@ -504,10 +528,6 @@ def pressure_drop_gravity_two_phase(m_dot, D, L, rho_l, rho_g, x_inlet,
 
     Parameters
     ----------
-    m_dot : float
-        Mass flow rate [kg/s]
-    D : float
-        Pipe inner diameter [m]
     L : float
         Pipe length [m]
     rho_l : float
@@ -545,12 +565,11 @@ def pressure_drop_gravity_two_phase(m_dot, D, L, rho_l, rho_g, x_inlet,
 # ============================================================================
 
 
-def pressure_drop_two_phase(m_dot, D, L, rho_l, rho_g, x_inlet, AS,
-                            mu_l, mu_g, sigma, K=0.0, theta=0.0, 
-                            slip_model=None, include_acceleration=True, 
+def pressure_drop_pipe_two_phase(AS, params, m_dot, P_su=None, T_su=None, correlation='Friedel',
+                            void_fraction_model=None, include_acceleration=True,
                             include_gravity=True):
     """
-    Compute total two-phase pressure drop.
+    Compute total two-phase pressure drop in a straight pipe.
 
     Combines frictional, acceleration, and gravitational components.
 
@@ -560,31 +579,31 @@ def pressure_drop_two_phase(m_dot, D, L, rho_l, rho_g, x_inlet, AS,
 
     Parameters
     ----------
+    AS : CoolProp.AbstractState
+        Two-phase fluid state at the pipe inlet (quality and pressure already
+        set). Liquid/vapor properties and inlet quality are derived from it
+        via `get_saturated_phase_properties`. NOTE: this function updates
+        `AS` in place to the outlet state (used to obtain x_outlet) — it is
+        left at the outlet state when this function returns.
+    params : dict
+        Pipe geometry: 'D' (or 'd_hyd') [m], 'L' [m], and optionally
+        'K' (absolute roughness [m], default 0.0) and 'theta' (inclination
+        from horizontal [degrees], default 0.0). Also passed through to
+        `pressure_drop_pipe_frictional_two_phase`.
     m_dot : float
         Mass flow rate [kg/s]
-    D : float
-        Pipe inner diameter [m]
-    L : float
-        Pipe length [m]
-    rho_l : float
-        Liquid density [kg/m³]
-    rho_g : float
-        Vapor density [kg/m³]
-    x_inlet : float
-        Vapor quality at inlet [0, 1]
-    x_outlet : float
-        Vapor quality at outlet [0, 1]
-    mu_l : float
-        Liquid dynamic viscosity [Pa·s]
-    mu_g : float
-        Vapor dynamic viscosity [Pa·s]
-    sigma : float
-        Surface tension [N/m]
-    K : float, optional
-        Absolute roughness [m] (default: 0.0, smooth pipe)
-    theta : float, optional
-        Pipe inclination angle from horizontal [degrees] (default: 0)
-    slip_model : str, optional
+    P_su : float, optional
+        Inlet pressure [Pa]. If given, AS is updated to this pressure at its
+        current quality (via PQ_INPUTS) before computing properties.
+    T_su : float, optional
+        Unused for two-phase flow (state is already fixed by pressure and
+        quality at saturation); accepted only so the single-phase and
+        two-phase functions share the same call signature.
+    correlation : str, optional
+        Two-phase frictional pressure drop correlation, passed to
+        `pressure_drop_pipe_frictional_two_phase`. Only 'Friedel' (default)
+        is currently implemented.
+    void_fraction_model : str, optional
         Slip ratio model for void fraction: None/'Homogeneous' (default), 'Zivi'
     include_acceleration : bool, optional
         Include acceleration pressure drop (default: True)
@@ -593,15 +612,8 @@ def pressure_drop_two_phase(m_dot, D, L, rho_l, rho_g, x_inlet, AS,
 
     Returns
     -------
-    dict with keys:
-        'dP_total' : float
-            Total pressure drop [Pa]
-        'dP_friction' : float
-            Frictional component [Pa]
-        'dP_acceleration' : float
-            Acceleration component [Pa]
-        'dP_gravity' : float
-            Gravitational component [Pa]
+    dP_total : float
+        Total pressure drop [Pa]
 
     Notes
     -----
@@ -617,36 +629,45 @@ def pressure_drop_two_phase(m_dot, D, L, rho_l, rho_g, x_inlet, AS,
 
     ACHP Documentation: https://achp.readthedocs.io/en/latest/ACHPComponents/FluidCorrelations.html
     """
+    if P_su is not None:
+        AS.update(CP.PQ_INPUTS, P_su, AS.Q())
+
+    D = params.get('D', params.get('d_hyd'))
+    L = params['L']
+    theta = params.get('theta', 0.0)
 
     # ========== STEP 1: Compute friction ΔP ==========
 
-    # Frictional pressure drop
-    dP_friction = pressure_drop_frictional_two_phase(
-        m_dot, D, L, rho_l, rho_g, x_inlet,
-        mu_l, mu_g, sigma, K
+    props = get_saturated_phase_properties(AS)
+    x_inlet = props["x"]
+    rho_l = props["rho_l"]
+    rho_g = props["rho_v"]
+
+    dP_friction = pressure_drop_pipe_frictional_two_phase(
+        AS, params, m_dot, correlation=correlation
     )
 
     # ========== STEP 2: Estimate outlet pressure & compute x_outlet ==========
     p_inlet = AS.p()  # Inlet pressure
     h = AS.hmass()   # Specific enthalpy (assumed constant)
     p_outlet = p_inlet - dP_friction
-    
-    # Get outlet quality at (p_outlet, h)
-    AS.update(CP.HmassP_INPUTS, p_outlet, h)
+
+    # Get outlet quality at (h, p_outlet) — HmassP_INPUTS takes (Hmass, P)
+    AS.update(CP.HmassP_INPUTS, h, p_outlet)
     x_outlet = AS.Q()  # Quality at outlet
 
     # Acceleration pressure drop
     if include_acceleration:
-        dP_acceleration = pressure_drop_acceleration_two_phase(
-            m_dot, D, rho_l, rho_g, x_inlet, x_outlet, slip_model=slip_model
+        dP_acceleration = pressure_drop_pipe_acceleration_two_phase(
+            m_dot, D, rho_l, rho_g, x_inlet, x_outlet, void_fraction_model=void_fraction_model
         )
     else:
         dP_acceleration = 0.0
 
     # Gravitational pressure drop
     if include_gravity:
-        dP_gravity = pressure_drop_gravity_two_phase(
-            m_dot, D, L, rho_l, rho_g, x_inlet, x_outlet, theta
+        dP_gravity = pressure_drop_pipe_gravity_two_phase(
+            L, rho_l, rho_g, x_inlet, x_outlet, theta
         )
     else:
         dP_gravity = 0.0

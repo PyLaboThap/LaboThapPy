@@ -5,9 +5,9 @@ import numpy as np
 from labothappy.component.base_component import BaseComponent
 from labothappy.connector.mass_connector import MassConnector
 
-from correlations.pressure_drop.straight_pipe_DP import pressure_drop_single_phase
-from correlations.pressure_drop.straight_pipe_DP import pressure_drop_two_phase
-from correlations.properties.two_phase import compute_two_phase_density
+from labothappy.correlations.pressure_drop.straight_pipe_DP import pressure_drop_pipe_single_phase
+from labothappy.correlations.pressure_drop.straight_pipe_DP import pressure_drop_pipe_two_phase
+from labothappy.correlations.properties.two_phase import compute_two_phase_density
 from labothappy.correlations.void_fraction.void_fraction import compute_void_fraction
 
 PI = math.pi
@@ -107,15 +107,10 @@ class StraightPipe(BaseComponent):
     def _solve_single_phase(self):
         """Solve single-phase pressure drop."""
         rho_su = self.AS.rhomass()
-        mu = self.AS.viscosity()
+        A_cross = PI * self.params['D']**2 / 4  # Cross-sectional area [m²]
 
-        A_cross = PI * self.params['D']**2 / 4 # Cross-sectional area [m²]
-        v = self.su.m_dot / (rho_su * A_cross) # Mean velocity [m/s]
+        self.dP = pressure_drop_pipe_single_phase(self.AS, self.params, self.su.m_dot)
 
-        K = self.params.get('K', 0.0)
-        theta = self.params.get('theta', 0.0)
-        self.dP, f, Re = pressure_drop_single_phase(self.params['L'], self.params['D'], rho_su, v, K, mu, theta)
-        
         self.ex.set_fluid(self.su.fluid)
         self.ex.set_m_dot(self.su.m_dot)
         self.ex.set_h(self.su.h)
@@ -127,44 +122,36 @@ class StraightPipe(BaseComponent):
         rho_mean = (rho_su + self.rho_ex) / 2.0
         self.m_charge = A_cross * self.params['L'] * rho_mean
 
-        self.f = f
-        self.Re = Re
-        self.velocity = v
+        self.velocity = self.su.m_dot / (rho_su * A_cross)
         self.quality = None
 
 
     def _solve_two_phase(self, x):
-        """Solve two-phase pressure drop using Friedel or MSH."""
-        
-        # Get saturation properties at inlet pressure
-        # CoolProp requires separate calls for liquid and vapor at saturation
+        """Solve two-phase pressure drop using Friedel."""
+
+        # Get saturation properties at inlet pressure (for charge inventory)
         AS_sat_l = CP.AbstractState('HEOS', self.su.fluid)
         AS_sat_l.update(CP.PQ_INPUTS, self.su.p, 0.0)  # Quality = 0 (saturated liquid)
-        
+
         AS_sat_g = CP.AbstractState('HEOS', self.su.fluid)
         AS_sat_g.update(CP.PQ_INPUTS, self.su.p, 1.0)  # Quality = 1 (saturated vapor)
-        
+
         rho_l = AS_sat_l.rhomass()
         rho_g = AS_sat_g.rhomass()
-        mu_l = AS_sat_l.viscosity()
-        mu_g = AS_sat_g.viscosity()
-        sigma = AS_sat_l.surface_tension()
-        theta = self.params.get('theta', 0.0)
-        K = self.params.get('K', 0.0)
-        
-        self.dP = pressure_drop_two_phase(self.inputs['m_dot'], self.params['D'], self.params['L'], rho_l, rho_g, x, self.AS,
-                            mu_l, mu_g, sigma, K, theta)
-        
-        # Compute void fraction and mass inventory
+
+        # Compute void fraction and mass inventory at the inlet state, before
+        # pressure_drop_pipe_two_phase advances self.AS to the outlet state.
         alpha = compute_void_fraction(self.AS, self.params, self.su.m_dot, void_fraction_model='Zivi')
         rho_tp = compute_two_phase_density(x, rho_l, rho_g, alpha)
         self.m_charge = rho_tp * self.params['L'] * (PI * self.params['D']**2 / 4)
+
+        self.dP = pressure_drop_pipe_two_phase(self.AS, self.params, self.su.m_dot)
 
         self.ex.set_fluid(self.su.fluid)
         self.ex.set_m_dot(self.su.m_dot)
         self.ex.set_h(self.su.h)
         self.ex.set_p(self.su.p - self.dP)
-        
+
         self.quality = x
         self.void_fraction = alpha
 
@@ -182,8 +169,6 @@ class StraightPipe(BaseComponent):
             # Single-phase
             print(f"\nSINGLE-PHASE FLOW")
             print(f"Velocity          : {self.velocity:.2f} m/s")
-            print(f"Reynolds number   : {self.Re:.0f}")
-            print(f"Friction factor f : {self.f:.6f}")
             print(f"Mass inventory    : {self.m_charge:.4f} kg")
         else:
             # Two-phase
