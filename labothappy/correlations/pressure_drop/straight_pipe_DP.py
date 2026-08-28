@@ -27,6 +27,7 @@ Moody, L.F. (1944). Friction factors for pipe flow. Transactions of the ASME,
 """
 
 import math
+import numpy as np
 import CoolProp.CoolProp as CP
 
 from labothappy.correlations.properties.dimensionless import (
@@ -145,7 +146,7 @@ def friction_factor_swamee_jain(K, d_hyd, Re):
     References
     ----------
     Swamee, P.K., Jain, A.K. (1976). Explicit equations for pipe flow problems.
-        Journal of the Hydraulics Division, ASCE, 102(HY5), 657-664.
+    Journal of the Hydraulics Division, ASCE, 102(HY5), 657-664.
     """
     Re_safe = max(EPS, Re)
     d_hyd_safe = max(EPS, d_hyd)
@@ -155,6 +156,319 @@ def friction_factor_swamee_jain(K, d_hyd, Re):
 
     return 0.25 / (math.log10(max(EPS, log_arg)) ** 2)
 
+
+def friction_factor_konakov(Re):
+    """
+    Darcy friction factor using Konakov formula.
+
+    Formula
+    ------------------------
+    f= (1.8 log10​(Re)−1.5)^−2
+
+    Parameters
+    ----------
+    Re : float
+        Reynolds number [-]
+
+    Returns
+    -------
+    f : float
+        Darcy friction factor [-]
+
+    Notes
+    -----
+    - Valid for 4×10³ ≤ Re ≤ 3×10⁶
+    - Valid for smooth pipes
+    
+    References
+    ----------
+    Khlapuk, M., Bezusyak, O., Volk, L., Zhang, Z. (2021). "Theoretical 
+    research of friction factor in hydraulically smooth pipes." E3S Web 
+    of Conferences, 280, 10009. 
+    https://doi.org/10.1051/e3sconf/202128010009
+    """
+
+    f = (1.8*math.log10(Re) - 1.5)**(-2)
+
+    return f
+
+
+def friction_factor_petukov(Re):
+    """
+    Darcy friction factor using Petukov formula.
+
+    Parameters
+    ----------
+    Re : float
+        Reynolds number [-]
+
+    Returns
+    -------
+    f : float
+        Darcy friction factor [-]
+
+    Notes
+    -----
+    - Valid for 3×10³–10⁴ ≤ Re ≤ 5×10⁶ (turbulent)
+    - Valid for 0.5 ≤ Pr ≤ 200 
+    - Valid for smooth pipes
+
+    References
+    ----------
+    Petukhov, B.S. (1970). "Heat transfer and friction in turbulent pipe 
+    flow with variable physical properties." Advances in Heat Transfer, 
+    Vol. 6, pp. 503-564. Academic Press.
+    (as reproduced in, e.g., Incropera et al., Fundamentals of Heat and 
+    Mass Transfer, for smooth tubes: 3000 < Re < 5e6)
+    """
+
+    f = (0.79*np.log(Re) - 1.64)**(-2)
+
+    return f
+
+def friction_factor_haaland(K, d_hyd, Re):
+    """
+    Darcy friction factor using Haaland formula.
+
+    Explicit approximation of Colebrook-White correlation.
+
+    Parameters
+    ----------
+    K : float
+        Absolute roughness [m]
+    d_hyd : float
+        Hydraulic diameter [m]
+    Re : float
+        Reynolds number [-]
+
+    Returns
+    -------
+    f : float
+        Darcy friction factor [-]
+
+
+    Notes
+    -----
+    - Valid for 4×10³ ≤ Re ≤ 1×10^8 (turbulent)
+    - Valid for 1×10−6 ≤ K/d_hyd ≤ 0.05
+
+    References
+    ----------
+    Petukhov, B.S. (1970). "Heat transfer and friction in turbulent pipe 
+    flow with variable physical properties." Advances in Heat Transfer, 
+    Vol. 6, pp. 503-564. Academic Press.
+    (as reproduced in, e.g., Incropera et al., Fundamentals of Heat and 
+    Mass Transfer, for smooth tubes: 3000 < Re < 5e6)
+    """
+
+    f = (1/(-1.8*np.log10((K/(3.75*d_hyd))**1.11 + 6.9/Re)))**2
+
+    return f
+
+
+# Two phase pressure drops: in ACHP, Ian bell used lockhart correlation
+# In fluid library: used Muller Steinhaguen Heck
+
+def pressure_drop_muller_steinhagen_heck(m_dot, x, rho_l, rho_v, mu_l, mu_v, Re, d_hyd, L, K=45e-6):
+    """
+    Two-phase frictional pressure drop, Muller-Steinhagen and Heck (1986) 
+    correlation.
+
+    Unlike two-phase multiplier models, it does not treat the two phases as 
+    physically interacting streams; it is a direct empirical curve fit.
+
+    Parameters
+    ----------
+    m_dot : float
+        Total (liquid + gas) mass flow rate [kg/s]
+    x : float
+        Vapor quality [-], 0 < x < 1
+    rho_l : float
+        Liquid density [kg/m^3]
+    rho_v : float
+        Vaport density [kg/m^3]
+    mu_l : float
+        Liquid dynamic viscosity [Pa*s]
+    mu_v : float
+        Vapor dynamic viscosity [Pa*s]
+    d_hyd : float
+        Hydraulic (or pipe) diameter [m]
+    L : float
+        Tube length [m]
+    K : float
+        Absolute roughness [m]
+
+    Output
+    ------
+    dP_tp = Two-phase frictional pressure drop over length L [Pa]
+
+    Notes
+    -----
+    - Applicable for 0 < x < 1.
+    - Developed from a data bank of 9300 measurements: air-water,
+    water-hydrocarbon, and refrigerant two-phase flows in channels with
+    diameters from 4 to 392 mm.
+    - Reported as one of the most accurate simple correlations, especially
+    for annular flow and mini/micro-channel turbulent flow.
+    - Used in the Fluid library
+
+    Reference
+    ---------
+    Muller-Steinhagen, H., Heck, K. (1986). "A Simple Friction Pressure 
+    Drop Correlation for Two-Phase Flow in Pipes." Chemical Engineering 
+    and Processing: Process Intensification, 20(6), 297-308.
+    """
+    if not (0 < x < 1):
+        raise ValueError(f"Muller-Steinhagen-Heck correlation requires 0 < x < 1, got x = {x}")
+
+    A_cross = np.pi / 4 * d_hyd**2  # cross-sectional flow area, circular channel assumed
+
+    # Mass flux for each single-phase limit: total mass flow rate m, as if
+    # it were entirely liquid or entirely gas, through the same flow area.
+    G_lo = m_dot / A_cross
+    G_go = m_dot / A_cross
+
+    v_l = m_dot / (rho_l * A_cross)  # Mean velocity [m/s]
+    Re_l = compute_reynolds(d_hyd, mu_l, rho_l, v_l)
+    f_l = friction_factor_swamee_jain(K, d_hyd, Re_l)
+    dP_lo = f_l * (L / d_hyd) * (rho_l * v_l ** 2 / 2.0)
+
+    v_v = m_dot / (rho_v * A_cross)  # Mean velocity [m/s]
+    Re_v = compute_reynolds(d_hyd, mu_v, rho_v, v_v)
+    f_v = friction_factor_swamee_jain(K, d_hyd, Re_v)
+    dP_go = f_v * (L / d_hyd) * (rho_v * v_v ** 2 / 2.0)
+
+    # Muller-Steinhagen and Heck interpolation
+    G_MSH = dP_lo + 2 * (dP_go - dP_lo) * x
+    dP_tp = G_MSH * (1 - x)**(1 / 3) + dP_go * x**3
+
+    return dP_tp
+
+def pressure_drop_choi(AS, G, rho_su, rho_ex, P_sat, x_su, x_ex, L, d_hyd):
+    """
+    Two-phase pressure drop for evaporation and condensation in smooth
+    and micro-fin tubes.
+
+    A modification of the Bo Pierre (1964) homogeneous-flow correlation:
+    the smooth-tube diameter is replaced by the hydraulic diameter,
+    the two-phase specific volume average now includes the liquid phase
+    (Pierre neglected it), and the friction factor was re-regressed
+    against NIST micro-fin tube pressure drop data.
+
+    Inputs
+    ------
+    AS      : CoolProp AbstractState object for the working fluid
+    G       : Mass flux, flow rate per cross-section area [kg/(m^2*s)]
+    rho_ex : Two-phase (quality-weighted) density at tube outlet [kg/m^3]
+    rho_su  : Two-phase (quality-weighted) density at tube inlet [kg/m^3]
+    P_sat   : Saturation pressure, evaluated at the linearly-averaged
+            refrigerant temperature between inlet and outlet [Pa]
+    x_ex     : Vapor quality at tube outlet [-]
+    x_su     : Vapor quality at tube inlet [-]
+    L       : Tube length [m]
+    d_hyd      : Hydraulic diameter [m] (use the actual tube ID for a
+                smooth tube, or the micro-fin hydraulic diameter otherwise)
+
+    Outputs
+    -------
+    dP_tp : Two-phase pressure drop over length L [Pa]
+
+    Notes
+    -----
+    - Applicable for both evaporation and condensation.
+    - Developed and validated for refrigerants R125, R134a, R32, R410A,
+        R22, R407C, and R32/R134a (25/75 % mass) in smooth and micro-fin
+        tubes.
+    - Predicted the NIST micro-fin database with an average absolute
+        residual of 10.8 %, and smooth-tube data with a mean deviation of
+        15.0 %.
+    - rho_ex and rho_su must be the quality-weighted two-phase
+        densities (1/rho = x*v_v + (1-x)*v_l) at the outlet/inlet, not
+        the saturated-liquid or -vapor density alone.
+
+    Reference
+    ---------
+    Choi, J.Y., Kedzierski, M.A., Domanski, P.A. (2001). "Generalized
+    Pressure Drop Correlation for Evaporation and Condensation in
+    Smooth and Micro-Fin Tubes." IIR Commission B1, Paderborn, Germany.
+    (Full derivation and validation in NISTIR 6333, Choi, Kedzierski,
+    Domanski, 1999.)
+    """
+
+    # Saturated liquid and vapor enthalpies at P_sat, for latent heat
+    AS.update(CP.PQ_INPUTS, P_sat, 0)
+    mu_l = AS.viscosity()   # Liquid dynamic viscosity [Pa*s]
+    h_l = AS.hmass()        # Saturated liquid enthalpy [J/kg]
+
+    AS.update(CP.PQ_INPUTS, P_sat, 1)
+    h_v = AS.hmass()        # Saturated vapor enthalpy [J/kg]
+
+    h_lv = h_v - h_l        # Latent heat of vaporization [J/kg]
+
+    # All-liquid Reynolds number: entire mass flux G as if it were
+    # 100% liquid, using the hydraulic diameter and liquid viscosity
+    Re_fo = G * d_hyd / mu_l
+
+    # Pierre's two-phase (boiling) number
+    K_f = abs(x_ex - x_su) * h_lv / (G_GRAVITY * L)
+
+    # New two-phase friction factor (Choi, Kedzierski, Domanski, 2001)
+    f_N = 0.00506 * Re_fo**(-0.0951) * K_f**(0.1554)
+
+    v_ex = 1 / rho_ex
+    v_su = 1 / rho_su
+
+    dP_friction = f_N * L * (v_ex + v_su) / d_hyd * G**2
+    dP_acceleration = (v_ex - v_su) * G**2
+
+    dP_tp = dP_friction + dP_acceleration
+
+    return dP_tp
+
+
+
+def Churchill_DP(mu, rho, G, Dh, L): # NOT OKAY NEED TO REWRITE!!!
+    """
+    Single-phase / homogeneous friction pressure drop using the
+    Churchill (1977) friction factor, valid continuously across
+    laminar, transitional, and turbulent flow regimes.
+
+    Used as a building block (e.g. for the vapor-only or homogeneous
+    liquid-film regime) within multi-regime condensation pressure drop
+    models.
+
+    Inputs
+    ------
+    mu   : Dynamic viscosity [Pa*s]
+    rho  : Density [kg/m^3]
+    G    : Mass flux, flow rate per cross-section area [kg/(m^2*s)]
+    Dh   : Hydraulic diameter [m]
+    L    : Flow length [m]
+
+    Outputs
+    -------
+    DP : Pressure drop [Pa]
+
+    Reference
+    ---------
+    Churchill, S.W. (1977). "Friction Factor Equations Spans All Fluid
+    Flow Regimes." Chemical Engineering, 84(24), 91-92.
+
+    Used within: Xiao, J. et al. (2018). "A New Pressure Drop Model
+    Based on Flow Regime Map for Condensation from Superheated Vapor."
+    Purdue International Refrigeration and Air Conditioning Conference.
+    """
+    e = 0.045e-3  # m : roughness of steel pipes
+    Re = G * Dh / mu
+
+    A2 = (2.457 * np.log(1.0 / ((7 / Re)**0.9 + 0.27 * (e / Dh))))**16
+    A3 = (37530 / Re)**16
+
+    f = 8 * ((8 / Re)**12 + 1.0 / (A2 + A3)**1.5)**(1 / 12)
+
+    DP = f * L * G**2 / (2 * rho * Dh)
+
+    return DP
 
 # ============================================================================
 # TWO-PHASE FRICTION MULTIPLIER
