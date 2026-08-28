@@ -76,15 +76,13 @@ def _eval_particle(x, cls, fluid, params, inputs):
 
 #%%
 
-class RadialTurbineMeanLineDesign(object):
+class RadialTurbineMeanLineSizing(object):
 
     def __init__(self, fluid):
-        # Inputs
         self.inputs = {}
-        
-        # Params
         self.params = {}  
-
+        self.bounds = {}
+    
         # Abstract State 
         self.fluid = fluid
         
@@ -200,7 +198,7 @@ class RadialTurbineMeanLineDesign(object):
 
 
         return {
-            "type": "Axial Turbine",
+            "type": "Radial Turbine",
             "mdot_rated": self.inputs['mdot'],
             "Wdot_rated": self.inputs['W_dot'],
             "N_rot_rated": self.Omega,
@@ -252,6 +250,10 @@ class RadialTurbineMeanLineDesign(object):
             for key, value in parameters.items():
                 self.params[key] = value
                 
+    def set_bounds(self, **parameters):
+        for key, value in parameters.items():
+            self.bounds[key] = value
+            
     # ---------------- Blade row ----------------------------------------------------------------------
      
     def designRotor(self):
@@ -756,20 +758,20 @@ class RadialTurbineMeanLineDesign(object):
         
 #%%
 
-    def design(self):
+    def sizing(self):
         bounds = (np.array([
-            self.params['psi_bounds'][0],
-            self.params['phi_bounds'][0],
-            self.params['xhi_bounds'][0],
-            self.params['r5_r4_bounds'][0],
-            self.params['r5h_r5t_bounds'][0],
+            self.bounds['psi_bounds'][0],
+            self.bounds['phi_bounds'][0],
+            self.bounds['xhi_bounds'][0],
+            self.bounds['r5_r4_bounds'][0],
+            self.bounds['r5h_r5t_bounds'][0],
         ]),
         np.array([
-            self.params['psi_bounds'][1],
-            self.params['phi_bounds'][1],
-            self.params['xhi_bounds'][1],
-            self.params['r5_r4_bounds'][1],
-            self.params['r5h_r5t_bounds'][1],
+            self.bounds['psi_bounds'][1],
+            self.bounds['phi_bounds'][1],
+            self.bounds['xhi_bounds'][1],
+            self.bounds['r5_r4_bounds'][1],
+            self.bounds['r5h_r5t_bounds'][1],
         ]))
     
         def objective_wrapper(x):
@@ -841,22 +843,22 @@ class RadialTurbineMeanLineDesign(object):
             
         return best_pos
 
-    def design_parallel(self, n_jobs=-1, backend="loky", chunksize="auto", n_particles = 20, max_iter=50):
+    def sizing_parallel(self, n_jobs=-1, backend="loky", chunksize="auto", n_particles = 20, max_iter=50):
         os.environ["PYTHONWARNINGS"] = "ignore" 
         
         bounds = (np.array([
-            self.params['psi_bounds'][0],
-            self.params['phi_bounds'][0],
-            self.params['xhi_bounds'][0],
-            self.params['r5_r4_bounds'][0],
-            self.params['r5h_r5t_bounds'][0],
+            self.bounds['psi_bounds'][0],
+            self.bounds['phi_bounds'][0],
+            self.bounds['xhi_bounds'][0],
+            self.bounds['r5_r4_bounds'][0],
+            self.bounds['r5h_r5t_bounds'][0],
         ]),
         np.array([
-            self.params['psi_bounds'][1],
-            self.params['phi_bounds'][1],
-            self.params['xhi_bounds'][1],
-            self.params['r5_r4_bounds'][1],
-            self.params['r5h_r5t_bounds'][1],
+            self.bounds['psi_bounds'][1],
+            self.bounds['phi_bounds'][1],
+            self.bounds['xhi_bounds'][1],
+            self.bounds['r5_r4_bounds'][1],
+            self.bounds['r5h_r5t_bounds'][1],
         ]))
         
         dimensions = 5
@@ -961,8 +963,8 @@ class RadialTurbineMeanLineDesign(object):
         return best_pos
 
 if __name__ == "__main__":
-    Turb = RadialTurbineMeanLineDesign('CO2')
-    
+    Turb = RadialTurbineMeanLineSizing('CO2')
+
     Turb.set_inputs(
         mdot = 100, # kg/s
         W_dot = 4.69*1e6, # W
@@ -972,12 +974,6 @@ if __name__ == "__main__":
         )
     
     Turb.set_parameters(
-        r5_r4_bounds = [0.3,0.7], # [-] : r5/r4 ratio
-        psi_bounds = [0.5, 1.5],
-        phi_bounds = [0.3, 0.6],
-        xhi_bounds = [0.3, 0.6],
-        r5h_r5t_bounds = [0.3, 0.4], # [-] : hub_tip ratio at the exit
-        
         S_b4_ratio = 1.05, # flow path length to blade height ratio -> from 1 to 2 depending on the app, 1.05 max for CO2
         t_TE_c_S_max = 0.02, # [-]
         t_TE_S = 5*1e-4, # [m]
@@ -990,6 +986,14 @@ if __name__ == "__main__":
         r5t_guess = 0.15, # [m]
         r4_guess = 0.22, # [m]
         )
+    
+    Turb.set_bounds(
+        r5_r4_bounds = [0.3,0.7], # [-] : r5/r4 ratio
+        psi_bounds = [0.5, 1.5],
+        phi_bounds = [0.3, 0.6],
+        xhi_bounds = [0.3, 0.6],
+        r5h_r5t_bounds = [0.3, 0.4], # [-] : hub_tip ratio at the exit
+        )
         
-    Turb.design_parallel(max_iter=3, n_jobs=-1)
+    Turb.sizing_parallel(max_iter=3, n_jobs=-1)
 

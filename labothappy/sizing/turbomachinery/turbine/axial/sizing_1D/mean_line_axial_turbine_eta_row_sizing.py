@@ -2,7 +2,7 @@
 
 # --- loading libraries 
 
-from connector.mass_connector import MassConnector
+from labothappy.connector.mass_connector import MassConnector
 from CoolProp.CoolProp import PropsSI
 from scipy.optimize import fsolve, minimize
 
@@ -14,15 +14,13 @@ import pandas as pd
 import warnings
 warnings.filterwarnings("ignore")
 
-class AxialTurbineMeanLineDesign(object):
+class AxialTurbineMeanLineSizing(object):
 
     def __init__(self, fluid):
-        # Inputs
         self.inputs = {}
-        
-        # Params
         self.params = {}  
-
+        self.bounds = {}
+        
         # Abstract State 
         self.fluid = fluid
         self.AS = CP.AbstractState('HEOS', fluid)
@@ -78,7 +76,10 @@ class AxialTurbineMeanLineDesign(object):
     def set_parameters(self, **parameters):
             for key, value in parameters.items():
                 self.params[key] = value
-    
+                
+    def set_bounds(self, **parameters):
+        for key, value in parameters.items():
+            self.bounds[key] = value
     # ---------------- Result Plot Methods ----------------------------------------------------------------
 
     def plot_geometry(self, fontsize = 16, ticksize = 12):
@@ -292,7 +293,7 @@ class AxialTurbineMeanLineDesign(object):
     
     # ---------------- Main Method ------------------------------------------------------------------------
     
-    def design(self):
+    def sizing(self):
         
         # First Stator Instanciation
         self.stages.append(self.stage(self.fluid))
@@ -375,24 +376,21 @@ class AxialTurbineMeanLineDesign(object):
 
         def find_r_m(x):
             self.r_m = x[0]
-    
+        
             self.r_tip = []
             self.r_hub = []
             self.r_hub_tip = []
             self.r_ratio2 = []
-    
+        
             for i in range(self.nStages):
                 self.A_flow[i][0] = self.inputs['mdot']/(self.stages[i].static_states['D'][2]*self.Vel_Tri['vm'])
                 self.A_flow[i][1] = self.inputs['mdot']/(self.stages[i].static_states['D'][3]*self.Vel_Tri['vm'])
-    
-                # Determine minimum chord to satisfy minimum Reynolds
-                # by using velocity, density and viscosity at the blade outlet
-    
+        
                 self.h_blade[i][0] = self.A_flow[i][0]/(4*np.pi*self.r_m)
                 self.h_blade[i][1] = self.A_flow[i][1]/(4*np.pi*self.r_m)
-    
-                self.cord[i][0] = (self.params['Re_min']*self.stages[i].static_states['V'][2])/(self.stages[i].static_states['D'][2]*self.Vel_Tri['vm'])
-                self.cord[i][1] = (self.params['Re_min']*self.stages[i].static_states['V'][3])/(self.stages[i].static_states['D'][3]*self.Vel_Tri['vm'])
+        
+                self.cord[i][0] = (self.bounds['Re_min']*self.stages[i].static_states['V'][2])/(self.stages[i].static_states['D'][2]*self.Vel_Tri['vm'])
+                self.cord[i][1] = (self.bounds['Re_min']*self.stages[i].static_states['V'][3])/(self.stages[i].static_states['D'][3]*self.Vel_Tri['vm'])
         
                 self.AR[i][0] = self.h_blade[i][0]/self.cord[i][0]
                 self.AR[i][1] = self.h_blade[i][1]/self.cord[i][1]
@@ -406,14 +404,14 @@ class AxialTurbineMeanLineDesign(object):
                 self.r_hub.append(self.r_m - self.h_blade[i][1]/2)
                 self.r_hub_tip.append(self.r_hub[-1]/self.r_tip[-1])
                 self.r_ratio2.append((self.r_tip[-1]/self.r_hub[-1])**2)
-
-            if self.r_hub_tip[-1] > 0: # Penalty to prevent converging to values not satisfying conditions on r_hub_tip
-                penalty_1 = max(self.r_hub_tip[0] - self.params['r_hub_tip_max'],0)*1000
-                penalty_2 = max(self.params['r_hub_tip_min'] - self.r_hub_tip[-1],0)*1000
+        
+            if self.r_hub_tip[-1] > 0:
+                penalty_1 = max(self.r_hub_tip[0] - self.bounds['r_hub_tip_max'],0)*1000
+                penalty_2 = max(self.bounds['r_hub_tip_min'] - self.r_hub_tip[-1],0)*1000
                 
                 return self.r_m + penalty_1 + penalty_2
             
-            else: # A very high penalty prevents converging to r_m values very close to 0,  
+            else:
                 return self.r_m + 100000
 
         sol = minimize(find_r_m, bounds=[(0, 10)], x0=0.2, tol = 1e-4)        
@@ -432,91 +430,104 @@ class AxialTurbineMeanLineDesign(object):
 
         "------------- 9) Print Main Results -------------------------------------------------------------" 
         
-        print(f"Turbine mean radius: {self.r_m} [m]")
-        print(f"Turbine rotation speed: {self.omega_RPM} [RPM]")
-        print(f"Turbine number of stage : {self.nStages} [-]")
-        print(f"Turbine static-to-static blade efficiency : {self.eta_blade_row} [-]")
+        if __name__ == "__main__":
+
+            print(f"Turbine mean radius: {self.r_m} [m]")
+            print(f"Turbine rotation speed: {self.omega_RPM} [RPM]")
+            print(f"Turbine number of stage : {self.nStages} [-]")
+            print(f"Turbine static-to-static blade efficiency : {self.eta_blade_row} [-]")
 
         return
 
-case_study = "TCO2_ORC"
+if __name__ == "__main__":
 
-if case_study == 'Cuerva':
-
-    Turb = AxialTurbineMeanLineDesign('Cyclopentane')
+    case_study = "TCO2_ORC"
     
-    Turb.set_inputs(
-        mdot = 46.18, # kg/s
-        W_dot_req = 4257000, # W
-        p0_su = 1230000, # Pa
-        T0_su = 273.15 + 158, # K
-        p_ex = 78300, # Pa
-        psi = 1, # [-]
-        phi = 0.6, # [-]
-        R = 0.5, # [-]
-        Mmax = 0.8 # [-]
-        )
+    if case_study == 'Cuerva':
     
-    Turb.set_parameters(
-        Zweifel = 0.8, # [-]
-        Re_min = 5e5, # [-]
-        AR_min = 1, # [-]
-        r_hub_tip_max = 0.95, # [-]
-        r_hub_tip_min = 0.6, # [-]
-        )
-
-elif case_study == 'Zorlu':
+        Turb = AxialTurbineMeanLineSizing('Cyclopentane')
+        
+        Turb.set_inputs(
+            mdot = 46.18, # kg/s
+            W_dot_req = 4257000, # W
+            p0_su = 1230000, # Pa
+            T0_su = 273.15 + 158, # K
+            p_ex = 78300, # Pa
+            psi = 1, # [-]
+            phi = 0.6, # [-]
+            R = 0.5, # [-]
+            Mmax = 0.8 # [-]
+            )
+        
+        Turb.set_parameters(
+            Zweifel = 0.8, # [-]
+            )
+        
+        Turb.set_bounds(
+            Re_min = 5e5, # [-]
+            AR_min = 1, # [-]
+            r_hub_tip_max = 0.95, # [-]
+            r_hub_tip_min = 0.6, # [-]
+            )
+            
+    elif case_study == 'Zorlu':
+        
+        Turb = AxialTurbineMeanLineSizing('Cyclopentane')
     
-    Turb = AxialTurbineMeanLineDesign('Cyclopentane')
-
-    Turb.set_inputs(
-        mdot = 34.51, # kg/s
-        W_dot_req = 2506000, # W
-        p0_su = 767800, # Pa
-        T0_su = 273.15 + 131, # K
-        p_ex = 82000, # Pa
-        psi = 1, # [-]
-        phi = 0.6, # [-]
-        R = 0.5, # [-]
-        Mmax = 0.8 # [-]
-        )
+        Turb.set_inputs(
+            mdot = 34.51, # kg/s
+            W_dot_req = 2506000, # W
+            p0_su = 767800, # Pa
+            T0_su = 273.15 + 131, # K
+            p_ex = 82000, # Pa
+            psi = 1, # [-]
+            phi = 0.6, # [-]
+            R = 0.5, # [-]
+            Mmax = 0.8 # [-]
+            )
+        
+        Turb.set_parameters(
+            Zweifel = 0.8, # [-]
+            )
+        
+        Turb.set_bounds(
+            Re_min = 5e5, # [-]
+            AR_min = 1, # [-]
+            r_hub_tip_max = 0.95, # [-]
+            r_hub_tip_min = 0.6, # [-]
+            )
+        
+    elif case_study == 'TCO2_ORC':
     
-    Turb.set_parameters(
-        Zweifel = 0.8, # [-]
-        Re_min = 5e5, # [-]
-        AR_min = 1, # [-]
-        r_hub_tip_max = 0.95, # [-]
-        r_hub_tip_min = 0.6, # [-]
-        )
+        Turb = AxialTurbineMeanLineSizing('CO2')
     
-elif case_study == 'TCO2_ORC':
-
-    Turb = AxialTurbineMeanLineDesign('CO2')
-
-    Turb.set_inputs(
-        mdot = 100, # kg/s
-        W_dot = 4.69*1e6, # W
-        p0_su = 140*1e5, # Pa
-        T0_su = 273.15 + 121, # K
-        p_ex = 39.8*1e5, # Pa
-        psi = 1, # [-]
-        phi = 0.6, # [-]
-        R = 0.5, # [-]
-        Mmax = 0.8 # [-]
-        )
+        Turb.set_inputs(
+            mdot = 100, # kg/s
+            W_dot = 4.69*1e6, # W
+            p0_su = 140*1e5, # Pa
+            T0_su = 273.15 + 121, # K
+            p_ex = 39.8*1e5, # Pa
+            psi = 1, # [-]
+            phi = 0.6, # [-]
+            R = 0.5, # [-]
+            Mmax = 0.8 # [-]
+            )
+        
+        Turb.set_parameters(
+            Zweifel = 0.8, # [-]
+            )
+        
+        Turb.set_bounds(
+            Re_min = 5e5, # [-]
+            AR_min = 1, # [-]
+            r_hub_tip_max = 0.95, # [-]
+            r_hub_tip_min = 0.6, # [-]
+            )
     
-    Turb.set_parameters(
-        Zweifel = 0.8, # [-]
-        Re_min = 5e5, # [-]
-        AR_min = 1, # [-]
-        r_hub_tip_max = 0.95, # [-]
-        r_hub_tip_min = 0.6, # [-]
-        )
-
-
-Turb.design()
-
-Turb.plot_geometry()
-Turb.plot_n_blade()
-Turb.plot_radius_verif()
-Turb.plot_Mollier()
+    
+    Turb.sizing()
+    
+    Turb.plot_geometry()
+    Turb.plot_n_blade()
+    Turb.plot_radius_verif()
+    Turb.plot_Mollier()

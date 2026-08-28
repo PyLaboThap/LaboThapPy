@@ -169,7 +169,7 @@ class PCHESizingOpt(BaseComponent):
     
     def compute_score(self):
         
-        PF = 10
+        PF = 1
         
         # Objective Function : HX Mass
         rho_mat = 7850 # kg/m^3
@@ -282,7 +282,7 @@ class PCHESizingOpt(BaseComponent):
         rho_mat = 7850
         m_HX = n_parallel * rho_mat * (V_block - C_V_tot - H_V_tot)
     
-        PF = 10
+        PF = 1
         pen_Q    = max(self.Q_dot_constr - HX.Q.Q_dot, 0) if self.Q_dot_constr else 0
         pen_DP_h = max(HX.DP_h - self.DP_h_constr,    0) if self.DP_h_constr  else 0
         pen_DP_c = max(HX.DP_c - self.DP_c_constr,    0) if self.DP_c_constr  else 0

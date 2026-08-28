@@ -49,7 +49,7 @@ def tqdm_joblib(tqdm_object):
         # IMPORTANT: do not close here; caller will close once total run finishes
 
 # --- worker for joblib ---
-def _eval_particle(x, cls, fluid, params, stage_params, inputs):
+def _eval_particle(x, cls, fluid, params, bounds, stage_params, inputs):
     """Evaluate one particle using a per-process cached solver."""
     os.environ.setdefault("OMP_NUM_THREADS", "1")
     os.environ.setdefault("MKL_NUM_THREADS", "1")
@@ -60,6 +60,7 @@ def _eval_particle(x, cls, fluid, params, stage_params, inputs):
     if _SOLVER is None:
         s = cls(fluid)
         s.set_parameters(**params)
+        s.set_bounds(**bounds)
         if stage_params:
             s.set_stage_parameters(**stage_params)
         s.set_inputs(**inputs)
@@ -73,10 +74,9 @@ def _eval_particle(x, cls, fluid, params, stage_params, inputs):
     cost = float(_SOLVER.design_system(x))
     Wdot = float(_SOLVER.W_dot)
 
-    # If this candidate is allowable, prepare a compact record to send back
     allow_rec = None
     
-    if cost < 10000:  # your “allowable” condition
+    if cost < 10000:
         allow_rec = (
             _SOLVER.obj,
             _SOLVER.eta_is,
@@ -91,15 +91,13 @@ def _eval_particle(x, cls, fluid, params, stage_params, inputs):
 
 #%%
 
-class AxialTurbineMeanLineDesign(object):
+class AxialTurbineMeanLineSizing(object):
 
     def __init__(self, fluid):
-        # Inputs
         self.inputs = {}
-        
-        # Params
         self.params = {}
-
+        self.bounds = {}
+        
         # Abstract State 
         self.fluid = fluid
         # self.AS = CP.AbstractState('HEOS', fluid)
@@ -311,6 +309,10 @@ class AxialTurbineMeanLineDesign(object):
     def set_parameters(self, **parameters):
             for key, value in parameters.items():
                 self.params[key] = value
+
+    def set_bounds(self, **parameters):
+            for key, value in parameters.items():
+                self.bounds[key] = value
 
     # ---------------- Result Plot Methods ----------------------------------------------------------------
     
@@ -1358,8 +1360,8 @@ class AxialTurbineMeanLineDesign(object):
                 
         self.eta_is = (hin - hout)/(hin - hout_s)
 
-        self.penalty_1 = max(self.r_hub_tip[0] - self.params['r_hub_tip_max'],0)*100
-        self.penalty_2 = max(self.params['r_hub_tip_min'] - self.r_hub_tip[-1],0)*100
+        self.penalty_1 = max(self.r_hub_tip[0] - self.bounds['r_hub_tip_max'],0)*100
+        self.penalty_2 = max(self.bounds['r_hub_tip_min'] - self.r_hub_tip[-1],0)*100
         
         if abs((self.inputs["p_ex"] - self.stages[-1].get_static_prop('P',2))/self.inputs["p_ex"]) >= self.params['p_rel_tol']:
             self.penalty_3 = abs((self.inputs["p_ex"] - self.stages[-1].get_static_prop('P',2))/self.inputs["p_ex"])*100
@@ -1385,22 +1387,22 @@ class AxialTurbineMeanLineDesign(object):
 
 #%%
 
-    def design(self):
+    def sizing(self):
         bounds = (np.array([
-            self.params['psi_bounds'][0],
-            self.params['phi_bounds'][0],
-            self.params['R_bounds'][0],
-            self.params['Re_bounds'][0],
-            self.params['r_m_bounds'][0],
-            self.params['M_1st_bounds'][0],
+            self.bounds['psi_bounds'][0],
+            self.bounds['phi_bounds'][0],
+            self.bounds['R_bounds'][0],
+            self.bounds['Re_bounds'][0],
+            self.bounds['r_m_bounds'][0],
+            self.bounds['M_1st_bounds'][0],
         ]),
         np.array([
-            self.params['psi_bounds'][1],
-            self.params['phi_bounds'][1],
-            self.params['R_bounds'][1],
-            self.params['Re_bounds'][1],
-            self.params['r_m_bounds'][1],
-            self.params['M_1st_bounds'][1],
+            self.bounds['psi_bounds'][1],
+            self.bounds['phi_bounds'][1],
+            self.bounds['R_bounds'][1],
+            self.bounds['Re_bounds'][1],
+            self.bounds['r_m_bounds'][1],
+            self.bounds['M_1st_bounds'][1],
         ]))
     
         def objective_wrapper(x):
@@ -1473,25 +1475,26 @@ class AxialTurbineMeanLineDesign(object):
 
 #%% 
 
-    def design_parallel(self, n_jobs=-1, n_particles = 50, max_iter=50, backend="loky", chunksize="auto"):
+    def sizing_parallel(self, n_jobs=-1, n_particles = 50, max_iter=50, backend="loky", chunksize="auto"):
         import numpy as np
         import pyswarms as ps
     
         # --- always 6D swarm (psi, phi, R, Re_min, r_m, M_1_st) ---
         bounds = (np.array([
-            self.params['psi_bounds'][0],
-            self.params['phi_bounds'][0],
-            self.params['R_bounds'][0],
-            self.params['Re_bounds'][0],
-            self.params['r_m_bounds'][0],
-            self.params['M_1st_bounds'][0],
-        ]), np.array([
-            self.params['psi_bounds'][1],
-            self.params['phi_bounds'][1],
-            self.params['R_bounds'][1],
-            self.params['Re_bounds'][1],
-            self.params['r_m_bounds'][1],
-            self.params['M_1st_bounds'][1],
+            self.bounds['psi_bounds'][0],
+            self.bounds['phi_bounds'][0],
+            self.bounds['R_bounds'][0],
+            self.bounds['Re_bounds'][0],
+            self.bounds['r_m_bounds'][0],
+            self.bounds['M_1st_bounds'][0],
+        ]),
+        np.array([
+            self.bounds['psi_bounds'][1],
+            self.bounds['phi_bounds'][1],
+            self.bounds['R_bounds'][1],
+            self.bounds['Re_bounds'][1],
+            self.bounds['r_m_bounds'][1],
+            self.bounds['M_1st_bounds'][1],
         ]))
         dimensions = 6
     
@@ -1517,21 +1520,22 @@ class AxialTurbineMeanLineDesign(object):
             "cls": type(self),
             "fluid": self.fluid,
             "params": dict(self.params),
+            "bounds": dict(self.bounds),
             "stage_params": getattr(self, "stage_params", None),
             "inputs": inputs_snapshot,
         }
-    
+            
         def objective_wrapper(X):
             X = np.asarray(X, dtype=float)
-            # Reuse the single persistent bar
-            with tqdm_joblib(pbar):
-                results = Parallel(n_jobs=n_jobs, backend=backend, batch_size=chunksize)(
-                    delayed(_eval_particle)(
-                        xi, snapshot["cls"], snapshot["fluid"],
-                        snapshot["params"], snapshot["stage_params"],
-                        snapshot["inputs"]
-                    ) for xi in X
-                )
+            results = Parallel(n_jobs=n_jobs, backend=backend, batch_size=chunksize)(
+                delayed(_eval_particle)(
+                    xi, snapshot["cls"], snapshot["fluid"],
+                    snapshot["params"], snapshot["bounds"], snapshot["stage_params"],
+                    snapshot["inputs"]
+                ) for xi in X
+            )
+            pbar.update(len(X))
+        
             costs, wdots = [], []
             for c, w, rec in results:
                 costs.append(c)
@@ -1561,37 +1565,30 @@ class AxialTurbineMeanLineDesign(object):
         )    
         
         for i in range(max_iter):
-            # ensure workers see the current target THIS iteration
             snapshot["inputs"]["W_dot"] = self.inputs.get("W_dot", snapshot["inputs"]["W_dot"])
-    
+        
             optimizer.optimize(objective_wrapper, iters=1, verbose=False)
             cur = optimizer.swarm.best_cost
-    
-            # --- between-iteration W_dot raise ---
+        
             batch_best = getattr(self, "_last_batch_max_wdot", self.inputs.get("W_dot", 0.0))
             if batch_best > self.inputs.get("W_dot", 0.0):
                 self.inputs["W_dot"] = batch_best
-                # optional trace:
-                # print(f"[iter {i+1}] raised target W_dot to {self.inputs['W_dot']:.3f} W")
-    
+        
             if cur < best_cost - tol:
                 best_cost, no_improve = cur, 0
             else:
                 no_improve += 1
-                
-            # print(f"[{i+1}] Best cost: {best_cost:.6f}")
+        
             pbar.set_postfix_str(f"iter={i+1}  best={best_cost:.6f}", refresh=True)
-
+        
             if no_improve >= patience and best_cost < 0:
                 pbar.set_postfix_str(f"stopping: best={best_cost:.6f}", refresh=True)
                 break
-            
+        
             if no_improve >= 2*patience:
                 pbar.set_postfix_str(f"stopping: best={best_cost:.6f}", refresh=True)
                 break
-            
-            pbar.clear()   # removes bar from screen
-
+                    
 
         pbar.close()
         best_pos = optimizer.swarm.best_pos
@@ -1637,12 +1634,10 @@ class AxialTurbineMeanLineDesign(object):
 if __name__ == "__main__":
 
     case_study = "TCO2_ORC"
-    
-    Turb = AxialTurbineMeanLineDesign('Cyclopentane')
-    
+        
     if case_study == 'Cuerva':
     
-        Turb = AxialTurbineMeanLineDesign('Cyclopentane')
+        Turb = AxialTurbineMeanLineSizing('Cyclopentane')
         
         Turb.set_inputs(
             mdot = 46.18, # kg/s
@@ -1654,14 +1649,6 @@ if __name__ == "__main__":
         
         Turb.set_parameters(
             Zweifel = 0.8, # [-]
-            AR_min = 0.8, # [-]
-            r_hub_tip_max = 0.95, # [-]
-            r_hub_tip_min = 0.6, # [-]
-            Re_bounds = [1*1e5,1*1e6], # [-]
-            psi_bounds = [1,2.5], # [-]
-            phi_bounds = [0.4,0.8], # [-]
-            R_bounds = [0.4,0.6], # [-]
-            r_m_bounds = [0.1, 0.6], # [m]
             M_1_st = 0.3, # [-]
             damping = 0.2, # [-]
             delta_tip = 0.4*1e-3, # [m] : tip clearance
@@ -1671,10 +1658,21 @@ if __name__ == "__main__":
             t_TE_o = 0.05, # [-] : trailing edge to throat opening ratio
             t_TE_min = 5*1e-4, # [m]
             )
+        
+        Turb.set_bounds(
+            AR_min = 0.8, # [-]
+            r_hub_tip_max = 0.95, # [-]
+            r_hub_tip_min = 0.6, # [-]
+            Re_bounds = [1*1e5,1*1e6], # [-]
+            psi_bounds = [1,2.5], # [-]
+            phi_bounds = [0.4,0.8], # [-]
+            R_bounds = [0.4,0.6], # [-]
+            r_m_bounds = [0.1, 0.6], # [m]
+            )
     
     elif case_study == 'Zorlu':
         
-        Turb = AxialTurbineMeanLineDesign('Cyclopentane')
+        Turb = AxialTurbineMeanLineSizing('Cyclopentane')
     
         Turb.set_inputs(
             mdot = 34.51, # kg/s
@@ -1686,14 +1684,6 @@ if __name__ == "__main__":
         
         Turb.set_parameters(
             Zweifel = 0.8, # [-]
-            AR_min = 0.8, # [-]
-            r_hub_tip_max = 0.95, # [-]
-            r_hub_tip_min = 0.6, # [-]
-            Re_bounds = [1*1e5,1*1e6], # [-]
-            psi_bounds = [1,2.5], # [-]
-            phi_bounds = [0.4,0.7], # [-]
-            R_bounds = [0.45,0.55], # [-]
-            r_m_bounds = [0.15, 0.5], # [m]
             M_1_st = 0.3, # [-]
             damping = 0.2, # [-]
             delta_tip = 0.4*1e-3, # [m] : tip clearance
@@ -1704,9 +1694,20 @@ if __name__ == "__main__":
             t_TE_min = 5*1e-4, # [m]
             )
         
+        Turb.set_bounds(
+            AR_min = 0.8, # [-]
+            r_hub_tip_max = 0.95, # [-]
+            r_hub_tip_min = 0.6, # [-]
+            Re_bounds = [1*1e5,1*1e6], # [-]
+            psi_bounds = [1,2.5], # [-]
+            phi_bounds = [0.4,0.7], # [-]
+            R_bounds = [0.45,0.55], # [-]
+            r_m_bounds = [0.15, 0.5], # [m]
+            )
+        
     elif case_study == 'TCO2_ORC':
     
-        Turb = AxialTurbineMeanLineDesign('CO2')
+        Turb = AxialTurbineMeanLineSizing('CO2')
 
         Turb.set_inputs(
             mdot = 318.437021666738, # kg/s
@@ -1718,16 +1719,6 @@ if __name__ == "__main__":
                 
         Turb.set_parameters(
             Zweifel = 0.8, # [-]
-            AR_min = 0.8, # [-]
-            r_hub_tip_max = 0.95, # [-]
-            r_hub_tip_min = 0.6, # [-]
-            Re_bounds = [1*1e6,8*1e6], # [-]
-            psi_bounds = [0.5,2.5], # [-]
-            phi_bounds = [0.4,1], # [-]
-            R_bounds = [0.45,0.55], # [-]
-            M_1st_bounds = [0.4, 0.5], # [-]
-            r_m_bounds = [0.1, 0.6], # [m]
-            # Omega_choices = [500,750,1000,1500,3000], # [RPM] : [500,750,1000,1500,3000]
             damping = 0.2, # [-]
             p_rel_tol = 0.01, # [-]
             delta_tip = 0.4*1e-3, # [m] : tip clearance
@@ -1737,10 +1728,23 @@ if __name__ == "__main__":
             t_TE_o = 0.05, # [-] : trailing edge to throat opening ratio
             t_TE_min = 5*1e-4, # [m]
             )
+        
+        Turb.set_bounds(
+            AR_min = 0.8, # [-]
+            r_hub_tip_max = 0.95, # [-]
+            r_hub_tip_min = 0.6, # [-]
+            Re_bounds = [1*1e6,8*1e6], # [-]
+            psi_bounds = [0.5,2.5], # [-]
+            phi_bounds = [0.4,1], # [-]
+            R_bounds = [0.45,0.55], # [-]
+            M_1st_bounds = [0.4, 0.5], # [-]
+            r_m_bounds = [0.1, 0.6], # [m]
+            # Omega_choices = [500,750,1000,1500,3000], # [RPM]
+            )
     
     elif case_study == 'Salah_Case':
     
-        Turb = AxialTurbineMeanLineDesign('CO2')
+        Turb = AxialTurbineMeanLineSizing('CO2')
     
         Turb.set_inputs(
             mdot = 655.18, # kg/s
@@ -1752,14 +1756,6 @@ if __name__ == "__main__":
         
         Turb.set_parameters(
             Zweifel = 0.8, # [-]
-            AR_min = 0.8, # [-]
-            r_hub_tip_max = 0.95, # [-]
-            r_hub_tip_min = 0.6, # [-]
-            Re_bounds = [1*1e6,7*1e6], # [-]
-            psi_bounds = [1.5,2.5], # [-]
-            phi_bounds = [0.6,0.9], # [-]
-            R_bounds = [0.45,0.55], # [-]
-            r_m_bounds = [0.15, 0.5], # [m]
             M_1_st = 0.5, #0.3, # [-]
             damping = 0.2, # [-]
             delta_tip = 0.4*1e-3, # [m] : tip clearance
@@ -1768,6 +1764,17 @@ if __name__ == "__main__":
             e_blade = 0.002*1e-3, # [m] : blade roughness
             t_TE_o = 0.05, # [-] : trailing edge to throat opening ratio
             t_TE_min = 5*1e-4, # [m]
+            )
+        
+        Turb.set_bounds(
+            AR_min = 0.8, # [-]
+            r_hub_tip_max = 0.95, # [-]
+            r_hub_tip_min = 0.6, # [-]
+            Re_bounds = [1*1e6,7*1e6], # [-]
+            psi_bounds = [1.5,2.5], # [-]
+            phi_bounds = [0.6,0.9], # [-]
+            R_bounds = [0.45,0.55], # [-]
+            r_m_bounds = [0.15, 0.5], # [m]
             )
 
     # profiling mode switch
@@ -1786,7 +1793,7 @@ if __name__ == "__main__":
     t0 = time.perf_counter()
     
     # best_pos = Turb.design()
-    best_pos = Turb.design_parallel(n_jobs=-1)
+    best_pos = Turb.sizing_parallel(n_jobs=-1)
     
     elapsed = time.perf_counter() - t0
     print(f"Optimization completed in {elapsed:.2f} s")

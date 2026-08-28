@@ -69,6 +69,9 @@ if test_case == "test_CO2":
     Corr_H_DP = {"SC" : "Darcy_Weisbach", "1P" : "Darcy_Weisbach"}
     Corr_C_DP = {"SC" : "Darcy_Weisbach", "1P" : "Darcy_Weisbach"}  
 
+    # Corr_H_DP = {"SC" : "Gnielinski_DP", "1P" : "Gnielinski_DP"}
+    # Corr_C_DP = {"SC" : "Gnielinski_DP", "1P" : "Gnielinski_DP"}  
+
     # ---------------------------------------------------------------------------------------------------------
     # "Parameters Setting"
     

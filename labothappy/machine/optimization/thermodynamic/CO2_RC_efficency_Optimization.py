@@ -166,7 +166,7 @@ def system_RC_parallel(x, input_data):
 
 #%% Optimizer Class
 
-class CO2RCOptimizer:
+class CO2RC_eff_optimizer:
 
     def __init__(self, fluid):
         self.fluid  = fluid
@@ -541,7 +541,7 @@ if __name__ == "__main__":
 
     W_dot_test = 1e6  # 1 MW target
 
-    Optimizer = CO2RCOptimizer('CO2')
+    Optimizer = CO2RC_eff_optimizer('CO2')
 
     for T in T_vec:
 
