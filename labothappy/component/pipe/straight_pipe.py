@@ -5,8 +5,10 @@ import numpy as np
 from labothappy.component.base_component import BaseComponent
 from labothappy.connector.mass_connector import MassConnector
 
-from labothappy.correlations.pressure_drop.straight_pipe_DP import pressure_drop_pipe_single_phase
-from labothappy.correlations.pressure_drop.straight_pipe_DP import pressure_drop_pipe_two_phase
+from labothappy.correlations.pressure_drop.pipe_DP import (
+    pressure_drop_pipe_single_phase,
+    pressure_drop_pipe_two_phase,
+)
 from labothappy.correlations.properties.two_phase import compute_two_phase_density
 from labothappy.correlations.void_fraction.void_fraction import compute_void_fraction
 
@@ -109,7 +111,7 @@ class StraightPipe(BaseComponent):
         rho_su = self.AS.rhomass()
         A_cross = PI * self.params['D']**2 / 4  # Cross-sectional area [m²]
 
-        self.dP = pressure_drop_pipe_single_phase(self.AS, self.params, self.su.m_dot)
+        self.dP = pressure_drop_pipe_single_phase(self.AS, self.params, self.su.m_dot, correlation='Churchill')
 
         self.ex.set_fluid(self.su.fluid)
         self.ex.set_m_dot(self.su.m_dot)
