@@ -12,8 +12,8 @@ dimensionnement des composants + CAPEX + boucle cycle_design.
 import numpy as np
 from CoolProp.CoolProp import PropsSI
 
-from labothappy.sizing.turbomachinery.turbine.axial.sizing_1D.mean_line_axial_turbine_loss_model_design_aungier import AxialTurbineMeanLineDesign
-from labothappy.sizing.turbomachinery.turbine.radial.mean_line_radial_turbine_loss_model_design_parallel import RadialTurbineMeanLineDesign
+from labothappy.sizing.turbomachinery.turbine.axial.sizing_1D.mean_line_axial_turbine_loss_model_sizing import AxialTurbineMeanLineSizing
+from labothappy.sizing.turbomachinery.turbine.radial.mean_line_radial_turbine_loss_model_sizing import RadialTurbineMeanLineSizing
 from labothappy.sizing.heat_exchanger.shell_and_tube.shell_and_tube_sizing_PSO_parallel import ShellAndTubeSizingOpt
 from labothappy.sizing.heat_exchanger.PCHE.PCHE_PSO import PCHESizingOpt
 from labothappy.sizing.turbomachinery.pump.radial.radial_pump_0D_design import RadialPumpODDesign
@@ -225,11 +225,15 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
             )
 
             Turb_axial_sizing.set_parameters(
-                Zweifel=0.8, AR_min=0.8, r_hub_tip_max=0.95, r_hub_tip_min=0.6,
-                Re_bounds=[3e6, 8e6], psi_bounds=[1, 1.9], phi_bounds=[0.5, 0.8],
-                R_bounds=[0.45, 0.55], M_1st_bounds=[0.3, 0.6], r_m_bounds=[0.1, 0.6],
-                damping=0.3, p_rel_tol=0.05, delta_tip=0.4e-3, N_lw=0, D_lw=0,
+                Zweifel=0.8, M_1_st=0.45, damping=0.3, p_rel_tol=0.05,
+                delta_tip=0.4e-3, N_lw=0, D_lw=0,
                 e_blade=0.002e-3, t_TE_o=0.05, t_TE_min=5e-4,
+            )
+
+            Turb_axial_sizing.set_bounds(
+                AR_min=0.8, r_hub_tip_max=0.95, r_hub_tip_min=0.6,
+                Re_bounds=[3e6, 8e6], psi_bounds=[1, 1.9], phi_bounds=[0.5, 0.8],
+                R_bounds=[0.45, 0.55], r_m_bounds=[0.1, 0.6],
             )
 
             Turb_axial_sizing.design_parallel(n_jobs=-1, n_particles=30, max_iter=50)
@@ -241,7 +245,7 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
     try:
         if turb_choice != 'Axial':
             Turb_model = RC.components['Expander'].model
-            Turb_radial_sizing = RadialTurbineMeanLineDesign(RC.fluid)
+            Turb_radial_sizing = RadialTurbineMeanLineSizing(RC.fluid)
 
             Turb_radial_sizing.set_inputs(
                 mdot=Turb_model.su.m_dot, W_dot=Turb_model.W.W_dot,
@@ -249,14 +253,18 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
             )
 
             Turb_radial_sizing.set_parameters(
-                r5_r4_bounds=[0.3, 0.7], psi_bounds=[0.5, 1.5], phi_bounds=[0.3, 0.6],
-                xhi_bounds=[0.3, 0.6], r5h_r5t_bounds=[0.3, 0.4],
                 S_b4_ratio=1.05, t_TE_c_S_max=0.02, t_TE_S=5e-4,
-                cl_a=0.4e-3, cl_r=0.4e-3, damping=0.5,
+                cl_a=0.4e-3, cl_r=0.4e-3,
+                damping=0.5,
                 Mth_target=0.4, r5t_guess=0.15, r4_guess=0.22,
             )
 
-            Turb_radial_sizing.design_parallel(n_jobs=-1, n_particles=20, max_iter=50)
+            Turb_radial_sizing.set_bounds(
+                r5_r4_bounds=[0.3, 0.7], psi_bounds=[0.5, 1.5], phi_bounds=[0.3, 0.6],
+                xhi_bounds=[0.3, 0.6], r5h_r5t_bounds=[0.3, 0.4],
+            )
+
+            Turb_radial_sizing.sizing_parallel(max_iter=3, n_jobs=-1)
             eta_radial = Turb_radial_sizing.eta_is
 
     except Exception as e:
