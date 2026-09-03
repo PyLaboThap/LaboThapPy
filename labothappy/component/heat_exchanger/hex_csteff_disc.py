@@ -258,8 +258,16 @@ class HexCstEffDisc(BaseComponent):
             print("HTX IS NOT PARAMETRIZED")
             return
 
-        self.AS_H = CP.AbstractState('BICUBIC&HEOS', self.su_H.fluid)
-        self.AS_C = CP.AbstractState('BICUBIC&HEOS', self.su_C.fluid)
+        if self.su_H.AS.backend_name() == 'IncompressibleBackend':  
+            self.AS_H = CP.AbstractState("INCOMP", self.su_H.fluid)
+        else:
+            self.AS_H = CP.AbstractState('BICUBIC&HEOS', self.su_H.fluid)
+        
+        if self.su_C.AS.backend_name() == 'IncompressibleBackend':  
+            self.AS_C = CP.AbstractState('INCOMP', self.su_C.fluid)
+        else:
+            self.AS_C = CP.AbstractState('BICUBIC&HEOS', self.su_C.fluid)
+    
     
         if self.su_H.T < self.su_C.T:
             

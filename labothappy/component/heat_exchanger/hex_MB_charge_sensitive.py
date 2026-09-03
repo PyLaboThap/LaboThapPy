@@ -1074,7 +1074,7 @@ class HexMBChargeSensitive(BaseComponent):
                 alpha_h, self.Re_h[k], self.Pr_h[k] = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']*self.params['Tube_pass']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
             elif self.HTX_Type == 'PCHE':
                 Dh = np.pi*self.params['D_c']/(2+np.pi)
-                alpha_h, self.Re_h[k], self.Pr_h[k] = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, Dh, self.params['L_c']) 
+                alpha_h, self.Re_h[k], self.Pr_h[k] = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, Dh, self.params['L_c']*self.params['n_series']) 
         elif self.H.Correlation_1phase == "Shell_Bell_Delaware_HTC":
             alpha_h = shell_bell_delaware_htc(self.mdot_h, Th_mean, T_wall_h, p_h_mean, self.H_su.fluid, self.params)
         elif self.H.Correlation_1phase == 'Shell_Kern_HTC':
@@ -1110,7 +1110,7 @@ class HexMBChargeSensitive(BaseComponent):
                 alpha_c, self.Re_c[k], self.Pr_c[k]  = gnielinski_pipe_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']*self.params['Tube_pass']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
             elif self.HTX_Type == 'PCHE':
                 Dh = np.pi*self.params['D_c']/(2+np.pi)
-                alpha_c, self.Re_c[k], self.Pr_c[k]  = gnielinski_pipe_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, Dh, self.params['L_c']) 
+                alpha_c, self.Re_c[k], self.Pr_c[k]  = gnielinski_pipe_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, Dh, self.params['L_c']*self.params['n_series']) 
         elif self.C.Correlation_1phase == 'Shell_Bell_Delaware_HTC':
             alpha_c = shell_bell_delaware_htc(self.mdot_c, Tc_mean, T_wall_c, p_c_mean, self.C_su.fluid, self.params)
         elif self.C.Correlation_1phase == 'Shell_Kern_HTC':
@@ -1146,7 +1146,7 @@ class HexMBChargeSensitive(BaseComponent):
                 alpha_h, self.Re_h[k], self.Pr_h[k] = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']*self.params['Tube_pass']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
             elif self.HTX_Type == 'PCHE':
                 Dh = np.pi*self.params['D_c']/(2+np.pi)
-                alpha_h, self.Re_h[k], self.Pr_h[k] = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, Dh, self.params['L_c']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
+                alpha_h, self.Re_h[k], self.Pr_h[k] = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, Dh, self.params['L_c']*self.params['n_series']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
 
         elif self.H.Correlation_TC == 'Liu_sCO2':
             self.AS_H.update(CP.PT_INPUTS, p_h_mean, Th_mean)
@@ -1176,10 +1176,10 @@ class HexMBChargeSensitive(BaseComponent):
         elif self.H.Correlation_TC == 'Lee':
             self.AS_H.update(CP.PT_INPUTS, p_h_mean, Th_mean)
             rho_h = self.AS_H.rhomass()
-            alpha_h = PCHE_Lee(self.params['alpha'], self.params['D_c'], G_h, k_h, self.params['L_c'], mu_h, Pr_h, rho_h)
+            alpha_h = PCHE_Lee(self.params['alpha'], self.params['D_c'], G_h, k_h, self.params['L_c']*self.params['n_series'], mu_h, Pr_h, rho_h)
 
         elif self.H.Correlation_TC == "PCHE_Lee":
-            alpha_h = PCHE_conv(self.params['alpha'], self.params['D_c'], G_h, k_h, self.params['L_c'], mu_h, mu_h_w, Pr_h, Th_mean, self.params['type_channel'])
+            alpha_h = PCHE_conv(self.params['alpha'], self.params['D_c'], G_h, k_h, self.params['L_c']*self.params['n_series'], mu_h, mu_h_w, Pr_h, Th_mean, self.params['type_channel'])
 
         return alpha_h
 
@@ -1202,7 +1202,7 @@ class HexMBChargeSensitive(BaseComponent):
                 alpha_c, self.Re_c[k], self.Pr_c[k]  = gnielinski_pipe_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, self.params['Tube_OD']-2*self.params['Tube_t'], self.params['Tube_L']*self.params['Tube_pass']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
             elif self.HTX_Type == 'PCHE':
                 Dh = np.pi*self.params['D_c']/(2+np.pi)
-                alpha_c, self.Re_c[k], self.Pr_c[k] = gnielinski_pipe_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, Dh, self.params['L_c']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
+                alpha_c, self.Re_c[k], self.Pr_c[k] = gnielinski_pipe_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, Dh, self.params['L_c']*self.params['n_series']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
  
         elif self.C.Correlation_TC == 'Liu_sCO2':
             self.AS_C.update(CP.PT_INPUTS, p_c_mean, Tc_mean)
@@ -1227,10 +1227,10 @@ class HexMBChargeSensitive(BaseComponent):
         elif self.C.Correlation_TC == 'Lee':
             self.AS_C.update(CP.PT_INPUTS, p_c_mean, Tc_mean)
             rho_c = self.AS_C.rhomass()
-            alpha_c = PCHE_Lee(self.params['alpha'], self.params['D_c'], G_c, k_c, self.params['L_c'], mu_c, Pr_c, rho_c)
+            alpha_c = PCHE_Lee(self.params['alpha'], self.params['D_c'], G_c, k_c, self.params['L_c']*self.params['n_series'], mu_c, Pr_c, rho_c)
         
         elif self.H.Correlation_TC == "PCHE_Lee":
-            alpha_c = PCHE_conv(self.params['alpha'], self.params['D_c'], G_c, k_c, self.params['L_c'], mu_c, mu_c_w, Pr_c, Tc_mean, self.params['type_channel'])
+            alpha_c = PCHE_conv(self.params['alpha'], self.params['D_c'], G_c, k_c, self.params['L_c']*self.params['n_series'], mu_c, mu_c_w, Pr_c, Tc_mean, self.params['type_channel'])
         
         return alpha_c
 
@@ -1394,8 +1394,8 @@ class HexMBChargeSensitive(BaseComponent):
         elif self.C.Correlation_2phase == "Flow_boiling":
             
             if self.HTX_Type == "PCHE":
-                A_c = 1/(1+self.params['R_p'])*self.params['N_c']*self.params['N_p']*(np.pi/2)*self.params['D_c']*self.params['L_c']*self.params['n_parallel']
-                A_h = self.params['R_p']/(1+self.params['R_p'])*self.params['N_c']*self.params['N_p']*(np.pi/2)*self.params['D_c']*self.params['L_c']*self.params['n_parallel']
+                A_c = 1/(1+self.params['R_p'])*self.params['N_c']*self.params['N_p']*(np.pi/2)*self.params['D_c']*self.params['L_c']*self.params['n_series']*self.params['n_parallel']
+                A_h = self.params['R_p']/(1+self.params['R_p'])*self.params['N_c']*self.params['N_p']*(np.pi/2)*self.params['D_c']*self.params['L_c']*self.params['n_series']*self.params['n_parallel']
                 
                 A_eff = (A_c + A_h)/2
                 
@@ -2199,6 +2199,8 @@ class HexMBChargeSensitive(BaseComponent):
  
     def objective_function(self, Q, only_external = False):
         
+        # print(self.Qmax)
+        
         "0) Initialize cell boundaries and results vectors"
         
         self.calculate_cell_boundaries(Q)
@@ -2531,8 +2533,8 @@ class HexMBChargeSensitive(BaseComponent):
                 else: 
                     R_fouling = 0
                 
-                self.A_c = 1/(1+self.params['R_p'])*self.params['N_c']*self.params['N_p']*(np.pi/2)*self.params['D_c']*self.params['L_c']*self.params['n_parallel']
-                self.A_h = self.params['R_p']/(1+self.params['R_p'])*self.params['N_c']*self.params['N_p']*(np.pi/2)*self.params['D_c']*self.params['L_c']*self.params['n_parallel']
+                self.A_c = 1/(1+self.params['R_p'])*self.params['N_c']*self.params['N_p']*(np.pi/2)*self.params['D_c']*self.params['L_c']*self.params['n_series']*self.params['n_parallel']
+                self.A_h = self.params['R_p']/(1+self.params['R_p'])*self.params['N_c']*self.params['N_p']*(np.pi/2)*self.params['D_c']*self.params['L_c']*self.params['n_series']*self.params['n_parallel']
                 
                 # self.t_e = ((self.params['D_c'] + self.params['t_3'])*(self.params['D_c']/2 + self.params['t_2']) - (1/8*np.pi*self.params['D_c']**2))/(self.params['D_c'] + self.params['t_3'])
                 self.t_e = self.params['t_3'] - np.pi*self.params['D_c']/8

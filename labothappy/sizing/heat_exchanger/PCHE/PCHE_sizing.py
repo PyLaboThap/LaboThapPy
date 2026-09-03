@@ -54,6 +54,13 @@ _SOLVER = None  # cached per-process
 
 class PCHESizingOpt(BaseComponent):
     
+    _CORR_KEYS = {
+        'H_Corr', 'C_Corr', 'H_DP', 'C_DP',
+        'htc_type', 'DP_type',
+        'UD_H_HTC', 'UD_C_HTC', 'UD_H_DP', 'UD_C_DP',
+    }
+    _CONSTRAINT_KEYS = {'Q_dot', 'DP_h', 'DP_c'}
+    
     def __init__(self):
         super().__init__()
         
@@ -98,6 +105,21 @@ class PCHESizingOpt(BaseComponent):
     def set_bounds(self, **bounds):
         for key, value in bounds.items():
             self.bounds[key] = value
+    
+    def _apply_deferred_parameters(self):
+        """
+        set_parameters() reste inchangé (hérité de BaseComponent) et stocke
+        tout dans self.params, y compris les clés de corrélation et de
+        contraintes. Cette méthode les en extrait et les dispatche vers
+        set_corr()/set_constraints() — appelée juste avant l'optimisation.
+        """
+        corr_kwargs = {k: self.params.pop(k) for k in list(self.params) if k in self._CORR_KEYS}
+        constraint_kwargs = {k: self.params.pop(k) for k in list(self.params) if k in self._CONSTRAINT_KEYS}
+    
+        if corr_kwargs:
+            self.set_corr(**corr_kwargs)
+        if constraint_kwargs:
+            self.set_constraints(**constraint_kwargs)
 
     def set_constraints(self, Q_dot = None, DP_h = None, DP_c = None):
         
@@ -237,6 +259,7 @@ class PCHESizingOpt(BaseComponent):
         L_y        = x[3]
         L_z        = x[4]
         n_parallel = np.round(x[5])
+        n_series   = max(1, np.round(x[6]))
     
         # ---- local geometry ----
         P_max = max(self.inputs['P_su_H'], self.inputs['P_su_C']) * 1.5
@@ -261,7 +284,7 @@ class PCHESizingOpt(BaseComponent):
         local_params = {
             **self.params,
             'alpha': alpha, 'D_c': D_c, 'L_x': L_x, 'L_y': L_y, 'L_z': L_z,
-            'n_parallel': n_parallel,
+            'n_parallel': n_parallel, 'n_series': n_series,
             't_2': t_2, 't_3': t_3, 'L_c': L_c,
             'N_p': N_p, 'N_c': N_c,
             'C_V_tot': C_V_tot, 'H_V_tot': H_V_tot,
@@ -280,7 +303,7 @@ class PCHESizingOpt(BaseComponent):
     
         # ---- score (fully local, no self writes) ----
         rho_mat = 7850
-        m_HX = n_parallel * rho_mat * (V_block - C_V_tot - H_V_tot)
+        m_HX = n_parallel * n_series * rho_mat * (V_block - C_V_tot - H_V_tot)
     
         PF = 1
         pen_Q    = max(self.Q_dot_constr - HX.Q.Q_dot, 0) if self.Q_dot_constr else 0
@@ -290,13 +313,14 @@ class PCHESizingOpt(BaseComponent):
         score = m_HX + PF * (pen_Q + pen_DP_h + pen_DP_c)
     
         return score
-    
+
     #%%
     
-    def design(self):
+    def sizing(self):
+        self._apply_deferred_parameters()
         
         # Choose a fixed order for variables
-        ORDER = ['alpha', 'D_c', 'L_x', 'L_y', 'L_z']
+        ORDER = ['alpha', 'D_c', 'L_x', 'L_y', 'L_z', 'n_parallel', 'n_series']
         
         def bounds_dict_to_arrays(bounds_dict, order=ORDER):
             lb = np.array([bounds_dict[k][0] for k in order], dtype=float)
@@ -354,9 +378,11 @@ class PCHESizingOpt(BaseComponent):
     
     #%%
     
-    def design_parallel(self, n_jobs=-1, backend="threading", chunksize="auto", n_particles = 30, max_iter = None, patience = 10):
+    def sizing_parallel(self, n_jobs=-1, backend="threading", chunksize="auto", n_particles = 30, max_iter = None, patience = 10):
+        self._apply_deferred_parameters()
+        
         # ---- fixed order + bounds ----
-        ORDER = ['alpha', 'D_c', 'L_x', 'L_y', 'L_z', 'n_parallel']
+        ORDER = ['alpha', 'D_c', 'L_x', 'L_y', 'L_z', 'n_parallel', 'n_series']
         def bounds_dict_to_arrays(bounds_dict, order=ORDER):
             lb = np.array([bounds_dict[k][0] for k in order], dtype=float)
             ub = np.array([bounds_dict[k][1] for k in order], dtype=float)
@@ -366,13 +392,13 @@ class PCHESizingOpt(BaseComponent):
     
         lb, ub = bounds_dict_to_arrays(self.bounds, ORDER)   # <-- pass ORDER
         D = lb.size
-    
+        
         optimizer = ps.single.GlobalBestPSO(
             n_particles=n_particles, dimensions=D,
             options={'c1': 1.5, 'c2': 2.0, 'w': 0.7},
             bounds=(lb, ub)
         )
-    
+        
         tol = 1e-3
         
         if max_iter is None:
@@ -421,11 +447,14 @@ class PCHESizingOpt(BaseComponent):
         best_pos = optimizer.swarm.best_pos
         self.score = optimizer.swarm.best_cost
         
+        n_series_best = max(1, np.round(best_pos[6]))
+        
         # Safe single-threaded final eval — write results to self
         self.params.update({
             'alpha': best_pos[0], 'D_c': best_pos[1],
             'L_x': best_pos[2],   'L_y': best_pos[3], 'L_z': best_pos[4],
             'n_parallel': np.round(best_pos[5]),
+            'n_series': n_series_best,
         })
         self.compute_geom()
         
@@ -435,17 +464,17 @@ class PCHESizingOpt(BaseComponent):
         self.HX.set_parameters(**self.params)
         self.HX.solve()
         
-        self.m_HX = np.round(best_pos[5]) * 7850 * (
+        self.m_HX = np.round(best_pos[5]) * n_series_best * 7850 * (
             self.params['L_x'] * self.params['L_y'] * self.params['L_z']
             - self.params['C_V_tot'] - self.params['H_V_tot']
         )
         
         self.cost_estimation()
-    
-        pbar.close()
-    
-        # self.HX.plot_cells()
+
+        self.cost_estimation()
         
+        pbar.close()
+            
         if __name__ == "__main__":
             print("\nBest Position")
             print("-------------")
@@ -455,7 +484,8 @@ class PCHESizingOpt(BaseComponent):
             print(f"L_y : {round(self.params['L_y'],3)} [m]")
             print(f"L_z : {round(self.params['L_z'],3)} [m]")
             print(f"n_parallel : {self.params['n_parallel']} [-]")
-        
+            print(f"n_series : {self.params['n_series']} [-]")       
+            
             print("\nResults")
             print("-------------")
             print(f"A_h : {round(self.HX.A_h,2)} [m^2]")
@@ -506,45 +536,33 @@ if __name__ == "__main__":
          )
         
     HX_opt.set_parameters(
-        k_cond = 60, # plate conductivity
-        R_p = 1, # n_hot_channel_row / n_cold_channel_row
-        
+        k_cond = 60,
+        R_p = 1,
         n_disc = 50,
-        
         Flow_Type = 'CounterFlow', 
         H_DP_ON = True, 
         C_DP_ON = True,
         
-        # AS_Type = "HEOS"
+        H_Corr = {"1P" : "Gnielinski", "SC" : "Gnielinski"},
+        C_Corr = {"1P" : "Gnielinski", "SC" : "Gnielinski"},
+        H_DP   = {"1P" : "Gnielinski_DP", "SC" : "Gnielinski_DP"},
+        C_DP   = {"1P" : "Gnielinski_DP", "SC" : "Gnielinski_DP"},
+        
+        Q_dot = 3*1e6,
+        DP_h  = 4*1e5,
+        DP_c  = 2*1e5,
         )
-
-    H_Corr = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
-    C_Corr = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
-    
-    H_DP = {"1P" : "Gnielinski_DP", "SC" : "Gnielinski_DP"}
-    C_DP = {"1P" : "Gnielinski_DP", "SC" : "Gnielinski_DP"}
-    
-    HX_opt.set_corr(H_Corr, C_Corr, H_DP, C_DP)
-    
-    # Source for bounds
-    # Design and Dynamic Modeling of Printed Circuit Heat Exchangers for Supercritical Carbon Dioxide Brayton Power Cycles
-    # Yuan Jiang, Eric Liese, Stephen E. Zitney, Debangsu Bhattacharyya
     
     HX_opt.set_bounds(
-        alpha = [10,40], # [°]
-        D_c = [1*1e-3, 3*1e-3], # [m]
-        L_x = [0.2, 1.5], # [m] : 0.6 limit fixed by Heatric (PCHE manufacturer) : Fluid direction
-        L_y = [0.3, 2.3], # [m] : 2.3 limit for shipping requirements : Vertical direction
-        L_z = [0.2, 0.6], # [m] : 1.5 limit fixed by Heatric (PCHE manufacturer) : Width
-        n_parallel = [8,10]
+        alpha = [10,40],
+        D_c = [1*1e-3, 3*1e-3],
+        L_x = [0.2, 1.5],
+        L_y = [0.3, 2.3],
+        L_z = [0.2, 0.6],
+        n_parallel = [1,10],
+        n_series = [1,10]
         )
-    
-    Q_dot_cstr = 3*1e6
-    DP_c_cstr = 2*1e5
-    DP_h_cstr = 4*1e5
-    
-    HX_opt.set_constraints(Q_dot = Q_dot_cstr, DP_h = DP_h_cstr, DP_c = DP_c_cstr)
 
-    best_pos = HX_opt.design_parallel()
+    best_pos = HX_opt.sizing_parallel()
     
     

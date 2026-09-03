@@ -76,9 +76,8 @@ def system_RC_parallel(x, input_data):
         elif arch == 'basic':
             RC = basic_CO2_TC(
                 HSource, CSource,
-                params['PP_gh'], params['PP_rec'],
-                params['eta_pp'], params['eta_exp'],
-                params['eta_gh'],
+                params['PP_gh'], params['eta_pp'],
+                params['eta_exp'], params['eta_gh'],
                 params['PP_cd'], params['SC_cd'],
                 P_low_guess, P_high, m_dot,
                 DP_h_gh   = params.get('DP_h_gh',   0.5e5),
@@ -86,9 +85,10 @@ def system_RC_parallel(x, input_data):
                 DP_h_cond = params.get('DP_cond',   1.0e5),
                 mute_print_flag=1,
             )
+            
         elif arch == "Recomp":
             spliter_frac = x[3]
-
+    
             RC = Recomp_CO2_TC(
                 HSource, CSource, 
                 params['PP_gh'], params['PP_rec'], 
@@ -99,7 +99,7 @@ def system_RC_parallel(x, input_data):
                 mute_print_flag=1)
         elif arch == "Recomp_1_recup":
             spliter_frac = x[3]
-
+    
             RC = Recomp_CO2_TC_1_recup(
                 HSource, CSource, 
                 params['PP_gh'], params['PP_rec'], 
@@ -114,10 +114,10 @@ def system_RC_parallel(x, input_data):
         return 1000.0
 
     # --- Solve ---
-    try:
-        RC.solve()
-    except Exception as e:
-        return 100.0
+    # try:
+    RC.solve()
+    # except Exception as e:
+    #     return 100.0
 
     if not getattr(RC, 'converged', True):
         return 10.0
@@ -228,10 +228,10 @@ class CO2RC_eff_optimizer:
         if arch == 'REC':
             self.RC = REC_CO2_TC(
                 HSource, CSource,
-                self.it_var['PP_gh'], self.params['PP_rec'],
+                self.params['PP_gh'], self.params['PP_rec'],
                 self.params['eta_pp'], self.params['eta_exp'],
-                self.it_var['eta_gh'], self.it_var['eta_rec'],
-                self.it_var['PP_cd'], self.params['SC_cd'],
+                self.params['eta_gh'], self.params['eta_rec'],
+                self.params['PP_cd'], self.params['SC_cd'],
                 P_low_guess, self.it_var['P_high'], self.it_var['mdot'],
                 DP_h_rec  = self.params.get('DP_h_rec',  1.0e5),
                 DP_c_rec  = self.params.get('DP_c_rec',  2.0e5),
@@ -243,10 +243,9 @@ class CO2RC_eff_optimizer:
         elif arch == 'basic':
             self.RC = basic_CO2_TC(
                 HSource, CSource,
-                self.it_var['PP_gh'], self.params['PP_rec'],
-                self.params['eta_pp'], self.params['eta_exp'],
-                self.it_var['eta_gh'],
-                self.it_var['PP_cd'], self.params['SC_cd'],
+                self.params['PP_gh'], self.params['eta_pp'], 
+                self.params['eta_exp'], self.params['eta_gh'],
+                self.params['PP_cd'], self.params['SC_cd'],
                 P_low_guess, self.it_var['P_high'], self.it_var['mdot'],
                 mute_print_flag=1,
             )
@@ -304,12 +303,12 @@ class CO2RC_eff_optimizer:
         self.set_RC()
         RC = self.RC
 
-        try:
-            RC.solve()
-        except Exception as e:
-            self._log_penalty(f"Final solve exception: {e}")
-            self.eta = self.W_dot_net = None
-            return
+        # try:
+        RC.solve()
+        # except Exception as e:
+        #     self._log_penalty(f"Final solve exception: {e}")
+        #     self.eta = self.W_dot_net = None
+        #     return
 
         if not getattr(RC, 'converged', True):
             self._log_penalty("Final solve did not converge")
@@ -347,12 +346,12 @@ class CO2RC_eff_optimizer:
         self.W_dot_net = W_exp - W_pump - W_pump_aux - W_cp
         self.eta       = self.W_dot_net / Q_gh if Q_gh > 0 else 0.0
 
-        self.Q_dot_waste = RC.components['GasHeater'].model.ex_H.m_dot * (
-            RC.components['GasHeater'].model.ex_H.h
-            - PropsSI('H', 'T', 273.15 + 15, 'P',
-                      RC.components['GasHeater'].model.ex_H.p,
-                      RC.components['GasHeater'].model.ex_H.fluid)
-        )
+        # self.Q_dot_waste = RC.components['GasHeater'].model.ex_H.m_dot * (
+        #     RC.components['GasHeater'].model.ex_H.h
+        #     - PropsSI('H', 'T', 273.15 + 15, 'P',
+        #               RC.components['GasHeater'].model.ex_H.p,
+        #               RC.components['GasHeater'].model.ex_H.fluid)
+        # )
 
     # ------------------------------------------------------------------ optimise
 
@@ -523,109 +522,259 @@ class CO2RC_eff_optimizer:
 #%% Main
 
 if __name__ == "__main__":
-
-    n_cores = multiprocessing.cpu_count()
     
-    import matplotlib.pyplot as plt
-
-    # ---- sweep ----
-    T_vec = np.linspace(100, 350, 6) + 273.15
-    # T_vec = np.array([350]) + 273.15
-
-    eta_vec      = []
-    P_high_vec   = []
-    m_dot_vec    = []
-    m_dot_HS_vec = []
-    T_h_ex_vec   = []
-    Q_dot_waste  = []
-
-    W_dot_test = 1e6  # 1 MW target
-
-    Optimizer = CO2RC_eff_optimizer('CO2')
-
-    for T in T_vec:
-
-        Optimizer.set_parameters(
-            RC_ARCH = 'Recomp',
-
-            eta_pp  = 0.8,
-            eta_gh  = 0.95,
-            eta_rec = 0.9,
-            eta_rec_HT = 0.9, # Recompression Case
-            eta_exp = 0.9,
-            eta_cp = 0.8,
-
-            PP_gh   = 5,
-            PP_rec  = 0,
-            PP_cd   = 5,
-            SC_cd   = 0.1,
-
-            DP_h_gh  = 50e3,
-            DP_c_gh  = 50e3,
-            DP_h_rec = 50e3,
-            DP_c_rec = 50e3,
-            DP_cond  = 50e3,
-
-            P_high_min       = 80e5,
-            P_high_max       = 200e5,
-            m_dot_min        = 10.0,
-            m_dot_max        = 100.0,
-            m_dot_HS_fact_min = 0.1,
-            m_dot_HS_fact_max = 2,
-            spliter_frac_min = 0,
-            spliter_frac_max = 1
-        )
+    case_study = "Comparison"
+    
+    if case_study == "test":
+    
+        n_cores = multiprocessing.cpu_count()
         
-        if Optimizer.params['RC_ARCH'] == "Recomp" or Optimizer.params['RC_ARCH'] == "Recomp_1_recup":
-            Optimizer.set_it_var(P_high=100e5, mdot=20.0, mdot_HS=15.0, spliter_frac = 1)
-        else:
-            Optimizer.set_it_var(P_high=100e5, mdot=20.0, mdot_HS=15.0)
+        import matplotlib.pyplot as plt
+    
+        # ---- sweep ----
+        # T_vec = np.linspace(100, 400, 6) + 273.15
+        T_vec = np.linspace(100, 100, 1) + 273.15
+        ARCH = ['basic', 'REC', 'Recomp_1_recup', 'Recomp']
+        
+        # T_vec = np.array([350]) + 273.15
+    
+        eta_vec      = []
+        P_high_vec   = []
+        m_dot_vec    = []
+        m_dot_HS_vec = []
+        T_h_ex_vec   = []
+        Q_dot_waste  = []
+    
+        W_dot_test = 1e6  # 1 MW target
+    
+        Optimizer = CO2RC_eff_optimizer('CO2')
+    
+        for T in T_vec:
+    
+            Optimizer.set_parameters(
+                RC_ARCH = 'basic',
+    
+                eta_pp  = 0.8,
+                eta_gh  = 0.95,
+                eta_rec = 0.9,
+                eta_rec_HT = 0.9, # Recompression Case
+                eta_exp = 0.9,
+                eta_cp = 0.8,
+    
+                PP_gh   = 5,
+                PP_rec  = 0,
+                PP_cd   = 5,
+                SC_cd   = 0.1,
+    
+                DP_h_gh  = 50e3,
+                DP_c_gh  = 50e3,
+                DP_h_rec = 50e3,
+                DP_c_rec = 50e3,
+                DP_cond  = 50e3,
+    
+                P_high_min       = 80e5,
+                P_high_max       = 200e5,
+                m_dot_min        = 10.0,
+                m_dot_max        = 100.0,
+                m_dot_HS_fact_min = 0.1,
+                m_dot_HS_fact_max = 2,
+                spliter_frac_min = 0,
+                spliter_frac_max = 1
+            )
             
-        Optimizer.set_obj(W_dot=W_dot_test)
+            if Optimizer.params['RC_ARCH'] == "Recomp" or Optimizer.params['RC_ARCH'] == "Recomp_1_recup":
+                Optimizer.set_it_var(P_high=100e5, mdot=20.0, mdot_HS=15.0, spliter_frac = 1)
+            else:
+                Optimizer.set_it_var(P_high=100e5, mdot=20.0, mdot_HS=15.0)
+                
+            Optimizer.set_obj(W_dot=W_dot_test)
+    
+            Optimizer.set_CSource(T=15 + 273.15, P=5e5,  fluid='Water', m_dot=1000.0)
+            Optimizer.set_HSource(T=T, P=10e5, fluid='INCOMP::TVP1', m_dot=50.0)
+    
+            Optimizer.set_RC()
+            Optimizer.opt_RC(n_jobs = n_cores - 1, n_particles=100, max_iter=50, patience = 10)
+    
+            eta_vec.append(Optimizer.eta)
+            P_high_vec.append(Optimizer.it_var['P_high'])
+            m_dot_vec.append(Optimizer.it_var['mdot'])
+            m_dot_HS_vec.append(Optimizer.it_var['mdot_HS'])
+            T_h_ex_vec.append(Optimizer.RC.components['GasHeater'].model.ex_H.T)
+            Q_dot_waste.append(getattr(Optimizer, 'Q_dot_waste', None))
+    
+        # ---- plots ----
+        T_C = T_vec - 273.15
+    
+        fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+    
+        axes[0, 0].plot(T_C, eta_vec, linewidth=2)
+        axes[0, 0].set_title("Efficiency vs Temperature")
+        axes[0, 0].set_xlabel("Temperature (°C)")
+        axes[0, 0].set_ylabel("Efficiency [-]")
+        axes[0, 0].grid(True)
+    
+        axes[0, 1].plot(T_C, [p / 1e5 for p in P_high_vec], linewidth=2)
+        axes[0, 1].set_title("High Pressure vs Temperature")
+        axes[0, 1].set_xlabel("Temperature (°C)")
+        axes[0, 1].set_ylabel("P_high [bar]")
+        axes[0, 1].grid(True)
+    
+        axes[1, 0].plot(T_C, m_dot_vec, linewidth=2)
+        axes[1, 0].set_title("CO2 Mass Flow Rate vs Temperature")
+        axes[1, 0].set_xlabel("Temperature (°C)")
+        axes[1, 0].set_ylabel("ṁ_CO2 [kg/s]")
+        axes[1, 0].grid(True)
+    
+        axes[1, 1].plot(T_C, m_dot_HS_vec, linewidth=2)
+        axes[1, 1].set_title("Heat Source Mass Flow Rate vs Temperature")
+        axes[1, 1].set_xlabel("Temperature (°C)")
+        axes[1, 1].set_ylabel("ṁ_HS [kg/s]")
+        axes[1, 1].grid(True)
+    
+        plt.tight_layout()
+        plt.show()
+    
+        Optimizer.RC.plot_cycle_Ts()
 
-        Optimizer.set_CSource(T=15 + 273.15, P=5e5,  fluid='Water', m_dot=1000.0)
-        Optimizer.set_HSource(T=T,           P=10e5, fluid='Water', m_dot=50.0)
-
-        Optimizer.set_RC()
-        Optimizer.opt_RC(n_jobs = n_cores - 1, n_particles=100, max_iter=50, patience = 10)
-
-        eta_vec.append(Optimizer.eta)
-        P_high_vec.append(Optimizer.it_var['P_high'])
-        m_dot_vec.append(Optimizer.it_var['mdot'])
-        m_dot_HS_vec.append(Optimizer.it_var['mdot_HS'])
-        T_h_ex_vec.append(Optimizer.RC.components['GasHeater'].model.ex_H.T)
-        Q_dot_waste.append(getattr(Optimizer, 'Q_dot_waste', None))
-
-    # ---- plots ----
-    T_C = T_vec - 273.15
-
-    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
-
-    axes[0, 0].plot(T_C, eta_vec, linewidth=2)
-    axes[0, 0].set_title("Efficiency vs Temperature")
-    axes[0, 0].set_xlabel("Temperature (°C)")
-    axes[0, 0].set_ylabel("Efficiency [-]")
-    axes[0, 0].grid(True)
-
-    axes[0, 1].plot(T_C, [p / 1e5 for p in P_high_vec], linewidth=2)
-    axes[0, 1].set_title("High Pressure vs Temperature")
-    axes[0, 1].set_xlabel("Temperature (°C)")
-    axes[0, 1].set_ylabel("P_high [bar]")
-    axes[0, 1].grid(True)
-
-    axes[1, 0].plot(T_C, m_dot_vec, linewidth=2)
-    axes[1, 0].set_title("CO2 Mass Flow Rate vs Temperature")
-    axes[1, 0].set_xlabel("Temperature (°C)")
-    axes[1, 0].set_ylabel("ṁ_CO2 [kg/s]")
-    axes[1, 0].grid(True)
-
-    axes[1, 1].plot(T_C, m_dot_HS_vec, linewidth=2)
-    axes[1, 1].set_title("Heat Source Mass Flow Rate vs Temperature")
-    axes[1, 1].set_xlabel("Temperature (°C)")
-    axes[1, 1].set_ylabel("ṁ_HS [kg/s]")
-    axes[1, 1].grid(True)
-
-    plt.tight_layout()
-    plt.show()
-
-    Optimizer.RC.plot_cycle_Ts()
+    elif case_study == "Comparison":
+        # -*- coding: utf-8 -*-
+        """
+        Script de balayage : efficacité (η) vs température de source chaude,
+        une courbe par architecture de cycle CO2 (basic, REC, Recomp_1_recup, Recomp).
+        
+        Pour chaque (architecture, température), on relance l'optimisation PSO
+        N_RUNS fois (le PSO étant stochastique, plusieurs essais réduisent le
+        risque de rester bloqué dans un optimum local) et on garde le meilleur
+        résultat valide. Si aucun des N_RUNS essais ne produit de solution
+        valide, on enregistre None pour ce point.
+        """
+        
+        import multiprocessing
+        import numpy as np
+        import matplotlib.pyplot as plt
+        
+        n_cores = multiprocessing.cpu_count()
+        
+        # ---- sweep ----
+        T_vec = np.linspace(100, 400, 7) + 273.15
+        ARCH = ['basic', 'REC', 'Recomp_1_recup', 'Recomp']
+        
+        N_RUNS = 5  # nombre d'optimisations par point (arch, T)
+        
+        W_dot_test = 1e6  # 1 MW target
+        
+        # Résultats : dict arch -> liste de eta (ou None) alignée sur T_vec
+        results = {arch: [] for arch in ARCH}
+        
+        # Détail de tous les essais, pour inspection : results_all[arch][i_T] = liste des eta (ou None) des N_RUNS essais
+        results_all = {arch: [] for arch in ARCH}
+        
+        for arch in ARCH:
+            print(f"\n{'='*60}")
+            print(f"  Architecture : {arch}")
+            print(f"{'='*60}")
+        
+            for T in T_vec:
+                print(f"\n--- T = {T-273.15:.1f} °C ---")
+        
+                run_etas = []  # eta valides sur les N_RUNS essais de ce point
+        
+                for run_idx in range(N_RUNS):
+                    print(f"  Run {run_idx+1}/{N_RUNS}...")
+        
+                    eta_run = None
+        
+                    try:
+                        Optimizer = CO2RC_eff_optimizer('CO2')
+        
+                        Optimizer.set_parameters(
+                            RC_ARCH = arch,
+                            eta_pp  = 0.8,
+                            eta_gh  = 0.95,
+                            eta_rec = 0.9,
+                            eta_rec_HT = 0.9,  # utile seulement pour Recomp
+                            eta_exp = 0.9,
+                            eta_cp  = 0.8,
+                            PP_gh   = 5,
+                            PP_rec  = 0,
+                            PP_cd   = 5,
+                            SC_cd   = 0.1,
+                            DP_h_gh  = 50e3,
+                            DP_c_gh  = 50e3,
+                            DP_h_rec = 50e3,
+                            DP_c_rec = 50e3,
+                            DP_cond  = 50e3,
+                            P_high_min       = 80e5,
+                            P_high_max       = 200e5,
+                            m_dot_min        = 5,
+                            m_dot_max        = 100.0,
+                            m_dot_HS_fact_min = 0.01,
+                            m_dot_HS_fact_max = 5,
+                            spliter_frac_min = 0,
+                            spliter_frac_max = 1
+                        )
+        
+                        if arch in ("Recomp", "Recomp_1_recup"):
+                            Optimizer.set_it_var(P_high=100e5, mdot=20.0, mdot_HS=15.0, spliter_frac=1)
+                        else:
+                            Optimizer.set_it_var(P_high=100e5, mdot=20.0, mdot_HS=15.0)
+        
+                        Optimizer.set_obj(W_dot=W_dot_test)
+                        Optimizer.set_CSource(T=15 + 273.15, P=5e5,  fluid='Water', m_dot=1000.0)
+                        Optimizer.set_HSource(T=T, P=10e5, fluid='INCOMP::TVP1', m_dot=50.0)
+                        Optimizer.set_RC()
+                        Optimizer.opt_RC(n_jobs=n_cores - 1, n_particles=50, max_iter=100, patience=10)
+        
+                        eta = getattr(Optimizer, 'eta', None)
+        
+                        # Validation : eta doit être un nombre fini et physiquement sensé
+                        if eta is not None and np.isfinite(eta) and 0 < eta < 1:
+                            eta_run = eta
+                            print(f"    -> eta = {eta:.4f}")
+                        else:
+                            print(f"    ⚠️ Pas de solution valide (eta={eta})")
+        
+                    except Exception as e:
+                        print(f"    ⚠️ Échec : {e}")
+                        eta_run = None
+        
+                    run_etas.append(eta_run)
+        
+                results_all[arch].append(run_etas)
+        
+                # Meilleur résultat valide sur les N_RUNS essais
+                valid_etas = [e for e in run_etas if e is not None]
+                best_eta = max(valid_etas) if valid_etas else None
+        
+                if best_eta is not None:
+                    print(f"  ✅ Meilleur eta sur {N_RUNS} essais : {best_eta:.4f}")
+                else:
+                    print(f"  ⚠️ Aucune solution valide sur {N_RUNS} essais")
+        
+                results[arch].append(best_eta)
+        
+        # ---- Affichage récapitulatif ----
+        print(f"\n{'='*60}")
+        print("  RÉSUMÉ (meilleur eta par point)")
+        print(f"{'='*60}")
+        for arch in ARCH:
+            print(f"{arch:20s} : {results[arch]}")
+        
+        # ---- Plot ----
+        T_C = T_vec - 273.15
+        
+        plt.figure(figsize=(9, 6))
+        
+        for arch in ARCH:
+            eta_arr = np.array([np.nan if v is None else v for v in results[arch]], dtype=float)
+            plt.plot(T_C, eta_arr, marker='o', linewidth=2, label=arch)
+        
+        plt.title(f"Efficacité du cycle vs température (meilleur de {N_RUNS} essais)")
+        plt.xlabel("Température source chaude [°C]")
+        plt.ylabel("Efficacité η [-]")
+        plt.grid(True)
+        plt.legend(title="Architecture")
+        plt.tight_layout()
+        plt.show()
+        
+        

@@ -12,6 +12,7 @@ Modification w/r to previous version:
 """
 
 from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
+import numpy as np 
 
 #%%
 
@@ -61,7 +62,8 @@ if test_case == "test_CO2":
               'R_p': 1, # n_hot_channel_row / n_cold_channel_row
               't_2': 0.63*1e-3, # Horizontal pitch
               't_3': 1*1e-3, # Plate thickness
-              'type_channel' : 'Zigzag'} 
+              'type_channel' : 'Zigzag',
+              'n_series' : 2} 
     
     Corr_H = {"SC" : "Gnielinski", "1P" : "Gnielinski"}
     Corr_C = {"SC" : "Gnielinski", "1P" : "Gnielinski"}
@@ -77,7 +79,7 @@ if test_case == "test_CO2":
     
     HX.set_parameters(
         alpha = params['alpha'], C_V_tot = params['C_V_tot'], H_V_tot = params['H_V_tot'], D_c = params['D_c'], k_cond = params['k_cond'], L_c = params['L_c'], 
-        N_c = params['N_c'], N_p = params['N_p'], R_p = params['R_p'], t_2 = params['t_2'], t_3 = params['t_3'], type_channel = params['type_channel'],
+        N_c = params['N_c'], N_p = params['N_p'], R_p = params['R_p'], t_2 = params['t_2'], t_3 = params['t_3'], type_channel = params['type_channel'], n_series = params['n_series'],      
         
         Flow_Type = 'CounterFlow', H_DP_ON = True, C_DP_ON = True, n_disc = 50) # 27
 
@@ -110,7 +112,8 @@ if test_case == "TCO2_recup":
               't_2': 0.0012282802564224898, # Horizontal pitch
               't_3': 0.0009428803890487963, # Plate_thickness
               'type_channel' : 'Zigzag',
-              "AS_Type" : "HEOS"} 
+              "AS_Type" : "HEOS",
+              } 
 
     Corr_H = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
     Corr_C = {"1P" : "Gnielinski", "SC" : "Gnielinski"}

@@ -713,7 +713,7 @@ if __name__ == "__main__":
     # ---- sweep ----
     T_vec = np.linspace(200, 200, 1) + 273.15
 
-    n_MW = 1 # W
+    n_MW = 10 # W
     W_dot_obj = n_MW*1e6 # W
     
     eta_obj = 0.15
@@ -738,7 +738,7 @@ if __name__ == "__main__":
     for T in T_vec:
 
         Optimizer.set_parameters(            
-            RC_ARCH= 'Recomp_1_recup', # 'basic', 'REC', 'Recomp_1_recup', 'Recomp'
+            RC_ARCH= 'REC', # 'basic', 'REC', 'Recomp_1_recup', 'Recomp'
             
             # Pump
             eta_pp=0.85,
