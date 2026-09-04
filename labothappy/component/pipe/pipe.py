@@ -25,11 +25,14 @@ class Pipe(BaseComponent):
     def get_required_inputs(self):
         return ['P_su', 'h_su', 'm_dot', 'fluid']
 
-    def add_straight(self, D, L, K=0.0, theta=0.0):
+    def add_straight(self, D, L, K=0.0, theta=0.0, two_phase_correlation='Friedel', one_phase_correlation='Churchill', void_fraction_model='Zivi'):
         """Add a straight pipe section."""
         self.segments.append({
             'type': 'straight',
-            'D': D, 'L': L, 'K': K, 'theta': theta
+            'D': D, 'L': L, 'K': K, 'theta': theta,
+            'two_phase_correlation': two_phase_correlation,
+            'one_phase_correlation': one_phase_correlation,
+            'void_fraction_model': void_fraction_model
         })
         return self  # ← Returns the Pipe object itself for chaining
 
@@ -50,13 +53,18 @@ class Pipe(BaseComponent):
         current_state = self.su
         
         self.components = []
-        self.m_charge = 0.0
+        self.charge = 0.0
         self.dP_total = 0.0
         
         for i, seg in enumerate(self.segments):
             if seg['type'] == 'straight':
                 component = StraightPipe()
-                component.set_parameters(D=seg['D'], L=seg['L'], K=seg['K'], theta=seg['theta'])
+                component.set_parameters(
+                    D=seg['D'], L=seg['L'], K=seg['K'], theta=seg['theta'],
+                    two_phase_correlation=seg['two_phase_correlation'],
+                    one_phase_correlation=seg['one_phase_correlation'],
+                    void_fraction_model=seg['void_fraction_model']
+                )
             elif seg['type'] == 'curved_elbow':
                 component = CurvedElbow()
                 component.set_parameters(D=seg['D'], delta=seg['delta'], R0=seg['R0'])
@@ -69,7 +77,7 @@ class Pipe(BaseComponent):
             current_state = component.ex
             
             # Accumulate
-            self.m_charge += component.m_charge
+            self.charge += component.charge
             self.dP_total += component.dP
             self.components.append(component)
 
@@ -97,7 +105,7 @@ class Pipe(BaseComponent):
             print(f"{i+1:<10} {seg_type:<12} {dp:<15.2f} {charge:<15.6f}")
         
         print("-" * 70)
-        print(f"{'TOTAL':<10} {'':<12} {self.deltaP_total:<15.2f} {self.m_charge:<15.6f}")
+        print(f"{'TOTAL':<10} {'':<12} {self.dP_total:<15.2f} {self.charge:<15.6f}")
         print("=" * 70)
 
 

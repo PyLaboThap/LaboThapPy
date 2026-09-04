@@ -9,7 +9,7 @@ from labothappy.correlations.pressure_drop.pipe_DP import (
     pressure_drop_pipe_single_phase,
     pressure_drop_pipe_two_phase,
 )
-from labothappy.correlations.properties.two_phase import compute_two_phase_density
+from labothappy.correlations.properties.two_phase import compute_two_phase_density, get_saturated_phase_properties
 from labothappy.correlations.void_fraction.void_fraction import compute_void_fraction
 
 PI = math.pi
@@ -42,8 +42,12 @@ class StraightPipe(BaseComponent):
         Absolute surface roughness [m]. Default: 0 (smooth pipe)
     theta : float, optional
         Pipe inclination angle [deg]. Default: 0 (horizontal)
+    one_phase_correlation : str, optional
+        'Churchill' or 'Swamee-Jain'. Default: 'Churchill'
     two_phase_correlation : str, optional
-        'friedel' or 'msh' (Müller-Steinhagen & Heck). Default: 'friedel'
+        'friedel' or 'Muller-Steinhagen & Heck'. Default: 'friedel'
+    void_fraction_model : str, optional
+        See list of void fraction models. Default: 'Zivi'
 
     **Inputs**
     ----------
@@ -111,7 +115,8 @@ class StraightPipe(BaseComponent):
         rho_su = self.AS.rhomass()
         A_cross = PI * self.params['D']**2 / 4  # Cross-sectional area [m²]
 
-        self.dP = pressure_drop_pipe_single_phase(self.AS, self.params, self.su.m_dot, correlation='Churchill')
+        one_phase_correlation = self.params.get('one_phase_correlation', 'Churchill')  # Default to Churchill correlation
+        self.dP = pressure_drop_pipe_single_phase(self.AS, self.params, self.su.m_dot, correlation=one_phase_correlation)
 
         self.ex.set_fluid(self.su.fluid)
         self.ex.set_m_dot(self.su.m_dot)
@@ -122,7 +127,7 @@ class StraightPipe(BaseComponent):
 
         # Charge inventory using mean density
         rho_mean = (rho_su + self.rho_ex) / 2.0
-        self.m_charge = A_cross * self.params['L'] * rho_mean
+        self.charge = A_cross * self.params['L'] * rho_mean
 
         self.velocity = self.su.m_dot / (rho_su * A_cross)
         self.quality = None
@@ -130,24 +135,21 @@ class StraightPipe(BaseComponent):
 
     def _solve_two_phase(self, x):
         """Solve two-phase pressure drop using Friedel."""
-
-        # Get saturation properties at inlet pressure (for charge inventory)
-        AS_sat_l = CP.AbstractState('HEOS', self.su.fluid)
-        AS_sat_l.update(CP.PQ_INPUTS, self.su.p, 0.0)  # Quality = 0 (saturated liquid)
-
-        AS_sat_g = CP.AbstractState('HEOS', self.su.fluid)
-        AS_sat_g.update(CP.PQ_INPUTS, self.su.p, 1.0)  # Quality = 1 (saturated vapor)
-
-        rho_l = AS_sat_l.rhomass()
-        rho_g = AS_sat_g.rhomass()
+        props = get_saturated_phase_properties(self.AS)
+        rho_l = props["rho_l"]
+        rho_v = props["rho_v"]
 
         # Compute void fraction and mass inventory at the inlet state, before
         # pressure_drop_pipe_two_phase advances self.AS to the outlet state.
-        alpha = compute_void_fraction(self.AS, self.params, self.su.m_dot, void_fraction_model='Zivi')
-        rho_tp = compute_two_phase_density(x, rho_l, rho_g, alpha)
-        self.m_charge = rho_tp * self.params['L'] * (PI * self.params['D']**2 / 4)
+        void_fraction_model = self.params.get('void_fraction_model', 'Zivi')  # Default to Zivi model
+        alpha = compute_void_fraction(self.AS, self.params, self.su.m_dot, void_fraction_model=void_fraction_model)
+        rho_tp = compute_two_phase_density(x, rho_l, rho_v, alpha)
+        self.charge = rho_tp * self.params['L'] * (PI * self.params['D']**2 / 4)
 
-        self.dP = pressure_drop_pipe_two_phase(self.AS, self.params, self.su.m_dot)
+        two_phase_correlation = self.params.get('two_phase_correlation', 'Friedel') 
+        self.dP = pressure_drop_pipe_two_phase(
+            self.AS, self.params, self.su.m_dot, correlation=two_phase_correlation
+        )
 
         self.ex.set_fluid(self.su.fluid)
         self.ex.set_m_dot(self.su.m_dot)
@@ -156,7 +158,6 @@ class StraightPipe(BaseComponent):
 
         self.quality = x
         self.void_fraction = alpha
-
 
 
     def print_results(self):
@@ -171,13 +172,13 @@ class StraightPipe(BaseComponent):
             # Single-phase
             print(f"\nSINGLE-PHASE FLOW")
             print(f"Velocity          : {self.velocity:.2f} m/s")
-            print(f"Mass inventory    : {self.m_charge:.4f} kg")
+            print(f"Mass inventory    : {self.charge:.4f} kg")
         else:
             # Two-phase
             print(f"\nTWO-PHASE FLOW")
             print(f"Quality x         : {self.quality:.4f}")
             print(f"Void fraction α   : {self.void_fraction:.4f}")
-            print(f"Mass inventory    : {self.m_charge:.4f} kg")
+            print(f"Mass inventory    : {self.charge:.4f} kg")
         
         print(f"Pressure drop ΔP  : {self.dP:.2f} Pa")
         print("=" * 60)
