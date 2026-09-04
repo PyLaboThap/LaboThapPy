@@ -1942,7 +1942,6 @@ class HexMBChargeSensitive(BaseComponent):
             self.AS_H = CP.AbstractState("INCOMP", self.H_su.fluid)
         else:
             if 'AS_Type' in self.params:
-                # print("OH")
                 if self.params['AS_Type'] == 'HEOS':
                     self.AS_H = CP.AbstractState("HEOS", self.H_su.fluid)  
                 else:
@@ -2200,6 +2199,7 @@ class HexMBChargeSensitive(BaseComponent):
     def objective_function(self, Q, only_external = False):
         
         # print(self.Qmax)
+        # print(Q)
         
         "0) Initialize cell boundaries and results vectors"
         

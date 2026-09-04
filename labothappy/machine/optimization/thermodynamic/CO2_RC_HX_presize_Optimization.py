@@ -81,7 +81,8 @@ def system_RC_parallel(x, input_data):
             DP_c_rec  = params.get('DP_c_rec',  0e5),
             DP_h_gh   = params.get('DP_h_gh',   0e5),
             DP_c_gh   = params.get('DP_c_gh',   0e5),
-            DP_h_cond = params.get('DP_cond',   0e5),
+            DP_h_cond = params.get('DP_h_cond', 0e5),   
+            DP_c_cond = params.get('DP_c_cond', 0e5),  
             mute_print_flag=1)
 
     elif arch == 'basic':
@@ -92,7 +93,8 @@ def system_RC_parallel(x, input_data):
             P_low_guess, P_high, m_dot,
             DP_h_gh   = params.get('DP_h_gh',   0e5),
             DP_c_gh   = params.get('DP_c_gh',   0e5),
-            DP_h_cond = params.get('DP_cond',   0e5),
+            DP_h_cond = params.get('DP_h_cond', 0e5),
+            DP_c_cond = params.get('DP_c_cond', 0e5),  
             mute_print_flag=1)
 
     elif arch == "Recomp":
@@ -107,7 +109,8 @@ def system_RC_parallel(x, input_data):
             DP_c_rec  = params.get('DP_c_rec',  0e5),
             DP_h_gh   = params.get('DP_h_gh',   0e5),
             DP_c_gh   = params.get('DP_c_gh',   0e5),
-            DP_h_cond = params.get('DP_cond',   0e5),
+            DP_h_cond = params.get('DP_h_cond', 0e5),   
+            DP_c_cond = params.get('DP_c_cond', 0e5),  
             mute_print_flag=1)
 
     elif arch == "Recomp_1_recup":
@@ -122,7 +125,8 @@ def system_RC_parallel(x, input_data):
             DP_c_rec  = params.get('DP_c_rec',  0e5),
             DP_h_gh   = params.get('DP_h_gh',   0e5),
             DP_c_gh   = params.get('DP_c_gh',   0e5),
-            DP_h_cond = params.get('DP_cond',   0e5),
+            DP_h_cond = params.get('DP_h_cond', 0e5),   
+            DP_c_cond = params.get('DP_c_cond', 0e5),  
             mute_print_flag=1)
 
     try:
@@ -365,7 +369,8 @@ class CO2RC_HX_optimizer:
                 DP_c_rec  = self.params.get('DP_c_rec',  0e5),
                 DP_h_gh   = self.params.get('DP_h_gh',   0e5),
                 DP_c_gh   = self.params.get('DP_c_gh',   0e5),
-                DP_h_cond = self.params.get('DP_cond',   0e5),
+                DP_h_cond = self.params.get('DP_h_cond',   0e5),
+                DP_c_cond = self.params.get('DP_c_cond',   0e5),
                 mute_print_flag=1,
             )
         elif arch == 'basic':
@@ -377,7 +382,8 @@ class CO2RC_HX_optimizer:
                 P_low_guess, self.it_var['P_high'], self.it_var['mdot'],
                 DP_h_gh   = self.params.get('DP_h_gh',   0e5),
                 DP_c_gh   = self.params.get('DP_c_gh',   0e5),
-                DP_h_cond = self.params.get('DP_cond',   0e5),
+                DP_h_cond = self.params.get('DP_h_cond',   0e5),
+                DP_c_cond = self.params.get('DP_c_cond',   0e5),
                 mute_print_flag=1,
             )
         elif arch == 'Recomp':
@@ -392,7 +398,8 @@ class CO2RC_HX_optimizer:
                 DP_c_rec  = self.params.get('DP_c_rec',  0e5),
                 DP_h_gh   = self.params.get('DP_h_gh',   0e5),
                 DP_c_gh   = self.params.get('DP_c_gh',   0e5),
-                DP_h_cond = self.params.get('DP_cond',   0e5),
+                DP_h_cond = self.params.get('DP_h_cond',   0e5),
+                DP_c_cond = self.params.get('DP_c_cond',   0e5),
                 mute_print_flag=1)
         elif arch == 'Recomp_1_recup':
             self.RC = Recomp_CO2_TC_1_recup(
@@ -406,7 +413,8 @@ class CO2RC_HX_optimizer:
                 DP_c_rec  = self.params.get('DP_c_rec',  0e5),
                 DP_h_gh   = self.params.get('DP_h_gh',   0e5),
                 DP_c_gh   = self.params.get('DP_c_gh',   0e5),
-                DP_h_cond = self.params.get('DP_cond',   0e5),
+                DP_h_cond = self.params.get('DP_h_cond',   0e5),
+                DP_c_cond = self.params.get('DP_c_cond',   0e5),
                 mute_print_flag=1)
         else:
             raise ValueError("'RC_ARCH' parameter shall be either 'basic', 'REC', 'Recomp', 'Recomp_1_recup'")

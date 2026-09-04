@@ -1314,7 +1314,7 @@ if __name__ == "__main__":
 
     HX_test = ShellAndTubeSizingOpt()
 
-    test_case = "Methanol"
+    test_case = "CO2_CD"
 
     n_disc = 5
     Tube_t_flag = True
@@ -1424,7 +1424,7 @@ if __name__ == "__main__":
                                 29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
                             'Tube_pass' : [1,2,4],
                             'tube_layout' : [0,45,60],
-                            'n_parallel' : [1,2,3]} 
+                            'n_parallel' : [1,2,3,4,6,8,10,12,14,16,20]} 
     
         HX_test.set_inputs(
             fluid_H = 'CO2',
@@ -1435,7 +1435,7 @@ if __name__ == "__main__":
             fluid_C = 'Water',
             T_su_C = 0.1 + 273.15, # K
             P_su_C = 5*1e5, # Pa
-            m_dot_C = 2000, # kg/s
+            m_dot_C = 4500, # kg/s
             )
     
         HX_test.set_parameters(

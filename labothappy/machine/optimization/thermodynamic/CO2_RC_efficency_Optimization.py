@@ -731,11 +731,14 @@ if __name__ == "__main__":
                             PP_rec  = 0,
                             PP_cd   = 5,
                             SC_cd   = 0.1,
+                            
                             DP_h_gh  = 50e3,
                             DP_c_gh  = 50e3,
                             DP_h_rec = 50e3,
                             DP_c_rec = 50e3,
-                            DP_cond  = 50e3,
+                            DP_h_cond  = 50e3,
+                            DP_c_cond  = 50e3,
+                            
                             P_high_min       = 80e5,
                             P_high_max       = 200e5,
                             m_dot_min        = 5,

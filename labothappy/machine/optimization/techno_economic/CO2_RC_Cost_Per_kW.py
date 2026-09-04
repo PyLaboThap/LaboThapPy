@@ -42,7 +42,7 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
         )
     
         REC_sizing.set_parameters(
-            k_cond=20, R_p=1, n_disc=100,
+            k_cond=20, R_p=1, n_disc=30,
             Flow_Type='CounterFlow', H_DP_ON=True, C_DP_ON=True,
         )
     
@@ -143,8 +143,8 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
         return RC, 0, "Fail"
 
     # --- Condenser ---
+    CD_model = RC.components['Condenser'].model
     try:
-        CD_model = RC.components['Condenser'].model
         CD_sizing = RC.components['Condenser'].sizing = ShellAndTubeSizingOpt()
     
         choice_vectors = {
@@ -196,11 +196,22 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
     
         CD_sizing.sizing(n_particles=100, max_iterations=50, obj='mass', print_flag=0)
     
-        if REC_sizing.score == 1000000:
-            raise ValueError("Recuperator Sizing did not Converge")
+        if CD_sizing.score == 1000000:
+            raise ValueError("Condenser Sizing did not Converge")
+
+        if CD_sizing.score >= 1000000:
+            raise ValueError("Condenser Sizing did not Satsify the constraints")
 
     except Exception as e:
         print(f"⚠️ Failed to design Condenser: {e}")
+        
+        CD_model.su_H.print_resume()
+        CD_model.su_C.print_resume()
+
+        print(f"Q_dot_cstr : {CD_model.Q.Q_dot}")
+        print(f"DP_h_cstr : {CD_model.DP_h}")
+        print(f"DP_c_cstr : {CD_model.DP_c}")
+        
         return RC, 0, "Fail"
 
     # --- Pump ---
@@ -517,7 +528,7 @@ if __name__ == "__main__":
 
     m_dot_HS_fact_bounds = [0.5, 2]
     m_dot_CS_fact_bounds = [5, 15]
-    P_high_bounds = np.array([110, 180]) * 1e5
+    P_high_bounds = np.array([110, 150]) * 1e5
     m_dot_bounds = np.array([10, 40]) * n_MW
 
     eta_gh_disc = np.arange(0.9, 0.98, 0.02)
@@ -542,18 +553,18 @@ if __name__ == "__main__":
     )
 
     if Optimizer.params['RC_ARCH'] == "Recomp":
-        Optimizer.set_it_var(P_high=140e5, mdot=20.0*n_MW, mdot_HS=15.0*n_MW, spliter_frac = 0.9, eta_gh=0.95, PP_gh=5, eta_rec_LT=0.8, eta_rec_HT=0.8, PP_cd=5, mdot_CS=200*n_MW)
+        Optimizer.set_it_var(P_high=140e5, mdot=20.0*n_MW, mdot_HS=15.0*n_MW, spliter_frac = 0.9, eta_gh=0.95, PP_gh=5, eta_rec_LT=0.8, eta_rec_HT=0.8, PP_cd=5, mdot_CS=100*n_MW)
     elif Optimizer.params['RC_ARCH'] == "Recomp_1_recup":
-        Optimizer.set_it_var(P_high=100e5, mdot=20.0*n_MW, mdot_HS=15.0*n_MW, spliter_frac = 1, eta_gh=0.95, PP_gh=5, eta_rec=0.8, PP_cd=5, mdot_CS=200*n_MW)
+        Optimizer.set_it_var(P_high=100e5, mdot=20.0*n_MW, mdot_HS=15.0*n_MW, spliter_frac = 1, eta_gh=0.95, PP_gh=5, eta_rec=0.8, PP_cd=5, mdot_CS=100*n_MW)
     elif Optimizer.params['RC_ARCH'] == "REC":
-        Optimizer.set_it_var(P_high=100e5, mdot=20.0*n_MW, mdot_HS=15.0*n_MW, eta_gh=0.95, PP_gh=5, eta_rec=0.8, PP_cd=5, mdot_CS=200*n_MW)
+        Optimizer.set_it_var(P_high=100e5, mdot=20.0*n_MW, mdot_HS=15.0*n_MW, eta_gh=0.95, PP_gh=5, eta_rec=0.8, PP_cd=5, mdot_CS=100*n_MW)
     elif Optimizer.params['RC_ARCH'] == "basic":
-        Optimizer.set_it_var(P_high=100e5, mdot=20.0*n_MW, mdot_HS=15.0*n_MW, eta_gh=0.95, PP_gh=5, PP_cd=5, mdot_CS=200*n_MW)
+        Optimizer.set_it_var(P_high=100e5, mdot=20.0*n_MW, mdot_HS=15.0*n_MW, eta_gh=0.95, PP_gh=5, PP_cd=5, mdot_CS=100*n_MW)
 
     Optimizer.set_obj(W_dot=W_dot_obj, eta=eta_obj)
 
     Optimizer.set_CSource(T=15 + 273.15, P=5e5,  fluid='Water', m_dot=1000.0)
-    Optimizer.set_HSource(T=T_test,           P=100e5, fluid='Water', m_dot=50.0)
+    Optimizer.set_HSource(T=T_test,      P=100e5, fluid='Water', m_dot=50.0)
 
     Optimizer.set_RC()
-    Optimizer.cycle_design(ntop=5, n_particles=100, n_jobs=-1)
+    Optimizer.cycle_design(ntop=10, n_particles=100, n_jobs=-1, patience = 30)

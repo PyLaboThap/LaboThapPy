@@ -167,10 +167,10 @@ def thome_condensation(AS, D_i, G, P_sat, T_sat, T_wall, x):
     -------
     h_tp : Condensing heat transfer coefficient
     """
-    
-    from labothappy.correlations.void_fraction.void_fraction_old import void_fraction
+
+    from labothappy.correlations.void_fraction.void_fraction import compute_void_fraction
     g = 9.81 # m/s^2
-    
+
     # Flow Area
     r = D_i/2
     A = np.pi*r**2
@@ -192,11 +192,11 @@ def thome_condensation(AS, D_i, G, P_sat, T_sat, T_wall, x):
     h_G = AS.hmass()
 
     # Void Fraction
-    eps = void_fraction(x, rho_G, rho_L)[0]
+    eps = compute_void_fraction(AS, params={}, void_fraction_model="Cioncolini-Thome")
     A_L = (1-eps)*A
-    
+        
     # Liquid and vapor phase flow speeds
-    if eps != 1:    
+    if eps < 0.999: 
         u_L = G*(1-x)/(rho_L*(1-eps))
     else:
         u_L = G/rho_L
@@ -228,7 +228,7 @@ def thome_condensation(AS, D_i, G, P_sat, T_sat, T_wall, x):
         Re_L = (4*G*(1-x)*delta)/((1-eps)*mu_L)
     else:
         Re_L = 0
-        
+
     f_i = 1 + (u_G/u_L)**0.5 * ((rho_L-rho_G)*g*delta**2 / sigma)**0.25
     
     if delta != 0:
@@ -242,7 +242,7 @@ def thome_condensation(AS, D_i, G, P_sat, T_sat, T_wall, x):
         
     h_tp = (h_f*r*theta + (2*np.pi - theta)*r*h_c)/(2*np.pi*r)       
         
-    return  h_tp
+    return h_tp
 
 
 def horizontal_tube_internal_condensation(fluid,m_dot,P_sat,x_in,T_w,D_in):

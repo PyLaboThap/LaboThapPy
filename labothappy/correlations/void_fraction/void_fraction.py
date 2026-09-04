@@ -833,6 +833,7 @@ def compute_void_fraction(AS, params, m_dot = None, void_fraction_model='Homogen
     float
         Void fraction [-]
     """
+    
     x = AS.Q()
     x = max(EPS, min(1.0 - EPS, x))
 
