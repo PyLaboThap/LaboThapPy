@@ -5,7 +5,7 @@ import numpy as np
 from labothappy.component.base_component import BaseComponent
 from labothappy.connector.mass_connector import MassConnector
 
-from correlations. pressure_drop.local_losses.curved_elbow import pressure_drop_curved_elbow
+from correlations.pressure_drop.local_losses.curved_elbow import pressure_drop_curved_elbow
 from correlations.properties.dimensionless import compute_reynolds
 from labothappy.correlations.void_fraction.void_fraction import compute_void_fraction
 
@@ -109,10 +109,9 @@ class CurvedElbow(BaseComponent):
         # Bend geometry
         delta_rad = self.params['delta'] * np.pi / 180
         R0 = self.params['R0']
-        K = self.params.get('K', 0.0)
 
         # Pressure drop
-        self.dP = pressure_drop_curved_elbow(self.params['D'], R0, delta_rad, K, rho_su, mu, self.su.m_dot)
+        self.dP = pressure_drop_curved_elbow(self.AS, self.params, self.su.m_dot)
 
         # Set outlet
         self.ex.set_fluid(self.su.fluid)
@@ -160,11 +159,10 @@ class CurvedElbow(BaseComponent):
         # Bend geometry
         delta_rad = self.params['delta'] * np.pi / 180
         R0 = self.params['R0']
-        K = self.params.get('K', 0.0)
 
         # Pressure drop
         mu = AS_sat_l.viscosity()
-        self.dP = pressure_drop_curved_elbow(self.params['D'], R0, delta_rad, K, rho_h, mu, self.su.m_dot)
+        self.dP = pressure_drop_curved_elbow(self.AS, self.params, self.su.m_dot)
 
         # Set outlet
         self.ex.set_fluid(self.su.fluid)

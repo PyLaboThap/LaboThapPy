@@ -685,7 +685,7 @@ def void_fraction_dix(rho_l, rho_v, x, G, sigma):
 # Woldesemayat Ghajar void fraction model (Drift-flux correlations)
 #======================================================================
 
-def void_fraction_woldesemayat_ghajar(rho_l, rho_v, x, G, sigma, D, P, theta=np.pi/2):
+def void_fraction_woldesemayat_ghajar(rho_l, rho_v, x, G, sigma, D, P, theta=90.0):
     """
     Woldesemayat and Ghajar (2007) void fraction correlation (drift-flux method).
     
@@ -718,7 +718,7 @@ def void_fraction_woldesemayat_ghajar(rho_l, rho_v, x, G, sigma, D, P, theta=np.
     P : float
         System pressure [Pa].
     theta : float, optional
-        Pipe inclination angle from horizontal [rad], default pi/2
+        Pipe inclination angle from horizontal [deg], default 90
         (vertical). theta=0 is horizontal.
 
     Returns
@@ -743,14 +743,16 @@ def void_fraction_woldesemayat_ghajar(rho_l, rho_v, x, G, sigma, D, P, theta=np.
     upward inclined pipes." International Journal of Multiphase Flow,
     33, pp. 347-370.
     """
+    theta_rad = np.radians(theta)
+
     J_l = (1 - x) * G / rho_l
     J_v = x * G / rho_v
 
     n = (rho_v / rho_l) ** 0.1
     C0 = J_v / (J_l + J_v) * (1 + (J_l / J_v) ** n)
 
-    V_drift = (2.9 * ((G_GRAVITY * sigma * D * (1 + np.cos(theta)) * (rho_l - rho_v)) / (rho_l ** 2)) ** 0.25
-                   * (1.22 + 1.22 * np.sin(theta)) ** (101325 / P))
+    V_drift = (2.9 * ((G_GRAVITY * sigma * D * (1 + np.cos(theta_rad)) * (rho_l - rho_v)) / (rho_l ** 2)) ** 0.25
+                   * (1.22 + 1.22 * np.sin(theta_rad)) ** (101325 / P))
 
     alpha = J_v / (C0 * (J_l + J_v) + V_drift)
 
@@ -909,7 +911,7 @@ def compute_void_fraction(AS, params, m_dot = None, void_fraction_model='Homogen
         A_cross = PI * d_hyd ** 2 / 4.0
         G = m_dot / A_cross  # kg/(m²·s)
         sigma = AS.surface_tension()
-        theta = params.get('theta', np.pi / 2)
+        theta = params.get('theta', 90.0)
         alpha = void_fraction_woldesemayat_ghajar(rho_l, rho_v, x, G, sigma, d_hyd, P, theta)
 
     elif void_fraction_model == 'Cioncolini-Thome':
