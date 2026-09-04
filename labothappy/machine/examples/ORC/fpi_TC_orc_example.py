@@ -117,7 +117,7 @@ def REC_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp, eta_exp, e
     # Recuperator PARAMETERS
     
     Rec.set_parameters(**{
-        'eta_max': eta_rec, 'n_disc' : 50, 'Pinch_min' : Pinch_min_REC, 'DP_h' : DP_h_rec, 'DP_c' : DP_c_rec,
+        'eta_max': eta_rec, 'n_disc' : 100, 'Pinch_min' : Pinch_min_REC, 'DP_h' : DP_h_rec, 'DP_c' : DP_c_rec,
     })    
     
     # GASCOOLER PARAMETERS

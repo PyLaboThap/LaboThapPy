@@ -5,7 +5,7 @@ import CoolProp.CoolProp as CP
 from labothappy.correlations.turbomachinery.correlations_0D import cordier_line
 from labothappy.toolbox.economics.cpi_data import actualize_price
 
-class RadialPumpODDesign():
+class RadialPumpODSizing():
     
     def __init__(self, fluid):
         
@@ -25,7 +25,14 @@ class RadialPumpODDesign():
     def set_parameters(self, **parameters):
             for key, value in parameters.items():
                 self.params[key] = value
-               
+                
+    def set_bounds(self, bounds, choice_vectors=None):
+        for key, value in bounds.items():
+            self.bounds[key] = value
+        if choice_vectors:
+            self.set_choice_vectors(choice_vectors)
+        return
+        
     #%% CORDIER LINE
     def cordier_line(self):
         # x = specific speed, y = specific diameter
@@ -272,7 +279,7 @@ class RadialPumpODDesign():
             "CAPEX": self.CAPEX,
         }
     
-    def design(self):
+    def sizing(self):
         
         self.eta_matrix = np.zeros([len(self.params["n_parallel_choices"]), len(self.params['Omega_choices'])])
         self.cost_matrix = np.zeros([len(self.params["n_parallel_choices"]), len(self.params['Omega_choices'])])
@@ -321,7 +328,7 @@ if __name__ == "__main__":
         n_parallel_choices = np.array([1, 2, 3, 4, 5, 6, 7, 8])
         )
     
-    PP_des.design()
+    PP_des.sizing()
     
     # val = PP_des.pump_efficiency_0D_estimation(omega_s=55.0, Q_pp=500.0)
     

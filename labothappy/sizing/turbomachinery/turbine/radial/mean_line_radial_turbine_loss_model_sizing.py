@@ -758,7 +758,7 @@ class RadialTurbineMeanLineSizing(object):
         
 #%%
 
-    def sizing(self):
+    def opt_size(self):
         bounds = (np.array([
             self.bounds['psi_bounds'][0],
             self.bounds['phi_bounds'][0],
@@ -843,7 +843,7 @@ class RadialTurbineMeanLineSizing(object):
             
         return best_pos
 
-    def sizing_parallel(self, n_jobs=-1, backend="loky", chunksize="auto", n_particles = 20, max_iter=50):
+    def sizing(self, n_jobs=-1, backend="loky", chunksize="auto", n_particles = 20, max_iter=50):
         os.environ["PYTHONWARNINGS"] = "ignore" 
         
         bounds = (np.array([

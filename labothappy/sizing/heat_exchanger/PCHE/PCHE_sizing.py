@@ -197,25 +197,32 @@ class PCHESizingOpt(BaseComponent):
         rho_mat = 7850 # kg/m^3
         self.m_HX = self.params['n_parallel']*rho_mat*(self.params['L_x'] * self.params['L_y'] * self.params['L_z'] - (self.params['C_V_tot'] + self.params['H_V_tot']))
         
-        # Penalties 
-        if self.Q_dot_constr:
-            self.pen_Q = pen_Q = max(self.Q_dot_constr - self.HX.Q.Q_dot,0)
-        else:
-            pen_Q = 0
-        
-        if self.DP_h_constr:
-            self.pen_DP_h = pen_DP_h = max(self.HX.DP_h - self.DP_h_constr,0)
-        else:
-            pen_DP_h = 0
+        try:
+            # Penalties 
+            if self.Q_dot_constr:
+                self.pen_Q = pen_Q = max(self.Q_dot_constr - self.HX.Q.Q_dot,0)
+            else:
+                pen_Q = 0
             
-        if self.DP_c_constr:
-            self.pen_DP_c = pen_DP_c = max(self.HX.DP_c - self.DP_c_constr,0)
-        else:
-            pen_DP_c = 0
-        
-        self.penalty = PF*(abs(pen_DP_c) + abs(pen_DP_h) + abs(pen_Q))
-        
-        self.score = self.m_HX + self.penalty
+            if self.DP_h_constr:
+                self.pen_DP_h = pen_DP_h = max(self.HX.DP_h - self.DP_h_constr,0)
+            else:
+                pen_DP_h = 0
+                
+            if self.DP_c_constr:
+                self.pen_DP_c = pen_DP_c = max(self.HX.DP_c - self.DP_c_constr,0)
+            else:
+                pen_DP_c = 0
+            
+            self.penalty = PF*(abs(pen_DP_c) + abs(pen_DP_h) + abs(pen_Q))
+            
+            self.score = self.m_HX + self.penalty
+    
+        except:
+            self.penalty = 1e6
+            self.score = 1e6
+            
+            return self.score
         
         return self.score
     
@@ -295,90 +302,21 @@ class PCHESizingOpt(BaseComponent):
         HX.set_inputs(**self.inputs)
         self._apply_corr(HX)
         HX.set_parameters(**local_params)
+        self.set_parameters(**local_params)
     
         try:
             HX.solve()
         except Exception:
             return 1e6
-    
-        # ---- score (fully local, no self writes) ----
-        rho_mat = 7850
-        m_HX = n_parallel * n_series * rho_mat * (V_block - C_V_tot - H_V_tot)
-    
-        PF = 1
-        pen_Q    = max(self.Q_dot_constr - HX.Q.Q_dot, 0) if self.Q_dot_constr else 0
-        pen_DP_h = max(HX.DP_h - self.DP_h_constr,    0) if self.DP_h_constr  else 0
-        pen_DP_c = max(HX.DP_c - self.DP_c_constr,    0) if self.DP_c_constr  else 0
-    
-        score = m_HX + PF * (pen_Q + pen_DP_h + pen_DP_c)
-    
-        return score
-
-    #%%
-    
-    def sizing(self):
-        self._apply_deferred_parameters()
         
-        # Choose a fixed order for variables
-        ORDER = ['alpha', 'D_c', 'L_x', 'L_y', 'L_z', 'n_parallel', 'n_series']
-        
-        def bounds_dict_to_arrays(bounds_dict, order=ORDER):
-            lb = np.array([bounds_dict[k][0] for k in order], dtype=float)
-            ub = np.array([bounds_dict[k][1] for k in order], dtype=float)
-            if np.any(lb > ub):
-                raise ValueError("Lower bound > upper bound for at least one variable.")
-            return lb, ub
-        
-        lb, ub = bounds_dict_to_arrays(self.bounds, ORDER)
-        D = lb.size
-                
-        def objective_wrapper(X):
-        # X shape: (n_particles, D)
-            costs = np.empty(X.shape[0], dtype=float)
-            for i, xi in enumerate(X):
-                # clip to bounds (safety), then snap alpha to discrete set
-                xi = np.clip(xi, lb, ub)
-                # if your simulateHX expects a dict, convert here:
-                # params = vector_to_params(xi, ORDER)
-                # c = self.simulateHX(params)
-                c = self.simulate_HX(xi)  # if your simulateHX already accepts vector
-                costs[i] = float(c)
-            return costs
-
-        optimizer = ps.single.GlobalBestPSO(
-            n_particles=40,
-            dimensions=D,
-            options={'c1': 1.5, 'c2': 2.0, 'w': 0.7},
-            bounds=(lb, ub)
-        )
+        self.HX = HX
+        self.compute_score()
     
-        patience, tol, max_iter = 5, 1e-3, 40
-        no_improve, best_cost = 0, np.inf
-    
-        for _ in range(max_iter):
-            optimizer.optimize(objective_wrapper, iters=1, verbose=False)
-            current_best = optimizer.swarm.best_cost
-            if current_best < best_cost - tol:
-                best_cost = current_best
-                no_improve = 0
-            else:
-                no_improve += 1
-            if no_improve >= patience:
-                print("Stopping early due to stagnation.")
-                break
-    
-        self.best_pos = optimizer.swarm.best_pos
-    
-        # Final evaluation
-        self.simulate_HX(best_pos)  # or best_params if simulateHX expects dict
-    
-        self.cost_estimation()
-    
-        return best_pos  # or return best_params
+        return self.score
     
     #%%
     
-    def sizing_parallel(self, n_jobs=-1, backend="threading", chunksize="auto", n_particles = 30, max_iter = None, patience = 10):
+    def sizing(self, n_jobs=-1, backend="threading", chunksize="auto", n_particles = 30, max_iter = None, patience = 10):
         self._apply_deferred_parameters()
         
         # ---- fixed order + bounds ----
@@ -462,15 +400,20 @@ class PCHESizingOpt(BaseComponent):
         self.HX.set_inputs(**self.inputs)
         self._apply_corr(self.HX)
         self.HX.set_parameters(**self.params)
-        self.HX.solve()
+        
+        try:
+            self.HX.solve()
+        except Exception as e:
+            raise RuntimeError(
+                f"PCHE sizing did not converge to a feasible geometry "
+                f"(best_cost={self.score:.3e}); final solve failed with: {e}"
+            ) from e
         
         self.m_HX = np.round(best_pos[5]) * n_series_best * 7850 * (
             self.params['L_x'] * self.params['L_y'] * self.params['L_z']
             - self.params['C_V_tot'] - self.params['H_V_tot']
         )
         
-        self.cost_estimation()
-
         self.cost_estimation()
         
         pbar.close()
@@ -503,7 +446,7 @@ class PCHESizingOpt(BaseComponent):
 if __name__ == "__main__":
     HX_opt = PCHESizingOpt()
 
-    case_study = 'REC'
+    case_study = 'REC2'
 
     if case_study == "Reference": 
         HX_opt.set_inputs(
@@ -524,17 +467,33 @@ if __name__ == "__main__":
         HX_opt.set_inputs(
             # First fluid
             fluid_H = 'CO2',
-            T_su_H = 298.26, # K
-            P_su_H = 4292504, # Pa
-            m_dot_H = 298.27, # kg/s
+            T_su_H = 342.22, # K
+            P_su_H = 6047124.7, # Pa
+            m_dot_H = 373.62, # kg/s
     
             # Second fluid
             fluid_C = 'CO2',
-            T_su_C = 286.1, # K
-            P_su_C = 15561277, # Pa
-            m_dot_C = 298.27, # kg/s  # Make sure to include fluid information
+            T_su_C = 303.078, # K
+            P_su_C = 13260336.85, # Pa
+            m_dot_C = 373.62, # kg/s  # Make sure to include fluid information
+         )
+    
+    elif case_study == "REC2":
+        HX_opt.set_inputs(
+            # First fluid
+            fluid_H = 'CO2',
+            T_su_H = 329.3, # K
+            P_su_H = 6196195.1, # Pa
+            m_dot_H = 381.3, # kg/s
+    
+            # Second fluid
+            fluid_C = 'CO2',
+            T_su_C = 306.8, # K
+            P_su_C = 15364581.8, # Pa
+            m_dot_C = 381.3, # kg/s  # Make sure to include fluid information
          )
         
+    
     HX_opt.set_parameters(
         k_cond = 60,
         R_p = 1,
@@ -563,6 +522,9 @@ if __name__ == "__main__":
         n_series = [1,10]
         )
 
-    best_pos = HX_opt.sizing_parallel()
+    best_pos = HX_opt.sizing()
+    
+    # array([3.28528329e+01, 1.90745396e-03, 2.57742178e-01, 7.18763628e-01,
+    #        5.20596036e-01, 5.51507296e+00, 1.54522070e+00])
     
     

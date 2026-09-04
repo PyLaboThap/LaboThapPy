@@ -75,7 +75,6 @@ import random
 import numpy as np
 import copy
 
-# Parallel evaluation (sizing_parallel)
 from joblib import Parallel, delayed
 from tqdm import tqdm
 
@@ -300,12 +299,17 @@ class ShellAndTubeSizingOpt(BaseComponent):
 
             T_V_out = np.pi*(D_o/2)**2*L_tube*n_tubes
             S_V_tot = self.position['L_shell']*np.pi*(Shell_ID/2)**2 - T_V_out
-                
+
+            # --- n_series : optimisé si présent dans self.position (via opt_vars/choice_vectors),
+            #     sinon on retombe sur la valeur fixe passée dans set_parameters(n_series=...) ---
+            n_series = self.position.get('n_series', self.params.get('n_series', 1))
+
             self.set_parameters( 
                             A_eff = A_eff, S_V_tot = S_V_tot, Shell_ID = Shell_ID, T_V_tot = T_V_tot, Tube_L = L_tube, 
                             Tube_OD = D_o, Tube_t = Tube_t, central_spacing = self.position['Central_spac'], Tube_pass = self.position["Tube_pass"],
                             cross_passes = Cross_Passes, n_tubes = n_tubes, pitch_ratio = pitch_ratio, tube_layout = self.position["tube_layout"],
-                            Baffle_cut = self.position["Baffle_cut"], n_parallel = self.position['n_parallel']
+                            Baffle_cut = self.position["Baffle_cut"], n_parallel = self.position['n_parallel'],
+                            n_series = n_series
                             ) 
                         
             return
@@ -434,6 +438,11 @@ class ShellAndTubeSizingOpt(BaseComponent):
     
         # derived integer feature
         cross = int(round(L / cs)) - 1
+
+        # n_series : optimisé (dans pos) ou figé (dans self.params) — les deux cas
+        # doivent participer à la clé de cache, sinon deux géométries avec un
+        # n_series différent seraient confondues.
+        n_series_val = pos.get('n_series', self.params.get('n_series', 1))
     
         return (
             round(float(pos['D_o_inch']), 6),
@@ -444,6 +453,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
             cs,
             L,
             cross,
+            int(round(float(n_series_val))),
             # include knobs that change physics (optional but recommended):
             self.params.get('Shell_Side', 'H'),
             tuple(sorted((self.H_htc_Corr or {}).items())),
@@ -451,7 +461,6 @@ class ShellAndTubeSizingOpt(BaseComponent):
             tuple(sorted((self.H_DP_Corr or {}).items())),
             tuple(sorted((self.C_DP_Corr or {}).items())),
         )
-
 
     #%% SETTERS
     
@@ -1040,7 +1049,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
 
     #%% PARALLEL SIZING
 
-    def sizing_parallel(self, n_jobs=-1, backend="loky", n_particles=30, max_iterations=50,
+    def sizing(self, n_jobs=-1, backend="loky", n_particles=30, max_iterations=50,
                          inertia_weight=0.5, cognitive_constant=0.5, social_constant=0.5,
                          penalty_factor=1e6, obj='mass', print_flag=0, show_progress=True):
         """
@@ -1217,7 +1226,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
         total, S_mass, T_mass, TS_mass, B_mass = self.HX_Mass(self.best_particle.HX, self.best_particle.HX.params)
         self.best_particle.masses = {'Shell': S_mass, 'Tubes': T_mass, 'Tubesheet': TS_mass, 'Baffles': B_mass, 'Total': total}
         self.best_particle.total_cost = self.HX_total_cost(self.best_particle.HX)
-        
+                
         if obj == 'mass':
         
             self.cost_calculator = HeatExchangerCost(
@@ -1312,18 +1321,22 @@ if __name__ == "__main__":
     obj = 'mass'
     print_flag = 1
 
-    n_part = 50
+    n_part = 100
     max_iter = 50
 
     if test_case == "Methanol":
-    
+
+        # --- Exemple avec n_series optimisé par le PSO (présent dans choice_vectors + opt_vars) ---
         choice_vectors = {
                             'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
                             'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
                                 29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
                             'Tube_pass' : [2],
                             'tube_layout' : [0,45,60],
-                            'n_parallel' : [1,2,3]}
+                            'n_parallel' : [1,2],
+                            # décommenter pour optimiser n_series au lieu de le figer :
+                            'n_series' : [1,2],
+                            }
     
         HX_test.set_inputs(
             fluid_H = 'Methanol',
@@ -1338,13 +1351,15 @@ if __name__ == "__main__":
             )
     
         HX_test.set_parameters(
-                                n_series = 1, # [-]
+                                # n_series = 1, # [-] valeur fixe utilisée si 'n_series' absent de choice_vectors/opt_vars
                                 foul_t = 0.0002, foul_s = 0.00033, tube_cond = 50, Overdesign = 0,
                                 Shell_Side = 'H',
                                 Flow_Type = 'Shell&Tube', H_DP_ON = True, C_DP_ON = True,
                                 n_disc = n_disc, Tube_t_flag = Tube_t_flag,
     
                                 opt_vars = ['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'Tube_pass', 'tube_layout', 'Baffle_cut'],
+                                # pour optimiser n_series, ajouter 'n_series' à la liste ci-dessus
+                                # et l'ajouter aussi à choice_vectors plus haut.
                                 T_max_cycle = 273.15+110, # K
                                 p_max_cycle = 10*1e5, # Pa
     
@@ -1486,7 +1501,7 @@ if __name__ == "__main__":
                                 DP_h = 112284,
                                 DP_c = 205160.5,
                           )
-
+        
     bounds = {
                 "L_shell" : [1,15],
                 "D_o_inch" : [choice_vectors['D_o_inch'][0], choice_vectors['D_o_inch'][-1]],
@@ -1498,11 +1513,10 @@ if __name__ == "__main__":
     
     HX_test.set_bounds(bounds, choice_vectors=choice_vectors)
 
-
     import time
     t0 = time.perf_counter()
 
-    global_best_position, global_best_score, best_particle = HX_test.sizing_parallel(
+    global_best_position, global_best_score, best_particle = HX_test.sizing(
         n_particles=n_part,
         max_iterations=max_iter,
         obj=obj,

@@ -711,12 +711,12 @@ if __name__ == "__main__":
     n_cores = multiprocessing.cpu_count()
 
     # ---- sweep ----
-    T_vec = np.linspace(200, 200, 1) + 273.15
+    T_vec = np.linspace(150, 150, 1) + 273.15
 
     n_MW = 10 # W
     W_dot_obj = n_MW*1e6 # W
     
-    eta_obj = 0.15
+    eta_obj = 0.12
     
     # Create optimizer instance
     Optimizer = CO2RC_HX_optimizer('CO2')
@@ -797,3 +797,4 @@ if __name__ == "__main__":
         # Optimizer.opt_RC(n_jobs = 1, n_particles=100, max_iter=50, patience = 10)
 
     Optimizer.RC.plot_cycle_Ts()
+

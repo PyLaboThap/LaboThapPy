@@ -66,12 +66,12 @@ def system_RC_parallel(x, input_data):
                 params['eta_gh'], params['eta_rec'],
                 params['PP_cd'], params['SC_cd'],
                 P_low_guess, P_high, m_dot,
-                DP_h_rec  = params.get('DP_h_rec',  1.0e5),
-                DP_c_rec  = params.get('DP_c_rec',  2.0e5),
-                DP_h_gh   = params.get('DP_h_gh',   0.5e5),
-                DP_c_gh   = params.get('DP_c_gh',   2.0e5),
-                DP_h_cond = params.get('DP_cond',   1.0e5),
-                mute_print_flag=1,
+                DP_h_rec  = params.get('DP_h_rec',  0e5),
+                DP_c_rec  = params.get('DP_c_rec',  0e5),
+                DP_h_gh   = params.get('DP_h_gh',   0e5),
+                DP_c_gh   = params.get('DP_c_gh',   0e5),
+                DP_h_cond = params.get('DP_h_cond', 0e5),   
+                DP_c_cond = params.get('DP_c_cond', 0e5),  
             )
         elif arch == 'basic':
             RC = basic_CO2_TC(
@@ -80,9 +80,10 @@ def system_RC_parallel(x, input_data):
                 params['eta_exp'], params['eta_gh'],
                 params['PP_cd'], params['SC_cd'],
                 P_low_guess, P_high, m_dot,
-                DP_h_gh   = params.get('DP_h_gh',   0.5e5),
-                DP_c_gh   = params.get('DP_c_gh',   2.0e5),
-                DP_h_cond = params.get('DP_cond',   1.0e5),
+                DP_h_gh   = params.get('DP_h_gh',   0e5),
+                DP_c_gh   = params.get('DP_c_gh',   0e5),
+                DP_h_cond = params.get('DP_h_cond', 0e5),   
+                DP_c_cond = params.get('DP_c_cond', 0e5), 
                 mute_print_flag=1,
             )
             
@@ -96,7 +97,14 @@ def system_RC_parallel(x, input_data):
                 params['eta_rec'], params['eta_rec_HT'], params['eta_gh'],
                 params['PP_cd'], params['SC_cd'],
                 P_low_guess, P_high, m_dot, spliter_frac,
+                DP_h_rec  = params.get('DP_h_rec',  0e5),
+                DP_c_rec  = params.get('DP_c_rec',  0e5),
+                DP_h_gh   = params.get('DP_h_gh',   0e5),
+                DP_c_gh   = params.get('DP_c_gh',   0e5),
+                DP_h_cond = params.get('DP_h_cond', 0e5),   
+                DP_c_cond = params.get('DP_c_cond', 0e5),  
                 mute_print_flag=1)
+            
         elif arch == "Recomp_1_recup":
             spliter_frac = x[3]
     
@@ -107,6 +115,12 @@ def system_RC_parallel(x, input_data):
                 params['eta_rec'], params['eta_gh'],
                 params['PP_cd'], params['SC_cd'],
                 P_low_guess, P_high, m_dot, spliter_frac,
+                DP_h_rec  = params.get('DP_h_rec',  0e5),
+                DP_c_rec  = params.get('DP_c_rec',  0e5),
+                DP_h_gh   = params.get('DP_h_gh',   0e5),
+                DP_c_gh   = params.get('DP_c_gh',   0e5),
+                DP_h_cond = params.get('DP_h_cond', 0e5),   
+                DP_c_cond = params.get('DP_c_cond', 0e5),  
                 mute_print_flag=1)
         else:
             return 1000.0
@@ -114,10 +128,10 @@ def system_RC_parallel(x, input_data):
         return 1000.0
 
     # --- Solve ---
-    # try:
-    RC.solve()
-    # except Exception as e:
-    #     return 100.0
+    try:
+        RC.solve()
+    except Exception as e:
+        return 100.0
 
     if not getattr(RC, 'converged', True):
         return 10.0
@@ -233,13 +247,15 @@ class CO2RC_eff_optimizer:
                 self.params['eta_gh'], self.params['eta_rec'],
                 self.params['PP_cd'], self.params['SC_cd'],
                 P_low_guess, self.it_var['P_high'], self.it_var['mdot'],
-                DP_h_rec  = self.params.get('DP_h_rec',  1.0e5),
-                DP_c_rec  = self.params.get('DP_c_rec',  2.0e5),
-                DP_h_gh   = self.params.get('DP_h_gh',   0.5e5),
-                DP_c_gh   = self.params.get('DP_c_gh',   2.0e5),
-                DP_h_cond = self.params.get('DP_cond',   1.0e5),
+                DP_h_rec  = self.params.get('DP_h_rec',  0e5),
+                DP_c_rec  = self.params.get('DP_c_rec',  0e5),
+                DP_h_gh   = self.params.get('DP_h_gh',   0e5),
+                DP_c_gh   = self.params.get('DP_c_gh',   0e5),
+                DP_h_cond = self.params.get('DP_h_cond', 0e5),
+                DP_c_cond = self.params.get('DP_c_cond', 0e5),   
                 mute_print_flag=1,
             )
+            
         elif arch == 'basic':
             self.RC = basic_CO2_TC(
                 HSource, CSource,
@@ -247,6 +263,10 @@ class CO2RC_eff_optimizer:
                 self.params['eta_exp'], self.params['eta_gh'],
                 self.params['PP_cd'], self.params['SC_cd'],
                 P_low_guess, self.it_var['P_high'], self.it_var['mdot'],
+                DP_h_gh   = self.params.get('DP_h_gh',   0e5),
+                DP_c_gh   = self.params.get('DP_c_gh',   0e5),
+                DP_h_cond = self.params.get('DP_h_cond', 0e5),
+                DP_c_cond = self.params.get('DP_c_cond', 0e5),  
                 mute_print_flag=1,
             )
         elif arch == 'Recomp':
@@ -257,6 +277,12 @@ class CO2RC_eff_optimizer:
                 self.params['eta_rec'], self.params['eta_rec_HT'], self.params['eta_gh'],
                 self.params['PP_cd'], self.params['SC_cd'],
                 P_low_guess, self.it_var['P_high'], self.it_var['mdot'], self.it_var['spliter_frac'],
+                DP_h_rec  = self.params.get('DP_h_rec',  0e5),
+                DP_c_rec  = self.params.get('DP_c_rec',  0e5),
+                DP_h_gh   = self.params.get('DP_h_gh',   0e5),
+                DP_c_gh   = self.params.get('DP_c_gh',   0e5),
+                DP_h_cond = self.params.get('DP_h_cond', 0e5),
+                DP_c_cond = self.params.get('DP_c_cond', 0e5), 
                 mute_print_flag=1)
         elif arch == 'Recomp_1_recup':
             self.RC = Recomp_CO2_TC_1_recup(
@@ -266,6 +292,12 @@ class CO2RC_eff_optimizer:
                 self.params['eta_rec'], self.params['eta_gh'],
                 self.params['PP_cd'], self.params['SC_cd'],
                 P_low_guess, self.it_var['P_high'], self.it_var['mdot'], self.it_var['spliter_frac'],
+                DP_h_rec  = self.params.get('DP_h_rec',  0e5),
+                DP_c_rec  = self.params.get('DP_c_rec',  0e5),
+                DP_h_gh   = self.params.get('DP_h_gh',   0e5),
+                DP_c_gh   = self.params.get('DP_c_gh',   0e5),
+                DP_h_cond = self.params.get('DP_h_cond', 0e5),
+                DP_c_cond = self.params.get('DP_c_cond', 0e5),   
                 mute_print_flag=1)
         else:
             raise ValueError("'RC_ARCH' parameter shall be either 'basic', 'REC', 'Recomp', 'Recomp_1_recup'")
@@ -523,7 +555,7 @@ class CO2RC_eff_optimizer:
 
 if __name__ == "__main__":
     
-    case_study = "Comparison"
+    case_study = "test"
     
     if case_study == "test":
     
@@ -533,7 +565,7 @@ if __name__ == "__main__":
     
         # ---- sweep ----
         # T_vec = np.linspace(100, 400, 6) + 273.15
-        T_vec = np.linspace(100, 100, 1) + 273.15
+        T_vec = np.linspace(150, 150, 1) + 273.15
         ARCH = ['basic', 'REC', 'Recomp_1_recup', 'Recomp']
         
         # T_vec = np.array([350]) + 273.15
@@ -552,7 +584,7 @@ if __name__ == "__main__":
         for T in T_vec:
     
             Optimizer.set_parameters(
-                RC_ARCH = 'basic',
+                RC_ARCH = 'Recomp',
     
                 eta_pp  = 0.8,
                 eta_gh  = 0.95,

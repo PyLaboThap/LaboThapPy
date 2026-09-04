@@ -1387,7 +1387,7 @@ class AxialTurbineMeanLineSizing(object):
 
 #%%
 
-    def sizing(self):
+    def opt_size(self):
         bounds = (np.array([
             self.bounds['psi_bounds'][0],
             self.bounds['phi_bounds'][0],
@@ -1475,7 +1475,7 @@ class AxialTurbineMeanLineSizing(object):
 
 #%% 
 
-    def sizing_parallel(self, n_jobs=-1, n_particles = 50, max_iter=50, backend="loky", chunksize="auto"):
+    def sizing(self, n_jobs=-1, n_particles = 50, max_iter=50, backend="loky", chunksize="auto"):
         import numpy as np
         import pyswarms as ps
     

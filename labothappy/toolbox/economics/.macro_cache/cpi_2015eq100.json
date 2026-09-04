@@ -68,16 +68,16 @@
     "2023": 142.29,
     "2024": 151.96,
     "2025": 158.94,
-    "2026": 126.66
+    "2026": 126.54
   },
   "meta": {
     "base": "2015=100",
     "eur_latest_month": "2025-12",
     "eur_source": "ECB: ICP.M.U2.N.000000.4.INX (monthly -> annual avg)",
     "include_partial_latest": true,
-    "last_checked_utc": "2026-08-18T14:00:26Z",
-    "last_update_date": "18/08/2026",
-    "last_updated_utc": "2026-08-18T14:00:26Z",
+    "last_checked_utc": "2026-09-04T07:39:50Z",
+    "last_update_date": "04/09/2026",
+    "last_updated_utc": "2026-09-04T07:39:50Z",
     "range": {
       "end": 2026,
       "start": 1990
