@@ -48,6 +48,7 @@ import CoolProp.CoolProp as CP
 
 from labothappy.correlations.properties.dimensionless import compute_reynolds, compute_weber
 from labothappy.toolbox.solvers.zero_brent import zero_brent
+from labothappy.correlations.properties.two_phase import get_saturated_phase_properties
 
 EPS = 1e-12
 G_GRAVITY = 9.81  # Gravitational acceleration [m/s^2]
@@ -684,7 +685,7 @@ def void_fraction_dix(rho_l, rho_v, x, G, sigma):
 # Woldesemayat Ghajar void fraction model (Drift-flux correlations)
 #======================================================================
 
-def void_fraction_woldesemayat_ghajar(rho_l, rho_v, x, G, sigma, D, P, theta=np.pi/2):
+def void_fraction_woldesemayat_ghajar(rho_l, rho_v, x, G, sigma, D, P, theta=90.0):
     """
     Woldesemayat and Ghajar (2007) void fraction correlation (drift-flux method).
     
@@ -717,7 +718,7 @@ def void_fraction_woldesemayat_ghajar(rho_l, rho_v, x, G, sigma, D, P, theta=np.
     P : float
         System pressure [Pa].
     theta : float, optional
-        Pipe inclination angle from horizontal [rad], default pi/2
+        Pipe inclination angle from horizontal [deg], default 90
         (vertical). theta=0 is horizontal.
 
     Returns
@@ -742,14 +743,16 @@ def void_fraction_woldesemayat_ghajar(rho_l, rho_v, x, G, sigma, D, P, theta=np.
     upward inclined pipes." International Journal of Multiphase Flow,
     33, pp. 347-370.
     """
+    theta_rad = np.radians(theta)
+
     J_l = (1 - x) * G / rho_l
     J_v = x * G / rho_v
 
     n = (rho_v / rho_l) ** 0.1
     C0 = J_v / (J_l + J_v) * (1 + (J_l / J_v) ** n)
 
-    V_drift = (2.9 * ((G_GRAVITY * sigma * D * (1 + np.cos(theta)) * (rho_l - rho_v)) / (rho_l ** 2)) ** 0.25
-                   * (1.22 + 1.22 * np.sin(theta)) ** (101325 / P))
+    V_drift = (2.9 * ((G_GRAVITY * sigma * D * (1 + np.cos(theta_rad)) * (rho_l - rho_v)) / (rho_l ** 2)) ** 0.25
+                   * (1.22 + 1.22 * np.sin(theta_rad)) ** (101325 / P))
 
     alpha = J_v / (C0 * (J_l + J_v) + V_drift)
 
@@ -807,6 +810,7 @@ def void_fraction_cioncolini_thome(rho_l, rho_v, x):
     return (h * x ** n) / (1 + (h - 1) * x ** n)
 
 
+
 #=======================================================================
 # VOID FRACTION COMPUTATION
 #=======================================================================
@@ -833,18 +837,18 @@ def compute_void_fraction(AS, params, m_dot = None, void_fraction_model='Homogen
     float
         Void fraction [-]
     """
-    x = AS.Q()
-    x = max(EPS, min(1.0 - EPS, x))
 
     P = AS.p()
 
-    AS_l = CP.AbstractState(AS.backend_name(), AS.fluid_names()[0])
-    AS_l.update(CP.PQ_INPUTS, P, 0)
-    rho_l = AS_l.rhomass()
+    props = get_saturated_phase_properties(AS)
+    x = props["x"]
+    rho_l = props["rho_l"]
+    rho_v = props["rho_v"]
+    mu_l = props["mu_l"]
+    mu_v = props["mu_v"]
+    sigma = props["sigma"]
 
-    AS_v = CP.AbstractState(AS.backend_name(), AS.fluid_names()[0])
-    AS_v.update(CP.PQ_INPUTS, P, 1)
-    rho_v = AS_v.rhomass()
+    x = max(EPS, min(1.0 - EPS, x))
 
     if void_fraction_model == 'Homogeneous':
         alpha = void_fraction_homogeneous(rho_l, rho_v, x)
@@ -856,7 +860,7 @@ def compute_void_fraction(AS, params, m_dot = None, void_fraction_model='Homogen
         alpha = void_fraction_fauske(rho_l, rho_v, x)
 
     elif void_fraction_model == 'Premoli':
-        mu_l = AS_l.viscosity()
+        # mu_l = AS_l.viscosity()
         sigma = AS.surface_tension()
         d_hyd = params.get('d_hyd', params.get('D'))
         A_cross = PI * d_hyd ** 2 / 4.0
@@ -864,13 +868,13 @@ def compute_void_fraction(AS, params, m_dot = None, void_fraction_model='Homogen
         alpha = void_fraction_premoli(rho_l, rho_v, x, mu_l, sigma, d_hyd, G)
 
     elif void_fraction_model == 'Lockhart-Martinelli':
-        mu_l = AS_l.viscosity()
-        mu_v = AS_v.viscosity()
+        # mu_l = AS_l.viscosity()
+        # mu_v = AS_v.viscosity()
         alpha = void_fraction_lockhart_martinelli(rho_l, rho_v, x, mu_l, mu_v)
 
     elif void_fraction_model == 'Hughmark':
-        mu_l = AS_l.viscosity()
-        mu_v = AS_v.viscosity()
+        # mu_l = AS_l.viscosity()
+        # mu_v = AS_v.viscosity()
         d_hyd = params.get('d_hyd', params.get('D'))
         A_cross = PI * d_hyd ** 2 / 4.0
         G = m_dot / A_cross  # kg/(m²·s)
@@ -907,7 +911,7 @@ def compute_void_fraction(AS, params, m_dot = None, void_fraction_model='Homogen
         A_cross = PI * d_hyd ** 2 / 4.0
         G = m_dot / A_cross  # kg/(m²·s)
         sigma = AS.surface_tension()
-        theta = params.get('theta', np.pi / 2)
+        theta = params.get('theta', 90.0)
         alpha = void_fraction_woldesemayat_ghajar(rho_l, rho_v, x, G, sigma, d_hyd, P, theta)
 
     elif void_fraction_model == 'Cioncolini-Thome':

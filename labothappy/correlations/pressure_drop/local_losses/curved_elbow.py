@@ -1,34 +1,16 @@
 """
-Local pressure loss correlations for curved pipe bends.
+Pressure drop correlations for single-phase and two-phase flow in curved elbows.
 
-Implements Idelchik curved bend correlations across all flow regimes
-(laminar, transition, turbulent) with smooth regime blending.
-
-The Idelchik method uses a local resistance coefficient ζ that depends on:
-- Bend geometry (radius ratio R0/D, deflection angle)
-- Flow regime (laminar, transition, turbulent)
-- Surface roughness (via friction factor correction)
-
-Functions
----------
-- compute_zeta_LOC: Local resistance coefficient (geometry + flow regime)
-- compute_cf_fri: Roughness correction factor
-- compute_zeta_tot: Total loss coefficient (with roughness)
-- pressure_drop_curved_elbow: Pressure drop from bend
-
-References
-----------
-Idelchik, I. E. (1986). Handbook of Hydraulic Resistance: Coefficients of
-    Local Resistance and of Friction. Hemisphere Publishing Corporation.
-
-Modelica Standard Library: Fluid.Dissipative.PressureLoss.Bend.CurvedBend_LDP
+author: Elise Neven (elise.neven@uliege.be)
 """
 
 import math
 from labothappy.correlations.properties.dimensionless import compute_reynolds
-from labothappy.correlations.pressure_drop.straight_pipe_DP import (
+from labothappy.correlations.properties.two_phase import get_saturated_phase_properties
+from labothappy.correlations.pressure_drop.pipe_DP import (
     friction_factor_swamee_jain,
 )
+from labothappy.correlations.void_fraction.void_fraction import void_fraction_homogeneous
 from labothappy.toolbox.helper_function.step_smoother import stepsmoother
 
 PI = math.pi
@@ -43,7 +25,6 @@ RE_TURB_MAX = 3e5  # Upper limit of intermediate turbulent regime
 # ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
-
 
 def compute_re_lam_transition(K, d_hyd):
     """
@@ -73,7 +54,7 @@ def compute_re_lam_transition(K, d_hyd):
     return min(RE_LAM_MAX, max(1e2, 754.0 * math.exp(exponent)))
 
 
-def compute_idelchik_coefficients(d_hyd, R0, delta_rad):
+def compute_idelchik_coefficients(d_hyd, R0, delta_deg):
     """
     Compute Idelchik coefficients for curved bends.
 
@@ -86,8 +67,8 @@ def compute_idelchik_coefficients(d_hyd, R0, delta_rad):
         Hydraulic diameter [m]
     R0 : float
         Bend radius (centerline) [m]
-    delta_rad : float
-        Deflection angle [radians]
+    delta_deg : float
+        Deflection angle [degrees]
 
     Returns
     -------
@@ -113,7 +94,7 @@ def compute_idelchik_coefficients(d_hyd, R0, delta_rad):
     ----------
     Idelchik, I. E. (1986). Handbook of Hydraulic Resistance.
     """
-    delta_deg = abs(delta_rad) * 180 / PI
+    delta_deg = abs(delta_deg)
     R0_d_hyd = R0 / max(EPS, d_hyd)
 
     # ====================================================================
@@ -203,7 +184,7 @@ def compute_reynolds_correction_turbulent(Re, R0_d_hyd):
 # ============================================================================
 
 
-def compute_zeta_LOC(d_hyd, R, delta_rad, K, rho, mu, m_dot):
+def compute_zeta_LOC(d_hyd, R, delta_deg, K, rho, mu, m_dot):
     """
     Compute local resistance coefficient ζ_LOC for curved bends.
 
@@ -223,8 +204,8 @@ def compute_zeta_LOC(d_hyd, R, delta_rad, K, rho, mu, m_dot):
         Hydraulic diameter [m]
     R : float
         Bend radius (centerline) [m]
-    delta_rad : float
-        Deflection angle [radians]
+    delta_deg : float
+        Deflection angle [degrees]
     K : float
         Absolute roughness [m]
     rho : float
@@ -254,7 +235,7 @@ def compute_zeta_LOC(d_hyd, R, delta_rad, K, rho, mu, m_dot):
     Re = compute_reynolds(d_hyd, mu, rho, v)
 
     # Get Idelchik coefficients
-    coeffs = compute_idelchik_coefficients(d_hyd, R, delta_rad)
+    coeffs = compute_idelchik_coefficients(d_hyd, R, delta_deg)
     A1 = coeffs["A1"]
     A2 = coeffs["A2"]
     B1 = coeffs["B1"]
@@ -300,7 +281,7 @@ def compute_zeta_LOC(d_hyd, R, delta_rad, K, rho, mu, m_dot):
 # ============================================================================
 
 
-def compute_cf_fri(zeta_LOC, d_hyd, R0, delta_rad, K, rho, mu, m_dot):
+def compute_cf_fri(zeta_LOC, d_hyd, R0, delta_deg, K, rho, mu, m_dot):
     """
     Compute surface roughness correction factor CF_fri.
 
@@ -325,8 +306,8 @@ def compute_cf_fri(zeta_LOC, d_hyd, R0, delta_rad, K, rho, mu, m_dot):
         Hydraulic diameter [m]
     R0 : float
         Bend radius [m]
-    delta_rad : float
-        Deflection angle [radians]
+    delta_deg : float
+        Deflection angle [degrees]
     K : float
         Absolute roughness [m]
     rho : float
@@ -356,7 +337,7 @@ def compute_cf_fri(zeta_LOC, d_hyd, R0, delta_rad, K, rho, mu, m_dot):
     Re = compute_reynolds(d_hyd, mu, rho, v)
 
     # Arc length of the bend
-    L_arc = abs(delta_rad) * R0
+    L_arc = abs(delta_deg) * PI / 180.0 * R0
 
     # Friction factor for straight pipe (used for roughness correction)
     f_fri = friction_factor_swamee_jain(K, d_hyd, Re)
@@ -377,7 +358,7 @@ def compute_cf_fri(zeta_LOC, d_hyd, R0, delta_rad, K, rho, mu, m_dot):
 # ============================================================================
 
 
-def compute_zeta_tot(d_hyd, R0, delta_rad, K, rho, mu, m_dot):
+def compute_zeta_tot(d_hyd, R0, delta_deg, K, rho, mu, m_dot):
     """
     Compute total pressure loss coefficient ζ_tot for curved bends.
 
@@ -393,8 +374,8 @@ def compute_zeta_tot(d_hyd, R0, delta_rad, K, rho, mu, m_dot):
         Hydraulic diameter [m]
     R0 : float
         Bend radius [m]
-    delta_rad : float
-        Deflection angle [radians]
+    delta_deg : float
+        Deflection angle [degrees]
     K : float
         Absolute roughness [m]
     rho : float
@@ -413,17 +394,19 @@ def compute_zeta_tot(d_hyd, R0, delta_rad, K, rho, mu, m_dot):
     ----------
     Idelchik, I. E. (1986). Handbook of Hydraulic Resistance.
     """
-    zeta_LOC = compute_zeta_LOC(d_hyd, R0, delta_rad, K, rho, mu, m_dot)
-    CF_fri = compute_cf_fri(zeta_LOC, d_hyd, R0, delta_rad, K, rho, mu, m_dot)
+    zeta_LOC = compute_zeta_LOC(d_hyd, R0, delta_deg, K, rho, mu, m_dot)
+    CF_fri = compute_cf_fri(zeta_LOC, d_hyd, R0, delta_deg, K, rho, mu, m_dot)
     zeta_tot = max(EPS, CF_fri) * zeta_LOC
     return zeta_tot
 
 
-def pressure_drop_curved_elbow(d_hyd, R0, delta_rad, K, rho, mu, m_dot):
+def pressure_drop_curved_elbow(AS, geom_elbow, m_dot):
     """
     Compute pressure drop across a curved pipe bend.
 
     Uses Idelchik correlations with smooth blending across all flow regimes.
+    Single-phase and two-phase (homogeneous model) inlet states are both
+    supported, dispatched automatically from the quality of `AS`.
 
     Formula
     -------
@@ -435,18 +418,17 @@ def pressure_drop_curved_elbow(d_hyd, R0, delta_rad, K, rho, mu, m_dot):
 
     Parameters
     ----------
-    d_hyd : float
-        Hydraulic diameter [m]
-    R0 : float
-        Bend radius (centerline) [m]
-    delta_rad : float
-        Deflection angle [radians]
-    K : float
-        Absolute roughness [m]
-    rho : float
-        Fluid density [kg/m³]
-    mu : float
-        Dynamic viscosity [Pa·s]
+    AS : CoolProp.AbstractState
+        Fluid state at the bend inlet. AS must already have its state set
+        (e.g. via HmassP_INPUTS) by the caller. If two-phase (0 < Q < 1),
+        the effective density is the homogeneous (no-slip) mixture density
+        and the effective viscosity is the saturated liquid viscosity;
+        otherwise density and viscosity are read directly from `AS`.
+    geom_elbow : dict
+        Bend geometry: 'D' [m] (pipe inner diameter), 'R0' [m] (bend radius,
+        centerline), 'delta' [deg] (deflection angle), and optionally 'K'
+        (absolute roughness [m], default 0.0). For a round pipe the
+        hydraulic diameter equals D (`d_hyd = D`).
     m_dot : float
         Mass flow rate [kg/s]
 
@@ -457,29 +439,44 @@ def pressure_drop_curved_elbow(d_hyd, R0, delta_rad, K, rho, mu, m_dot):
 
     Examples
     --------
-    >>> # 90° bend, R0/D = 1.0, steel pipe
+    >>> # 90° bend, R0/D = 1.0, steel pipe, water
+    >>> AS = CP.AbstractState('HEOS', 'Water')
+    >>> AS.update(CP.PT_INPUTS, 300, 3e5)
     >>> dP = pressure_drop_curved_elbow(
-    ...     d_hyd=0.01,           # 10 mm diameter
-    ...     R0=0.01,              # 1:1 radius ratio
-    ...     delta_rad=math.pi/2,  # 90 degrees
-    ...     K=45e-6,              # Steel roughness
-    ...     rho=1000,             # Water
-    ...     mu=1e-3,
-    ...     m_dot=0.1
+    ...     AS,
+    ...     geom_elbow={'D': 0.01, 'R0': 0.01, 'delta': 90.0, 'K': 45e-6},
+    ...     m_dot=0.1,
     ... )
     >>> print(f"ΔP = {dP:.2f} Pa")
 
     References
     ----------
     Idelchik, I. E. (1986). Handbook of Hydraulic Resistance: Coefficients of
-        Local Resistance and of Friction. Hemisphere Publishing Corporation.
+    Local Resistance and of Friction. Hemisphere Publishing Corporation.
 
     Modelica Standard Library: Fluid.Dissipative.PressureLoss.Bend.CurvedBend_LDP
     """
+    d_hyd = geom_elbow['D']
+    R0 = geom_elbow['R0']
+    delta_deg = geom_elbow['delta']
+    K = geom_elbow.get('K', 0.0)
+
+    x = AS.Q()
+    if EPS < x < 1.0 - EPS:
+        props = get_saturated_phase_properties(AS)
+        rho_l = props["rho_l"]
+        rho_v = props["rho_v"]
+        alpha = void_fraction_homogeneous(rho_l, rho_v, props["x"])
+        rho = 1.0 / (alpha / rho_v + (1.0 - alpha) / rho_l)
+        mu = props["mu_l"]
+    else:
+        rho = AS.rhomass()
+        mu = AS.viscosity()
+
     A_cross = PI * d_hyd ** 2 / 4.0
     v = abs(m_dot) / max(EPS, rho * A_cross)
 
-    zeta_tot = compute_zeta_tot(d_hyd, R0, delta_rad, K, rho, mu, m_dot)
+    zeta_tot = compute_zeta_tot(d_hyd, R0, delta_deg, K, rho, mu, m_dot)
     dP = zeta_tot * 0.5 * rho * v ** 2
 
     return dP

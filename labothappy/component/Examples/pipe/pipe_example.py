@@ -17,7 +17,7 @@ print(f"Mass inventory: {pipe.m_charge:.2f} kg")
 # Test two phase
 # Test two-phase with realistic heat pump conditions
 pipe = Pipe()
-pipe.add_curved_elbow(D=0.01, delta=90, R0=0.5).add_straight(D=0.010, L=2.0, theta = -90) # 10mm diameter, 2m long
+pipe.add_straight(D=0.010, L=2.0).add_curved_elbow(D=0.01, delta=90, R0=0.5).add_straight(D=0.010, L=2.0, theta = -90) # 10mm diameter, 2m long
 # add_straight(D=0.010, L=2.0).
 # R410A at evaporator outlet: low pressure, high quality
 # Typical evaporator exit: P ≈ 400 kPa, x ≈ 0.9 (superheated vapor)
