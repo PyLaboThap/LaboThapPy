@@ -62,6 +62,68 @@ def _epsilon_to_ntu(eps, eps_cap=1e-6):
     return -np.log(1.0 - eps)
 
 
+def _lmtd_counterflow(T_h_in, T_h_out, T_c_in, T_c_out):
+    """LMTD à contre-courant. Retourne None si croisement de température ou
+    valeur non physique (protège contre les logs de nombres négatifs)."""
+    dT1 = T_h_in - T_c_out
+    dT2 = T_h_out - T_c_in
+    if dT1 <= 0 or dT2 <= 0:
+        return None
+    if abs(dT1 - dT2) < 1e-6:
+        return dT1
+    return (dT1 - dT2) / np.log(dT1 / dT2)
+
+
+def _estimate_UA_lmtd(model):
+    """
+    Estime UA = Q / LMTD à partir des températures terminales du modèle
+    thermodynamique DÉJÀ résolu — ne nécessite aucun sizing détaillé.
+    Approximatif : suppose des propriétés constantes le long de l'échangeur.
+    Weiland & Lance (2019) rapportent jusqu'à ~80% d'erreur avec cette
+    hypothèse pour un LTR proche du point critique du CO2 — d'où la
+    calibration empirique (voir calibrate_ua_correction dans
+    co2_rc_full_design_optimizer.py) qui corrige ce biais avec de vraies UA
+    issues du sizing, avant d'utiliser ce proxy pour l'objectif du PSO.
+
+    À VÉRIFIER : suppose que le modèle expose `.ex_H`/`.ex_C` (sorties
+    chaude/froide), par analogie avec `.su_H`/`.su_C` déjà utilisés ailleurs
+    dans ce module. Si le nom réel diffère dans tes modèles, adapter cette
+    fonction — elle est conçue pour échouer proprement (retourne None) plutôt
+    que de lever une exception si un attribut est absent.
+    """
+    try:
+        Q = model.Q.Q_dot
+        T_h_in  = model.su_H.T
+        T_h_out = model.ex_H.T
+        T_c_in  = model.su_C.T
+        T_c_out = model.ex_C.T
+        lmtd = _lmtd_counterflow(T_h_in, T_h_out, T_c_in, T_c_out)
+        if lmtd is None or lmtd <= 0 or Q is None or Q <= 0:
+            return None
+        return Q / lmtd
+    except Exception:
+        return None
+
+
+def _weiland_lance_cost(UA, T_max_C, a=49.45, b=0.7544, T_bp=550.0, c=0.02141):
+    """
+    Corrélation de coût récupérateur de Weiland & Lance (2019), réutilisée
+    pour les 3 échangeurs liquide/CO2 de ce cycle (GasHeater, Recuperator,
+    Condenser) — cf. discussion : le papier lui-même utilise ce modèle comme
+    proxy pour un refroidisseur eau/sCO2 en l'absence de corrélation dédiée,
+    et ses corrélations "primary heater" (charbon/gaz) ne s'appliquent pas à
+    une source chaude liquide comme ici.
+    UA en W/K, T_max_C = température max de fonctionnement en °C.
+    Retourne le coût en $ (base 2017$, cf. papier).
+    """
+    if UA is None or UA <= 0:
+        return None
+    fT = 1.0
+    if T_max_C >= T_bp:
+        fT = 1.0 + c * (T_max_C - T_bp)
+    return a * (UA ** b) * fT
+
+
 #%% Top-level parallel evaluation function
 # Doit rester au niveau module pour être picklable par joblib/loky.
 
@@ -101,8 +163,12 @@ def system_RC_parallel(x, input_data):
     CSource.set_properties(T=cs_props['T'], P=cs_props['P'],
                             fluid=cs_props['fluid'], m_dot=m_dot_CS)
 
-    P_sat_CS    = PropsSI('P', 'T', cs_props['T'], 'Q', 0.5, fluid)
-    P_crit      = PropsSI('PCRIT', fluid)
+    P_sat_CS    = input_data.get('P_sat_CS')
+    P_crit      = input_data.get('P_crit')
+    if P_sat_CS is None:
+        P_sat_CS = PropsSI('P', 'T', cs_props['T'], 'Q', 0.5, fluid)
+    if P_crit is None:
+        P_crit = PropsSI('PCRIT', fluid)
     P_low_guess = min(1.3 * P_sat_CS, 0.8 * P_crit)
 
     if arch == 'REC':
@@ -229,7 +295,60 @@ def system_RC_parallel(x, input_data):
             eta_rec = np.clip(eta_rec, 0.0, 1.0 - eps)
             eta_cond= np.clip(eta_cond,0.0, 1.0 - eps)
 
-            objective = (Q_gh*(-np.log(1-eta_gh)) + Q_rec*(-np.log(1-eta_rec)) + Q_cond*(-np.log(1-eta_cond)))/(Q_cond + Q_rec + Q_gh)
+            # Poids de coût relatif par technologie d'échangeur (PCHE pour le
+            # récupérateur vs Shell&Tube pour GasHeater/Condenser). Défaut=1
+            # -> comportement d'origine (NTU pondéré par Q_dot, en assumant
+            # un $/NTU identique entre technologies). À calibrer depuis des
+            # données CAPEX réelles si les coûts par NTU diffèrent nettement
+            # (cf. calibrate_cost_weights dans co2_rc_full_design_optimizer.py).
+            c_gh   = params.get('cost_w_gh', 1.0)
+            c_rec  = params.get('cost_w_rec', 1.0)
+            c_cond = params.get('cost_w_cond', 1.0)
+            
+            # ------------------------------------------------------------
+            # STAGE 1 vs STAGE 2 : voir discussion "optimiser les NTU d'abord,
+            # remplacer par le vrai coût une fois les UA calculées".
+            #
+            # Stage 1 (cost_model_calibrated=False, défaut) : proxy NTU
+            # pondéré par Q_dot (comportement d'origine, éventuellement
+            # repondéré par cost_w_*).
+            #
+            # Stage 2 (cost_model_calibrated=True, activé par
+            # cycle_design() après un premier size_components() réussi) :
+            # coût réel via Weiland & Lance, C = a·UA^b·f_T(T_max), où UA est
+            # estimée par LMTD (thermo seule, pas de sizing dans la boucle)
+            # puis corrigée par un facteur k_x calibré sur les vraies UA
+            # issues du sizing (voir calibrate_ua_correction).
+            # ------------------------------------------------------------
+            cost_model_calibrated = params.get('cost_model_calibrated', False)
+
+            objective = None
+            if cost_model_calibrated:
+                k_gh   = params.get('ua_correction_gh', 1.0)
+                k_rec  = params.get('ua_correction_rec', 1.0)
+                k_cond = params.get('ua_correction_cond', 1.0)
+
+                UA_gh   = _estimate_UA_lmtd(RC.components['GasHeater'].model)
+                UA_rec  = _estimate_UA_lmtd(RC.components['Recuperator'].model)
+                UA_cond = _estimate_UA_lmtd(RC.components['Condenser'].model)
+
+                if UA_gh is not None and UA_rec is not None and UA_cond is not None:
+                    T_max_gh   = RC.components['GasHeater'].model.su_H.T - 273.15
+                    T_max_rec  = RC.components['Recuperator'].model.su_H.T - 273.15
+                    T_max_cond = RC.components['Condenser'].model.su_H.T - 273.15
+
+                    cost_gh   = _weiland_lance_cost(UA_gh * k_gh, T_max_gh)
+                    cost_rec  = _weiland_lance_cost(UA_rec * k_rec, T_max_rec)
+                    cost_cond = _weiland_lance_cost(UA_cond * k_cond, T_max_cond)
+
+                    if None not in (cost_gh, cost_rec, cost_cond):
+                        scale = params.get('cost_obj_scale', 1e6)  # $ -> échelle comparable au NTU pondéré / à PF
+                        objective = (cost_gh + cost_rec + cost_cond) / scale
+
+            if objective is None:
+                # Stage 1 (ou repli si UA/LMTD non estimable ce coup-ci,
+                # ex. croisement de température) : NTU pondéré d'origine.
+                objective = (c_gh*Q_gh*(-np.log(1-eta_gh)) + c_rec*Q_rec*(-np.log(1-eta_rec)) + c_cond*Q_cond*(-np.log(1-eta_cond)))/(Q_cond + Q_rec + Q_gh)
 
             PF = 1000
             penalty = (penalty_W_dot + penalty_eta + penalty_rec)*PF
@@ -246,7 +365,10 @@ def system_RC_parallel(x, input_data):
             eta_gh  = np.clip(eta_gh,  0.0, 1.0 - eps)
             eta_cond= np.clip(eta_cond,0.0, 1.0 - eps)
 
-            objective = (Q_gh*(-np.log(1-eta_gh)) + Q_cond*(-np.log(1-eta_cond)))/(Q_cond + Q_gh)
+            c_gh   = params.get('cost_w_gh', 1.0)
+            c_cond = params.get('cost_w_cond', 1.0)
+
+            objective = (c_gh*Q_gh*(-np.log(1-eta_gh)) + c_cond*Q_cond*(-np.log(1-eta_cond)))/(Q_cond + Q_gh)
 
             PF = 1000
             penalty = (penalty_W_dot + penalty_eta)*PF
@@ -275,7 +397,12 @@ def system_RC_parallel(x, input_data):
             eta_rec_HT = np.clip(eta_rec_HT, 0.0, 1.0 - eps)
             eta_cond= np.clip(eta_cond,0.0, 1.0 - eps)
 
-            objective = (Q_gh*(-np.log(1-eta_gh)) + Q_rec_LT*(-np.log(1-eta_rec_LT)) + Q_rec_HT*(-np.log(1-eta_rec_HT)) + Q_cond*(-np.log(1-eta_cond)))/(Q_cond + Q_rec_LT + Q_rec_HT + Q_gh)
+            c_gh     = params.get('cost_w_gh', 1.0)
+            c_rec_lt = params.get('cost_w_rec_LT', 1.0)
+            c_rec_ht = params.get('cost_w_rec_HT', 1.0)
+            c_cond   = params.get('cost_w_cond', 1.0)
+
+            objective = (c_gh*Q_gh*(-np.log(1-eta_gh)) + c_rec_lt*Q_rec_LT*(-np.log(1-eta_rec_LT)) + c_rec_ht*Q_rec_HT*(-np.log(1-eta_rec_HT)) + c_cond*Q_cond*(-np.log(1-eta_cond)))/(Q_cond + Q_rec_LT + Q_rec_HT + Q_gh)
 
             PF = 1000
             penalty = (penalty_W_dot + penalty_eta + penalty_rec)*PF
@@ -299,7 +426,11 @@ def system_RC_parallel(x, input_data):
             eta_rec_LT = np.clip(eta_rec_LT, 0.0, 1.0 - eps)
             eta_cond   = np.clip(eta_cond,   0.0, 1.0 - eps)
 
-            objective = (Q_gh*(-np.log(1-eta_gh)) + Q_rec_LT*(-np.log(1-eta_rec_LT)) + Q_cond*(-np.log(1-eta_cond)))/(Q_cond + Q_rec_LT + Q_gh)
+            c_gh     = params.get('cost_w_gh', 1.0)
+            c_rec_lt = params.get('cost_w_rec_LT', 1.0)
+            c_cond   = params.get('cost_w_cond', 1.0)
+
+            objective = (c_gh*Q_gh*(-np.log(1-eta_gh)) + c_rec_lt*Q_rec_LT*(-np.log(1-eta_rec_LT)) + c_cond*Q_cond*(-np.log(1-eta_cond)))/(Q_cond + Q_rec_LT + Q_gh)
 
             PF = 1000
             penalty = (penalty_W_dot + penalty_eta + penalty_rec)*PF
@@ -312,7 +443,7 @@ def system_RC_parallel(x, input_data):
 
 #%% Optimizer Class (base)
 
-class CO2RC_HX_optimizer:
+class CO2RC_Cost_optimizer:
 
     def __init__(self, fluid):
         self.fluid  = fluid
@@ -794,6 +925,13 @@ class CO2RC_HX_optimizer:
             else:
                 pso_init_pos = np.clip(seed, lb, ub)
 
+        # Constantes indépendantes de la particule évaluée : calculées une
+        # seule fois ici plutôt qu'à chaque appel de system_RC_parallel
+        # (potentiellement des dizaines de milliers d'appels PropsSI économisés
+        # sur une campagne complète).
+        _P_sat_CS_const = PropsSI('P', 'T', self._CSource_props['T'], 'Q', 0.5, self.fluid)
+        _P_crit_const   = PropsSI('PCRIT', self.fluid)
+
         input_data = {
             'fluid'   : self.fluid,
             'params'  : self.params,
@@ -810,6 +948,8 @@ class CO2RC_HX_optimizer:
             },
             'RC_ARCH' : arch,
             'discrete_vars' : discrete_vars,
+            'P_sat_CS' : _P_sat_CS_const,
+            'P_crit'   : _P_crit_const,
         }
 
         def discretize(x):
@@ -881,6 +1021,29 @@ class CO2RC_HX_optimizer:
         else:
             print("  ⚠️  Final solve failed — see penalty log.")
         print("="*55)
+
+        # --- variables de décision brutes (pour affiner les bornes ensuite) ---
+        if self.W_dot_net is not None:
+            print("\n" + "-"*55)
+            print("  VARIABLES DE DÉCISION (valeurs discrétisées PSO)")
+            print("-"*55)
+            print(f"  m_dot_HS          : {self.m_dot_HS:.3f}  kg/s"
+                  + (f"   (facteur = {self.m_dot_HS_factor:.3f})" if self.m_dot_HS_factor is not None else ""))
+            print(f"  m_dot_CS          : {self.m_dot_CS:.3f}  kg/s"
+                  + (f"   (facteur = {self.m_dot_CS_factor:.3f})" if self.m_dot_CS_factor is not None else ""))
+            print(f"  eta_gh (target)   : {self.eta_gh:.3f}")
+            print(f"  PP_gh             : {self.PP_gh:.3f}  K")
+            if arch == 'REC':
+                print(f"  eta_rec (target)  : {self.eta_rec:.3f}")
+            elif arch == 'Recomp':
+                print(f"  eta_rec_LT (target): {self.eta_rec_LT:.3f}")
+                print(f"  eta_rec_HT (target): {self.eta_rec_HT:.3f}")
+                print(f"  spliter_frac      : {self.spliter_frac:.3f}")
+            elif arch == 'Recomp_1_recup':
+                print(f"  eta_rec (target)  : {self.eta_rec:.3f}")
+                print(f"  spliter_frac      : {self.spliter_frac:.3f}")
+            print(f"  PP_cd             : {self.PP_cd:.3f}  K")
+            print("-"*55)
 
         # --- NTU / effectivité par échangeur ---
         if self.W_dot_net is not None and self.NTU_weighted_sum is not None:
@@ -1153,29 +1316,69 @@ if __name__ == "__main__":
         n_cores = multiprocessing.cpu_count()
 
         # ---- sweep ----
-        T_vec = np.linspace(150, 350, 5) + 273.15  # ajouter d'autres T_H ici si besoin
+        T_vec = np.linspace(150, 350, 5) + 273.15  # 150, 200, 250, 300, 350 °C
 
         n_MW = 10  # W
         W_dot_obj = n_MW * 1e6  # W
 
-        # Efficacité maximale trouvée précédemment pour REC @ 150°C : ~13.1%
-        # -> on teste 3 niveaux : le max trouvé et deux valeurs légèrement dégradées
+        # Niveaux d'efficacité cible par T_H (issus de campagnes précédentes :
+        # le max trouvé à chaque T_H, et deux valeurs légèrement dégradées).
+        # -> à ajuster si T_vec est modifié.
+        ETA_OBJ_BY_T_H_C = {
+            150.0: [0.13, 0.12, 0.11],
+            200.0: [0.17, 0.16, 0.15],
+            250.0: [0.21, 0.20, 0.19],
+            300.0: [0.24, 0.23, 0.22],
+            350.0: [0.26, 0.25, 0.24],
+        }
 
         ARCH_LIST = ['REC']  # seule architecture demandée pour cette campagne
         N_RUNS = 5  # nombre d'optimisations par condition (arch, T_H, eta_obj)
 
-        # Sweep parameters (bornes globales, inchangées par rapport au script fourni)
+        # ---------------------------------------------------------------
+        # Bornes ADAPTÉES À LA TEMPÉRATURE, d'après l'analyse de 45 runs
+        # REC (T_H = 150→350°C, eta_obj = 0.11→0.26) :
+        #
+        #   T_H [°C] : 150          200          250          300          350
+        #   P_high   : [133,198]    [147,196]    [154,199]    [154,195]    [138,197]  bar
+        #   m_dot    : [325,427]    [234,295]    [171,212]    [141,189]    [117,156]  kg/s
+        #
+        # -> P_high reste dans la même plage quel que soit T_H (talonne
+        #    systématiquement ~195-200 bar) : bornes FIXES, pas de
+        #    dépendance en T retenue (élargies par rapport à l'observé,
+        #    cf. campagne précédente).
+        # -> m_dot chute d'un facteur ~3.6x entre 150°C et 350°C (meilleur
+        #    rendement -> moins de débit nécessaire pour la même puissance
+        #    visée) : bornes INTERPOLÉES linéairement en T_H (à plat hors
+        #    de la plage [150,350]°C), avec une marge de ±15 % autour des
+        #    valeurs observées.
+        # ---------------------------------------------------------------
         m_dot_HS_fact_bounds = [0.1, 3]
-        m_dot_CS_fact_bounds = [3, 20]
-        P_high_bounds = np.array([110, 200]) * 1e5
-        m_dot_bounds = np.array([10, 60]) * n_MW
+        m_dot_CS_fact_bounds = [5, 15]
+        P_high_bounds = np.array([110, 220]) * 1e5  # fixe (cf. justification ci-dessus)
         spliter_frac_bounds = np.array([0.01, 0.99])
 
+        _T_ANCHORS_C = np.array([150.0, 200.0, 250.0, 300.0, 350.0])
+        # bornes observées (min/max de m_dot par T_H, cf. tableau ci-dessus),
+        # exprimées en multiple de n_MW (=10 dans les runs analysés), avec
+        # marge -15 % / +15 % pour laisser de la place à l'exploration PSO.
+        _M_DOT_MIN_MULT = np.array([325, 234, 171, 141, 117]) / n_MW * 0.85
+        _M_DOT_MAX_MULT = np.array([427, 295, 212, 189, 156]) / n_MW * 1.15
+
+        def m_dot_bounds_for_T(T_H_K, n_MW_local=n_MW):
+            """Bornes de m_dot (CO2, kg/s) interpolées linéairement en T_H
+            (extrapolation à plat hors de [150, 350]°C) depuis les runs
+            observés. Retourne un np.array([lb, ub]) en kg/s."""
+            T_C = T_H_K - 273.15
+            lb_mult = np.interp(T_C, _T_ANCHORS_C, _M_DOT_MIN_MULT)
+            ub_mult = np.interp(T_C, _T_ANCHORS_C, _M_DOT_MAX_MULT)
+            return np.array([lb_mult, ub_mult]) * n_MW_local
+
         # Discrete Variable choices
-        eta_gh_disc = np.arange(0.8, 0.98, 0.02)
+        eta_gh_disc = np.arange(0.80, 1.00, 0.02)
         PP_gh_disc = np.arange(1, 10, 1)
-        eta_rec_disc = np.arange(0.6, 0.96, 0.02)
-        eta_rec_HT_disc = np.arange(0.6, 0.96, 0.02)
+        eta_rec_disc = np.arange(0.60, 0.98, 0.02)
+        eta_rec_HT_disc = np.arange(0.60, 0.98, 0.02)
         PP_cd_disc = np.arange(1, 10, 1)
 
         for arch in ARCH_LIST:
@@ -1185,19 +1388,16 @@ if __name__ == "__main__":
 
             for T in T_vec:
                 T_H_C = round(T - 273.15, 1)
-                
-                if T_H_C == 150:
-                    ETA_OBJ_LIST = [0.13, 0.12, 0.11]
-                elif T_H_C == 200:
-                    ETA_OBJ_LIST = [0.17, 0.16, 0.15]
-                elif T_H_C == 250:
-                    ETA_OBJ_LIST = [0.21, 0.2, 0.19]
-                elif T_H_C == 300:
-                    ETA_OBJ_LIST = [0.24, 0.23, 0.22]
-                elif T_H_C == 350:
-                    ETA_OBJ_LIST = [0.26, 0.25, 0.24]
 
-                for eta_obj in ETA_OBJ_LIST:
+                # --- bornes m_dot adaptées à ce T_H ---
+                m_dot_bounds = m_dot_bounds_for_T(T)
+                print(f"\n[Bornes @ T_H={T_H_C:.1f}°C] "
+                      f"m_dot ∈ [{m_dot_bounds[0]:.1f}, {m_dot_bounds[1]:.1f}] kg/s   "
+                      f"P_high ∈ [{P_high_bounds[0]/1e5:.0f}, {P_high_bounds[1]/1e5:.0f}] bar")
+
+                eta_obj_list = ETA_OBJ_BY_T_H_C.get(T_H_C, [0.15])  # défaut si T_H hors table
+
+                for eta_obj in eta_obj_list:
                     print(f"\n--- T_H = {T_H_C:.1f} °C | eta_obj = {eta_obj:.3f} ---")
 
                     condition_key = (arch, T_H_C, eta_obj)
@@ -1206,7 +1406,7 @@ if __name__ == "__main__":
                         print(f"  Run {run_idx+1}/{N_RUNS}...")
 
                         try:
-                            Optimizer = CO2RC_HX_optimizer('CO2')
+                            Optimizer = CO2RC_Cost_optimizer('CO2')
 
                             Optimizer.set_parameters(
                                 RC_ARCH=arch,  # 'basic', 'REC', 'Recomp_1_recup', 'Recomp'
@@ -1271,7 +1471,7 @@ if __name__ == "__main__":
                             Optimizer.set_HSource(T=T, P=10e5, fluid='INCOMP::TVP1', m_dot=50.0)
 
                             Optimizer.set_RC()
-                            Optimizer.opt_RC(n_jobs=n_cores - 1, n_particles=50, max_iter=50, patience=10)
+                            Optimizer.opt_RC(n_jobs=n_cores - 1, n_particles=50, max_iter=50, patience=20)
 
                             if not is_recuperator_valid(Optimizer, arch, EPS_REC_MIN):
                                 print(f"    [!] Récupérateur quasi bypassé "

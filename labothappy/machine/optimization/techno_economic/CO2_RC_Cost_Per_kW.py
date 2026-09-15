@@ -14,6 +14,14 @@ statiques + un attribut RUN_KWARGS (kwargs à passer à .sizing()).
 size_all_components() boucle dessus et n'y injecte, à chaque appel, que ce
 qui dépend du point de fonctionnement courant : les inputs thermo (T/P/mdot)
 et, pour les échangeurs, les contraintes Q_dot/DP_h/DP_c.
+
+PERFORMANCE (voir discussion) :
+- cycle_design() warm-démarre désormais chaque itération PSO avec la
+  meilleure position trouvée à l'itération précédente (au lieu de repartir
+  du même init_pos, ou de rien, à chaque fois) : entre deux itérations,
+  seuls eta_pp/eta_exp/DP_* changent légèrement, donc l'optimum ne se
+  déplace que peu -> convergence bien plus rapide.
+- Voir le __main__ pour la correction patience/max_iter et le ntop réduit.
 """
 
 #%% Imports
@@ -176,9 +184,11 @@ def size_all_components(RC, sizing_models, turb_choice="None"):
 
 def _hx_effectivenesses(RC, arch):
     """
-    Recalcule/relit les epsilon des échangeurs, exactement comme dans
-    system_RC_parallel (source de vérité pour ces valeurs). Renvoie un dict
-    {nom_lisible: epsilon}, avec NaN pour ce qui n'existe pas / échoue.
+    Recalcule/relit les epsilon ET les Q_dot des échangeurs, exactement
+    comme dans system_RC_parallel (source de vérité pour ces valeurs).
+    Renvoie un dict {nom_lisible: valeur}, avec NaN pour ce qui n'existe
+    pas / échoue. Les Q_dot sont nécessaires pour calibrer ultérieurement
+    les coefficients cost_w_* (voir calibrate_cost_weights_from_sizing ci-dessous).
     """
     out = {}
 
@@ -189,22 +199,35 @@ def _hx_effectivenesses(RC, arch):
         except Exception:
             out[label] = float("nan")
 
+    def safe_Q(component_key, label):
+        try:
+            model = RC.components[component_key].model
+            out[label] = model.Q.Q_dot
+        except Exception:
+            out[label] = float("nan")
+
     # Condenser : epsilon n'est peuplé qu'après cet appel explicite
     try:
         RC.components['Condenser'].model.equivalent_effectiveness()
     except Exception:
         pass
     safe_epsilon('Condenser', 'eps_cond')
+    safe_Q('Condenser', 'Q_cond')
 
     safe_epsilon('GasHeater', 'eps_gh')
+    safe_Q('GasHeater', 'Q_gh')
 
     if arch == 'REC':
         safe_epsilon('Recuperator', 'eps_rec')
+        safe_Q('Recuperator', 'Q_rec')
     elif arch == 'Recomp':
         safe_epsilon('RecupLT', 'eps_rec_LT')
+        safe_Q('RecupLT', 'Q_rec_LT')
         safe_epsilon('RecupHT', 'eps_rec_HT')
+        safe_Q('RecupHT', 'Q_rec_HT')
     elif arch == 'Recomp_1_recup':
         safe_epsilon('RecupLT', 'eps_rec_LT')
+        safe_Q('RecupLT', 'Q_rec_LT')
     # arch == 'basic' : pas de récupérateur
 
     return out
@@ -299,6 +322,126 @@ def log_cycle_result(log_path, T_hot, T_cold, W_dot_obj, eta_obj, RC, arch,
             writer.writeheader()
         writer.writerow(row)
 
+def calibrate_cost_weights_from_sizing(Optimizer, arch='REC', RC_list=None, reference='cond'):
+    """
+    Calibre cost_w_gh / cost_w_rec / cost_w_cond DIRECTEMENT depuis le CAPEX
+    réel des échangeurs déjà sizés dans ce run -- pas de CSV, pas de
+    régression multi-runs, pas de modèle UA/LMTD intermédiaire.
+
+    Principe, par échangeur x : cost_w_x = (CAPEX_x / (Q_x * NTU_x)),
+    normalisé par rapport à `reference` (donc cost_w_<reference> = 1.0). Ce
+    ratio est directement injectable dans l'objectif du PSO thermodynamique
+    (system_RC_parallel), qui calcule déjà Q_x*NTU_x pour chaque échangeur
+    -- cost_w_x agit comme un simple facteur multiplicatif dessus.
+
+    `RC_list` : liste de cycles déjà sizés (chacun avec RC.CAPEX[key] et
+    RC.components[key].model peuplés). Par défaut, Optimizer.potential_RC
+    (les candidats sizés à l'itération courante de cycle_design). Peut aussi
+    recevoir la liste retournée par quick_calibration_points() pour calibrer
+    depuis plusieurs points choisis à la main, en amont d'un cycle_design.
+
+    Retourne un dict {'cost_w_gh':..., 'cost_w_rec':..., 'cost_w_cond':...}
+    prêt à passer à Optimizer.set_parameters(**dict), ou None si aucun
+    échangeur n'a pu être calibré.
+    """
+    if arch != 'REC':
+        print(f"[calibrate_cost_weights_from_sizing] Architecture '{arch}' "
+              f"non supportée (implémenté pour REC uniquement).")
+        return None
+
+    if RC_list is None:
+        RC_list = Optimizer.potential_RC
+
+    key_map = {'gh': 'GasHeater', 'rec': 'Recuperator', 'cond': 'Condenser'}
+    ratios = {'gh': [], 'rec': [], 'cond': []}
+
+    for RC in RC_list:
+        for short, key in key_map.items():
+            try:
+                capex = RC.CAPEX.get(key)
+                model = RC.components[key].model
+                Q = model.Q.Q_dot
+                if key == 'Condenser':
+                    model.equivalent_effectiveness()
+                eps = model.epsilon
+                ntu = -np.log(1.0 - min(max(eps, 0.0), 1.0 - 1e-6))
+                if capex and Q and ntu > 0:
+                    ratios[short].append(capex / (Q * ntu))
+            except Exception:
+                continue
+
+    ks = {}
+    for short, vals in ratios.items():
+        if vals:
+            ks[short] = float(np.mean(vals))
+            flag = "  (n=1, aucune robustesse)" if len(vals) == 1 else ""
+            print(f"[calibrate_cost_weights_from_sizing] k_{short} = {ks[short]:.4g} "
+                  f"(n={len(vals)}){flag}")
+        else:
+            print(f"[calibrate_cost_weights_from_sizing] Aucun point valide pour "
+                  f"'{short}' -- cost_w_{short} laissé inchangé.")
+
+    if reference not in ks:
+        print(f"[calibrate_cost_weights_from_sizing] Référence '{reference}' "
+              f"non calibrable -- abandon.")
+        return None
+
+    k_ref = ks[reference]
+    weights = {f'cost_w_{short}': v / k_ref for short, v in ks.items()}
+    print(f"[calibrate_cost_weights_from_sizing] cost_w_* (réf={reference}) : {weights}")
+    return weights
+
+
+def quick_calibration_points(Optimizer, sizing_models, points):
+    """
+    Size directement quelques positions thermodynamiques choisies à la main
+    (PAS de PSO) pour obtenir de vrais CAPEX_gh/CAPEX_rec/CAPEX_cond en
+    quelques minutes plutôt qu'en lançant une campagne cycle_design complète.
+
+    `Optimizer` doit déjà avoir set_parameters/set_it_var/set_obj/
+    set_CSource/set_HSource/set_RC appelés (comme dans le __main__).
+
+    `points` : liste de dicts, ex. pour l'architecture REC :
+        [{'P_high': 150e5, 'mdot': 200.0, 'mdot_HS': 150.0, 'mdot_CS': 2000.0,
+          'eta_gh': 0.92, 'PP_gh': 5, 'eta_rec': 0.85, 'PP_cd': 5}, ...]
+    Idéalement 3-5 points couvrant des Q_dot/NTU variés par échangeur, pour
+    que calibrate_cost_weights_from_sizing() ait de quoi moyenner plutôt
+    qu'un seul point isolé.
+
+    Retourne la liste des cycles sizés avec succès (à passer directement à
+    calibrate_cost_weights_from_sizing(Optimizer, RC_list=...)).
+    """
+    sized_RCs = []
+    for i, point in enumerate(points):
+        print(f"\n[quick_calibration] Point {i+1}/{len(points)} : {point}")
+
+        Optimizer.it_var.update(point)
+        Optimizer._HSource_props['m_dot'] = point['mdot_HS']
+        Optimizer._CSource_props['m_dot'] = point['mdot_CS']
+
+        try:
+            Optimizer.set_RC()
+            Optimizer.current_RC = Optimizer.RC
+            Optimizer.current_RC.solve()
+        except Exception as e:
+            print(f"  ⚠️ Solve échoué pour ce point : {e}")
+            continue
+
+        ok, results, turb_choice = size_all_components(
+            Optimizer.current_RC, sizing_models, Optimizer.turb_choice
+        )
+        if not ok:
+            print("  ⚠️ Sizing échoué pour ce point, ignoré.")
+            continue
+
+        Optimizer.current_RC.CAPEX = {key: np.round(obj.CAPEX['Total']) for key, obj in results.items()}
+        Optimizer.current_RC.CAPEX["Total"] = sum(Optimizer.current_RC.CAPEX.values())
+        sized_RCs.append(Optimizer.current_RC)
+
+    return sized_RCs
+
+
+
 #%% Classe étendue : hérite de la brique d'optimisation importée
 
 class CO2RCOptimizer(CO2RC_HX_optimizer):
@@ -319,10 +462,65 @@ class CO2RCOptimizer(CO2RC_HX_optimizer):
         self.potential_RC = []
         self.best_RC = None
         self.sizing_models = {}   # <-- rempli depuis le main avant cycle_design()
+        # Snapshot des DP_* ENCODÉS AVANT le lancement de l'optimisation (pris
+        # une seule fois, au début de cycle_design). Sert de référence FIXE
+        # pour le score de cohérence dans evaluate_systems() -- contrairement
+        # à self.params['DP_h_gh'] etc. qui dérivent à chaque itération
+        # (moyenne avec le DP réel), ce snapshot ne bouge jamais, donc un DP
+        # réel qui reste sous la valeur d'origine n'est jamais pénalisé,
+        # même après plusieurs itérations de mise à jour de self.params.
+        self.original_DP_params = {}
+        # Meilleur design (CAPEX le plus bas) jamais vu sur TOUT le run de
+        # cycle_design, toutes itérations confondues -- voir discussion
+        # "que se passe-t-il si le design redevient plus cher après une
+        # itération". self.best_RC (seul, sans "_overall") reste le design
+        # de la DERNIÈRE itération traitée par evaluate_systems() -- utile
+        # pour la mise à jour de self.params, qui doit continuer à se baser
+        # sur l'itération courante même si elle régresse en coût. C'est
+        # self.best_RC_overall qui est restauré dans self.best_RC à la fin
+        # de cycle_design(), pour que le résultat final ne soit jamais pire
+        # que ce qui a déjà été trouvé en cours de route.
+        self.best_RC_overall = None
+        self.best_capex_overall = float('inf')
+        self.capex_history = []  # [(iteration, CAPEX_Total), ...] sur tout le run
 
     def evaluate_systems(self):
+        """
+        Score chaque candidat sizé sur deux critères combinés :
+          1) Cohérence :
+             - eta_exp/eta_pp : écart entre la valeur ASSUMÉE dans le PSO
+               thermodynamique (self.params, mise à jour à chaque itération)
+               et celle RÉELLEMENT ATTEINTE après sizing.
+             - DP_* : écart entre le DP RÉEL et le DP ORIGINAL encodé avant
+               le lancement de l'optimisation (self.original_DP_params,
+               figé une fois pour toutes -- PAS self.params qui dérive
+               d'itération en itération). Le score n'est non nul QUE si le
+               DP réel DÉPASSE cette valeur d'origine (voir le np.max ci-
+               dessous) : un DP réel plus bas que ce qui a été encodé au
+               départ n'est jamais pénalisé, même après que self.params ait
+               dérivé vers une cible plus basse au fil des itérations. Ce
+               score reste calculé et tracé (delta_dict, logs) dans tous les
+               cas, il ne bloque simplement plus la convergence quand il est
+               favorable.
+          2) CAPEX : coût total du candidat, normalisé par le CAPEX minimum
+             du lot (donc le moins cher a une contribution nulle, les autres
+             sont pénalisés proportionnellement à leur surcoût relatif).
+
+        `capex_weight` (dans self.params, défaut 1.0) règle l'importance
+        relative du coût : 0 = comportement d'origine (cohérence seule),
+        valeurs plus élevées = priorité croissante au coût. À 1.0, un
+        candidat 20 % plus cher qu'un autre à cohérence égale perd si son
+        écart de cohérence est inférieur à 0.2 (échelle des deltas au carré
+        ci-dessous, typiquement de l'ordre de 1e-3 à 1e-1).
+        """
         RC_scores = []
         delta_dicts = []
+        capex_totals = []
+
+        # Référence DP : self.original_DP_params si déjà initialisé par
+        # cycle_design(), sinon repli sur self.params (permet d'appeler
+        # evaluate_systems() de façon autonome, hors cycle_design).
+        dp_ref = self.original_DP_params if self.original_DP_params else self.params
 
         for RC in self.potential_RC:
             delta_dicts.append({})
@@ -342,17 +540,27 @@ class CO2RCOptimizer(CO2RC_HX_optimizer):
             delta_dicts[-1]['eta_exp'] = delta_exp = ((eta_exp - self.params['eta_exp']) / self.params['eta_exp']) ** 2
             delta_dicts[-1]['eta_pp'] = delta_pp = ((eta_pp - self.params['eta_pp']) / self.params['eta_pp']) ** 2
 
-            delta_dicts[-1]['DP_h_gh'] = delta_h_gh = ((np.max([DP_h_gh, self.params['DP_h_gh']]) - self.params['DP_h_gh']) / self.params['DP_h_gh']) ** 2
-            delta_dicts[-1]['DP_c_gh'] = delta_c_gh = ((np.max([DP_c_gh, self.params['DP_c_gh']]) - self.params['DP_c_gh']) / self.params['DP_c_gh']) ** 2
+            delta_dicts[-1]['DP_h_gh'] = delta_h_gh = ((np.max([DP_h_gh, dp_ref['DP_h_gh']]) - dp_ref['DP_h_gh']) / dp_ref['DP_h_gh']) ** 2
+            delta_dicts[-1]['DP_c_gh'] = delta_c_gh = ((np.max([DP_c_gh, dp_ref['DP_c_gh']]) - dp_ref['DP_c_gh']) / dp_ref['DP_c_gh']) ** 2
 
-            delta_dicts[-1]['DP_h_cond'] = delta_h_cond = ((np.max([DP_h_cond, self.params['DP_h_cond']]) - self.params['DP_h_cond']) / self.params['DP_h_cond']) ** 2
-            delta_dicts[-1]['DP_c_cond'] = delta_c_cond = ((np.max([DP_c_cond, self.params['DP_c_cond']]) - self.params['DP_c_cond']) / self.params['DP_c_cond']) ** 2
+            delta_dicts[-1]['DP_h_cond'] = delta_h_cond = ((np.max([DP_h_cond, dp_ref['DP_h_cond']]) - dp_ref['DP_h_cond']) / dp_ref['DP_h_cond']) ** 2
+            delta_dicts[-1]['DP_c_cond'] = delta_c_cond = ((np.max([DP_c_cond, dp_ref['DP_c_cond']]) - dp_ref['DP_c_cond']) / dp_ref['DP_c_cond']) ** 2
 
-            delta_dicts[-1]['DP_h_rec'] = delta_h_rec = ((np.max([DP_h_rec, self.params['DP_h_rec']]) - self.params['DP_h_rec']) / self.params['DP_h_rec']) ** 2
-            delta_dicts[-1]['DP_c_rec'] = delta_c_rec = ((np.max([DP_c_rec, self.params['DP_c_rec']]) - self.params['DP_c_rec']) / self.params['DP_c_rec']) ** 2
+            delta_dicts[-1]['DP_h_rec'] = delta_h_rec = ((np.max([DP_h_rec, dp_ref['DP_h_rec']]) - dp_ref['DP_h_rec']) / dp_ref['DP_h_rec']) ** 2
+            delta_dicts[-1]['DP_c_rec'] = delta_c_rec = ((np.max([DP_c_rec, dp_ref['DP_c_rec']]) - dp_ref['DP_c_rec']) / dp_ref['DP_c_rec']) ** 2
 
             score_current = delta_exp + delta_pp + delta_h_gh + delta_c_gh + delta_h_cond + delta_c_cond + delta_h_rec + delta_c_rec
             RC_scores.append(score_current)
+            capex_totals.append(RC.CAPEX.get("Total", float("nan")))
+
+        # --- pénalité CAPEX, ajoutée au score de cohérence ---
+        capex_weight = self.params.get('capex_weight', 1.0)
+        valid_capex = [c for c in capex_totals if np.isfinite(c)]
+        if capex_weight > 0 and valid_capex:
+            capex_min = min(valid_capex)
+            for i, capex in enumerate(capex_totals):
+                if np.isfinite(capex) and capex_min > 0:
+                    RC_scores[i] += capex_weight * (capex / capex_min - 1.0)
 
         index_of_min = RC_scores.index(np.min(RC_scores))
         self.best_RC = best_RC = self.potential_RC[index_of_min]
@@ -430,26 +638,148 @@ class CO2RCOptimizer(CO2RC_HX_optimizer):
         n_it_max = 10
         it = 0
 
+        # Snapshot fixe des DP_* tels qu'encodés avant le lancement (voir
+        # docstring d'evaluate_systems). Pris une seule fois -- si
+        # cycle_design() est rappelée sur un Optimizer déjà utilisé, ne
+        # réinitialise pas le snapshot (self.original_DP_params déjà non
+        # vide), pour ne pas effacer la référence d'un run précédent.
+        if not self.original_DP_params:
+            self.original_DP_params = {
+                'DP_h_gh': self.params['DP_h_gh'],
+                'DP_c_gh': self.params['DP_c_gh'],
+                'DP_h_cond': self.params['DP_h_cond'],
+                'DP_c_cond': self.params['DP_c_cond'],
+                'DP_h_rec': self.params['DP_h_rec'],
+                'DP_c_rec': self.params['DP_c_rec'],
+            }
+            print(f"[cycle_design] DP de référence (fixes, pour tout le run) : "
+                  f"{self.original_DP_params}")
+
         while self.criterion == 0 and it < n_it_max:
 
             self.allowable_positions = []  # reset à chaque itération
 
             # --- Optimisation PSO héritée du fichier 1 ---
-            self.opt_RC(n_jobs=n_jobs, n_particles=n_particles, max_iter=max_iter,
+            # PERFORMANCE : on capture l'objet `optimizer` retourné pour
+            # réutiliser sa meilleure position comme graine (warm start) de
+            # l'itération suivante. D'une itération de cycle_design à
+            # l'autre, seuls eta_pp/eta_exp/DP_* bougent légèrement (moyenne
+            # avec les anciennes valeurs, cf. plus bas) -> le nouvel optimum
+            # est proche de l'ancien, donc le PSO reconverge en bien moins
+            # d'itérations si on le démarre depuis là plutôt qu'à froid.
+            pso_optimizer = self.opt_RC(n_jobs=n_jobs, n_particles=n_particles, max_iter=max_iter,
                         patience=patience, ntop=ntop, init_pos=init_pos)
+            init_pos = pso_optimizer.swarm.best_pos
 
             # --- Dimensionnement des composants ---
             self.size_components()
+
+            # ------------------------------------------------------------
+            # Calibre cost_w_gh/rec/cond directement depuis le CAPEX réel des
+            # échangeurs sizés à cette itération, et met à jour self.params
+            # pour que le PSO thermodynamique des itérations suivantes en
+            # tienne compte. Se recalibre à CHAQUE itération (les candidats
+            # sizés changent d'une itération à l'autre, donc autant garder
+            # les poids à jour plutôt que figés après la 1ère calibration).
+            # ------------------------------------------------------------
+            if self.potential_RC:
+                cost_weights = calibrate_cost_weights_from_sizing(
+                    self, self.params.get('RC_ARCH', 'REC')
+                )
+                if cost_weights is not None:
+                    self.set_parameters(**cost_weights)
+                    print(f"[cycle_design] cost_w_* mis à jour : {cost_weights}")
+                else:
+                    print("[cycle_design] Calibration cost_w_* impossible ce coup-ci "
+                          "-- valeurs précédentes conservées.")
 
             new_params, best_score, delta_dict = self.evaluate_systems()
             self.new_params = new_params
             self.delta_dict = delta_dict
 
-            print("\n----------------------------------------")
-            print(f"New Values - Best Score : {best_score}")
-            print("----------------------------------------")
-            for k in new_params:
-                print(f"{k} : {new_params[k]} - {delta_dict[k]*100}")
+            # ------------------------------------------------------------
+            # Suivi du meilleur design jamais vu (CAPEX), toutes itérations
+            # confondues -- voir discussion "que faire si le design devient
+            # plus cher après une itération". Silencieux : pas de message,
+            # juste la mise à jour de self.best_RC_overall/self.capex_history.
+            # ------------------------------------------------------------
+            current_capex = self.best_RC.CAPEX.get('Total', float('inf'))
+            self.capex_history.append((it + 1, current_capex))
+            if current_capex < self.best_capex_overall:
+                self.best_RC_overall = self.best_RC
+                self.best_capex_overall = current_capex
+
+            # ------------------------------------------------------------
+            # Bloc d'affichage UNIQUE (fusionne score/CAPEX, cohérence
+            # turbomachines, DP réel vs référence, et variables d'échangeurs
+            # cible-PSO vs effectivité réellement atteinte sur best_RC).
+            # ------------------------------------------------------------
+            arch = self.params.get('RC_ARCH', 'REC')
+
+            def _ntu(eps):
+                if eps is None or not np.isfinite(eps):
+                    return float('nan')
+                eps_c = min(max(eps, 0.0), 1.0 - 1e-6)
+                return -np.log(1.0 - eps_c)
+
+            hx_eff = _hx_effectivenesses(self.best_RC, arch)
+
+            print("\n" + "="*60)
+            print(f"  cycle_design -- itération {it + 1}")
+            print("="*60)
+            print(f"  Best Score (cohérence + CAPEX) : {best_score:.6g}")
+            print(f"  CAPEX Total (best_RC)          : {self.best_RC.CAPEX.get('Total'):,.0f}")
+            print(f"  CAPEX candidats sizés           : "
+                  f"{[rc.CAPEX.get('Total') for rc in self.potential_RC]}")
+
+            print("-"*60)
+            print("  Cohérence turbomachines (assumé -> réel, delta %) :")
+            print(f"    eta_exp : {self.params['eta_exp']:.3f} -> {new_params['eta_exp']:.3f}  "
+                  f"(delta={delta_dict['eta_exp']*100:.4f}%)")
+            print(f"    eta_pp  : {self.params['eta_pp']:.3f} -> {new_params['eta_pp']:.3f}  "
+                  f"(delta={delta_dict['eta_pp']*100:.4f}%)")
+
+            print("-"*60)
+            print("  DP réel (best_RC) vs référence fixe (pré-optimisation) :")
+            for dp_key in ('DP_h_gh', 'DP_c_gh', 'DP_h_cond', 'DP_c_cond', 'DP_h_rec', 'DP_c_rec'):
+                real_val = new_params.get(dp_key)
+                ref_val = self.original_DP_params.get(dp_key)
+                if real_val is not None and ref_val:
+                    ratio = real_val / ref_val
+                    tag = "OK (sous la référence)" if real_val <= ref_val else "⚠️ AU-DESSUS de la référence"
+                    print(f"    {dp_key:10s} : réel={real_val:10.0f} Pa  |  "
+                          f"référence={ref_val:10.0f} Pa  |  ratio={ratio:.2f}  |  {tag}")
+
+            print("-"*60)
+            print("  Échangeurs -- variable cible du PSO vs effectivité réelle (best_RC) :")
+            eta_gh_cible = self.it_var.get('eta_gh')
+            PP_gh_cible  = self.it_var.get('PP_gh')
+            PP_cd_cible  = self.it_var.get('PP_cd')
+            print(f"    GasHeater   : cible eta_gh={eta_gh_cible}, PP_gh={PP_gh_cible} K  |  "
+                  f"eps réel={hx_eff.get('eps_gh'):.4f}  |  NTU réel={_ntu(hx_eff.get('eps_gh')):.3f}  |  "
+                  f"Q={hx_eff.get('Q_gh', float('nan')):,.0f} W")
+
+            if arch == 'REC':
+                eta_rec_cible = self.it_var.get('eta_rec')
+                print(f"    Recuperator : cible eta_rec={eta_rec_cible}  |  "
+                      f"eps réel={hx_eff.get('eps_rec'):.4f}  |  NTU réel={_ntu(hx_eff.get('eps_rec')):.3f}  |  "
+                      f"Q={hx_eff.get('Q_rec', float('nan')):,.0f} W")
+            elif arch == 'Recomp':
+                print(f"    RecupLT     : cible eta_rec_LT={self.it_var.get('eta_rec_LT')}  |  "
+                      f"eps réel={hx_eff.get('eps_rec_LT'):.4f}  |  NTU réel={_ntu(hx_eff.get('eps_rec_LT')):.3f}  |  "
+                      f"Q={hx_eff.get('Q_rec_LT', float('nan')):,.0f} W")
+                print(f"    RecupHT     : cible eta_rec_HT={self.it_var.get('eta_rec_HT')}  |  "
+                      f"eps réel={hx_eff.get('eps_rec_HT'):.4f}  |  NTU réel={_ntu(hx_eff.get('eps_rec_HT')):.3f}  |  "
+                      f"Q={hx_eff.get('Q_rec_HT', float('nan')):,.0f} W")
+            elif arch == 'Recomp_1_recup':
+                print(f"    RecupLT     : cible eta_rec={self.it_var.get('eta_rec')}  |  "
+                      f"eps réel={hx_eff.get('eps_rec_LT'):.4f}  |  NTU réel={_ntu(hx_eff.get('eps_rec_LT')):.3f}  |  "
+                      f"Q={hx_eff.get('Q_rec_LT', float('nan')):,.0f} W")
+
+            print(f"    Condenser   : cible PP_cd={PP_cd_cible} K  |  "
+                  f"eps réel={hx_eff.get('eps_cond'):.4f}  |  NTU réel={_ntu(hx_eff.get('eps_cond')):.3f}  |  "
+                  f"Q={hx_eff.get('Q_cond', float('nan')):,.0f} W")
+            print("="*60)
 
             self.set_parameters(
                 eta_exp=new_params['eta_exp'],
@@ -468,6 +798,17 @@ class CO2RCOptimizer(CO2RC_HX_optimizer):
                     self.criterion = 0
                     break
             it += 1
+
+        # Restauration finale : si la dernière itération traitée n'est pas
+        # celle qui a produit le meilleur CAPEX du run, self.best_RC (celui
+        # de la dernière itération) est remplacé par self.best_RC_overall
+        # (le meilleur jamais vu) -- pour que le design retourné par
+        # cycle_design() ne soit jamais pire que ce qui a déjà été trouvé
+        # en cours de route. self.new_params/self.delta_dict, en revanche,
+        # restent ceux de la dernière itération (ils décrivent le processus
+        # de convergence, pas le design final retenu).
+        if self.best_RC_overall is not None:
+            self.best_RC = self.best_RC_overall
 
         if self.params.get('save_file_path') is not None:
             import json, os
@@ -538,6 +879,25 @@ if __name__ == "__main__":
         m_dot_bounds=m_dot_bounds,
         eta_gh_disc=eta_gh_disc, PP_gh_disc=PP_gh_disc,
         eta_rec_disc=eta_rec_disc, PP_cd_disc=PP_cd_disc,
+        # Poids du CAPEX dans evaluate_systems() (voir docstring) :
+        #   0.0 = comportement d'origine (cohérence eta/DP seule)
+        #   1.0 = coût et cohérence pèsent à peu près à égalité (défaut)
+        #   >1.0 = priorité croissante au coût le plus bas
+        capex_weight=1.0,
+        # Poids de coût relatif par technologie d'échangeur, utilisés DANS
+        # le PSO thermodynamique (system_RC_parallel). Valeur initiale =1
+        # partout (NTU pondéré par Q_dot, coût $/NTU supposé identique entre
+        # PCHE et Shell&Tube) -- recalibré automatiquement à CHAQUE itération
+        # de cycle_design() depuis le CAPEX réel des échangeurs sizés (voir
+        # calibrate_cost_weights_from_sizing, appelée dans cycle_design()).
+        # Pour pré-calibrer AVANT même de lancer cycle_design (utile avec
+        # ntop=1, où un seul candidat par itération donne peu de robustesse
+        # au début) :
+        #   points = [...]  # voir docstring de quick_calibration_points
+        #   sized = quick_calibration_points(Optimizer, sizing_models, points)
+        #   weights = calibrate_cost_weights_from_sizing(Optimizer, RC_list=sized)
+        #   if weights: Optimizer.set_parameters(**weights)
+        cost_w_gh=1.0, cost_w_rec=1.0, cost_w_cond=1.0,
     )
     
     if Optimizer.params['RC_ARCH'] == "Recomp":
@@ -572,7 +932,14 @@ if __name__ == "__main__":
 
     # --- GasHeater / Condenser (Shell&Tube) : géométrie + paramètres communs ---
 
-    shell_tube_run_kwargs = dict(n_particles=100, max_iterations=50, obj='mass', print_flag=0)
+    # PERFORMANCE : n_jobs=-1 ajouté ici (absent dans le script d'origine) —
+    # par cohérence avec Recuperator/Expander_Axial/Expander_Radial qui
+    # utilisent tous n_jobs=-1, ShellAndTubeSizingOpt.sizing() accepte très
+    # probablement ce kwarg (même famille d'optimiseur PSO interne). Sans
+    # lui, GasHeater/Condenser tournaient vraisemblablement en série sur un
+    # seul coeur pendant que tout le reste utilisait tous les coeurs.
+    # -> À VÉRIFIER : si .sizing() ne connaît pas n_jobs, retirer cette ligne.
+    shell_tube_run_kwargs = dict(n_particles=100, max_iterations=50, obj='mass', print_flag=0, n_jobs=-1)
 
     GH = sizing_models["GasHeater"] = ShellAndTubeSizingOpt()
     GH.set_parameters(
@@ -609,7 +976,26 @@ if __name__ == "__main__":
     
     #%%
     t0 = time.perf_counter()
-    Optimizer.cycle_design(ntop=5, n_particles=100, n_jobs=-1, patience=30)
+
+    # PERFORMANCE — corrections apportées par rapport à l'appel d'origine
+    # `cycle_design(ntop=5, n_particles=100, n_jobs=-1, patience=30)` :
+    #
+    #   1) `patience=30` avec `max_iter` par défaut (=30) : patience >= max_iter
+    #      empêche TOUT arrêt anticipé (le critère `no_improve >= patience` ne
+    #      peut jamais se déclencher avant la fin des 30 itérations). Le PSO
+    #      tournait donc systématiquement à fond même quand il convergeait
+    #      bien avant (cf. logs précédents : convergence en 10-40 itérations
+    #      sur 50 dans la plupart des cas). Corrigé : max_iter=50, patience=15.
+    #
+    #   2) `ntop=5` : chaque position dimensionnée déclenche l'intégralité du
+    #      pipeline de sizing (Recuperator PSO + GasHeater PSO + Condenser PSO
+    #      + turbine). Réduit à 3 : les 2 positions les moins bonnes du top 5
+    #      changent rarement le résultat final (cf. evaluate_systems, qui ne
+    #      garde que la meilleure), donc ce coût est le plus souvent perdu.
+    #      Remettre à 5 si la robustesse du choix final est prioritaire sur
+    #      la vitesse.
+    Optimizer.cycle_design(ntop=3, n_particles=100, max_iter=50, n_jobs=-1, patience=15)
+
     elapsed = time.perf_counter() - t0
     
     if Optimizer.best_RC is not None:
@@ -622,4 +1008,3 @@ if __name__ == "__main__":
         )
     else:
         print("⚠️ Aucun RC valide trouvé — rien à logger.")
-

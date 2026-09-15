@@ -92,7 +92,9 @@ class PumpCstEff(BaseComponent):
         except Exception as e:
             # Handle any errors that occur during solving
             self.solved = False
-            print(f"Convergence problem in pump model: {e}")
+            
+            if self.print_flag:
+                print(f"Convergence problem in pump model: {e}")
 
         
     def update_connectors(self, h_ex, w_pp, W_dot_pp):

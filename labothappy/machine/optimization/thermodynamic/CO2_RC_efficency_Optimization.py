@@ -766,7 +766,6 @@ if __name__ == "__main__":
         
         _AVAILABLE_T_BY_ARCH = {arch: sorted(d.keys()) for arch, d in BOUNDS.items()}
         
-        
         def get_bounds(arch, T_C):
             """Renvoie le dict de bornes pour (arch, T_C). Si T_C n'est pas une clé
             exacte (arrondi/erreur flottante), utilise la température disponible
@@ -780,7 +779,6 @@ if __name__ == "__main__":
             if abs(T_used - T_C) > 1.0:
                 print(f"    [!] Pas de bornes exactes pour {arch} @ {T_C}°C -> utilisation de {T_used}°C")
             return arch_bounds[T_used]
-        
         
         # ---------------------------------------------------------------------
         # Gestion des "N meilleurs runs" par condition (architecture, température)
