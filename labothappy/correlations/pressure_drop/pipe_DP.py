@@ -16,7 +16,6 @@ from labothappy.correlations.properties.dimensionless import (
 )
 
 from labothappy.correlations.void_fraction.void_fraction import (
-    compute_void_fraction,
     void_fraction_homogeneous,
     void_fraction_zivi,
 )
@@ -613,109 +612,111 @@ def pressure_drop_friedel(m_dot, x, rho_l, rho_v, mu_l, mu_v, sigma, d_hyd, L, K
     return dP_tp
 
 
-# def pressure_drop_choi(AS, G, rho_su, rho_ex, P_sat, x_su, x_ex, L, d_hyd):
-#     """
-#     Two-phase pressure drop for evaporation and condensation in smooth
-#     and micro-fin tubes.
+def pressure_drop_choi(G, rho_su, rho_ex, x_su, x_ex, mu_l_sat, h_lv_sat, L, d_hyd):
+    """
+    Two-phase frictional pressure drop for evaporation and condensation in
+    smooth and micro-fin tubes, Choi, Kedzierski & Domanski (2001)
+    correlation.
 
-#     A modification of the Bo Pierre (1964) homogeneous-flow correlation:
-#     the smooth-tube diameter is replaced by the hydraulic diameter,
-#     the two-phase specific volume average now includes the liquid phase
-#     (Pierre neglected it), and the friction factor was re-regressed
-#     against NIST micro-fin tube pressure drop data.
+    A modification of the Bo Pierre (1964) homogeneous-flow correlation:
+    the smooth-tube diameter is replaced by the hydraulic diameter,
+    the two-phase specific volume average now includes the liquid phase
+    (Pierre neglected it), and the friction factor was re-regressed
+    against NIST micro-fin tube pressure drop data.
 
-#     Inputs
-#     ------
-#     AS      : CoolProp AbstractState object for the working fluid
-#     G       : Mass flux, flow rate per cross-section area [kg/(m^2*s)]
-#     rho_ex : Two-phase (quality-weighted) density at tube outlet [kg/m^3]
-#     rho_su  : Two-phase (quality-weighted) density at tube inlet [kg/m^3]
-#     P_sat   : Saturation pressure, evaluated at the linearly-averaged
-#             refrigerant temperature between inlet and outlet [Pa]
-#     x_ex     : Vapor quality at tube outlet [-]
-#     x_su     : Vapor quality at tube inlet [-]
-#     L       : Tube length [m]
-#     d_hyd      : Hydraulic diameter [m] (use the actual tube ID for a
-#                 smooth tube, or the micro-fin hydraulic diameter otherwise)
+    Inputs
+    ------
+    G         : Mass flux, flow rate per cross-section area [kg/(m^2*s)]
+    rho_su    : Two-phase (quality-weighted) density at tube inlet [kg/m^3]
+    rho_ex    : Two-phase (quality-weighted) density at tube outlet [kg/m^3]
+    x_su      : Vapor quality at tube inlet [-]
+    x_ex      : Vapor quality at tube outlet [-]
+    mu_l_sat  : Saturated liquid dynamic viscosity [Pa*s], evaluated at the
+                linearly-averaged saturation temperature between inlet and
+                outlet
+    h_lv_sat  : Latent heat of vaporization [J/kg], evaluated at that same
+                averaged saturation temperature
+    L         : Tube length [m]
+    d_hyd     : Hydraulic diameter [m] (use the actual tube ID for a
+                smooth tube, or the micro-fin hydraulic diameter otherwise)
 
-#     Outputs
-#     -------
-#     dP_tp : Two-phase pressure drop over length L [Pa]
+    Outputs
+    -------
+    dP_friction : Two-phase frictional pressure drop over length L [Pa]
 
-#     Notes
-#     -----
-#     - Applicable for both evaporation and condensation.
-#     - Developed and validated for refrigerants R125, R134a, R32, R410A,
-#         R22, R407C, and R32/R134a (25/75 % mass) in smooth and micro-fin
-#         tubes.
-#     - Predicted the NIST micro-fin database with an average absolute
-#         residual of 10.8 %, and smooth-tube data with a mean deviation of
-#         15.0 %.
-#     - rho_ex and rho_su must be the quality-weighted two-phase
-#         densities (1/rho = x*v_v + (1-x)*v_l) at the outlet/inlet, not
-#         the saturated-liquid or -vapor density alone.
+    Notes
+    -----
+    - Applicable for both evaporation and condensation.
+    - Developed and validated for refrigerants R125, R134a, R32, R410A,
+        R22, R407C, and R32/R134a (25/75 % mass) in smooth and micro-fin
+        tubes.
+    - Predicted the NIST micro-fin database with an average absolute
+        residual of 10.8 %, and smooth-tube data with a mean deviation of
+        15.0 %.
+    - rho_su and rho_ex must be the quality-weighted two-phase densities
+        (1/rho = x*v_v + (1-x)*v_l), not the saturated-liquid or -vapor
+        density alone — i.e. the homogeneous mixture density
+        (`compute_two_phase_density` with `alpha=None`).
+    - Returns the frictional term only. The original correlation adds an
+        acceleration term (v_ex - v_su)*G^2, but with the homogeneous
+        rho_su/rho_ex above that is algebraically identical to
+        `pressure_drop_pipe_acceleration_two_phase(..., void_fraction_model=
+        'Homogeneous')`, so it's left to that function instead of being
+        computed twice.
+    - No CoolProp state is created here; mu_l_sat/h_lv_sat are looked up by
+        the caller (see `pressure_drop_pipe_frictional_two_phase`).
 
-#     Reference
-#     ---------
-#     Choi, J.Y., Kedzierski, M.A., Domanski, P.A. (2001). "Generalized
-#     Pressure Drop Correlation for Evaporation and Condensation in
-#     Smooth and Micro-Fin Tubes." IIR Commission B1, Paderborn, Germany.
-#     (Full derivation and validation in NISTIR 6333, Choi, Kedzierski,
-#     Domanski, 1999.)
-#     """
+    Reference
+    ---------
+    Choi, J.Y., Kedzierski, M.A., Domanski, P.A. (2001). "Generalized
+    Pressure Drop Correlation for Evaporation and Condensation in
+    Smooth and Micro-Fin Tubes." IIR Commission B1, Paderborn, Germany.
+    (Full derivation and validation in NISTIR 6333, Choi, Kedzierski,
+    Domanski, 1999.)
+    """
+    # All-liquid Reynolds number: entire mass flux G as if it were
+    # 100% liquid, using the hydraulic diameter and liquid viscosity
+    Re_fo = G * d_hyd / mu_l_sat
 
-#     # Saturated liquid and vapor enthalpies at P_sat, for latent heat
-#     AS.update(CP.PQ_INPUTS, P_sat, 0)
-#     mu_l = AS.viscosity()   # Liquid dynamic viscosity [Pa*s]
-#     h_l = AS.hmass()        # Saturated liquid enthalpy [J/kg]
+    # Pierre's two-phase (boiling) number
+    K_f = abs(x_ex - x_su) * h_lv_sat / (G_GRAVITY * L)
 
-#     AS.update(CP.PQ_INPUTS, P_sat, 1)
-#     h_v = AS.hmass()        # Saturated vapor enthalpy [J/kg]
+    # New two-phase friction factor (Choi, Kedzierski, Domanski, 2001)
+    f_N = 0.00506 * Re_fo**(-0.0951) * K_f**(0.1554)
 
-#     h_lv = h_v - h_l        # Latent heat of vaporization [J/kg]
+    v_su = 1.0 / rho_su
+    v_ex = 1.0 / rho_ex
 
-#     # All-liquid Reynolds number: entire mass flux G as if it were
-#     # 100% liquid, using the hydraulic diameter and liquid viscosity
-#     Re_fo = G * d_hyd / mu_l
+    dP_friction = f_N * L * (v_ex + v_su) / d_hyd * G**2
 
-#     # Pierre's two-phase (boiling) number
-#     K_f = abs(x_ex - x_su) * h_lv / (G_GRAVITY * L)
-
-#     # New two-phase friction factor (Choi, Kedzierski, Domanski, 2001)
-#     f_N = 0.00506 * Re_fo**(-0.0951) * K_f**(0.1554)
-
-#     v_ex = 1 / rho_ex
-#     v_su = 1 / rho_su
-
-#     dP_friction = f_N * L * (v_ex + v_su) / d_hyd * G**2
-#     dP_acceleration = (v_ex - v_su) * G**2
-
-#     dP_tp = dP_friction + dP_acceleration
-
-#     return dP_tp
+    return dP_friction
 
 
 # ============================================================================
 # TWO-PHASE PRESSURE DROP COMPONENTS
 # ============================================================================
 
-def pressure_drop_pipe_frictional_two_phase(AS, pipe_geom, m_dot, correlation='Friedel'):
+def pressure_drop_pipe_frictional_two_phase(AS, pipe_geom, m_dot, correlation='Friedel', AS_ex=None):
     """
     Compute frictional pressure drop in two-phase flow.
 
-    Dispatches on `correlation` between two two-phase frictional
-    correlations, both of which only need the pipe's inlet state (no
-    outlet/exit information required) and return the frictional pressure
-    drop directly:
-    - 'Friedel': a separated flow model (`pressure_drop_friedel`).
+    Dispatches on `correlation` between three two-phase frictional
+    correlations, all of which return the frictional pressure drop
+    directly:
+    - 'Friedel': a separated flow model (`pressure_drop_friedel`). Only
+      needs the pipe's inlet state.
     - 'MSH' (Muller-Steinhagen & Heck): a direct empirical curve fit
-      (`pressure_drop_muller_steinhagen_heck`).
+      (`pressure_drop_muller_steinhagen_heck`). Only needs the pipe's
+      inlet state.
+    - 'Choi': a modified Bo Pierre correlation for evaporation/condensation
+      in smooth and micro-fin tubes (`pressure_drop_choi`). Also needs the
+      pipe's exit state, passed via `AS_ex`.
 
     Parameters
     ----------
     AS : CoolProp.AbstractState
-        Two-phase fluid state (quality and pressure already set). Liquid
-        and vapor properties are derived from it via
+        Two-phase fluid state at the pipe inlet (quality and pressure
+        already set). Liquid and vapor properties are derived from it via
         `get_saturated_phase_properties`.
     pipe_geom : dict
         Pipe geometry: 'D' [m] (pipe inner diameter), 'L' [m], and
@@ -724,7 +725,11 @@ def pressure_drop_pipe_frictional_two_phase(AS, pipe_geom, m_dot, correlation='F
     m_dot : float
         Mass flow rate [kg/s]
     correlation : str, optional
-        'Friedel' (default) or 'MSH'.
+        'Friedel' (default), 'MSH', or 'Choi'.
+    AS_ex : CoolProp.AbstractState, optional
+        Two-phase fluid state at the pipe *exit* (quality and pressure
+        already set). Required when `correlation='Choi'`; unused (and not
+        read) otherwise. Not modified by this function.
 
     Returns
     -------
@@ -755,10 +760,43 @@ def pressure_drop_pipe_frictional_two_phase(AS, pipe_geom, m_dot, correlation='F
             m_dot, x, rho_l, rho_v, mu_l, mu_v, d_hyd, L, K=K
         )
 
+    elif correlation == 'Choi':
+        if AS_ex is None:
+            raise ValueError(
+                "The 'Choi' correlation needs the pipe exit state; pass "
+                "AS_ex (a CoolProp.AbstractState set to the exit quality "
+                "and pressure)."
+            )
+        props_ex = get_saturated_phase_properties(AS_ex)
+        x_ex = props_ex["x"]
+
+        rho_su = compute_two_phase_density(x, rho_l, rho_v)
+        rho_ex = compute_two_phase_density(x_ex, props_ex["rho_l"], props_ex["rho_v"])
+
+        # Saturated liquid/vapor properties at the linearly-averaged
+        # saturation temperature, via a throwaway state so AS/AS_ex are
+        # left untouched.
+        T_sat_avg = 0.5 * (AS.T() + AS_ex.T())
+        AS_sat = CP.AbstractState(AS.backend_name(), AS.fluid_names()[0])
+
+        AS_sat.update(CP.QT_INPUTS, 0, T_sat_avg)
+        mu_l_sat = AS_sat.viscosity()
+        h_l_sat = AS_sat.hmass()
+
+        AS_sat.update(CP.QT_INPUTS, 1, T_sat_avg)
+        h_lv_sat = AS_sat.hmass() - h_l_sat
+
+        A_cross = PI * d_hyd ** 2 / 4.0
+        G = m_dot / A_cross  # Mass flux [kg/(m²·s)]
+
+        dP_friction = pressure_drop_choi(
+            G, rho_su, rho_ex, x, x_ex, mu_l_sat, h_lv_sat, L, d_hyd
+        )
+
     else:
         raise ValueError(
             f"Unknown two-phase friction correlation: {correlation!r}. "
-            "Available: 'Friedel', 'MSH'"
+            "Available: 'Friedel', 'MSH', 'Choi'"
         )
 
     return dP_friction
@@ -891,7 +929,7 @@ def pressure_drop_pipe_gravity_two_phase(L, rho_l, rho_v, x_inlet, x_outlet, the
 # TOTAL TWO-PHASE PRESSURE DROP
 # ============================================================================
 
-def pressure_drop_pipe_two_phase(AS, pipe_geom, m_dot, correlation='Friedel', void_fraction_model=None):
+def pressure_drop_pipe_two_phase(AS, pipe_geom, m_dot, correlation='Friedel', void_fraction_model=None, AS_ex=None):
     """
     Compute total two-phase pressure drop in a straight pipe.
 
@@ -906,9 +944,10 @@ def pressure_drop_pipe_two_phase(AS, pipe_geom, m_dot, correlation='Friedel', vo
     AS : CoolProp.AbstractState
         Two-phase fluid state at the pipe inlet (quality and pressure already
         set). Liquid/vapor properties and inlet quality are derived from it
-        via `get_saturated_phase_properties`. NOTE: this function updates
-        `AS` in place to the outlet state (used to obtain x_outlet) — it is
-        left at the outlet state when this function returns.
+        via `get_saturated_phase_properties`. NOTE: if `AS_ex` is not given,
+        this function updates `AS` in place to the outlet state (used to
+        obtain x_outlet) — it is left at the outlet state when this function
+        returns. If `AS_ex` is given, `AS` is left untouched.
     pipe_geom : dict
         Pipe geometry: 'D' [m] (pipe inner diameter), 'L' [m], and
         optionally 'K' (absolute roughness [m], default 0.0) and 'theta'
@@ -919,11 +958,17 @@ def pressure_drop_pipe_two_phase(AS, pipe_geom, m_dot, correlation='Friedel', vo
         Mass flow rate [kg/s]
     correlation : str, optional
         Two-phase frictional pressure drop correlation, passed to
-        `pressure_drop_pipe_frictional_two_phase`: 'Friedel' (default) or
-        'MSH' (Muller-Steinhagen & Heck).
+        `pressure_drop_pipe_frictional_two_phase`: 'Friedel' (default),
+        'MSH' (Muller-Steinhagen & Heck), or 'Choi' (requires `AS_ex`).
     void_fraction_model : str, optional
         Slip ratio model used in the acceleration term:
         None/'Homogeneous' (default), 'Zivi'
+    AS_ex : CoolProp.AbstractState, optional
+        Two-phase fluid state at the pipe *exit* (quality and pressure
+        already set). Required when `correlation='Choi'` (passed through to
+        `pressure_drop_pipe_frictional_two_phase`). When given, it is also
+        used directly for x_outlet below instead of the backward
+        pressure-drop estimate, and is not modified by this function.
 
     Returns
     -------
@@ -945,17 +990,22 @@ def pressure_drop_pipe_two_phase(AS, pipe_geom, m_dot, correlation='Friedel', vo
     rho_v = props["rho_v"]
 
     dP_friction = pressure_drop_pipe_frictional_two_phase(
-        AS, pipe_geom, m_dot, correlation=correlation
+        AS, pipe_geom, m_dot, correlation=correlation, AS_ex=AS_ex
     )
 
-    # ========== STEP 2: Estimate outlet pressure & compute x_outlet ==========
-    p_inlet = AS.p()  # Inlet pressure
-    h = AS.hmass()   # Specific enthalpy (assumed constant)
-    p_outlet = p_inlet - dP_friction
+    # ========== STEP 2: Get outlet quality ==========
+    if AS_ex is not None:
+        x_outlet = AS_ex.Q()
+    else:
+        # Estimate outlet pressure from the friction ΔP just computed, then
+        # read back the quality at (h, p_outlet) — HmassP_INPUTS takes
+        # (Hmass, P)
+        p_inlet = AS.p()  # Inlet pressure
+        h = AS.hmass()   # Specific enthalpy (assumed constant)
+        p_outlet = p_inlet - dP_friction
 
-    # Get outlet quality at (h, p_outlet) — HmassP_INPUTS takes (Hmass, P)
-    AS.update(CP.HmassP_INPUTS, h, p_outlet)
-    x_outlet = AS.Q()  # Quality at outlet
+        AS.update(CP.HmassP_INPUTS, h, p_outlet)
+        x_outlet = AS.Q()  # Quality at outlet
 
     # Acceleration pressure drop
     dP_acceleration = pressure_drop_pipe_acceleration_two_phase(

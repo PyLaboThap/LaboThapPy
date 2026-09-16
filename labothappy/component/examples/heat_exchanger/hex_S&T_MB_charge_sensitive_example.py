@@ -87,7 +87,7 @@ if case_study == 'Methanol':
     Corr_H = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
     
     Corr_H_DP = {"1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
-    Corr_C_DP = {"1P" : "Gnielinski_DP", "2P" : "Choi_DP"}
+    Corr_C_DP = {"1P" : "Konakov", "2P" : "MSH"}
 # -------------------------------------------------------------------------------------------------------------
 
 # Sizing code example case
@@ -148,7 +148,7 @@ if case_study == 'R134a':
     Corr_H = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
     
     Corr_H_DP = {"1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
-    Corr_C_DP = {"1P" : "Gnielinski_DP", "2P" : "Muller_Steinhagen_Heck_DP"}
+    Corr_C_DP = {"1P" : "Konakov", "2P" : "MSH"}
 
 if case_study == 'R134a_cond':
             
@@ -205,7 +205,7 @@ if case_study == 'R134a_cond':
     Corr_C = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
     
     Corr_C_DP = {"1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
-    Corr_H_DP = {"1P" : "Gnielinski_DP", "2P" : "Choi_DP"}
+    Corr_H_DP = {"1P" : "Konakov", "2P" : "MSH"}
 
 if case_study == 'R32':
     
@@ -261,7 +261,7 @@ if case_study == 'R32':
     Corr_H = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
     
     Corr_H_DP = {"1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
-    Corr_C_DP = {"1P" : "Gnielinski_DP", "2P" : "Muller_Steinhagen_Heck_DP"}
+    Corr_C_DP = {"1P" : "Konakov", "2P" : "MSH"}
 
 # -------------------------------------------------------------------------------------------------------------
 
@@ -322,7 +322,7 @@ if case_study == 'CO2_GasCooler_1':
     Corr_C = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
     
     Corr_C_DP = {"1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
-    Corr_H_DP = {"1P" : "Gnielinski_DP", "2P" : "Muller_Steinhagen_Heck_DP", "SC" : "Cheng_CO2_DP"} 
+    Corr_H_DP = {"1P" : "Konakov", "2P" : "MSH", "SC" : "Cheng-CO2"} 
 
 # -------------------------------------------------------------------------------------------------------------
 
@@ -379,7 +379,7 @@ if case_study == 'CO2_GasCooler_2':
     Corr_C = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
     
     Corr_C_DP = {"1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
-    Corr_H_DP = {"1P" : "Gnielinski_DP", "2P" : "Muller_Steinhagen_Heck_DP", "SC" : "Cheng_CO2_DP"} 
+    Corr_H_DP = {"1P" : "Konakov", "2P" : "MSH", "SC" : "Cheng-CO2"} 
 
 # # -------------------------------------------------------------------------------------------------------------
 
@@ -439,7 +439,7 @@ if case_study == 'CO2_CD':
     Corr_H = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Thome_Condensation"}
     Corr_C = {"SC" : "Shell_Kern_HTC", "1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
     
-    Corr_H_DP = {"SC" : "Gnielinski_DP", "1P" : "Gnielinski_DP", "2P" : "Choi_DP"}
+    Corr_H_DP = {"SC" : "Konakov", "1P" : "Konakov", "2P" : "MSH"}
     Corr_C_DP = {"SC" : "Shell_Kern_DP", "1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
         
 # # -------------------------------------------------------------------------------------------------------------

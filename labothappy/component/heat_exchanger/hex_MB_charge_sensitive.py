@@ -43,7 +43,10 @@ from labothappy.correlations.convection.printed_circuit_htc import PCHE_Lee, PCH
 
 # DP Correlations 
 from labothappy.correlations.pressure_drop.shell_and_tube_DP import shell_DP_kern, shell_DP_donohue, shell_bell_delaware_DP
-from labothappy.correlations.pressure_drop.pipe_DP import gnielinski_pipe_DP , Churchill_DP, Choi_DP, Muller_Steinhagen_Heck_DP, Cheng_CO2_DP, Darcy_Weisbach
+from labothappy.correlations.pressure_drop.pipe_DP import (
+    pressure_drop_pipe_single_phase,
+    pressure_drop_pipe_frictional_two_phase,
+)
 from labothappy.correlations.pressure_drop.fins_DP import DP_tube_and_fins
 
 # Fluid Correlations
@@ -66,6 +69,32 @@ from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.compute_LMTD_mul
 #%%
 # Set to True to enable some debugging output to screen
 debug = False
+
+# Absolute roughness used for the pipe pressure-drop correlations that
+# account for it ('Churchill', 'Swamee-Jain', 'Haaland'); steel tube/pipe
+# (1.5e-6 m would be used for copper/aluminum)
+STEEL_ROUGHNESS = 45e-6  # m
+
+# Pressure drop correlations implemented for pipe/tube-like flow
+# (labothappy.correlations.pressure_drop.pipe_DP). These are the only
+# correlation names accepted for the "1P"/"2P" entries of the
+# Correlation_DP dict on Plate, Shell&Tube, Tube&Fins and PCHE geometries
+# (Shell&Tube also accepts "Shell_Bell_Delaware_DP"/"Shell_Kern_DP", and
+# Tube&Fins also accepts "Tube_And_Fins_DP"). The names match pipe_DP.py's
+# own `correlation=` argument, so no renaming/mapping happens in between.
+PIPE_DP_1P_CORRELATIONS = ('Churchill', 'Swamee-Jain', 'Haaland', 'Konakov', 'Petukhov', 'Cheng-CO2')
+PIPE_DP_2P_CORRELATIONS = ('Friedel', 'MSH', 'Choi')
+
+# Roughness-aware pipe correlations; the others ('Konakov', 'Petukhov',
+# 'Cheng-CO2') are smooth-pipe/CO2-specific and ignore roughness.
+PIPE_DP_1P_ROUGH_CORRELATIONS = ('Churchill', 'Swamee-Jain', 'Haaland')
+
+# Chosen as defaults in set_DP() when the user wants pressure drops computed
+# via these pipe correlations but has no strong reason to prefer one:
+# 'Churchill' is valid across all Reynolds numbers and accounts for
+# roughness; 'MSH' (unlike 'Choi') only needs the pipe's inlet state.
+DEFAULT_PIPE_DP_1P_CORRELATION = 'Churchill'
+DEFAULT_PIPE_DP_2P_CORRELATION = 'MSH'
 
 HTC_correlations = {
     "han_BPHEX_DP": han_boiling_BPHEX_HTC,
@@ -479,28 +508,20 @@ class HexMBChargeSensitive(BaseComponent):
             self.H.Correlation_DP["1P"] = None
 
         elif self.params['DP_type'] == "Correlation_Global" or self.params['DP_type'] == "Correlation_Disc":
-            
-            self.H.Correlation_DP["1P"] = Corr_H["1P"]
-            if "2P" in Corr_H:
-                self.H.Correlation_DP["2P"] = Corr_H["2P"]
-            else:
-                self.H.Correlation_DP["2P"] = None
-                
-            if "SC" in Corr_H:
-                self.H.Correlation_DP["SC"] = Corr_H["SC"]
-            else:
-                self.H.Correlation_DP["SC"] = None
-            
-            self.C.Correlation_DP["1P"] = Corr_C["1P"]
-            if "2P" in Corr_C:
-                self.C.Correlation_DP["2P"] = Corr_C["2P"]
-            else:
-                self.C.Correlation_DP["2P"] = None
-        
-            if "SC" in Corr_C:
-                self.C.Correlation_DP["SC"] = Corr_C["SC"]
-            else:
-                self.C.Correlation_DP["SC"] = None
+
+            # Default to the pipe correlations recommended when the user has
+            # no strong reason to prefer another one (see
+            # DEFAULT_PIPE_DP_1P/2P_CORRELATION).
+            Corr_H = Corr_H or {}
+            Corr_C = Corr_C or {}
+
+            self.H.Correlation_DP["1P"] = Corr_H.get("1P", DEFAULT_PIPE_DP_1P_CORRELATION)
+            self.H.Correlation_DP["2P"] = Corr_H.get("2P", DEFAULT_PIPE_DP_2P_CORRELATION)
+            self.H.Correlation_DP["SC"] = Corr_H.get("SC", None)
+
+            self.C.Correlation_DP["1P"] = Corr_C.get("1P", DEFAULT_PIPE_DP_1P_CORRELATION)
+            self.C.Correlation_DP["2P"] = Corr_C.get("2P", DEFAULT_PIPE_DP_2P_CORRELATION)
+            self.C.Correlation_DP["SC"] = Corr_C.get("SC", None)
         else:
             raise ValueError("Error in pressure drop setting. DP_type entry shall either not be set or be set to: \n - 'User-Defined' \n - 'Correlation_Global' \n - 'Correlation_Disc'")
             
@@ -1438,6 +1459,36 @@ class HexMBChargeSensitive(BaseComponent):
 
     #%% PRESSURE DROP CORRELATION CHOOSING RELATED METHODS
 
+    def pressure_drop_pipe_one_phase(self, AS, G, D_hyd, L, correlation=DEFAULT_PIPE_DP_1P_CORRELATION, K=0.0):
+        """
+        Single entry point for single-phase pipe pressure drop. Wraps
+        `pressure_drop_pipe_single_phase` (labothappy.correlations.pressure_drop.pipe_DP)
+        for call sites here that only have a mass flux G [kg/(m^2*s)], as
+        computed by `G_h_c_computation`, rather than a mass flow rate
+        through a single circular pipe. Feeding it an "equivalent" mass
+        flow rate (G times the circular cross-section implied by D_hyd)
+        reproduces the same velocity/Reynolds number/friction pressure
+        drop that the previous mass-flux-based formulas used.
+
+        `correlation` must be one of PIPE_DP_1P_CORRELATIONS.
+        """
+        pipe_geom = {'D': D_hyd, 'L': L, 'K': K}
+        m_dot_equiv = G * np.pi * D_hyd ** 2 / 4.0
+        return pressure_drop_pipe_single_phase(AS, pipe_geom, m_dot_equiv, correlation=correlation)
+
+    def pressure_drop_pipe_two_phase(self, AS, G, D_hyd, L, correlation=DEFAULT_PIPE_DP_2P_CORRELATION, K=0.0):
+        """Two-phase counterpart of `pressure_drop_pipe_one_phase` (see its
+        docstring). `correlation` must be one of PIPE_DP_2P_CORRELATIONS."""
+        pipe_geom = {'D': D_hyd, 'L': L, 'K': K}
+        m_dot_equiv = G * np.pi * D_hyd ** 2 / 4.0
+        return pressure_drop_pipe_frictional_two_phase(AS, pipe_geom, m_dot_equiv, correlation=correlation)
+
+    def _pipe_DP_roughness(self, correlation):
+        """Roughness to use for a pipe 1P correlation: STEEL_ROUGHNESS for
+        the correlations that account for it, 0.0 for the smooth-pipe/CO2
+        ones that ignore it (see PIPE_DP_1P_ROUGH_CORRELATIONS)."""
+        return STEEL_ROUGHNESS if correlation in PIPE_DP_1P_ROUGH_CORRELATIONS else 0.0
+
     def compute_H_DP(self):
         
         m_dot_h = self.su_H.m_dot/self.params['n_parallel']
@@ -1449,57 +1500,58 @@ class HexMBChargeSensitive(BaseComponent):
         else:
             phase_cond = "1P"
                 
-        if self.H.Correlation_DP[phase_cond] == "Shell_Bell_Delaware_DP":    
+        corr = self.H.Correlation_DP[phase_cond]
+
+        if corr == "Shell_Bell_Delaware_DP":
             DP_H = shell_bell_delaware_DP(m_dot_h, self.su_H.h, self.su_H.p, self.AS_H, self.params)*self.params["n_series"]
-            
-        elif self.H.Correlation_DP[phase_cond] == "Shell_Kern_DP":
+
+        elif corr == "Shell_Kern_DP":
             DP_H = shell_DP_kern(m_dot_h, (self.su_H.T + self.su_C.T)/2, self.su_H.h, self.su_H.p, self.AS_H, self.params)*self.params["n_series"]
-        
-        elif self.H.Correlation_DP[phase_cond] == "Gnielinski_DP":
+
+        elif corr in PIPE_DP_1P_CORRELATIONS:
             self.AS_H.update(CP.HmassP_INPUTS, self.su_H.h, self.su_H.p)
-            mu_h_in = self.AS_H.viscosity()
             G_c, G_h = self.G_h_c_computation()
+            K = self._pipe_DP_roughness(corr)
 
             if self.HTX_Type == 'PCHE':
                 Dh = np.pi*self.params['D_c']/(2+np.pi)
-                DP_H = gnielinski_pipe_DP(mu_h_in, self.su_H.D, G_h, Dh, self.params["L_c"], type_HX= 'PCHE')  
+                DP_H = self.pressure_drop_pipe_one_phase(self.AS_H, G_h, Dh, self.params["L_c"], correlation=corr, K=K)
             elif self.HTX_Type == 'Plate':
-                DP_H = gnielinski_pipe_DP(mu_h_in, self.su_H.D, G_h, self.params['H_Dh'], self.params['l'], type_HX= 'Plate')  
+                DP_H = self.pressure_drop_pipe_one_phase(self.AS_H, G_h, self.params['H_Dh'], self.params['l'], correlation=corr, K=K)
             else:
-                DP_H = gnielinski_pipe_DP(mu_h_in, self.su_H.D, G_h, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"])  
+                DP_H = self.pressure_drop_pipe_one_phase(self.AS_H, G_h, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"], correlation=corr, K=K)
 
-        elif self.H.Correlation_DP[phase_cond] == 'Darcy_Weisbach':
-            mu_h_in = CP.PropsSI('V', 'H', self.su_H.h, 'P', self.su_H.p, self.su_H.fluid)
+        elif corr == "Choi":
+            raise NotImplementedError(
+                "The 'Choi' two-phase pressure drop correlation needs the "
+                "pipe exit state (AS_ex) in addition to the inlet state, "
+                "which this heat exchanger model does not provide. Use "
+                "'MSH' or 'Friedel' for two-phase pressure drop instead."
+            )
+
+        elif corr in PIPE_DP_2P_CORRELATIONS:  # 'Friedel', 'MSH'
             G_c, G_h = self.G_h_c_computation()
-        
-            Dh = np.pi*self.params['D_c']/(2+np.pi)
-            DP_H = Darcy_Weisbach(mu_h_in, self.su_H.D, G_h, Dh, self.params["L_c"])  
+            # Coarse whole-exchanger estimate: evaluated at a representative
+            # mean quality (0.5) at the inlet pressure, rather than at the
+            # (possibly barely-subcooled/superheated) inlet enthalpy, which
+            # is not guaranteed to resolve inside the two-phase dome.
+            self.AS_H.update(CP.PQ_INPUTS, self.su_H.p, 0.5)
 
-        elif self.H.Correlation_DP[phase_cond] == "Cheng_CO2_DP":
-            G_c, G_h = self.G_h_c_computation()
-            mu_h_in = CP.PropsSI('V', 'H', self.su_H.h, 'P', self.su_H.p, self.su_H.fluid)
-            
-            DP_H = Cheng_CO2_DP(G_h, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"], self.su_H.p, self.su_H.h, mu_h_in, self.su_H.fluid)
-        
-        elif self.H.Correlation_DP[phase_cond] == "Choi_DP":
+            if self.HTX_Type == 'PCHE':
+                Dh = np.pi*self.params['D_c']/(2+np.pi)
+                DP_H = self.pressure_drop_pipe_two_phase(self.AS_H, G_h, Dh, self.params["L_c"], correlation=corr)
+            elif self.HTX_Type == 'Plate':
+                DP_H = self.pressure_drop_pipe_two_phase(self.AS_H, G_h, self.params['H_Dh'], self.params['l'], correlation=corr)
+            else:
+                DP_H = self.pressure_drop_pipe_two_phase(self.AS_H, G_h, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"], correlation=corr)
 
-            G_c, G_h = self.G_h_c_computation()
-            rho_out = CP.PropsSI('D', 'P', self.su_H.p, 'Q', 0, self.su_H.fluid)
-            
-            if self.su_H.x:
-                x_in = self.su_H.x
-            else:              
-                x_in = 1
+        elif corr == "Tube_And_Fins_DP":
 
-            DP_H = Choi_DP(self.AS_H, G_c, rho_out, self.su_H.D, self.su_H.p, 0, x_in, self.params["Tube_L"]*self.params["Tube_pass"], self.params["Tube_OD"]-2*self.params["Tube_t"])
-        
-        elif self.H.Correlation_DP[phase_cond] == "Tube_And_Fins_DP":
-            
             DP_H = DP_tube_and_fins(self.AS_H, self.params, self.su_H.p, self.su_H.h, self.su_H.m_dot)
-        
+
         else:
-            raise ValueError(f"Pressure drop correlation {self.H.Correlation_DP[phase_cond]} for {phase_cond} phase conditions is not implemented in compute_H_DP method.")
-            
+            raise ValueError(f"Pressure drop correlation {corr} for {phase_cond} phase conditions is not implemented in compute_H_DP method.")
+
         return DP_H
 
 # -------------------------------------------------------------------------
@@ -1514,36 +1566,36 @@ class HexMBChargeSensitive(BaseComponent):
         mu_h_in = self.AS_H.viscosity()
         
         G_c, G_h = self.G_h_c_computation()
-        
-        if self.H.Correlation_DP['1P'] == "Shell_Bell_Delaware_DP":
-            
+
+        corr = self.H.Correlation_DP['1P']
+
+        if corr == "Shell_Bell_Delaware_DP":
+
             DP_H = shell_bell_delaware_DP(m_dot_h, havg_h, p_h_mean, self.AS_H, self.params)*self.params["n_series"]
-            
-        elif self.H.Correlation_DP['1P'] == "Shell_Kern_DP":
+
+        elif corr == "Shell_Kern_DP":
             DP_H = shell_DP_kern(m_dot_h, Th_mean, havg_h, p_h_mean, self.AS_H, self.params)*self.params["n_series"]
-        
-        elif self.H.Correlation_DP['1P'] == "Gnielinski_DP":
+
+        elif corr in PIPE_DP_1P_CORRELATIONS:
+
+            K = self._pipe_DP_roughness(corr)
 
             if self.HTX_Type == 'PCHE':
                 Dh = np.pi*self.params['D_c']/(2+np.pi)
-                DP_H = gnielinski_pipe_DP(mu_h_in, rho_h, G_h, Dh, self.params["L_c"]/self.params['n_disc'], type_HX= 'PCHE')  
-                
-            elif self.HTX_Type == 'Plate':
-                DP_H = gnielinski_pipe_DP(mu_h_in, self.su_H.D, G_h, self.params['H_Dh'], self.params['l'], type_HX= 'Plate') 
-                
-            else:
-                DP_H = gnielinski_pipe_DP(mu_h_in, rho_h, G_h, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"])  
+                DP_H = self.pressure_drop_pipe_one_phase(self.AS_H, G_h, Dh, self.params["L_c"]/self.params['n_disc'], correlation=corr, K=K)
 
-        elif self.H.Correlation_DP['1P'] == 'Darcy_Weisbach':        
-            Dh = np.pi*self.params['D_c']/(2+np.pi)
-            DP_H = Darcy_Weisbach(mu_h_in, rho_h, G_h, Dh, self.params["L_c"])  
-      
-        elif self.H.Correlation_DP['1P'] == "Tube_And_Fins_DP":
-            
-            DP_H = DP_tube_and_fins(self.AS_H, self.params, self.su_H.p, self.su_H.h, self.su_H.m_dot)  
-      
+            elif self.HTX_Type == 'Plate':
+                DP_H = self.pressure_drop_pipe_one_phase(self.AS_H, G_h, self.params['H_Dh'], self.params['l'], correlation=corr, K=K)
+
+            else:
+                DP_H = self.pressure_drop_pipe_one_phase(self.AS_H, G_h, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"], correlation=corr, K=K)
+
+        elif corr == "Tube_And_Fins_DP":
+
+            DP_H = DP_tube_and_fins(self.AS_H, self.params, self.su_H.p, self.su_H.h, self.su_H.m_dot)
+
         else:
-            raise ValueError(f"Pressure drop correlation {self.H.Correlation_DP['1P']} for '1P' phase conditions is not implemented in compute_cell_H_DP_1P method.")
+            raise ValueError(f"Pressure drop correlation {corr} for '1P' phase conditions is not implemented in compute_cell_H_DP_1P method.")
             
         if np.isfinite(self.w[k]):
             return min(DP_H*self.w[k]/max(sum(self.w),1), p_h_mean*0.95)
@@ -1566,34 +1618,36 @@ class HexMBChargeSensitive(BaseComponent):
         
         G_c, G_h = self.G_h_c_computation()
 
-        if self.H.Correlation_DP['2P'] == "Cheng_CO2_DP":            
-            DP_H = Cheng_CO2_DP(G_h, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"], p_h_mean, havg_h, mu_h_in, self.AS_H.fluid)
-        
-        elif self.H.Correlation_DP['2P'] == "Choi_DP":
-            self.AS_H.update(CP.HmassP_INPUTS, h_out, p_h_mean)
-            
-            rho_out = self.AS_H.rhomass()
-            
-            if self.su_H.x:
-                x_in = self.su_H.x
-            else:              
-                x_in = 1
-            
+        corr = self.H.Correlation_DP['2P']
+
+        if corr == "Cheng-CO2":
+            DP_H = self.pressure_drop_pipe_one_phase(self.AS_H, G_h, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"], correlation='Cheng-CO2')
+
+        elif corr == "Choi":
+            raise NotImplementedError(
+                "The 'Choi' two-phase pressure drop correlation needs the "
+                "pipe exit state (AS_ex) in addition to the inlet state, "
+                "which this heat exchanger model does not provide. Use "
+                "'MSH' or 'Friedel' for two-phase pressure drop instead."
+            )
+
+        elif corr in ("Friedel", "MSH"):
+
             if self.HTX_Type == "PCHE":
-                Tube_L = self.params['L_c']*self.params['n_series']          
+                Tube_L = self.params['L_c']*self.params['n_series']
                 D_in = np.pi*self.params['D_c']/(2+np.pi)
-            else: 
-                Tube_L = self.params["Tube_L"]*self.params["Tube_pass"]*self.params['n_series']        
+            else:
+                Tube_L = self.params["Tube_L"]*self.params["Tube_pass"]*self.params['n_series']
                 D_in = self.params["Tube_OD"]-2*self.params["Tube_t"]
-            
-            DP_H = Choi_DP(self.AS_H, G_c, rho_out, rho_h, p_h_mean, 0, x_in, Tube_L, D_in)
-        
-        elif self.H.Correlation_DP['2P'] == "Tube_And_Fins_DP":
-            
-            DP_H = DP_tube_and_fins(self.AS_H, self.params, self.su_H.p, self.su_H.h, self.su_H.m_dot) 
-        
+
+            DP_H = self.pressure_drop_pipe_two_phase(self.AS_H, G_h, D_in, Tube_L, correlation=corr)
+
+        elif corr == "Tube_And_Fins_DP":
+
+            DP_H = DP_tube_and_fins(self.AS_H, self.params, self.su_H.p, self.su_H.h, self.su_H.m_dot)
+
         else:
-            raise ValueError(f"Pressure drop correlation {self.H.Correlation_DP['2P']} for '2P' phase conditions is not implemented in compute_cell_H_DP_2P method.")
+            raise ValueError(f"Pressure drop correlation {corr} for '2P' phase conditions is not implemented in compute_cell_H_DP_2P method.")
                         
         if np.isfinite(self.w[k]):
             return min(DP_H*self.w[k]/max(sum(self.w),1), p_h_mean*0.95)
@@ -1613,67 +1667,58 @@ class HexMBChargeSensitive(BaseComponent):
         
         m_dot_c = self.su_C.m_dot/self.params['n_parallel']        
 
-        if self.C.Correlation_DP[phase_cond] == "Shell_Bell_Delaware_DP":
+        corr = self.C.Correlation_DP[phase_cond]
+
+        if corr == "Shell_Bell_Delaware_DP":
             DP_C = shell_bell_delaware_DP(m_dot_c, self.su_C.h, self.su_C.p, self.AS_C, self.params)*self.params["n_series"]
-        
-        elif self.C.Correlation_DP[phase_cond] == "Shell_Kern_DP":
+
+        elif corr == "Shell_Kern_DP":
             DP_C = shell_DP_kern(m_dot_c, (self.su_H.T + self.su_C.T)/2, self.su_C.h, self.su_C.p, self.AS_C, self.params)*self.params["n_series"]
-        
-        elif self.C.Correlation_DP[phase_cond] == "Gnielinski_DP":
-            
-            mu_c_in = CP.PropsSI('V', 'H', self.su_C.h, 'P', self.su_C.p, self.su_C.fluid)
+
+        elif corr in PIPE_DP_1P_CORRELATIONS:
+
+            self.AS_C.update(CP.HmassP_INPUTS, self.su_C.h, self.su_C.p)
             G_c, G_h = self.G_h_c_computation()
-            
+            K = self._pipe_DP_roughness(corr)
+
             if self.HTX_Type == 'PCHE':
                 Dh = np.pi*self.params['D_c']/(2+np.pi)
-                DP_C = gnielinski_pipe_DP(mu_c_in, self.su_C.D, G_c, Dh, self.params["L_c"], type_HX= 'PCHE')  
+                DP_C = self.pressure_drop_pipe_one_phase(self.AS_C, G_c, Dh, self.params["L_c"], correlation=corr, K=K)
             elif self.HTX_Type == 'Plate':
-                DP_C = gnielinski_pipe_DP(mu_c_in, self.su_C.D, G_c, self.params['H_Dh'], self.params['l'], type_HX= 'Plate')  
+                DP_C = self.pressure_drop_pipe_one_phase(self.AS_C, G_c, self.params['C_Dh'], self.params['l'], correlation=corr, K=K)
             else:
-                DP_C = gnielinski_pipe_DP(mu_c_in, self.su_C.D, G_c, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"])   
-        
-        elif self.H.Correlation_DP[phase_cond] == 'Darcy_Weisbach':
-            mu_c_in = CP.PropsSI('V', 'H', self.su_C.h, 'P', self.su_C.p, self.su_C.fluid)
-            G_c, G_h = self.G_h_c_computation()
-        
-            Dh = np.pi*self.params['D_c']/(2+np.pi)
-            DP_C = Darcy_Weisbach(mu_c_in, self.su_C.D, G_c, Dh, self.params["L_c"])  
+                DP_C = self.pressure_drop_pipe_one_phase(self.AS_C, G_c, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"], correlation=corr, K=K)
 
-        
-        elif self.C.Correlation_DP[phase_cond] == "Choi_DP":
+        elif corr == "Choi":
+            raise NotImplementedError(
+                "The 'Choi' two-phase pressure drop correlation needs the "
+                "pipe exit state (AS_ex) in addition to the inlet state, "
+                "which this heat exchanger model does not provide. Use "
+                "'MSH' or 'Friedel' for two-phase pressure drop instead."
+            )
 
+        elif corr in ("Friedel", "MSH"):
+            # Coarse whole-exchanger estimate: evaluated at a representative
+            # mean quality (0.5) at the inlet pressure, rather than at the
+            # (possibly barely-subcooled/superheated) inlet enthalpy, which
+            # is not guaranteed to resolve inside the two-phase dome.
+            self.AS_C.update(CP.PQ_INPUTS, self.su_C.p, 0.5)
             G_c, G_h = self.G_h_c_computation()
-            rho_out = CP.PropsSI('D', 'P', self.su_C.p, 'Q', 1, self.su_C.fluid)
-            
+
             if self.HTX_Type == "PCHE":
                 Dh = np.pi*self.params['D_c']/(2+np.pi)
-                DP_C = Choi_DP(self.AS_C, G_c, rho_out, self.su_C.D, self.su_C.p, 1, self.su_C.x, self.params["L_c"], Dh)
-
+                DP_C = self.pressure_drop_pipe_two_phase(self.AS_C, G_c, Dh, self.params["L_c"], correlation=corr)
+            elif self.HTX_Type == "Plate":
+                DP_C = self.pressure_drop_pipe_two_phase(self.AS_C, G_c, self.params['C_Dh'], self.params['l'], correlation=corr)
             else:
-                DP_C = Choi_DP(self.AS_C, G_c, rho_out, self.su_C.D, self.su_C.p, 1, self.su_C.x, self.params["Tube_L"]*self.params["Tube_pass"], self.params["Tube_OD"]-2*self.params["Tube_t"])
-        
-        elif self.C.Correlation_DP[phase_cond] == "Muller_Steinhagen_Heck_DP":
-            G_c, G_h = self.G_h_c_computation()
-            rho_out = CP.PropsSI('D', 'P', self.su_C.p, 'Q', 1, self.su_C.fluid)
-            
-            q = 0
-            
-            DP_C = Muller_Steinhagen_Heck_DP(self.AS_C, G_c, self.su_C.p, 0, 1, q, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"], 100)
-                    
-            # AS, G, P_sat, x_in, x_out, q_pp, D_in, L, n_disc
-            
-        elif self.C.Correlation_DP[phase_cond] == "Cheng_CO2_DP":
-            G_c, G_h = self.G_h_c_computation()
-            mu_c_in = CP.PropsSI('V', 'H', self.su_C.h, 'P', self.su_C.p, self.su_C.fluid)
-            
-            DP_C = Cheng_CO2_DP(G_c, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"], self.su_C.p, self.su_C.h, mu_c_in, self.su_C.fluid)
-        
-        elif self.C.Correlation_DP[phase_cond] == "Tube_And_Fins_DP":
-            
+                DP_C = self.pressure_drop_pipe_two_phase(self.AS_C, G_c, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"], correlation=corr)
+
+        elif corr == "Tube_And_Fins_DP":
+
             DP_C = DP_tube_and_fins(self.AS_C, self.params, self.su_C.p, self.su_C.h, self.su_C.m_dot)
-        
+
         else:
-            raise ValueError(f"Pressure drop correlation {self.H.Correlation_DP[phase_cond]} for {phase_cond} phase condition is not implemented in compute_C_DP method.")
+            raise ValueError(f"Pressure drop correlation {corr} for {phase_cond} phase condition is not implemented in compute_C_DP method.")
         
         return DP_C
 
@@ -1689,34 +1734,34 @@ class HexMBChargeSensitive(BaseComponent):
         
         G_c, G_h = self.G_h_c_computation()
 
-        if self.C.Correlation_DP['1P'] == "Shell_Bell_Delaware_DP":
+        corr = self.C.Correlation_DP['1P']
+
+        if corr == "Shell_Bell_Delaware_DP":
             DP_C = shell_bell_delaware_DP(m_dot_c, havg_c, p_c_mean, self.AS_C, self.params)*self.params["n_series"]
-            
-        elif self.C.Correlation_DP['1P'] == "Shell_Kern_DP":
+
+        elif corr == "Shell_Kern_DP":
             DP_C = shell_DP_kern(m_dot_c, Tc_mean, havg_c, p_c_mean, self.AS_C, self.params)*self.params["n_series"]
-        
-        elif self.C.Correlation_DP['1P'] == "Gnielinski_DP":
+
+        elif corr in PIPE_DP_1P_CORRELATIONS:
+
+            K = self._pipe_DP_roughness(corr)
 
             if self.HTX_Type == 'PCHE':
                 Dh = np.pi*self.params['D_c']/(2+np.pi)
-                DP_C = gnielinski_pipe_DP(mu_c_in, rho_c, G_c, Dh, self.params["L_c"]/self.params['n_disc'], type_HX= 'PCHE')  
-            
-            elif self.HTX_Type == 'Plate':
-                DP_C = gnielinski_pipe_DP(mu_c_in, self.su_C.D, G_c, self.params['H_Dh'], self.params['l'], type_HX= 'Plate')  
-                
-            else:
-                DP_C = gnielinski_pipe_DP(mu_c_in, rho_c, G_c, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"])  
+                DP_C = self.pressure_drop_pipe_one_phase(self.AS_C, G_c, Dh, self.params["L_c"]/self.params['n_disc'], correlation=corr, K=K)
 
-        elif self.C.Correlation_DP['1P'] == 'Darcy_Weisbach':        
-            Dh = np.pi*self.params['D_c']/(2+np.pi)
-            DP_C = Darcy_Weisbach(mu_c_in, rho_c, G_c, Dh, self.params["L_c"])  
-      
-        elif self.C.Correlation_DP['1P'] == "Tube_And_Fins_DP":
-            
-            DP_C = DP_tube_and_fins(self.AS_C, self.params, self.su_C.p, self.su_C.h, self.su_C.m_dot)  
-      
+            elif self.HTX_Type == 'Plate':
+                DP_C = self.pressure_drop_pipe_one_phase(self.AS_C, G_c, self.params['C_Dh'], self.params['l'], correlation=corr, K=K)
+
+            else:
+                DP_C = self.pressure_drop_pipe_one_phase(self.AS_C, G_c, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"], correlation=corr, K=K)
+
+        elif corr == "Tube_And_Fins_DP":
+
+            DP_C = DP_tube_and_fins(self.AS_C, self.params, self.su_C.p, self.su_C.h, self.su_C.m_dot)
+
         else:
-            raise ValueError(f"Pressure drop correlation {self.C.Correlation_DP['1P']} for '1P' phase conditions is not implemented in compute_cell_C_DP_1P method.")
+            raise ValueError(f"Pressure drop correlation {corr} for '1P' phase conditions is not implemented in compute_cell_C_DP_1P method.")
         
         if np.isfinite(self.w[k]):
             return min(DP_C*self.w[k]/max(sum(self.w),1), p_c_mean*0.95)
@@ -1738,40 +1783,37 @@ class HexMBChargeSensitive(BaseComponent):
         
         G_c, G_h = self.G_h_c_computation()
 
-        if self.C.Correlation_DP['2P'] == "Cheng_CO2_DP":            
-            DP_C = Cheng_CO2_DP(G_c, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"], p_c_mean, havg_c, mu_c_in, self.AS_C.fluid)
-        
-        elif self.C.Correlation_DP['2P'] == "Choi_DP":
-            self.AS_C.update(CP.HmassP_INPUTS, h_out, p_c_mean)
-            rho_out = self.AS_C.rhomass()
-            
-            if self.HTX_Type == "Plate":
-                DP_C = Choi_DP(self.AS_C, G_c, rho_out, rho_c, p_c_mean, 0, x_c, self.params["l"], self.params["H_Dh"])
+        corr = self.C.Correlation_DP['2P']
 
+        # AS_C is already set to (havg_c, p_c_mean) above, i.e. the cell's
+        # mean two-phase state, so its quality matches x_c.
+        if corr == "Cheng-CO2":
+            DP_C = self.pressure_drop_pipe_one_phase(self.AS_C, G_c, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"], correlation='Cheng-CO2')
+
+        elif corr == "Choi":
+            raise NotImplementedError(
+                "The 'Choi' two-phase pressure drop correlation needs the "
+                "pipe exit state (AS_ex) in addition to the inlet state, "
+                "which this heat exchanger model does not provide. Use "
+                "'MSH' or 'Friedel' for two-phase pressure drop instead."
+            )
+
+        elif corr in ("Friedel", "MSH"):
+
+            if self.HTX_Type == "Plate":
+                DP_C = self.pressure_drop_pipe_two_phase(self.AS_C, G_c, self.params["C_Dh"], self.params["l"], correlation=corr)
             elif self.HTX_Type == "PCHE":
                 Dh = np.pi*self.params['D_c']/(2+np.pi)
-                DP_C = Choi_DP(self.AS_C, G_c, rho_out, rho_c, p_c_mean, 0, x_c, self.params["L_c"], Dh)
+                DP_C = self.pressure_drop_pipe_two_phase(self.AS_C, G_c, Dh, self.params["L_c"], correlation=corr)
             else:
-                DP_C = Choi_DP(self.AS_C, G_c, rho_out, rho_c, p_c_mean, 0, x_c, self.params["Tube_L"]*self.params["Tube_pass"], self.params["Tube_OD"]-2*self.params["Tube_t"])
-        
-        elif self.C.Correlation_DP['2P'] == "Muller_Steinhagen_Heck_DP":
-            self.AS_C.update(CP.HmassP_INPUTS, h_out, p_c_mean)
-            rho_out = self.AS_C.rhomass()   
-            
-            if self.A_h == 0:
-                q = self.Qvec_c[k]/(self.params['A_eff']*self.w[k]/max(1,sum(self.w)))
-            else:
-                q = self.Qvec_c[k]/(min(self.A_h, self.A_c)*self.w[k]/max(1,sum(self.w)))
-                
-            DP_C = Muller_Steinhagen_Heck_DP(self.AS_C, G_c, p_c_mean, self.x_vec_c[k], self.x_vec_c[k+1], q, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"], len(self.hvec_c)-1)
-            
-              
-        elif self.C.Correlation_DP['2P'] == "Tube_And_Fins_DP":
-            
-            DP_C = DP_tube_and_fins(self.AS_C, self.params, self.su_C.p, self.su_C.h, self.su_C.m_dot)  
-            
+                DP_C = self.pressure_drop_pipe_two_phase(self.AS_C, G_c, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"], correlation=corr)
+
+        elif corr == "Tube_And_Fins_DP":
+
+            DP_C = DP_tube_and_fins(self.AS_C, self.params, self.su_C.p, self.su_C.h, self.su_C.m_dot)
+
         else:
-            raise ValueError(f"Pressure drop correlation {self.C.Correlation_DP['2P']} for '2P' phase conditions is not implemented in compute_cell_C_DP_2P method.")
+            raise ValueError(f"Pressure drop correlation {corr} for '2P' phase conditions is not implemented in compute_cell_C_DP_2P method.")
         
         if np.isfinite(self.w[k]):
             return min(DP_C*self.w[k]/max(sum(self.w),1), p_c_mean*0.95)

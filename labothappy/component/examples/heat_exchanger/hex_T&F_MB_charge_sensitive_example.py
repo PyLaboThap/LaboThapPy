@@ -12,7 +12,7 @@ Modification w/r to previous version:
 """
 
 # from __future__ import division, print_function
-import __init__
+# import __init__
 from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
 
 #%%
@@ -53,7 +53,7 @@ Corr_H = {"1P" : "Tube_And_Fins", "2P" : "Tube_And_Fins"}
 Corr_C = {"1P" : "Gnielinski", "2P" : "Boiling_curve"}
 
 Corr_H_DP = {"1P" : "Tube_And_Fins_DP", "2P" : "Tube_And_Fins_DP"}
-Corr_C_DP = {"1P" : "Gnielinski_DP", "2P" : "Choi_DP"}
+Corr_C_DP = {"1P" : "Konakov", "2P" : "MSH"}
 
 # -------------------------------------------------------------------------------------------------------------
 
