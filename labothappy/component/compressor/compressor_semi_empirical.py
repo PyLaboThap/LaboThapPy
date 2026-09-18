@@ -67,6 +67,8 @@ class CompressorSE(BaseComponent):
 
         V_s: Swept volume. [m^3]
 
+        V: Internal volume [m^3] (optional)
+
     **Inputs**:
 
         P_su: Suction side pressure. [Pa]
@@ -80,6 +82,7 @@ class CompressorSE(BaseComponent):
         N_rot: Rotational speed [rpm] or m_dot: Mass flow rate [kg/s]
 
         T_amb: Ambient temperature. [K]
+
 
     **Ouputs**:
 
@@ -129,7 +132,8 @@ class CompressorSE(BaseComponent):
             'alpha': 0,  # Proportionality rate for mechanical losses neglected
             'C_loss': 0, # Torque losses neglected
             'rv_in': 2.5,  # Default volume ratio
-            'V_s': 0.001,  # Default swept volume
+            'V_s': 0.0001,  # Default swept volume
+            'V': 1.5e-2, # Default internal volume
             'mode': 'N_rot'  # Default mode
         }
 
@@ -227,6 +231,7 @@ class CompressorSE(BaseComponent):
                 
         if self.convergence: # If the calculation converged
             self.update_connectors() # Update the connectors with the calculated values
+            self.charge = ((self.su.D+self.ex.D)/2)*self.params["V"]
             self.solved = True
 
 
@@ -438,6 +443,7 @@ class CompressorSE(BaseComponent):
         print(f"  - epsilon_is: {self.epsilon_is} [-]")
         print(f"  - m_dot: {self.m_dot} [kg/s]")
         print(f"  - epsilon_v: {self.epsilon_v} [-]")
+        print(f"  - charge: {self.charge} [kg]")
         print("=========================")
 
     def print_states_connectors(self):
