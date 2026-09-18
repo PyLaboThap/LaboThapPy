@@ -68,5 +68,5 @@ compressor.W.set_N_rot(6000)
 compressor.solve()
 compressor.print_results()
 
-fig = compressor.plot_Ts()
-fig.show()
+# fig = compressor.plot_Ts()
+# fig.show()

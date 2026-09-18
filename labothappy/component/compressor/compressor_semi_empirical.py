@@ -155,7 +155,7 @@ class CompressorSE(BaseComponent):
         self.AS = AbstractState("HEOS", fluid)  # Create a reusable state object
 
         # Check if the fluid is in the two-phase region at the suction side
-        self.AS.update(CoolProp.PQ_INPUTS, self.su.p, 1)
+        
         self.T_sat_su = self.AS.T()
         if self.su.T < self.T_sat_su:
             print('----Warning the compressor inlet stream is not in vapor phase---')
@@ -236,6 +236,7 @@ class CompressorSE(BaseComponent):
         if self.params['mode'] == 'N_rot': # The rotational speed is given as an input
             self.T_w, self.m_dot, h_ex2_bis, P_ex2 = x # Values on which the system iterates
             self.N_rot = self.inputs['N_rot']
+            print("guesses", self.T_w, self.m_dot, h_ex2_bis, P_ex2)
             #Boundary on the mass flow rate
             self.m_dot = max(self.m_dot, 1e-5)
         if self.params['mode'] == 'm_dot': # The mass flow rate is given as an input
@@ -250,6 +251,7 @@ class CompressorSE(BaseComponent):
         s_su = self.su.s
         rho_su = self.su.D
         P_ex = self.ex.p
+        print("1. Supply conditions")
 
         #------------------------------------------------------------------------
         "2. Supply heating: su->su1"
@@ -279,12 +281,12 @@ class CompressorSE(BaseComponent):
         if x_ex2_bis > 0 and x_ex2_bis < 1:
             # Two-phase
             self.AS.update(CoolProp.PQ_INPUTS, P_ex2, 0)
-            T_ex2_bis = self.AS.T()
+            # T_ex2_bis = self.AS.T()
             cv_leak = self.AS.cvmass()
             cp_leak = self.AS.cpmass()
         else:
             # Single-phase
-            T_ex2_bis = self.AS.T()
+            # T_ex2_bis = self.AS.T()
             cv_leak = self.AS.cvmass()
             cp_leak = self.AS.cpmass()
         
@@ -294,6 +296,7 @@ class CompressorSE(BaseComponent):
         self.AS.update(CoolProp.PSmass_INPUTS, P_thr, s_thr)
         rho_thr = self.AS.rhomass()
         h_thr = self.AS.hmass()
+        print("h_ex2_bis, h_thr", h_ex2_bis, )
         C_thr = min(300, np.sqrt(2*(h_ex2_bis-h_thr)))
         V_dot_leak = self.params['A_leak']*C_thr
         m_dot_leak = V_dot_leak*rho_thr
@@ -310,7 +313,7 @@ class CompressorSE(BaseComponent):
         self.N_rot_bis = m_dot_in/self.params['V_s']/rho_su2*60
         if self.params['mode'] == 'm_dot':
             self.N_rot = self.N_rot_bis
-
+        print("m_dot_in", m_dot_in)
         #------------------------------------------------------------------------
         "5. Internal compression: su2->ex2"
         "Isentropic compression: su2->in"
@@ -328,9 +331,9 @@ class CompressorSE(BaseComponent):
         w_in = w_in_is + w_in_v
         h_ex2 = h_su2 + w_in
         self.AS.update(CoolProp.HmassP_INPUTS, h_ex2, P_ex2)
-        T_ex2 = self.AS.T()
+        # T_ex2 = self.AS.T()
         x_ex2 = self.AS.Q()
-        
+        print("w_in", w_in)
         #------------------------------------------------------------------------
         "6. Pressure drops: ex2->ex1"
         h_ex1 = h_ex2 #Isenthalpic valve
@@ -372,7 +375,7 @@ class CompressorSE(BaseComponent):
             epsilon_ex = 1 - np.exp(-NTU_ex)
             Q_dot_ex = epsilon_ex*C_dot_ex*(self.T_w-T_ex1)
             self.h_ex = h_ex1 + Q_dot_ex/self.m_dot
-        
+        print('cooloing Q_dot_ex', Q_dot_ex)
         #------------------------------------------------------------------------
         "8. Energy balance"
         # Fictious enveloppe heat balance
