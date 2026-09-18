@@ -236,7 +236,6 @@ class CompressorSE(BaseComponent):
         if self.params['mode'] == 'N_rot': # The rotational speed is given as an input
             self.T_w, self.m_dot, h_ex2_bis, P_ex2 = x # Values on which the system iterates
             self.N_rot = self.inputs['N_rot']
-            print("guesses", self.T_w, self.m_dot, h_ex2_bis, P_ex2)
             #Boundary on the mass flow rate
             self.m_dot = max(self.m_dot, 1e-5)
         if self.params['mode'] == 'm_dot': # The mass flow rate is given as an input
@@ -251,7 +250,6 @@ class CompressorSE(BaseComponent):
         s_su = self.su.s
         rho_su = self.su.D
         P_ex = self.ex.p
-        print("1. Supply conditions")
 
         #------------------------------------------------------------------------
         "2. Supply heating: su->su1"
@@ -296,7 +294,6 @@ class CompressorSE(BaseComponent):
         self.AS.update(CoolProp.PSmass_INPUTS, P_thr, s_thr)
         rho_thr = self.AS.rhomass()
         h_thr = self.AS.hmass()
-        print("h_ex2_bis, h_thr", h_ex2_bis, )
         C_thr = min(300, np.sqrt(2*(h_ex2_bis-h_thr)))
         V_dot_leak = self.params['A_leak']*C_thr
         m_dot_leak = V_dot_leak*rho_thr
@@ -309,11 +306,11 @@ class CompressorSE(BaseComponent):
         self.AS.update(CoolProp.HmassP_INPUTS, h_su2, P_su2)
         rho_su2 = self.AS.rhomass()
         s_su2 = self.AS.smass()
-        T_su2 = self.AS.T()
+        # T_su2 = self.AS.T()
         self.N_rot_bis = m_dot_in/self.params['V_s']/rho_su2*60
         if self.params['mode'] == 'm_dot':
             self.N_rot = self.N_rot_bis
-        print("m_dot_in", m_dot_in)
+
         #------------------------------------------------------------------------
         "5. Internal compression: su2->ex2"
         "Isentropic compression: su2->in"
@@ -333,7 +330,7 @@ class CompressorSE(BaseComponent):
         self.AS.update(CoolProp.HmassP_INPUTS, h_ex2, P_ex2)
         # T_ex2 = self.AS.T()
         x_ex2 = self.AS.Q()
-        print("w_in", w_in)
+
         #------------------------------------------------------------------------
         "6. Pressure drops: ex2->ex1"
         h_ex1 = h_ex2 #Isenthalpic valve
@@ -375,7 +372,7 @@ class CompressorSE(BaseComponent):
             epsilon_ex = 1 - np.exp(-NTU_ex)
             Q_dot_ex = epsilon_ex*C_dot_ex*(self.T_w-T_ex1)
             self.h_ex = h_ex1 + Q_dot_ex/self.m_dot
-        print('cooloing Q_dot_ex', Q_dot_ex)
+
         #------------------------------------------------------------------------
         "8. Energy balance"
         # Fictious enveloppe heat balance
