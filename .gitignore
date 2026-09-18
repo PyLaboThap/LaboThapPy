@@ -19,6 +19,7 @@ c_*.py
 # geometry*.py
 *.csv
 *.log
+*.json
 
 # Ignore Spyder Workspaces
 *.bak
