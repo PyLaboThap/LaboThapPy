@@ -1,7 +1,7 @@
 
 from labothappy.component.expander.expander_semi_empirical import ExpanderSE
 
-simu_mode = "P_M"
+simu_mode = "P_N"
 
 "Example of a semi-empirical expander component"
 # Inputs: N_rot, T_amb, P_su, h_su, P_ex, fluid 

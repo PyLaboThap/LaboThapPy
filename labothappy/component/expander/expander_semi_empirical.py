@@ -135,7 +135,8 @@ class ExpanderSE(BaseComponent):
             'C_loss': 0, # Torque losses neglected
             'rv_in': 2.5,  # Default volume ratio
             'V_s': 0.001,  # Default swept volume
-            'mode': 'N_rot'  # Default mode
+            'V': 1.5e-2, # Default internal volume
+            'mode': 'P_N'  # Default mode
         }
 
         # Ensure all required parameters are set, assigning default values if missing (neglecting the effect associated)
@@ -255,6 +256,7 @@ class ExpanderSE(BaseComponent):
 
         if self.convergence: # If the component is solved
             self.update_connectors() # Update the connectors with the calculated values
+            self.charge = ((self.su.D+self.ex.D)/2)*self.params["V"]
             self.solved = True
 
 
@@ -471,6 +473,7 @@ class ExpanderSE(BaseComponent):
         print(f"  - m_dot: {self.m_dot} [kg/s]")
         print(f"  - epsilon_v: {self.epsilon_v} [-]")
         print(f"  - N_rot: {self.W.N_rot} [-]")
+        print(f"  - Charge: {self.charge} [kg]")
         print("=========================")
 
     def print_states_connectors(self):
