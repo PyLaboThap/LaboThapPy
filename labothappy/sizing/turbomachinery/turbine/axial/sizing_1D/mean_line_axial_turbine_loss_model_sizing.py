@@ -1,3 +1,4 @@
+#%%
 #!/usr/bin/python3
 
 # --- loading libraries 
@@ -50,7 +51,14 @@ def tqdm_joblib(tqdm_object):
 
 # --- worker for joblib ---
 def _eval_particle(x, cls, fluid, params, bounds, stage_params, inputs):
-    """Evaluate one particle using a per-process cached solver."""
+    """
+    Evaluate one particle using a per-process cached solver.
+
+    Les deux print() de debug (x, cost) ont été retirés -- ils inondaient
+    stdout à chaque évaluation, et faisaient double emploi avec `debug`
+    (voir plus bas), qui capture la même information de façon structurée
+    pour analyse a posteriori (self.eval_log dans sizing()).
+    """
     os.environ.setdefault("OMP_NUM_THREADS", "1")
     os.environ.setdefault("MKL_NUM_THREADS", "1")
     os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
@@ -73,7 +81,7 @@ def _eval_particle(x, cls, fluid, params, bounds, stage_params, inputs):
     x = np.asarray(x, dtype=float)
     cost = float(_SOLVER.design_system(x))
     Wdot = float(_SOLVER.W_dot)
-
+    debug = getattr(_SOLVER, "_debug_record", None)
     allow_rec = None
     
     if cost < 10000:
@@ -84,10 +92,11 @@ def _eval_particle(x, cls, fluid, params, bounds, stage_params, inputs):
             _SOLVER.psi, _SOLVER.phi, _SOLVER.R,
             _SOLVER.params['Re_min'],
             _SOLVER.r_m,
-            _SOLVER.params['M_1_st']
+            _SOLVER.params['M_1_st'],
+            _SOLVER.eta_is_guess,
         )
 
-    return cost, Wdot, allow_rec
+    return cost, Wdot, allow_rec, debug
 
 #%%
 
@@ -103,6 +112,7 @@ class AxialTurbineMeanLineSizing(object):
         'e_blade': 0.002e-3,
         't_TE_o': 0.05,
         't_TE_min': 5e-4,
+        # 'Omega_choices': np.array([750, 1000, 1500, 2000, 3000]),
     }
 
     # Bornes de faisabilité géométrique (identiques dans les 4 cas) +
@@ -112,6 +122,12 @@ class AxialTurbineMeanLineSizing(object):
     # mais rend chaque cas exécutable sans set_bounds() supplémentaire —
     # y compris M_1st_bounds, qui manquait de fait dans 3 des 4 cas
     # d'origine alors que sizing()/opt_size() y accèdent sans condition.
+    #
+    # eta_is_guess_bounds (NOUVEAU) : borne la 7e dimension du PSO, qui
+    # remplace l'ancien calcul rigide Dh0 = W_dot/mdot -- voir design_system.
+    # C'est une fraction de la chute isentropique disponible (Dh0s), donc
+    # borné dans [0,1] par construction physique, peu importe l'échelle
+    # absolue du problème (contrairement à un W_dot brut).
     DEFAULT_BOUNDS = {
         'AR_min': 0.8,
         'r_hub_tip_max': 0.95,
@@ -122,6 +138,7 @@ class AxialTurbineMeanLineSizing(object):
         'R_bounds': [0.4, 0.6],
         'r_m_bounds': [0.1, 0.6],
         'M_1st_bounds': [0.3, 0.5],
+        'eta_is_guess_bounds': [0.8, 0.999],
     }
 
     def __init__(self, fluid):
@@ -590,7 +607,8 @@ class AxialTurbineMeanLineSizing(object):
         return {
             "type": "Axial Turbine",
             "mdot_rated": self.inputs['mdot'],
-            "Wdot_rated": self.inputs['W_dot'],
+            "Wdot_rated": self.inputs.get('W_dot'),
+            "eta_is_guess": getattr(self, "eta_is_guess", None),
             "N_rot_rated": self.params['Omega'],
             "total_to_static_efficiency": self.eta_is,
             "DP_rated": round(self.inputs['p0_su']/self.inputs['p_ex'],2),
@@ -962,12 +980,6 @@ class AxialTurbineMeanLineSizing(object):
 
         stage.eta_is_S = (stage.get_static_prop('H',1)-stage.get_static_prop('H',2))/(stage.get_static_prop('H',1)-hout_s)
 
-        # print(f"h0in: {h0in}")
-        # print(f"h1: {stage.static_states['H'][1]}")
-        # print(f"kinetic1: {(self.Vel_Tri_Last_Stage['vu1']**2 + self.Vel_Tri_Last_Stage['vm']**2)/2}")
-        # print(f"h2: {stage.static_states['H'][2]}")
-        # print(f"kinetic2: {(self.Vel_Tri_Last_Stage['vu2']**2 + self.Vel_Tri_Last_Stage['vm']**2)/2}")
-
         return np.array([hout, pout_calc])*1e-5 # return (p_static_out - pout_calc)**2 + (h_static_out - hout)**2
 
     def compute_deviation_stator(self, stage):
@@ -1237,7 +1249,34 @@ class AxialTurbineMeanLineSizing(object):
         self.CAPEX['Total'] = self.CAPEX['Turbine'] + self.CAPEX['Alternator'] + self.CAPEX['Installation']
             
         return
-    
+
+    def _record_debug(self, x):
+        """
+        Capture un enregistrement de diagnostic pour CETTE évaluation, qu'elle
+        soit faisable ou non -- contrairement à allowable_positions qui ne
+        garde que les points avec obj < 10000 ET penalty < 1. Sert à tracer
+        nStages vs obj, penalty_3 vs obj, eta_is_guess vs eta_is, etc. sur
+        TOUT l'espace échantillonné (voir self.eval_log, rempli via
+        sizing() -> objective_wrapper -> _eval_particle), pas seulement les
+        rares points faisables.
+
+        getattr(..., default) partout : selon À QUEL POINT design_system a
+        échoué, eta_is/penalty_1/penalty_2/penalty_3 peuvent ne pas encore
+        exister (ex. échec dans computeRepeatingStages, avant leur calcul).
+        nStages et eta_is_guess sont déjà fixés avant les deux blocs
+        try/except de design_system, donc quasi toujours disponibles.
+        """
+        self._debug_record = {
+            "obj": self.obj,
+            "eta_is": getattr(self, "eta_is", float("nan")),
+            "eta_is_guess": getattr(self, "eta_is_guess", float("nan")),
+            "nStages": getattr(self, "nStages", None),
+            "penalty_1": getattr(self, "penalty_1", float("nan")),
+            "penalty_2": getattr(self, "penalty_2", float("nan")),
+            "penalty_3": getattr(self, "penalty_3", float("nan")),
+            "x": list(np.asarray(x, dtype=float)),
+        }
+
 #%%
     def design_system(self, x):
         self.penalty = -1
@@ -1276,9 +1315,19 @@ class AxialTurbineMeanLineSizing(object):
         h_is_ex = self.AS.hmass()
         Dh0s = self.stages[0].get_total_prop('H',1) - h_is_ex
 
-        Dh0 = self.inputs['W_dot']/self.inputs['mdot']
-        
-        # self.eta_is = Dh0/Dh0s
+        # NOUVEAU : Dh0 n'est plus dérivé rigidement de self.inputs['W_dot']
+        # (self.inputs['W_dot']/self.inputs['mdot']), qui imposait une valeur
+        # fixe sans lien garanti avec ce que la géométrie peut réellement
+        # délivrer en retombant sur p_ex. eta_is_guess est désormais la 7e
+        # dimension du PSO (x[6]) : une fraction de la chute isentropique
+        # disponible Dh0s, bornée par construction dans [0,1] (voir
+        # eta_is_guess_bounds), donc physiquement interprétable quelle que
+        # soit l'échelle absolue du problème. Le PSO peut ainsi explorer
+        # différentes cibles d'efficacité plutôt que d'optimiser en vain une
+        # géométrie à Dh0 rigidement imposé (eta_is en résultait de toute
+        # façon presque intégralement, avec très peu de marge géométrique).
+        self.eta_is_guess = x[6]
+        Dh0 = self.eta_is_guess * Dh0s
         
         "------------- 2) Velocity Triangle Computation (+ Solodity) -------------------------------------" 
         self.computeVelTriangle()
@@ -1344,6 +1393,7 @@ class AxialTurbineMeanLineSizing(object):
         except:
             # print("Error in stages")
             self.obj = 10000
+            self._record_debug(x)
             return self.obj
         
         "------------- 7) Compute number of blades per stage ---------------------------" 
@@ -1368,6 +1418,7 @@ class AxialTurbineMeanLineSizing(object):
         except:
             # print("Error in last stage")
             self.obj = 10000
+            self._record_debug(x)
             return self.obj
 
         "------------- 9) Compute main outputs -------------------------------------------------------------" 
@@ -1383,11 +1434,11 @@ class AxialTurbineMeanLineSizing(object):
                 
         self.eta_is = (hin - hout)/(hin - hout_s)
 
-        self.penalty_1 = max(self.r_hub_tip[0] - self.bounds['r_hub_tip_max'],0)*100
-        self.penalty_2 = max(self.bounds['r_hub_tip_min'] - self.r_hub_tip[-1],0)*100
+        self.penalty_1 = max(self.r_hub_tip[0] - self.bounds['r_hub_tip_max'],0)
+        self.penalty_2 = max(self.bounds['r_hub_tip_min'] - self.r_hub_tip[-1],0)
         
         if abs((self.inputs["p_ex"] - self.stages[-1].get_static_prop('P',2))/self.inputs["p_ex"]) >= self.params['p_rel_tol']:
-            self.penalty_3 = abs((self.inputs["p_ex"] - self.stages[-1].get_static_prop('P',2))/self.inputs["p_ex"])*100
+            self.penalty_3 = abs((self.inputs["p_ex"] - self.stages[-1].get_static_prop('P',2))/self.inputs["p_ex"])
             self.Pressure_Deviation = self.inputs["p_ex"] - self.stages[-1].get_static_prop('P',2)
         else:
             self.penalty_3 = 0
@@ -1403,9 +1454,10 @@ class AxialTurbineMeanLineSizing(object):
             self.obj = 10000
 
         if self.obj < 10000 and self.penalty < 1:
-            self.allowable_positions.append([self.obj, self.eta_is, self.W_dot, self.psi, self.phi, self.R, self.params['Re_min'], self.r_m, self.params['M_1_st']])
+            self.allowable_positions.append([self.obj, self.eta_is, self.W_dot, self.psi, self.phi, self.R, self.params['Re_min'], self.r_m, self.params['M_1_st'], self.eta_is_guess])
         
         # print(f"obj : {self.obj}")
+        self._record_debug(x)
         return self.obj
 
 #%%
@@ -1418,6 +1470,7 @@ class AxialTurbineMeanLineSizing(object):
             self.bounds['Re_bounds'][0],
             self.bounds['r_m_bounds'][0],
             self.bounds['M_1st_bounds'][0],
+            self.bounds['eta_is_guess_bounds'][0],
         ]),
         np.array([
             self.bounds['psi_bounds'][1],
@@ -1426,6 +1479,7 @@ class AxialTurbineMeanLineSizing(object):
             self.bounds['Re_bounds'][1],
             self.bounds['r_m_bounds'][1],
             self.bounds['M_1st_bounds'][1],
+            self.bounds['eta_is_guess_bounds'][1],
         ]))
     
         def objective_wrapper(x):
@@ -1440,9 +1494,10 @@ class AxialTurbineMeanLineSizing(object):
     
         optimizer = ps.single.GlobalBestPSO(
             n_particles=40,
-            dimensions=6,
-            options={'c1': 1.5, 'c2': 2.0, 'w': 0.7},
-            bounds=bounds
+            dimensions=7,
+            options={'c1': 0.7, 'c2': 1.5, 'w': 0.7},
+            bounds=bounds,
+            bh_strategy="nearest",
         )
     
         patience = 5
@@ -1462,13 +1517,7 @@ class AxialTurbineMeanLineSizing(object):
             
             if __name__ == "__main__":
                 print(f"Current Best: {current_best}")
-            
-            # between-iteration W_dot raise
-            batch_best = getattr(self, "_last_batch_max_wdot", self.inputs.get("W_dot", 0.0))
-            if batch_best > self.inputs.get("W_dot", 0.0):
-                self.inputs["W_dot"] = batch_best
-                # print(f"[iter {i+1}] raised target W_dot to {self.inputs['W_dot']:.3f} W")
-    
+
             if current_best < best_cost - tol:
                 best_cost = current_best
                 no_improve_counter = 0
@@ -1492,17 +1541,46 @@ class AxialTurbineMeanLineSizing(object):
             print(f"Turbine rotation speed: {self.params['Omega']} [RPM]")
             print(f"Turbine number of stage : {self.nStages} [-]")
             print(f"Turbine total-to-static efficiency : {self.eta_is} [-]")
+            print(f"eta_is_guess (cible) : {self.eta_is_guess} [-]")
             print(f"Turbine Generation : {self.W_dot} [W]")
             
         return best_pos
 
 #%% 
 
-    def sizing(self, n_jobs=-1, n_particles = 50, max_iter=50, backend="loky", chunksize="auto"):
+    def sizing(self, n_jobs=-1, n_particles=50, max_iter=50, backend="loky", chunksize="auto",
+           options_schedule=None, patience=None):
+        """
+        options_schedule : callable(i, max_iter, base_options) -> dict{'c1','c2','w'}, optionnel.
+        Si fourni, appelé à chaque itération EXTERNE (i = 0..max_iter-1) pour recalculer
+        optimizer.options avant le prochain optimizer.optimize(iters=1, ...). Permet de
+        faire varier c1/c2/w progressivement (ex. exploration -> exploitation) SANS
+        dépendre du oh_strategy interne de pyswarms, qui est aveugle à cette boucle
+        externe (avec optimizer.optimize(iters=1) appelé en boucle, son
+        iternow/itermax internes valent toujours 0/1, donc son interpolation
+        ne bouge jamais). Si None (défaut), options statiques.
+
+        self.eval_log : liste de dicts (un par évaluation de particule, TOUTES
+        les particules, faisables ou non -- contrairement à allowable_positions
+        qui filtre), remplie via objective_wrapper -> _eval_particle ->
+        design_system._record_debug(). Réinitialisée à CHAQUE appel de
+        sizing() (contrairement à allowable_positions, qui elle n'est reset
+        qu'à __init__ -- si tu réutilises le même objet Turb pour plusieurs
+        appels à sizing(), ce dernier continuera d'accumuler d'un appel à
+        l'autre ; pas un problème dans le benchmark, qui recrée un objet
+        Turb par run, mais à garder en tête sinon).
+
+        NOTE sur W_dot : le cliquet qui remontait self.inputs["W_dot"] au
+        fil des itérations a été retiré -- il est devenu du code mort de
+        toute façon, puisque design_system() ne lit plus self.inputs['W_dot']
+        pour calculer Dh0 (remplacé par eta_is_guess = x[6], voir
+        design_system). self.inputs['W_dot'], s'il est fourni, n'est
+        conservé qu'à titre informatif (ex. export_params_dict).
+        """
         import numpy as np
         import pyswarms as ps
     
-        # --- always 6D swarm (psi, phi, R, Re_min, r_m, M_1_st) ---
+        # --- always 7D swarm (psi, phi, R, Re_min, r_m, M_1_st, eta_is_guess) ---
         bounds = (np.array([
             self.bounds['psi_bounds'][0],
             self.bounds['phi_bounds'][0],
@@ -1510,6 +1588,7 @@ class AxialTurbineMeanLineSizing(object):
             self.bounds['Re_bounds'][0],
             self.bounds['r_m_bounds'][0],
             self.bounds['M_1st_bounds'][0],
+            self.bounds['eta_is_guess_bounds'][0],
         ]),
         np.array([
             self.bounds['psi_bounds'][1],
@@ -1518,10 +1597,11 @@ class AxialTurbineMeanLineSizing(object):
             self.bounds['Re_bounds'][1],
             self.bounds['r_m_bounds'][1],
             self.bounds['M_1st_bounds'][1],
+            self.bounds['eta_is_guess_bounds'][1],
         ]))
-        dimensions = 6
+        dimensions = 7
     
-        # snapshot of class + parameters
+        # snapshot de classe + paramètres (inchangé)
         inp = dict(self.inputs)
     
         def pick(*names, default=None):
@@ -1530,12 +1610,14 @@ class AxialTurbineMeanLineSizing(object):
                     return inp[n]
             return default
     
-        # this dict is updated each iteration to carry the latest W_dot target
         inputs_snapshot = {
             "p0_su": pick("p0_su", "P0_su", "P_su", "p_su"),
             "T0_su": pick("T0_su", "t0_su", "T_su", "t_su"),
             "p_ex" : pick("p_ex", "P_ex"),
             "mdot" : pick("mdot", "m_dot"),
+            # W_dot n'est plus utilisé pour calculer Dh0 (voir design_system,
+            # remplacé par eta_is_guess = x[6]) -- conservé ici uniquement
+            # si l'appelant le fournit, à titre informatif.
             "W_dot": pick("W_dot", "W"),
         }
     
@@ -1547,7 +1629,10 @@ class AxialTurbineMeanLineSizing(object):
             "stage_params": getattr(self, "stage_params", None),
             "inputs": inputs_snapshot,
         }
-            
+
+        self.eval_log = []  # <-- reset à chaque appel (voir docstring)
+        self._current_iter = 0  # <-- tag chaque eval_log avec l'itération externe courante
+    
         def objective_wrapper(X):
             X = np.asarray(X, dtype=float)
             results = Parallel(n_jobs=n_jobs, backend=backend, batch_size=chunksize)(
@@ -1558,79 +1643,87 @@ class AxialTurbineMeanLineSizing(object):
                 ) for xi in X
             )
             pbar.update(len(X))
-        
+    
             costs, wdots = [], []
-            for c, w, rec in results:
+            for particle_idx, (c, w, rec, debug) in enumerate(results):
                 costs.append(c)
                 wdots.append(w)
                 if rec is not None:
                     self.allowable_positions.append(rec)
+                if debug is not None:
+                    # identifie à quelle itération PSO externe et quelle
+                    # particule (indice stable dans le swarm, X est ordonné
+                    # par particule à chaque appel) appartient cette
+                    # évaluation -- nécessaire pour tracer obj vs itération
+                    # par particule (voir plot_particle_scores_over_iterations
+                    # dans benchmark_diagnose_turbine.py).
+                    debug["iter"] = self._current_iter
+                    debug["particle_idx"] = particle_idx
+                    self.eval_log.append(debug)
             self._last_batch_max_wdot = max(wdots) if wdots else self.inputs.get("W_dot", 0.0)
             return np.asarray(costs, dtype=float)
     
+        base_options = {'c1': 0.7, 'c2': 1.5, 'w': 0.7}
         optimizer = ps.single.GlobalBestPSO(
             n_particles=n_particles, dimensions=dimensions,
-            options={'c1': 1.5, 'c2': 2.0, 'w': 0.7},
-            bounds=bounds
+            options=dict(base_options),
+            bounds=bounds,
+            bh_strategy="nearest",
         )
-        
-        patience, tol, max_iter = 5, 1e-3, max_iter
+    
+        patience, tol, max_iter = patience, 1e-3, max_iter
         no_improve, best_cost = 0, float("inf")
         
-        # ONE persistent bar for the whole optimization
+        if patience is None:
+            patience = max_iter
+        
         pbar = tqdm(
             total=optimizer.swarm.n_particles * max_iter,
             desc="Turbine",
             unit="pt",
-            leave=False,         # REMOVE previous bar when done
+            leave=False,
             ncols=100,
             dynamic_ncols=False
-        )    
-        
+        )
+    
         for i in range(max_iter):
-            snapshot["inputs"]["W_dot"] = self.inputs.get("W_dot", snapshot["inputs"]["W_dot"])
-        
+            self._current_iter = i  # <-- lu par objective_wrapper ci-dessus
+            # --- pilotage manuel de w/c1/c2 avant l'itération ---
+            if options_schedule is not None:
+                optimizer.options = options_schedule(i, max_iter, base_options)
+    
             optimizer.optimize(objective_wrapper, iters=1, verbose=False)
             cur = optimizer.swarm.best_cost
-        
-            batch_best = getattr(self, "_last_batch_max_wdot", self.inputs.get("W_dot", 0.0))
-            if batch_best > self.inputs.get("W_dot", 0.0):
-                self.inputs["W_dot"] = batch_best
-        
+    
             if cur < best_cost - tol:
                 best_cost, no_improve = cur, 0
             else:
                 no_improve += 1
-        
+    
             pbar.set_postfix_str(f"iter={i+1}  best={best_cost:.6f}", refresh=True)
-        
+    
             if no_improve >= patience and best_cost < 0:
                 pbar.set_postfix_str(f"stopping: best={best_cost:.6f}", refresh=True)
                 break
-        
-            if no_improve >= 2*patience:
+    
+            if patience <= 2*max_iter and no_improve >= 2*patience:
                 pbar.set_postfix_str(f"stopping: best={best_cost:.6f}", refresh=True)
                 break
-                    
-
+    
         pbar.close()
         best_pos = optimizer.swarm.best_pos
-        
+    
         self.allowable_positions.sort(key=lambda x: x[0])
         self.eta_is = 1.1
-        
         self.penalty = 10
-        
+    
         i = 0
         while self.eta_is >= 1 and self.penalty != 0:
-            # Finalize
-            self.inputs['W_dot'] = self.allowable_positions[i][2]
-            
             self.design_system(self.allowable_positions[i][3:])
             i = i + 1
-
+    
         self.cost_estimation()
-
+    
         if __name__ == "__main__":
             print("\n")
             print(f"Best Position")
@@ -1641,7 +1734,8 @@ class AxialTurbineMeanLineSizing(object):
             print(f"Re : {round(self.params['Re_min'])} [-]")
             print(f"r_m  : {round(self.r_m,3)} [m]")
             print(f"M_1st  : {round(self.params['M_1_st'],3)} [-]")
-        
+            print(f"eta_is_guess (cible) : {round(self.eta_is_guess,3)} [-]")
+    
             print("\n")
             print(f"Results")
             print(f"-------------")
@@ -1650,6 +1744,7 @@ class AxialTurbineMeanLineSizing(object):
             print(f"Omega: {round(self.params['Omega'])} [RPM]")
             print(f"eta_is: {round(self.eta_is,3)} [-]")
             print(f"W_dot : {round(self.W_dot,2)} [W]")
+            
         return best_pos
 
 #%%
@@ -1729,7 +1824,7 @@ if __name__ == "__main__":
     time_1 = []
     
     t0 = time.perf_counter()
-    best_pos = Turb.sizing(n_jobs=-1, n_particles=50)
+    best_pos = Turb.sizing(n_jobs=-1, n_particles=50, patience=15)
     elapsed = time.perf_counter() - t0
     print(f"Optimization completed in {elapsed:.2f} s")
     time_1.append(elapsed)
@@ -1738,4 +1833,4 @@ if __name__ == "__main__":
     Turb.plot_n_blade()
     Turb.plot_radius_verif()
     Turb.plot_Mollier()
-    
+

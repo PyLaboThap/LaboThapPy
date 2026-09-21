@@ -1008,3 +1008,1611 @@ if __name__ == "__main__":
         )
     else:
         print("⚠️ Aucun RC valide trouvé — rien à logger.")
+        
+#     #%% 
+    
+# if __name__ == "__main__":
+        
+#     #!/usr/bin/env python3
+#     # -*- coding: utf-8 -*-
+#     """
+#     plot_co2_rc_sweep_results.py
+    
+#     Génère DEUX scatter plots à partir du CSV de résultats du sweep
+#     (co2_rc_sweep_results/co2_rc_sweep_results_log.csv, généré par
+#     log_cycle_result() dans co2_rc_full_design_optimizer.py) :
+    
+#       1) CAPEX total (EUR2026)         vs W_dot_net
+#       2) CAPEX / kW_net (EUR2026/kW)   vs W_dot_net   -- CAPEX spécifique
+    
+#     Dans les deux cas :
+#       - COULEUR -> T_hot_C (température de source chaude)
+#       - FORME   -> efficacité du second principe, càd eta_vs_carnot
+#                    (= eta_achieved / eta_carnot), regroupée par paliers de
+#                    --eta-bin.
+    
+#     NOTE UNITÉ : la colonne CAPEX_total du CSV est en EUR2026, pas en USD
+#     (malgré son nom hérité de actualize_price(..., currency="USD") côté
+#     sizing) -- seul le libellé des axes est corrigé ici, aucune conversion de
+#     devise n'est appliquée.
+    
+#     W_dot_net utilisé (pour les deux graphes ET pour le calcul du CAPEX
+#     spécifique) est la valeur BRUTE (W_dot_achieved_MW = W_dot_turbine -
+#     W_dot_pompe, sans W_dot_pompe_aux non récupérable) remplacée par un palier
+#     fixe via bucket_W_dot_net_MW() -- voir sa docstring. eta_achieved et
+#     eta_vs_carnot sont recalculés à partir de cette valeur remplacée plutôt que
+#     lus tels quels depuis le CSV (voir load_rows).
+    
+#     Pourquoi regrouper eta_vs_carnot par paliers plutôt que d'utiliser la
+#     valeur brute : c'est une grandeur quasi-continue, donc l'utiliser telle
+#     quelle donnerait presque une forme de marqueur par point -- illisible et
+#     ça épuiserait vite les formes disponibles. On la regroupe donc par paliers
+#     (0.05 par défaut, réglable via --eta-bin).
+    
+#     Usage :
+#         python plot_co2_rc_sweep_results.py
+#         python plot_co2_rc_sweep_results.py --log-path autre_dossier/log.csv --eta-bin 0.02 \\
+#             --out capex_total.png --out-specific capex_specific.png
+#     """
+    
+#     import argparse
+#     import csv
+#     import math
+#     from pathlib import Path
+    
+#     import matplotlib.pyplot as plt
+#     import numpy as np
+#     from matplotlib.lines import Line2D
+    
+#     def candidate_log_paths():
+#         """
+#         Liste, dans l'ordre de priorité, les emplacements où le CSV de résultats
+#         est susceptible de se trouver :
+#           1) Répertoire de travail courant (CWD) -- c'est là que le sweep crée
+#              co2_rc_sweep_results/, puisque save_root="co2_rc_sweep_results" est
+#              un chemin RELATIF dans co2_rc_full_design_optimizer.py : le dossier
+#              atterrit là où tu étais au moment de lancer `python ...`, pas
+#              nécessairement à côté du script.
+#           2) Dossier du package labothappy.machine.optimization (au cas où le
+#              sweep aurait été lancé depuis ce dossier précis).
+#           3) Dossier de CE script (au cas où plot_co2_rc_sweep_results.py serait
+#              copié à côté du CSV).
+#         """
+#         candidates = [Path.cwd() / "co2_rc_sweep_results" / "co2_rc_sweep_results_log.csv"]
+    
+#         try:
+#             import labothappy.machine.optimization as opt_pkg
+#             candidates.append(
+#                 Path(opt_pkg.__file__).resolve().parent
+#                 / "co2_rc_sweep_results" / "co2_rc_sweep_results_log.csv"
+#             )
+#         except ImportError:
+#             pass
+    
+#         candidates.append(
+#             Path(__file__).resolve().parent
+#             / "co2_rc_sweep_results" / "co2_rc_sweep_results_log.csv"
+#         )
+    
+#         return candidates
+    
+    
+#     def resolve_default_log_path():
+#         """
+#         Renvoie le premier chemin candidat qui existe réellement sur disque, ou
+#         le premier candidat (CWD) si aucun n'existe -- dans ce dernier cas,
+#         main() affichera la liste complète des chemins testés pour permettre un
+#         diagnostic rapide, plutôt qu'un "fichier introuvable" sans contexte.
+#         """
+#         candidates = candidate_log_paths()
+#         for c in candidates:
+#             if c.is_file():
+#                 return c
+#         return candidates[0]
+    
+    
+#     DEFAULT_LOG_PATH = resolve_default_log_path()
+    
+#     # Palette de formes de marqueurs matplotlib, cyclée si plus de catégories
+#     # d'eta_vs_carnot (après binning) que de formes listées ici.
+#     MARKERS = ['o', 's', '^', 'D', 'v', 'P', 'X', '*', 'h', '<', '>', 'p', '8']
+    
+    
+#     def bucket_W_dot_net_MW(w_raw_MW):
+#         """
+#         Remplace ENTIÈREMENT la valeur brute de W_dot_net -- actuellement
+#         W_dot_turbine - W_dot_pompe, colonne W_dot_achieved_MW du CSV, sans le
+#         terme W_dot_pump_aux qui n'est pas récupérable depuis le cycle résolu
+#         (voir discussion) -- par un palier fixe :
+#             W_dot_net_brut <  10 MW -> 1  MW
+#             W_dot_net_brut <  30 MW -> 10 MW
+#             W_dot_net_brut <  50 MW -> 30 MW
+#             W_dot_net_brut >= 50 MW -> 50 MW
+#         Ce n'est PAS une soustraction d'un terme estimé : la valeur brute sert
+#         uniquement à choisir le palier, puis est jetée au profit de ce palier.
+#         """
+#         if w_raw_MW < 10:
+#             return 1.0
+#         elif w_raw_MW < 30:
+#             return 10.0
+#         elif w_raw_MW < 50:
+#             return 30.0
+#         else:
+#             return 50.0
+    
+    
+#     def load_rows(log_path):
+#         """
+#         Lit le CSV et ne garde que les lignes exploitables : W_dot_achieved_MW,
+#         CAPEX_total, T_hot_C, Q_gh, eta_carnot doivent être des nombres valides
+#         (présents et non-NaN). Les échecs n'ont de toute façon pas de
+#         CAPEX/W_dot_achieved -- ils sont dans co2_rc_sweep_fails_log.csv, pas
+#         dans ce fichier de succès.
+    
+#         W_dot_achieved_MW (brut) est remplacé par bucket_W_dot_net_MW() -- voir
+#         sa docstring -- pour tenir lieu de "W_dot_net" dans les deux plots.
+#         eta_achieved et eta_vs_carnot sont ALORS RECALCULÉS à partir de ce
+#         W_dot_net remplacé (et non plus lus tels quels depuis le CSV, qui les
+#         avait calculés à partir du W_dot_net brut) :
+#             eta_achieved_new  = (W_dot_net_bucketed * 1e6) / Q_gh
+#             eta_vs_carnot_new = eta_achieved_new / eta_carnot
+#         Q_gh (W) et eta_carnot viennent directement du CSV (colonnes déjà
+#         présentes, écrites respectivement par _hx_effectivenesses et
+#         log_cycle_result) -- pas besoin de les recalculer.
+    
+#         Le CAPEX spécifique (EUR2026/kW) est calculé à partir de ce même
+#         W_dot_net remplacé :
+#             CAPEX_specific = CAPEX_total / (W_dot_net_bucketed * 1000)
+    
+#         CAPEX_Recuperator (colonne écrite par log_cycle_result pour chaque
+#         composant du cycle, architecture REC uniquement) est lue si présente,
+#         pour calculer capex_recup_pct = CAPEX_Recuperator / CAPEX_total * 100 --
+#         utilisée par plot_recuperator_capex_share_heatmaps(). Optionnelle : si
+#         absente ou invalide sur une ligne, capex_recup_pct vaut NaN pour cette
+#         ligne (elle reste utilisable pour les deux scatter plots, juste exclue
+#         de la heatmap).
+#         """
+#         rows = []
+#         with open(log_path, "r", newline="") as f:
+#             reader = csv.DictReader(f)
+#             for r in reader:
+#                 try:
+#                     w_raw = float(r["W_dot_achieved_MW"])
+#                     capex = float(r["CAPEX_total"])
+#                     t_hot = float(r["T_hot_C"])
+#                     Q_gh = float(r["Q_gh"])
+#                     eta_carnot = float(r["eta_carnot"])
+#                 except (KeyError, ValueError, TypeError):
+#                     continue
+#                 if any(math.isnan(v) for v in (w_raw, capex, t_hot, Q_gh, eta_carnot)):
+#                     continue
+#                 if Q_gh == 0 or eta_carnot == 0:
+#                     continue
+    
+#                 w = bucket_W_dot_net_MW(w_raw)
+#                 eta_achieved = (w * 1e6) / Q_gh
+#                 eta = eta_achieved / eta_carnot
+#                 capex_specific = capex / (w * 1000.0)  # EUR2026 / kW_net
+    
+#                 try:
+#                     capex_recup = float(r["CAPEX_Recuperator"])
+#                     capex_recup_pct = (capex_recup / capex) * 100.0 if capex else float("nan")
+#                     if math.isnan(capex_recup_pct):
+#                         capex_recup_pct = float("nan")
+#                 except (KeyError, ValueError, TypeError):
+#                     capex_recup_pct = float("nan")
+    
+#                 # Optionnelles, pour plot_Phigh_vs_Thot() et
+#                 # plot_turbomachinery_efficiency_vs_scale() -- NaN si absentes/
+#                 # invalides sur une ligne donnée, sans affecter le reste.
+#                 try:
+#                     p_high_bar = float(r["P_high_Pa"]) / 1e5
+#                 except (KeyError, ValueError, TypeError):
+#                     p_high_bar = float("nan")
+    
+#                 try:
+#                     eta_is_pump = float(r["eta_is_pump"])
+#                 except (KeyError, ValueError, TypeError):
+#                     eta_is_pump = float("nan")
+    
+#                 try:
+#                     eta_is_expander = float(r["eta_is_expander"])
+#                 except (KeyError, ValueError, TypeError):
+#                     eta_is_expander = float("nan")
+    
+#                 rows.append({
+#                     "W_dot": w, "CAPEX": capex, "CAPEX_specific": capex_specific,
+#                     "eta_vs_carnot": eta, "T_hot_C": t_hot,
+#                     "capex_recup_pct": capex_recup_pct,
+#                     "P_high_bar": p_high_bar,
+#                     "eta_is_pump": eta_is_pump,
+#                     "eta_is_expander": eta_is_expander,
+#                 })
+    
+#         return rows
+    
+    
+#     def bin_eta(eta, bin_size):
+#         """
+#         Regroupe eta_vs_carnot par paliers de `bin_size` (ex. 0.05), pour
+#         assigner un nombre raisonnable de formes de marqueurs distinctes plutôt
+#         qu'une par valeur flottante quasi-unique.
+#         """
+#         return round(round(eta / bin_size) * bin_size, 6)
+    
+    
+#     def build_color_map(values):
+#         """
+#         Associe une couleur distincte à chaque valeur de `values` (ici les
+#         T_hot_C uniques), via un colormap continu échantillonné en autant de
+#         points que de valeurs -- fonctionne quel que soit le nombre de
+#         températures balayées dans le sweep (pas limité à une palette fixe,
+#         contrairement aux formes de marqueurs).
+#         """
+#         n = max(len(values), 1)
+#         try:
+#             # matplotlib >= 3.7 : API non dépréciée
+#             cmap = plt.colormaps["viridis"].resampled(n)
+#         except AttributeError:
+#             # matplotlib < 3.7 : repli sur l'ancienne API
+#             cmap = plt.cm.get_cmap("viridis", n)
+#         return {v: cmap(i) for i, v in enumerate(values)}
+    
+    
+#     def _pow10_formatter(x, pos):
+#         """
+#         Formatte un tick d'échelle log sous la forme "1e6", "1e8", etc. --
+#         plus lisible que la notation scientifique par défaut de matplotlib
+#         ("$\\mathdefault{10^{6}}$") pour ce genre de graphe.
+#         """
+#         if x <= 0:
+#             return ""
+#         exponent = int(round(np.log10(x)))
+#         return f"1e{exponent}"
+    
+    
+#     def _plain_formatter(x, pos):
+#         """
+#         Affiche un tick sous forme de nombre simple ("1", "10", "100"...) --
+#         utilisé une fois l'axe déjà exprimé en millions (y_scale=1e6), où la
+#         notation "1eN" façon _pow10_formatter n'a plus lieu d'être.
+#         """
+#         if x <= 0:
+#             return ""
+#         if float(x).is_integer():
+#             return f"{int(x)}"
+#         return f"{x:g}"
+    
+    
+#     def make_scatter(rows, T_hot_values, eta_bins, color_of_T, marker_of_eta,
+#                       y_key, y_label, log_x, log_y, y_scale=1.0, y_ticks=None,
+#                       label_fontsize=18, legend_fontsize=13):
+#         """
+#         Construit UNE figure scatter (y_key vs W_dot) avec les deux légendes
+#         (couleur = T_hot, forme = palier d'eta_vs_carnot). Factorisé pour être
+#         appelé une fois par grandeur tracée (CAPEX total, puis CAPEX
+#         spécifique) sans dupliquer toute la logique de légendes.
+    
+#         y_scale : diviseur appliqué aux valeurs de y_key avant traçage (ex. 1e6
+#         pour passer d'EUR2026 à M€2026). N'affecte que l'affichage : les données
+#         sources (rows) restent inchangées.
+    
+#         y_ticks : liste optionnelle de valeurs -- DANS L'UNITÉ AFFICHÉE (donc
+#         après division par y_scale) -- pour fixer explicitement les ticks de
+#         l'axe y en échelle log, plutôt que de laisser matplotlib choisir. Sans
+#         effet si log_y=False. Formatés en "1eN" si y_scale=1 (valeurs brutes,
+#         grandes), ou en nombre simple ("1", "10", "100") si y_scale != 1
+#         (valeurs déjà réduites, ex. en millions).
+#         """
+#         fig, ax = plt.subplots(figsize=(9, 6))
+    
+#         for t_hot in T_hot_values:
+#             for eta_bin in eta_bins:
+#                 subset = [r for r in rows if r["T_hot_C"] == t_hot and r["eta_bin"] == eta_bin]
+#                 if not subset:
+#                     continue
+#                 ax.scatter(
+#                     [r["W_dot"] for r in subset],
+#                     [r[y_key] / y_scale for r in subset],
+#                     color=color_of_T[t_hot],
+#                     marker=marker_of_eta[eta_bin],
+#                     edgecolors="black", linewidths=0.4,
+#                     s=60, alpha=0.85,
+#                 )
+    
+#         # Titre du graphe retiré, labels d'axes agrandis, W_dot_net en notation
+#         # mathématique (accent point = dérivée temporelle, comme dans le code).
+#         ax.set_xlabel(r"$\dot{W}_{net}$ (MW)", fontsize=label_fontsize)
+#         ax.set_ylabel(y_label, fontsize=label_fontsize)
+#         ax.tick_params(axis="both", labelsize=label_fontsize * 0.75)
+#         ax.grid(True, which="both", alpha=0.3)
+    
+#         if log_x:
+#             ax.set_xscale("log")
+#         if log_y:
+#             ax.set_yscale("log")
+#             if y_ticks is not None:
+#                 ax.set_yticks(y_ticks)
+#                 formatter = _plain_formatter if y_scale != 1.0 else _pow10_formatter
+#                 ax.yaxis.set_major_formatter(plt.FuncFormatter(formatter))
+#                 ax.yaxis.set_minor_formatter(plt.NullFormatter())
+    
+#         # Deux légendes séparées (une par dimension encodée), à L'INTÉRIEUR du
+#         # graphe (haut-gauche / bas-droite) -- et sans titre, pour rester compact.
+#         color_handles = [
+#             Line2D([0], [0], marker='o', linestyle='', markerfacecolor=color_of_T[t],
+#                    markeredgecolor='black', markersize=8, label=f"T_hot = {t:.0f} °C")
+#             for t in T_hot_values
+#         ]
+#         marker_handles = [
+#             Line2D([0], [0], marker=marker_of_eta[e], linestyle='', markerfacecolor='grey',
+#                    markeredgecolor='black', markersize=8, label=f"η/η_carnot ≈ {e:.2f}")
+#             for e in eta_bins
+#         ]
+    
+#         legend1 = ax.legend(handles=color_handles, loc="upper left", framealpha=0.9,
+#                              fontsize=legend_fontsize)
+#         ax.add_artist(legend1)
+#         ax.legend(handles=marker_handles, loc="lower right", framealpha=0.9,
+#                   fontsize=legend_fontsize)
+    
+#         fig.tight_layout()
+#         return fig
+    
+    
+#     def plot_recuperator_capex_share_heatmaps(rows, label_fontsize=15, legend_fontsize=11):
+#         """
+#         Pour chaque palier d'efficacité de second principe (eta_bin, càd
+#         η/η_carnot -- voir bin_eta), trace une heatmap T_hot vs W_dot_net où la
+#         couleur code la part (%) du CAPEX du récupérateur dans le CAPEX total
+#         du cycle (capex_recup_pct = CAPEX_Recuperator / CAPEX_total * 100, voir
+#         load_rows).
+    
+#         Une figure à sous-graphes, un par palier eta_bin, avec une échelle de
+#         couleur COMMUNE à tous les sous-graphes (même vmin/vmax) pour rester
+#         comparable d'un palier à l'autre -- une colorbar par sous-graphe
+#         donnerait sinon l'impression trompeuse que chaque palier a la même
+#         plage de valeurs alors que les échelles différeraient.
+    
+#         Si plusieurs lignes tombent dans la même case (même T_hot, même W_dot
+#         bucketé, même eta_bin -- possible puisque W_dot est déjà regroupé en 4
+#         valeurs fixes), la valeur affichée est leur MOYENNE, annotée dans la
+#         case avec le nombre de points moyennés entre parenthèses si > 1.
+#         """
+#         eta_bins = sorted({r["eta_bin"] for r in rows if not math.isnan(r["capex_recup_pct"])})
+#         if not eta_bins:
+#             raise ValueError(
+#                 "Aucune ligne exploitable pour la heatmap (capex_recup_pct manquant partout -- "
+#                 "vérifie que la colonne CAPEX_Recuperator existe dans le CSV, architecture REC)."
+#             )
+    
+#         T_hot_values = sorted({r["T_hot_C"] for r in rows})
+#         W_dot_values = sorted({r["W_dot"] for r in rows})
+    
+#         # Grille (eta_bin, T_hot, W_dot) -> (moyenne, effectif), construite une
+#         # seule fois pour calculer aussi le vmin/vmax communs avant de tracer.
+#         grids = {}
+#         all_values = []
+#         for eta_bin in eta_bins:
+#             grid = np.full((len(T_hot_values), len(W_dot_values)), np.nan)
+#             counts = np.zeros((len(T_hot_values), len(W_dot_values)), dtype=int)
+#             for i, t in enumerate(T_hot_values):
+#                 for j, w in enumerate(W_dot_values):
+#                     vals = [
+#                         r["capex_recup_pct"] for r in rows
+#                         if r["eta_bin"] == eta_bin and r["T_hot_C"] == t and r["W_dot"] == w
+#                         and not math.isnan(r["capex_recup_pct"])
+#                     ]
+#                     if vals:
+#                         grid[i, j] = sum(vals) / len(vals)
+#                         counts[i, j] = len(vals)
+#                         all_values.append(grid[i, j])
+#             grids[eta_bin] = (grid, counts)
+    
+#         vmin, vmax = min(all_values), max(all_values)
+    
+#         ncols = min(3, len(eta_bins))
+#         nrows = math.ceil(len(eta_bins) / ncols)
+#         fig, axes = plt.subplots(nrows, ncols, figsize=(4.5 * ncols, 4.0 * nrows), squeeze=False)
+    
+#         im = None
+#         for idx, eta_bin in enumerate(eta_bins):
+#             ax = axes[idx // ncols][idx % ncols]
+#             grid, counts = grids[eta_bin]
+    
+#             im = ax.imshow(grid, aspect="auto", origin="lower", cmap="viridis",
+#                             vmin=vmin, vmax=vmax)
+    
+#             ax.set_xticks(range(len(W_dot_values)))
+#             ax.set_xticklabels([f"{w:g}" for w in W_dot_values], fontsize=legend_fontsize)
+#             ax.set_yticks(range(len(T_hot_values)))
+#             ax.set_yticklabels([f"{t:.0f}" for t in T_hot_values], fontsize=legend_fontsize)
+#             ax.set_title(f"η/η_carnot ≈ {eta_bin:.2f}", fontsize=label_fontsize * 0.75)
+    
+#             for i in range(len(T_hot_values)):
+#                 for j in range(len(W_dot_values)):
+#                     v = grid[i, j]
+#                     if math.isnan(v):
+#                         continue
+#                     label = f"{v:.0f}%" if counts[i, j] <= 1 else f"{v:.0f}%\n(n={counts[i, j]})"
+#                     color = "white" if v > (vmin + vmax) / 2 else "black"
+#                     ax.text(j, i, label, ha="center", va="center",
+#                             color=color, fontsize=legend_fontsize * 0.85)
+    
+#         # Sous-graphes inutilisés (si len(eta_bins) ne remplit pas exactement
+#         # la grille nrows x ncols) masqués plutôt que laissés vides.
+#         for idx in range(len(eta_bins), nrows * ncols):
+#             axes[idx // ncols][idx % ncols].axis("off")
+    
+#         fig.supxlabel(r"$\dot{W}_{net}$ (MW)", fontsize=label_fontsize)
+#         fig.supylabel(r"$T_{hot}$ (°C)", fontsize=label_fontsize)
+    
+#         if im is not None:
+#             cbar = fig.colorbar(im, ax=axes, shrink=0.85, pad=0.02)
+#             cbar.set_label("CAPEX récupérateur / CAPEX total (%)", fontsize=label_fontsize * 0.85)
+#             cbar.ax.tick_params(labelsize=legend_fontsize)
+    
+#         return fig
+    
+    
+#     def plot_eta_envelope_vs_Thot(rows, label_fontsize=18, legend_fontsize=13):
+#         """
+#         Enveloppe du rendement de second principe RÉELLEMENT ATTEINT (pas la
+#         cible visée) en fonction de T_hot : pour chaque puissance W_dot_net
+#         (palier), la meilleure valeur de eta_vs_carnot obtenue à chaque T_hot,
+#         plus l'enveloppe globale (meilleure valeur tous W_dot confondus) en
+#         trait épais noir en pointillés.
+    
+#         Contrairement aux scatter CAPEX, ce graphe utilise eta_vs_carnot comme
+#         variable CONTINUE en y (pas binnée par --eta-bin) : l'objectif n'est
+#         pas de distinguer plein de paliers cibles, mais de voir la limite
+#         pratique réellement atteignable par le pipeline, indépendamment de ce
+#         qui était visé (eta_obj).
+#         """
+#         T_hot_values = sorted({r["T_hot_C"] for r in rows})
+#         W_dot_values = sorted({r["W_dot"] for r in rows})
+#         color_of_W = build_color_map(W_dot_values)
+    
+#         fig, ax = plt.subplots(figsize=(9, 6))
+    
+#         # Nuage de tous les points en fond (contexte, sans légende dédiée) --
+#         # montre la dispersion autour de l'enveloppe, pas seulement son maximum.
+#         for w in W_dot_values:
+#             subset = [r for r in rows if r["W_dot"] == w]
+#             ax.scatter([r["T_hot_C"] for r in subset], [r["eta_vs_carnot"] for r in subset],
+#                        color=color_of_W[w], alpha=0.25, s=25, edgecolors="none")
+    
+#         # Enveloppe par W_dot : meilleur eta_vs_carnot atteint à chaque T_hot.
+#         for w in W_dot_values:
+#             env = []
+#             for t in T_hot_values:
+#                 vals = [r["eta_vs_carnot"] for r in rows if r["T_hot_C"] == t and r["W_dot"] == w]
+#                 env.append(max(vals) if vals else np.nan)
+#             ax.plot(T_hot_values, env, color=color_of_W[w], marker="o", linewidth=2,
+#                     markersize=7, label=f"{w:g} MW")
+    
+#         # Enveloppe globale, tous W_dot confondus.
+#         global_env = []
+#         for t in T_hot_values:
+#             vals = [r["eta_vs_carnot"] for r in rows if r["T_hot_C"] == t]
+#             global_env.append(max(vals) if vals else np.nan)
+#         ax.plot(T_hot_values, global_env, color="black", linewidth=2.5, linestyle="--",
+#                 marker="*", markersize=13, label="Enveloppe globale")
+    
+#         ax.set_xlabel(r"$T_{hot}$ (°C)", fontsize=label_fontsize)
+#         ax.set_ylabel(r"$\eta / \eta_{carnot}$ (meilleur atteint)", fontsize=label_fontsize)
+#         ax.tick_params(axis="both", labelsize=label_fontsize * 0.75)
+#         ax.grid(True, alpha=0.3)
+#         ax.legend(fontsize=legend_fontsize, loc="best", framealpha=0.9, title="$\\dot{W}_{net}$")
+    
+#         fig.tight_layout()
+#         return fig
+    
+    
+#     def plot_Phigh_vs_Thot(rows, eta_bins, marker_of_eta, label_fontsize=18, legend_fontsize=13):
+#         """
+#         Pression haute optimale (P_high, en bar) choisie par le PSO
+#         thermodynamique en fonction de T_hot -- résultat classique de la
+#         littérature sCO2 (la pression haute optimale dépend fortement de
+#         T_hot, typiquement croissante). Sert de test de cohérence physique du
+#         pipeline : si la tendance connue n'apparaît pas dans ces données, ça
+#         pointe vers un problème dans le PSO thermodynamique plutôt que dans le
+#         sizing des composants.
+    
+#         COULEUR -> W_dot_net (palier), FORME -> palier eta_bin -- inversé par
+#         rapport aux scatter CAPEX (où COULEUR = T_hot), puisque T_hot est ici
+#         l'axe des x et ne peut plus servir de couleur.
+#         """
+#         valid = [r for r in rows if not math.isnan(r["P_high_bar"])]
+#         if not valid:
+#             raise ValueError(
+#                 "Colonne P_high_Pa absente/inexploitable dans le CSV -- rien à tracer."
+#             )
+    
+#         W_dot_values = sorted({r["W_dot"] for r in valid})
+#         color_of_W = build_color_map(W_dot_values)
+    
+#         fig, ax = plt.subplots(figsize=(9, 6))
+    
+#         for w in W_dot_values:
+#             for eta_bin in eta_bins:
+#                 subset = [r for r in valid if r["W_dot"] == w and r["eta_bin"] == eta_bin]
+#                 if not subset:
+#                     continue
+#                 ax.scatter(
+#                     [r["T_hot_C"] for r in subset],
+#                     [r["P_high_bar"] for r in subset],
+#                     color=color_of_W[w], marker=marker_of_eta[eta_bin],
+#                     edgecolors="black", linewidths=0.4, s=60, alpha=0.85,
+#                 )
+    
+#         ax.set_xlabel(r"$T_{hot}$ (°C)", fontsize=label_fontsize)
+#         ax.set_ylabel(r"$P_{high}$ (bar)", fontsize=label_fontsize)
+#         ax.tick_params(axis="both", labelsize=label_fontsize * 0.75)
+#         ax.grid(True, alpha=0.3)
+    
+#         color_handles = [
+#             Line2D([0], [0], marker='o', linestyle='', markerfacecolor=color_of_W[w],
+#                    markeredgecolor='black', markersize=8, label=f"{w:g} MW")
+#             for w in W_dot_values
+#         ]
+#         marker_handles = [
+#             Line2D([0], [0], marker=marker_of_eta[e], linestyle='', markerfacecolor='grey',
+#                    markeredgecolor='black', markersize=8, label=f"η/η_carnot ≈ {e:.2f}")
+#             for e in eta_bins
+#             if any(r["eta_bin"] == e for r in valid)
+#         ]
+    
+#         legend1 = ax.legend(handles=color_handles, loc="upper left", framealpha=0.9,
+#                              fontsize=legend_fontsize)
+#         ax.add_artist(legend1)
+#         ax.legend(handles=marker_handles, loc="lower right", framealpha=0.9,
+#                   fontsize=legend_fontsize)
+    
+#         fig.tight_layout()
+#         return fig
+    
+    
+#     def plot_turbomachinery_efficiency_vs_scale(rows, T_hot_values, eta_bins, color_of_T,
+#                                                  marker_of_eta, log_x=False,
+#                                                  label_fontsize=18, legend_fontsize=13):
+#         """
+#         Rendement isentropique de la pompe et de la turbine (eta_is_pump,
+#         eta_is_expander) en fonction de l'échelle (W_dot_net) -- pour vérifier
+#         empiriquement, sur les vraies données du sweep, la dégradation de
+#         rendement aux petites puissances (turbomachines miniatures) discutée
+#         précédemment de façon qualitative.
+    
+#         Deux sous-graphes côte à côte (pompe, turbine), même style que les
+#         scatter CAPEX (COULEUR = T_hot, FORME = palier eta_bin), axe y partagé
+#         pour comparer directement les deux composants.
+#         """
+#         has_pump = any(not math.isnan(r["eta_is_pump"]) for r in rows)
+#         has_exp = any(not math.isnan(r["eta_is_expander"]) for r in rows)
+#         if not (has_pump or has_exp):
+#             raise ValueError(
+#                 "Colonnes eta_is_pump/eta_is_expander absentes/inexploitables -- rien à tracer."
+#             )
+    
+#         fig, axes = plt.subplots(1, 2, figsize=(14, 6), sharey=True)
+#         specs = [("eta_is_pump", "Pump", axes[0]), ("eta_is_expander", "Turbine", axes[1])]
+    
+#         for key, title, ax in specs:
+#             for t_hot in T_hot_values:
+#                 for eta_bin in eta_bins:
+#                     subset = [
+#                         r for r in rows
+#                         if r["T_hot_C"] == t_hot and r["eta_bin"] == eta_bin
+#                         and not math.isnan(r[key])
+#                     ]
+#                     if not subset:
+#                         continue
+#                     ax.scatter(
+#                         [r["W_dot"] for r in subset],
+#                         [r[key] for r in subset],
+#                         color=color_of_T[t_hot], marker=marker_of_eta[eta_bin],
+#                         edgecolors="black", linewidths=0.4, s=60, alpha=0.85,
+#                     )
+#             ax.set_xlabel(r"$\dot{W}_{net}$ (MW)", fontsize=label_fontsize)
+#             ax.set_title(title, fontsize=label_fontsize)
+#             ax.tick_params(axis="both", labelsize=label_fontsize * 0.75)
+#             ax.grid(True, which="both", alpha=0.3)
+#             if log_x:
+#                 ax.set_xscale("log")
+    
+#         axes[0].set_ylabel(r"$\eta_{is}$", fontsize=label_fontsize)
+#         axes[0].set_ylim(0.8, 1.0)  # axe y partagé (sharey=True) -- s'applique aux deux panneaux
+    
+#         # Zones indicatives de préférence radiale/axiale sur le panneau Turbine
+#         # uniquement (voir discussion : en dessous du seuil, le débit volumique
+#         # CO2 est trop faible pour qu'une turbine axiale reste dans sa plage de
+#         # vitesse spécifique efficace -- la radiale devient préférable ;
+#         # au-dessus, c'est l'inverse). Seuil purement indicatif (15 MW), pas
+#         # issu d'un calcul de vitesse spécifique sur CES données.
+#         ax_turbine = axes[1]
+#         xlims = ax_turbine.get_xlim()
+#         boundary = 15.0
+#         ax_turbine.axvspan(xlims[0], boundary, color="tab:blue", alpha=0.08, zorder=0)
+#         ax_turbine.axvspan(boundary, xlims[1], color="tab:orange", alpha=0.08, zorder=0)
+#         ax_turbine.axvline(boundary, color="grey", linestyle="--", linewidth=1, zorder=0)
+#         ax_turbine.set_xlim(xlims)  # axvspan/axvline ne doivent pas élargir la vue
+    
+#         # Étiquettes texte plutôt qu'une légende séparée -- transform mixte
+#         # (x en coordonnées data, y en fraction d'axe) pour rester bien placées
+#         # en haut du graphe quel que soit log_x et quelles que soient les
+#         # limites y (fixées à [0.8, 1.0] ci-dessus).
+#         trans = ax_turbine.get_xaxis_transform()
+#         if log_x:
+#             x_left = math.sqrt(max(xlims[0], 1e-9) * boundary)
+#             x_right = math.sqrt(boundary * xlims[1])
+#         else:
+#             x_left = (xlims[0] + boundary) / 2
+#             x_right = (boundary + xlims[1]) / 2
+#         ax_turbine.text(x_left, 0.95, f"Radial turbine\npreferred (< {boundary:g} MW)",
+#                          transform=trans, ha="center", va="top",
+#                          fontsize=legend_fontsize, color="tab:blue")
+#         ax_turbine.text(x_right, 0.95, f"Axial turbine\npreferred (≥ {boundary:g} MW)",
+#                          transform=trans, ha="center", va="top",
+#                          fontsize=legend_fontsize, color="tab:orange")
+    
+#         color_handles = [
+#             Line2D([0], [0], marker='o', linestyle='', markerfacecolor=color_of_T[t],
+#                    markeredgecolor='black', markersize=8, label=f"T_hot = {t:.0f} °C")
+#             for t in T_hot_values
+#         ]
+#         marker_handles = [
+#             Line2D([0], [0], marker=marker_of_eta[e], linestyle='', markerfacecolor='grey',
+#                    markeredgecolor='black', markersize=8, label=f"η/η_carnot ≈ {e:.2f}")
+#             for e in eta_bins
+#         ]
+    
+#         axes[0].legend(handles=color_handles, loc="upper left", framealpha=0.9,
+#                        fontsize=legend_fontsize)
+#         ax_turbine.legend(handles=marker_handles, loc="lower right", framealpha=0.9,
+#                            fontsize=legend_fontsize)
+    
+#         fig.tight_layout()
+#         return fig
+    
+    
+#     def main():
+#         parser = argparse.ArgumentParser(
+#             description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+#         )
+#         parser.add_argument("--log-path", default=DEFAULT_LOG_PATH,
+#                              help=f"Chemin du CSV de résultats (défaut : {DEFAULT_LOG_PATH})")
+#         parser.add_argument("--eta-bin", type=float, default=0.05,
+#                              help="Taille des paliers pour regrouper eta_vs_carnot (défaut : 0.05)")
+#         parser.add_argument("--log-x", action="store_true",
+#                              help="Échelle log sur l'axe W_dot_net (les deux graphes)")
+#         parser.add_argument("--linear-y", dest="log_y", action="store_false", default=True,
+#                              help="Désactive l'échelle log sur l'axe y (activée par défaut, les "
+#                                   "deux graphes) : le CAPEX (total ou spécifique) s'étale "
+#                                   "typiquement sur plusieurs ordres de grandeur vu la plage de "
+#                                   "W_dot du sweep, 1 à 100 MW")
+#         parser.add_argument("--out", default=None,
+#                              help="Chemin de sauvegarde du graphe CAPEX total (PNG). "
+#                                   "Si omis, affichage interactif.")
+#         parser.add_argument("--out-specific", default=None,
+#                              help="Chemin de sauvegarde du graphe CAPEX spécifique "
+#                                   "(EUR2026/kW_net) (PNG). Si omis, affichage interactif.")
+#         parser.add_argument("--out-recuperator-heatmap", default=None,
+#                              help="Chemin de sauvegarde de la heatmap part CAPEX récupérateur "
+#                                   "(PNG, un sous-graphe par palier eta_bin). Si omis, affichage interactif.")
+#         parser.add_argument("--out-eta-envelope", default=None,
+#                              help="Chemin de sauvegarde de l'enveloppe eta_vs_carnot réellement "
+#                                   "atteint vs T_hot (PNG). Si omis, affichage interactif.")
+#         parser.add_argument("--out-phigh", default=None,
+#                              help="Chemin de sauvegarde du graphe P_high vs T_hot (PNG). "
+#                                   "Si omis, affichage interactif.")
+#         parser.add_argument("--out-turbomachinery", default=None,
+#                              help="Chemin de sauvegarde du graphe rendement pompe/turbine vs "
+#                                   "échelle (PNG). Si omis, affichage interactif.")
+#         args = parser.parse_args()
+    
+#         log_path = Path(args.log_path)
+#         if not log_path.is_file():
+#             tried = "\n".join(f"  - {c}" for c in candidate_log_paths())
+#             raise SystemExit(
+#                 f"Fichier introuvable : {log_path}\n\n"
+#                 f"Emplacements testés automatiquement (aucun trouvé) :\n{tried}\n\n"
+#                 f"Précise le bon chemin avec --log-path, par exemple :\n"
+#                 f"  python plot_co2_rc_sweep_results.py --log-path \"chemin/vers/co2_rc_sweep_results_log.csv\""
+#             )
+    
+#         rows = load_rows(log_path)
+#         if not rows:
+#             raise SystemExit(
+#                 f"Aucune ligne exploitable dans {log_path} (colonnes attendues : "
+#                 "W_dot_achieved_MW, CAPEX_total, T_hot_C, Q_gh, eta_carnot)."
+#             )
+    
+#         for r in rows:
+#             r["eta_bin"] = bin_eta(r["eta_vs_carnot"], args.eta_bin)
+    
+#         T_hot_values = sorted({r["T_hot_C"] for r in rows})
+#         eta_bins = sorted({r["eta_bin"] for r in rows})
+    
+#         if len(eta_bins) > len(MARKERS):
+#             print(f"⚠️  {len(eta_bins)} paliers d'eta_vs_carnot pour seulement {len(MARKERS)} "
+#                   f"formes de marqueurs disponibles -- certains paliers partageront la même forme. "
+#                   f"Augmente --eta-bin pour réduire le nombre de paliers si besoin.")
+    
+#         color_of_T = build_color_map(T_hot_values)
+#         marker_of_eta = {e: MARKERS[i % len(MARKERS)] for i, e in enumerate(eta_bins)}
+    
+#         fig_total = make_scatter(
+#             rows, T_hot_values, eta_bins, color_of_T, marker_of_eta,
+#             y_key="CAPEX", y_label="CAPEX (M€2026)",
+#             log_x=args.log_x, log_y=args.log_y,
+#             y_scale=1e6, y_ticks=[1, 10, 100],
+#         )
+#         fig_specific = make_scatter(
+#             rows, T_hot_values, eta_bins, color_of_T, marker_of_eta,
+#             y_key="CAPEX_specific", y_label="CAPEX / kW_net (EUR2026/kW)",
+#             log_x=args.log_x, log_y=args.log_y,
+#         )
+    
+#         fig_heatmap = None
+#         n_with_recup = sum(1 for r in rows if not math.isnan(r["capex_recup_pct"]))
+#         if n_with_recup:
+#             fig_heatmap = plot_recuperator_capex_share_heatmaps(rows)
+#         else:
+#             print("⚠️  Colonne CAPEX_Recuperator absente/inexploitable dans le CSV -- "
+#                   "heatmap part récupérateur non générée.")
+    
+#         fig_envelope = plot_eta_envelope_vs_Thot(rows)
+        
+#         fig_phigh = None
+#         n_with_phigh = sum(1 for r in rows if not math.isnan(r["P_high_bar"]))
+#         if n_with_phigh:
+#             fig_phigh = plot_Phigh_vs_Thot(rows, eta_bins, marker_of_eta)
+#         else:
+#             print("⚠️  Colonne P_high_Pa absente/inexploitable dans le CSV -- "
+#                   "graphe P_high vs T_hot non généré.")
+    
+#         fig_turbo = None
+#         n_with_turbo = sum(
+#             1 for r in rows
+#             if not math.isnan(r["eta_is_pump"]) or not math.isnan(r["eta_is_expander"])
+#         )
+#         if n_with_turbo:
+#             fig_turbo = plot_turbomachinery_efficiency_vs_scale(
+#                 rows, T_hot_values, eta_bins, color_of_T, marker_of_eta, log_x=args.log_x,
+#             )
+#         else:
+#             print("⚠️  Colonnes eta_is_pump/eta_is_expander absentes/inexploitables dans le CSV -- "
+#                   "graphe rendement pompe/turbine non généré.")
+    
+#         if args.out:
+#             fig_total.savefig(args.out, dpi=150, bbox_inches="tight")
+#             print(f"Graphe CAPEX total sauvegardé : {args.out}")
+#         if args.out_specific:
+#             fig_specific.savefig(args.out_specific, dpi=150, bbox_inches="tight")
+#             print(f"Graphe CAPEX spécifique sauvegardé : {args.out_specific}")
+#         if args.out_recuperator_heatmap and fig_heatmap is not None:
+#             fig_heatmap.savefig(args.out_recuperator_heatmap, dpi=150, bbox_inches="tight")
+#             print(f"Heatmap part récupérateur sauvegardée : {args.out_recuperator_heatmap}")
+#         if args.out_eta_envelope:
+#             fig_envelope.savefig(args.out_eta_envelope, dpi=150, bbox_inches="tight")
+#             print(f"Enveloppe eta_vs_carnot sauvegardée : {args.out_eta_envelope}")
+#         if args.out_phigh and fig_phigh is not None:
+#             fig_phigh.savefig(args.out_phigh, dpi=150, bbox_inches="tight")
+#             print(f"Graphe P_high vs T_hot sauvegardé : {args.out_phigh}")
+#         if args.out_turbomachinery and fig_turbo is not None:
+#             fig_turbo.savefig(args.out_turbomachinery, dpi=150, bbox_inches="tight")
+#             print(f"Graphe rendement pompe/turb
+    
+# if __name__ == "__main__":
+        
+#     #!/usr/bin/env python3
+#     # -*- coding: utf-8 -*-
+#     """
+#     plot_co2_rc_sweep_results.py
+    
+#     Génère DEUX scatter plots à partir du CSV de résultats du sweep
+#     (co2_rc_sweep_results/co2_rc_sweep_results_log.csv, généré par
+#     log_cycle_result() dans co2_rc_full_design_optimizer.py) :
+    
+#       1) CAPEX total (EUR2026)         vs W_dot_net
+#       2) CAPEX / kW_net (EUR2026/kW)   vs W_dot_net   -- CAPEX spécifique
+    
+#     Dans les deux cas :
+#       - COULEUR -> T_hot_C (température de source chaude)
+#       - FORME   -> efficacité du second principe, càd eta_vs_carnot
+#                    (= eta_achieved / eta_carnot), regroupée par paliers de
+#                    --eta-bin.
+    
+#     NOTE UNITÉ : la colonne CAPEX_total du CSV est en EUR2026, pas en USD
+#     (malgré son nom hérité de actualize_price(..., currency="USD") côté
+#     sizing) -- seul le libellé des axes est corrigé ici, aucune conversion de
+#     devise n'est appliquée.
+    
+#     W_dot_net utilisé (pour les deux graphes ET pour le calcul du CAPEX
+#     spécifique) est la valeur BRUTE (W_dot_achieved_MW = W_dot_turbine -
+#     W_dot_pompe, sans W_dot_pompe_aux non récupérable) remplacée par un palier
+#     fixe via bucket_W_dot_net_MW() -- voir sa docstring. eta_achieved et
+#     eta_vs_carnot sont recalculés à partir de cette valeur remplacée plutôt que
+#     lus tels quels depuis le CSV (voir load_rows).
+    
+#     Pourquoi regrouper eta_vs_carnot par paliers plutôt que d'utiliser la
+#     valeur brute : c'est une grandeur quasi-continue, donc l'utiliser telle
+#     quelle donnerait presque une forme de marqueur par point -- illisible et
+#     ça épuiserait vite les formes disponibles. On la regroupe donc par paliers
+#     (0.05 par défaut, réglable via --eta-bin).
+    
+#     Usage :
+#         python plot_co2_rc_sweep_results.py
+#         python plot_co2_rc_sweep_results.py --log-path autre_dossier/log.csv --eta-bin 0.02 \\
+#             --out capex_total.png --out-specific capex_specific.png
+#     """
+    
+#     import argparse
+#     import csv
+#     import math
+#     from pathlib import Path
+    
+#     import matplotlib.pyplot as plt
+#     import numpy as np
+#     from matplotlib.lines import Line2D
+    
+#     def candidate_log_paths():
+#         """
+#         Liste, dans l'ordre de priorité, les emplacements où le CSV de résultats
+#         est susceptible de se trouver :
+#           1) Répertoire de travail courant (CWD) -- c'est là que le sweep crée
+#              co2_rc_sweep_results/, puisque save_root="co2_rc_sweep_results" est
+#              un chemin RELATIF dans co2_rc_full_design_optimizer.py : le dossier
+#              atterrit là où tu étais au moment de lancer `python ...`, pas
+#              nécessairement à côté du script.
+#           2) Dossier du package labothappy.machine.optimization (au cas où le
+#              sweep aurait été lancé depuis ce dossier précis).
+#           3) Dossier de CE script (au cas où plot_co2_rc_sweep_results.py serait
+#              copié à côté du CSV).
+#         """
+#         candidates = [Path.cwd() / "co2_rc_sweep_results" / "co2_rc_sweep_results_log.csv"]
+    
+#         try:
+#             import labothappy.machine.optimization as opt_pkg
+#             candidates.append(
+#                 Path(opt_pkg.__file__).resolve().parent
+#                 / "co2_rc_sweep_results" / "co2_rc_sweep_results_log.csv"
+#             )
+#         except ImportError:
+#             pass
+    
+#         candidates.append(
+#             Path(__file__).resolve().parent
+#             / "co2_rc_sweep_results" / "co2_rc_sweep_results_log.csv"
+#         )
+    
+#         return candidates
+    
+    
+#     def resolve_default_log_path():
+#         """
+#         Renvoie le premier chemin candidat qui existe réellement sur disque, ou
+#         le premier candidat (CWD) si aucun n'existe -- dans ce dernier cas,
+#         main() affichera la liste complète des chemins testés pour permettre un
+#         diagnostic rapide, plutôt qu'un "fichier introuvable" sans contexte.
+#         """
+#         candidates = candidate_log_paths()
+#         for c in candidates:
+#             if c.is_file():
+#                 return c
+#         return candidates[0]
+    
+    
+#     DEFAULT_LOG_PATH = resolve_default_log_path()
+    
+#     # Palette de formes de marqueurs matplotlib, cyclée si plus de catégories
+#     # d'eta_vs_carnot (après binning) que de formes listées ici.
+#     MARKERS = ['o', 's', '^', 'D', 'v', 'P', 'X', '*', 'h', '<', '>', 'p', '8']
+    
+    
+#     def bucket_W_dot_net_MW(w_raw_MW):
+#         """
+#         Remplace ENTIÈREMENT la valeur brute de W_dot_net -- actuellement
+#         W_dot_turbine - W_dot_pompe, colonne W_dot_achieved_MW du CSV, sans le
+#         terme W_dot_pump_aux qui n'est pas récupérable depuis le cycle résolu
+#         (voir discussion) -- par un palier fixe :
+#             W_dot_net_brut <  10 MW -> 1  MW
+#             W_dot_net_brut <  30 MW -> 10 MW
+#             W_dot_net_brut <  50 MW -> 30 MW
+#             W_dot_net_brut >= 50 MW -> 50 MW
+#         Ce n'est PAS une soustraction d'un terme estimé : la valeur brute sert
+#         uniquement à choisir le palier, puis est jetée au profit de ce palier.
+#         """
+#         if w_raw_MW < 10:
+#             return 1.0
+#         elif w_raw_MW < 30:
+#             return 10.0
+#         elif w_raw_MW < 50:
+#             return 30.0
+#         else:
+#             return 50.0
+    
+    
+#     def load_rows(log_path):
+#         """
+#         Lit le CSV et ne garde que les lignes exploitables : W_dot_achieved_MW,
+#         CAPEX_total, T_hot_C, Q_gh, eta_carnot doivent être des nombres valides
+#         (présents et non-NaN). Les échecs n'ont de toute façon pas de
+#         CAPEX/W_dot_achieved -- ils sont dans co2_rc_sweep_fails_log.csv, pas
+#         dans ce fichier de succès.
+    
+#         W_dot_achieved_MW (brut) est remplacé par bucket_W_dot_net_MW() -- voir
+#         sa docstring -- pour tenir lieu de "W_dot_net" dans les deux plots.
+#         eta_achieved et eta_vs_carnot sont ALORS RECALCULÉS à partir de ce
+#         W_dot_net remplacé (et non plus lus tels quels depuis le CSV, qui les
+#         avait calculés à partir du W_dot_net brut) :
+#             eta_achieved_new  = (W_dot_net_bucketed * 1e6) / Q_gh
+#             eta_vs_carnot_new = eta_achieved_new / eta_carnot
+#         Q_gh (W) et eta_carnot viennent directement du CSV (colonnes déjà
+#         présentes, écrites respectivement par _hx_effectivenesses et
+#         log_cycle_result) -- pas besoin de les recalculer.
+    
+#         Le CAPEX spécifique (EUR2026/kW) est calculé à partir de ce même
+#         W_dot_net remplacé :
+#             CAPEX_specific = CAPEX_total / (W_dot_net_bucketed * 1000)
+    
+#         CAPEX_Recuperator (colonne écrite par log_cycle_result pour chaque
+#         composant du cycle, architecture REC uniquement) est lue si présente,
+#         pour calculer capex_recup_pct = CAPEX_Recuperator / CAPEX_total * 100 --
+#         utilisée par plot_recuperator_capex_share_heatmaps(). Optionnelle : si
+#         absente ou invalide sur une ligne, capex_recup_pct vaut NaN pour cette
+#         ligne (elle reste utilisable pour les deux scatter plots, juste exclue
+#         de la heatmap).
+#         """
+#         rows = []
+#         with open(log_path, "r", newline="") as f:
+#             reader = csv.DictReader(f)
+#             for r in reader:
+#                 try:
+#                     w_raw = float(r["W_dot_achieved_MW"])
+#                     capex = float(r["CAPEX_total"])
+#                     t_hot = float(r["T_hot_C"])
+#                     Q_gh = float(r["Q_gh"])
+#                     eta_carnot = float(r["eta_carnot"])
+#                 except (KeyError, ValueError, TypeError):
+#                     continue
+#                 if any(math.isnan(v) for v in (w_raw, capex, t_hot, Q_gh, eta_carnot)):
+#                     continue
+#                 if Q_gh == 0 or eta_carnot == 0:
+#                     continue
+    
+#                 w = bucket_W_dot_net_MW(w_raw)
+#                 eta_achieved = (w * 1e6) / Q_gh
+#                 eta = eta_achieved / eta_carnot
+#                 capex_specific = capex / (w * 1000.0)  # EUR2026 / kW_net
+    
+#                 try:
+#                     capex_recup = float(r["CAPEX_Recuperator"])
+#                     capex_recup_pct = (capex_recup / capex) * 100.0 if capex else float("nan")
+#                     if math.isnan(capex_recup_pct):
+#                         capex_recup_pct = float("nan")
+#                 except (KeyError, ValueError, TypeError):
+#                     capex_recup_pct = float("nan")
+    
+#                 # Optionnelles, pour plot_Phigh_vs_Thot() et
+#                 # plot_turbomachinery_efficiency_vs_scale() -- NaN si absentes/
+#                 # invalides sur une ligne donnée, sans affecter le reste.
+#                 try:
+#                     p_high_bar = float(r["P_high_Pa"]) / 1e5
+#                 except (KeyError, ValueError, TypeError):
+#                     p_high_bar = float("nan")
+    
+#                 try:
+#                     eta_is_pump = float(r["eta_is_pump"])
+#                 except (KeyError, ValueError, TypeError):
+#                     eta_is_pump = float("nan")
+    
+#                 try:
+#                     eta_is_expander = float(r["eta_is_expander"])
+#                 except (KeyError, ValueError, TypeError):
+#                     eta_is_expander = float("nan")
+    
+#                 rows.append({
+#                     "W_dot": w, "CAPEX": capex, "CAPEX_specific": capex_specific,
+#                     "eta_vs_carnot": eta, "T_hot_C": t_hot,
+#                     "capex_recup_pct": capex_recup_pct,
+#                     "P_high_bar": p_high_bar,
+#                     "eta_is_pump": eta_is_pump,
+#                     "eta_is_expander": eta_is_expander,
+#                 })
+    
+#         return rows
+    
+    
+#     def bin_eta(eta, bin_size):
+#         """
+#         Regroupe eta_vs_carnot par paliers de `bin_size` (ex. 0.05), pour
+#         assigner un nombre raisonnable de formes de marqueurs distinctes plutôt
+#         qu'une par valeur flottante quasi-unique.
+#         """
+#         return round(round(eta / bin_size) * bin_size, 6)
+    
+    
+#     def build_color_map(values):
+#         """
+#         Associe une couleur distincte à chaque valeur de `values` (ici les
+#         T_hot_C uniques), via un colormap continu échantillonné en autant de
+#         points que de valeurs -- fonctionne quel que soit le nombre de
+#         températures balayées dans le sweep (pas limité à une palette fixe,
+#         contrairement aux formes de marqueurs).
+#         """
+#         n = max(len(values), 1)
+#         try:
+#             # matplotlib >= 3.7 : API non dépréciée
+#             cmap = plt.colormaps["viridis"].resampled(n)
+#         except AttributeError:
+#             # matplotlib < 3.7 : repli sur l'ancienne API
+#             cmap = plt.cm.get_cmap("viridis", n)
+#         return {v: cmap(i) for i, v in enumerate(values)}
+    
+    
+#     def _pow10_formatter(x, pos):
+#         """
+#         Formatte un tick d'échelle log sous la forme "1e6", "1e8", etc. --
+#         plus lisible que la notation scientifique par défaut de matplotlib
+#         ("$\\mathdefault{10^{6}}$") pour ce genre de graphe.
+#         """
+#         if x <= 0:
+#             return ""
+#         exponent = int(round(np.log10(x)))
+#         return f"1e{exponent}"
+    
+    
+#     def _plain_formatter(x, pos):
+#         """
+#         Affiche un tick sous forme de nombre simple ("1", "10", "100"...) --
+#         utilisé une fois l'axe déjà exprimé en millions (y_scale=1e6), où la
+#         notation "1eN" façon _pow10_formatter n'a plus lieu d'être.
+#         """
+#         if x <= 0:
+#             return ""
+#         if float(x).is_integer():
+#             return f"{int(x)}"
+#         return f"{x:g}"
+    
+    
+#     def make_scatter(rows, T_hot_values, eta_bins, color_of_T, marker_of_eta,
+#                       y_key, y_label, log_x, log_y, y_scale=1.0, y_ticks=None,
+#                       label_fontsize=18, legend_fontsize=13):
+#         """
+#         Construit UNE figure scatter (y_key vs W_dot) avec les deux légendes
+#         (couleur = T_hot, forme = palier d'eta_vs_carnot). Factorisé pour être
+#         appelé une fois par grandeur tracée (CAPEX total, puis CAPEX
+#         spécifique) sans dupliquer toute la logique de légendes.
+    
+#         y_scale : diviseur appliqué aux valeurs de y_key avant traçage (ex. 1e6
+#         pour passer d'EUR2026 à M€2026). N'affecte que l'affichage : les données
+#         sources (rows) restent inchangées.
+    
+#         y_ticks : liste optionnelle de valeurs -- DANS L'UNITÉ AFFICHÉE (donc
+#         après division par y_scale) -- pour fixer explicitement les ticks de
+#         l'axe y en échelle log, plutôt que de laisser matplotlib choisir. Sans
+#         effet si log_y=False. Formatés en "1eN" si y_scale=1 (valeurs brutes,
+#         grandes), ou en nombre simple ("1", "10", "100") si y_scale != 1
+#         (valeurs déjà réduites, ex. en millions).
+#         """
+#         fig, ax = plt.subplots(figsize=(9, 6))
+    
+#         for t_hot in T_hot_values:
+#             for eta_bin in eta_bins:
+#                 subset = [r for r in rows if r["T_hot_C"] == t_hot and r["eta_bin"] == eta_bin]
+#                 if not subset:
+#                     continue
+#                 ax.scatter(
+#                     [r["W_dot"] for r in subset],
+#                     [r[y_key] / y_scale for r in subset],
+#                     color=color_of_T[t_hot],
+#                     marker=marker_of_eta[eta_bin],
+#                     edgecolors="black", linewidths=0.4,
+#                     s=60, alpha=0.85,
+#                 )
+    
+#         # Titre du graphe retiré, labels d'axes agrandis, W_dot_net en notation
+#         # mathématique (accent point = dérivée temporelle, comme dans le code).
+#         ax.set_xlabel(r"$\dot{W}_{net}$ (MW)", fontsize=label_fontsize)
+#         ax.set_ylabel(y_label, fontsize=label_fontsize)
+#         ax.tick_params(axis="both", labelsize=label_fontsize * 0.75)
+#         ax.grid(True, which="both", alpha=0.3)
+    
+#         if log_x:
+#             ax.set_xscale("log")
+#         if log_y:
+#             ax.set_yscale("log")
+#             if y_ticks is not None:
+#                 ax.set_yticks(y_ticks)
+#                 formatter = _plain_formatter if y_scale != 1.0 else _pow10_formatter
+#                 ax.yaxis.set_major_formatter(plt.FuncFormatter(formatter))
+#                 ax.yaxis.set_minor_formatter(plt.NullFormatter())
+    
+#         # Deux légendes séparées (une par dimension encodée), à L'INTÉRIEUR du
+#         # graphe (haut-gauche / bas-droite) -- et sans titre, pour rester compact.
+#         color_handles = [
+#             Line2D([0], [0], marker='o', linestyle='', markerfacecolor=color_of_T[t],
+#                    markeredgecolor='black', markersize=8, label=f"T_hot = {t:.0f} °C")
+#             for t in T_hot_values
+#         ]
+#         marker_handles = [
+#             Line2D([0], [0], marker=marker_of_eta[e], linestyle='', markerfacecolor='grey',
+#                    markeredgecolor='black', markersize=8, label=f"η/η_carnot ≈ {e:.2f}")
+#             for e in eta_bins
+#         ]
+    
+#         legend1 = ax.legend(handles=color_handles, loc="upper left", framealpha=0.9,
+#                              fontsize=legend_fontsize)
+#         ax.add_artist(legend1)
+#         ax.legend(handles=marker_handles, loc="lower right", framealpha=0.9,
+#                   fontsize=legend_fontsize)
+    
+#         fig.tight_layout()
+#         return fig
+    
+    
+#     def plot_recuperator_capex_share_heatmaps(rows, label_fontsize=15, legend_fontsize=11):
+#         """
+#         Pour chaque palier d'efficacité de second principe (eta_bin, càd
+#         η/η_carnot -- voir bin_eta), trace une heatmap T_hot vs W_dot_net où la
+#         couleur code la part (%) du CAPEX du récupérateur dans le CAPEX total
+#         du cycle (capex_recup_pct = CAPEX_Recuperator / CAPEX_total * 100, voir
+#         load_rows).
+    
+#         Une figure à sous-graphes, un par palier eta_bin, avec une échelle de
+#         couleur COMMUNE à tous les sous-graphes (même vmin/vmax) pour rester
+#         comparable d'un palier à l'autre -- une colorbar par sous-graphe
+#         donnerait sinon l'impression trompeuse que chaque palier a la même
+#         plage de valeurs alors que les échelles différeraient.
+    
+#         Si plusieurs lignes tombent dans la même case (même T_hot, même W_dot
+#         bucketé, même eta_bin -- possible puisque W_dot est déjà regroupé en 4
+#         valeurs fixes), la valeur affichée est leur MOYENNE, annotée dans la
+#         case avec le nombre de points moyennés entre parenthèses si > 1.
+#         """
+#         eta_bins = sorted({r["eta_bin"] for r in rows if not math.isnan(r["capex_recup_pct"])})
+#         if not eta_bins:
+#             raise ValueError(
+#                 "Aucune ligne exploitable pour la heatmap (capex_recup_pct manquant partout -- "
+#                 "vérifie que la colonne CAPEX_Recuperator existe dans le CSV, architecture REC)."
+#             )
+    
+#         T_hot_values = sorted({r["T_hot_C"] for r in rows})
+#         W_dot_values = sorted({r["W_dot"] for r in rows})
+    
+#         # Grille (eta_bin, T_hot, W_dot) -> (moyenne, effectif), construite une
+#         # seule fois pour calculer aussi le vmin/vmax communs avant de tracer.
+#         grids = {}
+#         all_values = []
+#         for eta_bin in eta_bins:
+#             grid = np.full((len(T_hot_values), len(W_dot_values)), np.nan)
+#             counts = np.zeros((len(T_hot_values), len(W_dot_values)), dtype=int)
+#             for i, t in enumerate(T_hot_values):
+#                 for j, w in enumerate(W_dot_values):
+#                     vals = [
+#                         r["capex_recup_pct"] for r in rows
+#                         if r["eta_bin"] == eta_bin and r["T_hot_C"] == t and r["W_dot"] == w
+#                         and not math.isnan(r["capex_recup_pct"])
+#                     ]
+#                     if vals:
+#                         grid[i, j] = sum(vals) / len(vals)
+#                         counts[i, j] = len(vals)
+#                         all_values.append(grid[i, j])
+#             grids[eta_bin] = (grid, counts)
+    
+#         vmin, vmax = min(all_values), max(all_values)
+    
+#         ncols = min(3, len(eta_bins))
+#         nrows = math.ceil(len(eta_bins) / ncols)
+#         fig, axes = plt.subplots(nrows, ncols, figsize=(4.5 * ncols, 4.0 * nrows), squeeze=False)
+    
+#         im = None
+#         for idx, eta_bin in enumerate(eta_bins):
+#             ax = axes[idx // ncols][idx % ncols]
+#             grid, counts = grids[eta_bin]
+    
+#             im = ax.imshow(grid, aspect="auto", origin="lower", cmap="viridis",
+#                             vmin=vmin, vmax=vmax)
+    
+#             ax.set_xticks(range(len(W_dot_values)))
+#             ax.set_xticklabels([f"{w:g}" for w in W_dot_values], fontsize=legend_fontsize)
+#             ax.set_yticks(range(len(T_hot_values)))
+#             ax.set_yticklabels([f"{t:.0f}" for t in T_hot_values], fontsize=legend_fontsize)
+#             ax.set_title(f"η/η_carnot ≈ {eta_bin:.2f}", fontsize=label_fontsize * 0.75)
+    
+#             for i in range(len(T_hot_values)):
+#                 for j in range(len(W_dot_values)):
+#                     v = grid[i, j]
+#                     if math.isnan(v):
+#                         continue
+#                     label = f"{v:.0f}%" if counts[i, j] <= 1 else f"{v:.0f}%\n(n={counts[i, j]})"
+#                     color = "white" if v > (vmin + vmax) / 2 else "black"
+#                     ax.text(j, i, label, ha="center", va="center",
+#                             color=color, fontsize=legend_fontsize * 0.85)
+    
+#         # Sous-graphes inutilisés (si len(eta_bins) ne remplit pas exactement
+#         # la grille nrows x ncols) masqués plutôt que laissés vides.
+#         for idx in range(len(eta_bins), nrows * ncols):
+#             axes[idx // ncols][idx % ncols].axis("off")
+    
+#         fig.supxlabel(r"$\dot{W}_{net}$ (MW)", fontsize=label_fontsize)
+#         fig.supylabel(r"$T_{hot}$ (°C)", fontsize=label_fontsize)
+    
+#         if im is not None:
+#             cbar = fig.colorbar(im, ax=axes, shrink=0.85, pad=0.02)
+#             cbar.set_label("CAPEX récupérateur / CAPEX total (%)", fontsize=label_fontsize * 0.85)
+#             cbar.ax.tick_params(labelsize=legend_fontsize)
+    
+#         return fig
+    
+    
+#     def plot_eta_envelope_vs_Thot(rows, label_fontsize=18, legend_fontsize=13):
+#         """
+#         Enveloppe du rendement de second principe RÉELLEMENT ATTEINT (pas la
+#         cible visée) en fonction de T_hot : pour chaque puissance W_dot_net
+#         (palier), la meilleure valeur de eta_vs_carnot obtenue à chaque T_hot,
+#         plus l'enveloppe globale (meilleure valeur tous W_dot confondus) en
+#         trait épais noir en pointillés.
+    
+#         Contrairement aux scatter CAPEX, ce graphe utilise eta_vs_carnot comme
+#         variable CONTINUE en y (pas binnée par --eta-bin) : l'objectif n'est
+#         pas de distinguer plein de paliers cibles, mais de voir la limite
+#         pratique réellement atteignable par le pipeline, indépendamment de ce
+#         qui était visé (eta_obj).
+#         """
+#         T_hot_values = sorted({r["T_hot_C"] for r in rows})
+#         W_dot_values = sorted({r["W_dot"] for r in rows})
+#         color_of_W = build_color_map(W_dot_values)
+    
+#         fig, ax = plt.subplots(figsize=(9, 6))
+    
+#         # Nuage de tous les points en fond (contexte, sans légende dédiée) --
+#         # montre la dispersion autour de l'enveloppe, pas seulement son maximum.
+#         for w in W_dot_values:
+#             subset = [r for r in rows if r["W_dot"] == w]
+#             ax.scatter([r["T_hot_C"] for r in subset], [r["eta_vs_carnot"] for r in subset],
+#                        color=color_of_W[w], alpha=0.25, s=25, edgecolors="none")
+    
+#         # Enveloppe par W_dot : meilleur eta_vs_carnot atteint à chaque T_hot.
+#         for w in W_dot_values:
+#             env = []
+#             for t in T_hot_values:
+#                 vals = [r["eta_vs_carnot"] for r in rows if r["T_hot_C"] == t and r["W_dot"] == w]
+#                 env.append(max(vals) if vals else np.nan)
+#             ax.plot(T_hot_values, env, color=color_of_W[w], marker="o", linewidth=2,
+#                     markersize=7, label=f"{w:g} MW")
+    
+#         # Enveloppe globale, tous W_dot confondus.
+#         global_env = []
+#         for t in T_hot_values:
+#             vals = [r["eta_vs_carnot"] for r in rows if r["T_hot_C"] == t]
+#             global_env.append(max(vals) if vals else np.nan)
+#         ax.plot(T_hot_values, global_env, color="black", linewidth=2.5, linestyle="--",
+#                 marker="*", markersize=13, label="Enveloppe globale")
+    
+#         ax.set_xlabel(r"$T_{hot}$ (°C)", fontsize=label_fontsize)
+#         ax.set_ylabel(r"$\eta / \eta_{carnot}$ (meilleur atteint)", fontsize=label_fontsize)
+#         ax.tick_params(axis="both", labelsize=label_fontsize * 0.75)
+#         ax.grid(True, alpha=0.3)
+#         ax.legend(fontsize=legend_fontsize, loc="best", framealpha=0.9, title="$\\dot{W}_{net}$")
+    
+#         fig.tight_layout()
+#         return fig
+    
+    
+#     def plot_Phigh_vs_Thot(rows, eta_bins, marker_of_eta, label_fontsize=18, legend_fontsize=13):
+#         """
+#         Pression haute optimale (P_high, en bar) choisie par le PSO
+#         thermodynamique en fonction de T_hot -- résultat classique de la
+#         littérature sCO2 (la pression haute optimale dépend fortement de
+#         T_hot, typiquement croissante). Sert de test de cohérence physique du
+#         pipeline : si la tendance connue n'apparaît pas dans ces données, ça
+#         pointe vers un problème dans le PSO thermodynamique plutôt que dans le
+#         sizing des composants.
+    
+#         COULEUR -> W_dot_net (palier), FORME -> palier eta_bin -- inversé par
+#         rapport aux scatter CAPEX (où COULEUR = T_hot), puisque T_hot est ici
+#         l'axe des x et ne peut plus servir de couleur.
+#         """
+#         valid = [r for r in rows if not math.isnan(r["P_high_bar"])]
+#         if not valid:
+#             raise ValueError(
+#                 "Colonne P_high_Pa absente/inexploitable dans le CSV -- rien à tracer."
+#             )
+    
+#         W_dot_values = sorted({r["W_dot"] for r in valid})
+#         color_of_W = build_color_map(W_dot_values)
+    
+#         fig, ax = plt.subplots(figsize=(9, 6))
+    
+#         for w in W_dot_values:
+#             for eta_bin in eta_bins:
+#                 subset = [r for r in valid if r["W_dot"] == w and r["eta_bin"] == eta_bin]
+#                 if not subset:
+#                     continue
+#                 ax.scatter(
+#                     [r["T_hot_C"] for r in subset],
+#                     [r["P_high_bar"] for r in subset],
+#                     color=color_of_W[w], marker=marker_of_eta[eta_bin],
+#                     edgecolors="black", linewidths=0.4, s=60, alpha=0.85,
+#                 )
+    
+#         ax.set_xlabel(r"$T_{hot}$ (°C)", fontsize=label_fontsize)
+#         ax.set_ylabel(r"$P_{high}$ (bar)", fontsize=label_fontsize)
+#         ax.tick_params(axis="both", labelsize=label_fontsize * 0.75)
+#         ax.grid(True, alpha=0.3)
+    
+#         color_handles = [
+#             Line2D([0], [0], marker='o', linestyle='', markerfacecolor=color_of_W[w],
+#                    markeredgecolor='black', markersize=8, label=f"{w:g} MW")
+#             for w in W_dot_values
+#         ]
+#         marker_handles = [
+#             Line2D([0], [0], marker=marker_of_eta[e], linestyle='', markerfacecolor='grey',
+#                    markeredgecolor='black', markersize=8, label=f"η/η_carnot ≈ {e:.2f}")
+#             for e in eta_bins
+#             if any(r["eta_bin"] == e for r in valid)
+#         ]
+    
+#         legend1 = ax.legend(handles=color_handles, loc="upper left", framealpha=0.9,
+#                              fontsize=legend_fontsize)
+#         ax.add_artist(legend1)
+#         ax.legend(handles=marker_handles, loc="lower right", framealpha=0.9,
+#                   fontsize=legend_fontsize)
+    
+#         fig.tight_layout()
+#         return fig
+    
+    
+#     def plot_turbomachinery_efficiency_vs_scale(rows, T_hot_values, eta_bins, color_of_T,
+#                                                  marker_of_eta, log_x=False,
+#                                                  label_fontsize=18, legend_fontsize=13):
+#         """
+#         Rendement isentropique de la pompe et de la turbine (eta_is_pump,
+#         eta_is_expander) en fonction de l'échelle (W_dot_net) -- pour vérifier
+#         empiriquement, sur les vraies données du sweep, la dégradation de
+#         rendement aux petites puissances (turbomachines miniatures) discutée
+#         précédemment de façon qualitative.
+    
+#         Deux sous-graphes côte à côte (pompe, turbine), même style que les
+#         scatter CAPEX (COULEUR = T_hot, FORME = palier eta_bin), axe y partagé
+#         pour comparer directement les deux composants.
+#         """
+#         has_pump = any(not math.isnan(r["eta_is_pump"]) for r in rows)
+#         has_exp = any(not math.isnan(r["eta_is_expander"]) for r in rows)
+#         if not (has_pump or has_exp):
+#             raise ValueError(
+#                 "Colonnes eta_is_pump/eta_is_expander absentes/inexploitables -- rien à tracer."
+#             )
+    
+#         fig, axes = plt.subplots(1, 2, figsize=(14, 6), sharey=True)
+#         specs = [("eta_is_pump", "Pump", axes[0]), ("eta_is_expander", "Turbine", axes[1])]
+    
+#         for key, title, ax in specs:
+#             for t_hot in T_hot_values:
+#                 for eta_bin in eta_bins:
+#                     subset = [
+#                         r for r in rows
+#                         if r["T_hot_C"] == t_hot and r["eta_bin"] == eta_bin
+#                         and not math.isnan(r[key])
+#                     ]
+#                     if not subset:
+#                         continue
+#                     ax.scatter(
+#                         [r["W_dot"] for r in subset],
+#                         [r[key] for r in subset],
+#                         color=color_of_T[t_hot], marker=marker_of_eta[eta_bin],
+#                         edgecolors="black", linewidths=0.4, s=60, alpha=0.85,
+#                     )
+#             ax.set_xlabel(r"$\dot{W}_{net}$ (MW)", fontsize=label_fontsize)
+#             ax.set_title(title, fontsize=label_fontsize)
+#             ax.tick_params(axis="both", labelsize=label_fontsize * 0.75)
+#             ax.grid(True, which="both", alpha=0.3)
+#             if log_x:
+#                 ax.set_xscale("log")
+    
+#         axes[0].set_ylabel(r"$\eta_{is}$", fontsize=label_fontsize)
+#         axes[0].set_ylim(0.8, 1.0)  # axe y partagé (sharey=True) -- s'applique aux deux panneaux
+    
+#         # Zones indicatives de préférence radiale/axiale sur le panneau Turbine
+#         # uniquement (voir discussion : en dessous du seuil, le débit volumique
+#         # CO2 est trop faible pour qu'une turbine axiale reste dans sa plage de
+#         # vitesse spécifique efficace -- la radiale devient préférable ;
+#         # au-dessus, c'est l'inverse). Seuil purement indicatif (15 MW), pas
+#         # issu d'un calcul de vitesse spécifique sur CES données.
+#         ax_turbine = axes[1]
+#         xlims = ax_turbine.get_xlim()
+#         boundary = 15.0
+#         ax_turbine.axvspan(xlims[0], boundary, color="tab:blue", alpha=0.08, zorder=0)
+#         ax_turbine.axvspan(boundary, xlims[1], color="tab:orange", alpha=0.08, zorder=0)
+#         ax_turbine.axvline(boundary, color="grey", linestyle="--", linewidth=1, zorder=0)
+#         ax_turbine.set_xlim(xlims)  # axvspan/axvline ne doivent pas élargir la vue
+    
+#         # Étiquettes texte plutôt qu'une légende séparée -- transform mixte
+#         # (x en coordonnées data, y en fraction d'axe) pour rester bien placées
+#         # en haut du graphe quel que soit log_x et quelles que soient les
+#         # limites y (fixées à [0.8, 1.0] ci-dessus).
+#         trans = ax_turbine.get_xaxis_transform()
+#         if log_x:
+#             x_left = math.sqrt(max(xlims[0], 1e-9) * boundary)
+#             x_right = math.sqrt(boundary * xlims[1])
+#         else:
+#             x_left = (xlims[0] + boundary) / 2
+#             x_right = (boundary + xlims[1]) / 2
+#         ax_turbine.text(x_left, 0.95, f"Radial turbine\npreferred (< {boundary:g} MW)",
+#                          transform=trans, ha="center", va="top",
+#                          fontsize=legend_fontsize, color="tab:blue")
+#         ax_turbine.text(x_right, 0.95, f"Axial turbine\npreferred (≥ {boundary:g} MW)",
+#                          transform=trans, ha="center", va="top",
+#                          fontsize=legend_fontsize, color="tab:orange")
+    
+#         color_handles = [
+#             Line2D([0], [0], marker='o', linestyle='', markerfacecolor=color_of_T[t],
+#                    markeredgecolor='black', markersize=8, label=f"T_hot = {t:.0f} °C")
+#             for t in T_hot_values
+#         ]
+#         marker_handles = [
+#             Line2D([0], [0], marker=marker_of_eta[e], linestyle='', markerfacecolor='grey',
+#                    markeredgecolor='black', markersize=8, label=f"η/η_carnot ≈ {e:.2f}")
+#             for e in eta_bins
+#         ]
+    
+#         axes[0].legend(handles=color_handles, loc="upper left", framealpha=0.9,
+#                        fontsize=legend_fontsize)
+#         ax_turbine.legend(handles=marker_handles, loc="lower right", framealpha=0.9,
+#                            fontsize=legend_fontsize)
+    
+#         fig.tight_layout()
+#         return fig
+    
+    
+#     def main():
+#         parser = argparse.ArgumentParser(
+#             description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+#         )
+#         parser.add_argument("--log-path", default=DEFAULT_LOG_PATH,
+#                              help=f"Chemin du CSV de résultats (défaut : {DEFAULT_LOG_PATH})")
+#         parser.add_argument("--eta-bin", type=float, default=0.05,
+#                              help="Taille des paliers pour regrouper eta_vs_carnot (défaut : 0.05)")
+#         parser.add_argument("--log-x", action="store_true",
+#                              help="Échelle log sur l'axe W_dot_net (les deux graphes)")
+#         parser.add_argument("--linear-y", dest="log_y", action="store_false", default=True,
+#                              help="Désactive l'échelle log sur l'axe y (activée par défaut, les "
+#                                   "deux graphes) : le CAPEX (total ou spécifique) s'étale "
+#                                   "typiquement sur plusieurs ordres de grandeur vu la plage de "
+#                                   "W_dot du sweep, 1 à 100 MW")
+#         parser.add_argument("--out", default=None,
+#                              help="Chemin de sauvegarde du graphe CAPEX total (PNG). "
+#                                   "Si omis, affichage interactif.")
+#         parser.add_argument("--out-specific", default=None,
+#                              help="Chemin de sauvegarde du graphe CAPEX spécifique "
+#                                   "(EUR2026/kW_net) (PNG). Si omis, affichage interactif.")
+#         parser.add_argument("--out-recuperator-heatmap", default=None,
+#                              help="Chemin de sauvegarde de la heatmap part CAPEX récupérateur "
+#                                   "(PNG, un sous-graphe par palier eta_bin). Si omis, affichage interactif.")
+#         parser.add_argument("--out-eta-envelope", default=None,
+#                              help="Chemin de sauvegarde de l'enveloppe eta_vs_carnot réellement "
+#                                   "atteint vs T_hot (PNG). Si omis, affichage interactif.")
+#         parser.add_argument("--out-phigh", default=None,
+#                              help="Chemin de sauvegarde du graphe P_high vs T_hot (PNG). "
+#                                   "Si omis, affichage interactif.")
+#         parser.add_argument("--out-turbomachinery", default=None,
+#                              help="Chemin de sauvegarde du graphe rendement pompe/turbine vs "
+#                                   "échelle (PNG). Si omis, affichage interactif.")
+#         args = parser.parse_args()
+    
+#         log_path = Path(args.log_path)
+#         if not log_path.is_file():
+#             tried = "\n".join(f"  - {c}" for c in candidate_log_paths())
+#             raise SystemExit(
+#                 f"Fichier introuvable : {log_path}\n\n"
+#                 f"Emplacements testés automatiquement (aucun trouvé) :\n{tried}\n\n"
+#                 f"Précise le bon chemin avec --log-path, par exemple :\n"
+#                 f"  python plot_co2_rc_sweep_results.py --log-path \"chemin/vers/co2_rc_sweep_results_log.csv\""
+#             )
+    
+#         rows = load_rows(log_path)
+#         if not rows:
+#             raise SystemExit(
+#                 f"Aucune ligne exploitable dans {log_path} (colonnes attendues : "
+#                 "W_dot_achieved_MW, CAPEX_total, T_hot_C, Q_gh, eta_carnot)."
+#             )
+    
+#         for r in rows:
+#             r["eta_bin"] = bin_eta(r["eta_vs_carnot"], args.eta_bin)
+    
+#         T_hot_values = sorted({r["T_hot_C"] for r in rows})
+#         eta_bins = sorted({r["eta_bin"] for r in rows})
+    
+#         if len(eta_bins) > len(MARKERS):
+#             print(f"⚠️  {len(eta_bins)} paliers d'eta_vs_carnot pour seulement {len(MARKERS)} "
+#                   f"formes de marqueurs disponibles -- certains paliers partageront la même forme. "
+#                   f"Augmente --eta-bin pour réduire le nombre de paliers si besoin.")
+    
+#         color_of_T = build_color_map(T_hot_values)
+#         marker_of_eta = {e: MARKERS[i % len(MARKERS)] for i, e in enumerate(eta_bins)}
+    
+#         fig_total = make_scatter(
+#             rows, T_hot_values, eta_bins, color_of_T, marker_of_eta,
+#             y_key="CAPEX", y_label="CAPEX (M€2026)",
+#             log_x=args.log_x, log_y=args.log_y,
+#             y_scale=1e6, y_ticks=[1, 10, 100],
+#         )
+#         fig_specific = make_scatter(
+#             rows, T_hot_values, eta_bins, color_of_T, marker_of_eta,
+#             y_key="CAPEX_specific", y_label="CAPEX / kW_net (EUR2026/kW)",
+#             log_x=args.log_x, log_y=args.log_y,
+#         )
+    
+#         fig_heatmap = None
+#         n_with_recup = sum(1 for r in rows if not math.isnan(r["capex_recup_pct"]))
+#         if n_with_recup:
+#             fig_heatmap = plot_recuperator_capex_share_heatmaps(rows)
+#         else:
+#             print("⚠️  Colonne CAPEX_Recuperator absente/inexploitable dans le CSV -- "
+#                   "heatmap part récupérateur non générée.")
+    
+#         fig_envelope = plot_eta_envelope_vs_Thot(rows)
+        
+#         fig_phigh = None
+#         n_with_phigh = sum(1 for r in rows if not math.isnan(r["P_high_bar"]))
+#         if n_with_phigh:
+#             fig_phigh = plot_Phigh_vs_Thot(rows, eta_bins, marker_of_eta)
+#         else:
+#             print("⚠️  Colonne P_high_Pa absente/inexploitable dans le CSV -- "
+#                   "graphe P_high vs T_hot non généré.")
+    
+#         fig_turbo = None
+#         n_with_turbo = sum(
+#             1 for r in rows
+#             if not math.isnan(r["eta_is_pump"]) or not math.isnan(r["eta_is_expander"])
+#         )
+#         if n_with_turbo:
+#             fig_turbo = plot_turbomachinery_efficiency_vs_scale(
+#                 rows, T_hot_values, eta_bins, color_of_T, marker_of_eta, log_x=args.log_x,
+#             )
+#         else:
+#             print("⚠️  Colonnes eta_is_pump/eta_is_expander absentes/inexploitables dans le CSV -- "
+#                   "graphe rendement pompe/turbine non généré.")
+    
+#         if args.out:
+#             fig_total.savefig(args.out, dpi=150, bbox_inches="tight")
+#             print(f"Graphe CAPEX total sauvegardé : {args.out}")
+#         if args.out_specific:
+#             fig_specific.savefig(args.out_specific, dpi=150, bbox_inches="tight")
+#             print(f"Graphe CAPEX spécifique sauvegardé : {args.out_specific}")
+#         if args.out_recuperator_heatmap and fig_heatmap is not None:
+#             fig_heatmap.savefig(args.out_recuperator_heatmap, dpi=150, bbox_inches="tight")
+#             print(f"Heatmap part récupérateur sauvegardée : {args.out_recuperator_heatmap}")
+#         if args.out_eta_envelope:
+#             fig_envelope.savefig(args.out_eta_envelope, dpi=150, bbox_inches="tight")
+#             print(f"Enveloppe eta_vs_carnot sauvegardée : {args.out_eta_envelope}")
+#         if args.out_phigh and fig_phigh is not None:
+#             fig_phigh.savefig(args.out_phigh, dpi=150, bbox_inches="tight")
+#             print(f"Graphe P_high vs T_hot sauvegardé : {args.out_phigh}")
+#         if args.out_turbomachinery and fig_turbo is not None:
+#             fig_turbo.savefig(args.out_turbomachinery, dpi=150, bbox_inches="tight")
+#             print(f"Graphe rendement pompe/turbine sauvegardé : {args.out_turbomachinery}")
+    
+#         all_out_args = [args.out, args.out_specific, args.out_eta_envelope]
+#         all_figs = [(fig_heatmap, args.out_recuperator_heatmap),
+#                     (fig_phigh, args.out_phigh), (fig_turbo, args.out_turbomachinery)]
+#         nothing_saved_for_existing_fig = any(fig is not None and not out for fig, out in all_figs)
+#         if not all(all_out_args) or nothing_saved_for_existing_fig:
+#             plt.show()
+    
+    
+#     if __name__ == "__main__":
+#         main()ine sauvegardé : {args.out_turbomachinery}")
+    
+#         all_out_args = [args.out, args.out_specific, args.out_eta_envelope]
+#         all_figs = [(fig_heatmap, args.out_recuperator_heatmap),
+#                     (fig_phigh, args.out_phigh), (fig_turbo, args.out_turbomachinery)]
+#         nothing_saved_for_existing_fig = any(fig is not None and not out for fig, out in all_figs)
+#         if not all(all_out_args) or nothing_saved_for_existing_fig:
+#             plt.show()
+    
+    
+#     if __name__ == "__main__":
+#         main()

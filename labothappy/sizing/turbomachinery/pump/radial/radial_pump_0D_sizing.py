@@ -174,7 +174,7 @@ class RadialPumpODSizing():
         
         # CO2 1500⋅X0.8 + 50000 $ 2009 X – shaft power (kW)
         
-        self.CAPEX['Total'] = actualize_price(self.n_parallel*(50000 + 1500 *(self.W_dot_pp/1000)), 2009, currency="USD") # dollars 2009
+        self.CAPEX['Total'] = actualize_price(self.n_parallel*(50000 + 1500 *(self.W_dot_pp/1000)**0.8), 2009, currency="USD") # dollars 2009
         
         #self.n_parallel * 124427*(self.Q_pp)**0.3895 # dollars 2019
                 

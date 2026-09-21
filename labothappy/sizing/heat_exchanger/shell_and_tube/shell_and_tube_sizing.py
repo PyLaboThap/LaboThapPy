@@ -198,7 +198,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
                           29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
         'Tube_pass': [1, 2, 4],
         'tube_layout': [0, 45, 60],
-        'n_parallel': [1, 2, 3, 4, 6, 8, 10, 12, 14, 16, 20],
+        'n_parallel': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
     }
 
     # Bornes par défaut, cohérentes avec DEFAULT_CHOICE_VECTORS ci-dessus.
