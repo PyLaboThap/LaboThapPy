@@ -1316,9 +1316,10 @@ if __name__ == "__main__":
         n_cores = multiprocessing.cpu_count()
 
         # ---- sweep ----
-        T_vec = np.linspace(150, 350, 5) + 273.15  # 150, 200, 250, 300, 350 °C
+        # T_vec = np.linspace(150, 350, 5) + 273.15  # 150, 200, 250, 300, 350 °C
+        T_vec = np.linspace(150, 150, 1) + 273.15  # 150, 200, 250, 300, 350 °C
 
-        n_MW = 10  # W
+        n_MW = 1  # W
         W_dot_obj = n_MW * 1e6  # W
 
         # Niveaux d'efficacité cible par T_H (issus de campagnes précédentes :
@@ -1333,7 +1334,7 @@ if __name__ == "__main__":
         }
 
         ARCH_LIST = ['REC']  # seule architecture demandée pour cette campagne
-        N_RUNS = 5  # nombre d'optimisations par condition (arch, T_H, eta_obj)
+        N_RUNS = 1  # nombre d'optimisations par condition (arch, T_H, eta_obj)
 
         # ---------------------------------------------------------------
         # Bornes ADAPTÉES À LA TEMPÉRATURE, d'après l'analyse de 45 runs
@@ -1362,8 +1363,8 @@ if __name__ == "__main__":
         # bornes observées (min/max de m_dot par T_H, cf. tableau ci-dessus),
         # exprimées en multiple de n_MW (=10 dans les runs analysés), avec
         # marge -15 % / +15 % pour laisser de la place à l'exploration PSO.
-        _M_DOT_MIN_MULT = np.array([325, 234, 171, 141, 117]) / n_MW * 0.85
-        _M_DOT_MAX_MULT = np.array([427, 295, 212, 189, 156]) / n_MW * 1.15
+        _M_DOT_MIN_MULT = np.array([325, 234, 171, 141, 117]) / (10*n_MW) * 0.85
+        _M_DOT_MAX_MULT = np.array([427, 295, 212, 189, 156]) / (10*n_MW) * 1.15
 
         def m_dot_bounds_for_T(T_H_K, n_MW_local=n_MW):
             """Bornes de m_dot (CO2, kg/s) interpolées linéairement en T_H
@@ -1412,7 +1413,7 @@ if __name__ == "__main__":
                                 RC_ARCH=arch,  # 'basic', 'REC', 'Recomp_1_recup', 'Recomp'
 
                                 # Pump
-                                eta_pp=0.8,
+                                eta_pp=0.85,
                                 eta_pp_aux=0.8,
 
                                 # Compressor (for recompression layouts)
@@ -1428,7 +1429,7 @@ if __name__ == "__main__":
                                 DP_c_rec=50*1e3,
 
                                 # Expander
-                                eta_exp=0.9,
+                                eta_exp=0.94,
 
                                 # Condenser
                                 SC_cd=0.1,

@@ -198,7 +198,8 @@ class ShellAndTubeSizingOpt(BaseComponent):
                           29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
         'Tube_pass': [1, 2, 4],
         'tube_layout': [0, 45, 60],
-        'n_parallel': [1, 2, 3, 4, 6, 8, 10, 12, 14, 16, 20],
+        'n_parallel': [1, 2, 3, 4, 6, 8, 10, 12, 14, 16, 20, 25, 30],
+        'n_series': [1, 2, 3, 4, 6, 8, 10],
     }
 
     # Bornes par défaut, cohérentes avec DEFAULT_CHOICE_VECTORS ci-dessus.
@@ -1306,6 +1307,8 @@ class ShellAndTubeSizingOpt(BaseComponent):
             self.manuf_cost = self.cost_calculator.calculate_total_cost()
             self.cost_estimation()
         
+        self.penalty = self.best_particle.penalty
+        
         return self.global_best_position, self.global_best_score, self.best_particle
 
 #%% Worker top-level (nécessite ShellAndTubeSizingOpt.Particle déjà défini)
@@ -1360,7 +1363,7 @@ if __name__ == "__main__":
 
     HX_test = ShellAndTubeSizingOpt()
 
-    test_case = "Methanol"
+    test_case = "CO2_CD"
 
     n_disc = 5
     Tube_t_flag = True
@@ -1439,14 +1442,14 @@ if __name__ == "__main__":
 
         HX_test.set_inputs(
             fluid_H = 'CO2',
-            T_su_H = 289.64, # K
-            P_su_H = 4234404, # Pa
-            m_dot_H = 335.3, # kg/s
+            T_su_H = 311.49320794331686, # K
+            P_su_H = 5137886.021992541, # Pa
+            m_dot_H = 2710.037657310208, # kg/s
     
             fluid_C = 'Water',
-            T_su_C = 0.1 + 273.15, # K
+            T_su_C = 283.15, # K
             P_su_C = 5*1e5, # Pa
-            m_dot_C = 4500, # kg/s
+            m_dot_C = 33426.60758322399, # kg/s
             )
     
         HX_test.set_parameters(
@@ -1461,9 +1464,9 @@ if __name__ == "__main__":
                                 H_DP = {"SC" : "Gnielinski_DP", "1P" : "Gnielinski_DP", "2P" : "Choi_DP"},
                                 C_DP = {"SC" : "Shell_Kern_DP", "1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"},
     
-                                Q_dot = 75285944,
-                                DP_h = 2*1e5,
-                                DP_c = 1*1e5,
+                                Q_dot = 575785506.3826797,
+                                DP_h = 50000.0,
+                                DP_c = 50000.0,
                               )
         # DEFAULT_CHOICE_VECTORS / DEFAULT_BOUNDS couvrent déjà ce cas —
         # aucun set_bounds/set_choice_vectors nécessaire.
@@ -1475,20 +1478,20 @@ if __name__ == "__main__":
 
         HX_test.set_inputs(
             fluid_C = 'CO2',
-            T_su_C = 316.5, # K
-            P_su_C = 12822693, # Pa
-            m_dot_C = 41.85, # kg/s
+            T_su_C = 359.58992553515543, # K
+            P_su_C = 19136379.473192997, # Pa
+            m_dot_C = 123.35810408249115, # kg/s
     
-            fluid_H = 'Water',
-            T_su_H = 403.15, # K
-            P_su_H = 5*1e5, # Pa
-            m_dot_H = 38.85, # kg/s
+            fluid_H = 'TVP1',
+            T_su_H = 623.15, # K
+            P_su_H = 1000000.0, # Pa
+            m_dot_H = 320.1240739308649, # kg/s
             )
     
         HX_test.set_parameters(
                                 Shell_Side = 'H',
 
-                                T_max_cycle = 273.15+140, # K
+                                T_max_cycle = 623.15, # K
                                 p_max_cycle = 160*1e5, # Pa
     
                                 H_Corr = {"SC" : "Shell_Kern_HTC", "1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"},
@@ -1496,10 +1499,13 @@ if __name__ == "__main__":
                                 H_DP = {"SC" : "Shell_Kern_DP", "1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"},
                                 C_DP = {"SC" : "Gnielinski_DP", "1P" : "Gnielinski_DP", "2P" : "Choi_DP"},
     
-                                Q_dot = 8417198,
-                                DP_h = 112284,
-                                DP_c = 205160.5,
+                                Q_dot = 39308773.137761,
+                                DP_h = 50000.0,
+                                DP_c = 50000.0,
                           )
+
+
+
 
     import time
     t0 = time.perf_counter()
@@ -1509,6 +1515,7 @@ if __name__ == "__main__":
         max_iterations=max_iter,
         obj=obj,
         print_flag=print_flag,
+        n_jobs=-1
     )
 
     elapsed = time.perf_counter() - t0

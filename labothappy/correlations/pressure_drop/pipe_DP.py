@@ -63,6 +63,7 @@ def gnielinski_pipe_DP(mu, rho, G, Dh, L, type_HX = 'pipe', p = 0):
     # print(f"Re : {Re}")
     # print(f"f : {f}")
     # print(f"v_flow : {v_flow}")
+    # print(f"G : {G}")
     # print(f"DP : {DP}")
     # print(f"rho : {rho}")
         

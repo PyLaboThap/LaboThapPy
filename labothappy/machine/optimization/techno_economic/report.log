@@ -1,2 +1,4 @@
 2026-09-09 10:09:58,500 - asyncio - ERROR - Task was destroyed but it is pending!
 task: <Task pending name='Task-11' coro=<Kernel.dispatch_control() running at C:\Users\basil\anaconda3\Lib\site-packages\ipykernel\kernelbase.py:302> wait_for=<Future pending cb=[Task.task_wakeup()]> cb=[ZMQStream._run_callback.<locals>._log_error() at C:\Users\basil\anaconda3\Lib\site-packages\zmq\eventloop\zmqstream.py:563]>
+2026-09-16 17:51:27,677 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Task-18' coro=<Kernel.dispatch_control() running at C:\Users\basil\anaconda3\Lib\site-packages\ipykernel\kernelbase.py:302> wait_for=<Future pending cb=[Task.task_wakeup()]> cb=[ZMQStream._run_callback.<locals>._log_error() at C:\Users\basil\anaconda3\Lib\site-packages\zmq\eventloop\zmqstream.py:563]>

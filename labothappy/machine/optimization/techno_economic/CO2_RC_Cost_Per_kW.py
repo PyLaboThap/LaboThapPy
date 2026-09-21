@@ -22,6 +22,19 @@ PERFORMANCE (voir discussion) :
   seuls eta_pp/eta_exp/DP_* changent légèrement, donc l'optimum ne se
   déplace que peu -> convergence bien plus rapide.
 - Voir le __main__ pour la correction patience/max_iter et le ntop réduit.
+
+SWEEP (voir __main__) :
+- Avant de lancer une simulation, le sweep vérifie si la configuration
+  (T_hot_C, W_dot_MW, eta_obj) existe déjà dans le CSV de résultats. Si
+  oui, elle est sautée et comptée comme un succès (voir find_matching_config).
+- Les échecs sont désormais aussi tracés, dans un CSV séparé
+  (co2_rc_sweep_fails_log.csv).
+- L'écriture des CSV passe par _append_csv_row(), qui réutilise l'entête
+  déjà présente sur disque plutôt que de reconstruire fieldnames=row.keys()
+  à chaque appel -- ceci évite un décalage de colonnes silencieux si
+  l'ensemble/l'ordre des clés du row change d'un appel à l'autre (nouvelle
+  colonne CAPEX_*, log généré par une version antérieure du script...),
+  décalage qui pouvait fausser la comparaison de configs déjà faites.
 """
 
 #%% Imports
@@ -122,13 +135,18 @@ def size_all_components(RC, sizing_models, turb_choice="None"):
         RC.components[key].sizing = sizing_obj
 
         try:
+            
             sizing_obj.set_inputs(**DYNAMIC_INPUT_EXTRACTORS[key](model))
 
             if key in HX_DP_FLOOR:
                 _set_dynamic_hx_constraints(sizing_obj, model, RC, key)
 
             sizing_obj.sizing(**sizing_obj.RUN_KWARGS)
-
+            
+            if hasattr(sizing_obj, "penalty"):
+                if sizing_obj.penalty >= 1e6:
+                    raise ValueError(f"{key} : Penalty is too large")
+                    
         except Exception as e:
             print(f"⚠️ Failed to design {key}: {e}")
             if hasattr(model, 'su_H'):
@@ -233,6 +251,36 @@ def _hx_effectivenesses(RC, arch):
     return out
 
 
+def _append_csv_row(log_path, row):
+    """
+    Ajoute `row` à `log_path` en réutilisant EXACTEMENT l'entête déjà écrite
+    dans le fichier (au lieu de reconstruire fieldnames=row.keys() à chaque
+    appel, comme le faisait l'ancienne version). Ça évite un décalage de
+    colonnes silencieux si row.keys() diffère (ordre ou ensemble) d'un appel
+    à l'autre -- par exemple si un composant a une clé CAPEX_* en plus/en
+    moins d'une ligne à l'autre. Un tel décalage ne lève aucune erreur mais
+    peut corrompre les valeurs de T_hot_C/W_dot_obj_MW/eta_obj pour
+    certaines lignes, ce qui fausse ensuite la détection des configs déjà
+    loguées (voir find_matching_config).
+
+    Toute nouvelle clé absente de l'entête existante est ajoutée EN FIN de
+    ligne, sans jamais réordonner les colonnes déjà écrites sur disque.
+    """
+    file_exists = os.path.isfile(log_path)
+    if file_exists:
+        with open(log_path, "r", newline="") as f:
+            existing_fieldnames = next(csv.reader(f))
+        fieldnames = existing_fieldnames + [k for k in row.keys() if k not in existing_fieldnames]
+    else:
+        fieldnames = list(row.keys())
+
+    with open(log_path, "a", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(row)
+
+
 def log_cycle_result(log_path, T_hot, T_cold, W_dot_obj, eta_obj, RC, arch,
                       Optimizer=None, duration_s=None, run_id=None):
     """
@@ -315,12 +363,127 @@ def log_cycle_result(log_path, T_hot, T_cold, W_dot_obj, eta_obj, RC, arch,
         if key != "Total":
             row[f"CAPEX_{key}"] = value
 
-    file_exists = os.path.isfile(log_path)
-    with open(log_path, "a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=row.keys())
-        if not file_exists:
-            writer.writeheader()
-        writer.writerow(row)
+    _append_csv_row(log_path, row)
+
+
+def log_cycle_fail(log_path, T_hot, T_cold, W_dot_obj, eta_obj, error_msg,
+                    duration_s=None, run_id=None):
+    """
+    Log minimal pour les tentatives en échec : pas de RC dimensionné donc
+    pas de CAPEX/perf à écrire, juste la config visée + l'erreur.
+    """
+    row = {
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "run_id": run_id,
+        "duration_s": duration_s,
+        "T_hot_C": T_hot - 273.15,
+        "T_cold_C": T_cold - 273.15,
+        "W_dot_obj_MW": W_dot_obj / 1e6,
+        "eta_obj": eta_obj,
+        "error": str(error_msg)[:500],
+    }
+    _append_csv_row(log_path, row)
+
+
+def load_existing_configs(log_path):
+    """
+    Lit le CSV de résultats déjà présents et renvoie chaque ligne sous
+    forme de dict {T_hot_C, W_dot_obj_MW, eta_obj, run_id, timestamp}, pour
+    pouvoir sauter les tentatives déjà faites lors d'un nouveau run du
+    sweep -- et tracer précisément QUELLE ligne a déclenché un saut donné
+    (voir find_matching_config).
+    """
+    configs = []
+    if not os.path.isfile(log_path):
+        return configs
+    with open(log_path, "r", newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            try:
+                configs.append({
+                    "T_hot_C": float(row["T_hot_C"]),
+                    "W_dot_obj_MW": float(row["W_dot_obj_MW"]),
+                    "eta_obj": float(row["eta_obj"]),
+                    "run_id": row.get("run_id"),
+                    "timestamp": row.get("timestamp"),
+                })
+            except (KeyError, ValueError, TypeError):
+                continue
+    return configs
+
+
+def find_matching_config(existing_configs, T_hot_C, n_MW, eta_obj, tol=1e-6):
+    """
+    Renvoie le dict de la ligne existante qui correspond à (T_hot_C, n_MW,
+    eta_obj) à `tol` près, ou None si aucune. Utilisé pour décider si une
+    tentative du sweep doit être sautée, ET pour afficher un message de
+    diagnostic précis (run_id/timestamp de la ligne qui matche).
+
+    Fonctionne aussi bien sur les lignes de succès (co2_rc_sweep_results_log.csv)
+    que sur les lignes d'échec (co2_rc_sweep_fails_log.csv) : les deux
+    exposent T_hot_C/W_dot_obj_MW/eta_obj, seuls les champs additionnels
+    diffèrent (voir load_existing_configs / load_existing_fails).
+    """
+    for cfg in existing_configs:
+        if (abs(cfg["T_hot_C"] - T_hot_C) < tol
+                and abs(cfg["W_dot_obj_MW"] - n_MW) < tol
+                and abs(cfg["eta_obj"] - eta_obj) < tol):
+            return cfg
+    return None
+
+
+def load_existing_fails(log_path):
+    """
+    Même principe que load_existing_configs, mais pour le CSV des ÉCHECS.
+    Sert à éviter de relancer une simulation qui a déjà échoué pour
+    exactement la même config (T_hot_C, W_dot_MW, eta_obj) lors d'un run
+    précédent -- la séquence d'eta_obj testée par combo étant déterministe
+    (eta_start_frac/eta_step_frac fixes), sans ce garde-fou un nouveau run
+    du sweep re-décrémentait patiemment jusqu'à retomber sur les mêmes
+    valeurs d'eta_obj déjà connues pour échouer, et repayait le même coût
+    de calcul pour le même résultat.
+    """
+    fails = []
+    if not os.path.isfile(log_path):
+        return fails
+    with open(log_path, "r", newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            try:
+                fails.append({
+                    "T_hot_C": float(row["T_hot_C"]),
+                    "W_dot_obj_MW": float(row["W_dot_obj_MW"]),
+                    "eta_obj": float(row["eta_obj"]),
+                    "run_id": row.get("run_id"),
+                    "timestamp": row.get("timestamp"),
+                    "error": row.get("error"),
+                })
+            except (KeyError, ValueError, TypeError):
+                continue
+    return fails
+
+
+def has_better_success(existing_configs, T_hot_C, n_MW, eta_obj, tol=1e-6):
+    """
+    Vrai si une simulation RÉUSSIE existe pour la même config (T_hot_C,
+    W_dot_MW) mais avec un eta_obj STRICTEMENT plus élevé (donc un objectif
+    d'efficacité plus ambitieux/difficile) que celui qu'on s'apprête à
+    sauter.
+
+    Sert à ne pas sauter un échec aveuglément pour toujours : si un
+    objectif plus dur a fini par réussir pour la même (T_hot, W_dot), c'est
+    le signe que l'échec précédent, à un eta_obj plus facile, était
+    probablement un aléa d'optimisation (le PSO thermodynamique et les PSO
+    de sizing sont stochastiques) plutôt qu'une impossibilité physique --
+    dans ce cas ça vaut le coup de retenter plutôt que de sauter le fail.
+    """
+    return any(
+        abs(cfg["T_hot_C"] - T_hot_C) < tol
+        and abs(cfg["W_dot_obj_MW"] - n_MW) < tol
+        and cfg["eta_obj"] > eta_obj + tol
+        for cfg in existing_configs
+    )
+
 
 def calibrate_cost_weights_from_sizing(Optimizer, arch='REC', RC_list=None, reference='cond'):
     """
@@ -584,21 +747,18 @@ class CO2RCOptimizer(CO2RC_HX_optimizer):
         n_pos = len(self.top_positions)
         self.potential_RC = []
         turb_choices = []
-
-        if self.obj['W_dot'] >= 9e6:
-            self.turb_choice = 'Axial'
-
+    
         for allowable_position in self.top_positions:
             print(f"Component Optimization for top position : {i+1}/{n_pos}")
             i += 1
-
+    
             # Réutilise le helper hérité de co2_rc_pso_optimizer.py
             unpacked = self._unpack_position(allowable_position['x'])
             self.it_var.update(unpacked)
-
+    
             self._HSource_props['m_dot'] = unpacked['mdot_HS']
             self._CSource_props['m_dot'] = unpacked['mdot_CS']
-
+    
             try:
                 self.set_RC()  # hérité : construit self.RC selon l'architecture
                 self.current_RC = self.RC
@@ -606,18 +766,18 @@ class CO2RCOptimizer(CO2RC_HX_optimizer):
             except Exception as e:
                 print(f"⚠️ Failed to solve final RC circuit: {e}")
                 continue
-
+    
             ok, results, turb_choice = size_all_components(
                 self.current_RC, self.sizing_models, self.turb_choice
             )
-
+    
             if ok:
                 self.current_RC.CAPEX = {key: np.round(obj.CAPEX['Total']) for key, obj in results.items()}
                 self.current_RC.CAPEX["Total"] = sum(self.current_RC.CAPEX.values())
                 self.potential_RC.append(self.current_RC)
-
+    
             turb_choices.append(turb_choice)
-
+    
         filtered = [c for c in turb_choices if c in ("Axial", "Radial")]
         if filtered:
             axial_count = filtered.count("Axial")
@@ -794,7 +954,7 @@ class CO2RCOptimizer(CO2RC_HX_optimizer):
 
             self.criterion = 1
             for key in self.delta_dict:
-                if self.delta_dict[key] > 1e-3:
+                if self.delta_dict[key] > 1e-4:
                     self.criterion = 0
                     break
             it += 1
@@ -844,167 +1004,291 @@ class CO2RCOptimizer(CO2RC_HX_optimizer):
 
 if __name__ == "__main__":
 
-    # Cycle sizing parameters
+    import itertools
 
-    T_hot = 150 + 273.15
+    # ---- Paramètres du sweep ----
+    T_hot_C_list = [150, 200, 250, 300, 350]
+    W_dot_MW_list = [1, 10, 30, 50]
+
+    eta_start_frac = 0.5     # fraction initiale de eta_carnot
+    eta_step_frac = 0.05     # décrément (fraction de eta_carnot) à chaque tentative
+    n_success_needed = 3     # nb de sizings réussis requis par combinaison
+    max_attempts = 20        # garde-fou : arrêt si jamais 3 succès ne sont atteints
+
     T_cold = 10 + 273.15
-    n_MW = 10
-    W_dot_obj = n_MW * 1e6
-    eta_obj = 0.12
 
-    Optimizer = CO2RCOptimizer('CO2')
+    combos = list(itertools.product(T_hot_C_list, W_dot_MW_list))
+    total_combos = len(combos)
+    # Borne haute du nombre total de tentatives (pour le compteur x/total) :
+    # chaque combo peut aller jusqu'à max_attempts avant abandon.
+    total_attempts_upper_bound = total_combos * max_attempts
 
-    m_dot_HS_fact_bounds = [0.1, 3]
-    m_dot_CS_fact_bounds = [5, 15]
-    P_high_bounds = np.array([110, 180]) * 1e5
-    m_dot_bounds = np.array([10, 80]) * n_MW
+    save_root = "co2_rc_sweep_results"
+    os.makedirs(save_root, exist_ok=True)
 
-    eta_gh_disc = np.arange(0.9, 0.98, 0.02)
-    PP_gh_disc = np.arange(1, 10, 1)
-    eta_rec_disc = np.arange(0.6, 0.96, 0.02)
-    PP_cd_disc = np.arange(1, 10, 1)
+    results_summary = []
+    global_attempt_counter = 0  # compteur toutes combinaisons confondues
 
-    Optimizer.set_parameters(
-        save_file_path=None,   # ou un chemin, comme dans le fichier 2 d'origine
-        RC_ARCH='REC',          # seule architecture compatible avec le sizing actuel
-        eta_pp=0.8,
-        eta_pp_aux=0.8,
-        DP_h_gh=100e3, DP_c_gh=4e5,
-        PP_rec=0, DP_h_rec=4e5, DP_c_rec=2e5,
-        eta_exp=0.9,
-        SC_cd=0.1, DP_h_cond=2e5, DP_c_cond=50e3,
-        P_high_bounds=P_high_bounds,
-        m_dot_HS_fact_bounds=m_dot_HS_fact_bounds,
-        m_dot_CS_fact_bounds=m_dot_CS_fact_bounds,
-        m_dot_bounds=m_dot_bounds,
-        eta_gh_disc=eta_gh_disc, PP_gh_disc=PP_gh_disc,
-        eta_rec_disc=eta_rec_disc, PP_cd_disc=PP_cd_disc,
-        # Poids du CAPEX dans evaluate_systems() (voir docstring) :
-        #   0.0 = comportement d'origine (cohérence eta/DP seule)
-        #   1.0 = coût et cohérence pèsent à peu près à égalité (défaut)
-        #   >1.0 = priorité croissante au coût le plus bas
-        capex_weight=1.0,
-        # Poids de coût relatif par technologie d'échangeur, utilisés DANS
-        # le PSO thermodynamique (system_RC_parallel). Valeur initiale =1
-        # partout (NTU pondéré par Q_dot, coût $/NTU supposé identique entre
-        # PCHE et Shell&Tube) -- recalibré automatiquement à CHAQUE itération
-        # de cycle_design() depuis le CAPEX réel des échangeurs sizés (voir
-        # calibrate_cost_weights_from_sizing, appelée dans cycle_design()).
-        # Pour pré-calibrer AVANT même de lancer cycle_design (utile avec
-        # ntop=1, où un seul candidat par itération donne peu de robustesse
-        # au début) :
-        #   points = [...]  # voir docstring de quick_calibration_points
-        #   sized = quick_calibration_points(Optimizer, sizing_models, points)
-        #   weights = calibrate_cost_weights_from_sizing(Optimizer, RC_list=sized)
-        #   if weights: Optimizer.set_parameters(**weights)
-        cost_w_gh=1.0, cost_w_rec=1.0, cost_w_cond=1.0,
-    )
-    
-    if Optimizer.params['RC_ARCH'] == "Recomp":
-        Optimizer.set_it_var(P_high=140e5, mdot=20.0*n_MW, mdot_HS=15.0*n_MW, spliter_frac = 0.9, eta_gh=0.95, PP_gh=5, eta_rec_LT=0.8, eta_rec_HT=0.8, PP_cd=5, mdot_CS=450*n_MW)
-    elif Optimizer.params['RC_ARCH'] == "Recomp_1_recup":
-        Optimizer.set_it_var(P_high=100e5, mdot=20.0*n_MW, mdot_HS=15.0*n_MW, spliter_frac = 1, eta_gh=0.95, PP_gh=5, eta_rec=0.8, PP_cd=5, mdot_CS=450*n_MW)
-    elif Optimizer.params['RC_ARCH'] == "REC":
-        Optimizer.set_it_var(P_high=100e5, mdot=20.0*n_MW, mdot_HS=15.0*n_MW, eta_gh=0.95, PP_gh=5, eta_rec=0.8, PP_cd=5, mdot_CS=450*n_MW)
-    elif Optimizer.params['RC_ARCH'] == "basic":
-        Optimizer.set_it_var(P_high=100e5, mdot=20.0*n_MW, mdot_HS=15.0*n_MW, eta_gh=0.95, PP_gh=5, PP_cd=5, mdot_CS=450*n_MW)
+    success_log_path = os.path.join(save_root, "co2_rc_sweep_results_log.csv")
+    fail_log_path = os.path.join(save_root, "co2_rc_sweep_fails_log.csv")
 
-    Optimizer.set_obj(W_dot=W_dot_obj, eta=eta_obj)
+    # Configurations déjà présentes dans le log de succès -- chargées UNE
+    # SEULE FOIS avant le sweep (pas rechargées à chaque tentative), pour
+    # pouvoir sauter directement les configs déjà traitées lors d'un run
+    # précédent (voir find_matching_config).
+    existing_configs = load_existing_configs(success_log_path)
+    print(f"[sweep] {len(existing_configs)} configuration(s) déjà présente(s) "
+          f"dans {success_log_path} -- seront sautées si retrouvées.")
 
-    Optimizer.set_CSource(T=T_cold, P=5e5,  fluid='Water', m_dot=450*n_MW)
-    Optimizer.set_HSource(T=T_hot,      P=100e5, fluid='Water', m_dot=50.0)
+    # Échecs déjà connus (autre run précédent) -- chargés une seule fois
+    # aussi. Une config en échec est sautée SAUF si un objectif plus
+    # ambitieux (eta_obj plus élevé) pour la même (T_hot, W_dot) a
+    # entretemps réussi (voir has_better_success).
+    existing_fails = load_existing_fails(fail_log_path)
+    print(f"[sweep] {len(existing_fails)} échec(s) déjà connu(s) "
+          f"dans {fail_log_path} -- seront sautés sauf si un objectif "
+          f"plus ambitieux pour la même config a réussi.")
 
-    Optimizer.set_RC()
-    
-    #%% Composants — configuration statique (paramètres, bornes, corrélations, RUN_KWARGS)
+    for combo_idx, (T_hot_C, n_MW) in enumerate(combos, start=1):
+        print("\n" + "#" * 70)
+        print(f"# Combinaison {combo_idx}/{total_combos} : T_hot={T_hot_C}°C, W_dot={n_MW} MW")
+        print("#" * 70)
 
-    sizing_models = {}
+        T_hot = T_hot_C + 273.15
+        W_dot_obj = n_MW * 1e6
+        eta_carnot = 1 - (T_cold / T_hot)
 
-    # --- Recuperator (PCHE) ---
-    REC = sizing_models["Recuperator"] = PCHESizingOpt()
-    REC.set_parameters(
-        H_Corr={"1P": "Gnielinski", "SC": "Gnielinski", "2P": "Thome_Condensation"},
-        C_Corr={"1P": "Gnielinski", "SC": "Gnielinski", "2P": "Flow_boiling"},
-        H_DP={"SC": "Gnielinski_DP", "1P": "Gnielinski_DP", "2P": "Choi_DP"},
-        C_DP={"SC": "Gnielinski_DP", "1P": "Gnielinski_DP", "2P": "Choi_DP"},
-    )
-    REC.RUN_KWARGS = dict(n_jobs=-1, n_particles=50, max_iter=50, patience=10)
+        m_dot_HS_fact_bounds = [0.1, 5]
+        m_dot_CS_fact_bounds = [1, 15]
+        P_high_bounds = np.array([110, 200]) * 1e5
+        m_dot_bounds = np.array([5, 100]) * n_MW
 
-    # --- GasHeater / Condenser (Shell&Tube) : géométrie + paramètres communs ---
+        eta_gh_disc = np.arange(0.8, 0.98, 0.02)
+        PP_gh_disc = np.arange(1, 10, 1)
+        eta_rec_disc = np.arange(0.6, 0.96, 0.02)
+        PP_cd_disc = np.arange(1, 20, 1)
 
-    # PERFORMANCE : n_jobs=-1 ajouté ici (absent dans le script d'origine) —
-    # par cohérence avec Recuperator/Expander_Axial/Expander_Radial qui
-    # utilisent tous n_jobs=-1, ShellAndTubeSizingOpt.sizing() accepte très
-    # probablement ce kwarg (même famille d'optimiseur PSO interne). Sans
-    # lui, GasHeater/Condenser tournaient vraisemblablement en série sur un
-    # seul coeur pendant que tout le reste utilisait tous les coeurs.
-    # -> À VÉRIFIER : si .sizing() ne connaît pas n_jobs, retirer cette ligne.
-    shell_tube_run_kwargs = dict(n_particles=100, max_iterations=50, obj='mass', print_flag=0, n_jobs=-1)
+        save_folder_combo = os.path.join(save_root, f"TH{T_hot_C}_W{n_MW}MW")
+        os.makedirs(save_folder_combo, exist_ok=True)
 
-    GH = sizing_models["GasHeater"] = ShellAndTubeSizingOpt()
-    GH.set_parameters(
-        Shell_Side='H',
-        H_Corr={"SC": "Shell_Kern_HTC", "1P": "Shell_Kern_HTC", "2P": "Shell_Kern_HTC"},
-        C_Corr={"SC": "Gnielinski", "1P": "Gnielinski", "2P": "Flow_boiling"},
-        H_DP={"SC": "Shell_Kern_DP", "1P": "Shell_Kern_DP", "2P": "Shell_Kern_DP"},
-        C_DP={"SC": "Gnielinski_DP", "1P": "Gnielinski_DP", "2P": "Gnielinski_DP"},
-    )
-    GH.RUN_KWARGS = shell_tube_run_kwargs
+        n_success = 0
+        attempt = 0
+        carnot_eff_frac = eta_start_frac
 
-    CD = sizing_models["Condenser"] = ShellAndTubeSizingOpt()
-    CD.set_parameters(
-        Shell_Side='C',
-        H_Corr={"SC": "Gnielinski", "1P": "Gnielinski", "2P": "Thome_Condensation"},
-        C_Corr={"SC": "Shell_Kern_HTC", "1P": "Shell_Kern_HTC", "2P": "Shell_Kern_HTC"},
-        H_DP={"SC": "Gnielinski_DP", "1P": "Gnielinski_DP", "2P": "Choi_DP"},
-        C_DP={"SC": "Shell_Kern_DP", "1P": "Shell_Kern_DP", "2P": "Shell_Kern_DP"},
-    )
-    CD.RUN_KWARGS = shell_tube_run_kwargs
+        while n_success < n_success_needed and attempt < max_attempts:
+            attempt += 1
+            global_attempt_counter += 1
+            eta_obj = carnot_eff_frac * eta_carnot
 
-    # --- Pump ---
-    PP = sizing_models["Pump"] = RadialPumpODSizing(Optimizer.fluid)
-    PP.RUN_KWARGS = dict()
+            # ---- Config déjà loguée précédemment : on saute et on compte
+            #      comme réussie, sans relancer de simulation. ----
+            match = find_matching_config(existing_configs, T_hot_C, n_MW, eta_obj)
+            if match is not None:
+                n_success += 1
+                print(f"⏭️  Déjà présent dans le log (run_id={match['run_id']}, "
+                      f"timestamp={match['timestamp']}, eta_obj_log={match['eta_obj']:.6f}) : "
+                      f"T_hot={T_hot_C}°C, W_dot={n_MW}MW, eta_obj_cible={eta_obj:.6f} -- "
+                      f"comptée comme réussie sans relancer "
+                      f"[succès {n_success}/{n_success_needed}]")
+                carnot_eff_frac -= eta_step_frac
+                if carnot_eff_frac <= 0:
+                    print("⚠️ carnot_eff_frac est descendu à 0 ou moins -- arrêt des tentatives pour ce combo.")
+                    break
+                continue
 
-    # --- Turbine : deux candidats, axial et radial ---
-    TA = sizing_models["Expander_Axial"] = AxialTurbineMeanLineSizing(Optimizer.fluid)
-    TA.RUN_KWARGS = dict(n_jobs=-1, n_particles=30, max_iter=50)
+            # ---- Config déjà connue en échec : on la saute AUSSI, SAUF si
+            #      un objectif plus ambitieux (eta_obj plus élevé) pour la
+            #      même (T_hot, W_dot) a entretemps réussi -- dans ce cas
+            #      l'échec est probablement un aléa d'optimisation plutôt
+            #      qu'une impossibilité physique, donc on retente. ----
+            match_fail = find_matching_config(existing_fails, T_hot_C, n_MW, eta_obj)
+            if match_fail is not None:
+                if has_better_success(existing_configs, T_hot_C, n_MW, eta_obj):
+                    print(f"↩️  Échec déjà connu (run_id={match_fail['run_id']}) pour "
+                          f"T_hot={T_hot_C}°C, W_dot={n_MW}MW, eta_obj={eta_obj:.6f} -- "
+                          f"MAIS un objectif plus ambitieux a réussi entretemps pour cette "
+                          f"même config -- nouvelle tentative.")
+                else:
+                    print(f"⏭️  Échec déjà connu (run_id={match_fail['run_id']}, "
+                          f"timestamp={match_fail['timestamp']}, erreur=\"{match_fail['error']}\") pour "
+                          f"T_hot={T_hot_C}°C, W_dot={n_MW}MW, eta_obj={eta_obj:.6f} -- sautée "
+                          f"(aucun objectif plus ambitieux n'a réussi pour cette config, pas de relance).")
+                    carnot_eff_frac -= eta_step_frac
+                    if carnot_eff_frac <= 0:
+                        print("⚠️ carnot_eff_frac est descendu à 0 ou moins -- arrêt des tentatives pour ce combo.")
+                        break
+                    continue
 
-    TR = sizing_models["Expander_Radial"] = RadialTurbineMeanLineSizing(Optimizer.fluid)
-    TR.RUN_KWARGS = dict(max_iter=3, n_jobs=-1)
+            # ---- Print de progression demandé : x/total ----
+            print(f"\n>>> Simulation {global_attempt_counter}/{total_attempts_upper_bound} "
+                  f"(combo {combo_idx}/{total_combos}, tentative {attempt}/{max_attempts}) "
+                  f"-- T_hot={T_hot_C}°C, W_dot={n_MW}MW, "
+                  f"eta_obj={carnot_eff_frac:.3f}*eta_carnot={eta_obj:.4f} "
+                  f"[succès {n_success}/{n_success_needed}] <<<")
 
-    Optimizer.sizing_models = sizing_models
-    
-    #%%
-    t0 = time.perf_counter()
+            Optimizer = CO2RCOptimizer('CO2')
 
-    # PERFORMANCE — corrections apportées par rapport à l'appel d'origine
-    # `cycle_design(ntop=5, n_particles=100, n_jobs=-1, patience=30)` :
-    #
-    #   1) `patience=30` avec `max_iter` par défaut (=30) : patience >= max_iter
-    #      empêche TOUT arrêt anticipé (le critère `no_improve >= patience` ne
-    #      peut jamais se déclencher avant la fin des 30 itérations). Le PSO
-    #      tournait donc systématiquement à fond même quand il convergeait
-    #      bien avant (cf. logs précédents : convergence en 10-40 itérations
-    #      sur 50 dans la plupart des cas). Corrigé : max_iter=50, patience=15.
-    #
-    #   2) `ntop=5` : chaque position dimensionnée déclenche l'intégralité du
-    #      pipeline de sizing (Recuperator PSO + GasHeater PSO + Condenser PSO
-    #      + turbine). Réduit à 3 : les 2 positions les moins bonnes du top 5
-    #      changent rarement le résultat final (cf. evaluate_systems, qui ne
-    #      garde que la meilleure), donc ce coût est le plus souvent perdu.
-    #      Remettre à 5 si la robustesse du choix final est prioritaire sur
-    #      la vitesse.
-    Optimizer.cycle_design(ntop=3, n_particles=100, max_iter=50, n_jobs=-1, patience=15)
+            Optimizer.set_parameters(
+                save_file_path=save_folder_combo,
+                RC_ARCH='REC',
+                eta_pp=0.85,
+                eta_pp_aux=0.8,
+                DP_h_gh=50e3, DP_c_gh=50e3,
+                PP_rec=0, DP_h_rec=50e3, DP_c_rec=50e3,
+                eta_exp=0.92,
+                SC_cd=0.1, DP_h_cond=50e3, DP_c_cond=50e3,
+                P_high_bounds=P_high_bounds,
+                m_dot_HS_fact_bounds=m_dot_HS_fact_bounds,
+                m_dot_CS_fact_bounds=m_dot_CS_fact_bounds,
+                m_dot_bounds=m_dot_bounds,
+                eta_gh_disc=eta_gh_disc, PP_gh_disc=PP_gh_disc,
+                eta_rec_disc=eta_rec_disc, PP_cd_disc=PP_cd_disc,
+                capex_weight=1.0,
+                cost_w_gh=1.0, cost_w_rec=1.0, cost_w_cond=1.0,
+            )
 
-    elapsed = time.perf_counter() - t0
-    
-    if Optimizer.best_RC is not None:
-        log_cycle_result(
-            log_path="co2_rc_results_log.csv",
-            T_hot=T_hot, T_cold=T_cold,
-            W_dot_obj=W_dot_obj, eta_obj=eta_obj,
-            RC=Optimizer.best_RC, arch=Optimizer.params['RC_ARCH'],
-            Optimizer=Optimizer, duration_s=round(elapsed, 1),
-        )
-    else:
-        print("⚠️ Aucun RC valide trouvé — rien à logger.")
+            if Optimizer.params['RC_ARCH'] == "Recomp":
+                Optimizer.set_it_var(P_high=140e5, mdot=20.0 * n_MW, mdot_HS=15.0 * n_MW, spliter_frac=0.9,
+                                      eta_gh=0.95, PP_gh=5, eta_rec_LT=0.8, eta_rec_HT=0.8, PP_cd=5,
+                                      mdot_CS=450 * n_MW)
+            elif Optimizer.params['RC_ARCH'] == "Recomp_1_recup":
+                Optimizer.set_it_var(P_high=100e5, mdot=20.0 * n_MW, mdot_HS=15.0 * n_MW, spliter_frac=1,
+                                      eta_gh=0.95, PP_gh=5, eta_rec=0.8, PP_cd=5, mdot_CS=450 * n_MW)
+            elif Optimizer.params['RC_ARCH'] == "REC":
+                Optimizer.set_it_var(P_high=100e5, mdot=20.0 * n_MW, mdot_HS=15.0 * n_MW, eta_gh=0.95,
+                                      PP_gh=5, eta_rec=0.8, PP_cd=5, mdot_CS=450 * n_MW)
+            elif Optimizer.params['RC_ARCH'] == "basic":
+                Optimizer.set_it_var(P_high=100e5, mdot=20.0 * n_MW, mdot_HS=15.0 * n_MW, eta_gh=0.95,
+                                      PP_gh=5, PP_cd=5, mdot_CS=450 * n_MW)
+
+            Optimizer.set_obj(W_dot=W_dot_obj, eta=eta_obj)
+
+            Optimizer.set_CSource(T=T_cold, P=5e5, fluid='Water', m_dot=450 * n_MW)
+            Optimizer.set_HSource(T=T_hot, P=10e5, fluid='INCOMP::TVP1', m_dot=50.0 * n_MW)
+
+            Optimizer.set_RC()
+
+            # ---- Composants — recréés à chaque tentative (objets à état interne) ----
+            sizing_models = {}
+
+            REC = sizing_models["Recuperator"] = PCHESizingOpt()
+            REC.set_parameters(
+                H_Corr={"1P": "Gnielinski", "SC": "Gnielinski", "2P": "Thome_Condensation"},
+                C_Corr={"1P": "Gnielinski", "SC": "Gnielinski", "2P": "Flow_boiling"},
+                H_DP={"SC": "Gnielinski_DP", "1P": "Gnielinski_DP", "2P": "Choi_DP"},
+                C_DP={"SC": "Gnielinski_DP", "1P": "Gnielinski_DP", "2P": "Choi_DP"},
+            )
+            REC.RUN_KWARGS = dict(n_jobs=-1, n_particles=100, max_iter=50, patience=20)
+
+            shell_tube_run_kwargs = dict(n_particles=200, max_iterations=50, obj='mass', print_flag=0, n_jobs=-1)
+
+            GH = sizing_models["GasHeater"] = ShellAndTubeSizingOpt()
+            GH.set_parameters(
+                Shell_Side='H',
+                H_Corr={"SC": "Shell_Kern_HTC", "1P": "Shell_Kern_HTC", "2P": "Shell_Kern_HTC"},
+                C_Corr={"SC": "Gnielinski", "1P": "Gnielinski", "2P": "Flow_boiling"},
+                H_DP={"SC": "Shell_Kern_DP", "1P": "Shell_Kern_DP", "2P": "Shell_Kern_DP"},
+                C_DP={"SC": "Gnielinski_DP", "1P": "Gnielinski_DP", "2P": "Gnielinski_DP"},
+            )
+            GH.RUN_KWARGS = shell_tube_run_kwargs
+
+            CD = sizing_models["Condenser"] = ShellAndTubeSizingOpt()
+            CD.set_parameters(
+                Shell_Side='C',
+                H_Corr={"SC": "Gnielinski", "1P": "Gnielinski", "2P": "Thome_Condensation"},
+                C_Corr={"SC": "Shell_Kern_HTC", "1P": "Shell_Kern_HTC", "2P": "Shell_Kern_HTC"},
+                H_DP={"SC": "Gnielinski_DP", "1P": "Gnielinski_DP", "2P": "Choi_DP"},
+                C_DP={"SC": "Shell_Kern_DP", "1P": "Shell_Kern_DP", "2P": "Shell_Kern_DP"},
+            )
+            CD.RUN_KWARGS = shell_tube_run_kwargs
+
+            PP = sizing_models["Pump"] = RadialPumpODSizing(Optimizer.fluid)
+            PP.RUN_KWARGS = dict()
+
+            TA = sizing_models["Expander_Axial"] = AxialTurbineMeanLineSizing(Optimizer.fluid)
+            TA.RUN_KWARGS = dict(n_jobs=-1, n_particles=100, max_iter=30)
+
+            TR = sizing_models["Expander_Radial"] = RadialTurbineMeanLineSizing(Optimizer.fluid)
+            TR.RUN_KWARGS = dict(max_iter=5, n_jobs=-1)
+
+            Optimizer.sizing_models = sizing_models
+
+            t0 = time.perf_counter()
+            success = False
+            error_msg = None
+            try:
+                Optimizer.cycle_design(ntop=1, n_particles=200, max_iter=50, n_jobs=-1, patience=15)
+                success = Optimizer.best_RC is not None
+                if not success:
+                    error_msg = "cycle_design terminé mais best_RC est None"
+            except Exception as e:
+                error_msg = str(e)
+                print(f"⚠️ cycle_design a échoué pour cette tentative : {e}")
+                success = False
+            elapsed = time.perf_counter() - t0
+
+            if success:
+                n_success += 1
+                run_id = f"TH{T_hot_C}_W{n_MW}MW_attempt{attempt}_success{n_success}"
+                log_cycle_result(
+                    log_path=success_log_path,
+                    T_hot=T_hot, T_cold=T_cold,
+                    W_dot_obj=W_dot_obj, eta_obj=eta_obj,
+                    RC=Optimizer.best_RC, arch=Optimizer.params['RC_ARCH'],
+                    Optimizer=Optimizer, duration_s=round(elapsed, 1),
+                    run_id=run_id,
+                )
+                # Ajout immédiat à existing_configs : évite de relancer la
+                # même config si elle réapparaissait plus tard dans le même
+                # run du sweep (ex. eta_obj arrondi identique par hasard).
+                existing_configs.append({
+                    "T_hot_C": T_hot_C, "W_dot_obj_MW": float(n_MW), "eta_obj": eta_obj,
+                    "run_id": run_id, "timestamp": datetime.now().isoformat(timespec="seconds"),
+                })
+                print(f"✅ Succès {n_success}/{n_success_needed} pour ce combo "
+                      f"(tentative {attempt}, eta_obj={eta_obj:.4f}, durée={elapsed:.1f}s)")
+            else:
+                print(f"❌ Échec de la tentative {attempt} (eta_obj={eta_obj:.4f}) -- "
+                      f"réduction de la cible eta et nouvelle tentative")
+                fail_run_id = f"TH{T_hot_C}_W{n_MW}MW_attempt{attempt}"
+                log_cycle_fail(
+                    log_path=fail_log_path,
+                    T_hot=T_hot, T_cold=T_cold,
+                    W_dot_obj=W_dot_obj, eta_obj=eta_obj,
+                    error_msg=error_msg,
+                    duration_s=round(elapsed, 1),
+                    run_id=fail_run_id,
+                )
+                # Ajout immédiat à existing_fails, par cohérence avec
+                # existing_configs côté succès (utile si la même config
+                # (T_hot, W_dot, eta_obj) était retestée plus tard dans ce
+                # même run du sweep).
+                existing_fails.append({
+                    "T_hot_C": T_hot_C, "W_dot_obj_MW": float(n_MW), "eta_obj": eta_obj,
+                    "run_id": fail_run_id, "timestamp": datetime.now().isoformat(timespec="seconds"),
+                    "error": error_msg,
+                })
+
+            carnot_eff_frac -= eta_step_frac
+            if carnot_eff_frac <= 0:
+                print("⚠️ carnot_eff_frac est descendu à 0 ou moins -- arrêt des tentatives pour ce combo.")
+                break
+            
+        results_summary.append({
+            "T_hot_C": T_hot_C, "W_dot_MW": n_MW,
+            "n_success": n_success, "n_attempts": attempt,
+        })
+
+        if n_success < n_success_needed:
+            print(f"⚠️ Combo T_hot={T_hot_C}°C, W_dot={n_MW}MW : seulement {n_success}/{n_success_needed} "
+                  f"succès après {attempt} tentatives.")
+
+    print("\n" + "=" * 70)
+    print("RÉSUMÉ DU SWEEP")
+    print("=" * 70)
+    for r in results_summary:
+        status = "OK" if r['n_success'] >= n_success_needed else "INCOMPLET"
+        print(f"[{status}] T_hot={r['T_hot_C']}°C, W_dot={r['W_dot_MW']}MW : "
+              f"{r['n_success']}/{n_success_needed} succès en {r['n_attempts']} tentatives")
+        
+        

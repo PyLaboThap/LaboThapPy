@@ -98,9 +98,9 @@ class RadialTurbineMeanLineSizing(object):
     DEFAULT_BOUNDS = {
         'r5_r4_bounds': [0.3, 0.7],     # [-] : r5/r4 ratio
         'psi_bounds': [0.5, 1.5],
-        'phi_bounds': [0.3, 0.6],
-        'xhi_bounds': [0.3, 0.6],
-        'r5h_r5t_bounds': [0.3, 0.4],   # [-] : hub_tip ratio at the exit
+        'phi_bounds': [0.3, 0.8],
+        'xhi_bounds': [0.3, 0.8],
+        'r5h_r5t_bounds': [0.2, 0.5],   # [-] : hub_tip ratio at the exit
     }
 
     def __init__(self, fluid):
@@ -645,7 +645,7 @@ class RadialTurbineMeanLineSizing(object):
         try:
             
             start_time = time.time()
-            max_seconds = 20  # limit
+            max_seconds = 3  # limit
             
             def time_limited_callback(xk, *args):
                 if time.time() - start_time > max_seconds:
@@ -868,7 +868,7 @@ class RadialTurbineMeanLineSizing(object):
             
         return best_pos
 
-    def sizing(self, n_jobs=-1, backend="loky", chunksize="auto", n_particles = 20, max_iter=50):
+    def sizing(self, n_jobs=-1, backend="loky", chunksize="auto", n_particles = 40, max_iter=50):
         os.environ["PYTHONWARNINGS"] = "ignore" 
         
         bounds = (np.array([

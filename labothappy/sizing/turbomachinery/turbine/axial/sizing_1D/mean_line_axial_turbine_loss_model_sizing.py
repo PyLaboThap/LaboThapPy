@@ -116,11 +116,11 @@ class AxialTurbineMeanLineSizing(object):
         'AR_min': 0.8,
         'r_hub_tip_max': 0.95,
         'r_hub_tip_min': 0.6,
-        'Re_bounds': [1e6, 8e6],
+        'Re_bounds': [1e6, 1e7],
         'psi_bounds': [0.8, 2.5],
-        'phi_bounds': [0.5, 1],
+        'phi_bounds': [0.5, 1.2],
         'R_bounds': [0.4, 0.6],
-        'r_m_bounds': [0.1, 0.6],
+        'r_m_bounds': [0.05, 0.8],
         'M_1st_bounds': [0.3, 0.5],
     }
 
