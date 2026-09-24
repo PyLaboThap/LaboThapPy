@@ -54,8 +54,8 @@ MODULE_NAMES = [dotted for dotted, _ in ALL_MODULES]
 #: import rather than under `if __name__ == "__main__"` -- removes the need for
 #: this list entirely.
 SLOW_MODULES = {
-    "labothappy.component.Examples.heat_exchanger.hex_thermosyphon_example",
-    "labothappy.component.Examples.tank.tank_LV_separator_example",
+    "labothappy.component.examples.heat_exchanger.hex_thermosyphon_example",
+    "labothappy.component.examples.tank.tank_LV_separator_example",
     "labothappy.machine.examples.solver_comparison.HP_cycle_iterative",
     "labothappy.sizing.heat_exchanger.heat_pipe_HTX.sizing_HP_HTX",
 }
@@ -205,17 +205,59 @@ def test_no_module_shadows_a_stdlib_name():
     )
 
 
-def test_every_module_name_is_unique_case_insensitively():
-    """Two modules differing only in case cannot coexist on Windows or macOS.
+def _tracked_paths():
+    """Every path git has recorded, or ``None`` if git is unavailable.
 
-    Catching this in CI on Linux is the only way to stop it reaching a
-    collaborator who cannot then check the repository out at all.
+    Reading from git rather than from disk is the whole point here. On a
+    case-insensitive filesystem the two spellings of a colliding directory have
+    already been merged into one by the time the files reach the working tree,
+    so walking the disk can never see the collision -- only the index can.
     """
-    seen = {}
-    for dotted in MODULE_NAMES:
-        seen.setdefault(dotted.lower(), []).append(dotted)
-    collisions = {k: v for k, v in seen.items() if len(v) > 1}
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            ["git", "ls-files", "labothappy"],
+            cwd=str(Path(__file__).resolve().parent.parent),
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    return [line for line in result.stdout.splitlines() if line.strip()]
+
+
+def test_no_two_paths_differ_only_by_case():
+    """Nothing in the tree may differ from anything else only in letter case.
+
+    On Linux, two directories called ``Examples`` and ``examples`` are two
+    directories. On Windows and macOS they are one, and whichever git creates
+    first swallows the contents of the other. The repository then means
+    different things on different machines: a module that resolves on a
+    colleague's laptop is missing on the CI runner, and the dotted name written
+    into this suite's allowlist is right on one platform and wrong on the other.
+
+    The check covers every path segment, not just the filename, because the
+    collision that actually occurred here was between two directories whose
+    files were all distinctly named -- a filename-only comparison sees nothing
+    wrong with it.
+    """
+    paths = _tracked_paths()
+    if paths is None:
+        pytest.skip("not a git checkout, or git is unavailable")
+
+    segments = {}
+    for path in paths:
+        parts = path.split("/")
+        for depth in range(len(parts)):
+            prefix = "/".join(parts[: depth + 1])
+            segments.setdefault(prefix.lower(), set()).add(prefix)
+
+    collisions = [sorted(v) for v in segments.values() if len(v) > 1]
     assert not collisions, (
-        "module names that collide on a case-insensitive filesystem:\n  "
-        + "\n  ".join("%s -> %s" % (k, v) for k, v in sorted(collisions.items()))
+        "these paths differ only by case, so they collide on Windows and "
+        "macOS:\n  " + "\n  ".join(" vs ".join(v) for v in sorted(collisions))
     )

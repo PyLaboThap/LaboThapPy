@@ -29,7 +29,7 @@
 # real physics bugs are hiding, and each one wants its own issue.
 
 # --- (A) undeclared optional dependency: pyswarm / pyswarms ---------------
-labothappy.component.Examples.expander.turbine_mean_line_Aungier_example  # ModuleNotFoundError: No module named 'pyswarms'
+labothappy.component.examples.expander.turbine_mean_line_Aungier_example  # ModuleNotFoundError: No module named 'pyswarms'
 labothappy.component.expander.turbine_mean_line_Aungier  # ModuleNotFoundError: No module named 'pyswarms'
 labothappy.machine.optimization.CO2_HP_Optimization  # ModuleNotFoundError: No module named 'pyswarm'
 labothappy.machine.optimization.CO2_HP_Optimization_parallel  # ModuleNotFoundError: No module named 'pyswarms'
@@ -64,14 +64,14 @@ labothappy.sizing.turbomachinery.turbine.radial.mean_line_radial_turbine_eta_row
 labothappy.sizing.turbomachinery.turbine.radial.mean_line_radial_turbine_loss_model_design_parallel  # ModuleNotFoundError: self-referential sibling import
 
 # --- (D) genuine runtime error while the module runs its example ----------
-labothappy.component.Examples.compressor.compressor_semi_empirical_example  # AttributeError: 'CompressorSE' object has no attribute 'epsilon_is'
-labothappy.component.Examples.heat_exchanger.hex_T&F_MB_charge_sensitive_example  # ValueError: f(a) and f(b) must have different signs
-labothappy.component.Examples.heat_exchanger.hex_crossflowfintube_finitevolume_example  # ModuleNotFoundError: sibling module not found
-labothappy.component.Examples.solar.parabolic_trough_collector_example  # TypeError: unsupported operand type(s) for -: 'float' and 'NoneType'
-labothappy.component.Examples.tank.tank_LV_separator_example  # AttributeError: 'TankLVSeparator' object has no attribute 'plot_thermo_states'
-labothappy.component.Examples.tank.tank_mixer_example  # AttributeError: 'TankMixer' object has no attribute 'plot_thermo_states'
-labothappy.component.Examples.tank.tank_spliter_example  # AttributeError: 'TankSpliter' object has no attribute 'plot_thermo_states'
-labothappy.component.Examples.valve.valve_isenthalpic_example  # AttributeError: 'ValveIsenthalpic' object has no attribute 'plot_thermo_states'
+labothappy.component.examples.compressor.compressor_semi_empirical_example  # AttributeError: 'CompressorSE' object has no attribute 'epsilon_is'
+labothappy.component.examples.heat_exchanger.hex_T&F_MB_charge_sensitive_example  # ValueError: f(a) and f(b) must have different signs
+labothappy.component.examples.heat_exchanger.hex_crossflowfintube_finitevolume_example  # ModuleNotFoundError: sibling module not found
+labothappy.component.examples.solar.parabolic_trough_collector_example  # TypeError: unsupported operand type(s) for -: 'float' and 'NoneType'
+labothappy.component.examples.tank.tank_LV_separator_example  # AttributeError: 'TankLVSeparator' object has no attribute 'plot_thermo_states'
+labothappy.component.examples.tank.tank_mixer_example  # AttributeError: 'TankMixer' object has no attribute 'plot_thermo_states'
+labothappy.component.examples.tank.tank_spliter_example  # AttributeError: 'TankSpliter' object has no attribute 'plot_thermo_states'
+labothappy.component.examples.valve.valve_isenthalpic_example  # AttributeError: 'ValveIsenthalpic' object has no attribute 'plot_thermo_states'
 labothappy.component.storage.tank_isothermal  # TypeError: unsupported operand type(s) for *: 'NoneType' and 'float'
 labothappy.machine.examples.sensitivity.opt_CO2_HP  # AttributeError: 'float' object has no attribute 'T'
 labothappy.machine.examples.sensitivity.opt_CO2_TC  # AttributeError: 'float' object has no attribute 'T'
