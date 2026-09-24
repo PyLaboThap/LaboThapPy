@@ -8,22 +8,20 @@ tags:
   - heat pump
   - heat exchanger
 authors:
-  # TODO before submission: confirm author order, add every ORCID, and mark the
-  # corresponding author. JOSS requires an ORCID for each author who has one.
-  # The full contributor list, with affiliations as recorded by the project, is
-  # in AUTHORS.txt at the repository root.
+  # TODO before submission: confirm author order, and add an `orcid:` line to
+  # every author who has one -- JOSS asks for them and they cannot be guessed.
+  # The field is left out rather than filled with a placeholder, because an
+  # ORCID that fails its checksum breaks the Open Journals PDF build.
+  # The full contributor list, with affiliations as the project records them,
+  # is in AUTHORS.txt at the repository root.
   - name: Elise Neven
-    orcid: 0000-0000-0000-0000  # TODO
     affiliation: 1
   - name: Basile Chaudoir
-    orcid: 0000-0000-0000-0000  # TODO
     affiliation: 1
   - name: Mattéo Hauglustaine
-    orcid: 0000-0000-0000-0000  # TODO
     corresponding: true
     affiliation: "2, 3"
   - name: Alanis Zeoli
-    orcid: 0000-0000-0000-0000  # TODO
     affiliation: 1
   - name: Titouan Janod
     affiliation: 1
@@ -32,9 +30,6 @@ authors:
   - name: Marie Peeters
     affiliation: 1
   - name: Andres Hernandes
-    affiliation: 1
-  - name: Vincent Lemort
-    orcid: 0000-0000-0000-0000  # TODO
     affiliation: 1
 affiliations:
   - name: Thermodynamics Laboratory, University of Liège, Belgium
@@ -119,7 +114,10 @@ projects.
 # Acknowledgements
 
 The authors are indebted to Pr. Vincent Lemort, Pr. Francesco Contino and
-Pr. Ward De Paepe for their guidance. Development was supported by
-<!-- TODO: add funding sources, grant numbers and project names. -->
+Pr. Ward De Paepe for their guidance.
+
+<!-- TODO before submission: add funding sources, grant numbers and project
+     names, as a sentence here. JOSS expects financial support to be declared.
+     Delete this comment once done. -->
 
 # References
