@@ -1,45 +1,106 @@
 [project]
 name = "LaboThapPy"
 version = "0.1.0"
-description = "A Python library for LaboThap calculations and simulations"
-authors = [{ name="Your Name", email="you@example.com" }]
+description = "An open-source Python library of thermodynamic component and cycle models"
 readme = "README.md"
-license = { text = "MIT" }
-requires-python = ">=3.8"
+license = { file = "LICENSE.txt" }
+requires-python = ">=3.10"
+keywords = [
+    "thermodynamics",
+    "heat pump",
+    "organic rankine cycle",
+    "heat exchanger",
+    "energy systems",
+    "process simulation",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+
+# The full list of contributors, with affiliations, is in AUTHORS.txt. The
+# entries here are the maintainers who field questions about the package.
+authors = [
+    { name = "Elise Neven", email = "elise.neven@uliege.be" },
+    { name = "Basile Chaudoir", email = "basile.chaudoir@uliege.be" },
+    { name = "Mattéo Hauglustaine", email = "matteo.hauglustaine@uclouvain.be" },
+]
+maintainers = [
+    { name = "Elise Neven", email = "elise.neven@uliege.be" },
+    { name = "Basile Chaudoir", email = "basile.chaudoir@uliege.be" },
+    { name = "Mattéo Hauglustaine", email = "matteo.hauglustaine@uclouvain.be" },
+]
+
+# Every package listed here is imported by the library proper. matplotlib in
+# particular is imported at module level by base_component and sixty other
+# modules, so it is a hard requirement rather than a plotting nicety.
 dependencies = [
     "CoolProp>=6.6.0",
     "numpy>=1.24",
     "scipy>=1.10",
-    "pandas>=2.2",
-    "pyyaml>=6.0",
-    "plumbum>=1.8",
-    "python-dateutil>=2.8",
-    "pytz>=2024.1",
-    "requests>=2.30",
-    "urllib3>=2.0",
+    "pandas>=2.0",
+    "matplotlib>=3.7",
 ]
 
 [project.optional-dependencies]
-dev = [
-    "ipython",
-    "ipywidgets",
-    "jupyterlab",
-    "nbconvert",
-    "nbformat",
-    "notebook",
-    "matplotlib-inline",
-    "debugpy",
-    "psutil",
+# Particle-swarm sizing and the parallel optimisation studies. Kept optional
+# because they are needed by roughly a dozen modules out of two hundred, and
+# pyswarm/pyswarms are unmaintained enough that pinning them in the core would
+# hold the whole library back.
+optimization = [
+    "pyswarms>=1.3",
+    "pyswarm>=0.6",
+    "joblib>=1.3",
+    "tqdm>=4.65",
+]
+test = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
 ]
 docs = [
-    "sphinx",
+    "sphinx>=7.0",
     "sphinx-autodoc-typehints",
-    "sphinx-rtd-theme",
     "nbsphinx",
     "furo",
     "myst-parser",
 ]
+dev = [
+    "LaboThapPy[test,docs,optimization]",
+    "ipython",
+    "jupyterlab",
+    "nbformat",
+]
+
+[project.urls]
+Homepage = "https://github.com/PyLaboThap/PyLaboThap"
+Documentation = "https://labothappy.readthedocs.io"
+Repository = "https://github.com/PyLaboThap/PyLaboThap"
+Issues = "https://github.com/PyLaboThap/PyLaboThap/issues"
 
 [build-system]
 requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["labothappy*"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+# -ra prints a summary line for every non-passing outcome, so an xfail that has
+# started passing shows up in CI output instead of hiding behind a dot.
+addopts = "-ra --strict-markers"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+markers = [
+    "slow: takes more than a few seconds (example scripts)",
+]

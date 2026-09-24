@@ -1,0 +1,80 @@
+# Modules that do not import today.
+#
+# This file is a ratchet, not a suppression list. test_imports.py fails in BOTH
+# directions:
+#
+#   * a module that fails to import and is NOT listed here  -> new breakage;
+#   * a module that IS listed here but now imports cleanly   -> stale entry,
+#     delete the line.
+#
+# So the list can only ever get shorter. Deleting the last line is the goal.
+#
+# Format: one module per line, canonical labothappy.* dotted name, then a
+# comment giving the first exception the import raises.
+#
+# The causes fall into a handful of groups, which is why the list shrinks in
+# jumps rather than one line at a time:
+#
+#   (A) undeclared optional dependency   -- pyswarm / pyswarms           (8)
+#   (B) stale flat import path           -- machine.circuit, BaseClases,
+#                                           heat_losses, HeatExchangerMB  (7)
+#   (C) broken sizing module             -- mostly under the 0D / 1D dirs  (8)
+#   (D) genuine runtime error at import  -- scripts that run a simulation
+#                                           when they are imported       (14)
+#
+# 37 entries, out of 197 modules.
+#
+# Groups A and B are mechanical: declaring two optional dependencies and
+# repointing seven import statements clears fifteen lines. Group D is where the
+# real physics bugs are hiding, and each one wants its own issue.
+
+# --- (A) undeclared optional dependency: pyswarm / pyswarms ---------------
+labothappy.component.Examples.expander.turbine_mean_line_Aungier_example  # ModuleNotFoundError: No module named 'pyswarms'
+labothappy.component.expander.turbine_mean_line_Aungier  # ModuleNotFoundError: No module named 'pyswarms'
+labothappy.machine.optimization.CO2_HP_Optimization  # ModuleNotFoundError: No module named 'pyswarm'
+labothappy.machine.optimization.CO2_HP_Optimization_parallel  # ModuleNotFoundError: No module named 'pyswarms'
+labothappy.machine.optimization.CO2_RC_Cost_Per_kW  # ModuleNotFoundError: No module named 'pyswarms'
+labothappy.machine.optimization.CO2_RC_Optimization  # ModuleNotFoundError: No module named 'pyswarm'
+labothappy.machine.optimization.CO2_RC_Optimization_parallel  # ModuleNotFoundError: No module named 'pyswarms'
+labothappy.sizing.storage.pressurized_water_storage  # ModuleNotFoundError: No module named 'pyswarms'
+
+# --- (B) stale flat import path -------------------------------------------
+labothappy.correlations.solar.Q_dot_abs  # ModuleNotFoundError: No module named 'heat_losses'
+labothappy.machine.examples.ORC.DECAGONE_ORC  # ModuleNotFoundError: No module named 'machine.circuit'
+labothappy.machine.examples.orc_circuit  # ModuleNotFoundError: No module named 'machine.circuit'
+labothappy.machine.system  # ModuleNotFoundError: No module named 'labothappy.machine.circuit'
+labothappy.sizing.heat_exchanger.PCHE.PCHE_PSO  # ImportError: cannot import name 'HeatExchangerMB' from 'component.heat_exchanger.hex_MB_charge_sensitive' (renamed to HexMBChargeSensitive)
+labothappy.sizing.heat_exchanger.PHX_CD_ORC  # ModuleNotFoundError: No module named 'BaseClases'
+labothappy.sizing.heat_exchanger.PHX_EV_ORC  # ModuleNotFoundError: No module named 'BaseClases'
+
+# --- (C) broken sizing modules --------------------------------------------
+# Most of these live under a directory whose name is not a Python identifier
+# (`0D`, `1D`), so they can never be reached by `import labothappy.sizing...`
+# at all. The suite loads those by file path instead, and the error shown is
+# what that load raises. The unimportable names are listed separately by
+# test_package_names_are_legal_identifiers; renaming the directories is what
+# clears that test, and is a separate job from fixing the errors below.
+labothappy.sizing.turbomachinery.compressor.axial.1D.mean_line_axial_compressor_loss_model_design  # ModuleNotFoundError: self-referential sibling import
+labothappy.sizing.turbomachinery.compressor.radial.1D.mean_line_radial_compressor_eta_row_design_new  # ModuleNotFoundError: self-referential sibling import
+labothappy.sizing.turbomachinery.turbine.0D.turbine_0D_design  # NameError: name 'Omega_s' is not defined
+labothappy.sizing.turbomachinery.turbine.axial.design_1D.mean_line_axial_turbine_loss_model_design  # ModuleNotFoundError: self-referential sibling import
+labothappy.sizing.turbomachinery.turbine.axial.design_1D.mean_line_axial_turbine_loss_model_design_aungier  # ModuleNotFoundError: self-referential sibling import
+labothappy.sizing.turbomachinery.turbine.axial.design_3D.mean_line_ISRE_axial_turbine_loss_model_design  # ModuleNotFoundError: self-referential sibling import
+labothappy.sizing.turbomachinery.turbine.radial.mean_line_radial_turbine_eta_row_design  # ModuleNotFoundError: self-referential sibling import
+labothappy.sizing.turbomachinery.turbine.radial.mean_line_radial_turbine_loss_model_design_parallel  # ModuleNotFoundError: self-referential sibling import
+
+# --- (D) genuine runtime error while the module runs its example ----------
+labothappy.component.Examples.compressor.compressor_semi_empirical_example  # AttributeError: 'CompressorSE' object has no attribute 'epsilon_is'
+labothappy.component.Examples.heat_exchanger.hex_T&F_MB_charge_sensitive_example  # ValueError: f(a) and f(b) must have different signs
+labothappy.component.Examples.heat_exchanger.hex_crossflowfintube_finitevolume_example  # ModuleNotFoundError: sibling module not found
+labothappy.component.Examples.solar.parabolic_trough_collector_example  # TypeError: unsupported operand type(s) for -: 'float' and 'NoneType'
+labothappy.component.Examples.tank.tank_LV_separator_example  # AttributeError: 'TankLVSeparator' object has no attribute 'plot_thermo_states'
+labothappy.component.Examples.tank.tank_mixer_example  # AttributeError: 'TankMixer' object has no attribute 'plot_thermo_states'
+labothappy.component.Examples.tank.tank_spliter_example  # AttributeError: 'TankSpliter' object has no attribute 'plot_thermo_states'
+labothappy.component.Examples.valve.valve_isenthalpic_example  # AttributeError: 'ValveIsenthalpic' object has no attribute 'plot_thermo_states'
+labothappy.component.storage.tank_isothermal  # TypeError: unsupported operand type(s) for *: 'NoneType' and 'float'
+labothappy.machine.examples.sensitivity.opt_CO2_HP  # AttributeError: 'float' object has no attribute 'T'
+labothappy.machine.examples.sensitivity.opt_CO2_TC  # AttributeError: 'float' object has no attribute 'T'
+labothappy.machine.examples.solver_comparison.HP_cycle_recursive  # ValueError: Temperature to QT_flash [377.42 K] outside [85.4 K, 369.9 K]
+labothappy.machine.examples.solver_comparison.HP_recup_cycle_iterative  # ValueError: Temperature to QT_flash [370.10 K] outside [85.4 K, 369.9 K]
+labothappy.machine.examples.solver_comparison.HP_recup_cycle_recursive  # ValueError: Temperature to QT_flash [432.59 K] outside [85.4 K, 369.9 K]
