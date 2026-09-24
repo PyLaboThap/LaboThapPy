@@ -1,0 +1,33 @@
+name: draft paper
+
+# Compiles paper/paper.md into the PDF that JOSS will review, on every change
+# to the paper. The result is attached to the run as an artifact, so the draft
+# can be read and circulated long before anything is submitted.
+
+on:
+  push:
+    paths:
+      - "paper/**"
+      - ".github/workflows/draft-pdf.yml"
+  pull_request:
+    paths:
+      - "paper/**"
+  workflow_dispatch:
+
+jobs:
+  paper:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the draft PDF
+        uses: openjournals/openjournals-draft-action@master
+        with:
+          journal: joss
+          paper-path: paper/paper.md
+
+      - name: Upload the draft PDF
+        uses: actions/upload-artifact@v4
+        with:
+          name: paper
+          path: paper/paper.pdf
