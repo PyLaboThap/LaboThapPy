@@ -79,10 +79,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/PyLaboThap/PyLaboThap"
+Homepage = "https://github.com/PyLaboThap/LaboThapPy"
 Documentation = "https://labothappy.readthedocs.io"
-Repository = "https://github.com/PyLaboThap/PyLaboThap"
-Issues = "https://github.com/PyLaboThap/PyLaboThap/issues"
+Repository = "https://github.com/PyLaboThap/LaboThapPy"
+Issues = "https://github.com/PyLaboThap/LaboThapPy/issues"
 
 [build-system]
 requires = ["setuptools>=64", "wheel"]

@@ -29,7 +29,7 @@ If you encounter any issues or have suggestions, please report them through the 
 ## Installation
 
 ```bash
-git clone https://github.com/PyLaboThap/PyLaboThap.git
+git clone https://github.com/PyLaboThap/LaboThapPy.git
 cd PyLaboThap
 pip install -e .
 ```
