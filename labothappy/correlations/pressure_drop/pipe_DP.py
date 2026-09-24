@@ -304,7 +304,7 @@ def friction_factor_cheng_CO2(G, d_hyd, P, h, mu):
 
 # 2) Compute the pressure drop in a straight pipe (single-phase flow)
 
-def pressure_drop_pipe_single_phase(AS, pipe_geom, m_dot, correlation='Churchill'):
+def pressure_drop_pipe_single_phase(AS, pipe_geom, G, correlation='Churchill'):
     """
     Compute total pressure drop in a straight pipe (single-phase flow).
 
@@ -329,8 +329,8 @@ def pressure_drop_pipe_single_phase(AS, pipe_geom, m_dot, correlation='Churchill
         (inclination from horizontal [degrees], default 0.0). For a round
         pipe the hydraulic diameter equals D; this is where that identity
         is applied (`d_hyd = D`).
-    m_dot : float
-        Mass flow rate [kg/s]
+    G : float
+        Mass flux	[kg/(m^2 * s)]
     correlation : str, optional
         Friction factor correlation:
         'Churchill' (default, valid across all Reynolds numbers, accounts
@@ -363,7 +363,7 @@ def pressure_drop_pipe_single_phase(AS, pipe_geom, m_dot, correlation='Churchill
 
     D = pipe_geom['D']
     d_hyd = D
-    A_cross = PI * D ** 2 / 4.0
+    # A_cross = PI * D ** 2 / 4.0
     L = pipe_geom['L']
     theta = pipe_geom.get('theta', 0.0)
     K = pipe_geom.get('K', 0.0)
@@ -371,7 +371,7 @@ def pressure_drop_pipe_single_phase(AS, pipe_geom, m_dot, correlation='Churchill
     mu = AS.viscosity()
     rho = AS.rhomass()
 
-    v = m_dot / (rho * A_cross)  # Mean velocity [m/s]
+    v = G / rho # Mean velocity [m/s]
 
     Re = compute_reynolds(d_hyd, mu, rho, v)
 
@@ -409,7 +409,6 @@ def pressure_drop_pipe_single_phase(AS, pipe_geom, m_dot, correlation='Churchill
                 "use roughness.",
                 stacklevel=2,
             )
-        G = m_dot / A_cross  # Mass flux [kg/(m²·s)]
         P = AS.p()
         h = AS.hmass()
 
@@ -439,7 +438,7 @@ def pressure_drop_pipe_single_phase(AS, pipe_geom, m_dot, correlation='Churchill
 
 # 1) Pressure drop correlations for two-phase flow in pipes
 
-def pressure_drop_muller_steinhagen_heck(m_dot, x, rho_l, rho_v, mu_l, mu_v, d_hyd, L, K=0):
+def pressure_drop_muller_steinhagen_heck(G, x, rho_l, rho_v, mu_l, mu_v, d_hyd, L, K=0):
     """
     Two-phase frictional pressure drop, Muller-Steinhagen and Heck (1986) 
     correlation.
@@ -486,14 +485,14 @@ def pressure_drop_muller_steinhagen_heck(m_dot, x, rho_l, rho_v, mu_l, mu_v, d_h
 
     # 1) Compute pressure drop for liquid only (lo)
 
-    v_l = m_dot / (rho_l * A_cross)  # Mean velocity [m/s]
+    v_l = G / rho_l  # Mean velocity [m/s]
     Re_l = compute_reynolds(d_hyd, mu_l, rho_l, v_l)
     f_l = friction_factor_swamee_jain(K, d_hyd, Re_l)
     dP_lo = f_l * (L / d_hyd) * (rho_l * v_l ** 2 / 2.0)
 
     # 2) Compute pressure drop for vapor only (vo)
 
-    v_v = m_dot / (rho_v * A_cross)  # Mean velocity [m/s]
+    v_v =G / rho_v  # Mean velocity [m/s]
     Re_v = compute_reynolds(d_hyd, mu_v, rho_v, v_v)
     f_v = friction_factor_swamee_jain(K, d_hyd, Re_v)
     dP_vo = f_v * (L / d_hyd) * (rho_v * v_v ** 2 / 2.0)
@@ -505,7 +504,7 @@ def pressure_drop_muller_steinhagen_heck(m_dot, x, rho_l, rho_v, mu_l, mu_v, d_h
     return dP_tp
 
 
-def pressure_drop_friedel(m_dot, x, rho_l, rho_v, mu_l, mu_v, sigma, d_hyd, L, K=0.0):
+def pressure_drop_friedel(G, x, rho_l, rho_v, mu_l, mu_v, sigma, d_hyd, L, K=0.0):
     """
     Two-phase frictional pressure drop, Friedel (1979) correlation.
 
@@ -530,7 +529,7 @@ def pressure_drop_friedel(m_dot, x, rho_l, rho_v, mu_l, mu_v, sigma, d_hyd, L, K
 
     Parameters
     ----------
-    m_dot : Total (liquid + gas) mass flow rate [kg/s]
+    G : Mass flux [kg/m^2s]
     x : Vapor quality [-], 0 < x < 1
     rho_l : Liquid density [kg/m^3]
     rho_v : Vapor density [kg/m^3]
@@ -560,7 +559,6 @@ def pressure_drop_friedel(m_dot, x, rho_l, rho_v, mu_l, mu_v, sigma, d_hyd, L, K
     """
     # Cross-sectional area and mass velocity
     A_cross = PI * d_hyd ** 2 / 4.0
-    G = m_dot / A_cross  # kg/(m²·s)
 
     # ====================================================================
     # Homogeneous two-phase properties
@@ -571,13 +569,13 @@ def pressure_drop_friedel(m_dot, x, rho_l, rho_v, mu_l, mu_v, sigma, d_hyd, L, K
     # Single-phase friction factors and liquid-only pressure drop
     # ====================================================================
     # Liquid (at total mass flow)
-    v_l = m_dot / (rho_l * A_cross)
+    v_l = G / rho_l
     Re_l = compute_reynolds(d_hyd, mu_l, rho_l, v_l)
     f_l = friction_factor_churchill(K, d_hyd, Re_l)
     dP_lo = f_l * (L / d_hyd) * (rho_l * v_l ** 2 / 2.0)
 
     # Vapor (at total mass flow)
-    v_v = m_dot / (rho_v * A_cross)
+    v_v = G / rho_v
     Re_v = compute_reynolds(d_hyd, mu_v, rho_v, v_v)
     f_v = friction_factor_churchill(K, d_hyd, Re_v)
 
@@ -696,7 +694,7 @@ def pressure_drop_choi(G, rho_su, rho_ex, x_su, x_ex, mu_l_sat, h_lv_sat, L, d_h
 # TWO-PHASE PRESSURE DROP COMPONENTS
 # ============================================================================
 
-def pressure_drop_pipe_frictional_two_phase(AS, pipe_geom, m_dot, correlation='Friedel', AS_ex=None):
+def pressure_drop_pipe_frictional_two_phase(AS, pipe_geom, G, correlation='Friedel', AS_ex=None):
     """
     Compute frictional pressure drop in two-phase flow.
 
@@ -752,21 +750,17 @@ def pressure_drop_pipe_frictional_two_phase(AS, pipe_geom, m_dot, correlation='F
 
     if correlation == 'Friedel':
         dP_friction = pressure_drop_friedel(
-            m_dot, x, rho_l, rho_v, mu_l, mu_v, sigma, d_hyd, L, K=K
+            G, x, rho_l, rho_v, mu_l, mu_v, sigma, d_hyd, L, K=K
         )
 
     elif correlation == 'MSH':
         dP_friction = pressure_drop_muller_steinhagen_heck(
-            m_dot, x, rho_l, rho_v, mu_l, mu_v, d_hyd, L, K=K
+            G, x, rho_l, rho_v, mu_l, mu_v, d_hyd, L, K=K
         )
 
     elif correlation == 'Choi':
         if AS_ex is None:
-            raise ValueError(
-                "The 'Choi' correlation needs the pipe exit state; pass "
-                "AS_ex (a CoolProp.AbstractState set to the exit quality "
-                "and pressure)."
-            )
+            AS_ex = AS.update(CP.PQ_INPUTS, AS.p, 0)
         props_ex = get_saturated_phase_properties(AS_ex)
         x_ex = props_ex["x"]
 
@@ -787,7 +781,6 @@ def pressure_drop_pipe_frictional_two_phase(AS, pipe_geom, m_dot, correlation='F
         h_lv_sat = AS_sat.hmass() - h_l_sat
 
         A_cross = PI * d_hyd ** 2 / 4.0
-        G = m_dot / A_cross  # Mass flux [kg/(m²·s)]
 
         dP_friction = pressure_drop_choi(
             G, rho_su, rho_ex, x, x_ex, mu_l_sat, h_lv_sat, L, d_hyd
@@ -802,7 +795,7 @@ def pressure_drop_pipe_frictional_two_phase(AS, pipe_geom, m_dot, correlation='F
     return dP_friction
 
 
-def pressure_drop_pipe_acceleration_two_phase(m_dot, d_hyd, rho_l, rho_v, x_inlet,x_outlet, void_fraction_model=None):
+def pressure_drop_pipe_acceleration_two_phase(G, d_hyd, rho_l, rho_v, x_inlet,x_outlet, void_fraction_model=None):
     """
     Compute acceleration pressure drop in two-phase flow.
 
@@ -819,8 +812,8 @@ def pressure_drop_pipe_acceleration_two_phase(m_dot, d_hyd, rho_l, rho_v, x_inle
 
     Parameters
     ----------
-    m_dot : float
-        Mass flow rate [kg/s]
+    G : float
+        Mass flux [kg/m^2s]
     d_hyd : float
         Hydraulic diameter [m]
     rho_l : float
@@ -877,7 +870,6 @@ def pressure_drop_pipe_acceleration_two_phase(m_dot, d_hyd, rho_l, rho_v, x_inle
             return term1 + term2
 
     A_cross = PI * d_hyd ** 2 / 4.0
-    G = m_dot / A_cross  # kg/(m²·s)
 
     f_inlet = f_acceleration(x_inlet, rho_l, rho_v, void_fraction_model)
     f_outlet = f_acceleration(x_outlet, rho_l, rho_v, void_fraction_model)
@@ -929,7 +921,7 @@ def pressure_drop_pipe_gravity_two_phase(L, rho_l, rho_v, x_inlet, x_outlet, the
 # TOTAL TWO-PHASE PRESSURE DROP
 # ============================================================================
 
-def pressure_drop_pipe_two_phase(AS, pipe_geom, m_dot, correlation='Friedel', void_fraction_model=None, AS_ex=None):
+def pressure_drop_pipe_two_phase(AS, pipe_geom, G, correlation='Friedel', void_fraction_model=None, AS_ex=None):
     """
     Compute total two-phase pressure drop in a straight pipe.
 
@@ -954,8 +946,8 @@ def pressure_drop_pipe_two_phase(AS, pipe_geom, m_dot, correlation='Friedel', vo
         (inclination from horizontal [degrees], default 0.0). For a round
         pipe the hydraulic diameter equals D (`d_hyd = D`). Also passed
         through to `pressure_drop_pipe_frictional_two_phase`.
-    m_dot : float
-        Mass flow rate [kg/s]
+    G : float
+        Mass flux [kg/m^2 s]
     correlation : str, optional
         Two-phase frictional pressure drop correlation, passed to
         `pressure_drop_pipe_frictional_two_phase`: 'Friedel' (default),
@@ -990,7 +982,7 @@ def pressure_drop_pipe_two_phase(AS, pipe_geom, m_dot, correlation='Friedel', vo
     rho_v = props["rho_v"]
 
     dP_friction = pressure_drop_pipe_frictional_two_phase(
-        AS, pipe_geom, m_dot, correlation=correlation, AS_ex=AS_ex
+        AS, pipe_geom, G, correlation=correlation, AS_ex=AS_ex
     )
 
     # ========== STEP 2: Get outlet quality ==========
@@ -1009,7 +1001,7 @@ def pressure_drop_pipe_two_phase(AS, pipe_geom, m_dot, correlation='Friedel', vo
 
     # Acceleration pressure drop
     dP_acceleration = pressure_drop_pipe_acceleration_two_phase(
-        m_dot, d_hyd, rho_l, rho_v, x_inlet, x_outlet, void_fraction_model=void_fraction_model
+        G, d_hyd, rho_l, rho_v, x_inlet, x_outlet, void_fraction_model=void_fraction_model
     )
 
     # Gravitational pressure drop
