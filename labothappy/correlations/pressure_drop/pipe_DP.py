@@ -429,6 +429,8 @@ def pressure_drop_pipe_single_phase(AS, pipe_geom, G, correlation='Churchill'):
     # Total pressure drop
     dP_total = dP_friction + dP_gravity
 
+    print('dP_one_phase', dP_total)
+
     return dP_total
 
 
@@ -481,7 +483,7 @@ def pressure_drop_muller_steinhagen_heck(G, x, rho_l, rho_v, mu_l, mu_v, d_hyd, 
     if not (0 < x < 1):
         raise ValueError(f"Muller-Steinhagen-Heck correlation requires 0 < x < 1, got x = {x}")
 
-    A_cross = np.pi / 4 * d_hyd**2  # cross-sectional flow area, circular channel assumed
+    # A_cross = np.pi / 4 * d_hyd**2  # cross-sectional flow area, circular channel assumed
 
     # 1) Compute pressure drop for liquid only (lo)
 
@@ -492,7 +494,7 @@ def pressure_drop_muller_steinhagen_heck(G, x, rho_l, rho_v, mu_l, mu_v, d_hyd, 
 
     # 2) Compute pressure drop for vapor only (vo)
 
-    v_v =G / rho_v  # Mean velocity [m/s]
+    v_v = G / rho_v  # Mean velocity [m/s]
     Re_v = compute_reynolds(d_hyd, mu_v, rho_v, v_v)
     f_v = friction_factor_swamee_jain(K, d_hyd, Re_v)
     dP_vo = f_v * (L / d_hyd) * (rho_v * v_v ** 2 / 2.0)
@@ -500,7 +502,10 @@ def pressure_drop_muller_steinhagen_heck(G, x, rho_l, rho_v, mu_l, mu_v, d_hyd, 
     # 3) Muller-Steinhagen and Heck interpolation
     G_MSH = dP_lo + 2 * (dP_vo - dP_lo) * x
     dP_tp = G_MSH * (1 - x)**(1 / 3) + dP_vo * x**3
-
+    print(dP_vo)
+    print(dP_lo)
+    print(G_MSH)
+    print("dP_tp MSH", dP_tp)
     return dP_tp
 
 
@@ -869,10 +874,14 @@ def pressure_drop_pipe_acceleration_two_phase(G, d_hyd, rho_l, rho_v, x_inlet,x_
 
             return term1 + term2
 
-    A_cross = PI * d_hyd ** 2 / 4.0
-
+    # A_cross = PI * d_hyd ** 2 / 4.0
+    print('x_inlet', x_inlet)
+    print('x_outlet', x_outlet)
     f_inlet = f_acceleration(x_inlet, rho_l, rho_v, void_fraction_model)
     f_outlet = f_acceleration(x_outlet, rho_l, rho_v, void_fraction_model)
+
+    print("f_inlet", f_inlet)
+    print("f_outlet", f_outlet)
 
     dP_acceleration = G ** 2 * (f_outlet - f_inlet)
 
@@ -1011,5 +1020,9 @@ def pressure_drop_pipe_two_phase(AS, pipe_geom, G, correlation='Friedel', void_f
 
     # Total pressure drop
     dP_total = dP_friction + dP_acceleration + dP_gravity
+    print('dP_friction', dP_friction)
+    print('ddP_acceleration', dP_acceleration)
+    print('dP_gravity', dP_gravity)
+    print('dP_tp', dP_total)
 
     return dP_total

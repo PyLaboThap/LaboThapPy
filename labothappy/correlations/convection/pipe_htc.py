@@ -1066,6 +1066,20 @@ def Cheng_sCO2(G, q, T_w, P, h_in, h_out, mu, k, D_in, fluid):
         # print(f"h_bot : {h_bot}")     
         
         return (h_top + h_bot)/2
+
+def Meshram(Dh, G, k, mu, Pr):
+    """
+    Modeling and analysis of a printed circuit heat exchanger for supercritical CO2 power cycle applications
+    
+    Ajinkya Meshram, Ankush Kumar Jaiswal, Sagar D. Khivsara, Jesus D. Ortega, Clifford Ho, Rucha Bapat, Pradip Dutta
+    """
+    Re = G*Dh/mu
+
+    Nu = 0.0177 * Re**0.871 * Pr**0.7
+
+    h_conv = Nu*k/Dh
+    
+    return h_conv
         
 def Liu_sCO2(G, P, T_w, k, rho, mu, cp, D_in, fluid):
     """

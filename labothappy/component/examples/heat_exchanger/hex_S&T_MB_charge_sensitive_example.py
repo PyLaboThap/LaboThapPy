@@ -87,7 +87,7 @@ if case_study == 'Methanol':
     Corr_H = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
     
     Corr_H_DP = {"1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
-    Corr_C_DP = {"1P" : "Konakov", "2P" : "MSH"}
+    Corr_C_DP = {"1P" : "Churchill", "2P" : "MSH"}
 # -------------------------------------------------------------------------------------------------------------
 
 # Sizing code example case
@@ -148,7 +148,7 @@ if case_study == 'R134a':
     Corr_H = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
     
     Corr_H_DP = {"1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
-    Corr_C_DP = {"1P" : "Konakov", "2P" : "MSH"}
+    Corr_C_DP = {"1P" : "Churchill", "2P" : "MSH"}
 
 if case_study == 'R134a_cond':
             
@@ -204,8 +204,8 @@ if case_study == 'R134a_cond':
     # Corr_C = {"1P" : "Gnielinski", "2P" : "Flow_boiling_gungor_winterton"}
     Corr_C = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
     
-    Corr_C_DP = {"1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
-    Corr_H_DP = {"1P" : "Konakov", "2P" : "MSH"}
+    Corr_C_DP = {"1P" : "Churchill", "2P" : "Churchill"}
+    Corr_H_DP = {"1P" : "Churchill", "2P" : "MSH"}
 
 if case_study == 'R32':
     
@@ -322,7 +322,7 @@ if case_study == 'CO2_GasCooler_1':
     Corr_C = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
     
     Corr_C_DP = {"1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
-    Corr_H_DP = {"1P" : "Konakov", "2P" : "MSH", "SC" : "Cheng-CO2"} 
+    Corr_H_DP = {"1P" : "Churchill", "2P" : "MSH", "SC" : "Cheng-CO2"} 
 
 # -------------------------------------------------------------------------------------------------------------
 

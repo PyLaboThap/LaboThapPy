@@ -53,7 +53,7 @@ Corr_H = {"1P" : "Tube_And_Fins", "2P" : "Tube_And_Fins"}
 Corr_C = {"1P" : "Gnielinski", "2P" : "Boiling_curve"}
 
 Corr_H_DP = {"1P" : "Tube_And_Fins_DP", "2P" : "Tube_And_Fins_DP"}
-Corr_C_DP = {"1P" : "Konakov", "2P" : "MSH"}
+Corr_C_DP = {"1P" : "Churchill", "2P" : "Friedel"}
 
 # -------------------------------------------------------------------------------------------------------------
 
@@ -145,8 +145,8 @@ HX.set_parameters(
 HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 
 
 # HX.set_DP() # equivalent to HX.set_DP(DP_type = None)
-# HX.set_DP(DP_type="User-Defined", UD_C_DP = 10000, UD_H_DP = 10000) # Fixed User-Defined values, equally distributed over discretizations
-HX.set_DP(DP_type="Correlation_Global", Corr_C=Corr_C_DP, Corr_H=Corr_H_DP)
+HX.set_DP(DP_type="User-Defined", UD_C_DP = 10000, UD_H_DP = 10000) # Fixed User-Defined values, equally distributed over discretizations
+# HX.set_DP(DP_type="Correlation_Global", Corr_C=Corr_C_DP, Corr_H=Corr_H_DP)
 # HX.set_DP(DP_type="Correlation_Disc", Corr_C=Corr_C_DP, Corr_H=Corr_H_DP)
 
 "Solve the component"
