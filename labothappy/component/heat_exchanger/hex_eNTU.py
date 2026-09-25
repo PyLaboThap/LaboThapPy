@@ -11,10 +11,8 @@ from correlations.convection.pipe_htc import gnielinski_pipe_htc
 from correlations.heat_exchanger.e_NTU import e_NTU
 
 from connector.mass_connector import MassConnector
-from connector.work_connector import WorkConnector
 from connector.heat_connector import HeatConnector
 
-from CoolProp.CoolProp import PropsSI
 import CoolProp.CoolProp as CP
 
 class HexeNTU(BaseComponent):

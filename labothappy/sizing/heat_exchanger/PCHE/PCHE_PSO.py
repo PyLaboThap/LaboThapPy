@@ -521,8 +521,8 @@ if __name__ == "__main__":
     H_Corr = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
     C_Corr = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
     
-    H_DP = {"1P" : "Gnielinski_DP", "SC" : "Gnielinski_DP"}
-    C_DP = {"1P" : "Gnielinski_DP", "SC" : "Gnielinski_DP"}
+    H_DP = {"1P" : "Petukhov", "SC" : "Petukhov"}
+    C_DP = {"1P" : "Petukhov", "SC" : "Petukhov"}
     
     HX_opt.set_corr(H_Corr, C_Corr, H_DP, C_DP)
     

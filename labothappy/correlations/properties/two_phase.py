@@ -37,6 +37,16 @@ def get_saturated_phase_properties(AS):
     AS_v = CP.AbstractState(AS.backend_name(), AS.fluid_names()[0])
     AS_v.update(CP.PQ_INPUTS, P, 1)
 
+    try:
+        sigma = AS.surface_tension()
+    except ValueError:
+        # Tabular backends (e.g. 'BICUBIC&HEOS') don't implement
+        # surface_tension(), even for a genuinely two-phase state. Fall
+        # back to a full-EOS state at the same (P, x).
+        AS_sigma = CP.AbstractState("HEOS", AS.fluid_names()[0])
+        AS_sigma.update(CP.PQ_INPUTS, P, x)
+        sigma = AS_sigma.surface_tension()
+
     return {
         "x": x,
         "P": P,
@@ -44,7 +54,7 @@ def get_saturated_phase_properties(AS):
         "rho_v": AS_v.rhomass(),
         "mu_l": AS_l.viscosity(),
         "mu_v": AS_v.viscosity(),
-        "sigma": AS.surface_tension(),
+        "sigma": sigma,
     }
 
 def compute_two_phase_density(x, rho_l, rho_g, alpha=None):

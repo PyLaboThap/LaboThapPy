@@ -153,8 +153,12 @@ def f_lmtd2(R,P,params,C_r):
         print("No e-NTU Correlation implemented for other Flow_Type than : 'Shell&Tube', 'CrossFlow', 'ParallelFlow' ")        
     
     out_fsolve = fsolve(f, 1, full_output= 1)#, args=(), fprime=None, full_output=0, col_deriv=0, xtol=1.49012e-08, maxfev=0, band=None, epsfcn=None, factor=100, diag=None)    
-    NTU, res_NTU,flag_ntu = float(out_fsolve[0]), float(out_fsolve[1].get('fvec')), out_fsolve[2]
-    
+    # NTU, res_NTU,flag_ntu = float(out_fsolve[0]), float(out_fsolve[1].get('fvec')), out_fsolve[2]
+    NTU      = out_fsolve[0].item()           # or out_fsolve[0][0]
+    res_NTU  = out_fsolve[1]['fvec'].item()
+    flag_ntu = out_fsolve[2]
+
+
     if abs(res_NTU)< 1e-3  and flag_ntu > 0:
         if  R==1:
             F=P/NTU/(1-P)

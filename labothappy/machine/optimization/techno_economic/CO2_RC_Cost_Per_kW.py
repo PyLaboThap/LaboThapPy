@@ -65,8 +65,8 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
         H_Corr = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
         C_Corr = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
         
-        Corr_H_DP = {"SC" : "Gnielinski_DP", "1P" : "Gnielinski_DP"}
-        Corr_C_DP = {"SC" : "Gnielinski_DP", "1P" : "Gnielinski_DP"}
+        Corr_H_DP = {"SC" : "Petukhov", "1P" : "Petukhov"}
+        Corr_C_DP = {"SC" : "Petukhov", "1P" : "Petukhov"}
         
         # REC_sizing.set_htc(htc_type = 'Correlation_Disc', Corr_H = H_Corr, Corr_C = C_Corr)
         # REC_sizing.set_DP(DP_type="Correlation_Disc", Corr_C=Corr_C_DP, Corr_H=Corr_H_DP)
@@ -156,7 +156,7 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
         C_Corr = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Flow_boiling"}
         
         H_DP = {"SC" : "Shell_Kern_DP", "1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
-        C_DP = {"SC" : "Gnielinski_DP", "1P" : "Gnielinski_DP", "2P" : "Gnielinski_DP"}
+        C_DP = {"SC" : "Konakov", "1P" : "Konakov", "2P" : "Konakov"}
         
         GH_sizing.set_corr(H_Corr, C_Corr, H_DP, C_DP)
     
@@ -234,7 +234,7 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
         H_Corr = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Thome_Condensation"}
         C_Corr = {"SC" : "Shell_Kern_HTC", "1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
 
-        H_DP = {"SC" : "Gnielinski_DP", "1P" : "Gnielinski_DP", "2P" : "Choi_DP"}
+        H_DP = {"SC" : "Konakov", "1P" : "Konakov", "2P" : "MSH"}
         C_DP = {"SC" : "Shell_Kern_DP", "1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
         
         CD_sizing.set_corr(H_Corr, C_Corr, H_DP, C_DP)

@@ -66,14 +66,14 @@ if test_case == "test_CO2":
     Corr_H = {"SC" : "Gnielinski", "1P" : "Gnielinski"}
     Corr_C = {"SC" : "Gnielinski", "1P" : "Gnielinski"}
 
-    Corr_H_DP = {"SC" : "Darcy_Weisbach", "1P" : "Darcy_Weisbach"}
-    Corr_C_DP = {"SC" : "Darcy_Weisbach", "1P" : "Darcy_Weisbach"}  
+    Corr_H_DP = {"SC" : "Haaland", "1P" : "Haaland"}
+    Corr_C_DP = {"SC" : "Haaland", "1P" : "Haaland"}
 
     # ---------------------------------------------------------------------------------------------------------
     # "Parameters Setting"
-    
+
     HX.set_parameters(
-        alpha = params['alpha'], C_V_tot = params['C_V_tot'], H_V_tot = params['H_V_tot'], D_c = params['D_c'], k_cond = params['k_cond'], L_c = params['L_c'], 
+        alpha = params['alpha'], C_V_tot = params['C_V_tot'], H_V_tot = params['H_V_tot'], D_c = params['D_c'], k_cond = params['k_cond'], L_c = params['L_c'],
         N_c = params['N_c'], N_p = params['N_p'], R_p = params['R_p'], t_2 = params['t_2'], t_3 = params['t_3'], type_channel = params['type_channel'],
         
         Flow_Type = 'CounterFlow', H_DP_ON = True, C_DP_ON = True, n_disc = 50) # 27
@@ -112,11 +112,11 @@ if test_case == "TCO2_recup":
     Corr_H = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
     Corr_C = {"1P" : "Gnielinski", "SC" : "Gnielinski"}
     
-    # H_DP = "Gnielinski_DP"
-    # C_DP = "Gnielinski_DP"    
-    
-    Corr_H_DP = {"SC" : "Darcy_Weisbach", "1P" : "Darcy_Weisbach"}
-    Corr_C_DP = {"SC" : "Darcy_Weisbach", "1P" : "Darcy_Weisbach"}  
+    # H_DP = "Churchill"
+    # C_DP = "Churchill"
+
+    Corr_H_DP = {"SC" : "Haaland", "1P" : "Haaland"}
+    Corr_C_DP = {"SC" : "Haaland", "1P" : "Haaland"}
     
     # ---------------------------------------------------------------------------------------------------------
     # "Parameters Setting"

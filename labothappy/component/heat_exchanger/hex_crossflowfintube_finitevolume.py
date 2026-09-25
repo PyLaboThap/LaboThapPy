@@ -21,11 +21,13 @@ from labothappy.correlations.convection.pipe_htc import horizontal_flow_boiling
 
 #Pressure drop correlations
 from labothappy.correlations.pressure_drop.fins_DP import DP_tube_and_fins
-from labothappy.correlations.pressure_drop.pipe_DP import gnielinski_pipe_DP, Muller_Steinhagen_Heck_DP_Simple
+from labothappy.correlations.pressure_drop.pipe_DP import (
+    pressure_drop_pipe_single_phase,
+    pressure_drop_pipe_frictional_two_phase,
+)
 
 
 # Phase related import
-# from labothappy.correlations.void_fraction.void_fraction import compute_void_fraction
 from labothappy.correlations.properties.two_phase import compute_two_phase_density
 
 
@@ -47,7 +49,7 @@ class HexCrossFlowTubeAndFinsFiniteVolume(BaseComponent):
     
         - Steady-state operation.
         - Uniform flow distribution across tubes and fins.
-        - Correlations used for heat transfer and pressure drop calculations (e.g., Gnielinski, Müller-Steinhagen-Heck).
+        - Correlations used for heat transfer (e.g., Gnielinski) and tube-side pressure drop (Churchill for single-phase, Müller-Steinhagen-Heck for two-phase, both user-selectable).
         - Two-phase flow effects are considered where applicable.
         - Fluid properties are retrieved from CoolProp.
     
@@ -67,7 +69,20 @@ class HexCrossFlowTubeAndFinsFiniteVolume(BaseComponent):
         C_DP_ON (bool): Flag to enable pressure drop calculation on cold side.
         n_disc (int): Number of discretization segments along the heat exchanger length.
         Fin_Side (str): Specifies which side has fins ('H' for hot side, 'C' for cold side).
-        
+
+        Optional Tube-Side Pressure Drop Parameters (labothappy.correlations.pressure_drop.pipe_DP):
+
+            DP_1phase_correlation (str, optional): Single-phase friction correlation,
+            passed to `pressure_drop_pipe_single_phase`. Default: 'Churchill'.
+            Also available: 'Swamee-Jain', 'Haaland', 'Konakov', 'Petukhov', 'Cheng-CO2'.
+
+            DP_2phase_correlation (str, optional): Two-phase frictional correlation,
+            passed to `pressure_drop_pipe_frictional_two_phase`. Default: 'MSH'
+            (Muller-Steinhagen & Heck). Also available: 'Friedel'.
+
+            Tube_roughness (float, optional): Tube absolute roughness K [m], used by
+            the roughness-aware single-phase correlations. Default: 0.0 (smooth).
+
         Geometry Parameters:
             
             Fin_OD : Fin diameter/length [m]
@@ -299,7 +314,14 @@ class HexCrossFlowTubeAndFinsFiniteVolume(BaseComponent):
         P_in_one_tube = (np.pi)*(self.params['Tube_OD'] - 2*self.params['Tube_t'])
         D_h_one_tube = 4*A_in_one_tube/P_in_one_tube
         G_1t = m_dot_1_tube_in/A_in_one_tube
-    
+
+        # Tube-side pipe geometry for the pressure drop correlations (one tube segment)
+        pipe_geom_t = {
+            'D': D_h_one_tube, # Pipe inner diameter [m]
+            'L': self.params['Tube_L']/self.params['n_disc'], # Pipe length [m]
+            'K': self.params.get('Tube_roughness', 0.0), 
+        }
+
         x = AS_t.Q()
         
         if x < 0: # 1 phase case
@@ -307,24 +329,32 @@ class HexCrossFlowTubeAndFinsFiniteVolume(BaseComponent):
             mu = AS_t.viscosity()
             Pr = AS_t.Prandtl()
             k = AS_t.conductivity()
-            rho = AS_t.rhomass()
-    
+
+            # Must be computed here (bulk flow state), before AS_t is
+            # updated to the wall-temperature state below.
+            DP_t = pressure_drop_pipe_single_phase(
+                AS_t, pipe_geom_t, G_1t,
+                correlation=self.params.get('DP_1phase_correlation', 'Churchill'),
+            )
+
             AS_t.update(CP.PT_INPUTS, p_t_in, T_wall)
-            Pr_w = AS_t.Prandtl()     
-    
+            Pr_w = AS_t.Prandtl()
+
             if self.debug:
                 print("Pr",Pr)
                 print("Pr_w",Pr_w)
                 print("ratio",(Pr/Pr_w)**0.11)
-                        
+
             alpha_t = gnielinski_pipe_htc(mu, Pr, Pr_w, k, G_1t, self.params['Tube_OD'] - self.params['Tube_t'], self.params['Tube_L']/self.params['n_disc'])[0]
-            DP_t = gnielinski_pipe_DP(mu, rho, G_1t, D_h_one_tube, self.params['Tube_L']/self.params['n_disc'])
-            
+
         else: # 2 phase flow
-            AS_t.update(CP.PQ_INPUTS, p_t_in, 0)
             P_sat = p_t_in
-                        
-            DP_t = Muller_Steinhagen_Heck_DP_Simple(AS_t, G_1t, P_sat, x, x, self.params['Tube_L']/self.params['n_disc'], D_h_one_tube)           
+
+            DP_t = pressure_drop_pipe_frictional_two_phase(
+                AS_t, pipe_geom_t, G_1t,
+                correlation=self.params.get('DP_2phase_correlation', 'MSH'),
+            )
+            
             if T_wall <= T_t_in: # Condensation
                 alpha_t = horizontal_tube_internal_condensation(self.T_su.fluid,self.T_su.m_dot,P_sat,h_t_in,T_wall,self.params['Tube_OD'] - self.params['Tube_t'])
             else: # Evaporation

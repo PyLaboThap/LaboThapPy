@@ -124,8 +124,8 @@ class CurvedElbow(BaseComponent):
 
         # Charge using mean density
         rho_mean = (rho_su + rho_ex) / 2.0
-        L = abs(delta_rad) * R0  # Arc length
-        self.m_charge = A_cross * L * rho_mean
+        L_arc = abs(delta_rad) * R0  # Arc length
+        self.charge = A_cross * L_arc * rho_mean
 
         # Store diagnostics
         self.is_two_phase = False       
@@ -171,8 +171,8 @@ class CurvedElbow(BaseComponent):
         self.ex.set_p(self.su.p - self.dP)
 
         # Charge using homogeneous density (constant along short bend)
-        L = abs(delta_rad) * R0  # Arc length
-        self.m_charge = A_cross * L * rho_h
+        L_arc = abs(delta_rad) * R0  # Arc length
+        self.charge = A_cross * L_arc * rho_h
 
         # Store diagnostics
         self.is_two_phase = True
@@ -201,6 +201,6 @@ class CurvedElbow(BaseComponent):
             print(f"ρ_vapor           : {self.rho_g:.4f} kg/m³")
             print(f"ρ_homogeneous     : {self.rho_h:.2f} kg/m³")
         
-        print(f"\nPressure drop     : {self.deltaP:.2f} Pa")
-        print(f"Refrigerant charge: {self.m_charge:.6f} kg")
+        print(f"\nPressure drop     : {self.dP:.2f} Pa")
+        print(f"Refrigerant charge: {self.charge:.6f} kg")
         print("=" * 70)

@@ -1,24 +1,4 @@
-import __init__
-
-"""
-import sys
-import os
-
-# Get the absolute path of the directory that contains the script (simulation_model.py)
-current_dir = os.path.dirname(os.path.abspath(__file__))
-
-# Determine the project root directory (which contains both 'connector' and 'component')
-project_root = os.path.abspath(os.path.join(current_dir, '..', '..')) 
-
-# Add the project root to sys.path if it's not already there
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-"""
-
-#%%
-
 from labothappy.connector.mass_connector import MassConnector
-from labothappy.connector.work_connector import WorkConnector
 from labothappy.connector.heat_connector import HeatConnector
 
 from labothappy.component.base_component import BaseComponent

@@ -6,12 +6,9 @@ from labothappy.component.base_component import BaseComponent
 
 # from component.heat_exchanger.moving_boundary.simple_model.modules.U import U_Gnielinski_calibrated, U_DittusBoelter, U_Cooper_calibrater, U_Thonon
 
-from CoolProp.CoolProp import PropsSI
-from scipy.optimize import fsolve
 
 import CoolProp.CoolProp as CP
 import numpy as np
-import math
 
 class HexCstEffDisc(BaseComponent):
     """

@@ -224,7 +224,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
             Corr_C = self.C_htc_Corr
             
             Corr_H_DP = self.H_DP_Corr 
-            Corr_C_DP = self.C_DP_Corr # "Gnielinski_DP"
+            Corr_C_DP = self.C_DP_Corr # "Konakov"
 
             self.HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 'User-Defined' or 'Correlation' # 31
 
@@ -1112,9 +1112,9 @@ def run_single_optimization(run_id, config, n_part, max_iter):
         C_Corr = {"1P" : "Gnielinski", "2P" : "Flow_boiling"}
         
         # H_DP = "Shell_Kern_DP"
-        # C_DP = "Gnielinski_DP"
+        # C_DP = "Konakov"
         
-        C_DP = {"SC" : "Gnielinski_DP", "1P" : "Gnielinski_DP", "2P" : "Choi_DP"}
+        C_DP = {"SC" : "Konakov", "1P" : "Konakov", "2P" : "MSH"}
         H_DP = {"SC" : "Shell_Kern_DP", "1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
         
         HX_test.set_corr(H_Corr, C_Corr, H_DP, C_DP)
@@ -1212,9 +1212,9 @@ def run_single_optimization(run_id, config, n_part, max_iter):
         C_Corr = {"1P" : "Gnielinski", "2P" : "Flow_boiling"}
         
         # H_DP = "Shell_Kern_DP"
-        # C_DP = "Muller_Steinhagen_Heck_DP"
+        # C_DP = "MSH"
 
-        C_DP = {"SC" : "Gnielinski_DP", "1P" : "Gnielinski_DP", "2P" : "Muller_Steinhagen_Heck_DP"}
+        C_DP = {"SC" : "Konakov", "1P" : "Konakov", "2P" : "MSH"}
         H_DP = {"SC" : "Shell_Kern_DP", "1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
         
         HX_test.set_corr(H_Corr, C_Corr, H_DP, C_DP)
@@ -1302,10 +1302,10 @@ def run_single_optimization(run_id, config, n_part, max_iter):
         # Corr_H = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Gnielinski"}
         Corr_C = {"SC" : "Shell_Kern_HTC", "1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
 
-        Corr_H_DP = "Choi_DP"
+        Corr_H_DP = "MSH"
         Corr_C_DP = "Shell_Kern_DP"
         
-        # Corr_H_DP = {"SC" : "Gnielinski_DP", "1P" : "Gnielinski_DP", "2P" : "Choi_DP"}
+        # Corr_H_DP = {"SC" : "Konakov", "1P" : "Konakov", "2P" : "MSH"}
         # Corr_C_DP = {"SC" : "Shell_Kern_DP", "1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
         
         HX_test.set_corr(Corr_H, Corr_C, Corr_H_DP, Corr_C_DP)
@@ -1393,9 +1393,9 @@ def run_single_optimization(run_id, config, n_part, max_iter):
         Corr_C = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Flow_boiling"}
         
         Corr_H_DP = "Shell_Kern_DP"
-        Corr_C_DP = "Gnielinski_DP"
+        Corr_C_DP = "Konakov"
         
-        # Corr_C_DP = {"SC" : "Gnielinski_DP", "1P" : "Gnielinski_DP", "2P" : "Choi_DP"}
+        # Corr_C_DP = {"SC" : "Konakov", "1P" : "Konakov", "2P" : "MSH"}
         # Corr_H_DP = {"SC" : "Shell_Kern_DP", "1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
         
         HX_test.set_corr(Corr_H, Corr_C, Corr_H_DP, Corr_C_DP)
@@ -1754,9 +1754,9 @@ if __name__ == "__main__":
             C_Corr = {"1P" : "Gnielinski", "2P" : "Flow_boiling"}
             
             # H_DP = "Shell_Kern_DP"
-            # C_DP = "Gnielinski_DP"
+            # C_DP = "Konakov"
             
-            C_DP = {"SC" : "Gnielinski_DP", "1P" : "Gnielinski_DP", "2P" : "Choi_DP"}
+            C_DP = {"SC" : "Konakov", "1P" : "Konakov", "2P" : "MSH"}
             H_DP = {"SC" : "Shell_Kern_DP", "1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
             
             HX_test.set_corr(H_Corr, C_Corr, H_DP, C_DP)
@@ -1844,7 +1844,7 @@ if __name__ == "__main__":
             H_Corr = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
             C_Corr = {"1P" : "Gnielinski", "2P" : "Flow_boiling"}
     
-            C_DP = {"SC" : "Gnielinski_DP", "1P" : "Gnielinski_DP", "2P" : "Muller_Steinhagen_Heck_DP"}
+            C_DP = {"SC" : "Konakov", "1P" : "Konakov", "2P" : "MSH"}
             H_DP = {"SC" : "Shell_Kern_DP", "1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
             
             HX_test.set_corr(H_Corr, C_Corr, H_DP, C_DP)
@@ -1931,7 +1931,7 @@ if __name__ == "__main__":
             Corr_H = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Thome_Condensation"}
             Corr_C = {"SC" : "Shell_Kern_HTC", "1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
             
-            Corr_H_DP = {"SC" : "Gnielinski_DP", "1P" : "Gnielinski_DP", "2P" : "Choi_DP"}
+            Corr_H_DP = {"SC" : "Konakov", "1P" : "Konakov", "2P" : "MSH"}
             Corr_C_DP = {"SC" : "Shell_Kern_DP", "1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
             
             HX_test.set_corr(Corr_H, Corr_C, Corr_H_DP, Corr_C_DP)
@@ -2018,7 +2018,7 @@ if __name__ == "__main__":
             Corr_H = {"SC" : "Shell_Kern_HTC", "1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
             Corr_C = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Flow_boiling"}
             
-            Corr_C_DP = {"SC" : "Gnielinski_DP", "1P" : "Gnielinski_DP", "2P" : "Choi_DP"}
+            Corr_C_DP = {"SC" : "Konakov", "1P" : "Konakov", "2P" : "MSH"}
             Corr_H_DP = {"SC" : "Shell_Kern_DP", "1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
             
             HX_test.set_corr(Corr_H, Corr_C, Corr_H_DP, Corr_C_DP)
