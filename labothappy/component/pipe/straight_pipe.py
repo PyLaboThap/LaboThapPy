@@ -116,7 +116,8 @@ class StraightPipe(BaseComponent):
         A_cross = PI * self.params['D']**2 / 4  # Cross-sectional area [m²]
 
         one_phase_correlation = self.params.get('one_phase_correlation', 'Churchill')  # Default to Churchill correlation
-        self.dP = pressure_drop_pipe_single_phase(self.AS, self.params, self.su.m_dot, correlation=one_phase_correlation)
+        G = self.su.m_dot/A_cross
+        self.dP = pressure_drop_pipe_single_phase(self.AS, self.params, G, correlation=one_phase_correlation)
 
         self.ex.set_fluid(self.su.fluid)
         self.ex.set_m_dot(self.su.m_dot)
@@ -135,6 +136,8 @@ class StraightPipe(BaseComponent):
 
     def _solve_two_phase(self, x):
         """Solve two-phase pressure drop using Friedel."""
+        A_cross = PI * self.params['D']**2 / 4  # Cross-sectional area [m²]
+        
         props = get_saturated_phase_properties(self.AS)
         rho_l = props["rho_l"]
         rho_v = props["rho_v"]
@@ -147,8 +150,9 @@ class StraightPipe(BaseComponent):
         self.charge = rho_tp * self.params['L'] * (PI * self.params['D']**2 / 4)
 
         two_phase_correlation = self.params.get('two_phase_correlation', 'Friedel') 
+        G = self.su.m_dot/A_cross
         self.dP = pressure_drop_pipe_two_phase(
-            self.AS, self.params, self.su.m_dot, correlation=two_phase_correlation
+            self.AS, self.params, G, correlation=two_phase_correlation
         )
 
         self.ex.set_fluid(self.su.fluid)

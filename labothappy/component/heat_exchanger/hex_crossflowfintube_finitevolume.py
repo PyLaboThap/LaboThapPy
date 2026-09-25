@@ -333,7 +333,7 @@ class HexCrossFlowTubeAndFinsFiniteVolume(BaseComponent):
             # Must be computed here (bulk flow state), before AS_t is
             # updated to the wall-temperature state below.
             DP_t = pressure_drop_pipe_single_phase(
-                AS_t, pipe_geom_t, m_dot_1_tube_in,
+                AS_t, pipe_geom_t, G_1t,
                 correlation=self.params.get('DP_1phase_correlation', 'Churchill'),
             )
 
@@ -351,7 +351,7 @@ class HexCrossFlowTubeAndFinsFiniteVolume(BaseComponent):
             P_sat = p_t_in
 
             DP_t = pressure_drop_pipe_frictional_two_phase(
-                AS_t, pipe_geom_t, m_dot_1_tube_in,
+                AS_t, pipe_geom_t, G_1t,
                 correlation=self.params.get('DP_2phase_correlation', 'MSH'),
             )
             
