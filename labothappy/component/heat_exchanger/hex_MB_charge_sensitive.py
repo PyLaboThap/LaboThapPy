@@ -268,9 +268,9 @@ class HexMBChargeSensitive(BaseComponent):
         self.ex_C = MassConnector() # Mass_connector
                 
         self.Q = HeatConnector()
-        self.F_fun = None
+        self.F_fun = None # /!\ UNUSED!!
         self.w = [None]
-        self.Qdot_c_rel = [0]
+        self.Qdot_c_rel = [0] # /!\ There's also a hot side but only the cold side is put here? Makes no sense
 
         self.AS_C = None
         self.AS_H = None
@@ -286,9 +286,9 @@ class HexMBChargeSensitive(BaseComponent):
         self.Q_guess = None
         self.eval = 0
         
-        self.w_sensitive = True
-        self.w_prev = [0]
-        self.w_over = 100
+        self.w_sensitive = True # /!\ UNUSED!
+        self.w_prev = [0] # /!\ UNUSED!
+        self.w_over = 100 # /!\ UNUSED!
         
         self.A_h = 0
         self.Qdot_matrix = [0]
