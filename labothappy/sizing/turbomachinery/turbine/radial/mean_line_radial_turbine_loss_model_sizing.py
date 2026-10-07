@@ -951,7 +951,7 @@ class RadialTurbineMeanLineSizing(object):
             
         return best_pos
 
-    def sizing(self, n_jobs=-1, backend="loky", chunksize="auto", n_particles = 20, max_iter=50):
+    def sizing(self, n_jobs=-1, backend="loky", chunksize="auto", n_particles = 20, max_iter=50, patience = None):
         """
         self.eval_log : liste de dicts (un par évaluation de particule,
         TOUTES les particules, faisables ou non), remplie via
@@ -1052,7 +1052,10 @@ class RadialTurbineMeanLineSizing(object):
             bh_strategy="nearest",
         )
     
-        patience, tol, max_iter = 3, 1e-3, max_iter
+        if patience is None:
+            patience = max_iter
+    
+        patience, tol, max_iter = patience, 1e-3, max_iter
         no_improve, best_cost = 0, float("inf")
     
         for i in range(max_iter):

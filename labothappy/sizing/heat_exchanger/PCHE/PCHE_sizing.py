@@ -66,12 +66,12 @@ class PCHESizingOpt(BaseComponent):
     # actives pour toute clé non explicitement surchargée.
     DEFAULT_BOUNDS = {
         'alpha':      [10, 40],
-        'D_c':        [1e-3, 3e-3],
-        'L_x':        [0.2, 1.5],
-        'L_y':        [0.2, 2.3],
+        'D_c':        [5e-4, 3e-3],
+        'L_x':        [1, 1.5],
+        'L_y':        [1.4, 2.3],
         'L_z':        [0.2, 0.6],
-        'n_parallel': [1, 8],
-        'n_series':   [1, 8],
+        'n_parallel': [1, 20],
+        'n_series':   [1, 10],
     }
 
     # Paramètres par défaut, communs à la plupart des dimensionnements PCHE.
@@ -120,17 +120,23 @@ class PCHESizingOpt(BaseComponent):
         self._apply_corr(self.HX)
 
     def _apply_corr(self, HX):
-        """Applique les corrélations sauvegardées sur n'importe quel objet HX."""
+        """
+        Applique les corrélations sauvegardées sur n'importe quel objet HX
+        passé en argument. Lit self.corr_params/self.params['H_DP_ON']/
+        ['C_DP_ON'] (lecture seule, jamais mutés pendant une optimisation) ;
+        ne mute QUE le HX local reçu en argument -- thread-safe tant que
+        chaque appelant lui passe son propre HX.
+        """
         c = self.corr_params
-
+    
         if c['htc_type'] == "Correlation":
             HX.set_htc(Corr_H=c['H_Corr'], Corr_C=c['C_Corr'])
         else:
             HX.set_htc(UD_H_HTC=c['UD_H_HTC'], UD_C_HTC=c['UD_C_HTC'])
-
+    
         HX.params['H_DP_ON'] = self.params['H_DP_ON']
         HX.params['C_DP_ON'] = self.params['C_DP_ON']
-
+    
         if c['DP_type'] == "Correlation":
             HX.set_DP(DP_type='Correlation_Disc', Corr_H=c['H_DP'], Corr_C=c['C_DP'])
         else:
@@ -224,89 +230,87 @@ class PCHESizingOpt(BaseComponent):
 
     #%%
 
-    def compute_score(self):
+    def compute_score(self, HX, m_HX, Q_dot_constr, DP_h_constr, DP_c_constr, obj):
+        """
+        UNIQUE fonction de calcul de score, dans tout le fichier. PURE :
+        ne lit ni n'écrit aucun attribut mutable de self pendant le calcul
+        (pas de self.HX, self.m_HX, self.score, self.penalty, self.CAPEX,
+        etc.) -- tout lui est passé en argument, elle retourne tout dans un
+        dict. Thread-safe par construction : peut être appelée
+        concurremment par plusieurs threads tant que chacun lui passe son
+        propre HX/m_HX locaux.
 
-        PF = 1
+        L'assignation sur self (quand elle est utile, typiquement pour le
+        rebuild final mono-thread) est laissée À L'APPELANT -- voir
+        `sizing()`, seul endroit du fichier qui fait
+        `self.score = result['score']` etc.
 
-        # Masse toujours calculée (utile pour le rapport final / export_params_dict
-        # même si l'objectif d'optimisation est 'cost').
-        rho_mat = 7850 # kg/m^3
-        self.m_HX = self.params['n_parallel']*rho_mat*(self.params['L_x'] * self.params['L_y'] * self.params['L_z'] - (self.params['C_V_tot'] + self.params['H_V_tot']))
+        Retourne un dict :
+            {'score', 'penalty', 'pen_Q', 'pen_DP_h', 'pen_DP_c',
+             'm_HX', 'UA', 'CAPEX_alt', 'CAPEX'}
+        où 'CAPEX' est lui-même un dict {'HX','Currency','Install','Total'}
+        ou None si obj != 'cost'.
+        """
+        PF_Q_dot = 10
+        PF_DP = 1
 
         try:
             # Penalties
-            if self.Q_dot_constr:
-                self.pen_Q = pen_Q = max(self.Q_dot_constr - self.HX.Q.Q_dot,0)
+            pen_Q = max(Q_dot_constr - HX.Q.Q_dot, 0) if Q_dot_constr else 0
+            pen_DP_h = max(HX.DP_h - DP_h_constr, 0) if DP_h_constr else 0
+            pen_DP_c = max(HX.DP_c - DP_c_constr, 0) if DP_c_constr else 0
+
+            penalty = PF_DP * abs(pen_DP_c) + PF_DP * abs(pen_DP_h) + PF_Q_dot * abs(pen_Q)
+
+            # --- Objectif : masse ou coût (Weiland et al.) ---
+            UA = CAPEX_alt = None
+            capex = None
+            if obj == 'cost':
+                alpha_h_mean = sum(HX.alpha_h * HX.w) / HX.w_sum
+                alpha_c_mean = sum(HX.alpha_c * HX.w) / HX.w_sum
+
+                UA = HX.Q.Q_dot / np.sum(HX.LMTD * HX.w)
+
+                # sCO2 Power Cycle Component Cost Correlations From DOE Data
+                # Spanning Multiple Scales and Applications (2019), Eq.(10)
+                CAPEX_alt = 49.45 * UA ** 0.7544
+
+                HX_cost = actualize_price(CAPEX_alt, 2017, "USD")
+                install = HX_cost * 0.35
+                capex = {
+                    "HX": HX_cost,
+                    "Currency": "USD",
+                    "Install": install,
+                    "Total": HX_cost + install,
+                }
+                score = capex["Total"] + penalty
             else:
-                self.pen_Q = pen_Q = 0
+                score = m_HX + penalty
 
-            if self.DP_h_constr:
-                self.pen_DP_h = pen_DP_h = max(self.HX.DP_h - self.DP_h_constr,0)
-            else:
-                self.DP_h = pen_DP_h = 0
+        except Exception:
+            return {
+                'score': 1e12, 'penalty': 1e12,
+                'pen_Q': None, 'pen_DP_h': None, 'pen_DP_c': None,
+                'm_HX': m_HX, 'UA': None, 'CAPEX_alt': None, 'CAPEX': None,
+            }
 
-            if self.DP_c_constr:
-                self.pen_DP_c = pen_DP_c = max(self.HX.DP_c - self.DP_c_constr,0)
-            else:
-                self.pen_DP_c = pen_DP_c = 0
-
-            self.penalty = PF*(abs(pen_DP_c) + abs(pen_DP_h) + abs(pen_Q))
-
-            # --- Objectif : masse ou coût (Weiland et al., via _compute_capex_alt) ---
-            if self.params.get('obj', 'mass') == 'cost':
-                self.capex_score = self.cost_estimation()
-                self.score = self.capex_score + self.penalty
-            else:
-                self.score = self.m_HX + self.penalty
-
-        except:
-            self.penalty = 1e8
-            self.score = 1e8
-
-            return self.score
-
-        return self.score
-
-    def cost_estimation(self):
-        """
-        Analysis of Supercritical CO2 Brayton Cycle Recuperative Heat Exchanger Size and Capital Cost
-        with Variation of Layout Design (2018)
-
-        Kyle R. Zada, Ryan Kim, Aaron Wildberger, Carl P. Schalansky
-        """
-
-        C_m = 40 # €/kg : Cost per kg
-        # Value from Evaluation of thermal-hydraulic performance and economics of
-        # Printed Circuit Heat Exchanger (PCHE) for recuperators of Sodiumcooled Fast Reactors
-        # (SFRs) using CO2 and N2 as working fluids (2022)
-        # Su Won Lee, Seong Min Shin, SungKun Chung, HangJin Jo
-
-        C_UA = 1.77 # $/UA :
-        
-        alpha_h_mean = sum(self.HX.alpha_h*self.HX.w)/self.HX.w_sum
-        alpha_c_mean = sum(self.HX.alpha_c*self.HX.w)/self.HX.w_sum
-                
-        self.UA = self.HX.Q.Q_dot/np.sum(self.HX.LMTD*self.HX.w)
-            
-        # self.UA = np.mean(self.HX.UA_avail*self.HX.w/self.params["n_disc"])
-
-        # sCO2 Power Cycle Component Cost Correlations From DOE Data Spanning Multiple
-        # Scales and Applications (2019), Eq. (10) — recuperator cost vs UA
-        # Nathan T. Weiland, Blake W. Lance, Sandeep R. Pidaparti
-        # Proceedings of ASME Turbo Expo 2019, GT2019-90493
-        self.CAPEX_alt = 49.45*self.UA**0.7544
-
-        self.CAPEX = {"HX" : actualize_price(self.CAPEX_alt, 2017, "USD"),
-                      "Currency" : "USD"}
-
-        self.CAPEX["Install"] = self.CAPEX["HX"]*0.35
-        self.CAPEX["Total"] = self.CAPEX["HX"] + self.CAPEX["Install"]
-        
-        return self.CAPEX["Total"]
+        return {
+            'score': score, 'penalty': penalty,
+            'pen_Q': pen_Q, 'pen_DP_h': pen_DP_h, 'pen_DP_c': pen_DP_c,
+            'm_HX': m_HX, 'UA': UA, 'CAPEX_alt': CAPEX_alt, 'CAPEX': capex,
+        }
 
     #%%
 
     def simulate_HX(self, x):
+        """
+        THREAD-SAFE : construit un HX local, calcule un score local via
+        compute_score(), et ne lit QUE des attributs self en lecture seule
+        (self.inputs, self.params, self.corr_params, self.Q_dot_constr,
+        self.DP_h_constr, self.DP_c_constr) -- aucun ne doit être muté par
+        un autre thread pendant l'optimisation. N'écrit JAMAIS sur self
+        (plus de self.HX = HX, self.set_parameters(**local_params), etc.).
+        """
         warnings.filterwarnings('ignore')
 
         alpha      = x[0]
@@ -327,7 +331,7 @@ class PCHESizingOpt(BaseComponent):
         N_c = int(np.floor((L_z - t_2) / (D_c + t_2)))
 
         V_channel = np.pi * D_c**2 / 8 * L_c
-        R_p = self.params['R_p']
+        R_p = self.params['R_p']  # lecture seule
         C_V_tot = 1 / (1 + R_p) * N_p * N_c * V_channel
         H_V_tot = R_p / (1 + R_p) * N_p * N_c * V_channel
 
@@ -336,7 +340,7 @@ class PCHESizingOpt(BaseComponent):
         if (C_V_tot + H_V_tot) >= V_block:
             return 1e6
 
-        # ---- build local param dict ----
+        # ---- build LOCAL param dict (ne touche jamais self.params) ----
         local_params = {
             **self.params,
             'alpha': alpha, 'D_c': D_c, 'L_x': L_x, 'L_y': L_y, 'L_z': L_z,
@@ -346,23 +350,26 @@ class PCHESizingOpt(BaseComponent):
             'C_V_tot': C_V_tot, 'H_V_tot': H_V_tot,
         }
 
-        # ---- simulate ----
+        # ---- simulate on a LOCAL HX (propre à ce thread/cet appel) ----
         HX = HexMBChargeSensitive('PCHE')
-
         HX.set_inputs(**self.inputs)
-        self._apply_corr(HX)
+        self._apply_corr(HX)              # ne mute que ce HX local
         HX.set_parameters(**local_params)
-        self.set_parameters(**local_params)
 
         try:
             HX.solve()
         except Exception:
-            return 1e8
+            return 1e12
 
-        self.HX = HX
-        self.compute_score()
+        rho_mat = 7850  # kg/m^3
+        m_HX = n_parallel * rho_mat * (L_x * L_y * L_z - (C_V_tot + H_V_tot))
 
-        return self.score
+        result = self.compute_score(
+            HX, m_HX, self.Q_dot_constr, self.DP_h_constr, self.DP_c_constr,
+            self.params.get('obj', 'mass'),
+        )
+
+        return result['score']
 
     #%%
 
@@ -435,11 +442,10 @@ class PCHESizingOpt(BaseComponent):
                 break
 
         best_pos = optimizer.swarm.best_pos
-        self.score = optimizer.swarm.best_cost
 
         n_series_best = max(1, np.round(best_pos[6]))
 
-        # Safe single-threaded final eval — write results to self
+        # ---- Safe single-threaded final rebuild ----
         self.params.update({
             'alpha': best_pos[0], 'D_c': best_pos[1],
             'L_x': best_pos[2],   'L_y': best_pos[3], 'L_z': best_pos[4],
@@ -458,7 +464,7 @@ class PCHESizingOpt(BaseComponent):
         except Exception as e:
             raise RuntimeError(
                 f"PCHE sizing did not converge to a feasible geometry "
-                f"(best_cost={self.score:.3e}); final solve failed with: {e}"
+                f"(best_cost={best_cost:.3e}); final solve failed with: {e}"
             ) from e
 
         self.m_HX = np.round(best_pos[5]) * n_series_best * 7850 * (
@@ -466,7 +472,25 @@ class PCHESizingOpt(BaseComponent):
             - self.params['C_V_tot'] - self.params['H_V_tot']
         )
 
-        self.cost_estimation()
+        # ---- SEUL endroit du fichier où compute_score() est appelée puis
+        # son résultat assigné sur self -- mono-thread, donc sûr. On force
+        # obj='cost' ici pour que self.CAPEX soit toujours peuplé au final,
+        # même si l'optimisation a tourné avec obj='mass' (remplace l'appel
+        # séparé à l'ancien cost_estimation() en fin de sizing()). ----
+        result = self.compute_score(
+            self.HX, self.m_HX, self.Q_dot_constr, self.DP_h_constr, self.DP_c_constr,
+            obj='cost',
+        )
+
+        self.score = result['score']
+        self.penalty = result['penalty']
+        self.pen_Q = result['pen_Q']
+        self.pen_DP_h = result['pen_DP_h']
+        self.pen_DP_c = result['pen_DP_c']
+        self.UA = result['UA']
+        self.CAPEX_alt = result['CAPEX_alt']
+        self.CAPEX = result['CAPEX']
+        self.capex_score = result['CAPEX']['Total'] if result['CAPEX'] else None
 
         pbar.close()
 
@@ -489,7 +513,20 @@ class PCHESizingOpt(BaseComponent):
             print(f"DP_c : {round(self.HX.DP_c,1)} [Pa]")
             print(f"DP_h : {round(self.HX.DP_h,1)} [Pa]")
             print(f"m_HX : {round(self.m_HX,1)} [kg]")
+            print(f"penalty : {round(self.penalty,1)}")
             print(f"CAPEX est. : {round(self.CAPEX['Total'],1)} [€ (2026)]")
+            
+            print(f"\n--- Diagnostic ---")
+            print(f"Q_dot atteint  : {HX_opt.HX.Q.Q_dot:,.0f} W")
+            print(f"Q_dot cible    : {HX_opt.Q_dot_constr:,.0f} W")
+            print(f"pen_Q          : {HX_opt.pen_Q:,.1f}")
+            print(f"pen_DP_h       : {HX_opt.pen_DP_h:,.1f}")
+            print(f"pen_DP_c       : {HX_opt.pen_DP_c:,.1f}")
+            print(f"penalty totale : {HX_opt.penalty:,.1f}")
+            print(f"L_z retenu     : {HX_opt.params['L_z']:.4f}  (bornes {HX_opt.bounds['L_z']})")
+            print(f"N_c retenu     : {HX_opt.params['N_c']}")
+            print(f"N_p retenu     : {HX_opt.params['N_p']}")
+            print(f"t_2/t_3        : {HX_opt.params['t_2']:.6f} / {HX_opt.params['t_3']:.6f}")
 
         return best_pos
 
@@ -498,7 +535,7 @@ class PCHESizingOpt(BaseComponent):
 if __name__ == "__main__":
     HX_opt = PCHESizingOpt()
 
-    case_study = 'Reference'
+    case_study = 'REC3'
 
     if case_study == "Reference":
         HX_opt.set_inputs(
@@ -556,20 +593,20 @@ if __name__ == "__main__":
         HX_opt.set_inputs(
             # First fluid (hot, low pressure side)
             fluid_H = 'CO2',
-            T_su_H = 324.32693723066194, # K
-            P_su_H = 5965838.051959021,  # Pa
-            m_dot_H = 365.4045005233005, # kg/s
+            T_su_H = 316.1313920137559, # K
+            P_su_H = 5336196.6651766505,  # Pa
+            m_dot_H = 2819.158278285053, # kg/s
 
             # Second fluid (cold, high pressure side)
             fluid_C = 'CO2',
-            T_su_C = 306.51381083434006, # K
-            P_su_C = 17830200.39180647,  # Pa
-            m_dot_C = 365.4045005233005, # kg/s  # Make sure to include fluid information
+            T_su_C = 302.5694587811514, # K
+            P_su_C = 15590873.653394502,  # Pa
+            m_dot_C = 2819.158278285053, # kg/s  # Make sure to include fluid information
           )
 
-        Q_dot_cstr = 7e6
-        DP_h_cstr = 400000.0
-        DP_c_cstr = 200000.0
+        Q_dot_cstr = 53786439.826693796
+        DP_h_cstr = 28635.0
+        DP_c_cstr = 25732.5
 
     # Grâce à DEFAULT_PARAMETERS, seuls les paramètres qui diffèrent des
     # valeurs par défaut (n_disc, corrélations, contraintes) doivent être
@@ -577,10 +614,10 @@ if __name__ == "__main__":
     HX_opt.set_parameters(
         # n_disc = 30,
 
-        # H_Corr = {"1P" : "Gnielinski", "SC" : "Gnielinski"},
-        # C_Corr = {"1P" : "Gnielinski", "SC" : "Gnielinski"},
-        # H_DP   = {"1P" : "Gnielinski_DP", "SC" : "Gnielinski_DP"},
-        # C_DP   = {"1P" : "Gnielinski_DP", "SC" : "Gnielinski_DP"},
+        H_Corr = {"1P" : "Gnielinski", "SC" : "Gnielinski"},
+        C_Corr = {"1P" : "Gnielinski", "SC" : "Gnielinski"},
+        H_DP   = {"1P" : "Gnielinski_DP", "SC" : "Gnielinski_DP"},
+        C_DP   = {"1P" : "Gnielinski_DP", "SC" : "Gnielinski_DP"},
 
         Q_dot = Q_dot_cstr,
         DP_h  = DP_h_cstr,

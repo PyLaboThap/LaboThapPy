@@ -10,7 +10,8 @@ class RadialPumpODSizing():
     # (mêmes plages que celles utilisées dans TCO2_rec_comp_sizing).
     DEFAULT_PARAMETERS = {
         'Omega_choices': np.array([750, 1000, 1500, 3000]),
-        'n_parallel_choices': np.array([1, 2, 3, 4, 5, 6, 7, 8]),
+        'n_parallel_choices': np.array([1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 16, 20]),
+        'allow_extrap' : False
     }
 
     def __init__(self, fluid):
@@ -180,7 +181,7 @@ class RadialPumpODSizing():
                 
         return self.CAPEX['Total']
 
-    def Omega_system(self):
+    def Omega_system(self, allow_extrap=False):
         
         import warnings
         warnings.filterwarnings("ignore")
@@ -219,7 +220,7 @@ class RadialPumpODSizing():
 
         # Real diameter 
         self.D = D_s*((self.Q_pp)**(1/2))/(g*self.DH)**(1/4) # [m]
-        self.eta_is = self.pump_efficiency_0D_estimation(self.Omega_s_imp, self.Q_pp * 3600)/100
+        self.eta_is = self.pump_efficiency_0D_estimation(self.Omega_s_imp, self.Q_pp * 3600, allow_extrap=allow_extrap)/100
         
         h_in = self.AS.hmass()
         
@@ -243,6 +244,10 @@ class RadialPumpODSizing():
         eta = np.asarray(eta)
     
         # --- Step 1: Find column with highest efficiency (ignore NaNs)
+        # NB : si `eta` est entièrement NaN, np.nanmax puis np.nanargmax
+        # lèvent tous deux "All-NaN slice encountered" -- ce cas est
+        # désormais intercepté et expliqué en amont, dans sizing(), avant
+        # que pick_npp_by_threshold() ne soit appelée.
         max_per_col = np.nanmax(eta, axis=0)       # max in each column
         best_col = int(np.nanargmax(max_per_col))  # column with highest max
     
@@ -295,24 +300,75 @@ class RadialPumpODSizing():
         }
     
     def sizing(self):
-        
-        self.eta_matrix = np.zeros([len(self.params["n_parallel_choices"]), len(self.params['Omega_choices'])])
-        self.cost_matrix = np.zeros([len(self.params["n_parallel_choices"]), len(self.params['Omega_choices'])])
-        self.power_matrix = np.zeros([len(self.params["n_parallel_choices"]), len(self.params['Omega_choices'])])
-        
-        for i in range(len(self.params["n_parallel_choices"])):
+
+        n_np = len(self.params["n_parallel_choices"])
+        n_om = len(self.params['Omega_choices'])
+
+        self.eta_matrix = np.zeros([n_np, n_om])
+        self.cost_matrix = np.zeros([n_np, n_om])
+        self.power_matrix = np.zeros([n_np, n_om])
+
+        # BUG CORRIGÉ : la version précédente appelait Omega_system() SANS
+        # allow_extrap dans cette boucle, donc la matrice de sélection était
+        # toujours construite avec allow_extrap=False (le défaut de la
+        # signature), quelle que soit self.params["allow_extrap"] -- le
+        # paramètre n'était en réalité appliqué qu'à l'appel final, APRÈS
+        # pick_npp_by_threshold(), donc trop tard : si toutes les
+        # combinaisons (n_parallel, Omega) tombaient hors du domaine de la
+        # corrélation, eta_matrix restait entièrement NaN et
+        # pick_npp_by_threshold() plantait quand même avec
+        # "All-NaN slice encountered", AVANT même que allow_extrap=True
+        # n'ait eu la moindre chance de s'appliquer.
+        allow_extrap = self.params["allow_extrap"]
+
+        # Diagnostic : bornes (Omega_s_imp, Q_pp*3600) réellement balayées,
+        # pour pouvoir expliquer un éventuel échec avec des chiffres
+        # concrets si allow_extrap=False et que ça reste hors domaine
+        # partout malgré la grille n_parallel_choices élargie.
+        omega_s_imp_seen = np.full([n_np, n_om], np.nan)
+        Q_pp_h_seen = np.full([n_np, n_om], np.nan)
+
+        for i in range(n_np):
             self.n_parallel = self.params["n_parallel_choices"][i]
-            for j in range(len(self.params['Omega_choices'])):
+            for j in range(n_om):
                 self.Omega = self.params['Omega_choices'][j]
-                self.Omega_system()
+                self.Omega_system(allow_extrap=allow_extrap)
                 self.eta_matrix[i][j] = self.eta_is
-        
+                omega_s_imp_seen[i][j] = self.Omega_s_imp
+                Q_pp_h_seen[i][j] = self.Q_pp * 3600
+
+        if np.all(np.isnan(self.eta_matrix)):
+            # Avec allow_extrap=True cette branche ne devrait plus jamais
+            # être atteinte (la corrélation snappe alors sur le bord de la
+            # table au lieu de renvoyer NaN) -- elle ne peut donc plus se
+            # produire que si allow_extrap=False ET que toutes les
+            # combinaisons testées sont hors domaine.
+            raise ValueError(
+                "RadialPumpODSizing.sizing() : aucune combinaison "
+                f"(n_parallel in {list(self.params['n_parallel_choices'])}, "
+                f"Omega in {list(self.params['Omega_choices'])}) n'est dans "
+                "le domaine de validité de la corrélation d'efficacité "
+                "(Omega_s_imp attendu dans [10, 90], Q_pp dans [18, 18000] m3/h). "
+                f"Valeurs balayées : Omega_s_imp dans "
+                f"[{np.nanmin(omega_s_imp_seen):.3g}, {np.nanmax(omega_s_imp_seen):.3g}], "
+                f"Q_pp dans [{np.nanmin(Q_pp_h_seen):.3g}, {np.nanmax(Q_pp_h_seen):.3g}] m3/h. "
+                f"allow_extrap est actuellement {allow_extrap} -- passer "
+                "set_parameters(allow_extrap=True) pour extrapoler au bord "
+                "de la table plutôt que d'échouer, ou élargir encore "
+                "n_parallel_choices/Omega_choices pour ramener Q_pp/Omega_s_imp "
+                "dans le domaine ci-dessus."
+            )
+
         index_omega, index_npp = self.pick_npp_by_threshold(self.eta_matrix)
 
         self.Omega = self.params['Omega_choices'][index_omega]
         self.n_parallel = float(self.params["n_parallel_choices"][index_npp])
 
-        self.Omega_system()
+        # Recalcule le point retenu -- toujours avec le même allow_extrap
+        # que celui utilisé pour construire eta_matrix, par cohérence (la
+        # valeur d'eta_is stockée dans eta_matrix[index_npp][index_omega]
+        # et celle recalculée ici doivent être identiques).
+        self.Omega_system(allow_extrap=allow_extrap)
     
         
         self.cost_estimation()

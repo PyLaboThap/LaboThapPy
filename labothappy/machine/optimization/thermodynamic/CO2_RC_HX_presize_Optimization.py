@@ -700,7 +700,8 @@ class CO2RC_HX_optimizer:
             eta_gh_disc     = self.params['eta_gh_disc']
             PP_gh_disc      = self.params['PP_gh_disc']
             eta_rec_disc    = self.params['eta_rec_disc']
-            eta_rec_HT_disc = self.params['eta_rec_HT_disc']
+            # eta_rec_HT_disc = self.params['eta_rec_HT_disc']
+            eta_rec_HT_disc = self.params['eta_rec_disc']
             PP_cd_disc      = self.params['PP_cd_disc']
 
             lb = np.array([
@@ -1153,16 +1154,16 @@ if __name__ == "__main__":
         n_cores = multiprocessing.cpu_count()
 
         # ---- sweep ----
-        T_vec = np.linspace(150, 350, 5) + 273.15  # ajouter d'autres T_H ici si besoin
+        T_vec = np.linspace(350, 350, 1) + 273.15  # ajouter d'autres T_H ici si besoin
 
-        n_MW = 10  # W
+        n_MW = 30  # W
         W_dot_obj = n_MW * 1e6  # W
 
         # Efficacité maximale trouvée précédemment pour REC @ 150°C : ~13.1%
         # -> on teste 3 niveaux : le max trouvé et deux valeurs légèrement dégradées
 
-        ARCH_LIST = ['REC']  # seule architecture demandée pour cette campagne
-        N_RUNS = 5  # nombre d'optimisations par condition (arch, T_H, eta_obj)
+        ARCH_LIST = ['Recomp']  # seule architecture demandée pour cette campagne
+        N_RUNS = 1  # nombre d'optimisations par condition (arch, T_H, eta_obj)
 
         # Sweep parameters (bornes globales, inchangées par rapport au script fourni)
         m_dot_HS_fact_bounds = [0.1, 3]
@@ -1196,7 +1197,7 @@ if __name__ == "__main__":
                     ETA_OBJ_LIST = [0.24, 0.23, 0.22]
                 elif T_H_C == 350:
                     ETA_OBJ_LIST = [0.26, 0.25, 0.24]
-
+                    
                 for eta_obj in ETA_OBJ_LIST:
                     print(f"\n--- T_H = {T_H_C:.1f} °C | eta_obj = {eta_obj:.3f} ---")
 
@@ -1249,7 +1250,7 @@ if __name__ == "__main__":
                                 eta_rec_HT_disc=eta_rec_HT_disc,
                                 PP_cd_disc=PP_cd_disc,
                             )
-
+                            
                             if Optimizer.params['RC_ARCH'] == "Recomp":
                                 Optimizer.set_it_var(P_high=140e5, mdot=20.0 * n_MW, mdot_HS=15.0 * n_MW,
                                                       spliter_frac=0.9, eta_gh=0.95, PP_gh=5,

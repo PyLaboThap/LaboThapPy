@@ -232,69 +232,69 @@ def system_RC_parallel(x, input_data):
 
     try:
         RC.solve()
-    
+
         if not getattr(RC, 'converged', True):
             return 10000, np.inf, np.nan
-    
+
         if arch in ("Recomp", "Recomp_1_recup"):
             W_cp = RC.components['Compressor'].model.W.W_dot
         else:
             W_cp = 0
-    
+
         W_exp  = RC.components['Expander'].model.W.W_dot
         W_pump = RC.components['Pump'].model.W.W_dot
         Q_gh   = RC.components['GasHeater'].model.Q.Q_dot
-    
+
         rho_HS     = RC.components['GasHeater'].model.su_H.D
         m_HS_act   = RC.components['GasHeater'].model.su_H.m_dot
-    
+
         rho_CS     = RC.components['Condenser'].model.su_C.D
         m_CS_act   = RC.components['Condenser'].model.su_C.m_dot
-    
+
         W_pump_aux_HS = params.get('DP_h_gh', 0.5e5) * m_HS_act / \
                      (rho_HS * params.get('eta_pp_aux', 0.8))
-    
+
         W_pump_aux_CS = params.get('DP_c_cond', 0.5e5) * m_CS_act / \
                      (rho_CS * params.get('eta_pp_aux', 0.8))
-    
+
         W_dot_net = W_exp - W_pump - W_pump_aux_HS - W_pump_aux_CS - W_cp
         eta       = W_dot_net / Q_gh if Q_gh > 0 else 0.0
-    
+
         penalty_W_dot = 0
         if abs(obj['W_dot'] - W_dot_net) / obj['W_dot'] > 2e-2:
             penalty_W_dot = abs(obj['W_dot'] - W_dot_net) / obj['W_dot']
-    
+
         penalty_eta = 0
         if abs(obj['eta'] - eta) / obj['eta'] > 1e-2:
             penalty_eta = abs(obj['eta'] - eta) / obj['eta']
-    
+
         RC.eta = eta
         RC.W_dot_net = W_dot_net
-    
+
         eps = 1e-6
-    
+
         if arch == 'REC':
             Q_cond = RC.components['Condenser'].model.Q.Q_dot
             RC.components['Condenser'].model.equivalent_effectiveness()
             eta_cond = RC.components['Condenser'].model.epsilon
-    
+
             Q_rec = RC.components['Recuperator'].model.Q.Q_dot
             eta_rec = RC.components['Recuperator'].model.epsilon
-    
+
             Q_gh = RC.components['GasHeater'].model.Q.Q_dot
             eta_gh = RC.components['GasHeater'].model.epsilon
-    
+
             # Pénalité si le récupérateur est quasi bypassé (Q_rec / eta_rec
             # réel proche de 0) : sinon le PSO peut "tricher" en désactivant
             # le récupérateur pour faire baisser artificiellement le NTU
             # pondéré (son terme disparaît du numérateur ET du dénominateur).
             eps_rec_min = params.get('eps_rec_min', 0.3)
             penalty_rec = max(0.0, eps_rec_min - eta_rec)
-    
+
             eta_gh  = np.clip(eta_gh,  0.0, 1.0 - eps)
             eta_rec = np.clip(eta_rec, 0.0, 1.0 - eps)
             eta_cond= np.clip(eta_cond,0.0, 1.0 - eps)
-    
+
             # Poids de coût relatif par technologie d'échangeur (PCHE pour le
             # récupérateur vs Shell&Tube pour GasHeater/Condenser). Défaut=1
             # -> comportement d'origine (NTU pondéré par Q_dot, en assumant
@@ -321,117 +321,117 @@ def system_RC_parallel(x, input_data):
             # issues du sizing (voir calibrate_ua_correction).
             # ------------------------------------------------------------
             cost_model_calibrated = params.get('cost_model_calibrated', False)
-    
+
             objective = None
             if cost_model_calibrated:
                 k_gh   = params.get('ua_correction_gh', 1.0)
                 k_rec  = params.get('ua_correction_rec', 1.0)
                 k_cond = params.get('ua_correction_cond', 1.0)
-    
+
                 UA_gh   = _estimate_UA_lmtd(RC.components['GasHeater'].model)
                 UA_rec  = _estimate_UA_lmtd(RC.components['Recuperator'].model)
                 UA_cond = _estimate_UA_lmtd(RC.components['Condenser'].model)
-    
+
                 if UA_gh is not None and UA_rec is not None and UA_cond is not None:
                     T_max_gh   = RC.components['GasHeater'].model.su_H.T - 273.15
                     T_max_rec  = RC.components['Recuperator'].model.su_H.T - 273.15
                     T_max_cond = RC.components['Condenser'].model.su_H.T - 273.15
-    
+
                     cost_gh   = _weiland_lance_cost(UA_gh * k_gh, T_max_gh)
                     cost_rec  = _weiland_lance_cost(UA_rec * k_rec, T_max_rec)
                     cost_cond = _weiland_lance_cost(UA_cond * k_cond, T_max_cond)
-    
+
                     if None not in (cost_gh, cost_rec, cost_cond):
                         scale = params.get('cost_obj_scale', 1e6)  # $ -> échelle comparable au NTU pondéré / à PF
                         objective = (cost_gh + cost_rec + cost_cond) / scale
-    
+
             if objective is None:
                 # Stage 1 (ou repli si UA/LMTD non estimable ce coup-ci,
                 # ex. croisement de température) : NTU pondéré d'origine.
                 objective = (c_gh*Q_gh*(-np.log(1-eta_gh)) + c_rec*Q_rec*(-np.log(1-eta_rec)) + c_cond*Q_cond*(-np.log(1-eta_cond)))/(Q_cond + Q_rec + Q_gh)
-    
+
             PF = 1000
             penalty = (penalty_W_dot + penalty_eta + penalty_rec)*PF
             cost = objective + penalty
-    
+
         elif arch == 'basic':
             Q_cond = RC.components['Condenser'].model.Q.Q_dot
             RC.components['Condenser'].model.equivalent_effectiveness()
             eta_cond = RC.components['Condenser'].model.epsilon
-    
+
             Q_gh = RC.components['GasHeater'].model.Q.Q_dot
             eta_gh = RC.components['GasHeater'].model.epsilon
-    
+
             eta_gh  = np.clip(eta_gh,  0.0, 1.0 - eps)
             eta_cond= np.clip(eta_cond,0.0, 1.0 - eps)
-    
+
             c_gh   = params.get('cost_w_gh', 1.0)
             c_cond = params.get('cost_w_cond', 1.0)
-    
+
             objective = (c_gh*Q_gh*(-np.log(1-eta_gh)) + c_cond*Q_cond*(-np.log(1-eta_cond)))/(Q_cond + Q_gh)
-    
+
             PF = 1000
             penalty = (penalty_W_dot + penalty_eta)*PF
             cost = objective + penalty
-    
+
         elif arch == "Recomp":
             Q_cond = RC.components['Condenser'].model.Q.Q_dot
             RC.components['Condenser'].model.equivalent_effectiveness()
             eta_cond = RC.components['Condenser'].model.epsilon
-    
+
             Q_rec_LT = RC.components['RecupLT'].model.Q.Q_dot
             eta_rec_LT = RC.components['RecupLT'].model.epsilon
-    
+
             Q_rec_HT = RC.components['RecupHT'].model.Q.Q_dot
             eta_rec_HT = RC.components['RecupHT'].model.epsilon
-    
+
             Q_gh = RC.components['GasHeater'].model.Q.Q_dot
             eta_gh = RC.components['GasHeater'].model.epsilon
-    
+
             eps_rec_min = params.get('eps_rec_min', 0.3)
             penalty_rec = (max(0.0, eps_rec_min - eta_rec_LT)
                            + max(0.0, eps_rec_min - eta_rec_HT))
-    
+
             eta_gh  = np.clip(eta_gh,  0.0, 1.0 - eps)
             eta_rec_LT = np.clip(eta_rec_LT, 0.0, 1.0 - eps)
             eta_rec_HT = np.clip(eta_rec_HT, 0.0, 1.0 - eps)
             eta_cond= np.clip(eta_cond,0.0, 1.0 - eps)
-    
+
             c_gh     = params.get('cost_w_gh', 1.0)
             c_rec_lt = params.get('cost_w_rec_LT', 1.0)
             c_rec_ht = params.get('cost_w_rec_HT', 1.0)
             c_cond   = params.get('cost_w_cond', 1.0)
-    
+
             objective = (c_gh*Q_gh*(-np.log(1-eta_gh)) + c_rec_lt*Q_rec_LT*(-np.log(1-eta_rec_LT)) + c_rec_ht*Q_rec_HT*(-np.log(1-eta_rec_HT)) + c_cond*Q_cond*(-np.log(1-eta_cond)))/(Q_cond + Q_rec_LT + Q_rec_HT + Q_gh)
-    
+
             PF = 1000
             penalty = (penalty_W_dot + penalty_eta + penalty_rec)*PF
             cost = objective + penalty
-    
+
         elif arch == "Recomp_1_recup":
             Q_cond = RC.components['Condenser'].model.Q.Q_dot
             RC.components['Condenser'].model.equivalent_effectiveness()
             eta_cond = RC.components['Condenser'].model.epsilon
-    
+
             Q_rec_LT = RC.components['RecupLT'].model.Q.Q_dot
             eta_rec_LT = RC.components['RecupLT'].model.epsilon
-    
+
             Q_gh = RC.components['GasHeater'].model.Q.Q_dot
             eta_gh = RC.components['GasHeater'].model.epsilon
-    
+
             eps_rec_min = params.get('eps_rec_min', 0.3)
             penalty_rec = max(0.0, eps_rec_min - eta_rec_LT)
-    
+
             eta_gh     = np.clip(eta_gh,     0.0, 1.0 - eps)
             eta_rec_LT = np.clip(eta_rec_LT, 0.0, 1.0 - eps)
             eta_cond   = np.clip(eta_cond,   0.0, 1.0 - eps)
-    
+
             c_gh     = params.get('cost_w_gh', 1.0)
             c_rec_lt = params.get('cost_w_rec_LT', 1.0)
             c_cond   = params.get('cost_w_cond', 1.0)
-    
+
             objective = (c_gh*Q_gh*(-np.log(1-eta_gh)) + c_rec_lt*Q_rec_LT*(-np.log(1-eta_rec_LT)) + c_cond*Q_cond*(-np.log(1-eta_cond)))/(Q_cond + Q_rec_LT + Q_gh)
-    
+
             PF = 1000
             penalty = (penalty_W_dot + penalty_eta + penalty_rec)*PF
             cost = objective + penalty
@@ -1316,9 +1316,10 @@ if __name__ == "__main__":
         n_cores = multiprocessing.cpu_count()
 
         # ---- sweep ----
-        T_vec = np.linspace(150, 350, 5) + 273.15  # 150, 200, 250, 300, 350 °C
+        # T_vec = np.linspace(150, 350, 5) + 273.15  # 150, 200, 250, 300, 350 °C
+        T_vec = np.linspace(150, 150, 1) + 273.15  # 150, 200, 250, 300, 350 °C
 
-        n_MW = 10  # W
+        n_MW = 1  # W
         W_dot_obj = n_MW * 1e6  # W
 
         # Niveaux d'efficacité cible par T_H (issus de campagnes précédentes :
@@ -1332,8 +1333,8 @@ if __name__ == "__main__":
             350.0: [0.26, 0.25, 0.24],
         }
 
-        ARCH_LIST = ["Recomp_1_recup"] # ['REC']  # seule architecture demandée pour cette campagne
-        N_RUNS = 5  # nombre d'optimisations par condition (arch, T_H, eta_obj)
+        ARCH_LIST = ['REC']  # seule architecture demandée pour cette campagne
+        N_RUNS = 1  # nombre d'optimisations par condition (arch, T_H, eta_obj)
 
         # ---------------------------------------------------------------
         # Bornes ADAPTÉES À LA TEMPÉRATURE, d'après l'analyse de 45 runs
@@ -1362,8 +1363,8 @@ if __name__ == "__main__":
         # bornes observées (min/max de m_dot par T_H, cf. tableau ci-dessus),
         # exprimées en multiple de n_MW (=10 dans les runs analysés), avec
         # marge -15 % / +15 % pour laisser de la place à l'exploration PSO.
-        _M_DOT_MIN_MULT = np.array([325, 234, 171, 141, 117]) / n_MW * 0.85
-        _M_DOT_MAX_MULT = np.array([427, 295, 212, 189, 156]) / n_MW * 1.15
+        _M_DOT_MIN_MULT = np.array([325, 234, 171, 141, 117]) / (10*n_MW) * 0.85
+        _M_DOT_MAX_MULT = np.array([427, 295, 212, 189, 156]) / (10*n_MW) * 1.15
 
         def m_dot_bounds_for_T(T_H_K, n_MW_local=n_MW):
             """Bornes de m_dot (CO2, kg/s) interpolées linéairement en T_H
@@ -1407,41 +1408,41 @@ if __name__ == "__main__":
 
                         try:
                             Optimizer = CO2RC_Cost_optimizer('CO2')
-    
+
                             Optimizer.set_parameters(
                                 RC_ARCH=arch,  # 'basic', 'REC', 'Recomp_1_recup', 'Recomp'
-    
+
                                 # Pump
-                                eta_pp=0.8,
+                                eta_pp=0.85,
                                 eta_pp_aux=0.8,
-    
+
                                 # Compressor (for recompression layouts)
                                 eta_cp=0.8,
-    
+
                                 # GasHeater
                                 DP_h_gh=50*1e3,
                                 DP_c_gh=50*1e3,
-    
+
                                 # Recuperator
                                 PP_rec=0,
                                 DP_h_rec=50*1e3,
                                 DP_c_rec=50*1e3,
-    
+
                                 # Expander
-                                eta_exp=0.9,
-    
+                                eta_exp=0.94,
+
                                 # Condenser
                                 SC_cd=0.1,
                                 DP_h_cond=50*1e3,
                                 DP_c_cond=50*1e3,
-    
+
                                 # Bounds
                                 P_high_bounds=P_high_bounds,
                                 m_dot_HS_fact_bounds=m_dot_HS_fact_bounds,
                                 m_dot_CS_fact_bounds=m_dot_CS_fact_bounds,
                                 m_dot_bounds=m_dot_bounds,
                                 spliter_frac_bounds=spliter_frac_bounds,
-    
+
                                 # Discrete Values
                                 eta_gh_disc=eta_gh_disc,
                                 PP_gh_disc=PP_gh_disc,
@@ -1449,7 +1450,7 @@ if __name__ == "__main__":
                                 eta_rec_HT_disc=eta_rec_HT_disc,
                                 PP_cd_disc=PP_cd_disc,
                             )
-    
+
                             if Optimizer.params['RC_ARCH'] == "Recomp":
                                 Optimizer.set_it_var(P_high=140e5, mdot=20.0 * n_MW, mdot_HS=15.0 * n_MW,
                                                       spliter_frac=0.9, eta_gh=0.95, PP_gh=5,
@@ -1464,22 +1465,22 @@ if __name__ == "__main__":
                             elif Optimizer.params['RC_ARCH'] == "basic":
                                 Optimizer.set_it_var(P_high=100e5, mdot=20.0 * n_MW, mdot_HS=15.0 * n_MW,
                                                       eta_gh=0.95, PP_gh=5, PP_cd=5, mdot_CS=200 * n_MW)
-    
+
                             Optimizer.set_obj(W_dot=W_dot_obj, eta=eta_obj)
-    
+
                             Optimizer.set_CSource(T=15 + 273.15, P=5e5, fluid='Water', m_dot=1000.0)
                             Optimizer.set_HSource(T=T, P=10e5, fluid='INCOMP::TVP1', m_dot=50.0)
-    
+
                             Optimizer.set_RC()
                             Optimizer.opt_RC(n_jobs=n_cores - 1, n_particles=50, max_iter=50, patience=20)
-    
+
                             if not is_recuperator_valid(Optimizer, arch, EPS_REC_MIN):
                                 print(f"    [!] Récupérateur quasi bypassé "
                                       f"(ε_rec < {EPS_REC_MIN:.0%}) -> run disqualifié")
                             else:
                                 run_data = extract_run_data(Optimizer, arch)
                                 print(f"    -> NTU_weighted_sum = {run_data['NTU_weighted_sum']}")
-    
+
                                 update_best_runs(condition_key, run_data)
                                 write_best_runs_csv()  # réécriture à chaque run -> robuste à une interruption
 

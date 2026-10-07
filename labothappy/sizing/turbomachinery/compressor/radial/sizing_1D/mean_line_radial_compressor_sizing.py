@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pyswarms as ps
 
+from labothappy.toolbox.economics.cpi_data import actualize_price
 from labothappy.correlations.turbomachinery.radial_compressor_losses import radial_compressor_rotor_losses, radial_compressor_stator_losses
 
 import warnings
@@ -125,6 +126,8 @@ class RadialCPMLDesign(object):
             'DP0_S_volute' : 0,
             'Dh_S_nozzle' : 0,
         }
+        
+        self.CAPEX = {}
         
     def update_total_AS(self, CP_INPUTS, input_1, input_2, position):
         self.AS.update(CP_INPUTS, input_1, input_2)
@@ -387,11 +390,8 @@ class RadialCPMLDesign(object):
             
             self.Vel_Tri_R['alpha2'] = alpha2 = np.arccos(vm2 / v2)
             
-            if "L_z" not in self.params:
-                self.params['L_z'] = L_z = self.params['r2'] * (0.1 + 2*self.phi)
-            else:
-                L_z = self.params['L_z']
-                
+            self.params['L_z'] = L_z = self.params['r2'] * (0.1 + 2*self.phi)
+
             self.Vel_Tri_R['wu2'] = wu2 = self.Vel_Tri_R['vu2'] - self.Vel_Tri_R['u2']
             self.Vel_Tri_R['w2']  = w2  = np.sqrt(wu2**2 + vm2**2)
             self.Vel_Tri_R['beta2'] = beta2 = np.arccos(vm2 / w2)
@@ -604,6 +604,67 @@ class RadialCPMLDesign(object):
 
 #%%
 
+    def cost_estimation(self):
+        
+        if self.fluid == 'CO2' or self.fluid == 'CarbonDioxide' or self.fluid == 'R744':
+            """
+            SCO2 POWER CYCLE COMPONENT COST CORRELATIONS FROM DOE DATA
+            SPANNING MULTIPLE SCALES AND APPLICATIONS (2019)
+            
+            Nathan T. Weiland,  Blake W. Lance, Sandeep R. Pidaparti
+            
+            Especially good for 1.5 - 200 MW 
+            Based on 2017 CEPCI (chemical plant cost index) for dollars
+            """
+        
+            W_dot_MW = self.W_dot/1e6
+            CAPEX_compressor = actualize_price(1230000 * W_dot_MW**0.3392, 2017, "USD")
+
+            self.CAPEX['Compressor'] = CAPEX_compressor
+        
+        else:
+            """
+            Key components for Carnot Battery: Technology review, technical barriers and selection criteria
+            
+            Ting Liang, Andrea Vecchi, Kai Knobloch, Adriano Sciacovelli, Kurt Engelbrecht, Yongliang Li, Yulong Ding
+            
+            Based on 2017 CEPCI (chemical plant cost index) for dollars
+            """
+            
+            CAPEX_fun = 39.5 * self.inputs["mdot"] * (self.PR * np.log10(self.PR))/(0.9-self.eta_is)
+            CAPEX_compressor = actualize_price(CAPEX_fun, 2017, "USD")
+            self.CAPEX['Compressor'] = CAPEX_compressor
+
+        
+        # Generator Costs
+        
+        """
+        SCO2 POWER CYCLE COMPONENT COST CORRELATIONS FROM DOE DATA
+        SPANNING MULTIPLE SCALES AND APPLICATIONS (2019)
+        
+        Nathan T. Weiland,  Blake W. Lance, Sandeep R. Pidaparti
+        
+        Especially good for 1.5 - 200 MW 
+        Based on 2017 CEPCI (chemical plant cost index) for dollars
+        """
+        
+        self.eta_alt = 0.97
+        self.W_dot_el = self.W_dot*self.eta_alt
+        
+        W_dot_el_MW = self.W_dot_el/1e6
+        
+        CAPEX_alternator = actualize_price(108900 * W_dot_el_MW**0.5463, 2017, "EUR")
+        self.CAPEX['Alternator'] = CAPEX_alternator
+        
+        self.f_install = 0.35 
+        self.CAPEX['Installation'] = self.f_install*(self.CAPEX['Alternator'] + self.CAPEX['Compressor'])
+        
+        self.CAPEX['Total'] = self.CAPEX['Compressor'] + self.CAPEX['Alternator'] + self.CAPEX['Installation']
+            
+        return
+    
+#%%
+
     def designSystem(self, x):
         
         self.penalty_factor = 100
@@ -728,7 +789,7 @@ class RadialCPMLDesign(object):
         self.eta_is_tt = (hout_is - self.total_states['H'][1]) / \
                          (self.total_states['H'][5] - self.total_states['H'][1])
         
-        if self.res_rotor_ex > 1e-3:
+        if abs(self.res_rotor_ex) > 1e-3:
             penalty += self.res_rotor_ex
             
         if penalty > 0:
@@ -744,7 +805,9 @@ class RadialCPMLDesign(object):
 
         # Design pleinement faisable : pénalité nulle.
         self.penalty = 0.0
-               
+        
+        self.W_dot = (self.total_states['H'][5] - self.total_states['H'][1])*self.inputs["mdot"]
+        
         return -self.eta_is
     
     def sizing(self, n_particles=100, max_iter=100, patience=15, n_jobs=1):
@@ -856,7 +919,9 @@ class RadialCPMLDesign(object):
         # (self.eta_is, self.penalty, self.total_states, ...) reflète bien
         # le meilleur design trouvé.
         self.designSystem(best_pos)
-    
+        
+        self.cost_estimation()
+        
         return
 
     # Alias de rétrocompatibilité si du code appelle encore .design()
@@ -890,7 +955,7 @@ class RadialCPMLDesign(object):
 
 if __name__ == "__main__":
 
-    fluid = "CO2" # CO2 / CO2_MW / R134a / Air_1 / Air_2 / Air_3    
+    fluid = "CO2_MW" # CO2 / CO2_MW / R134a / Air_1 / Air_2 / Air_3    
     
     eta_is_vec = []
     

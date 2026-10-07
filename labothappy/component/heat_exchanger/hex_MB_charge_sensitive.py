@@ -35,7 +35,7 @@ from labothappy.correlations.properties.two_phase import compute_two_phase_densi
 
 # HTC Correlations
 from labothappy.correlations.convection.plate_htc import han_boiling_BPHEX_HTC, water_plate_HTC, martin_BPHEX_HTC, muley_manglik_BPHEX_HTC, han_boiling_BPHEX_HTC, han_cond_BPHEX_HTC, thonon_plate_HTC, kumar_plate_HTC, martin_holger_plate_HTC, amalfi_plate_HTC, shah_condensation_plate_HTC
-from labothappy.correlations.convection.pipe_htc import gnielinski_pipe_htc, boiling_curve, horizontal_tube_internal_condensation, horizontal_flow_boiling, flow_boiling_gungor_winterton, Liu_sCO2, Cheng_sCO2, thome_condensation, choi_boiling
+from labothappy.correlations.convection.pipe_htc import Meshram, gnielinski_pipe_htc, boiling_curve, horizontal_tube_internal_condensation, horizontal_flow_boiling, flow_boiling_gungor_winterton, Liu_sCO2, Cheng_sCO2, thome_condensation, choi_boiling
 from labothappy.correlations.convection.shell_and_tube_htc import shell_bell_delaware_htc, shell_htc_kern
 from labothappy.correlations.convection.tube_bank_htc import ext_tube_film_condens
 from labothappy.correlations.convection.fins_htc import htc_tube_and_fins
@@ -285,16 +285,13 @@ class HexMBChargeSensitive(BaseComponent):
         self.C = self.C()
         
         self.Q_guess = None
-        
         self.eval = 0
         
         self.w_sensitive = True
         self.w_prev = [0]
-        
         self.w_over = 100
         
         self.A_h = 0
-        
         self.Qdot_matrix = [0]
         
     #%% INPUTS AND PARAMETERS RELATED METHODS
@@ -513,7 +510,7 @@ class HexMBChargeSensitive(BaseComponent):
         
         "1) Set temperature bound values" # !!! Find out why      
         T_hmin = 218 
-        T_cmax = 273.15+260 # 481 # 
+        T_cmax = 273.15+481 # 
         
         "2) Hot fluid side pinch"
         
@@ -1075,6 +1072,11 @@ class HexMBChargeSensitive(BaseComponent):
             elif self.HTX_Type == 'PCHE':
                 Dh = np.pi*self.params['D_c']/(2+np.pi)
                 alpha_h, self.Re_h[k], self.Pr_h[k] = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, Dh, self.params['L_c']*self.params['n_series']) 
+        
+        elif self.H.Correlation_1phase == 'Meshram':
+            Dh = np.pi*self.params['D_c']/(2+np.pi)
+            alpha_h = Meshram(Dh, G_h, k_h, mu_h, Pr_h)
+        
         elif self.H.Correlation_1phase == "Shell_Bell_Delaware_HTC":
             alpha_h = shell_bell_delaware_htc(self.mdot_h, Th_mean, T_wall_h, p_h_mean, self.H_su.fluid, self.params)
         elif self.H.Correlation_1phase == 'Shell_Kern_HTC':
@@ -1085,7 +1087,8 @@ class HexMBChargeSensitive(BaseComponent):
             alpha_h = water_plate_HTC(mu_h, Pr_h, k_h, G_h, self.params['H_Dh'])
         elif self.H.Correlation_1phase == 'martin_holger_plate_HTC':
             alpha_h = martin_holger_plate_HTC(mu_h, Pr_h, k_h, self.mdot_h, self.params['H_n_canals'], Th_mean, p_h_mean, self.H_su.fluid, self.params['H_Dh'], self.params['l'], self.params['w'], self.params['amplitude'], self.params['chevron_angle'])
-    
+        
+        
         return alpha_h
 
     def compute_C_1P_HTC(self, k, Tc_mean, p_c_mean, T_wall_c, G_c, havg_c):
@@ -1111,6 +1114,18 @@ class HexMBChargeSensitive(BaseComponent):
             elif self.HTX_Type == 'PCHE':
                 Dh = np.pi*self.params['D_c']/(2+np.pi)
                 alpha_c, self.Re_c[k], self.Pr_c[k]  = gnielinski_pipe_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, Dh, self.params['L_c']*self.params['n_series']) 
+        elif self.C.Correlation_1phase == 'Liu':
+            if self.HTX_Type == 'PCHE':
+                Dh = np.pi*self.params['D_c']/(2+np.pi)
+                self.AS_C.update(CP.HmassP_INPUTS, havg_c, p_c_mean)
+                rho_c = self.AS_C.rhomass()
+                cp_c = self.AS_C.cpmass()
+                alpha_c  = Liu_sCO2(G_c, p_c_mean, T_wall_c, k_c, rho_c, mu_c, cp_c, Dh, self.su_C.fluid) 
+        
+        elif self.C.Correlation_1phase == 'Meshram':
+            Dh = np.pi*self.params['D_c']/(2+np.pi)
+            alpha_c = Meshram(Dh, G_c, k_c, mu_c, Pr_c)
+        
         elif self.C.Correlation_1phase == 'Shell_Bell_Delaware_HTC':
             alpha_c = shell_bell_delaware_htc(self.mdot_c, Tc_mean, T_wall_c, p_c_mean, self.C_su.fluid, self.params)
         elif self.C.Correlation_1phase == 'Shell_Kern_HTC':
@@ -1148,12 +1163,17 @@ class HexMBChargeSensitive(BaseComponent):
                 Dh = np.pi*self.params['D_c']/(2+np.pi)
                 alpha_h, self.Re_h[k], self.Pr_h[k] = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, Dh, self.params['L_c']*self.params['n_series']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
 
-        elif self.H.Correlation_TC == 'Liu_sCO2':
+        elif self.H.Correlation_TC == 'Liu':
+            Dh = np.pi*self.params['D_c']/(2+np.pi)
             self.AS_H.update(CP.PT_INPUTS, p_h_mean, Th_mean)
             rho_h = self.AS_H.rhomass()
             cp_h = self.AS_H.cpmass()
             
-            alpha_h = Liu_sCO2(G_h, p_h_mean, T_wall_h, k_h, rho_h, mu_h, cp_h, self.params['Tube_OD']-2*self.params['Tube_t'], self.H_su.fluid)
+            alpha_h = Liu_sCO2(G_h, p_h_mean, T_wall_h, k_h, rho_h, mu_h, cp_h, Dh, self.H_su.fluid)
+        
+        elif self.H.Correlation_TC == 'Meshram':
+            Dh = np.pi*self.params['D_c']/(2+np.pi)
+            alpha_c = Meshram(Dh, G_h, k_h, mu_h, Pr_h)
         
         elif self.H.Correlation_1phase == 'Shell_Kern_HTC':
             alpha_h, self.Re_h[k], self.Pr_h[k] = shell_htc_kern(self.mdot_h, T_wall_h, Th_mean, p_h_mean, self.AS_H, self.params)
@@ -1204,12 +1224,17 @@ class HexMBChargeSensitive(BaseComponent):
                 Dh = np.pi*self.params['D_c']/(2+np.pi)
                 alpha_c, self.Re_c[k], self.Pr_c[k] = gnielinski_pipe_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, Dh, self.params['L_c']*self.params['n_series']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
  
-        elif self.C.Correlation_TC == 'Liu_sCO2':
+        elif self.C.Correlation_TC == 'Liu':
+            Dh = np.pi*self.params['D_c']/(2+np.pi)
             self.AS_C.update(CP.PT_INPUTS, p_c_mean, Tc_mean)
             rho_c = self.AS_C.rhomass()
             cp_c = self.AS_C.cpmass()
             
-            alpha_c = Liu_sCO2(G_c, p_c_mean, T_wall_c, k_c, rho_c, mu_c, cp_c, self.params['Tube_OD']-2*self.params['Tube_t'], self.C_su.fluid)
+            alpha_c = Liu_sCO2(G_c, p_c_mean, T_wall_c, k_c, rho_c, mu_c, cp_c, Dh, self.C_su.fluid)
+        
+        elif self.C.Correlation_TC == 'Meshram':
+            Dh = np.pi*self.params['D_c']/(2+np.pi)
+            alpha_c = Meshram(Dh, G_c, k_c, mu_c, Pr_c)
         
         elif self.C.Correlation_1phase == 'Shell_Kern_HTC':
             alpha_c, self.Re_c[k], self.Pr_c[k] = shell_htc_kern(self.mdot_c, T_wall_c, Tc_mean, p_c_mean, self.AS_C, self.params)
@@ -2543,7 +2568,7 @@ class HexMBChargeSensitive(BaseComponent):
                 
                 self.R_cond = max(self.t_e/self.params['k_cond'],0)
                 
-                self.UA_avail[k] = 1/(1/(alpha_h*self.A_h) + 1/(alpha_c*self.A_c) + self.R_fouling + self.R_cond)
+                self.UA_avail[k] = 1/(1/(alpha_h*self.A_h) + 1/(alpha_c*self.A_c)) # + self.R_fouling + self.R_cond)
         
                 "5) Compute LMTD"        
                 
@@ -2725,7 +2750,8 @@ class HexMBChargeSensitive(BaseComponent):
         
         while self.Q_dot > self.Qmax and it < max_iter:
             
-            self.Q_dot, self.results = scipy.optimize.brentq(self.objective_function, 1e-5, self.Qmax*0.9999, rtol = 1e-6, xtol = 1e-6, full_output=True)
+            # self.Q_dot, self.results = scipy.optimize.brentq(self.objective_function, 1e-5, self.Qmax*0.9999, rtol = 1e-6, xtol = 1e-6, full_output=True)
+            self.Q_dot, self.results = scipy.optimize.brentq(self.objective_function, self.Qmax*0.01, self.Qmax*0.9999, rtol = 1e-6, xtol = 1e-6, full_output=True)
             
             "Pinch Analysis : Verification as pressure drops changed - Create a new HX to not impact computed results"
             
