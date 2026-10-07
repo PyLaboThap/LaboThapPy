@@ -759,7 +759,7 @@ class CO2RCOptimizer(CO2RC_HX_optimizer):
             eta = int(self.obj["eta"] * 100)
             T_hot = int(self._HSource_props['T'] - 273.15)
             T_cold = int(self._CSource_props['T'] - 273.15)
-
+            
             folder_name = f"W{n_MW}_eta{eta}_TH{T_hot}_TC{T_cold}"
             save_folder = os.path.join(self.params['save_file_path'], folder_name)
             os.makedirs(save_folder, exist_ok=True)
@@ -779,193 +779,683 @@ class CO2RCOptimizer(CO2RC_HX_optimizer):
 
 #%% Main
 
+
 if __name__ == "__main__":
 
-    fluid = 'CO2'
+    case_study = "Complete"
+    
+    if case_study == "Test":    
 
-    arch = "Recomp"  # 'basic', 'REC', 'Recomp_1_recup', 'Recomp'
-    
-    # T_hot_vec = np.array([150,200,250,300,350]) + 273.15
-    T_hot_vec = np.array([350]) + 273.15
-    # n_MW_vec = np.array([1,10,30,50]) 
-    n_MW_vec = np.array([30]) 
-    eta_obj_carnot = np.array([0.5]) 
-    
-    n_cases = len(T_hot_vec)*len(n_MW_vec)*len(eta_obj_carnot)
-    
-    case = 0
-    
-    for T_hot in T_hot_vec:
-        for n_MW in n_MW_vec:
-            for eta_obj_car in eta_obj_carnot:
-                
-                case += 1
-                
-                print("="*50)
-                print(f"T_hot : {T_hot} | n_MW : {n_MW} | eta_obj_car : {eta_obj_car}")
-                print(f"Cas {case} / {n_cases}")
-                print("="*50)
-
-                T_cold = 10 + 273.15
-                W_dot_obj = n_MW * 1e6
-                eta_obj = 0.29 # eta_obj_car*(1 - T_cold/T_hot)
-                
-                Optimizer = CO2RCOptimizer(fluid)
-            
-                m_dot_HS_fact_bounds = [0.05, 3]
-                m_dot_CS_fact_bounds = [5, 30]
-                P_high_bounds = np.array([100, 180]) * 1e5
-                m_dot_bounds = np.array([5, 80]) * n_MW
-                # Borne basse 0.01 => recompresseur à débit quasi nul, sizing quasi toujours en échec.
-                spliter_frac_bounds = np.array([0.01, 0.99])
-            
-                eta_gh_disc = np.arange(0.8, 0.98, 0.02)
-                PP_gh_disc = np.arange(1, 10, 1)
-                eta_rec_disc = np.arange(0.6, 0.96, 0.02)
-                PP_cd_disc = np.arange(1, 10, 1)
-            
-                Optimizer.set_parameters(
-                    save_file_path=None,
-                    RC_ARCH=arch,
-            
-                    eta_pp=0.85,
-                    eta_cp=0.85,
-                    eta_pp_aux=0.8,
-            
-                    DP_h_gh=50e3, DP_c_gh=50e3,
-                    DP_h_rec=50e3, DP_c_rec=50e3,
-                    DP_h_cond=50e3, DP_c_cond=50e3,
-            
-                    PP_rec=0,
-                    eta_exp=0.94,
-                    SC_cd=0.1,
-            
-                    P_high_bounds=P_high_bounds,
-                    m_dot_HS_fact_bounds=m_dot_HS_fact_bounds,
-                    m_dot_CS_fact_bounds=m_dot_CS_fact_bounds,
-                    m_dot_bounds=m_dot_bounds,
-                    spliter_frac_bounds=spliter_frac_bounds,
-            
-                    eta_gh_disc=eta_gh_disc, PP_gh_disc=PP_gh_disc,
-                    eta_rec_disc=eta_rec_disc, PP_cd_disc=PP_cd_disc,
-            
-                    # 0.0 = cohérence seule ; 1.0 = coût et cohérence à égalité ; >1 = priorité au coût
-                    capex_weight=1.0,
-                    cost_w_gh=1.0, cost_w_rec=1.0, cost_w_cond=1.0,
-                )
-                
-                if arch == "Recomp":
-                    Optimizer.set_it_var(P_high=140e5, mdot=20.0*n_MW, mdot_HS=15.0*n_MW, spliter_frac=0.9, eta_gh=0.95, PP_gh=5,
-                                         eta_rec_LT=0.8, eta_rec_HT=0.8, PP_cd=5, mdot_CS=450*n_MW)
-                elif arch == "Recomp_1_recup":
-                    Optimizer.set_it_var(P_high=100e5, mdot=20.0*n_MW, mdot_HS=15.0*n_MW, spliter_frac=1, eta_gh=0.95, PP_gh=5,
-                                         eta_rec=0.8, PP_cd=5, mdot_CS=450*n_MW)
-                elif arch == "REC":
-                    Optimizer.set_it_var(P_high=100e5, mdot=20.0*n_MW, mdot_HS=15.0*n_MW, eta_gh=0.95, PP_gh=5,
-                                         eta_rec=0.8, PP_cd=5, mdot_CS=450*n_MW)
-                elif arch == "basic":
-                    Optimizer.set_it_var(P_high=100e5, mdot=20.0*n_MW, mdot_HS=15.0*n_MW, eta_gh=0.95, PP_gh=5,
-                                         PP_cd=5, mdot_CS=450*n_MW)
-            
-                Optimizer.set_obj(W_dot=W_dot_obj, eta=eta_obj)
-                Optimizer.set_CSource(T=T_cold, P=5e5, fluid='Water', m_dot=450*n_MW)
-                Optimizer.set_HSource(T=T_hot, P=10e5, fluid='INCOMP::TVP1', m_dot=50.0*n_MW)
-                
-                Optimizer.set_RC()
-                
-                # Vérification des noms de composants (les clés de sizing_models doivent y figurer)
-                print("Composants du cycle :", list(Optimizer.RC.components.keys()))
-            
-                #%% Composants -- configuration statique
-            
-                sizing_models = {}
-                
-                # n_jobs=-1 : à retirer si ShellAndTubeSizingOpt.sizing() ne connaît pas ce kwarg.
-                shell_tube_run_kwargs = dict(n_particles=100, max_iterations=50, obj='mass', print_flag=0, n_jobs=-1)
-            
-                GH = sizing_models["GasHeater"] = ShellAndTubeSizingOpt()
-                GH.set_parameters(
-                    Shell_Side='H',
-                    H_Corr={"SC": "Shell_Kern_HTC", "1P": "Shell_Kern_HTC", "2P": "Shell_Kern_HTC"},
-                    C_Corr={"SC": "Gnielinski", "1P": "Gnielinski", "2P": "Flow_boiling"},
-                    H_DP={"SC": "Shell_Kern_DP", "1P": "Shell_Kern_DP", "2P": "Shell_Kern_DP"},
-                    C_DP={"SC": "Gnielinski_DP", "1P": "Gnielinski_DP", "2P": "Gnielinski_DP"},
-                )
-                GH.RUN_KWARGS = shell_tube_run_kwargs
-            
-                CD = sizing_models["Condenser"] = ShellAndTubeSizingOpt()
-                CD.set_parameters(
-                    Shell_Side='C',
-                    H_Corr={"SC": "Gnielinski", "1P": "Gnielinski", "2P": "Thome_Condensation"},
-                    C_Corr={"SC": "Shell_Kern_HTC", "1P": "Shell_Kern_HTC", "2P": "Shell_Kern_HTC"},
-                    H_DP={"SC": "Gnielinski_DP", "1P": "Gnielinski_DP", "2P": "Choi_DP"},
-                    C_DP={"SC": "Shell_Kern_DP", "1P": "Shell_Kern_DP", "2P": "Shell_Kern_DP"},
-                )
-                CD.RUN_KWARGS = shell_tube_run_kwargs
-            
-                PP = sizing_models["Pump"] = RadialPumpODSizing(Optimizer.fluid)
-                PP.RUN_KWARGS = dict()
-            
-                TA = sizing_models["Expander_Axial"] = AxialTurbineMeanLineSizing(Optimizer.fluid)
-                TA.RUN_KWARGS = dict(n_jobs=-1, n_particles=50, max_iter=50)
-            
-                TR = sizing_models["Expander_Radial"] = RadialTurbineMeanLineSizing(Optimizer.fluid)
-                TR.RUN_KWARGS = dict(max_iter=10, n_jobs=-1, patience = 5)
-            
-                # --- Récupérateur(s) PCHE selon l'architecture ---
-                def make_pche():
-                    r = PCHESizingOpt()
-                    r.set_parameters(
-                        H_Corr={"1P": "Gnielinski", "SC": "Gnielinski", "2P": "Thome_Condensation"},
-                        C_Corr={"1P": "Gnielinski", "SC": "Gnielinski", "2P": "Flow_boiling"},
-                        H_DP={"SC": "Gnielinski_DP", "1P": "Gnielinski_DP", "2P": "Choi_DP"},
-                        C_DP={"SC": "Gnielinski_DP", "1P": "Gnielinski_DP", "2P": "Choi_DP"},
-                    )
-                    r.RUN_KWARGS = dict(n_jobs=-1, n_particles=50, max_iter=50, patience=10)
-                    return r
-            
-                for k in rec_keys(arch):
-                    sizing_models[k] = make_pche()
-            
-                # --- Recompresseur ---
-                if arch in COMPRESSOR_ARCHS:
-                    # cost_fn : f(sizing_obj) -> coût. À fournir (même forme que la corrélation de la pompe,
-                    # ex. loi en puissance de COMP.W_dot). None => CAPEX compresseur = 0 (avertissement affiché).
-                    COMP = sizing_models["Compressor"] = RadialCPMLDesign(Optimizer.fluid)
-                    COMP.set_parameters(
-                        t_b=0.762e-3,
-                        eps_imp=0.254e-3,
-                        eps_bf_imp=0.254e-3,
-                        k_imp=0.01e-3,
-                    )
-                    COMP.set_bounds(
-                        Omega_bounds=[1000, 200000],   # Omega optimisé par le PSO
-                        b2_r2_bounds=[0.02, 0.1],
-                    )
-                    COMP.RUN_KWARGS = dict(n_jobs=-1, n_particles=50, max_iter=50, patience=10)
-            
-                Optimizer.sizing_models = sizing_models
-            
-                #%% Lancement 
-                # try: 
-                t0 = time.perf_counter()
-            
-                # patience < max_iter, sinon aucun arrêt anticipé possible ; ntop réduit à 3 pour la vitesse.
-                Optimizer.cycle_design(ntop=1, n_particles=100, max_iter=50, n_jobs=-1, patience=15)
-            
-                elapsed = time.perf_counter() - t0
-            
-                # except:
-                #     Optimizer.best_RC = None
-                
-                if Optimizer.best_RC is not None:
-                    log_cycle_result(
-                        log_path="co2_rc_results_log.csv",
-                        T_hot=T_hot, T_cold=T_cold,
-                        W_dot_obj=W_dot_obj, eta_obj=eta_obj,
-                        RC=Optimizer.best_RC, arch=arch,
-                        Optimizer=Optimizer, duration_s=round(elapsed, 1),
-                    )
-                else:
-                    print("⚠️ Aucun RC valide trouvé — rien à logger.")
+        fluid = 'CO2'
         
+        arch = "Recomp"  # 'basic', 'REC', 'Recomp_1_recup', 'Recomp'
+        
+        # T_hot_vec = np.array([150,200,250,300,350]) + 273.15
+        T_hot_vec = np.array([350]) + 273.15
+        # n_MW_vec = np.array([1,10,30,50]) 
+        n_MW_vec = np.array([30]) 
+        eta_obj_carnot = np.array([0.5]) 
+        
+        n_cases = len(T_hot_vec)*len(n_MW_vec)*len(eta_obj_carnot)
+        
+        case = 0
+        
+        for T_hot in T_hot_vec:
+            for n_MW in n_MW_vec:
+                for eta_obj_car in eta_obj_carnot:
+                    
+                    case += 1
+                    
+                    print("="*50)
+                    print(f"T_hot : {T_hot} | n_MW : {n_MW} | eta_obj_car : {eta_obj_car}")
+                    print(f"Cas {case} / {n_cases}")
+                    print("="*50)
+    
+                    T_cold = 10 + 273.15
+                    W_dot_obj = n_MW * 1e6
+                    eta_obj = 0.29 # eta_obj_car*(1 - T_cold/T_hot)
+                    
+                    Optimizer = CO2RCOptimizer(fluid)
+                
+                    m_dot_HS_fact_bounds = [0.05, 3]
+                    m_dot_CS_fact_bounds = [5, 30]
+                    P_high_bounds = np.array([100, 180]) * 1e5
+                    m_dot_bounds = np.array([5, 80]) * n_MW
+                    # Borne basse 0.01 => recompresseur à débit quasi nul, sizing quasi toujours en échec.
+                    spliter_frac_bounds = np.array([0.01, 0.99])
+                
+                    eta_gh_disc = np.arange(0.8, 0.98, 0.02)
+                    PP_gh_disc = np.arange(1, 10, 1)
+                    eta_rec_disc = np.arange(0.6, 0.96, 0.02)
+                    PP_cd_disc = np.arange(1, 10, 1)
+                
+                    Optimizer.set_parameters(
+                        save_file_path=None,
+                        RC_ARCH=arch,
+                
+                        eta_pp=0.85,
+                        eta_cp=0.85,
+                        eta_pp_aux=0.8,
+                
+                        DP_h_gh=50e3, DP_c_gh=50e3,
+                        DP_h_rec=50e3, DP_c_rec=50e3,
+                        DP_h_cond=50e3, DP_c_cond=50e3,
+                
+                        PP_rec=0,
+                        eta_exp=0.94,
+                        SC_cd=0.1,
+                
+                        P_high_bounds=P_high_bounds,
+                        m_dot_HS_fact_bounds=m_dot_HS_fact_bounds,
+                        m_dot_CS_fact_bounds=m_dot_CS_fact_bounds,
+                        m_dot_bounds=m_dot_bounds,
+                        spliter_frac_bounds=spliter_frac_bounds,
+                
+                        eta_gh_disc=eta_gh_disc, PP_gh_disc=PP_gh_disc,
+                        eta_rec_disc=eta_rec_disc, PP_cd_disc=PP_cd_disc,
+                
+                        # 0.0 = cohérence seule ; 1.0 = coût et cohérence à égalité ; >1 = priorité au coût
+                        capex_weight=1.0,
+                        cost_w_gh=1.0, cost_w_rec=1.0, cost_w_cond=1.0,
+                    )
+                    
+                    if arch == "Recomp":
+                        Optimizer.set_it_var(P_high=140e5, mdot=20.0*n_MW, mdot_HS=15.0*n_MW, spliter_frac=0.9, eta_gh=0.95, PP_gh=5,
+                                             eta_rec_LT=0.8, eta_rec_HT=0.8, PP_cd=5, mdot_CS=450*n_MW)
+                    elif arch == "Recomp_1_recup":
+                        Optimizer.set_it_var(P_high=100e5, mdot=20.0*n_MW, mdot_HS=15.0*n_MW, spliter_frac=1, eta_gh=0.95, PP_gh=5,
+                                             eta_rec=0.8, PP_cd=5, mdot_CS=450*n_MW)
+                    elif arch == "REC":
+                        Optimizer.set_it_var(P_high=100e5, mdot=20.0*n_MW, mdot_HS=15.0*n_MW, eta_gh=0.95, PP_gh=5,
+                                             eta_rec=0.8, PP_cd=5, mdot_CS=450*n_MW)
+                    elif arch == "basic":
+                        Optimizer.set_it_var(P_high=100e5, mdot=20.0*n_MW, mdot_HS=15.0*n_MW, eta_gh=0.95, PP_gh=5,
+                                             PP_cd=5, mdot_CS=450*n_MW)
+                
+                    Optimizer.set_obj(W_dot=W_dot_obj, eta=eta_obj)
+                    Optimizer.set_CSource(T=T_cold, P=5e5, fluid='Water', m_dot=450*n_MW)
+                    Optimizer.set_HSource(T=T_hot, P=10e5, fluid='INCOMP::TVP1', m_dot=50.0*n_MW)
+                    
+                    Optimizer.set_RC()
+                    
+                    # Vérification des noms de composants (les clés de sizing_models doivent y figurer)
+                    print("Composants du cycle :", list(Optimizer.RC.components.keys()))
+                
+                    #%% Composants -- configuration statique
+                
+                    sizing_models = {}
+                    
+                    # n_jobs=-1 : à retirer si ShellAndTubeSizingOpt.sizing() ne connaît pas ce kwarg.
+                    shell_tube_run_kwargs = dict(n_particles=100, max_iterations=50, obj='mass', print_flag=0, n_jobs=-1)
+                
+                    GH = sizing_models["GasHeater"] = ShellAndTubeSizingOpt()
+                    GH.set_parameters(
+                        Shell_Side='H',
+                        H_Corr={"SC": "Shell_Kern_HTC", "1P": "Shell_Kern_HTC", "2P": "Shell_Kern_HTC"},
+                        C_Corr={"SC": "Gnielinski", "1P": "Gnielinski", "2P": "Flow_boiling"},
+                        H_DP={"SC": "Shell_Kern_DP", "1P": "Shell_Kern_DP", "2P": "Shell_Kern_DP"},
+                        C_DP={"SC": "Gnielinski_DP", "1P": "Gnielinski_DP", "2P": "Gnielinski_DP"},
+                    )
+                    GH.RUN_KWARGS = shell_tube_run_kwargs
+                
+                    CD = sizing_models["Condenser"] = ShellAndTubeSizingOpt()
+                    CD.set_parameters(
+                        Shell_Side='C',
+                        H_Corr={"SC": "Gnielinski", "1P": "Gnielinski", "2P": "Thome_Condensation"},
+                        C_Corr={"SC": "Shell_Kern_HTC", "1P": "Shell_Kern_HTC", "2P": "Shell_Kern_HTC"},
+                        H_DP={"SC": "Gnielinski_DP", "1P": "Gnielinski_DP", "2P": "Choi_DP"},
+                        C_DP={"SC": "Shell_Kern_DP", "1P": "Shell_Kern_DP", "2P": "Shell_Kern_DP"},
+                    )
+                    CD.RUN_KWARGS = shell_tube_run_kwargs
+                
+                    PP = sizing_models["Pump"] = RadialPumpODSizing(Optimizer.fluid)
+                    PP.RUN_KWARGS = dict()
+                
+                    TA = sizing_models["Expander_Axial"] = AxialTurbineMeanLineSizing(Optimizer.fluid)
+                    TA.RUN_KWARGS = dict(n_jobs=-1, n_particles=50, max_iter=50)
+                
+                    TR = sizing_models["Expander_Radial"] = RadialTurbineMeanLineSizing(Optimizer.fluid)
+                    TR.RUN_KWARGS = dict(max_iter=10, n_jobs=-1, patience = 5)
+                
+                    # --- Récupérateur(s) PCHE selon l'architecture ---
+                    def make_pche():
+                        r = PCHESizingOpt()
+                        r.set_parameters(
+                            H_Corr={"1P": "Gnielinski", "SC": "Gnielinski", "2P": "Thome_Condensation"},
+                            C_Corr={"1P": "Gnielinski", "SC": "Gnielinski", "2P": "Flow_boiling"},
+                            H_DP={"SC": "Gnielinski_DP", "1P": "Gnielinski_DP", "2P": "Choi_DP"},
+                            C_DP={"SC": "Gnielinski_DP", "1P": "Gnielinski_DP", "2P": "Choi_DP"},
+                        )
+                        r.RUN_KWARGS = dict(n_jobs=-1, n_particles=50, max_iter=50, patience=10)
+                        return r
+                
+                    for k in rec_keys(arch):
+                        sizing_models[k] = make_pche()
+                
+                    # --- Recompresseur ---
+                    if arch in COMPRESSOR_ARCHS:
+                        # cost_fn : f(sizing_obj) -> coût. À fournir (même forme que la corrélation de la pompe,
+                        # ex. loi en puissance de COMP.W_dot). None => CAPEX compresseur = 0 (avertissement affiché).
+                        COMP = sizing_models["Compressor"] = RadialCPMLDesign(Optimizer.fluid)
+                        COMP.set_parameters(
+                            t_b=0.762e-3,
+                            eps_imp=0.254e-3,
+                            eps_bf_imp=0.254e-3,
+                            k_imp=0.01e-3,
+                        )
+                        COMP.set_bounds(
+                            Omega_bounds=[1000, 200000],   # Omega optimisé par le PSO
+                            b2_r2_bounds=[0.02, 0.1],
+                        )
+                        COMP.RUN_KWARGS = dict(n_jobs=-1, n_particles=50, max_iter=50, patience=10)
+                
+                    Optimizer.sizing_models = sizing_models
+                
+                    #%% Lancement 
+                    # try: 
+                    t0 = time.perf_counter()
+                
+                    # patience < max_iter, sinon aucun arrêt anticipé possible ; ntop réduit à 3 pour la vitesse.
+                    Optimizer.cycle_design(ntop=1, n_particles=100, max_iter=50, n_jobs=-1, patience=15)
+                
+                    elapsed = time.perf_counter() - t0
+                
+                    # except:
+                    #     Optimizer.best_RC = None
+                    
+                    if Optimizer.best_RC is not None:
+                        log_cycle_result(
+                            log_path="co2_rc_results_log.csv",
+                            T_hot=T_hot, T_cold=T_cold,
+                            W_dot_obj=W_dot_obj, eta_obj=eta_obj,
+                            RC=Optimizer.best_RC, arch=arch,
+                            Optimizer=Optimizer, duration_s=round(elapsed, 1),
+                        )
+                    else:
+                        print("⚠️ Aucun RC valide trouvé — rien à logger.")
+
+#%%
+
+    if case_study == "Complete":
+
+        # -*- coding: utf-8 -*-
+        """
+        CO2_RC_sweep.py
+        
+        Balayage de dimensionnement du cycle CO2 (code de travail : CO2_RC_Cost_Per_kW.py).
+        
+        Pour chaque (T_hot, puissance) :
+            on teste des efficacités du 2nd principe eta_car = 0.50, 0.45, 0.40, ...
+            (eta_obj = eta_car * (1 - T_cold/T_hot)) jusqu'à obtenir N_CONV_TARGET cas convergés.
+        
+        Convergence : un cas est considéré convergé quand cycle_design() déclare lui-même la convergence
+        (critère de cohérence interne, Optimizer.criterion == 1). Aucune vérification supplémentaire des
+        performances n'est faite. S'il ne converge pas, de nouvelles passes sont relancées.
+        
+        Reprise sur incident :
+            - un cas déjà présent dans co2_rc_sweep_results_log.csv (= succès uniquement) est sauté
+              et compte comme convergé ;
+            - un cas absent du log ou en ÉCHEC (co2_rc_sweep_fails_log.csv) est (re)lancé.
+        
+        Sauvegardes (structure identique à l'arborescence existante) :
+            co2_rc_sweep_results/
+                TH{T}_W{P}MW/W{P}_eta{eta%}_TH{T}_TC{Tc}/{Composant}.json   <- sizings détaillés
+                co2_rc_sweep_results_log.csv                                <- succès
+                co2_rc_sweep_fails_log.csv                                  <- échecs
+        """
+        
+        import csv
+        import io
+        import os
+        import shutil
+        import time
+        import traceback
+        from datetime import datetime
+        
+        import numpy as np
+        
+        try:
+            from CO2_RC_Cost_Per_kW import (CO2RCOptimizer, log_cycle_result,
+                                            rec_keys, COMPRESSOR_ARCHS)
+        except ImportError:
+            from .CO2_RC_Cost_Per_kW import (CO2RCOptimizer, log_cycle_result,
+                                             rec_keys, COMPRESSOR_ARCHS)
+        
+        from labothappy.sizing.turbomachinery.turbine.axial.sizing_1D.mean_line_axial_turbine_loss_model_sizing import AxialTurbineMeanLineSizing
+        from labothappy.sizing.turbomachinery.turbine.radial.mean_line_radial_turbine_loss_model_sizing import RadialTurbineMeanLineSizing
+        from labothappy.sizing.turbomachinery.compressor.radial.sizing_1D.mean_line_radial_compressor_sizing import RadialCPMLDesign
+        from labothappy.sizing.heat_exchanger.shell_and_tube.shell_and_tube_sizing import ShellAndTubeSizingOpt
+        from labothappy.sizing.heat_exchanger.PCHE.PCHE_sizing import PCHESizingOpt
+        from labothappy.sizing.turbomachinery.pump.radial.radial_pump_0D_sizing import RadialPumpODSizing
+        
+        # =============================================================================
+        # CONFIGURATION DU BALAYAGE
+        # =============================================================================
+        
+        FLUID = 'CO2'
+        ARCH = 'REC'                       # 'basic', 'REC', 'Recomp_1_recup', 'Recomp'
+        
+        T_HOT_C_LIST = [150, 200, 250, 300, 350]   # °C
+        N_MW_LIST = [1, 10, 30, 50]                # MW nets visés
+        T_COLD_C = 10                              # °C
+        
+        ETA_CAR_START = 0.50               # premier eta 2nd principe testé
+        ETA_CAR_STEP = 0.05                # décrément après chaque tentative
+        ETA_CAR_MIN = 0.10                 # plancher de sécurité si 3 convergences jamais atteintes
+        N_CONV_TARGET = 3                  # nb de convergences avant d'arrêter la descente
+        
+        # Si cycle_design ne déclare pas la convergence, on relance de nouvelles passes
+        # (paramètres de cohérence conservés) jusqu'à convergence, avec ce nombre maximal de passes.
+        MAX_REFINE_PASSES = 5
+        
+        # Paramètres du PSO de cycle_design
+        CYCLE_DESIGN_KWARGS = dict(ntop=1, n_particles=100, max_iter=50, n_jobs=-1, patience=15)
+        
+        # Chemins
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+        SWEEP_DIR = os.path.join(BASE_DIR, "co2_rc_sweep_results")
+        RESULTS_LOG = os.path.join(SWEEP_DIR, "co2_rc_sweep_results_log.csv")
+        FAILS_LOG = os.path.join(SWEEP_DIR, "co2_rc_sweep_fails_log.csv")
+        # Logs consultés pour sauter les cas déjà convergés (ne contiennent que des succès).
+        # Ajouter ici l'ancien co2_rc_results_log.csv n'est PAS recommandé : il contient aussi des non-convergés.
+        # Ancien log SANS en-tête (renommé automatiquement au démarrage par migrate_headerless_log()).
+        LEGACY_LOG = os.path.join(SWEEP_DIR, "co2_rc_sweep_results_log_legacy_noheader.csv")
+        SKIP_LOGS = (RESULTS_LOG, LEGACY_LOG)
+        
+        # Colonnes supposées (dans l'ordre de log_cycle_result) pour un CSV sans en-tête.
+        HEADERLESS_FIELDS = ["timestamp", "run_id", "duration_s", "arch",
+                             "T_hot_C", "T_cold_C", "W_dot_obj_MW", "eta_obj"]
+        
+        # =============================================================================
+        # LOGS : lecture / critère de succès / saut des cas déjà faits
+        # =============================================================================
+        
+        def _float(x):
+            try:
+                return float(x)
+            except (TypeError, ValueError):
+                try:
+                    return float(str(x).replace(',', '.'))      # virgule décimale (Excel FR)
+                except (TypeError, ValueError):
+                    return float('nan')
+        
+        
+        def _is_headerless(first_row):
+            """Vrai si la 1re ligne ne contient aucun nom de colonne connu (c'est alors une ligne de données)."""
+            names = {c.strip().lstrip('\ufeff') for c in first_row}
+            return not ({'arch', 'RC_ARCH', 'T_hot_C', 'T_hot'} & names)
+        
+        
+        def _read_rows(path):
+            """Lit un log CSV : séparateur ',' ';' ou tab détecté, BOM toléré, en-tête absent géré."""
+            if not os.path.isfile(path):
+                return []
+            with open(path, newline="", encoding="utf-8-sig") as f:
+                text = f.read()
+            lines = text.splitlines()
+            if not lines:
+                return []
+            delim = max([',', ';', '\t'], key=lambda d: lines[0].count(d))
+            table = [r for r in csv.reader(io.StringIO(text), delimiter=delim) if r]
+            if not table:
+                return []
+            if _is_headerless(table[0]):
+                n = max(len(r) for r in table)
+                fields = HEADERLESS_FIELDS + [f"col_{k}" for k in range(len(HEADERLESS_FIELDS), n)]
+                return [dict(zip(fields, r)) for r in table]
+            header = [h.strip() for h in table[0]]
+            return [dict(zip(header, r)) for r in table[1:]]
+        
+        
+        def migrate_headerless_log():
+            """
+            Si RESULTS_LOG existe SANS en-tête, le renomme en LEGACY_LOG (ou l'y ajoute) pour que
+            log_cycle_result() recrée un fichier propre, avec en-tête. LEGACY_LOG reste lu pour le saut.
+            """
+            if not os.path.isfile(RESULTS_LOG) or os.path.getsize(RESULTS_LOG) == 0:
+                return
+            with open(RESULTS_LOG, newline="", encoding="utf-8-sig") as f:
+                first = next(csv.reader(f), [])
+            if not first or not _is_headerless(first):
+                return
+            if os.path.isfile(LEGACY_LOG):
+                with open(RESULTS_LOG, encoding="utf-8-sig") as f_in, open(LEGACY_LOG, "a", encoding="utf-8") as f_out:
+                    txt = f_in.read()
+                    f_out.write(txt if txt.endswith("\n") else txt + "\n")
+                os.remove(RESULTS_LOG)
+            else:
+                os.replace(RESULTS_LOG, LEGACY_LOG)
+            print(f"⚠️ {os.path.basename(RESULTS_LOG)} n'avait pas d'en-tête : renommé en "
+                  f"{os.path.basename(LEGACY_LOG)} (toujours lu pour le saut des cas déjà faits). "
+                  f"Un nouveau log avec en-tête sera créé.")
+        
+        
+        def _pick(row, names):
+            for n in names:
+                v = row.get(n)
+                if v not in (None, ''):
+                    return v
+            return None
+        
+        
+        def _row_conditions(r):
+            """Extrait (arch, T_hot_C, W_obj_MW, eta_obj, eta_car) d'une ligne de log, noms de colonnes tolérants."""
+            arch = _pick(r, ['arch', 'RC_ARCH'])
+        
+            T = _float(_pick(r, ['T_hot_C']))
+            if not np.isfinite(T):
+                Tk = _float(_pick(r, ['T_hot', 'T_hot_K']))
+                T = Tk - 273.15 if Tk >= 400 else Tk          # >= 400 : Kelvin
+        
+            W = _float(_pick(r, ['W_dot_obj_MW', 'n_MW', 'W_obj_MW']))
+            if not np.isfinite(W):
+                Wd = _float(_pick(r, ['W_dot_obj']))
+                W = Wd / 1e6 if Wd > 1e3 else Wd
+        
+            eta_obj = _float(_pick(r, ['eta_obj']))
+            eta_car = _float(_pick(r, ['eta_car', 'eta_obj_car']))
+            return arch, T, W, eta_obj, eta_car
+        
+        
+        def already_succeeded(arch, T_hot_C, n_MW, eta_car, eta_obj, verbose=True):
+            """
+            Vrai si le cas figure déjà dans un log de succès.
+            Tolérant : colonnes absentes ignorées (arch), eta comparé via eta_car si présent,
+            sinon via eta_obj à 2e-3 près (deux paliers eta_car consécutifs diffèrent d'au moins ~1.6e-2).
+            """
+            near = []
+            for path in SKIP_LOGS:
+                if not os.path.isfile(path):
+                    if verbose:
+                        print(f"  [skip-check] log introuvable : {path}")
+                    continue
+                rows = _read_rows(path)
+                for r in rows:
+                    r_arch, r_T, r_W, r_eta_obj, r_eta_car = _row_conditions(r)
+        
+                    if r_arch is not None and r_arch != arch:
+                        continue
+                    if not (np.isfinite(r_T) and abs(r_T - T_hot_C) <= 0.5):
+                        continue
+                    if not (np.isfinite(r_W) and abs(r_W - n_MW) <= 1e-3):
+                        continue
+        
+                    near.append((r_arch, r_T, r_W, r_eta_obj, r_eta_car))
+        
+                    if np.isfinite(r_eta_car):
+                        if abs(r_eta_car - eta_car) <= 1e-6:
+                            return True
+                    elif np.isfinite(r_eta_obj) and abs(r_eta_obj - eta_obj) <= 2e-3:
+                        return True
+        
+                if verbose:
+                    print(f"  [skip-check] {len(rows)} ligne(s) lue(s) dans {os.path.basename(path)}")
+        
+            if verbose and near:
+                print(f"  [skip-check] pas de match exact pour eta_car={eta_car:.2f} (eta_obj={eta_obj:.4f}) ; "
+                      f"lignes de mêmes T/P déjà présentes (eta_obj) : "
+                      f"{[round(n[3], 4) for n in near]}")
+            return False
+        
+        
+        def log_failure(arch, T_hot_C, n_MW, eta_car, eta_obj, reason, duration_s):
+            os.makedirs(SWEEP_DIR, exist_ok=True)
+            row = {
+                "timestamp": datetime.now().isoformat(timespec="seconds"),
+                "arch": arch,
+                "T_hot_C": T_hot_C,
+                "T_cold_C": T_COLD_C,
+                "W_dot_obj_MW": n_MW,
+                "eta_car": eta_car,
+                "eta_obj": eta_obj,
+                "duration_s": duration_s,
+                "reason": reason,
+            }
+            exists = os.path.isfile(FAILS_LOG)
+            with open(FAILS_LOG, "a", newline="") as f:
+                w = csv.DictWriter(f, fieldnames=row.keys())
+                if not exists:
+                    w.writeheader()
+                w.writerow(row)
+        
+        
+        # =============================================================================
+        # CONSTRUCTION D'UN CAS (mêmes réglages que le __main__ de CO2_RC_Cost_Per_kW.py)
+        # =============================================================================
+        
+        def build_optimizer(arch, T_hot, T_cold, n_MW, eta_obj, save_file_path):
+            W_dot_obj = n_MW * 1e6
+            Optimizer = CO2RCOptimizer(FLUID)
+        
+            Optimizer.set_parameters(
+                save_file_path=save_file_path,      # <- c'est ce qui déclenche l'export des .json
+                RC_ARCH=arch,
+        
+                eta_pp=0.85, eta_cp=0.85, eta_pp_aux=0.8,
+        
+                DP_h_gh=50e3, DP_c_gh=50e3,
+                DP_h_rec=50e3, DP_c_rec=50e3,
+                DP_h_cond=50e3, DP_c_cond=50e3,
+        
+                PP_rec=0, eta_exp=0.94, SC_cd=0.1,
+        
+                P_high_bounds=np.array([100, 180]) * 1e5,
+                m_dot_HS_fact_bounds=[0.05, 3],
+                m_dot_CS_fact_bounds=[5, 30],
+                m_dot_bounds=np.array([5, 80]) * n_MW,
+                spliter_frac_bounds=np.array([0.01, 0.99]),
+        
+                eta_gh_disc=np.arange(0.8, 0.98, 0.02), PP_gh_disc=np.arange(1, 10, 1),
+                eta_rec_disc=np.arange(0.6, 0.96, 0.02), PP_cd_disc=np.arange(1, 10, 1),
+        
+                capex_weight=1.0,
+                cost_w_gh=1.0, cost_w_rec=1.0, cost_w_cond=1.0,
+            )
+        
+            common = dict(P_high=100e5, mdot=20.0 * n_MW, mdot_HS=15.0 * n_MW, PP_gh=5, PP_cd=5,
+                          mdot_CS=450 * n_MW, eta_gh=0.95)
+            if arch == "Recomp":
+                Optimizer.set_it_var(**{**common, 'P_high': 140e5, 'spliter_frac': 0.9,
+                                        'eta_rec_LT': 0.8, 'eta_rec_HT': 0.8})
+            elif arch == "Recomp_1_recup":
+                Optimizer.set_it_var(**{**common, 'spliter_frac': 1, 'eta_rec': 0.8})
+            elif arch == "REC":
+                Optimizer.set_it_var(**{**common, 'eta_rec': 0.8})
+            elif arch == "basic":
+                Optimizer.set_it_var(**common)
+            else:
+                raise ValueError(f"Architecture inconnue : {arch}")
+        
+            Optimizer.set_obj(W_dot=W_dot_obj, eta=eta_obj)
+            Optimizer.set_CSource(T=T_cold, P=5e5, fluid='Water', m_dot=450 * n_MW)
+            Optimizer.set_HSource(T=T_hot, P=10e5, fluid='INCOMP::TVP1', m_dot=50.0 * n_MW)
+            Optimizer.set_RC()
+        
+            # --- Modèles de sizing (créés une fois par cas) ---
+            sizing_models = {}
+            st_kwargs = dict(n_particles=100, max_iterations=50, obj='mass', print_flag=0, n_jobs=-1)
+        
+            GH = sizing_models["GasHeater"] = ShellAndTubeSizingOpt()
+            GH.set_parameters(
+                Shell_Side='H',
+                H_Corr={"SC": "Shell_Kern_HTC", "1P": "Shell_Kern_HTC", "2P": "Shell_Kern_HTC"},
+                C_Corr={"SC": "Gnielinski", "1P": "Gnielinski", "2P": "Flow_boiling"},
+                H_DP={"SC": "Shell_Kern_DP", "1P": "Shell_Kern_DP", "2P": "Shell_Kern_DP"},
+                C_DP={"SC": "Gnielinski_DP", "1P": "Gnielinski_DP", "2P": "Gnielinski_DP"},
+            )
+            GH.RUN_KWARGS = st_kwargs
+        
+            CD = sizing_models["Condenser"] = ShellAndTubeSizingOpt()
+            CD.set_parameters(
+                Shell_Side='C',
+                H_Corr={"SC": "Gnielinski", "1P": "Gnielinski", "2P": "Thome_Condensation"},
+                C_Corr={"SC": "Shell_Kern_HTC", "1P": "Shell_Kern_HTC", "2P": "Shell_Kern_HTC"},
+                H_DP={"SC": "Gnielinski_DP", "1P": "Gnielinski_DP", "2P": "Choi_DP"},
+                C_DP={"SC": "Shell_Kern_DP", "1P": "Shell_Kern_DP", "2P": "Shell_Kern_DP"},
+            )
+            CD.RUN_KWARGS = st_kwargs
+        
+            PP = sizing_models["Pump"] = RadialPumpODSizing(Optimizer.fluid)
+            PP.RUN_KWARGS = dict()
+        
+            TA = sizing_models["Expander_Axial"] = AxialTurbineMeanLineSizing(Optimizer.fluid)
+            TA.RUN_KWARGS = dict(n_jobs=-1, n_particles=50, max_iter=50)
+        
+            TR = sizing_models["Expander_Radial"] = RadialTurbineMeanLineSizing(Optimizer.fluid)
+            TR.RUN_KWARGS = dict(max_iter=10, n_jobs=-1, patience=5)
+        
+            for k in rec_keys(arch):
+                r = sizing_models[k] = PCHESizingOpt()
+                r.set_parameters(
+                    H_Corr={"1P": "Gnielinski", "SC": "Gnielinski", "2P": "Thome_Condensation"},
+                    C_Corr={"1P": "Gnielinski", "SC": "Gnielinski", "2P": "Flow_boiling"},
+                    H_DP={"SC": "Gnielinski_DP", "1P": "Gnielinski_DP", "2P": "Choi_DP"},
+                    C_DP={"SC": "Gnielinski_DP", "1P": "Gnielinski_DP", "2P": "Choi_DP"},
+                )
+                r.RUN_KWARGS = dict(n_jobs=-1, n_particles=50, max_iter=50, patience=10)
+        
+            if arch in COMPRESSOR_ARCHS:
+                COMP = sizing_models["Compressor"] = RadialCPMLDesign(Optimizer.fluid)
+                COMP.set_parameters(t_b=0.762e-3, eps_imp=0.254e-3, eps_bf_imp=0.254e-3, k_imp=0.01e-3)
+                COMP.set_bounds(Omega_bounds=[1000, 200000], b2_r2_bounds=[0.02, 0.1])
+                COMP.RUN_KWARGS = dict(n_jobs=-1, n_particles=50, max_iter=50, patience=10)
+        
+            Optimizer.sizing_models = sizing_models
+            return Optimizer
+        
+        
+        def saved_case_folder(Optimizer, save_file_path):
+            """Reproduit exactement le nom de dossier utilisé par cycle_design() pour l'export JSON."""
+            n_MW = int(Optimizer.obj["W_dot"] * 1e-6)
+            eta = int(Optimizer.obj["eta"] * 100)
+            T_hot = int(Optimizer._HSource_props['T'] - 273.15)
+            T_cold = int(Optimizer._CSource_props['T'] - 273.15)
+            return os.path.join(save_file_path, f"W{n_MW}_eta{eta}_TH{T_hot}_TC{T_cold}")
+        
+        
+        # =============================================================================
+        # UN CAS : lancement + évaluation + sauvegarde
+        # =============================================================================
+        
+        def run_case(arch, T_hot_C, n_MW, eta_car):
+            T_hot = T_hot_C + 273.15
+            T_cold = T_COLD_C + 273.15
+            eta_obj = eta_car * (1 - T_cold / T_hot)
+        
+            save_file_path = os.path.join(SWEEP_DIR, f"TH{T_hot_C}_W{n_MW}MW")
+            os.makedirs(save_file_path, exist_ok=True)
+        
+            t0 = time.perf_counter()
+            Optimizer = None
+            try:
+                Optimizer = build_optimizer(arch, T_hot, T_cold, n_MW, eta_obj, save_file_path)
+                print("Composants du cycle :", list(Optimizer.RC.components.keys()))
+            except Exception as e:
+                traceback.print_exc()
+                log_failure(arch, T_hot_C, n_MW, eta_car, eta_obj,
+                            f"build_exception: {type(e).__name__}: {e}", round(time.perf_counter() - t0, 1))
+                return False
+        
+            # --- Passes successives de cycle_design jusqu'à convergence déclarée par cycle_design ---
+            converged = False
+            reason = None
+        
+            for attempt in range(1, MAX_REFINE_PASSES + 1):
+                print(f"--- Passe {attempt}/{MAX_REFINE_PASSES} ---")
+        
+                # cycle_design restaure à la fin le meilleur CAPEX vu sur tout le run : sans ce reset,
+                # une passe suivante ne pourrait jamais remplacer le design de la passe précédente.
+                Optimizer.best_RC_overall = None
+                Optimizer.best_capex_overall = float('inf')
+        
+                try:
+                    Optimizer.cycle_design(**CYCLE_DESIGN_KWARGS)
+                except Exception as e:
+                    traceback.print_exc()
+                    reason = f"exception (passe {attempt}): {type(e).__name__}: {e}"
+                    break
+        
+                print(f"  [passe {attempt}] criterion={getattr(Optimizer, 'criterion', None)} "
+                      f"(1 = cycle_design a convergé) | best_RC={'oui' if Optimizer.best_RC is not None else 'non'}")
+        
+                if Optimizer.best_RC is None:
+                    reason = f"no_valid_RC (passe {attempt})"
+                    print("  Aucun RC valide : nouvelle passe")
+                    continue
+        
+                if getattr(Optimizer, 'criterion', 0) == 1:
+                    converged = True
+                    break
+        
+                reason = f"cycle_design non convergé après {attempt} passe(s)"
+                print("  cycle_design n'a pas convergé : nouvelle passe")
+        
+            elapsed = round(time.perf_counter() - t0, 1)
+        
+            if not converged:
+                log_failure(arch, T_hot_C, n_MW, eta_car, eta_obj, reason or "unknown", elapsed)
+                # on retire les .json d'un cas non convergé pour ne garder que des sizings valides
+                shutil.rmtree(saved_case_folder(Optimizer, save_file_path), ignore_errors=True)
+                return False
+        
+            os.makedirs(SWEEP_DIR, exist_ok=True)
+            log_cycle_result(
+                log_path=RESULTS_LOG,
+                T_hot=T_hot, T_cold=T_cold,
+                W_dot_obj=n_MW * 1e6, eta_obj=eta_obj,
+                RC=Optimizer.best_RC, arch=arch,
+                Optimizer=Optimizer, duration_s=elapsed,
+            )
+            return True
+        
+        
+        # =============================================================================
+        # BALAYAGE
+        # =============================================================================
+        
+        if __name__ == "__main__":
+        
+            os.makedirs(SWEEP_DIR, exist_ok=True)
+            T_cold = T_COLD_C + 273.15
+            migrate_headerless_log()
+        
+            print("Logs de succès consultés pour le saut :")
+            for _p in SKIP_LOGS:
+                if os.path.isfile(_p):
+                    _rows = _read_rows(_p)
+                    _cols = list(_rows[0].keys()) if _rows else []
+                    print(f"  {_p} : {len(_rows)} ligne(s) | colonnes : {_cols[:12]}{' ...' if len(_cols) > 12 else ''}")
+                else:
+                    print(f"  {_p} : INTROUVABLE (aucun saut possible)")
+        
+            for T_hot_C in T_HOT_C_LIST:
+                for n_MW in N_MW_LIST:
+        
+                    T_hot = T_hot_C + 273.15
+                    n_conv = 0
+                    eta_car = ETA_CAR_START
+        
+                    while n_conv < N_CONV_TARGET and eta_car >= ETA_CAR_MIN - 1e-9:
+        
+                        eta_obj = eta_car * (1 - T_cold / T_hot)
+        
+                        print("=" * 60)
+                        print(f"T_hot={T_hot_C}°C | {n_MW} MW | eta_car={eta_car:.2f} "
+                              f"(eta_obj={eta_obj:.4f}) | convergés : {n_conv}/{N_CONV_TARGET}")
+                        print("=" * 60)
+        
+                        if already_succeeded(ARCH, T_hot_C, n_MW, eta_car, eta_obj):
+                            print("  -> déjà convergé dans les logs : sauté")
+                            n_conv += 1
+                        else:
+                            if run_case(ARCH, T_hot_C, n_MW, eta_car):
+                                n_conv += 1
+                                print("  -> SUCCÈS")
+                            else:
+                                print("  -> ÉCHEC (voir co2_rc_sweep_fails_log.csv)")
+        
+                        eta_car = round(eta_car - ETA_CAR_STEP, 2)
+        
+                    if n_conv < N_CONV_TARGET:
+                        print(f"⚠️ TH={T_hot_C}°C, {n_MW} MW : seulement {n_conv}/{N_CONV_TARGET} "
+                              f"convergences avant eta_car={ETA_CAR_MIN}")

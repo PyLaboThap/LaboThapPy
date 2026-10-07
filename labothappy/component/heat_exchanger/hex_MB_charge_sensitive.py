@@ -276,10 +276,10 @@ class HexMBChargeSensitive(BaseComponent):
         self.AS_C = None
         self.AS_H = None
         
-        if HTX_Type == 'Plate' or HTX_Type == 'Shell&Tube' or HTX_Type == 'Tube&Fins' or HTX_Type == 'PCHE':
+        if HTX_Type == 'Plate' or HTX_Type == 'Shell&Tube' or HTX_Type == 'Tube&Fins' or HTX_Type == 'PCHE' or HTX_Type == "SPHE":
             self.HTX_Type = HTX_Type
         else:
-            raise ValueError("Heat exchanger types implemented for this model are : 'Plate', 'Shell&Tube', 'Tube&Fins', 'PCHE'.")
+            raise ValueError("Heat exchanger types implemented for this model are : 'Plate', 'Shell&Tube', 'Tube&Fins', 'PCHE', 'SPHE'.")
 
         self.H = self.H()
         self.C = self.C()
@@ -320,6 +320,9 @@ class HexMBChargeSensitive(BaseComponent):
                                     'H_CS', 'H_Dh', 'H_V_tot', 'H_canal_t', 'H_n_canals',
                                     'casing_t', 'chevron_angle', 'fooling', 
                                     'n_plates', 'plate_cond', 'plate_pitch_co', 't_plates', 'w']
+
+        elif self.HTX_Type == 'SPHE':
+            geometry_parameters = ['C_canal_t', 'D_ext', 'H', 'H_canal_t', 'r0_in', 't', 'inner_channel']
 
         elif self.HTX_Type == 'Shell&Tube':
                 
@@ -1809,6 +1812,11 @@ class HexMBChargeSensitive(BaseComponent):
         if self.HTX_Type == 'Plate':          
             G_c = (self.mdot_c/self.params['C_n_canals'])/self.params['C_CS']
             G_h = (self.mdot_h/self.params['H_n_canals'])/self.params['H_CS']
+        elif self.HTX_Type == 'SPHE':       
+            A_channel_c = self.params['H']*self.params['C_canal_t']
+            A_channel_h = self.params['H']*self.params['H_canal_t']
+            G_c = self.mdot_c/A_channel_c
+            G_h = self.mdot_h/A_channel_h
         elif self.HTX_Type == 'Shell&Tube':
             A_in_one_tube = np.pi*((self.params['Tube_OD']-2*self.params['Tube_t'])/2)**2
             G_h = (self.params["Tube_pass"]/self.params["n_parallel"])*self.mdot_h/(A_in_one_tube*self.params['n_tubes'])
@@ -1832,6 +1840,97 @@ class HexMBChargeSensitive(BaseComponent):
         if self.HTX_Type == 'Plate':     
             pass # Implement interdependence computation
 
+        elif self.HTX_Type == 'SPHE':
+            
+            t = self.params['t']
+            
+            # 1) Preparation of Archimede spiral computation
+            
+            p = self.params['C_canal_t'] + self.params['H_canal_t'] + 2*t # Radial spacing of both channels
+            a = p/(2*np.pi) # radius evolution per angle : Archimede spiral slope
+            
+            if self.params['inner_channel'] == "hot":
+                b_inner = self.params['H_canal_t']
+                b_outer = self.params['C_canal_t']
+            else:
+                b_inner = self.params['C_canal_t']
+                b_outer = self.params['H_canal_t']
+
+            outer_offset = 1.5 * self.params['t'] + b_outer 
+
+            self.params['N'] = (self.params['D_ext'] / 2.0 - self.params['r0_in'] - outer_offset) / p # Number of turns
+
+            if self.params['N'] < 1.0:
+                raise ValueError(
+                    "Le diamètre extérieur est trop petit pour obtenir "
+                    "au moins un tour complet."
+                )
+
+            theta_max = 2*np.pi * self.params['N']
+            
+            sheet1 = (-t / 2, t / 2) 
+            inner = (t / 2, t / 2 + b_inner ) 
+            sheet2 = (t / 2 + b_inner, t / 2.0 + b_inner + t)
+            outer = (t / 2 + b_inner + t, p - t / 2) 
+            
+            if self.params['inner_channel'] == "hot": 
+                hot = inner 
+                cold = outer 
+            else: 
+                cold = inner 
+                hot = outer
+            
+            self.params['radial_limits'] = {"sheet1": sheet1, "hot": hot, "sheet2": sheet2, "cold": cold}
+            
+            # End angle for each element
+            self.params['theta_end'] = {
+                "sheet1": theta_max,
+                "hot": theta_max,
+                "sheet2": theta_max,
+                "cold": theta_max,
+            }
+
+            outer_channel = ( "cold" if self.params['inner_channel'] == "hot" else "hot" )
+            self.params['theta_end'][outer_channel] = theta_max - 2*np.pi
+            
+            # 2) Compute length of each channel
+            def spiral_length(element, theta_0=0.0, theta_1=None):
+                """Length of one spiral element between theta_0 and theta_1."""
+
+                if theta_1 is None:
+                    theta_1 = self.params['theta_end'][element]
+
+                if theta_1 <= theta_0:
+                    return 0.0
+
+                # Median radius of the considered element
+                r_offset = np.mean(self.params['radial_limits'][element])
+
+                r0 = self.params['r0_in'] + a * theta_0 + r_offset
+                r1 = self.params['r0_in'] + a * theta_1 + r_offset
+
+                def primitive(r):
+                    return (
+                        r * np.sqrt(r**2 + a**2)
+                        + a**2 * np.arcsinh(r / a)
+                    ) / (2.0 * a)
+
+                return primitive(r1) - primitive(r0)
+            
+            # Length of each fluid channel
+            self.params['L_hot'] = spiral_length("hot")
+            self.params['L_cold'] = spiral_length("cold")
+            
+            # 3) Heat transfer Area
+            self.A_h = self.params['L_hot']*self.params['H']
+            self.A_c = self.params['L_cold']*self.params['H']
+
+            # self.A_h = self.A_c = 2*np.min(self.params['L_cold'], self.params['L_hot'])*self.params['H']
+
+
+            self.params['H_V_tot'] = self.params['L_hot']*self.params['H']*self.params['H_canal_t']
+            self.params['C_V_tot'] = self.params['L_cold']*self.params['H']*self.params['C_canal_t']
+            
         elif self.HTX_Type == 'Shell&Tube':
             
             self.params['A_eff'] = np.pi*self.params['Tube_OD']*self.params['Tube_L']*self.params['n_tubes']*self.params['n_series']*self.params['n_parallel']   
@@ -2162,30 +2261,33 @@ class HexMBChargeSensitive(BaseComponent):
             "5.5) Computation of the fluid mass inside the HTX"
             
             if self.HTX_Type == 'Plate':
-                # OK
-                self.Vvec_h = self.params['H_V_tot']*np.array(self.w) # !!! Attention to this assumption
+                self.Vvec_h = self.params['H_V_tot']*np.array(self.w) 
                 self.Vvec_c = self.params['C_V_tot']*np.array(self.w)
 
             elif self.HTX_Type == 'Shell&Tube':
                 if self.params['Shell_Side'] == 'H': # Shell Side is the hot side
-                    self.Vvec_h = self.params['S_V_tot']*np.array(self.w) # !!! Attention to this assumption
+                    self.Vvec_h = self.params['S_V_tot']*np.array(self.w) 
                     self.Vvec_c = self.params['T_V_tot']*np.array(self.w)
                 else:
-                    self.Vvec_h = self.params['T_V_tot']*np.array(self.w) # !!! Attention to this assumption
+                    self.Vvec_h = self.params['T_V_tot']*np.array(self.w) 
                     self.Vvec_c = self.params['S_V_tot']*np.array(self.w)                    
 
             elif self.HTX_Type == 'Tube&Fins':
                 if self.params['Fin_Side'] == 'H': # Shell Side is the hot side
-                    self.Vvec_h = self.params['B_V_tot']*np.array(self.w) # !!! Attention to this assumption
+                    self.Vvec_h = self.params['B_V_tot']*np.array(self.w) 
                     self.Vvec_c = self.params['T_V_tot']*np.array(self.w)
                 else:
-                    self.Vvec_h = self.params['T_V_tot']*np.array(self.w) # !!! Attention to this assumption
+                    self.Vvec_h = self.params['T_V_tot']*np.array(self.w) 
                     self.Vvec_c = self.params['B_V_tot']*np.array(self.w) 
             
             elif self.HTX_Type == 'PCHE':
-                self.Vvec_h = self.params['H_V_tot']*np.array(self.w) # !!! Attention to this assumption
+                self.Vvec_h = self.params['H_V_tot']*np.array(self.w)
                 self.Vvec_c = self.params['C_V_tot']*np.array(self.w)
-                
+            
+            elif self.HTX_Type == 'SPHE':
+                self.Vvec_h = self.params['H_V_tot']*np.array(self.w) 
+                self.Vvec_c = self.params['C_V_tot']*np.array(self.w)
+            
             # Initiates the mass vectors # !!! (for each cell ?)
             self.Mvec_h = np.empty(len(self.hvec_h)-1)
             self.Mvec_c = np.empty(len(self.hvec_c)-1)
@@ -2225,8 +2327,10 @@ class HexMBChargeSensitive(BaseComponent):
  
     def objective_function(self, Q, only_external = False):
         
-        # print(self.Qmax)
-        # print(Q)
+        print("="*50)
+
+        print(self.Qmax)
+        print(Q)
         
         "0) Initialize cell boundaries and results vectors"
         
@@ -2570,6 +2674,10 @@ class HexMBChargeSensitive(BaseComponent):
                 
                 self.UA_avail[k] = 1/(1/(alpha_h*self.A_h) + 1/(alpha_c*self.A_c)) # + self.R_fouling + self.R_cond)
         
+            elif self.HTX_Type == 'SPHE':
+                
+                self.UA_avail[k] = 1/(1/(alpha_h*self.A_h) + 1/(alpha_c*self.A_c)) 
+        
                 "5) Compute LMTD"        
                 
         if self.HTX_Type == 'Shell&Tube' and "Tube_pass" in self.params and self.params['Tube_pass'] > 1: # If many passes are present    
@@ -2751,7 +2859,7 @@ class HexMBChargeSensitive(BaseComponent):
         while self.Q_dot > self.Qmax and it < max_iter:
             
             # self.Q_dot, self.results = scipy.optimize.brentq(self.objective_function, 1e-5, self.Qmax*0.9999, rtol = 1e-6, xtol = 1e-6, full_output=True)
-            self.Q_dot, self.results = scipy.optimize.brentq(self.objective_function, self.Qmax*0.01, self.Qmax*0.9999, rtol = 1e-6, xtol = 1e-6, full_output=True)
+            self.Q_dot, self.results = scipy.optimize.brentq(self.objective_function, self.Qmax*0.001, self.Qmax*1, rtol = 1e-6, xtol = 1e-6, full_output=True)
             
             "Pinch Analysis : Verification as pressure drops changed - Create a new HX to not impact computed results"
             
