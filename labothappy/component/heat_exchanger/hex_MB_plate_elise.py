@@ -12,9 +12,9 @@ from labothappy.connector.mass_connector import MassConnector
 from labothappy.connector.heat_connector import HeatConnector
 
 from labothappy.correlations.heat_exchanger.f_lmtd2 import f_lmtd2, F_shell_and_tube
-from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.hex_MB_correlations import check_correlation_name
+# from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.hex_MB_correlations import check_correlation_name
 from labothappy.correlations.pressure_drop.pressure_drop_distributor import pressure_drop
-from labothappy.correlations.convection.heat_transfer_distributor import heat_transfer_coefficient
+from labothappy.correlations.convection.heat_transfer_distributor import compute_htc, NEEDS_Q_FLUX
 from labothappy.correlations.void_fraction.void_fraction import compute_void_fraction
 from labothappy.correlations.properties.two_phase import compute_two_phase_density
 
@@ -246,8 +246,6 @@ class HexMBPlate(BaseComponent):
                 if unknown:
                     raise ValueError(f"Unknown regime(s) {sorted(unknown)} in {arg}. Allowed: {HTC_REGIMES}.")
                 side.htc_corr = {regime: name for regime, name in htc_corr.items() if name is not None}  # Remove regimes given as None
-                for name in side.htc_corr.values():
-                    check_correlation_name(name, 'htc')  # Clear error now if the name is misspelled
 
     def set_dp(self, dp_type=None, dp_corr_h=None, dp_corr_c=None, dp_user_h=None, dp_user_c=None):
         """
@@ -264,8 +262,6 @@ class HexMBPlate(BaseComponent):
             side.dp_corr = {}
             if dp_type in ("correlation_global", "correlation_disc"):
                 side.dp_corr = {k: v for k, v in dict(corr).items() if v is not None}
-                for name in side.dp_corr.values():
-                    check_correlation_name(name, "dp")
 
 
     def _setup_geometry(self):
@@ -290,7 +286,7 @@ class HexMBPlate(BaseComponent):
             p = self.params
             for side, su in ((self.H, self.su_H), (self.C, self.su_C)):
                 s = side.name.upper()   # 'H' or 'C', to build the parameter names
-                A_cs = p['W_plate'] * p['corrugation_amplitude']
+                A_cs_channel = p['W_plate'] * p['corrugation_amplitude']
                 enlargement_factor = 1/6 * (1+ np.sqrt(1 + (np.pi * p['corrugation_amplitude'] / p['corrugation_pitch'])**2) + 4 * np.sqrt(1 + (np.pi * p['corrugation_amplitude'] / p['corrugation_pitch'])**2) / 2)
                 D_h = 2*p['corrugation_amplitude']/enlargement_factor
                 side.geom = {**p,
@@ -304,18 +300,9 @@ class HexMBPlate(BaseComponent):
                             'corrugation_amplitude': p['corrugation_amplitude'],    # Corrugation amplitude [m]
                             'corrugation_pitch': p['corrugation_pitch'],    # Corrugation pitch [m]
                             'chevron_angle': p['chevron_angle'],    # Chevron angle [rad]
-                            'A_cs': A_cs,    # Cross-flow section of one channel [m^2]
-                            'D_h': D_h     # Hydraulic diameter [m]
+                            'A_cs_channel': A_cs_channel,    # Cross-flow section of one channel [m^2]
+                            'D_h': D_h     # Hydraulic diameter of one channel [m]
                             }
-                side.G = su.m_dot / (p[f'n_channels_{s}'] * p[f'A_cs_{s}'])   # Mass flux for the entire heat exchanger [kg/(m^2 s)]
-                # side.geom = {**p,
-                #              'D': p[f'D_h_{s}'],                 # Hydraulic diameter [m]
-                #              'L': p['plate_length'],             # Flow length [m]
-                #              'A': p[f'A_{s}'],                   # Heat transfer area [m^2]
-                #              'K': p.get('roughness', 0.0),       # Wall roughness [m]
-                #              'n_channels': p[f'n_channels_{s}'], # Number of channels [-]
-                #              't_channel': p[f't_channel_{s}']}   # Channel thickness [m]
-                # side.G = su.m_dot / p[f'n_channels_{s}'] / p[f'A_cs_{s}']   # Mass flux per channel [kg/(m^2 s)]
         else:
             pass # To check from the code of Basile
 
@@ -590,19 +577,12 @@ class HexMBPlate(BaseComponent):
                 "2) Correlation, evaluated at the mean state of the cell"
                 AS = self._state(side, side.h_mean[k], side.p_mean[k])
                 extra = dict(
-                    m_dot     = side.m_dot,                               # Mass flow rate of the side [kg/s]
-                    T_wall    = side.T_wall[k],                           # Wall temperature [K]
-                    x         = side.x_mean[k],                           # Mean vapour quality [-]
-                    Q         = self.Qvec_h[k],                           # Heat rate of the cell [W]
-                    q         = self.Qvec_h[k] * n / side.geom['A'],      # Heat flux if all cells had the same area [W/m^2]
-                    DT_lm     = self.F[k] * self.LMTD[k],                 # Corrected LMTD of the cell [K]
-                    htc_other = self.H.htc[k] if side is self.C else np.nan,   # Hot-side htc, known only for the cold side
-                    h_min     = side.hvec[k],                             # Enthalpy at the lower boundary [J/kg]
-                    h_max     = side.hvec[k + 1],                         # Enthalpy at the upper boundary [J/kg]
+                    T_wall = side.T_wall[k],                           # Wall temperature [K]
+                    q_flux = self.Qvec_h[k] / (self.w[k] * side.geom['A']) if self.w[k] > 0 else None      # Heat flux if all cells had the same area [W/m^2] /!\ TO BE CHECKED!!
                 )
+
                 try:
-                    side.htc[k] = heat_transfer_coefficient(AS, side.geom, side.G,
-                                                            side.correlation(phase, 'htc'), **extra)
+                    side.htc[k] = compute_htc(AS, side.m_dot, side.geom, side.correlation(phase, 'htc'), **extra)
                 except Exception as e:
                     raise RuntimeError(f"{side.label} side, cell {k} ({phase}, T = {side.T_mean[k]:.2f} K, "
                                        f"p = {side.p_mean[k]:.0f} Pa): {type(e).__name__}: {e}") from e
@@ -932,13 +912,36 @@ class HexMBPlate(BaseComponent):
         """Return 1 - sum(w) for the heat rate Q (w_k: area fraction of cell k)."""
         self.calculate_cell_boundaries(Q)  # Determines the different cell boundaries
         self._cell_states()               # Computes the mean properties of each cells and the LMTDs
-        self._correction_factors()        # Computes the correction factor F for the other cases than counter-flow heat exchanegrs
+        self._correction_factors()        # Computes the correction factor F for the other cases than counter-flow heat exchanegers
+
+        # Conductance each cell needs: does not depend on the htc, so computed here
+        self.UA_req = self.Qvec_h / (self.F * self.LMTD)    # computes the conductance UA that eatch cell needs to transfer its heat (Qvec_h is an array)
+
+        # If one of the htc correlation depends on the heat flux, the w for this Q must be computed based on an iteration
+        needs_q_flux = any(
+            side.htc_type == 'correlation' and side.correlation(phase, 'htc') in NEEDS_Q_FLUX
+            for side in (self.H, self.C)
+            for phase in side.phases
+        )
+
+        # Iteration loop until w converges
+        self.w = np.full(self.n_cells, 1.0 / self.n_cells)
+        for _ in range(20):
+            self._compute_htc()
+            self._compute_UA()                
+            w_new = self.UA_req / self.UA_avail              # Ratio of the exchanger's area the cell needs
+            converged = np.allclose(w_new, self.w, rtol=1e-4)
+            self.w = w_new
+            if converged or not needs_q_flux:
+                break
+        else:
+            warnings.warn(f"Area fractions did not converge for Q = {Q:.1f} W")
+
+
         self._compute_htc()               # Computes the heat transfer coefficients for each cell for both streams
         self._compute_UA()                # Computes the conductance of every cell as if it covered the whole heat exchanger
 
         # if self._multipass -> passer pour le moment! c'est plus pour Basile tout ça
-        self.UA_req = self.Qvec_h / (self.F * self.LMTD)    # computes the conductance UA that eatch cell needs to transfer its heat (Qvec_h is an array)
-        self.w = self.UA_req / self.UA_avail                # Ratio of the exchanger's area the cell needs
         self.w_sum = float(np.sum(self.w))
         self.eval += 1
         self._last_Q = Q
