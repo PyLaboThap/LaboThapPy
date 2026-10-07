@@ -5,6 +5,30 @@ Created on Mon Feb  3 15:31:53 2025
 @author: Basile
 """
 
+"""
+3K de difference -> 10-7 pour le côté froid
+
+T_in : 50 - 55 
+T_in : 30 - 35 
+
+SH = 0K 
+SC = 1K
+
+Moteur Variable Speed - 5% de perte qui se retrouve dans le fluide
+Pinch : 1-2 K
+
+Plaque circulaire (refroidisseur d'huile style voiture)
+
+Diametre shell - frame
+44 inch
+53 inch                   
+
+-> Target COP -> Target de Pinch -> En fonction du diamètre, quelle hauteur ? 
+
+Modèle spirale -> No-Corrugation or Corrugation 
+
+"""
+
 from labothappy.machine.circuit_fpi import CircuitFPI
 from labothappy.connector.mass_connector import MassConnector
 from labothappy.component.heat_exchanger.hex_csteff import HexCstEff
@@ -180,45 +204,49 @@ def basic_IHX_HP(fluid, HSource, CSource, eta_cp, eff_rec, PP_cd, SC_cd, PP_ev, 
 
 if __name__ == "__main__":
     
-    study_case = "IHX"    
+    study_case = "Example"    
+    
+    #%%
     
     if study_case == "Example":
         
-        fluid = 'Propane'
+       #%%
         
-        # Hot Source
-        T_HS = 60 + 273.15
-        p_HS = 3e5
-        fluid_HS = 'Water'
-        m_dot_HS = 2
-    
-        # Cold Source
-        T_CS = 20 + 273.15
-        fluid_CS = 'Water'
-        p_CS = 3e5
-        m_dot_CS = 10
-    
-        # Pressure Guesses
-        P_high_guess = PropsSI('P', 'T', T_HS, 'Q', 0.5, fluid)
-        P_low_guess  = PropsSI('P', 'T', T_CS-5, 'Q', 0.5, fluid)
-        
-        mdot = 0.1        
+       fluid = 'Propane'
+       
+       # Hot Source
+       T_HS = 60 + 273.15
+       p_HS = 3e5
+       fluid_HS = 'Water'
+       m_dot_HS = 2
+   
+       # Cold Source
+       T_CS = 20 + 273.15
+       fluid_CS = 'Water'
+       p_CS = 3e5
+       m_dot_CS = 10
+   
+       # Pressure Guesses
+       P_high_guess = PropsSI('P', 'T', T_HS, 'Q', 0.5, fluid)
+       P_low_guess  = PropsSI('P', 'T', T_CS-5, 'Q', 0.5, fluid)
+       
+       mdot = 0.1        
 
-        HSource = MassConnector()
-        HSource.set_properties(fluid = 'Water', T = T_HS, p = p_HS, m_dot = m_dot_HS)
-        
-        CSource = MassConnector()
-        CSource.set_properties(fluid = fluid_CS, T = T_CS, p = p_CS, m_dot = m_dot_CS)
-        
-        HP_example = basic_HP(fluid=fluid, HSource=HSource, CSource=CSource, eta_cp=0.7, PP_cd=3, SC_cd=3, PP_ev=3, SH_ev=3, P_low=P_low_guess, P_high=P_high_guess, mdot=mdot)
-        HP_example.solve(method='wegstein')          
+       HSource = MassConnector()
+       HSource.set_properties(fluid = 'Water', T = T_HS, p = p_HS, m_dot = m_dot_HS)
+       
+       CSource = MassConnector()
+       CSource.set_properties(fluid = fluid_CS, T = T_CS, p = p_CS, m_dot = m_dot_CS)
+       
+       HP_example = basic_HP(fluid=fluid, HSource=HSource, CSource=CSource, eta_cp=0.7, PP_cd=3, SC_cd=3, PP_ev=3, SH_ev=3, P_low=P_low_guess, P_high=P_high_guess, mdot=mdot)
+       HP_example.solve(method='wegstein')          
 
-        Compressor = HP_example.components['Compressor'].model
+       Compressor = HP_example.components['Compressor'].model
 
-        print(f"Converged at P_HP = {Compressor.ex.p}, P_LP = {Compressor.su.p}")
-    
-        HP_example.plot_cycle_Ts()
-        
+       print(f"Converged at P_HP = {Compressor.ex.p}, P_LP = {Compressor.su.p}")
+   
+       HP_example.plot_cycle_Ts()
+            
     elif study_case == "IHX":
 
         fluid = "Cyclopentane"
@@ -255,3 +283,6 @@ if __name__ == "__main__":
         print(f"Converged at P_HP = {Compressor.ex.p}, P_LP = {Compressor.su.p}")
         
         HP_zorlu.plot_cycle_Ts()
+                
+        
+    

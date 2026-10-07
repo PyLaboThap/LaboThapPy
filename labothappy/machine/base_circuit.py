@@ -339,86 +339,112 @@ class BaseCircuit:
 
 #%% Ts-Plot related methods
 
-    def plot_cycle_Ts(self, saturation_curve = True, plot_auto = True):
-        
+    def plot_cycle_Ts(self, saturation_curve=True, plot_auto=True, xlim=None, ylim=None):
+    
         if plot_auto:
             plt.ion()
         else:
             plt.ioff()
         
         fig = plt.figure()
-        
-        if saturation_curve:
-            def generate_saturation_curve(fluid, n_points=100):
-                """
-                Generates saturation curve arrays (T, s_liq, s_vap) for the fluid+suffix.
-                """
-            
-                fluid_name = fluid
-            
-                # Get saturation temperature range
-                T_crit = PropsSI('TCRIT', fluid_name)
-                T_triple = PropsSI('Ttriple', fluid_name)
-            
-                # Avoid extremely low T
-                T_min = max(T_triple, 0.1 * T_crit)
-                T_max = 1 * T_crit  # avoid critical point
-                T_sat = np.linspace(T_min, T_max, n_points)
-            
-                s_liq = np.zeros_like(T_sat)
-                s_vap = np.zeros_like(T_sat)
-            
-                for i, T in enumerate(T_sat):
-                    try:
-                        s_liq[i] = PropsSI('S', 'T', T, 'Q', 0, fluid_name)  # saturated liquid entropy
-                        s_vap[i] = PropsSI('S', 'T', T, 'Q', 1, fluid_name)  # saturated vapor entropy
-                    except:
-                        s_liq[i] = np.nan
-                        s_vap[i] = np.nan
-            
-                return T_sat, s_liq, s_vap
-            
-            T_sat, s_liq, s_vap = generate_saturation_curve(self.fluid)
-            
-            plt.plot(s_liq, T_sat, 'k--')  # saturated liquid
-            plt.plot(s_vap, T_sat, 'k--')  # saturated vapor
+        ax = fig.add_subplot(111)   # <-- UN SEUL axe créé explicitement ici
         
         for comp in self.components:
             model = self.components[comp].model
             
-            su_C_flag = 0
-            su_H_flag = 0
+            su_C_flag = hasattr(model, "su_C")
+            su_H_flag = hasattr(model, "su_H")
             
-            if hasattr(model, "su_C"):
-                su_C_flag = 1
-                
-            if hasattr(model, "su_H"):
-                su_H_flag = 1
-            
-            if su_C_flag + su_H_flag > 0: # semi or total HX
+            if su_C_flag + su_H_flag > 0:
                 if su_C_flag + su_H_flag == 1:
-                    
-                    if su_C_flag: # Semi HX Case
-                        fig = model.plot_Ts(fig = fig, choose_HX_side = 'C')
-                    else:
-                        fig = model.plot_Ts(fig = fig, choose_HX_side = 'H')
-
+                    side = 'C' if su_C_flag else 'H'
+                    fig = model.plot_Ts(fig=fig, choose_HX_side=side)
                 else:
-                    
                     fluid_H = getattr(model, "su_H").fluid
                     fluid_C = getattr(model, "su_C").fluid
                     
                     if fluid_H == fluid_C:
                         dominant_side = None
                     elif fluid_C == self.fluid:
-                        dominant_side = 'C'  
+                        dominant_side = 'C'
                     else:
                         dominant_side = 'H'
                     
-                    fig = model.plot_Ts(fig = fig, choose_HX_side = dominant_side)
-                    
+                    fig = model.plot_Ts(fig=fig, choose_HX_side=dominant_side)
             else:
-                fig = model.plot_Ts(fig = fig)
+                fig = model.plot_Ts(fig=fig)
+        
+        # Si plot_Ts a quand même créé des axes supplémentaires, on les fusionne :
+        axes_list = fig.get_axes()
+        if len(axes_list) > 1:
+            # On force tout sur le premier axe et on masque/supprime les autres
+            main_ax = axes_list[0]
+            for extra_ax in axes_list[1:]:
+                for line in extra_ax.get_lines():
+                    main_ax.plot(line.get_xdata(), line.get_ydata(),
+                                 color=line.get_color(), linestyle=line.get_linestyle(),
+                                 marker=line.get_marker())
+                fig.delaxes(extra_ax)
+            ax = main_ax
+        else:
+            ax = axes_list[0]
+        
+        # Calcul des limites depuis les données déjà tracées sur ax
+        all_x, all_y = [], []
+        for line in ax.get_lines():
+            xdata = np.asarray(line.get_xdata())
+            ydata = np.asarray(line.get_ydata())
+            all_x.append(xdata[np.isfinite(xdata)])
+            all_y.append(ydata[np.isfinite(ydata)])
+        
+        if all_x and any(len(a) for a in all_x):
+            all_x = np.concatenate(all_x)
+            all_y = np.concatenate(all_y)
+            x_min, x_max = np.min(all_x), np.max(all_x)
+            y_min, y_max = np.min(all_y), np.max(all_y)
+            x_margin = 0.05 * (x_max - x_min) if x_max > x_min else 1
+            y_margin = 0.05 * (y_max - y_min) if y_max > y_min else 1
+            data_xlim = (x_min - x_margin, x_max + x_margin)
+            data_ylim = (y_min - y_margin, y_max + y_margin)
+        else:
+            data_xlim = None
+            data_ylim = None
+        
+        if saturation_curve:
+            def generate_saturation_curve(fluid, n_points=100):
+                """
+                Generates saturation curve arrays (T, s_liq, s_vap) for the fluid.
+                """
+                fluid_name = fluid
+                T_crit = PropsSI('TCRIT', fluid_name)
+                T_triple = PropsSI('Ttriple', fluid_name)
+                
+                T_min = max(T_triple, 0.1 * T_crit)
+                T_max = 1 * T_crit
+                T_sat = np.linspace(T_min, T_max, n_points)
+                
+                s_liq = np.zeros_like(T_sat)
+                s_vap = np.zeros_like(T_sat)
+                
+                for i, T in enumerate(T_sat):
+                    try:
+                        s_liq[i] = PropsSI('S', 'T', T, 'Q', 0, fluid_name)
+                        s_vap[i] = PropsSI('S', 'T', T, 'Q', 1, fluid_name)
+                    except:
+                        s_liq[i] = np.nan
+                        s_vap[i] = np.nan
+                
+                return T_sat, s_liq, s_vap
+            
+            T_sat, s_liq, s_vap = generate_saturation_curve(
+                self.fluid,
+                )
+            
+            ax.plot(s_liq, T_sat, 'k--', clip_on=True, zorder=1)
+            ax.plot(s_vap, T_sat, 'k--', clip_on=True, zorder=1)
+        
+        ax.set_xlim(xlim if xlim is not None else data_xlim)
+        ax.set_ylim(ylim if ylim is not None else data_ylim)
         
         if plot_auto:
             return fig

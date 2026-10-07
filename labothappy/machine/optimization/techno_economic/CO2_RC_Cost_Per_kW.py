@@ -36,6 +36,7 @@ from CoolProp.CoolProp import PropsSI
 
 from labothappy.sizing.turbomachinery.turbine.axial.sizing_1D.mean_line_axial_turbine_loss_model_sizing import AxialTurbineMeanLineSizing
 from labothappy.sizing.turbomachinery.turbine.radial.mean_line_radial_turbine_loss_model_sizing import RadialTurbineMeanLineSizing
+from labothappy.sizing.turbomachinery.compressor.radial.sizing_1D.mean_line_radial_compressor_sizing import RadialCPMLDesign
 from labothappy.sizing.heat_exchanger.shell_and_tube.shell_and_tube_sizing import ShellAndTubeSizingOpt
 from labothappy.sizing.heat_exchanger.PCHE.PCHE_sizing import PCHESizingOpt
 from labothappy.sizing.turbomachinery.pump.radial.radial_pump_0D_sizing import RadialPumpODSizing
@@ -845,6 +846,9 @@ class CO2RCOptimizer(CO2RC_HX_optimizer):
 if __name__ == "__main__":
 
     # Cycle sizing parameters
+    fluid = 'CO2'
+    
+    arch = "Recomp_1_recup" # 'REC', 'Recomp_1_recup'
 
     T_hot = 150 + 273.15
     T_cold = 10 + 273.15
@@ -858,6 +862,7 @@ if __name__ == "__main__":
     m_dot_CS_fact_bounds = [5, 15]
     P_high_bounds = np.array([110, 180]) * 1e5
     m_dot_bounds = np.array([10, 80]) * n_MW
+    spliter_frac_bounds = np.array([0.01, 0.99])
 
     eta_gh_disc = np.arange(0.9, 0.98, 0.02)
     PP_gh_disc = np.arange(1, 10, 1)
@@ -865,38 +870,36 @@ if __name__ == "__main__":
     PP_cd_disc = np.arange(1, 10, 1)
 
     Optimizer.set_parameters(
-        save_file_path=None,   # ou un chemin, comme dans le fichier 2 d'origine
-        RC_ARCH='REC',          # seule architecture compatible avec le sizing actuel
+        save_file_path=None,
+        RC_ARCH=arch,         # 'REC', 'Recomp_1_recup'
+        
         eta_pp=0.8,
+        eta_cp=0.8,        
         eta_pp_aux=0.8,
-        DP_h_gh=100e3, DP_c_gh=4e5,
-        PP_rec=0, DP_h_rec=4e5, DP_c_rec=2e5,
+        
+        DP_h_gh=50e3, DP_c_gh=50e3,
+        DP_h_rec=50e3, DP_c_rec=50e3,
+        DP_h_cond=50e3, DP_c_cond=50e3,
+        
+        PP_rec=0, 
         eta_exp=0.9,
-        SC_cd=0.1, DP_h_cond=2e5, DP_c_cond=50e3,
+        SC_cd=0.1, 
+        
         P_high_bounds=P_high_bounds,
         m_dot_HS_fact_bounds=m_dot_HS_fact_bounds,
         m_dot_CS_fact_bounds=m_dot_CS_fact_bounds,
         m_dot_bounds=m_dot_bounds,
+        spliter_frac_bounds=spliter_frac_bounds,
+        
         eta_gh_disc=eta_gh_disc, PP_gh_disc=PP_gh_disc,
         eta_rec_disc=eta_rec_disc, PP_cd_disc=PP_cd_disc,
+        
         # Poids du CAPEX dans evaluate_systems() (voir docstring) :
         #   0.0 = comportement d'origine (cohérence eta/DP seule)
         #   1.0 = coût et cohérence pèsent à peu près à égalité (défaut)
         #   >1.0 = priorité croissante au coût le plus bas
+        
         capex_weight=1.0,
-        # Poids de coût relatif par technologie d'échangeur, utilisés DANS
-        # le PSO thermodynamique (system_RC_parallel). Valeur initiale =1
-        # partout (NTU pondéré par Q_dot, coût $/NTU supposé identique entre
-        # PCHE et Shell&Tube) -- recalibré automatiquement à CHAQUE itération
-        # de cycle_design() depuis le CAPEX réel des échangeurs sizés (voir
-        # calibrate_cost_weights_from_sizing, appelée dans cycle_design()).
-        # Pour pré-calibrer AVANT même de lancer cycle_design (utile avec
-        # ntop=1, où un seul candidat par itération donne peu de robustesse
-        # au début) :
-        #   points = [...]  # voir docstring de quick_calibration_points
-        #   sized = quick_calibration_points(Optimizer, sizing_models, points)
-        #   weights = calibrate_cost_weights_from_sizing(Optimizer, RC_list=sized)
-        #   if weights: Optimizer.set_parameters(**weights)
         cost_w_gh=1.0, cost_w_rec=1.0, cost_w_cond=1.0,
     )
     
@@ -919,16 +922,6 @@ if __name__ == "__main__":
     #%% Composants — configuration statique (paramètres, bornes, corrélations, RUN_KWARGS)
 
     sizing_models = {}
-
-    # --- Recuperator (PCHE) ---
-    REC = sizing_models["Recuperator"] = PCHESizingOpt()
-    REC.set_parameters(
-        H_Corr={"1P": "Gnielinski", "SC": "Gnielinski", "2P": "Thome_Condensation"},
-        C_Corr={"1P": "Gnielinski", "SC": "Gnielinski", "2P": "Flow_boiling"},
-        H_DP={"SC": "Gnielinski_DP", "1P": "Gnielinski_DP", "2P": "Choi_DP"},
-        C_DP={"SC": "Gnielinski_DP", "1P": "Gnielinski_DP", "2P": "Choi_DP"},
-    )
-    REC.RUN_KWARGS = dict(n_jobs=-1, n_particles=50, max_iter=50, patience=10)
 
     # --- GasHeater / Condenser (Shell&Tube) : géométrie + paramètres communs ---
 
@@ -974,9 +967,50 @@ if __name__ == "__main__":
 
     Optimizer.sizing_models = sizing_models
     
+    if arch == "REC":
+        # --- Recuperator (PCHE) ---
+        REC = sizing_models["Recuperator"] = PCHESizingOpt()
+        REC.set_parameters(
+            H_Corr={"1P": "Gnielinski", "SC": "Gnielinski", "2P": "Thome_Condensation"},
+            C_Corr={"1P": "Gnielinski", "SC": "Gnielinski", "2P": "Flow_boiling"},
+            H_DP={"SC": "Gnielinski_DP", "1P": "Gnielinski_DP", "2P": "Choi_DP"},
+            C_DP={"SC": "Gnielinski_DP", "1P": "Gnielinski_DP", "2P": "Choi_DP"},
+        )
+        REC.RUN_KWARGS = dict(n_jobs=-1, n_particles=50, max_iter=50, patience=10)
+        
+    elif arch == "Recomp_1_recup":
+        # --- Recuperator (PCHE) ---
+
+        REC_LT = sizing_models["RecupLT"] = PCHESizingOpt()
+        
+        REC_LT.set_parameters(
+            H_Corr={"1P": "Gnielinski", "SC": "Gnielinski", "2P": "Thome_Condensation"},
+            C_Corr={"1P": "Gnielinski", "SC": "Gnielinski", "2P": "Flow_boiling"},
+            H_DP={"SC": "Gnielinski_DP", "1P": "Gnielinski_DP", "2P": "Choi_DP"},
+            C_DP={"SC": "Gnielinski_DP", "1P": "Gnielinski_DP", "2P": "Choi_DP"},
+        )
+        REC_LT.RUN_KWARGS = dict(n_jobs=-1, n_particles=50, max_iter=50, patience=10)
+        
+        # --- Compressor (Radial) ---
+
+        COMP = sizing_models["Compressor"] = RadialCPMLDesign(Optimizer.fluid)
+        
+        COMP.set_parameters(
+            t_b          = 0.762*1e-3,
+            eps_imp      = 0.254*1e-3,
+            eps_bf_imp   = 0.254*1e-3,
+            k_imp        = 0.01*1e-3,
+        )
+
+        COMP.set_bounds(
+            Omega_bounds   = [1000, 200000],   # Omega non fixé ici -> optimisé par le PSO
+            b2_r2_bounds   = [0.02, 0.1],       # diffère du défaut [0.02, 0.3]
+        )
+                    
+        
     #%%
     t0 = time.perf_counter()
-
+    
     # PERFORMANCE — corrections apportées par rapport à l'appel d'origine
     # `cycle_design(ntop=5, n_particles=100, n_jobs=-1, patience=30)` :
     #
@@ -994,6 +1028,7 @@ if __name__ == "__main__":
     #      garde que la meilleure), donc ce coût est le plus souvent perdu.
     #      Remettre à 5 si la robustesse du choix final est prioritaire sur
     #      la vitesse.
+    
     Optimizer.cycle_design(ntop=3, n_particles=100, max_iter=50, n_jobs=-1, patience=15)
 
     elapsed = time.perf_counter() - t0
