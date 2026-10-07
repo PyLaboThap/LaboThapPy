@@ -1,4 +1,4 @@
-
+import numpy as np
 import CoolProp.CoolProp as CP
 
 EPS = 1e-12
@@ -7,6 +7,19 @@ EPS = 1e-12
 #=======================================================================
 # SHARED TWO-PHASE PROPERTY EXTRACTION
 #=======================================================================
+
+def _get_surface_tension(AS, P, x):
+    try:
+        return AS.surface_tension()
+    except ValueError:
+        pass
+    try:
+        AS_s = CP.AbstractState("HEOS", AS.fluid_names()[0])
+        AS_s.update(CP.PQ_INPUTS, P, x)
+        return AS_s.surface_tension()
+    except ValueError:
+        return np.nan   # not available in CoolProp for this fluid
+
 
 def get_saturated_phase_properties(AS):
     """
@@ -36,16 +49,16 @@ def get_saturated_phase_properties(AS):
 
     AS_v = CP.AbstractState(AS.backend_name(), AS.fluid_names()[0])
     AS_v.update(CP.PQ_INPUTS, P, 1)
-
-    try:
-        sigma = AS.surface_tension()
-    except ValueError:
-        # Tabular backends (e.g. 'BICUBIC&HEOS') don't implement
-        # surface_tension(), even for a genuinely two-phase state. Fall
-        # back to a full-EOS state at the same (P, x).
-        AS_sigma = CP.AbstractState("HEOS", AS.fluid_names()[0])
-        AS_sigma.update(CP.PQ_INPUTS, P, x)
-        sigma = AS_sigma.surface_tension()
+    sigma = _get_surface_tension(AS, P, x)
+    # try:
+    #     sigma = AS.surface_tension()
+    # except ValueError:
+    #     # Tabular backends (e.g. 'BICUBIC&HEOS') don't implement
+    #     # surface_tension(), even for a genuinely two-phase state. Fall
+    #     # back to a full-EOS state at the same (P, x).
+    #     AS_sigma = CP.AbstractState("HEOS", AS.fluid_names()[0])
+    #     AS_sigma.update(CP.PQ_INPUTS, P, x)
+    #     sigma = AS_sigma.surface_tension()
 
     return {
         "x": x,
