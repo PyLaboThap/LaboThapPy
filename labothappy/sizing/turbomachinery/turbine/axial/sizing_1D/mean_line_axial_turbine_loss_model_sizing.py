@@ -5,6 +5,7 @@
 
 from labothappy.connector.mass_connector import MassConnector
 from labothappy.correlations.turbomachinery.aungier_axial_turbine import aungier_loss_model
+from labothappy.toolbox.economics.cpi_data import actualize_price
 
 from labothappy.component.expander.turbine_mean_line_Aungier import AxialTurbineMeanLine
 from CoolProp.CoolProp import PropsSI
@@ -32,6 +33,7 @@ from joblib.parallel import BatchCompletionCallBack
 
 # right above _eval_particle (near your joblib imports)
 _SOLVER = None
+_SOLVER_KEY = None
 
 @contextmanager
 def tqdm_joblib(tqdm_object):
@@ -64,15 +66,16 @@ def _eval_particle(x, cls, fluid, params, bounds, stage_params, inputs):
     os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
     os.environ.setdefault("NUMEXPR_MAX_THREADS", "1")
 
-    global _SOLVER
-    if _SOLVER is None:
+    global _SOLVER, _SOLVER_KEY
+    key = repr((cls.__name__, fluid, sorted(params.items()), sorted(bounds.items()), stage_params))
+    if _SOLVER is None or _SOLVER_KEY != key:
         s = cls(fluid)
         s.set_parameters(**params)
         s.set_bounds(**bounds)
         if stage_params:
             s.set_stage_parameters(**stage_params)
         s.set_inputs(**inputs)
-        _SOLVER = s
+        _SOLVER, _SOLVER_KEY = s, key
 
     # Re-apply inputs every call to avoid cross-particle contamination
     _SOLVER.set_inputs(**inputs)
@@ -91,7 +94,7 @@ def _eval_particle(x, cls, fluid, params, bounds, stage_params, inputs):
             _SOLVER.W_dot,
             _SOLVER.psi, _SOLVER.phi, _SOLVER.R,
             _SOLVER.params['Re_min'],
-            _SOLVER.r_m,
+            _SOLVER._x4_value(),
             _SOLVER.params['M_1_st'],
             _SOLVER.eta_is_guess,
         )
@@ -101,17 +104,26 @@ def _eval_particle(x, cls, fluid, params, bounds, stage_params, inputs):
 #%%
 
 class AxialTurbineMeanLineSizing(object):
-
+    
+    # Diviseurs (p = 1,2,3,4,5,6,8,10 paires de pôles à 50 Hz) et multiples de 3000 RPM.
+    # Les multiples > 3000 supposent un réducteur ou un alternateur haute vitesse.
+    OMEGA_GRID_3000 = np.array([300, 375, 500, 600, 750, 1000, 1500, 3000,
+                                6000, 9000, 12000, 15000, 18000, 24000, 30000, 35000, 40000, 45000, 50000], dtype=float)
+    
     DEFAULT_PARAMETERS = {
+        'AR_min': 0.8,
+        'AR_max': 5.0,
         'Zweifel': 0.8,
         'damping': 0.2,
-        'p_rel_tol': 0.01,
+        'p_rel_tol': 0.02,
         'delta_tip': 0.4e-3,
         'N_lw': 0,
         'D_lw': 0,
         'e_blade': 0.002e-3,
         't_TE_o': 0.05,
         't_TE_min': 5e-4,
+        'max_stages' : 30,
+        'min_blades' : 2,
         # 'Omega_choices': np.array([750, 1000, 1500, 2000, 3000]),
     }
 
@@ -122,25 +134,24 @@ class AxialTurbineMeanLineSizing(object):
     # mais rend chaque cas exécutable sans set_bounds() supplémentaire —
     # y compris M_1st_bounds, qui manquait de fait dans 3 des 4 cas
     # d'origine alors que sizing()/opt_size() y accèdent sans condition.
-    #
+    # 
     # eta_is_guess_bounds (NOUVEAU) : borne la 7e dimension du PSO, qui
     # remplace l'ancien calcul rigide Dh0 = W_dot/mdot -- voir design_system.
     # C'est une fraction de la chute isentropique disponible (Dh0s), donc
     # borné dans [0,1] par construction physique, peu importe l'échelle
     # absolue du problème (contrairement à un W_dot brut).
     DEFAULT_BOUNDS = {
-        'AR_min': 0.8,
         'r_hub_tip_max': 0.95,
         'r_hub_tip_min': 0.6,
-        'Re_bounds': [1e6, 1e7],
+        'Re_bounds': [1e6, 2e7],
         'psi_bounds': [0.8, 2.5],
         'phi_bounds': [0.5, 1.2],
-        'R_bounds': [0.4, 0.6],
-        'r_m_bounds': [0.05, 0.8],
-        'M_1st_bounds': [0.3, 0.5],
+        'R_bounds': [0.3, 0.7],
+        'r_m_bounds': [0.05, 1],
+        'M_1st_bounds': [0.3, 0.6],
         'eta_is_guess_bounds': [0.8, 0.999],
     }
-
+    
     def __init__(self, fluid):
         self.inputs = {}
         self.params = dict(self.DEFAULT_PARAMETERS)
@@ -339,6 +350,25 @@ class AxialTurbineMeanLineSizing(object):
                 return g, it + 1
             x = mixer.step(x, g)
         return x, max_iter
+    
+    def _x4_value(self):
+        """Valeur de la 5e dimension PSO : log10(Omega) en mode grille, r_m sinon."""
+        if "Omega_choices" in self.params:
+            return float(np.log10(self.params['Omega']))
+        return self.r_m
+    
+    def _pso_bounds(self):
+        if "Omega_choices" in self.params:
+            ch = np.asarray(self.params['Omega_choices'], dtype=float)
+            lo4, hi4 = np.log10(ch.min()), np.log10(ch.max())
+        else:
+            lo4, hi4 = self.bounds['r_m_bounds']
+        b = self.bounds
+        lo = np.array([b['psi_bounds'][0], b['phi_bounds'][0], b['R_bounds'][0],
+                       b['Re_bounds'][0], lo4, b['M_1st_bounds'][0], b['eta_is_guess_bounds'][0]])
+        hi = np.array([b['psi_bounds'][1], b['phi_bounds'][1], b['R_bounds'][1],
+                       b['Re_bounds'][1], hi4, b['M_1st_bounds'][1], b['eta_is_guess_bounds'][1]])
+        return (lo, hi)
         
     # ---------------- Data Handling ----------------------------------------------------------------------
     
@@ -1195,8 +1225,10 @@ class AxialTurbineMeanLineSizing(object):
                 f = 1
         
             W_dot_MW = self.W_dot/1e6
-            self.CAPEX['Turbine'] = 182600*W_dot_MW**0.5561 * f
-        
+            CAPEX_turbine = actualize_price(182600*W_dot_MW**0.5561 * f, 2017, "USD")
+            
+            self.CAPEX['Turbine'] = CAPEX_turbine
+            
         else:
             """
             Supplementary Information:
@@ -1221,8 +1253,9 @@ class AxialTurbineMeanLineSizing(object):
             fact_2 = (1+np.exp(0.036*(self.inputs['T0_su']) - 1.207 * 54.4))
             
             fact_3 = (rho_out/rho0_air)**(-n)
-            
-            self.CAPEX['Turbine'] = fact_1*fact_2*fact_3
+            CAPEX_turbine = actualize_price(fact_1*fact_2*fact_3, 2017, "USD")
+
+            self.CAPEX['Turbine'] = CAPEX_turbine
             
         # Generator Costs
         
@@ -1232,7 +1265,7 @@ class AxialTurbineMeanLineSizing(object):
         
         Nathan T. Weiland,  Blake W. Lance, Sandeep R. Pidaparti
         
-        Especially good for 10 - 750 
+        Especially good for 10 - 750 MW 
         Based on 2017 CEPCI (chemical plant cost index) for dollars
         """
         
@@ -1241,7 +1274,8 @@ class AxialTurbineMeanLineSizing(object):
         
         W_dot_el_MW = self.W_dot_el/1e6
         
-        self.CAPEX['Alternator'] = 108900 * W_dot_el_MW**0.5463
+        CAPEX_alternator = actualize_price(108900 * W_dot_el_MW**0.5463, 2017, "EUR")
+        self.CAPEX['Alternator'] = CAPEX_alternator
         
         self.f_install = 0.35 
         self.CAPEX['Installation'] = self.f_install*(self.CAPEX['Alternator'] + self.CAPEX['Turbine'])
@@ -1284,11 +1318,12 @@ class AxialTurbineMeanLineSizing(object):
         self.reset()
         
         if "Omega_choices" in self.params:
+            choices = np.asarray(self.params['Omega_choices'], dtype=float)
             self.psi = x[0]
             self.phi = x[1]
             self.R = x[2]
             self.params['Re_min'] = x[3]
-            self.params['Omega'] = self.params['Omega_choices'][np.abs(self.params['Omega_choices'] - x[4]).argmin()]
+            self.params['Omega'] = choices[np.abs(np.log10(choices) - x[4]).argmin()]
             self.params['M_1_st'] = x[5]
             
         else: # Iterate on r_m
@@ -1444,18 +1479,34 @@ class AxialTurbineMeanLineSizing(object):
             self.penalty_3 = 0
             self.Pressure_Deviation = self.inputs["p_ex"] - self.stages[-1].get_static_prop('P',2)
 
-        self.penalty = self.penalty_1 + self.penalty_2 + self.penalty_3 
-
-        if self.eta_is > 0 and self.eta_is <= 1:
-            self.obj = -self.eta_is + self.penalty
+        
+        # 4) AR penalty (stators + rotors, dernier stator inclus)
+        ar_min = self.params["AR_min"]
+        ar_max = self.params["AR_max"]
+        
+        ar_list = [getattr(st, a) for st in self.stages
+                   for a in ("AR_S", "AR_R") if getattr(st, a, None) is not None]
+        
+        if ar_list:
+            self.penalty_4 = sum(
+                max(ar_min - ar, 0) / ar_min + max(ar - ar_max, 0) / ar_max
+                for ar in ar_list
+            ) / len(ar_list)
+        else:
+            self.penalty_4 = 0.0
+        
+        self.penalty = self.penalty_1 + self.penalty_2 + self.penalty_3 + self.penalty_4
+        
+        if self.eta_is > 0 and self.eta_is <= 1 and self.nStages < self.params["max_stages"]:
+            self.obj = -self.eta_is + self.penalty*100
             # print(f"opt 'success' : {obj}")
         else:
             # print("Bad eta_is")
             self.obj = 10000
 
         if self.obj < 10000 and self.penalty < 1:
-            self.allowable_positions.append([self.obj, self.eta_is, self.W_dot, self.psi, self.phi, self.R, self.params['Re_min'], self.r_m, self.params['M_1_st'], self.eta_is_guess])
-        
+            self.allowable_positions.append([self.obj, self.eta_is, self.W_dot, self.psi, self.phi, self.R,
+                                             self.params['Re_min'], self._x4_value(), self.params['M_1_st'], self.eta_is_guess])        
         # print(f"obj : {self.obj}")
         self._record_debug(x)
         return self.obj
@@ -1581,26 +1632,28 @@ class AxialTurbineMeanLineSizing(object):
         import pyswarms as ps
     
         # --- always 7D swarm (psi, phi, R, Re_min, r_m, M_1_st, eta_is_guess) ---
-        bounds = (np.array([
-            self.bounds['psi_bounds'][0],
-            self.bounds['phi_bounds'][0],
-            self.bounds['R_bounds'][0],
-            self.bounds['Re_bounds'][0],
-            self.bounds['r_m_bounds'][0],
-            self.bounds['M_1st_bounds'][0],
-            self.bounds['eta_is_guess_bounds'][0],
-        ]),
-        np.array([
-            self.bounds['psi_bounds'][1],
-            self.bounds['phi_bounds'][1],
-            self.bounds['R_bounds'][1],
-            self.bounds['Re_bounds'][1],
-            self.bounds['r_m_bounds'][1],
-            self.bounds['M_1st_bounds'][1],
-            self.bounds['eta_is_guess_bounds'][1],
-        ]))
-        dimensions = 7
-    
+        # bounds = (np.array([
+        #     self.bounds['psi_bounds'][0],
+        #     self.bounds['phi_bounds'][0],
+        #     self.bounds['R_bounds'][0],
+        #     self.bounds['Re_bounds'][0],
+        #     self.bounds['r_m_bounds'][0],
+        #     self.bounds['M_1st_bounds'][0],
+        #     self.bounds['eta_is_guess_bounds'][0],
+        # ]),
+        # np.array([
+        #     self.bounds['psi_bounds'][1],
+        #     self.bounds['phi_bounds'][1],
+        #     self.bounds['R_bounds'][1],
+        #     self.bounds['Re_bounds'][1],
+        #     self.bounds['r_m_bounds'][1],
+        #     self.bounds['M_1st_bounds'][1],
+        #     self.bounds['eta_is_guess_bounds'][1],
+        # ]))
+        
+        bounds = self._pso_bounds()
+        dimensions = len(bounds[0])
+        
         # snapshot de classe + paramètres (inchangé)
         inp = dict(self.inputs)
     
@@ -1713,14 +1766,32 @@ class AxialTurbineMeanLineSizing(object):
         pbar.close()
         best_pos = optimizer.swarm.best_pos
     
-        self.allowable_positions.sort(key=lambda x: x[0])
-        self.eta_is = 1.1
-        self.penalty = 10
+        # self.allowable_positions.sort(key=lambda x: x[0])
+        # self.eta_is = 1.1
+        # self.penalty = 10
     
-        i = 0
-        while self.eta_is >= 1 and self.penalty != 0:
-            self.design_system(self.allowable_positions[i][3:])
-            i = i + 1
+        # i = 0
+        # while self.eta_is >= 1 and self.penalty != 0:
+        #     self.design_system(self.allowable_positions[i][3:])
+        #     i = i + 1
+    
+        self.allowable_positions.sort(key=lambda x: x[0])
+        candidates = list(self.allowable_positions[:30])   # copie, top 30 seulement
+        saved = self.allowable_positions
+        self.allowable_positions = []                       # les réévaluations n'écrivent plus dans la vraie liste
+        
+        chosen = None
+        for row in candidates:
+            self.design_system(row[3:])
+            if self.penalty == 0 and 0 < self.eta_is < 1:
+                chosen = row
+                break
+        
+        if chosen is None:
+            print("ATTENTION : aucun point sans pénalité parmi les 30 meilleurs, meilleur point retenu")
+            self.design_system(candidates[0][3:])
+        
+        self.allowable_positions = saved
     
         self.cost_estimation()
     
@@ -1765,6 +1836,8 @@ if __name__ == "__main__":
             p_ex = 78300, # Pa
             )
         
+        # Turb.set_parameters(Omega_choices=Turb.OMEGA_GRID_3000)
+
         # DEFAULT_PARAMETERS et DEFAULT_BOUNDS couvrent déjà ce cas —
         # aucun set_parameters/set_bounds nécessaire.
     
@@ -1810,7 +1883,10 @@ if __name__ == "__main__":
             )
         
         # DEFAULT_PARAMETERS et DEFAULT_BOUNDS couvrent déjà ce cas.
-
+        
+        # Turb.set_parameters(Omega_choices=Turb.OMEGA_GRID_3000)
+        Turb.set_parameters(Omega_choices=np.array([10000]))
+        
     # profiling mode switch
     PROFILE = True
     
