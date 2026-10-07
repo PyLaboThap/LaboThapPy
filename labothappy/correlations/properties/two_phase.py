@@ -20,6 +20,18 @@ def _get_surface_tension(AS, P, x):
     except ValueError:
         return np.nan   # not available in CoolProp for this fluid
 
+def _get_viscosity(AS, P, x):
+    try:
+        return AS.viscosity()
+    except ValueError:
+        pass
+    try:
+        AS_s = CP.AbstractState("HEOS", AS.fluid_names()[0])
+        AS_s.update(CP.PQ_INPUTS, P, x)
+        return AS_s.viscosity()
+    except ValueError:
+        return np.nan   # not available in CoolProp for this fluid
+
 
 def get_saturated_phase_properties(AS):
     """
@@ -50,23 +62,16 @@ def get_saturated_phase_properties(AS):
     AS_v = CP.AbstractState(AS.backend_name(), AS.fluid_names()[0])
     AS_v.update(CP.PQ_INPUTS, P, 1)
     sigma = _get_surface_tension(AS, P, x)
-    # try:
-    #     sigma = AS.surface_tension()
-    # except ValueError:
-    #     # Tabular backends (e.g. 'BICUBIC&HEOS') don't implement
-    #     # surface_tension(), even for a genuinely two-phase state. Fall
-    #     # back to a full-EOS state at the same (P, x).
-    #     AS_sigma = CP.AbstractState("HEOS", AS.fluid_names()[0])
-    #     AS_sigma.update(CP.PQ_INPUTS, P, x)
-    #     sigma = AS_sigma.surface_tension()
+    mu_l = _get_viscosity(AS_l, P, x)
+    mu_v = _get_viscosity(AS_v, P, x)
 
     return {
         "x": x,
         "P": P,
         "rho_l": AS_l.rhomass(),
         "rho_v": AS_v.rhomass(),
-        "mu_l": AS_l.viscosity(),
-        "mu_v": AS_v.viscosity(),
+        "mu_l": mu_l,
+        "mu_v": mu_v,
         "sigma": sigma,
     }
 
