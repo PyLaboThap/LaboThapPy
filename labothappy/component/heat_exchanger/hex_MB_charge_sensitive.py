@@ -1921,10 +1921,18 @@ class HexMBChargeSensitive(BaseComponent):
             self.params['L_hot'] = spiral_length("hot")
             self.params['L_cold'] = spiral_length("cold")
             
+            # Length of spiraled plates
+            self.params['L_p_1'] = spiral_length("sheet1")
+            self.params['L_p_2'] = spiral_length("sheet2")
+            
             # 3) Heat transfer Area
-            self.A_h = self.params['L_hot']*self.params['H']
-            self.A_c = self.params['L_cold']*self.params['H']
-
+            
+            # Length of contacted spiraled plates
+            self.L_contact_1 = spiral_length("sheet1", theta_0=2*np.pi)
+            self.L_contact_2 = spiral_length("sheet2", theta_1 = self.params['theta_end']["sheet2"] - 2*np.pi)
+            
+            self.A_h = self.A_c = (self.L_contact_1 + self.L_contact_2)*self.params['H']
+            
             # self.A_h = self.A_c = 2*np.min(self.params['L_cold'], self.params['L_hot'])*self.params['H']
 
 

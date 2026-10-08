@@ -14,6 +14,7 @@ Modification w/r to previous version:
 # from __future__ import division, print_function
 import __init__
 from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
+from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.plot_SPHE import plot_spiral
 
 #%%
 
@@ -60,12 +61,12 @@ Corr_C_DP = {"1P" : "Gnielinski_DP", "2P" : "Choi_DP"}
 "Parameters Setting"
 
 params = {
-        'C_canal_t' : 0.005, # [m]    
-        'D_ext' : 0.25, # [m]
-        'H' : 0.2, # [m]
-        'H_canal_t' : 0.005, # [m]
+        'C_canal_t' : 0.003, # [m]
+        'D_ext' : 0.2, # [m]
+        'H' : 0.1, # [m]
+        'H_canal_t' : 0.003, # [m]
         'r0_in' : 1*1e-3, # [m]
-        't' : 0.002, # [m]
+        't' : 0.001, # [m]
         
         'inner_channel' : 'cold'
         }
@@ -74,23 +75,23 @@ HX.set_parameters(
     C_canal_t = params['C_canal_t'], D_ext = params['D_ext'], H = params['H'], 
     H_canal_t = params['H_canal_t'], r0_in = params['r0_in'], t = params['t'],
 
-    inner_channel = params['inner_channel'], Flow_Type = "CounterFlow", n_disc = 50) # 32
+    inner_channel = params['inner_channel'], Flow_Type = "CounterFlow", n_disc = 30) # 32
 
 # User defined values
 
 UD_H_HTC = {'Liquid': 5000,
-            'Vapor' : 5000,
-            'Two-Phase' : 7000,
-            'Vapor-wet' : 7000,
-            'Dryout' : 1000,
-            'Transcritical' : 1000}
-
-UD_C_HTC = {'Liquid': 5000,
-            'Vapor' : 5000,
+            'Vapor' : 1000,
             'Two-Phase' : 10000,
             'Vapor-wet' : 10000,
             'Dryout' : 10000,
-            'Transcritical' : 4000}
+            'Transcritical' : 5000}
+
+UD_C_HTC = {'Liquid': 5000,
+            'Vapor' : 1000,
+            'Two-Phase' : 10000,
+            'Vapor-wet' : 10000,
+            'Dryout' : 10000,
+            'Transcritical' : 5000}
 
 HX.set_htc(htc_type = 'User-Defined', UD_H_HTC = UD_H_HTC, UD_C_HTC = UD_C_HTC) # 'User-Defined' or 'Correlation'
 # HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 
@@ -103,3 +104,7 @@ HX.set_DP() # equivalent to HX.set_DP(DP_type = None)
 "Solve the component"
 HX.solve()
 HX.plot_cells()
+
+"Plot the spiral"
+
+plot_spiral(HX)
