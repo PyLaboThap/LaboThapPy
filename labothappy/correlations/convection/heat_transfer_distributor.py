@@ -18,7 +18,7 @@ author: Elise
 import CoolProp.CoolProp as CP
 
 from labothappy.correlations.convection.plate_htc import htc_martin_plate_1phase, htc_cooper_pool_boiling, htc_longo_condensation
-
+from correlations.properties.thermal_conductivity import conducticity_R1233zd
 # Correlations whose htc depends on the heat flux
 NEEDS_Q_FLUX = {'Cooper'}
 
@@ -63,16 +63,50 @@ def _adapter_martin(AS, m_dot, geom, q_flux, T_wall):
         raise ValueError("Martin needs chevron_angle")
 
     # Single-phase properties at the current state
-    mu = AS.viscosity()
-    cp = AS.cpmass()
-    k = AS.conductivity()
+    p, h = AS.p(), AS.hmass()
+    fluid = AS.fluid_names()[0]
 
+    # Get other properties with safe guard in case the property doesn't exist
+    try:
+        mu = AS.viscosity()
+    except:
+        try:
+            mu = CP.PropsSI('V', 'P', p, 'H', h, fluid)
+        except:
+            raise RuntimeError(f"Problem computing viscosity at P={p}, h={h}")
+
+    try:
+        cp = AS.cpmass()
+    except:
+        try:
+            cp = CP.PropsSI('C', 'P', p, 'H', h, fluid)
+        except:
+            raise RuntimeError(f"Problem computing cp at P={p}, h={h}")
+
+    if fluid == 'R1233ZDE' or fluid == 'R1233zd(E)':
+        T = AS.T()
+        k = conducticity_R1233zd(T, p)
+    else:
+        try:
+            k = AS.conductivity()
+        except:
+            try:
+                k = CP.PropsSI('L', 'P', p, 'H', h, fluid)
+            except:
+                raise RuntimeError(f"Problem computing conductivity at P={p}, h={h}")
+        
     # Wall viscosity (optional)
     if T_wall is None:
         mu_wall = None
     else:
-        AS.update(CP.PT_INPUTS, AS.p(), T_wall)
-        mu_wall = AS.viscosity()
+        try:
+            AS.update(CP.PT_INPUTS, AS.p(), T_wall)
+            mu_wall = AS.viscosity()
+        except:
+            try:
+                mu_wall = CP.PropsSI('viscosity', 'P', p, 'T', T_wall, fluid)
+            except:
+                raise RuntimeError(f"Problem computing wall viscosity at P={p}, T_wall={T_wall}")
 
     # Mass flux through ONE channel
     G_ch = m_dot / (geom['A_cs_channel'] * geom['n_channels'])

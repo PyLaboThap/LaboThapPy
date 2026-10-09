@@ -56,15 +56,14 @@ def htc_martin_plate_1phase(G_ch, mu, cp, k, D_h, chevron_angle, mu_wall=None):
 
     # Hagen number
     Hg = zeta * Re**2 / 2
-
+    
     # Viscosity correction (set to 1 if the wall viscosity is not given)
     visc_corr = (mu / mu_wall) ** (1 / 6) if mu_wall is not None else 1.0
-
+    
     # Nusselt number and heat transfer coefficient
     c_q, q = 0.122, 0.374
     Nu = c_q * Pr ** (1 / 3) * visc_corr * (2 * Hg * np.sin(2 * chevron_angle)) ** q
     htc = Nu * k / D_h
-
     return htc
 
 

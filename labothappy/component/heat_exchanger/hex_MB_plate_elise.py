@@ -580,7 +580,6 @@ class HexMBPlate(BaseComponent):
                     T_wall = side.T_wall[k],                           # Wall temperature [K]
                     q_flux = self.Qvec_h[k] / (self.w[k] * side.geom['A']) if self.w[k] > 0 else None      # Heat flux if all cells had the same area [W/m^2] /!\ TO BE CHECKED!!
                 )
-
                 try:
                     side.htc[k] = compute_htc(AS, side.m_dot, side.geom, side.correlation(phase, 'htc'), **extra)
                 except Exception as e:
@@ -806,68 +805,6 @@ class HexMBPlate(BaseComponent):
         self._finalize(Q)
         return Q
 
-    def _finalize(self, Q):
-        H, C = self.H, self.C
-        self.Q_dot = Q
-        self.Q.set_Q_dot(Q)
-        self.epsilon_th = Q / self.Qmax
-        self.residual = 1.0 - float(np.sum(self.w))
-        self.dp_h = float(self.pvec_h[-1] - self.pvec_h[0])
-        self.dp_c = float(self.pvec_c[0] - self.pvec_c[-1])
-        self.p_ho, self.p_co = self.pvec_h[0], self.pvec_c[-1]
-        self.Avec_h = self.w * H.geom['A']   # Heat transfer area of each cell [m^2]
-        self.Avec_c = self.w * C.geom['A']
-        self._compute_charge()  # Computes the mass of fluid in each cell and the void fraction
-
-        self.ex_H.reset()
-        self.ex_H.set_fluid(H.fluid)
-        self.ex_H.set_p(self.pvec_h[0])
-        self.ex_H.set_h(self.hvec_h[0])
-        self.ex_H.set_m_dot(H.m_dot)
-        self.ex_C.reset()
-        self.ex_C.set_fluid(C.fluid)
-        self.ex_C.set_p(self.pvec_c[-1])
-        self.ex_C.set_h(self.hvec_c[-1])
-        self.ex_C.set_m_dot(C.m_dot)
-        self.H_su, self.C_su, self.H_ex, self.C_ex = self.su_H, self.su_C, self.ex_H, self.ex_C
-        self.solved = True
-
-    def _compute_charge(self):
-        """Fluid mass in every cell: cell volume times the mean of the boundary
-        densities (void-fraction model in two-phase)."""
-        void_fraction_model = self.params.get('void_fraction_model', 'Homogeneous')
-        frac = self.w / np.sum(self.w)  # Length fraction of each cell, used to compute the pressure drop in each cell
-        for side in (self.H, self.C):
-            n = len(side.hvec)
-            rho, void_fraction = np.empty(n), np.full(n, -1.0)
-            for i in range(n):
-                AS = self._state(side, side.hvec[i], side.pvec[i])
-                x = side.x[i] if side.two_phase_possible else np.nan
-                if side.two_phase_possible and 0.0 < x < 1.0:
-                    side.AS_sat.update(CP.PQ_INPUTS, side.pvec[i], 0)
-                    rho_l = side.AS_sat.rhomass()
-                    side.AS_sat.update(CP.PQ_INPUTS, side.pvec[i], 1)
-                    rho_v = side.AS_sat.rhomass()
-                    D = side.geom.get('D')
-                    A_cross = np.pi * D**2 / 4.0 if D is not None else 0.0
-                    G = getattr(side, 'G', None)
-                    m_dot = G * A_cross if G is not None else 0.0
-                    void_fraction[i] = compute_void_fraction(AS, side.geom, m_dot, void_fraction_model=void_fraction_model) # /!\ Change from m_dot to G !!!
-                    rho[i] = compute_two_phase_density(x=x, rho_l=rho_l, rho_g=rho_v, alpha=void_fraction[i])
-                else:
-                    rho[i] = AS.rhomass()
-                    
-            side.rhovec, side.void_fraction = rho, void_fraction
-            side.Vvec = side.geom['V'] * frac
-            side.charge_vec = side.Vvec * 0.5 * (rho[1:] + rho[:-1])  # Mass of fluid in each cell [kg]
-
-        H, C = self.H, self.C
-        self.charge_H = float(np.sum(H.charge_vec))
-        self.charge_C = float(np.sum(C.charge_vec))
-        self.void_fraction_H = float(np.mean(H.void_fraction[1:]))
-        self.void_fraction_C = float(np.mean(C.void_fraction[1:]))
-
-
 
     def _solve_heat_rate(self, Q_guess=None):
         """Find Q such that sum(w) = 1, within ]0, Qmax[."""
@@ -946,6 +883,67 @@ class HexMBPlate(BaseComponent):
         self.eval += 1
         self._last_Q = Q
         return 1.0 - self.w_sum
+
+    def _finalize(self, Q):
+        H, C = self.H, self.C
+        self.Q_dot = Q
+        self.Q.set_Q_dot(Q)
+        self.epsilon_th = Q / self.Qmax
+        self.residual = 1.0 - float(np.sum(self.w))
+        self.dp_h = float(self.pvec_h[-1] - self.pvec_h[0])
+        self.dp_c = float(self.pvec_c[0] - self.pvec_c[-1])
+        self.p_ho, self.p_co = self.pvec_h[0], self.pvec_c[-1]
+        self.Avec_h = self.w * H.geom['A']   # Heat transfer area of each cell [m^2]
+        self.Avec_c = self.w * C.geom['A']
+        self._compute_charge()  # Computes the mass of fluid in each cell and the void fraction
+
+        self.ex_H.reset()
+        self.ex_H.set_fluid(H.fluid)
+        self.ex_H.set_p(self.pvec_h[0])
+        self.ex_H.set_h(self.hvec_h[0])
+        self.ex_H.set_m_dot(H.m_dot)
+        self.ex_C.reset()
+        self.ex_C.set_fluid(C.fluid)
+        self.ex_C.set_p(self.pvec_c[-1])
+        self.ex_C.set_h(self.hvec_c[-1])
+        self.ex_C.set_m_dot(C.m_dot)
+        self.H_su, self.C_su, self.H_ex, self.C_ex = self.su_H, self.su_C, self.ex_H, self.ex_C
+        self.solved = True
+
+    def _compute_charge(self):
+        """Fluid mass in every cell: cell volume times the mean of the boundary
+        densities (void-fraction model in two-phase)."""
+        void_fraction_model = self.params.get('void_fraction_model', 'Homogeneous')
+        frac = self.w / np.sum(self.w)  # Length fraction of each cell, used to compute the pressure drop in each cell
+        for side in (self.H, self.C):
+            n = len(side.hvec)
+            rho, void_fraction = np.empty(n), np.full(n, -1.0)
+            for i in range(n):
+                AS = self._state(side, side.hvec[i], side.pvec[i])
+                x = side.x[i] if side.two_phase_possible else np.nan
+                if side.two_phase_possible and 0.0 < x < 1.0:
+                    side.AS_sat.update(CP.PQ_INPUTS, side.pvec[i], 0)
+                    rho_l = side.AS_sat.rhomass()
+                    side.AS_sat.update(CP.PQ_INPUTS, side.pvec[i], 1)
+                    rho_v = side.AS_sat.rhomass()
+                    D = side.geom.get('D')
+                    A_cross = np.pi * D**2 / 4.0 if D is not None else 0.0
+                    G = getattr(side, 'G', None)
+                    m_dot = G * A_cross if G is not None else 0.0
+                    void_fraction[i] = compute_void_fraction(AS, side.geom, m_dot, void_fraction_model=void_fraction_model) # /!\ Change from m_dot to G !!!
+                    rho[i] = compute_two_phase_density(x=x, rho_l=rho_l, rho_g=rho_v, alpha=void_fraction[i])
+                else:
+                    rho[i] = AS.rhomass()
+                    
+            side.rhovec, side.void_fraction = rho, void_fraction
+            side.Vvec = side.geom['V'] * frac
+            side.charge_vec = side.Vvec * 0.5 * (rho[1:] + rho[:-1])  # Mass of fluid in each cell [kg]
+
+        H, C = self.H, self.C
+        self.charge_H = float(np.sum(H.charge_vec))
+        self.charge_C = float(np.sum(C.charge_vec))
+        self.void_fraction_H = float(np.mean(H.void_fraction[1:]))
+        self.void_fraction_C = float(np.mean(C.void_fraction[1:]))
 
     def plot_Ts_pair(self):
         with warnings.catch_warnings():
