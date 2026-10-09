@@ -36,6 +36,7 @@ def htc_martin_plate_1phase(G_ch, mu, cp, k, D_h, chevron_angle, mu_wall=None):
     # Dimensionless numbers
     Pr = cp * mu / k
     Re = G_ch * D_h / mu
+    print('Re martin', Re)
 
     # Friction factors for phi = 0 (zeta0) and phi = 90 deg (zeta1_0)
     if Re < 2000:

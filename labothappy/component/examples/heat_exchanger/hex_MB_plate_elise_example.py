@@ -12,7 +12,7 @@ import numpy as np
 
 HX = HexMBPlate('Plate')
 
-# Evaporator: cyclopentane evaporated by a thermal oil
+# Evaporator: cyclopentane evaporated by water
 HX.set_inputs(
     fluid_H='Water', T_su_H=70+273.15, P_su_H=1e5, m_dot_H=2.425,
     fluid_C='R1233ZDE', T_su_C=60+273.15,  P_su_C=CP.PropsSI('P', 'T', 60+273.15, 'Q', 1, 'R1233ZDE'), m_dot_C=0.4621
