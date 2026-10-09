@@ -739,7 +739,7 @@ class HexMBPlate(BaseComponent):
 
 
     def solve(self, only_external=False, and_solve=True):
-        
+        print('couocu c')
         "1) Checks and preparation"
         if not self.check_calculable():
             raise ValueError("Component not calculable: check the inputs.")
