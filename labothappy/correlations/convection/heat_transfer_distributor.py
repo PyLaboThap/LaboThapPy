@@ -69,7 +69,7 @@ def _adapter_martin(AS, m_dot, geom, q_flux, T_wall):
     # Get other properties with safe guard in case the property doesn't exist
     try:
         mu = AS.viscosity()
-        print('mu', mu)
+        # print('mu', mu)
     except:
         try:
             mu = CP.PropsSI('V', 'P', p, 'H', h, fluid)
