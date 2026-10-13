@@ -140,10 +140,28 @@ def _adapter_longo_cond(AS, m_dot, geom, q_flux, T_wall):
 
     # Saturated liquid (bubble point for a mixture)
     AS.update(CP.PQ_INPUTS, p, 0.0)
+    fluid = AS.fluid_names()[0]
     rho_L = AS.rhomass()
-    mu_L = AS.viscosity()
+    try:
+        mu_L = AS.viscosity()
+    except:
+        try:
+            mu_L = CP.PropsSI('viscosity', 'P', p, 'Q', 0, fluid)
+        except:
+            raise RuntimeError(f"Problem computing viscosity at P={p}, Q=0")
     cp_L = AS.cpmass()
-    k_L = AS.conductivity()
+
+    if fluid == 'R1233ZDE' or fluid == 'R1233zd(E)':
+        T = AS.T()
+        k_L = conducticity_R1233zd(T, p)
+    else:
+        try:
+            k_L = AS.conductivity()
+        except:
+            try:
+                k_L = CP.PropsSI('L', 'P', p, 'Q', 0, fluid)
+            except:
+                raise RuntimeError(f"Problem computing conductivity at P={p}, Q=0")
 
     # Saturated vapour (dew point for a mixture)
     AS.update(CP.PQ_INPUTS, p, 1.0)

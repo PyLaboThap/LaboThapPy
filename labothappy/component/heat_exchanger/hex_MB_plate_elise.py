@@ -322,6 +322,7 @@ class HexMBPlate(BaseComponent):
                 side._AS_key = (backend, side.fluid)
 
             side.m_dot, side.h_su, side.p_su = su.m_dot, su.h, su.p
+            print('h', side.h_su)
             AS = self._state(side, side.h_su, side.p_su)
             side.T_su = AS.T()
             side.supercritical = (not side.incomp) and side.p_su >= AS.p_critical()
@@ -739,7 +740,7 @@ class HexMBPlate(BaseComponent):
 
 
     def solve(self, only_external=False, and_solve=True):
-        print('couocu c')
+        
         "1) Checks and preparation"
         if not self.check_calculable():
             raise ValueError("Component not calculable: check the inputs.")
