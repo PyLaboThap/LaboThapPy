@@ -434,7 +434,7 @@ def Recomp_CO2_TC_1_recup(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_pp,
 
 if __name__ == "__main__": 
 
-    study_case = "Simple"
+    study_case = "Recomp"
 
     if study_case == "Simple":
         T_cold_source = 0.1+273.15
@@ -522,9 +522,9 @@ if __name__ == "__main__":
         import numpy as np
         
         T_cold_source = 10+273.15
-        T_hot_source = 350+273.15
+        T_hot_source = 100+273.15
 
-        m_dot = 30
+        m_dot = 0.1
 
         eta_is_pp = 0.9
         eta_is_cp = 0.8
@@ -548,7 +548,7 @@ if __name__ == "__main__":
         HSource.set_properties(fluid = 'Water', T = T_hot_source, p = 5e5, m_dot = m_dot*100)
         
         CSource = MassConnector()
-        CSource.set_properties(fluid = 'Water', T = T_cold_source, p = 5e5, m_dot = 10000)
+        CSource.set_properties(fluid = 'Water', T = T_cold_source, p = 5e5, m_dot = m_dot*100)
         
         DP_h_rec = 100*1e3
         DP_c_rec = 100*1e3
@@ -573,7 +573,7 @@ if __name__ == "__main__":
                 # P_high = P_high_vec[j]
 
         CO2_TC = Recomp_CO2_TC(HSource, CSource, Pinch_min_GH, Pinch_min_REC, eta_is_pp, eta_is_exp, 
-                                eta_is_cp, eta_gh, eta_rec_LT, eta_rec_HT, PPTD_cd, SC_cd, P_low_guess, 150*1e5, 
+                                eta_is_cp, eta_gh, eta_rec_LT, eta_rec_HT, PPTD_cd, SC_cd, P_low_guess, 100*1e5, 
                                 m_dot, spliter_frac = 0.5, mute_print_flag=0)
                 
         CO2_TC.solve(method = 'wegstein', max_iter=100)

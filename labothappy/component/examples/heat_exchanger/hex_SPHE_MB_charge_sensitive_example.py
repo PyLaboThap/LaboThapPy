@@ -61,12 +61,12 @@ Corr_C_DP = {"1P" : "Gnielinski_DP", "2P" : "Choi_DP"}
 "Parameters Setting"
 
 params = {
-        'C_canal_t' : 0.003, # [m]
-        'D_ext' : 0.2, # [m]
-        'H' : 0.1, # [m]
-        'H_canal_t' : 0.003, # [m]
+        'C_canal_t' : 0.005, # [m]
+        'D_ext' : 0.24, # [m]
+        'H' : 0.21, # [m]
+        'H_canal_t' : 0.005, # [m]
         'r0_in' : 1*1e-3, # [m]
-        't' : 0.001, # [m]
+        't' : 0.002, # [m]
         
         'inner_channel' : 'cold'
         }
@@ -80,14 +80,14 @@ HX.set_parameters(
 # User defined values
 
 UD_H_HTC = {'Liquid': 5000,
-            'Vapor' : 1000,
+            'Vapor' : 2000,
             'Two-Phase' : 10000,
             'Vapor-wet' : 10000,
             'Dryout' : 10000,
             'Transcritical' : 5000}
 
 UD_C_HTC = {'Liquid': 5000,
-            'Vapor' : 1000,
+            'Vapor' : 2000,
             'Two-Phase' : 10000,
             'Vapor-wet' : 10000,
             'Dryout' : 10000,

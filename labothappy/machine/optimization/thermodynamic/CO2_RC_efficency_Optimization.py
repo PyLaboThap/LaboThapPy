@@ -138,7 +138,7 @@ def system_RC_parallel(x, input_data):
         return 100.0
 
     if not getattr(RC, 'converged', True):
-        return 10.0
+        return 100.0
 
     # --- Superheat check at expander inlet ---
     try:
@@ -547,6 +547,10 @@ class CO2RC_eff_optimizer:
         print(f"  m_dot_HS          : {bp[1]*bp[2]:.4f}  kg/s")
         print(f"  m_dot_CS_factor   : {bp[3]:.4f}  [-]")
         print(f"  m_dot_CS          : {self.it_var.get('mdot_CS', float('nan')):.4f}  kg/s")
+
+        if self.params["RC_ARCH"] == "Recomp" or self.params["RC_ARCH"] == "Recomp_1_recup":
+            print(f"  spliter_frac   : {bp[4]:.4f}  [-]")
+
         
         if self.W_dot_net is not None:
             print(f"  W_net             : {self.W_dot_net/1e3:.3f}  kW")
@@ -583,7 +587,7 @@ class CO2RC_eff_optimizer:
 
 if __name__ == "__main__":
     
-    case_study = "Comparison"
+    case_study = "test"
     
     if case_study == "test":
     
@@ -592,9 +596,11 @@ if __name__ == "__main__":
         import matplotlib.pyplot as plt
     
         # ---- sweep ----
-        T_vec = np.linspace(100, 350, 6) + 273.15
+        # T_vec = np.linspace(100, 350, 6) + 273.15
+        T_vec = np.linspace(150, 150, 1) + 273.15
         # T_vec = np.linspace(150, 150, 1) + 273.15
-        ARCH = ['basic', 'REC', 'Recomp_1_recup', 'Recomp']
+        # ARCH = ['basic', 'REC', 'Recomp_1_recup', 'Recomp']
+        ARCH = ['Recomp']
         
         # T_vec = np.array([350]) + 273.15
     
@@ -605,7 +611,7 @@ if __name__ == "__main__":
         T_h_ex_vec   = []
         Q_dot_waste  = []
         
-        n_MW = 1
+        n_MW = 1e-3
         W_dot_test = n_MW*1e6  # 1 MW target
     
         Optimizer = CO2RC_eff_optimizer('CO2')
@@ -613,39 +619,74 @@ if __name__ == "__main__":
         for T in T_vec:
     
             Optimizer.set_parameters(
-                RC_ARCH = 'REC',
+                RC_ARCH = 'Recomp',
     
-                eta_pp  = 0.8,
+                eta_pp  = 0.6,
                 eta_gh  = 0.95,
                 eta_rec = 0.9,
                 eta_rec_HT = 0.9, # Recompression Case
-                eta_exp = 0.9,
-                eta_cp = 0.8,
+                eta_exp = 0.6,
+                eta_cp = 0.7,
                 eta_pp_aux = 0.8, 
-
-                PP_gh   = 5,
+                
+                PP_gh   = 3,
                 PP_rec  = 0,
-                PP_cd   = 5,
-                SC_cd   = 0.1,
+                PP_cd   = 3,
+                SC_cd   = 5,
     
-                DP_h_gh  = 50e3,
+                DP_h_gh  = 0,
                 DP_c_gh  = 50e3,
                 DP_h_rec = 50e3,
                 DP_c_rec = 50e3,
                 DP_h_cond  = 50e3,
-                DP_c_cond  = 50e3,
+                DP_c_cond  = 0,
     
-                P_high_min       = 80e5,
-                P_high_max       = 200e5,
-                m_dot_min        = 10.0*n_MW,
-                m_dot_max        = 100.0*n_MW,
-                m_dot_HS_fact_min = 0.1,
-                m_dot_HS_fact_max = 2,
-                m_dot_CS_fact_min = 1,
+                P_high_min       = 100e5,
+                P_high_max       = 130e5,
+                m_dot_min        = 30*n_MW,
+                m_dot_max        = 150*n_MW,
+                m_dot_HS_fact_min = 1,
+                m_dot_HS_fact_max = 10,
+                m_dot_CS_fact_min = 10,
                 m_dot_CS_fact_max = 20,
-                spliter_frac_min = 0,
+                spliter_frac_min = 0.5,
                 spliter_frac_max = 1
             )
+            
+            # Optimizer.set_parameters(
+            #     RC_ARCH = 'REC',
+    
+            #     eta_pp  = 0.8,
+            #     eta_gh  = 0.95,
+            #     eta_rec = 0.9,
+            #     eta_rec_HT = 0.9, # Recompression Case
+            #     eta_exp = 0.9,
+            #     eta_cp = 0.8,
+            #     eta_pp_aux = 0.8, 
+
+            #     PP_gh   = 5,
+            #     PP_rec  = 0,
+            #     PP_cd   = 5,
+            #     SC_cd   = 0.1,
+    
+            #     DP_h_gh  = 50e3,
+            #     DP_c_gh  = 50e3,
+            #     DP_h_rec = 50e3,
+            #     DP_c_rec = 50e3,
+            #     DP_h_cond  = 50e3,
+            #     DP_c_cond  = 50e3,
+    
+            #     P_high_min       = 80e5,
+            #     P_high_max       = 200e5,
+            #     m_dot_min        = 10.0*n_MW,
+            #     m_dot_max        = 100.0*n_MW,
+            #     m_dot_HS_fact_min = 0.1,
+            #     m_dot_HS_fact_max = 2,
+            #     m_dot_CS_fact_min = 1,
+            #     m_dot_CS_fact_max = 20,
+            #     spliter_frac_min = 0,
+            #     spliter_frac_max = 1
+            # )
             
             if Optimizer.params['RC_ARCH'] == "Recomp" or Optimizer.params['RC_ARCH'] == "Recomp_1_recup":
                 Optimizer.set_it_var(P_high=100e5, mdot=20.0, mdot_HS=15.0, spliter_frac = 1)
