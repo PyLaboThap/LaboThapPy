@@ -152,7 +152,7 @@ def IHX_CO2_HP(HSource, CSource, eta_cp, eta_gc, eta_IHX, PP_ev, SH_ev, P_low, P
     CO2_HP = CircuitFPI('CO2')
     
     n_disc_HX = 50
-    PP_min_HX = 5
+    PP_min_HX = 3
     
     # Create components
     Compressor = CompressorCstEff()
@@ -218,8 +218,9 @@ def IHX_CO2_HP(HSource, CSource, eta_cp, eta_gc, eta_IHX, PP_ev, SH_ev, P_low, P
     #%% CYCLE GUESSES
     
     T_ex_valve_guess = CSource.T - PP_ev - SH_ev - 5
+    T_su_cp_guess = CSource.T + PP_ev + SH_ev + 5
     
-    CO2_HP.set_cycle_guess(target='Compressor:su', m_dot = m_dot, T = 300, p = P_low)
+    CO2_HP.set_cycle_guess(target='Compressor:su', m_dot = m_dot, T = T_su_cp_guess, p = P_low)
     CO2_HP.set_cycle_guess(target='Compressor:ex', p = P_high)
 
     CO2_HP.set_cycle_guess(target='Valve:su', p = P_high, T = T_ex_valve_guess, m_dot = m_dot)    
@@ -485,11 +486,11 @@ def Flash_CO2_HP_Series_CP(HSource, CSource, eta_cp, eta_gc, PP_ev, SH_ev, P_low
 
 if __name__ == "__main__":
 
-    study_case = "Expander_IHX"    
+    study_case = "IHX"    
 
     # Pressure levels
     P_low_guess = 40*1e5
-    P_high = 80*1e5
+    P_high = 130*1e5
     
     # Compressor param
     eta_compressor = 0.7
@@ -504,7 +505,7 @@ if __name__ == "__main__":
     m_dot = 0.08
     
     # Hot Source
-    T_high = 30 + 273.15
+    T_high = 15 + 273.15
     p_high = 20e5
     fluid_high = 'Water'
     m_dot_high = 0.02
@@ -515,7 +516,7 @@ if __name__ == "__main__":
     # p_low = 3e5
     # m_dot_low = 2
 
-    T_low = -20 + 273.15
+    T_low = 10 + 273.15
     fluid_low = 'Hexane'
     p_low = 1e5
     m_dot_low = 2

@@ -500,6 +500,7 @@ class HexCstPinch(BaseComponent):
                 self.solved = True
                 # print(f"P_evap_model : {self.ex_C.p}")
             else:
+                
                 guess_T_sat_max = self.su_H.T
                             
                 # print(f"guess_T_sat: {guess_T_sat}")
@@ -511,7 +512,6 @@ class HexCstPinch(BaseComponent):
     
                 # Ensure the pressure is non-negative
                 P_triple = self.AS_C.trivial_keyed_output(CoolProp.iP_triple)
-                
                 P_crit = self.AS_C.trivial_keyed_output(CoolProp.iP_critical)
                 
                 max_iter = 1000
@@ -522,7 +522,7 @@ class HexCstPinch(BaseComponent):
                 upper_bound = P_ev_guess
                             
                 for i in range(max_iter):
-                                    
+                    
                     res1 = self.system_evap(lower_bound)
                     res2 = self.system_evap(upper_bound)
                 

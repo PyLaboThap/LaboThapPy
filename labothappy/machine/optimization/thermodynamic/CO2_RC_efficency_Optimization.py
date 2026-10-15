@@ -611,7 +611,7 @@ if __name__ == "__main__":
         T_h_ex_vec   = []
         Q_dot_waste  = []
         
-        n_MW = 1e-3
+        n_MW = 1*1e-3
         W_dot_test = n_MW*1e6  # 1 MW target
     
         Optimizer = CO2RC_eff_optimizer('CO2')
@@ -621,7 +621,7 @@ if __name__ == "__main__":
             Optimizer.set_parameters(
                 RC_ARCH = 'Recomp',
     
-                eta_pp  = 0.6,
+                eta_pp  = 0.7,
                 eta_gh  = 0.95,
                 eta_rec = 0.9,
                 eta_rec_HT = 0.9, # Recompression Case
@@ -641,13 +641,13 @@ if __name__ == "__main__":
                 DP_h_cond  = 50e3,
                 DP_c_cond  = 0,
     
-                P_high_min       = 100e5,
+                P_high_min       = 80e5,
                 P_high_max       = 130e5,
-                m_dot_min        = 30*n_MW,
-                m_dot_max        = 150*n_MW,
+                m_dot_min        = 10*n_MW,
+                m_dot_max        = 200*n_MW,
                 m_dot_HS_fact_min = 1,
                 m_dot_HS_fact_max = 10,
-                m_dot_CS_fact_min = 10,
+                m_dot_CS_fact_min = 1,
                 m_dot_CS_fact_max = 20,
                 spliter_frac_min = 0.5,
                 spliter_frac_max = 1
@@ -696,7 +696,7 @@ if __name__ == "__main__":
             Optimizer.set_obj(W_dot=W_dot_test)
     
             Optimizer.set_CSource(T=15 + 273.15, P=5e5,  fluid='Water', m_dot=1000.0)
-            Optimizer.set_HSource(T=T, P=10e5, fluid='INCOMP::TVP1', m_dot=50.0)
+            Optimizer.set_HSource(T=T, P=10e5, fluid='INCOMP::T66', m_dot=50.0)
     
             Optimizer.set_RC()
             Optimizer.opt_RC(n_jobs = n_cores - 1, n_particles=50, max_iter=50, patience = 10)
