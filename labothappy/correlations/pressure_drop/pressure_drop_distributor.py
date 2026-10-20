@@ -20,7 +20,7 @@ from labothappy.correlations.pressure_drop.pipe_DP import (
     friction_factor_konakov, friction_factor_petukhov, friction_factor_cheng_CO2,
     pressure_drop_friedel, pressure_drop_muller_steinhagen_heck
 )
-from labothappy.correlations.pressure_drop.plate_DP import han_BPHEX_DP
+from labothappy.correlations.pressure_drop.plate_DP_old import han_BPHEX_DP
 from labothappy.correlations.pressure_drop.shell_and_tube_DP import (
     shell_DP_kern, shell_bell_delaware_DP)
 from labothappy.correlations.properties.two_phase import get_saturated_phase_properties

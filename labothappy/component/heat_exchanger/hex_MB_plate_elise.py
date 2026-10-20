@@ -13,7 +13,8 @@ from labothappy.connector.heat_connector import HeatConnector
 
 from labothappy.correlations.heat_exchanger.f_lmtd2 import f_lmtd2, F_shell_and_tube
 # from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.hex_MB_correlations import check_correlation_name
-from labothappy.correlations.pressure_drop.pressure_drop_distributor import pressure_drop
+# from labothappy.correlations.pressure_drop.pressure_drop_distributor import pressure_drop
+from labothappy.correlations.pressure_drop.dp_corr_distributor import compute_dp
 from labothappy.correlations.convection.heat_transfer_distributor import compute_htc, NEEDS_Q_FLUX
 from labothappy.correlations.void_fraction.void_fraction import compute_void_fraction
 from labothappy.correlations.properties.two_phase import compute_two_phase_density
@@ -21,6 +22,11 @@ from labothappy.correlations.properties.two_phase import compute_two_phase_densi
 HTC_TYPES   = ('correlation', 'user_defined')
 HTC_REGIMES = ('single-phase', 'two-phase', 'supercritical')                                 # Keys of htc_corr
 HTC_PHASES  = ('liquid', 'vapor', 'two-phase', 'vapor-wet', 'dryout', 'supercritical')    # Keys of htc_user
+
+DP_TYPES    = (None, 'user_defined', 'correlation_global', 'correlation_disc')
+DP_REGIMES  = ('single-phase', 'two-phase', 'supercritical')                                  # Keys of dp_corr
+
+
 PHASE_TO_REGIME = {'liquid': 'single-phase', 'vapor': 'single-phase',
                    'two-phase': 'two-phase', 'vapor-wet': 'two-phase',
                    'supercritical': 'supercritical'}
@@ -167,9 +173,13 @@ class HexMBPlate(BaseComponent):
         self.H = _Side('H')
         self.C = _Side('C')
 
+    # def get_required_inputs(self):
+    #     #List of required inputs
+    #     return['P_su_H', 'T_su_H', 'm_dot_H', 'fluid_H', 'P_su_C', 'T_su_C', 'm_dot_C', 'fluid_C']
+
     def get_required_inputs(self):
-        #List of required inputs
-        return['P_su_H', 'T_su_H', 'm_dot_H', 'fluid_H', 'P_su_C', 'T_su_C', 'm_dot_C', 'fluid_C']
+            #List of required inputs
+            return['P_su_H', 'h_su_H', 'm_dot_H', 'fluid_H', 'P_su_C', 'h_su_C', 'm_dot_C', 'fluid_C']
 
 
     def get_required_parameters(self):
@@ -247,22 +257,44 @@ class HexMBPlate(BaseComponent):
                     raise ValueError(f"Unknown regime(s) {sorted(unknown)} in {arg}. Allowed: {HTC_REGIMES}.")
                 side.htc_corr = {regime: name for regime, name in htc_corr.items() if name is not None}  # Remove regimes given as None
 
+
     def set_dp(self, dp_type=None, dp_corr_h=None, dp_corr_c=None, dp_user_h=None, dp_user_c=None):
         """
-        dp_type: None = No pressure drops, "user_defined" or "correlation_global" or "correlation_disc"
-
+        dp_type : None (no pressure drops), "user_defined", "correlation_global" or "correlation_disc"
+            - "correlation_global" : pressure drop computed once from the supply state
+            - "correlation_disc"   : pressure drop computed cell by cell
+        dp_corr_h, dp_corr_c : Correlation name for each regime on each side
+        dp_user_h, dp_user_c : Fixed total pressure drop on each side [Pa]
         """
-        allowed = (None, "user_defined", "correlation_global", "correlation_disc")
-        if dp_type not in allowed:
-            raise ValueError(f"dp_type must be one of {allowed}.")
 
+        if dp_type not in DP_TYPES:
+            raise ValueError(f"dp_type must be one of {DP_TYPES}, get {dp_type!r}.")
         self.params['dp_type'] = dp_type
-        for side, corr, ud in ((self.H, dp_corr_h, dp_user_h), (self.C, dp_corr_c, dp_user_c)):
-            side.dp_user = float(ud or 0.0)
-            side.dp_corr = {}
-            if dp_type in ("correlation_global", "correlation_disc"):
-                side.dp_corr = {k: v for k, v in dict(corr).items() if v is not None}
 
+        for side, dp_corr, dp_user in ((self.H, dp_corr_h, dp_user_h), (self.C, dp_corr_c, dp_user_c)):
+            side.dp_type = dp_type
+            side.dp_user = 0.0     # Reset, in case set_dp is called again with another dp_type
+            side.dp_corr = {}
+            arg = f"dp_{'user' if dp_type == 'user_defined' else 'corr'}_{side.name.lower()}"  # Argument name, for error message
+            
+            if dp_type is None:
+                continue  # No pressure drops: nothing else to set
+
+            if dp_type == 'user_defined':
+                if dp_user is None:
+                    raise ValueError(f"{arg} is required for the {side.label} side.")
+                dp_user = float(dp_user)
+                if dp_user < 0.0:
+                    raise ValueError(f"{arg} must be positive or zero, get {dp_user}.")
+                side.dp_user = dp_user
+
+            else:  # 'correlation_global' or 'correlation_disc'
+                if dp_corr is None or 'single-phase' not in dp_corr:
+                    raise ValueError(f"{arg} with at least a 'single-phase' correlation is required for the {side.label} side.")
+                unknown = set(dp_corr) - set(DP_REGIMES)
+                if unknown:
+                    raise ValueError(f"Unknown regime(s) {sorted(unknown)} in {arg}. Allowed: {DP_REGIMES}.")
+                side.dp_corr = {regime: name for regime, name in dp_corr.items() if name is not None}  # Remove regimes given as None
 
     def _setup_geometry(self):
         """
@@ -270,7 +302,8 @@ class HexMBPlate(BaseComponent):
         """
         p = self.params
         uses_correlations = (p.get('htc_type') == 'correlation'
-                            or p.get('dp_type') == 'correlation')
+                    or p.get('dp_type') in ('correlation_global', 'correlation_disc'))
+
         
         if not uses_correlations:
             for side, su in ((self.H, self.su_H), (self.C, self.su_C)):
@@ -348,16 +381,32 @@ class HexMBPlate(BaseComponent):
             return side.AS_heos
 
     def _pressure_drop_correlation(self, side):
-        """Pressure drop computed based on the correlations and the supply state."""
+        """Pressure drop over the full flow length, computed at the supply state
+        used for 'correlation_global', and as a first guess for 'correlation_disc'."""
+
         if side.supercritical:
             phase = 'supercritical'
         elif side.two_phase_possible and 0.002 < side.x_su < 0.999:
             phase = 'two-phase'
+        elif side.two_phase_possible and side.x_su >= 0.999:
+            phase = 'vapor'
         else:
             phase = 'liquid'
 
-        return pressure_drop(side.AS, side.geom, side.G, side.correlation(phase, 'dp'),
-                             m_dot=side.m_dot, T_wall=side.T_su)   # T_wall: rough estimate, no cells exist yet
+        AS = self._state(side, side.h_su, side.p_su)     # Make sure AS is at the supply state
+        L = side.geom.get('L_eff') if self.hex_type == 'Plate' else side.geom.get('L')
+        if L is None:
+            raise ValueError(f"A flow length is needed for the {side.label} side pressure drop correlation "
+                             f"('L_eff' for a plate heat exchanger).")
+
+        void_fraction_model = self.params.get('void_fraction_model', 'Homogeneous')
+
+        try:
+            return compute_dp(AS, side.m_dot, side.geom, L, side.correlation(phase, 'dp'), void_fraction_model)
+        except Exception as e:
+            raise RuntimeError(f"{side.label} side, global pressure drop ({phase}, T = {side.T_su:.2f} K, "
+                               f"p = {side.p_su:.0f} Pa): {type(e).__name__}: {e}") from e
+
 
     def _init_pressure_drops(self):
         dp_type = self.params.get('dp_type')
@@ -678,26 +727,22 @@ class HexMBPlate(BaseComponent):
         """Cell-by-cell pressure drops for the current (converged) cells.
         Returns the new totals and updates the pressure profiles."""
         # /!\ ONLY USED IF DISTRIBUTED PRESSURE DROP IS SELECTED, OTHERWISE THE PRESSURE DROP IS COMPUTED ONCE AT THE BEGINNING OF THE SOLVE.
-        frac = self.w/np.sum(self.w) # Length fraction of each cell, used to compute the pressure drop in each cell
+        frac = self.w / np.sum(self.w)   # Length fraction of each cell (= area fraction for a constant plate width) [-]
+        void_fraction_model = self.params.get('void_fraction_model', 'Homogeneous')
         new = {}
         for side in (self.H, self.C):
+            L_cells = frac * side.geom.get('L_eff') if self.hex_type == 'Plate' else side.geom.get('L')   # Length of each zone [m]
             dp_cells = np.empty(self.n_cells)
             for k in range(self.n_cells):
-                AS = self._state(side, side.h_mean[k], side.p_mean[k])
-                extra = dict(
-                    m_dot     = side.m_dot,
-                    T_wall    = side.T_wall[k],
-                    x         = side.x_mean[k],
-                    Q         = self.Qvec_h[k],
-                    q         = self.Qvec_h[k] * self.n_cells / side.geom['A'],
-                    DT_lm     = self.F[k] * self.LMTD[k],
-                    htc_other = self.H.htc[k] if side is self.C else np.nan,
-                    h_min     = side.hvec[k],
-                    h_max     = side.hvec[k + 1],
-                )
-                dp_full = pressure_drop(AS, side.geom, side.G, side.correlation(side.phases[k], 'dp'),
-                                        m_dot=side.m_dot, T_wall=side.T_wall[k])   # Over the full flow length [Pa]
-                dp_cells[k] = frac[k] * dp_full                                     # Over the cell length [Pa]
+                phase = side.phases[k]
+                AS = self._state(side, side.h_mean[k], side.p_mean[k])   # Mean state of the cell
+                try:
+                    dp_cells[k] = compute_dp(AS, side.m_dot, side.geom, L_cells[k],
+                                                side.correlation(phase, 'dp'), void_fraction_model)   # Over the cell length [Pa]
+                except Exception as e:
+                    raise RuntimeError(f"{side.label} side, cell {k} ({phase}, T = {side.T_mean[k]:.2f} K, "
+                                        f"p = {side.p_mean[k]:.0f} Pa, L = {L_cells[k]:.4f} m): "
+                                        f"{type(e).__name__}: {e}") from e
             side.dp_cells = dp_cells
             "Cumulative profile, measured from the supply of the side"
             # The cold fluid enters at index 0 and the hot fluid at the last index:
@@ -717,6 +762,7 @@ class HexMBPlate(BaseComponent):
 
         self.dp_cells_h, self.dp_cells_c = self.H.dp_cells, self.C.dp_cells   # Kept for results and plots
         return new
+
 
     def _limit_dp(self, side, dp_total):
         """Limit the total pressure drop to 80% of the supply pressure."""

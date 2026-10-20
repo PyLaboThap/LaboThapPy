@@ -13,9 +13,14 @@ import numpy as np
 HX = HexMBPlate('Plate')
 
 # Evaporator: cyclopentane evaporated by water
+T_su_H=40+273.15
+P_su_H=CP.PropsSI('P', 'T', 25+273.15, 'Q', 1, 'R1233ZDE')
+h_su_H = CP.PropsSI('H', 'T', T_su_H, 'P', P_su_H, 'R1233ZDE')
+
+h_su_C = CP.PropsSI('H', 'T', 15+273.15, 'P', 1e5, 'Water')
 HX.set_inputs(
-    fluid_H='R1233ZDE', T_su_H=40+273.15, P_su_H=CP.PropsSI('P', 'T', 25+273.15, 'Q', 1, 'R1233ZDE'), m_dot_H=0.4582,
-    fluid_C='Water', T_su_C=15+273.15,  P_su_C=1e5, m_dot_C=2.839
+    fluid_H='R1233ZDE', h_su_H=h_su_H, P_su_H=P_su_H, m_dot_H=0.4582,
+    fluid_C='Water', h_su_C=h_su_C,  P_su_C=1e5, m_dot_C=2.839
 )
 # 'R1233ZDE'
 HX.set_parameters(flow_type='CounterFlow',          # Counter-flow: no LMTD correction (F = 1)
@@ -33,7 +38,8 @@ HX.set_parameters(flow_type='CounterFlow',          # Counter-flow: no LMTD corr
                         corrugation_pitch = 0.00573,    # Estimation based on enlargement factor
                         chevron_angle = 30*(np.pi/180), # Estimation of the chevron angle (no ideal actually + check nomenclature! could be very different depending of the correlation)
                         k_wall = 45,                    # ???
-                        R_fouling = 0.0001)               # TO BE CHECKED!!!
+                        R_fouling = 0.0001,
+                        roughness = 0)               # TO BE CHECKED!!!
 
 HX.set_htc(htc_type='correlation',
             htc_corr_h={'single-phase': 'Martin', 'two-phase': 'Longo_cond'},
@@ -43,18 +49,11 @@ HX.set_htc(htc_type='correlation',
 #              htc_user_h={'liquid': 500, 'vapor': 200, 'two-phase': 2000, 'vapor-wet': 1000},
 #              htc_user_c={'liquid': 500, 'vapor': 200, 'two-phase': 2000, 'vapor-wet': 1000})
 
-HX.set_dp(dp_type='user_defined', dp_user_h=3.76e3, dp_user_c=2.68e3)   # Given in SWEP datasheet
+# HX.set_dp(dp_type='user_defined', dp_user_h=3.76e3, dp_user_c=2.68e3)   # Given in SWEP datasheet
 
-# HX._setup_geometry()
-
-# HX.check_parametrized()
-
-# HX._setup_fluids()  # To set up the cold and hot side parameters and all
-# HX._compute_Qmax()
-# HX.objective_function(0.5 * HX.Qmax)
-# print(HX.H.hvec)   # per-side enthalpy breakpoints (use the real attribute names)
-# print(HX.C.hvec)
-# print(HX.w)
+HX.set_dp(dp_type='correlation_disc',
+            dp_corr_h={'single-phase': 'Martin', 'two-phase': 'Lockhart-Martinelli'},
+            dp_corr_c={'single-phase': 'Martin'})
 
 HX.solve()
 
@@ -65,9 +64,13 @@ print(f"Hot exhaust pressure    : {HX.ex_H.p:10.0f} Pa")
 print(f"Cold exhaust pressure   : {HX.ex_C.p:10.0f} Pa")
 print(f"Hot side charge         : {HX.charge_H * 1e3:10.2f} g")
 print(f"Cold side charge        : {HX.charge_C * 1e3:10.2f} g")
+dp_h = HX.su_H.p-HX.ex_H.p
+print(f"Hot pressure drop       : {dp_h:10.0f} Pa")
+dp_c = HX.su_C.p-HX.ex_C.p
+print(f"Cold pressure drop      : {dp_c:10.0f} Pa")
 
 HX.plot_cells()
-HX.print_states_connectors()
+# HX.print_states_connectors()
 
 
 
