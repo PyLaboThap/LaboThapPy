@@ -216,11 +216,6 @@ class HexMBPlate(BaseComponent):
                 'corrugation_amplitude': None,   # Corrugation amplitude [m]
                 'corrugation_pitch': None,   # Corrugation pitch [m]
                 'chevron_angle': None,       # Chevron angle [rad]
-                # 'enlargement_factor': None,  # Enlargement factor [-]    -> COMPUTED!!!
-                # 'A_cs_H': None,              # Cross-flow section of one channel, hot side [m^2]    -> COMPUTED !!!
-                # 'A_cs_C': None,              # Cross-flow section of one channel, cold side [m^2]   -> COMPUTED !!!
-                # 'D_h_H': None,               # Hydraulic diameter of one channel, hot side [m]      -> COMPUTED !!!
-                # 'D_h_C': None,               # Hydraulic diameter of one channel, cold side [m]     -> COMPUTED !!!
             }
         else:
             return {}  # TODO: check from Basile's code
@@ -314,8 +309,7 @@ class HexMBPlate(BaseComponent):
                             }
             return  # geometry not needed for user-defined htc and dp
     
-        if self.hex_type == "Plate":
-            # enlargement_factor = 
+        if self.hex_type == "Plate": 
             p = self.params
             for side, su in ((self.H, self.su_H), (self.C, self.su_C)):
                 s = side.name.upper()   # 'H' or 'C', to build the parameter names
@@ -355,7 +349,6 @@ class HexMBPlate(BaseComponent):
                 side._AS_key = (backend, side.fluid)
 
             side.m_dot, side.h_su, side.p_su = su.m_dot, su.h, su.p
-            print('h', side.h_su)
             AS = self._state(side, side.h_su, side.p_su)
             side.T_su = AS.T()
             side.supercritical = (not side.incomp) and side.p_su >= AS.p_critical()
@@ -458,7 +451,7 @@ class HexMBPlate(BaseComponent):
         q_sat = [C.m_dot * (h - C.h_su) for h in self._local_saturation_enthalpies(C, C.h_su, self.h_co)]
         q_sat += [H.m_dot * (h - self.h_ho) for h in self._local_saturation_enthalpies(H, self.h_ho, H.h_su)]
 
-         # Only exact duplicates are merged: dropping regular nodes that are merely
+        # Only exact duplicates are merged: dropping regular nodes that are merely
         # close to a phase-change node changes the number of cells abruptly and
         # makes the residual jump; a tiny cell contributes a tiny w instead.
         if q_sat:
