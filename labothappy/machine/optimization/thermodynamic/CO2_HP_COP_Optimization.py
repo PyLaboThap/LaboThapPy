@@ -618,10 +618,10 @@ if __name__ == "__main__":
     # Initialize optimizer
     Optimizer = CO2HPOptimizer('CO2')
     
-    n_MW = 4*1e-3
+    n_MW = 4.4*1e-3
     
     # Define temperatures for sweep
-    T_vec = np.linspace(100, 100, 1) + 273.15
+    T_vec = np.linspace(80, 80, 1) + 273.15
     COP_vec = []
     P_high_vec = []
     m_dot_vec = []
@@ -630,28 +630,28 @@ if __name__ == "__main__":
     eta_IHX_vec = []
     
     # Sweep parameters
-    m_dot_HS_fact_min = np.array([1])
-    m_dot_HS_fact_max = np.array([2])
-    m_dot_CS_fact_min = np.array([10])
-    m_dot_CS_fact_max = np.array([50])
-    P_high_min = np.array([80]) * 1e5
+    m_dot_HS_fact_min = np.array([2])
+    m_dot_HS_fact_max = np.array([3])
+    m_dot_CS_fact_min = np.array([20])
+    m_dot_CS_fact_max = np.array([30])
+    P_high_min = np.array([90]) * 1e5
     P_high_max = np.array([130]) * 1e5
-    eta_IHX_min = np.array([0.1] * 6)
+    eta_IHX_min = np.array([0.8] * 6)
     eta_IHX_max = np.array([0.9] * 6)
     
     for i in range(len(T_vec)):
         Optimizer.set_parameters(
             HP_ARCH='IHX',
             eta_cp=0.7,
-            eta_gc=0.9,
+            eta_gc=0.8,
             eta_IHX=0.8,
             eta_exp=0.8,
             PP_ev=3,
             SH_ev=0.1,
             P_high_min=P_high_min[i],
             P_high_max=P_high_max[i],
-            m_dot_min=10*n_MW,
-            m_dot_max=20*n_MW,
+            m_dot_min=8*n_MW,
+            m_dot_max=30*n_MW,
             m_dot_HS_fact_min=m_dot_HS_fact_min[i],
             m_dot_HS_fact_max=m_dot_HS_fact_max[i],
             m_dot_CS_fact_min=m_dot_CS_fact_min[i],
@@ -679,7 +679,7 @@ if __name__ == "__main__":
         )
     
         Optimizer.HSource.set_properties(
-            T=15 + 273.15,
+            T=20 + 273.15,
             P=10e5,
             fluid='INCOMP::T66'
         )

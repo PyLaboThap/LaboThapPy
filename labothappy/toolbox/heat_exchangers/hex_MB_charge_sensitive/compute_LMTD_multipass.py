@@ -6,7 +6,7 @@ Created on Sat Jan 10 10:03:56 2026
 """
 
 import numpy as np
-from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.cell_overlap_MBHX import determine_cell_overlap
+from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.cell_overlap_MBHX import determine_cell_overlap_STHE
 
 def compute_cell_x_intersection(cell1, cell2):
     """
@@ -101,13 +101,11 @@ def interpolate_temperature_xrel(T_start, T_end, x_start, x_end, x_point):
     fraction = (x_point - x_start) / (x_end - x_start)
     return T_start + fraction * (T_end - T_start)
 
-def determine_LMTD_multipass(HX):
+def compute_LMTD_STHE(HX, debug = 0):
     
     Tj_int_couples = []
     Tk_int_couples = []
-    
-    debug = 0
-    
+        
     w_LMTD = HX.w
     
     # if sum(HX.w) <= 1:
@@ -152,7 +150,6 @@ def determine_LMTD_multipass(HX):
             Tki = HX.Tvec_h[k]
             Tko = HX.Tvec_h[k+1]
         
-        # Tcell_k = HX.Tvec_c
         
         for j in contact_j:
             
@@ -338,6 +335,270 @@ def determine_LMTD_multipass(HX):
         print(f"--------------------")
     
     return LMTD_matrix, LMTD_vector
+
+def sphe_segments(thH, thC, th_h, th_c):
+    """Segments (i, j, shift, t0, t1) en angle du canal chaud ; thH, thC croissants (cellule 0 = noyau)."""
+    TWO_PI = 2*np.pi
+    x = np.unique(np.r_[0.0, thH, thC, thC - TWO_PI, th_h])
+    x = x[(x >= 0) & (x <= th_h)]
+    x = x[np.r_[True, np.diff(x) > 1e-9]]
+    segs = []
+    for t0, t1 in zip(x[:-1], x[1:]):
+        m = 0.5*(t0 + t1)
+        i = np.searchsorted(thH, m) - 1
+        for shift in (0.0, TWO_PI):            # sheet2 / sheet1
+            if m + shift < th_c:
+                j = np.searchsorted(thC, m + shift) - 1
+                segs.append((i, j, shift, t0, t1))
+    return segs
+
+
+def compute_LMTD_SPHE(HX, U=None, debug=False):
+    """
+    LMTD par paire (i chaud, j froid) pour un échangeur spirale, à partir de HX seul.
+
+    Lit : HX.params, HX.w, HX.Tvec_h, HX.Tvec_c (n+1 valeurs chacun)
+    Convention supposée : cellule 0 côté noyau pour les deux fluides ; Tvec_x[k] = T à la borne
+    intérieure (θ le plus petit) de la cellule k, Tvec_x[k+1] = T à sa borne extérieure.
+    U : None -> on répartit HX.UA_matrix[i, j] (i chaud, j froid) au prorata de l'aire des segments
+        scalaire ou callable (i, j) -> U : UA = U · aire du segment
+    Retourne LMTD_matrix[i, j], LMTD_hot[i], LMTD_cold[j], UA[i, j]
+    """
+    P = HX.params
+    H, TWO_PI = P['H'], 2*np.pi
+    p = P['C_canal_t'] + P['H_canal_t'] + 2*P['t']
+    a = p/TWO_PI
+    th_h, th_c = P['theta_end']['hot'], P['theta_end']['cold']
+
+    w = np.asarray(HX.w, float).ravel()
+    w = w/w.sum()
+    n = len(w)
+
+    Th = np.asarray(HX.Tvec_h, float).ravel()
+    Tc = np.asarray(HX.Tvec_c, float).ravel()
+    if len(Th) != n+1 or len(Tc) != n+1:
+        raise ValueError(f"Tvec_h/Tvec_c : {len(Th)}/{len(Tc)} valeurs, attendu {n+1}")
+
+    # --- géométrie ---------------------------------------------------------
+    def r(el, th, pos=0.5):
+        lo, hi = P['radial_limits'][el]
+        return P['r0_in'] + a*np.asarray(th) + lo + pos*(hi - lo)
+
+    F = lambda rr: 0.5*(rr*np.sqrt(rr**2 + a**2) + a**2*np.arcsinh(rr/a))/a
+
+    def boundaries(el):
+        th_end = P['theta_end'][el]
+        s_of = lambda th: F(r(el, th)) - F(r(el, 0.0))
+        L = float(s_of(th_end))
+        frac = np.r_[0.0, np.cumsum(w)]
+        frac[-1] = 1.0
+        s_k = frac*L
+        th = s_k/L*th_end
+        for _ in range(6):
+            th = th - (s_of(th) - s_k)/np.sqrt(r(el, th)**2 + a**2)
+        return np.clip(th, 0.0, th_end)
+
+    thH, thC = boundaries('hot'), boundaries('cold')
+
+    def area(shift, t0, t1):
+        if shift == 0.0:     # sheet2 : chaud(θ) | froid(θ)
+            return H*(F(r('sheet2', t1)) - F(r('sheet2', t0)))
+        return H*(F(r('sheet1', t1 + TWO_PI)) - F(r('sheet1', t0 + TWO_PI)))   # sheet1
+
+    # --- segments de contact (en angle du canal chaud) -----------------------
+    x = np.unique(np.r_[0.0, thH, thC, thC - TWO_PI, th_h])
+    x = x[(x >= 0) & (x <= th_h)]
+    x = x[np.r_[True, np.diff(x) > 1e-9]]
+    segs = []
+    for t0, t1 in zip(x[:-1], x[1:]):
+        m = 0.5*(t0 + t1)
+        i = int(np.clip(np.searchsorted(thH, m) - 1, 0, n-1))
+        for shift in (0.0, TWO_PI):
+            if m + shift < th_c:
+                j = int(np.clip(np.searchsorted(thC, m + shift) - 1, 0, n-1))
+                segs.append((i, j, shift, t0, t1))
+
+    # --- poids UA par segment ------------------------------------------------
+    A_seg = np.array([area(s, t0, t1) for (_, _, s, t0, t1) in segs])
+    A_pair = np.zeros((n, n))
+    for (i, j, *_), A in zip(segs, A_seg):
+        A_pair[i, j] += A
+
+    UA_user = None
+    if U is None:
+        UA_user = getattr(HX, 'UA_matrix', None)
+        if UA_user is None:
+            raise ValueError("U non fourni et HX.UA_matrix absent.")
+        UA_user = np.asarray(UA_user, float)      # supposé [i chaud, j froid]
+
+    def Tint(nodes, edges, k, th):                # interpolation sur les bornes COMPLÈTES de la cellule
+        f = (th - edges[k])/(edges[k+1] - edges[k])
+        return nodes[k] + f*(nodes[k+1] - nodes[k])
+
+    UA = np.zeros((n, n))
+    QL = np.zeros((n, n))
+    for (i, j, shift, t0, t1), A in zip(segs, A_seg):
+        dT0 = Tint(Th, thH, i, t0) - Tint(Tc, thC, j, t0 + shift)
+        dT1 = Tint(Th, thH, i, t1) - Tint(Tc, thC, j, t1 + shift)
+        if dT0 <= 0 or dT1 <= 0:
+            print(f"⚠ croisement de températures, segment ({i},{j}), ΔT = {dT0:.3g}/{dT1:.3g}")
+            dT0, dT1 = max(dT0, 1e-6), max(dT1, 1e-6)
+        lm = dT0 if abs(dT0 - dT1) < 1e-9*max(dT0, dT1) else (dT0 - dT1)/np.log(dT0/dT1)
+
+        if UA_user is not None:
+            ua = UA_user[i, j]*A/A_pair[i, j] if A_pair[i, j] > 0 else 0.0
+        else:
+            ua = (U(i, j) if callable(U) else U)*A
+        UA[i, j] += ua
+        QL[i, j] += ua*lm
+        if debug:
+            print(f"({i},{j}) shift={shift:.2f} θ=[{t0:.3f},{t1:.3f}] ΔT={dT0:.2f}/{dT1:.2f} LMTD={lm:.2f}")
+
+    LMTD_matrix = np.divide(QL, UA, out=np.zeros_like(QL), where=UA > 0)
+    s1, s0 = UA.sum(1), UA.sum(0)
+    LMTD_hot = np.divide(QL.sum(1), s1, out=np.zeros(n), where=s1 > 0)
+    LMTD_cold = np.divide(QL.sum(0), s0, out=np.zeros(n), where=s0 > 0)
+    return LMTD_matrix, LMTD_hot, LMTD_cold, UA
+
+#%%
+
+import numpy as np
+
+TWO_PI = 2 * np.pi
+
+def sphe_geometry(HX, w):
+    """
+    Frontières angulaires des cellules (chaud, froid) et segments de contact.
+
+    w : parts de longueur des cellules (somme = 1), identiques chaud/froid.
+    Retourne thH, thC (n+1 valeurs croissantes) et segs = liste de
+    (i chaud, j froid, shift, t0, t1), angles exprimés dans le repère du canal chaud
+    (shift = 0 : contact via sheet2 ; shift = 2π : contact via sheet1, froid un tour plus loin).
+    """
+    P = HX.params
+    a = (P['C_canal_t'] + P['H_canal_t'] + 2 * P['t']) / TWO_PI
+    n = len(w)
+
+    def r(el, th):
+        lo, hi = P['radial_limits'][el]
+        return P['r0_in'] + a * np.asarray(th) + 0.5 * (lo + hi)
+
+    F = lambda rr: 0.5 * (rr * np.sqrt(rr**2 + a**2) + a**2 * np.arcsinh(rr / a)) / a
+
+    def boundaries(el):
+        th_end = P['theta_end'][el]
+        s_of = lambda th: F(r(el, th)) - F(r(el, 0.0))
+        L = float(s_of(th_end))
+        frac = np.r_[0.0, np.cumsum(w)]
+        frac[-1] = 1.0
+        s_k = frac * L
+        th = s_k / L * th_end
+        for _ in range(6):                                   # Newton sur s(θ)
+            th = th - (s_of(th) - s_k) / np.sqrt(r(el, th)**2 + a**2)
+        return np.clip(th, 0.0, th_end)
+
+    thH, thC = boundaries('hot'), boundaries('cold')
+    th_h, th_c = P['theta_end']['hot'], P['theta_end']['cold']
+
+    x = np.unique(np.r_[0.0, thH, thC, thC - TWO_PI, th_h])
+    x = x[(x >= 0) & (x <= th_h)]
+    x = x[np.r_[True, np.diff(x) > 1e-9]]
+
+    segs = []
+    for t0, t1 in zip(x[:-1], x[1:]):
+        m = 0.5 * (t0 + t1)
+        i = int(np.clip(np.searchsorted(thH, m) - 1, 0, n - 1))
+        for shift in (0.0, TWO_PI):
+            if m + shift < th_c:
+                j = int(np.clip(np.searchsorted(thC, m + shift) - 1, 0, n - 1))
+                segs.append((i, j, shift, t0, t1))
+    return thH, thC, segs
+
+
+def sphe_min_dT(HX, Q, pvec_c=None, pvec_h=None, w_guess=None):
+    """
+    ΔT minimal (T_chaud - T_froid) sur tous les segments de contact pour une puissance Q.
+    Met à jour les vecteurs de HX via calculate_cell_boundaries(Q).
+    Retourne (dT_min, (i, j, shift, θ)).
+    """
+    if pvec_c is None:
+        HX.calculate_cell_boundaries(Q)
+    else:
+        HX.calculate_cell_boundaries(Q)
+
+    Th = np.asarray(HX.Tvec_h, float)
+    Tc = np.asarray(HX.Tvec_c, float)
+    n = len(Th) - 1
+    if w_guess is not None and len(w_guess) == n:
+        w = np.asarray(w_guess, float)
+        w = w / w.sum()
+    else:
+        w = np.full(n, 1.0 / n)
+
+    thH, thC, segs = sphe_geometry(HX, w)
+
+    def T(nodes, edges, k, th):          # interpolation sur les bornes COMPLÈTES de la cellule
+        f = (th - edges[k]) / (edges[k + 1] - edges[k])
+        return nodes[k] + f * (nodes[k + 1] - nodes[k])
+
+    dT_min, where = np.inf, None
+    for i, j, shift, t0, t1 in segs:
+        for th in (t0, t1):              # ΔT linéaire par morceaux : min aux extrémités
+            dT = T(Th, thH, i, th) - T(Tc, thC, j, th + shift)
+            if dT < dT_min:
+                dT_min, where = dT, (i, j, shift, th)
+    return dT_min, where
+
+
+def internal_pinching_SPHE(HX, stream='hot', pvec_c=None, pvec_h=None,
+                           Q_hi=None, dT_min=0.0, w_guess=None,
+                           rtol=1e-8, max_iter=80):
+    """
+    Qmax géométrique : plus grand Q tel que ΔT >= dT_min sur tous les segments de contact.
+
+    stream  : 'hot' fait le calcul ; 'cold' renvoie None (le pincement ne dépend pas du fluide,
+              ce qui évite le doublon dans solve_hx).
+    Q_hi    : borne haute (défaut HX.Qmax_ext).
+    w_guess : positions des cellules (défaut uniformes ; HX.w de l'itération précédente
+              donne un pincement plus fidèle).
+    Retourne Qmax, ou None si le pincement géométrique n'est pas actif avant Q_hi.
+    Effets : HX.Qmax_geo, HX.pinch_dT, HX.pinch_where renseignés ; HX positionné sur Qmax.
+    """
+    if stream not in ('hot', 'cold'):
+        raise ValueError(stream)
+    if stream == 'cold':
+        return None
+    if getattr(HX, 'SC_h', False) and getattr(HX, 'SC_c', False):
+        return None
+        
+    if Q_hi is None:
+        Q_hi = getattr(HX, 'Qmax_ext', None)
+        if Q_hi is None:
+            raise ValueError("Q_hi absent et HX.Qmax_ext non défini (lancer external_pinching avant).")
+
+    def f(Q):
+        return sphe_min_dT(HX, Q, pvec_c, pvec_h, w_guess)[0] - dT_min
+
+    # if f(Q_hi) >= 0:                     # pas de pincement géométrique avant Q_hi
+    #     print(f(Q_hi))
+    #     return None
+
+    lo, hi = 1, Q_hi
+    if f(lo) < 0:
+        raise ValueError("ΔT < dT_min même à Q = 0 : vérifier T_hi > T_ci.")
+    for _ in range(max_iter):
+        mid = 0.5 * (lo + hi)
+        if f(mid) >= 0:
+            lo = mid
+        else:
+            hi = mid
+        if hi - lo < rtol * Q_hi:
+            break
+
+    HX.pinch_dT, HX.pinch_where = sphe_min_dT(HX, lo, pvec_c, pvec_h, w_guess)
+    HX.Qmax_geo = lo
+    return lo
+
 
 # -*- coding: utf-8 -*-
 # """

@@ -11,10 +11,23 @@ Modification w/r to previous version:
     - x_di_c correct calculation.
 """
 
+
+"""
+
+Tableau comparatif des options 
+-> Cas Optimiste / Pessimiste
+
+Sizing SWEP -> Baseline echangeur à plaques 
+-> Revérifier avec nos modèles 
+
+Implémenter des corrélations de HTC
+
+"""
+
+
 # from __future__ import division, print_function
-import __init__
 from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
-from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.plot_SPHE import plot_spiral
+from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.plot_SPHE import plot_spiral, plot_incidence, plot_contacts
 
 #%%
 
@@ -50,7 +63,7 @@ HX.set_inputs(
 "Correlation Loading"
 
 # Corr_H = {"1P" : "Tube_And_Fins", "2P" : "ext_tube_film_condens"}
-Corr_H = {"1P" : "Tube_And_Fins", "2P" : "Tube_And_Fins"}
+Corr_H = {"1P" : "Gnielinski", "2P" : "Horizontal_Tube_Internal_Condensation"}
 Corr_C = {"1P" : "Gnielinski", "2P" : "Boiling_curve"}
 
 Corr_H_DP = {"1P" : "Tube_And_Fins_DP", "2P" : "Tube_And_Fins_DP"}
@@ -60,13 +73,24 @@ Corr_C_DP = {"1P" : "Gnielinski_DP", "2P" : "Choi_DP"}
 
 "Parameters Setting"
 
+# params = {
+#         'C_canal_t' : 0.003, # [m]
+#         'D_ext' : 0.19, # [m]
+#         'H' : 0.18, # [m]
+#         'H_canal_t' : 0.003, # [m]
+#         'r0_in' : 1*1e-3, # [m]
+#         't' : 0.001, # [m]
+        
+#         'inner_channel' : 'cold'
+#         }
+
 params = {
-        'C_canal_t' : 0.005, # [m]
-        'D_ext' : 0.24, # [m]
+        'C_canal_t' : 0.004, # [m]
+        'D_ext' : 0.21, # [m]
         'H' : 0.21, # [m]
-        'H_canal_t' : 0.005, # [m]
+        'H_canal_t' : 0.004, # [m]
         'r0_in' : 1*1e-3, # [m]
-        't' : 0.002, # [m]
+        't' : 0.001, # [m]
         
         'inner_channel' : 'cold'
         }
@@ -75,7 +99,7 @@ HX.set_parameters(
     C_canal_t = params['C_canal_t'], D_ext = params['D_ext'], H = params['H'], 
     H_canal_t = params['H_canal_t'], r0_in = params['r0_in'], t = params['t'],
 
-    inner_channel = params['inner_channel'], Flow_Type = "CounterFlow", n_disc = 30) # 32
+    inner_channel = params['inner_channel'], Flow_Type = "CounterFlow", n_disc = 100) # 32
 
 # User defined values
 
@@ -93,8 +117,8 @@ UD_C_HTC = {'Liquid': 5000,
             'Dryout' : 10000,
             'Transcritical' : 5000}
 
-HX.set_htc(htc_type = 'User-Defined', UD_H_HTC = UD_H_HTC, UD_C_HTC = UD_C_HTC) # 'User-Defined' or 'Correlation'
-# HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 
+# HX.set_htc(htc_type = 'User-Defined', UD_H_HTC = UD_H_HTC, UD_C_HTC = UD_C_HTC) # 'User-Defined' or 'Correlation'
+HX.set_htc(htc_type = 'Correlation_Disc', Corr_H = Corr_H, Corr_C = Corr_C) # 
 
 HX.set_DP() # equivalent to HX.set_DP(DP_type = None)
 # HX.set_DP(DP_type="User-Defined", UD_C_DP = 10000, UD_H_DP = 10000) # Fixed User-Defined values, equally distributed over discretizations
@@ -107,4 +131,6 @@ HX.plot_cells()
 
 "Plot the spiral"
 
-plot_spiral(HX)
+# plot_spiral(HX)
+# W, B = plot_incidence(HX)
+# ax, W2, segs = plot_contacts(HX)

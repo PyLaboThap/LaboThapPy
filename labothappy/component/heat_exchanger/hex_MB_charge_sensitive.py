@@ -60,8 +60,8 @@ from labothappy.connector.heat_connector import HeatConnector
 # Component base frame
 from labothappy.component.base_component import BaseComponent
 
-from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.cell_overlap_MBHX import determine_cell_overlap
-from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.compute_LMTD_multipass import determine_LMTD_multipass
+from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.cell_overlap_MBHX import determine_cell_overlap_STHE, determine_cell_overlap_SPHE
+from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.compute_LMTD_multipass import compute_LMTD_STHE, compute_LMTD_SPHE, internal_pinching_SPHE
 
 #%%
 # Set to True to enable some debugging output to screen
@@ -401,7 +401,7 @@ class HexMBChargeSensitive(BaseComponent):
             self.H.HeatExchange_Correlation = "Correlation"
             self.C.HeatExchange_Correlation = "Correlation"
             
-            if self.HTX_Type == 'Plate' or self.HTX_Type == 'Shell&Tube' or self.HTX_Type == 'Tube&Fins' or self.HTX_Type == 'PCHE':
+            if self.HTX_Type == 'Plate' or self.HTX_Type == 'Shell&Tube' or self.HTX_Type == 'Tube&Fins' or self.HTX_Type == 'PCHE' or self.HTX_Type == 'SPHE':
                 
                 self.H.Correlation_1phase = Corr_H["1P"]
                 if "2P" in Corr_H:
@@ -629,7 +629,7 @@ class HexMBChargeSensitive(BaseComponent):
         
         "3.1) Create a vector of enthalpies : initiates the cell boundaries. If phase change, dew and bubble point are added"
               
-        if 'Tube_pass' in self.params and self.params['Tube_pass'] > 1 and np.sum(self.Qdot_matrix) != 0:
+        if (self.HTX_Type == "SPHE" and np.sum(self.Qdot_matrix) != 0) or ('Tube_pass' in self.params and self.params['Tube_pass'] > 1 and np.sum(self.Qdot_matrix) != 0):
 
             def weighted_vector(x0, x1, w):
                 w = np.asarray(w, dtype=float)
@@ -898,7 +898,7 @@ class HexMBChargeSensitive(BaseComponent):
         
         self.pvec_c = (1-self.hnorm_c)*self.p_ci + self.hnorm_c*self.p_co
         self.pvec_h = (1-self.hnorm_h)*self.p_ho + self.hnorm_h*self.p_hi
-
+        
         self.Tvec_c = np.zeros(np.size(self.pvec_c))
         self.Tvec_h = np.zeros(np.size(self.pvec_h))
         
@@ -993,7 +993,7 @@ class HexMBChargeSensitive(BaseComponent):
         # Try to find the dew point enthalpy as one of the cell boundaries
         # that is not the inlet or outlet
         # Do this only if the fluid is sub-critical
-
+        
         "1) Check for the hot stream"
         
         if stream == 'hot':
@@ -1016,7 +1016,9 @@ class HexMBChargeSensitive(BaseComponent):
                             self.calculate_cell_boundaries(Qmax) # call calculate_cell_boundaries procedure
                         else:
                             self.calculate_cell_boundaries(Qmax, pvec_c = pvec_c, pvec_h = pvec_h) # call calculate_cell_boundaries procedure     
-                            
+                        
+
+
                         return Qmax
                     
             elif self.SC_h:
@@ -1052,6 +1054,7 @@ class HexMBChargeSensitive(BaseComponent):
             elif self.SC_c:
                 #If the hot side is transcritical, do nothing
                 pass
+        
         else:
             raise ValueError
 
@@ -1064,7 +1067,8 @@ class HexMBChargeSensitive(BaseComponent):
             if self.phases_h[k] == "liquid":
                 mu_h, Pr_h, k_h, mu_h_w, mu_rat, Pr_h_w, _ = propsfluid_AS(Th_mean, p_h_mean, T_wall_h-1, self.H_su.fluid, False, self.AS_H, havg_h)
             elif self.phases_h[k] == "vapor":
-                mu_h, Pr_h, k_h, mu_h_w, mu_rat, Pr_h_w, _ = propsfluid_AS(Th_mean, p_h_mean, T_wall_h+1, self.H_su.fluid, False, self.AS_H, havg_h)                
+                mu_h, Pr_h, k_h, mu_h_w, mu_rat, Pr_h_w, _ = propsfluid_AS(Th_mean, p_h_mean, T_wall_h+1, self.H_su.fluid, False, self.AS_H, havg_h)       
+                
         if self.H.Correlation_1phase == "Gnielinski":
             if self.HTX_Type == 'Plate':
                 alpha_h, self.Re_h[k], self.Pr_h[k] = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['H_Dh'], self.params['l']) # Muley_Manglik_BPHEX_HTC(mu_h, mu_h_w, Pr_h, k_h, G_h, self.geom.H_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_h, Pr_h, k_h, G_h, self.geom.H_Dh) # 
@@ -1075,6 +1079,8 @@ class HexMBChargeSensitive(BaseComponent):
             elif self.HTX_Type == 'PCHE':
                 Dh = np.pi*self.params['D_c']/(2+np.pi)
                 alpha_h, self.Re_h[k], self.Pr_h[k] = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, Dh, self.params['L_c']*self.params['n_series']) 
+            elif self.HTX_Type == 'SPHE':
+                alpha_h, self.Re_h[k], self.Pr_h[k] = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['H_Dh'], self.params['L_hot']*self.params['n_series']) 
         
         elif self.H.Correlation_1phase == 'Meshram':
             Dh = np.pi*self.params['D_c']/(2+np.pi)
@@ -1117,6 +1123,9 @@ class HexMBChargeSensitive(BaseComponent):
             elif self.HTX_Type == 'PCHE':
                 Dh = np.pi*self.params['D_c']/(2+np.pi)
                 alpha_c, self.Re_c[k], self.Pr_c[k]  = gnielinski_pipe_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, Dh, self.params['L_c']*self.params['n_series']) 
+            elif self.HTX_Type == 'SPHE':
+                alpha_c, self.Re_c[k], self.Pr_c[k]  = gnielinski_pipe_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, self.params['C_Dh'], self.params['L_cold']*self.params['n_series']) 
+        
         elif self.C.Correlation_1phase == 'Liu':
             if self.HTX_Type == 'PCHE':
                 Dh = np.pi*self.params['D_c']/(2+np.pi)
@@ -1165,6 +1174,8 @@ class HexMBChargeSensitive(BaseComponent):
             elif self.HTX_Type == 'PCHE':
                 Dh = np.pi*self.params['D_c']/(2+np.pi)
                 alpha_h, self.Re_h[k], self.Pr_h[k] = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, Dh, self.params['L_c']*self.params['n_series']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
+            elif self.HTX_Type == 'SPHE':
+                alpha_h, self.Re_h[k], self.Pr_h[k] = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['H_Dh'], self.params['L_hot']*self.params['n_series']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
 
         elif self.H.Correlation_TC == 'Liu':
             Dh = np.pi*self.params['D_c']/(2+np.pi)
@@ -1226,6 +1237,8 @@ class HexMBChargeSensitive(BaseComponent):
             elif self.HTX_Type == 'PCHE':
                 Dh = np.pi*self.params['D_c']/(2+np.pi)
                 alpha_c, self.Re_c[k], self.Pr_c[k] = gnielinski_pipe_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, Dh, self.params['L_c']*self.params['n_series']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
+            elif self.HTX_Type == 'SPHE':
+                alpha_c, self.Re_c[k], self.Pr_c[k] = gnielinski_pipe_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, self.params['C_Dh'], self.params['L_cold']*self.params['n_series']) # Muley_Manglik_BPHEX_HTC(mu_c, mu_c_w, Pr_c, k_c, G_c, self.geom.C_Dh, self.geom.chevron_angle) # Simple_Plate_HTC(mu_c, Pr_c, k_c, G_c, self.geom.C_Dh) # 
  
         elif self.C.Correlation_TC == 'Liu':
             Dh = np.pi*self.params['D_c']/(2+np.pi)
@@ -1293,7 +1306,7 @@ class HexMBChargeSensitive(BaseComponent):
         rho_h_v = self.AS_H.rhomass()
                     
         if self.H.Correlation_2phase == "Han_cond_BPHEX":
-            alpha_h_2phase, _, DP_H = han_cond_BPHEX_HTC(x_h, mu_h_l, k_h_l, Pr_h_l, rho_h_l, rho_h_v, G_h, self.params['H_Dh'], self.params['plate_pitch_co'], self.params['chevron_angle'], self.params['l_v'], self.params['H_n_canals'], self.H_su.m_dot, self.params['H_canal_t'])
+            alpha_h_2phase = han_cond_BPHEX_HTC(x_h, mu_h_l, k_h_l, Pr_h_l, rho_h_l, rho_h_v, G_h, self.params['H_Dh'], self.params['plate_pitch_co'], self.params['chevron_angle'], self.params['l_v'], self.params['H_n_canals'], self.H_su.m_dot, self.params['H_canal_t'])
         if self.H.Correlation_2phase == 'ext_tube_film_condens':
             self.AS_H.update(CP.HmassP_INPUTS, havg_h, p_h_mean)
             V_flow = G_h/self.AS_H.rhomass()
@@ -1334,8 +1347,8 @@ class HexMBChargeSensitive(BaseComponent):
                 Pr_h_w = self.AS_H.Prandtl()
                 mu_h_w = self.AS_H.viscosity()      
                 
-            alpha_h, self.Re_h[k], self.Pr_h[k]  = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['Tube_OD'] - 2*self.params['Tube_t'], self.params['Tube_L']*self.params["Tube_pass"])
-            alpha_h_2phase = 20000 # horizontal_tube_internal_condensation(self.H_su.fluid , G_h, p_h_mean, self.x_vec_h[k], T_wall_h, self.params['Tube_OD'] - 2*self.params['Tube_t'])
+            # alpha_h, self.Re_h[k], self.Pr_h[k]  = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['Tube_OD'] - 2*self.params['Tube_t'], self.params['Tube_L']*self.params["Tube_pass"])
+            alpha_h_2phase = 8000 # horizontal_tube_internal_condensation(self.H_su.fluid , G_h, p_h_mean, self.x_vec_h[k], T_wall_h, self.params['Tube_OD'] - 2*self.params['Tube_t'])
         if self.H.Correlation_2phase == 'shah_condensation_plate_HTC':
             alpha_h_2phase = shah_condensation_plate_HTC(self.params['H_Dh'], self.params['l_v'], self.params['w_v'], self.params['amplitude'], self.params['phi'], self.mdot_h, p_h_mean, self.params['H_n_canals'], self.AS_H)
         
@@ -1939,6 +1952,9 @@ class HexMBChargeSensitive(BaseComponent):
             self.params['H_V_tot'] = self.params['L_hot']*self.params['H']*self.params['H_canal_t']
             self.params['C_V_tot'] = self.params['L_cold']*self.params['H']*self.params['C_canal_t']
             
+            self.params['H_Dh'] = 2*self.params['H_canal_t']*self.params['H']/(self.params['H_canal_t']+self.params['H'])
+            self.params['C_Dh'] = 2*self.params['C_canal_t']*self.params['H']/(self.params['C_canal_t']+self.params['H'])
+            
         elif self.HTX_Type == 'Shell&Tube':
             
             self.params['A_eff'] = np.pi*self.params['Tube_OD']*self.params['Tube_L']*self.params['n_tubes']*self.params['n_series']*self.params['n_parallel']   
@@ -2209,8 +2225,12 @@ class HexMBChargeSensitive(BaseComponent):
                     if Qmax_int is not None:
                         self.Qmax_int = Qmax_int
                         Qmax = Qmax_int
-            
-            # Maximum heat transfer rate determined by external or internal pinching
+                    
+            if self.HTX_Type == "SPHE":
+                Qmax_geo = internal_pinching_SPHE(self, stream = "hot", Q_hi=Qmax)
+                Qmax = min(Qmax, Qmax_geo)
+                
+            # Maximum heat transfer rate determined by external or internal pinching            
             self.Qmax = Qmax
             
             "5.3) Solve the heat exchanger to find the actual heat rate"
@@ -2334,12 +2354,7 @@ class HexMBChargeSensitive(BaseComponent):
             raise Exception("Hot and cold temperatures seem to be reversed or a flow rate is negative.")
  
     def objective_function(self, Q, only_external = False):
-        
-        print("="*50)
 
-        print(self.Qmax)
-        print(Q)
-        
         "0) Initialize cell boundaries and results vectors"
         
         self.calculate_cell_boundaries(Q)
@@ -2350,7 +2365,9 @@ class HexMBChargeSensitive(BaseComponent):
         self.w_cumsum = np.cumsum(self.w)
         
         if ('Tube_pass' in self.params) and self.HTX_Type == 'Shell&Tube':
-            self.overlap_matrix = determine_cell_overlap(self.w, self.params['Tube_pass'], self.params['Shell_Side'])
+            self.overlap_matrix = determine_cell_overlap_STHE(self.w, self.params['Tube_pass'], self.params['Shell_Side'])
+        elif self.HTX_Type == 'SPHE':
+            self.overlap_matrix = determine_cell_overlap_SPHE(self)
         
         "2) Initialize results vectors"
                         
@@ -2386,7 +2403,7 @@ class HexMBChargeSensitive(BaseComponent):
                 
         self.R = (self.Tvec_h[-1] - self.Tvec_h[0])/(self.Tvec_c[-1] - self.Tvec_c[0])
         self.P = (self.Tvec_c[-1] - self.Tvec_c[0])/(self.Tvec_h[-1] - self.Tvec_c[0]) 
-        
+
         #%%
         "2) Determine phases and compute F for LMTD correction factor"
 
@@ -2597,6 +2614,8 @@ class HexMBChargeSensitive(BaseComponent):
             col_sums = np.sum(self.overlap_matrix, axis=0)  # sum over rows for each column
         elif self.HTX_Type == 'Shell&Tube':
             col_sums = np.sum(self.overlap_matrix, axis=1)  # sum over columns for each row
+        elif self.HTX_Type == 'SPHE':
+            col_sums = np.sum(self.overlap_matrix, axis=0)  # sum over columns for each row
         
         for k in range(n_cells): # iterate over each cell
 
@@ -2683,14 +2702,30 @@ class HexMBChargeSensitive(BaseComponent):
                 self.UA_avail[k] = 1/(1/(alpha_h*self.A_h) + 1/(alpha_c*self.A_c)) # + self.R_fouling + self.R_cond)
         
             elif self.HTX_Type == 'SPHE':
+        
+                for j in range(n_cells):
+                    alpha_h = self.alpha_h[k]
+                    alpha_c = self.alpha_c[j]
+                                                
+                    UA_jk = 1/(1 / (alpha_c * self.A_c) + 1 / (alpha_h * self.A_h))
+                    
+                    self.UA_matrix[j,k] = UA_jk * self.overlap_matrix[j, k] 
                 
-                self.UA_avail[k] = 1/(1/(alpha_h*self.A_h) + 1/(alpha_c*self.A_c)) 
+                
+                self.UA_avail[k] = np.sum(self.UA_matrix[:,k]) / (col_sums[k])
+     
+        
+                # self.UA_avail[k] = 1/(1/(alpha_h*self.A_h) + 1/(alpha_c*self.A_c)) 
         
                 "5) Compute LMTD"        
                 
         if self.HTX_Type == 'Shell&Tube' and "Tube_pass" in self.params and self.params['Tube_pass'] > 1: # If many passes are present    
-            self.LMTD_matrix, self.LMTD = determine_LMTD_multipass(self)
-        
+            self.LMTD_matrix, self.LMTD = compute_LMTD_STHE(self)
+            
+        elif self.HTX_Type == 'SPHE':
+            self.LMTD_matrix, self.LMTD_hot, self.LMTD_cold, _ = compute_LMTD_SPHE(self)
+            self.LMTD = self.LMTD_hot
+            
         else: # 1 pass case
             self.LMTD = np.zeros(np.size(self.pvec_h)-1)     
             
@@ -2701,14 +2736,9 @@ class HexMBChargeSensitive(BaseComponent):
                 Tci = self.Tvec_c[k]
                 Tco = self.Tvec_c[k+1]
         
-                # print(f"Thi : {Thi}, Tho : {Tho}")
-                # print(f"Tci : {Tci}, Tco : {Tco}")
-        
                 DTA = max(Thi - Tco, 1e-6)
                 DTB = max(Tho - Tci, 1e-6)
-                
-                # print(f"DTA : {DTA}, DTB : {DTB}")
-                                
+                                                
                 if DTA == DTB:
                     self.LMTD[k] = DTA
                 else:
@@ -2722,6 +2752,8 @@ class HexMBChargeSensitive(BaseComponent):
             "6) Compute UA_required and w, the main objective of this function. This variable serves for residual minimization in the solver"
         
             if self.HTX_Type == 'Shell&Tube' and self.params['Shell_Side'] == 'H':
+                self.UA_req[k] = self.mdot_c*(self.hvec_c[k+1]-self.hvec_c[k])/(self.F[k]*self.LMTD[k])
+            elif self.HTX_Type == 'SPHE':
                 self.UA_req[k] = self.mdot_c*(self.hvec_c[k+1]-self.hvec_c[k])/(self.F[k]*self.LMTD[k])
             else:
                 self.UA_req[k] = self.mdot_h*(self.hvec_h[k+1]-self.hvec_h[k])/(self.F[k]*self.LMTD[k])
@@ -2831,24 +2863,25 @@ class HexMBChargeSensitive(BaseComponent):
         self.Qdot_matrix = np.zeros([n_cells, n_cells])
         
         if ('Tube_pass' in self.params) and np.all(np.isfinite(self.w)) and self.HTX_Type == 'Shell&Tube' and self.params['Tube_pass'] > 1:
-            self.overlap_matrix = determine_cell_overlap(self.w, self.params['Tube_pass'], self.params['n_disc'])
+            self.overlap_matrix = determine_cell_overlap_STHE(self.w, self.params['Tube_pass'], self.params['n_disc'])
+        elif self.HTX_Type == 'SPHE':
+            self.overlap_matrix = determine_cell_overlap_SPHE(self)
         
         if self.HTX_Type == 'Shell&Tube':
             row_sums = np.sum(self.overlap_matrix, axis=1)  # shape (len_c,)
-        
+        elif self.HTX_Type == 'SPHE':
+            row_sums = np.sum(self.overlap_matrix, axis=0)  # shape (len_c,)
+
         if self.HTX_Type == 'Shell&Tube' and self.params['Shell_Side'] == 'H' and "Tube_pass" in self.params and self.params['Tube_pass'] > 1:
-            self.Qdot_matrix = self.F[0] * self.LMTD_matrix * self.UA_matrix * row_sums[:, np.newaxis]
+            self.Qdot_matrix = self.F[0] * self.LMTD_matrix * self.UA_matrix * row_sums[:, np.newaxis] * self.params['n_disc']
         elif self.HTX_Type == 'Shell&Tube' and "Tube_pass" in self.params and self.params['Tube_pass'] > 1:
-            self.Qdot_matrix = self.F[0] * self.LMTD_matrix * self.UA_matrix * row_sums[np.newaxis, :]
+            self.Qdot_matrix = self.F[0] * self.LMTD_matrix * self.UA_matrix * row_sums[np.newaxis, :] * self.params['n_disc']
+        elif self.HTX_Type == 'SPHE':
+            self.Qdot_matrix = self.F[0] * self.LMTD_matrix * self.UA_matrix * row_sums[:, np.newaxis] * self.params['n_disc']
         
         self.eval += 1      
         
         self.w_prev = [0]
-
-        # print("=="*20)
-        
-        # if Q > self.Qmax*0.8:
-        #     exit()
         
         return 1-self.w_sum
 
@@ -2867,7 +2900,7 @@ class HexMBChargeSensitive(BaseComponent):
         while self.Q_dot > self.Qmax and it < max_iter:
             
             # self.Q_dot, self.results = scipy.optimize.brentq(self.objective_function, 1e-5, self.Qmax*0.9999, rtol = 1e-6, xtol = 1e-6, full_output=True)
-            self.Q_dot, self.results = scipy.optimize.brentq(self.objective_function, self.Qmax*0.001, self.Qmax*1, rtol = 1e-6, xtol = 1e-6, full_output=True)
+            self.Q_dot, self.results = scipy.optimize.brentq(self.objective_function, self.Qmax*0.001, self.Qmax*0.999, rtol = 1e-6, xtol = 1e-6, full_output=True)
             
             "Pinch Analysis : Verification as pressure drops changed - Create a new HX to not impact computed results"
             

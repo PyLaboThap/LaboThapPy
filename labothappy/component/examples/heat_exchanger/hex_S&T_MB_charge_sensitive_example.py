@@ -26,7 +26,7 @@ start_time = time.time()
 
 "HTX Instanciation"
 
-case_study = 'R134a'
+case_study = 'Methanol'
 n_disc = 30
         
 # # -------------------------------------------------------------------------------------------------------------
