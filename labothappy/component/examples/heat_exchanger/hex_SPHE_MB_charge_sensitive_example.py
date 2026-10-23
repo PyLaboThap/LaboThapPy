@@ -86,8 +86,8 @@ Corr_C_DP = {"1P" : "Gnielinski_DP", "2P" : "Choi_DP"}
 
 params = {
         'C_canal_t' : 0.004, # [m]
-        'D_ext' : 0.21, # [m]
-        'H' : 0.21, # [m]
+        'D_ext' : 0.22, # [m]
+        'H' : 0.20, # [m]
         'H_canal_t' : 0.004, # [m]
         'r0_in' : 1*1e-3, # [m]
         't' : 0.001, # [m]
@@ -99,7 +99,7 @@ HX.set_parameters(
     C_canal_t = params['C_canal_t'], D_ext = params['D_ext'], H = params['H'], 
     H_canal_t = params['H_canal_t'], r0_in = params['r0_in'], t = params['t'],
 
-    inner_channel = params['inner_channel'], Flow_Type = "CounterFlow", n_disc = 100) # 32
+    inner_channel = params['inner_channel'], Flow_Type = "CounterFlow", n_disc = 5) # 32
 
 # User defined values
 
@@ -127,7 +127,7 @@ HX.set_DP() # equivalent to HX.set_DP(DP_type = None)
 
 "Solve the component"
 HX.solve()
-HX.plot_cells()
+# HX.plot_cells()
 
 "Plot the spiral"
 

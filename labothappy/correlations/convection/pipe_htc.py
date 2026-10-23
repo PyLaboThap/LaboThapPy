@@ -594,7 +594,6 @@ def flow_boiling_gungor_winterton(fluid, G, P_sat, x, D_in, q, mu_l, Pr_l, k_l):
     
     Reference
     ---------
-    
     """
     
     AS = CP.AbstractState("BICUBIC&HEOS", fluid)
