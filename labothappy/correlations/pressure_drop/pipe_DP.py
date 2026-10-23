@@ -45,7 +45,7 @@ def gnielinski_pipe_DP(mu, rho, G, Dh, L, type_HX = 'pipe', p = 0):
     #-------------------------------------------------------------------------
     if type_HX == 'pipe':
         f = (1.8*log10(Re) - 1.5)**(-2)
-    elif type_HX == 'PCHE' or type_HX == 'Plate':
+    elif type_HX == 'PCHE' or type_HX == 'Plate' or type_HX == 'SPHE':
         # f = 0.2515*Re**(-0.2031)
         f = (0.79*np.log(Re) - 1.64)**(-2)
 

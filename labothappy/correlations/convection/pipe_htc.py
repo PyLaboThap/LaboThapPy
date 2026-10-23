@@ -237,12 +237,61 @@ def thome_condensation(AS, D_i, G, P_sat, T_sat, T_wall, x):
         h_c = 0
     
     # Compute h_f
+    DT_wall = max(T_sat - T_wall, 1e-1)
     h_LG = h_G-h_L
-    h_f = 0.728*((rho_L*(rho_L-rho_G)*g*h_LG*lambda_L**3)/(mu_L*D_i*(T_sat - T_wall)))**0.25
-        
+    h_f = 0.728*((rho_L*(rho_L-rho_G)*g*h_LG*lambda_L**3)/(mu_L*D_i*(DT_wall)))**0.25
+    
     h_tp = (h_f*r*theta + (2*np.pi - theta)*r*h_c)/(2*np.pi*r)       
         
     return h_tp
+
+def kim_condensation(AS,m_dot,P_sat,x_in,D_in):
+    """
+    Inputs
+    ------
+    
+    fluid : fluid name [-]
+    m_dot : Flowrate [kg/s]
+    P_sat : Saturation pressure [Pa]
+    x_in  : Inlet quality [-]
+    T_w   : Wall temperature [K]
+    D_in  : Pipe internal diameter [m]
+    
+    Outputs
+    -------
+    
+    h : Condensation heat transfer coeffieicnt [W/(m^2 * K)]
+    
+    Reference
+    ---------
+    Incropera's principle of heat transfer
+    """
+    
+    A_in = np.pi*(D_in/2)**2
+
+    P_crit = AS.p_critical()
+    
+    AS.update(CP.PQ_INPUTS, P_sat, 0.0)
+    rho_l = AS.rhomass()
+    mu_l = AS.viscosity()
+    k_l = AS.conductivity()
+    cp_l = AS.cpmass()
+    Pr_l = AS.Prandtl() if hasattr(AS, 'Prandtl') else (cp_l * mu_l / k_l)
+    h_l = AS.hmass()
+    
+    u_l = m_dot/(rho_l*A_in)
+    Re_l = (rho_l*u_l*D_in)/mu_l
+    h_l = 0.023*Re_l**0.8 * Pr_l**0.4 * k_l / D_in
+    
+    x_in = max(1e-3,x_in)
+    x_in = min(x_in,0.999)
+    
+    x_c = ((1-x_in)/x_in)**0.8 * (P_sat/P_crit)
+    
+    h = h_l*(1+2.5/(x_c**0.912))
+        
+    return h
+
 
 
 def horizontal_tube_internal_condensation(fluid,m_dot,P_sat,x_in,T_w,D_in):

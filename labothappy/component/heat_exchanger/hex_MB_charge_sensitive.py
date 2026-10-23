@@ -35,11 +35,13 @@ from labothappy.correlations.properties.two_phase import compute_two_phase_densi
 
 # HTC Correlations
 from labothappy.correlations.convection.plate_htc import han_boiling_BPHEX_HTC, water_plate_HTC, martin_BPHEX_HTC, muley_manglik_BPHEX_HTC, han_boiling_BPHEX_HTC, han_cond_BPHEX_HTC, thonon_plate_HTC, kumar_plate_HTC, martin_holger_plate_HTC, amalfi_plate_HTC, shah_condensation_plate_HTC
-from labothappy.correlations.convection.pipe_htc import Meshram, gnielinski_pipe_htc, boiling_curve, horizontal_tube_internal_condensation, horizontal_flow_boiling, flow_boiling_gungor_winterton, Liu_sCO2, Cheng_sCO2, thome_condensation, choi_boiling
+from labothappy.correlations.convection.pipe_htc import kim_condensation, Meshram, gnielinski_pipe_htc, boiling_curve, horizontal_tube_internal_condensation, horizontal_flow_boiling, flow_boiling_gungor_winterton, Liu_sCO2, Cheng_sCO2, thome_condensation, choi_boiling
 from labothappy.correlations.convection.shell_and_tube_htc import shell_bell_delaware_htc, shell_htc_kern
 from labothappy.correlations.convection.tube_bank_htc import ext_tube_film_condens
 from labothappy.correlations.convection.fins_htc import htc_tube_and_fins
 from labothappy.correlations.convection.printed_circuit_htc import PCHE_Lee, PCHE_conv
+from labothappy.correlations.convection.spiral_plate_htc import single_phase_spiral_plate_htc
+from labothappy.correlations.convection.spiral_ducts_htc import curved_rect_duct_1P_htc
 
 # DP Correlations 
 from labothappy.correlations.pressure_drop.shell_and_tube_DP import shell_DP_kern, shell_DP_donohue, shell_bell_delaware_DP
@@ -60,7 +62,7 @@ from labothappy.connector.heat_connector import HeatConnector
 # Component base frame
 from labothappy.component.base_component import BaseComponent
 
-from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.cell_overlap_MBHX import determine_cell_overlap_STHE, determine_cell_overlap_SPHE
+from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.cell_overlap_MBHX import determine_cell_overlap_STHE, determine_cell_overlap_SPHE, determine_cell_mean_curvature_radius_SPHE
 from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.compute_LMTD_multipass import compute_LMTD_STHE, compute_LMTD_SPHE, internal_pinching_SPHE
 
 #%%
@@ -1086,6 +1088,10 @@ class HexMBChargeSensitive(BaseComponent):
             Dh = np.pi*self.params['D_c']/(2+np.pi)
             alpha_h = Meshram(Dh, G_h, k_h, mu_h, Pr_h)
         
+        elif self.H.Correlation_1phase == 'SPHE':            
+            alpha_h = single_phase_spiral_plate_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['H_Dh'], self.R_h[k], self.params['H_canal_t'])
+            alpha_h = curved_rect_duct_1P_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['H_Dh'], self.params['L_hot']*self.params['n_series'], self.R_h[k])
+        
         elif self.H.Correlation_1phase == "Shell_Bell_Delaware_HTC":
             alpha_h = shell_bell_delaware_htc(self.mdot_h, Th_mean, T_wall_h, p_h_mean, self.H_su.fluid, self.params)
         elif self.H.Correlation_1phase == 'Shell_Kern_HTC':
@@ -1138,6 +1144,10 @@ class HexMBChargeSensitive(BaseComponent):
             Dh = np.pi*self.params['D_c']/(2+np.pi)
             alpha_c = Meshram(Dh, G_c, k_c, mu_c, Pr_c)
         
+        elif self.C.Correlation_1phase == 'SPHE':            
+            alpha_c = single_phase_spiral_plate_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, self.params['C_Dh'], self.R_c[k], self.params['C_canal_t'])
+            alpha_c = curved_rect_duct_1P_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, self.params['C_Dh'], self.params['L_cold']*self.params['n_series'], self.R_c[k])
+
         elif self.C.Correlation_1phase == 'Shell_Bell_Delaware_HTC':
             alpha_c = shell_bell_delaware_htc(self.mdot_c, Tc_mean, T_wall_c, p_c_mean, self.C_su.fluid, self.params)
         elif self.C.Correlation_1phase == 'Shell_Kern_HTC':
@@ -1185,6 +1195,10 @@ class HexMBChargeSensitive(BaseComponent):
             
             alpha_h = Liu_sCO2(G_h, p_h_mean, T_wall_h, k_h, rho_h, mu_h, cp_h, Dh, self.H_su.fluid)
         
+        elif self.H.Correlation_TC == 'SPHE':            
+            alpha_h = single_phase_spiral_plate_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['H_Dh'], self.R_h[k], self.params['H_canal_t'])
+            # alpha_h = curved_rect_duct_1P_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['H_Dh'], self.params['L_hot']*self.params['n_series'], self.R_h[k])
+
         elif self.H.Correlation_TC == 'Meshram':
             Dh = np.pi*self.params['D_c']/(2+np.pi)
             alpha_c = Meshram(Dh, G_h, k_h, mu_h, Pr_h)
@@ -1248,6 +1262,10 @@ class HexMBChargeSensitive(BaseComponent):
             
             alpha_c = Liu_sCO2(G_c, p_c_mean, T_wall_c, k_c, rho_c, mu_c, cp_c, Dh, self.C_su.fluid)
         
+        elif self.C.Correlation_TC == 'SPHE':            
+            alpha_c = single_phase_spiral_plate_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, self.params['C_Dh'], self.R_c[k], self.params['C_canal_t'])
+            # alpha_c = curved_rect_duct_1P_htc(mu_c, Pr_c, mu_c_w, k_c, G_c, self.params['C_Dh'], self.params['L_cold']*self.params['n_series'], self.R_c[k])
+
         elif self.C.Correlation_TC == 'Meshram':
             Dh = np.pi*self.params['D_c']/(2+np.pi)
             alpha_c = Meshram(Dh, G_c, k_c, mu_c, Pr_c)
@@ -1325,7 +1343,10 @@ class HexMBChargeSensitive(BaseComponent):
             elif self.H.Correlation_1phase == 'Tube_And_Fins':
                 alpha_h = htc_tube_and_fins(self.H_su.fluid, self.params, p_h_mean, havg_h, self.mdot_h, self.params['Fin_type'])[0]
             alpha_h_2phase = ext_tube_film_condens(self.params['Tube_OD'], self.H_su.fluid, Th_mean, T_wall_h, V_flow)
-            
+        
+        if self.H.Correlation_2phase == "Kim_condensation":
+            alpha_h_2phase = kim_condensation(self.AS_H, self.mdot_h, p_h_mean, self.x_vec_h[k], self.params['H_Dh'])
+        
         if self.H.Correlation_2phase == 'Horizontal_Tube_Internal_Condensation':
             self.AS_H.update(CP.HmassP_INPUTS, havg_h, p_h_mean)
             mu_h = self.AS_H.viscosity()
@@ -1346,15 +1367,20 @@ class HexMBChargeSensitive(BaseComponent):
                 self.AS_H.update(CP.PT_INPUTS, p_h_mean, T_wall_h-0.1)
                 Pr_h_w = self.AS_H.Prandtl()
                 mu_h_w = self.AS_H.viscosity()      
-                
-            # alpha_h, self.Re_h[k], self.Pr_h[k]  = gnielinski_pipe_htc(mu_h, Pr_h, mu_h_w, k_h, G_h, self.params['Tube_OD'] - 2*self.params['Tube_t'], self.params['Tube_L']*self.params["Tube_pass"])
-            alpha_h_2phase = 4500 # 8000 # horizontal_tube_internal_condensation(self.H_su.fluid , G_h, p_h_mean, self.x_vec_h[k], T_wall_h, self.params['Tube_OD'] - 2*self.params['Tube_t'])
+            
+            if self.HTX_Type == "SPHE":
+                alpha_h_2phase = horizontal_tube_internal_condensation(self.H_su.fluid , G_h, p_h_mean, self.x_vec_h[k], T_wall_h, self.params['H_Dh'])
+            else:
+                alpha_h_2phase = horizontal_tube_internal_condensation(self.H_su.fluid , G_h, p_h_mean, self.x_vec_h[k], T_wall_h, self.params['Tube_OD'] - 2*self.params['Tube_t'])
+        
         if self.H.Correlation_2phase == 'shah_condensation_plate_HTC':
             alpha_h_2phase = shah_condensation_plate_HTC(self.params['H_Dh'], self.params['l_v'], self.params['w_v'], self.params['amplitude'], self.params['phi'], self.mdot_h, p_h_mean, self.params['H_n_canals'], self.AS_H)
         
         if self.H.Correlation_2phase == 'Thome_Condensation':
             if self.HTX_Type == "PCHE":
                 D_i = self.params['D_c']*(1/np.pi + 1/2)
+            elif self.HTX_Type == "SPHE":
+                D_i = self.params['H_Dh']
             else:
                 D_i = self.params['Tube_OD']-2*self.params['Tube_t']
                 
@@ -1506,6 +1532,8 @@ class HexMBChargeSensitive(BaseComponent):
                 DP_H = gnielinski_pipe_DP(mu_h_in, self.su_H.D, G_h, Dh, self.params["L_c"], type_HX= 'PCHE')  
             elif self.HTX_Type == 'Plate':
                 DP_H = gnielinski_pipe_DP(mu_h_in, self.su_H.D, G_h, self.params['H_Dh'], self.params['l'], type_HX= 'Plate')  
+            elif self.HTX_Type == 'SPHE':
+                DP_H = gnielinski_pipe_DP(mu_h_in, self.su_H.D, G_h, self.params['H_Dh'], self.params['L_hot'], type_HX= 'SPHE')
             else:
                 DP_H = gnielinski_pipe_DP(mu_h_in, self.su_H.D, G_h, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"])  
 
@@ -1571,7 +1599,10 @@ class HexMBChargeSensitive(BaseComponent):
                 
             elif self.HTX_Type == 'Plate':
                 DP_H = gnielinski_pipe_DP(mu_h_in, self.su_H.D, G_h, self.params['H_Dh'], self.params['l'], type_HX= 'Plate') 
-                
+            
+            elif self.HTX_Type == 'SPHE':
+                DP_H = gnielinski_pipe_DP(mu_h_in, self.su_H.D, G_h, self.params['H_Dh'], self.params['L_hot'], type_HX= 'SPHE') 
+            
             else:
                 DP_H = gnielinski_pipe_DP(mu_h_in, rho_h, G_h, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"])  
 
@@ -1623,11 +1654,14 @@ class HexMBChargeSensitive(BaseComponent):
             if self.HTX_Type == "PCHE":
                 Tube_L = self.params['L_c']*self.params['n_series']          
                 D_in = np.pi*self.params['D_c']/(2+np.pi)
+            elif self.HTX_Type == "SPHE":
+                Tube_L = self.params['L_hot']*self.params['n_series']
+                D_in = self.params['H_Dh']
             else: 
                 Tube_L = self.params["Tube_L"]*self.params["Tube_pass"]*self.params['n_series']        
                 D_in = self.params["Tube_OD"]-2*self.params["Tube_t"]
             
-            DP_H = Choi_DP(self.AS_H, G_c, rho_out, rho_h, p_h_mean, 0, x_in, Tube_L, D_in)
+            DP_H = Choi_DP(self.AS_H, G_c, rho_out, rho_h, p_h_mean, self.x_vec_h[k+1], x_h, Tube_L, D_in)
         
         elif self.H.Correlation_DP['2P'] == "Tube_And_Fins_DP":
             
@@ -1669,7 +1703,9 @@ class HexMBChargeSensitive(BaseComponent):
                 Dh = np.pi*self.params['D_c']/(2+np.pi)
                 DP_C = gnielinski_pipe_DP(mu_c_in, self.su_C.D, G_c, Dh, self.params["L_c"], type_HX= 'PCHE')  
             elif self.HTX_Type == 'Plate':
-                DP_C = gnielinski_pipe_DP(mu_c_in, self.su_C.D, G_c, self.params['H_Dh'], self.params['l'], type_HX= 'Plate')  
+                DP_C = gnielinski_pipe_DP(mu_c_in, self.su_C.D, G_c, self.params['C_Dh'], self.params['l'], type_HX= 'Plate')  
+            elif self.HTX_Type == 'SPHE':
+                DP_C = gnielinski_pipe_DP(mu_c_in, self.su_C.D, G_c, self.params['C_Dh'], self.params['L_cold'], type_HX= 'SPHE')
             else:
                 DP_C = gnielinski_pipe_DP(mu_c_in, self.su_C.D, G_c, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"])   
         
@@ -1744,7 +1780,10 @@ class HexMBChargeSensitive(BaseComponent):
             
             elif self.HTX_Type == 'Plate':
                 DP_C = gnielinski_pipe_DP(mu_c_in, self.su_C.D, G_c, self.params['H_Dh'], self.params['l'], type_HX= 'Plate')  
-                
+            
+            elif self.HTX_Type == 'SPHE':
+                DP_C = gnielinski_pipe_DP(mu_c_in, self.su_C.D, G_c, self.params['C_Dh'], self.params['L_cold']*self.params['n_series'], type_HX= 'SPHE')  
+            
             else:
                 DP_C = gnielinski_pipe_DP(mu_c_in, rho_c, G_c, self.params["Tube_OD"]-2*self.params["Tube_t"], self.params["Tube_L"]*self.params["Tube_pass"])  
 
@@ -1944,7 +1983,7 @@ class HexMBChargeSensitive(BaseComponent):
             self.L_contact_1 = spiral_length("sheet1", theta_0=2*np.pi)
             self.L_contact_2 = spiral_length("sheet2", theta_1 = self.params['theta_end']["sheet2"] - 2*np.pi)
             
-            self.A_h = self.A_c = (self.L_contact_1 + self.L_contact_2)*self.params['H']
+            self.A_h = self.A_c = (self.L_contact_1 + self.L_contact_2)*self.params['H']*self.params['n_series']
             
             # self.A_h = self.A_c = 2*np.min(self.params['L_cold'], self.params['L_hot'])*self.params['H']
 
@@ -2368,6 +2407,8 @@ class HexMBChargeSensitive(BaseComponent):
             self.overlap_matrix = determine_cell_overlap_STHE(self.w, self.params['Tube_pass'], self.params['Shell_Side'])
         elif self.HTX_Type == 'SPHE':
             self.overlap_matrix = determine_cell_overlap_SPHE(self)
+            self.curv_h, self.R_h = determine_cell_mean_curvature_radius_SPHE(self, channel="hot")
+            self.curv_c, self.R_c = determine_cell_mean_curvature_radius_SPHE(self, channel="cold")
         
         "2) Initialize results vectors"
                         
@@ -2387,6 +2428,7 @@ class HexMBChargeSensitive(BaseComponent):
         self.Avec_h = np.zeros(n_cells)
         self.alpha_c = np.zeros(n_cells)
         self.alpha_h = np.zeros(n_cells)
+        self.T_wall = np.zeros(n_cells)
         
         # For phases (strings), you can use object dtype arrays
         self.phases_h = np.empty(n_cells, dtype=object)
@@ -2416,7 +2458,9 @@ class HexMBChargeSensitive(BaseComponent):
             
             # Wall Temperature:
             T_wall = (Thi + Tho + Tci + Tco)/4
-
+            
+            self.T_wall[k] = T_wall
+            
             Tc_mean = 0.5*(Tci + Tco) # mean temperature over the cell
             Th_mean = 0.5*(Thi + Tho) # mean temperature over the cell
             

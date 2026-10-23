@@ -127,6 +127,100 @@ def determine_cell_overlap_SPHE(hx, flow_from="inner"):
     
     return W
 
+def determine_cell_mean_curvature_radius_SPHE(hx, channel="hot", flow_from="inner"):
+    """
+    Calcule le rayon de courbure moyen et le rapport de courbure delta (Dh / (2 * rho))
+    de chaque cellule de discrétisation pour un échangeur spiralé (SPHE).
+
+    Paramètres:
+    - hx : objet échangeur contenant .params et .w
+    - channel : 'hot' (canal chaud) ou 'cold' (canal froid)
+    - flow_from : 'inner' ou 'outer'
+
+    Retourne:
+    - rho_mean : tableau numpy des rayons de courbure moyens par cellule [m]
+    - delta_cells : tableau numpy des rapports de courbure par cellule (sans dimension)
+    """
+    if getattr(hx, 'HTX_Type', None) != 'SPHE':
+        raise ValueError(f"determine_cell_mean_curvature_radius_SPHE : HTX_Type = {getattr(hx, 'HTX_Type', None)!r}, attendu 'SPHE'.")
+
+    P = hx.params
+    H = P['H']
+    p = P['C_canal_t'] + P['H_canal_t'] + 2 * P['t']
+    a = p / (2 * np.pi)
+
+    # Fonction de position radiale au centre du canal (pos=0.5)
+    def r(element, th, pos=0.5):
+        lo, hi = P['radial_limits'][element]
+        return P['r0_in'] + a * np.asarray(th) + lo + pos * (hi - lo)
+
+    F = lambda rr: 0.5 * (rr * np.sqrt(rr**2 + a**2) + a**2 * np.arcsinh(rr / a)) / a
+
+    # --- vecteur w -------------------------------------------------------------
+    w = getattr(hx, 'w', None)
+    if w is None:
+        raise ValueError("w absent (argument ou hx.w).")
+    w = np.asarray(w, float).ravel()
+    if abs(w.sum() - 1.0) > 1e-6:
+        w = w / w.sum()
+    nc = len(w)
+
+    # --- frontières des cellules ------------------------------------------------
+    def boundaries(el, flow):
+        th_end = P['theta_end'][el]
+        s_of = lambda th: F(r(el, th)) - F(r(el, 0.0))
+        L = float(s_of(th_end))
+        frac = np.r_[0.0, np.cumsum(w)]
+        frac[-1] = 1.0
+        if flow == "outer":
+            frac = 1.0 - frac
+        s_k = frac * L
+        th = s_k / L * th_end
+        for _ in range(6):
+            th = th - (s_of(th) - s_k) / np.sqrt(r(el, th)**2 + a**2)
+        return np.clip(th, 0.0, th_end)
+
+    # Sélection du canal et récupération/calcul du diamètre hydraulique associé
+    ch = channel.lower()
+    if ch in ['hot', 'chaud']:
+        el_name = "hot"
+        tk = boundaries("hot", flow_from)
+        canal_t = P['H_canal_t']
+        # Diamètre hydraulique du canal chaud (rectangle de hauteur H et d'épaisseur canal_t)
+        Dh = P.get('H_Dh', 2 * H * canal_t / (H + canal_t))
+    elif ch in ['cold', 'froid']:
+        el_name = "cold"
+        tk = boundaries("cold", flow_from)
+        canal_t = P['C_canal_t']
+        # Diamètre hydraulique du canal froid
+        Dh = P.get('C_Dh', 2 * H * canal_t / (H + canal_t))
+    else:
+        raise ValueError("Le paramètre 'channel' doit être 'hot' ou 'cold'.")
+
+    # Rayon de courbure local de la spirale d'Archimède au centre du canal (pos=0.5)
+    def curvature_radius(th):
+        rr = r(el_name, th, pos=0.5)
+        return (rr**2 + a**2)**1.5 / (rr**2 + 2 * a**2)
+
+    # --- Calcul du rayon de courbure moyen et de delta par cellule --------------
+    rho_mean = np.zeros(nc)
+    delta_cells = np.zeros(nc)
+
+    for k in range(nc):
+        t0, t1 = tk[k], tk[k+1]
+        if abs(t1 - t0) < 1e-12:
+            rho_mean[k] = curvature_radius(0.5 * (t0 + t1))
+        else:
+            # Intégration numérique par la méthode des trapèzes sur 10 sous-points
+            theta_sub = np.linspace(t0, t1, 10)
+            rho_sub = curvature_radius(theta_sub)
+            rho_mean[k] = np.trapz(rho_sub, theta_sub) / (t1 - t0)
+
+        # Rapport de courbure local delta = Dh / (2 * rho)
+        delta_cells[k] = Dh / (2.0 * rho_mean[k])
+
+    return delta_cells, rho_mean 
+
 #%%
 
 if __name__ == "__main__":

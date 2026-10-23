@@ -63,10 +63,10 @@ HX.set_inputs(
 "Correlation Loading"
 
 # Corr_H = {"1P" : "Tube_And_Fins", "2P" : "ext_tube_film_condens"}
-Corr_H = {"1P" : "Gnielinski", "2P" : "Horizontal_Tube_Internal_Condensation"}
-Corr_C = {"1P" : "Gnielinski", "2P" : "Boiling_curve"}
+Corr_H = {"1P" : "SPHE", "2P" : "Kim_condensation"}
+Corr_C = {"1P" : "SPHE", "2P" : "Boiling_curve"}
 
-Corr_H_DP = {"1P" : "Tube_And_Fins_DP", "2P" : "Tube_And_Fins_DP"}
+Corr_H_DP = {"1P" : "Gnielinski_DP", "2P" : "Choi_DP"}
 Corr_C_DP = {"1P" : "Gnielinski_DP", "2P" : "Choi_DP"}
 
 # -------------------------------------------------------------------------------------------------------------
@@ -87,10 +87,11 @@ Corr_C_DP = {"1P" : "Gnielinski_DP", "2P" : "Choi_DP"}
 params = {
         'C_canal_t' : 0.004, # [m]
         'D_ext' : 0.22, # [m]
-        'H' : 0.20, # [m]
-        'H_canal_t' : 0.004, # [m]
-        'r0_in' : 1*1e-3, # [m]
-        't' : 0.001, # [m]
+        'H' : 0.22, # [m]
+        'H_canal_t' : 0.002, # [m]
+        'r0_in' : 2*1e-2, # [m]
+        't' : 0.0012, # [m]
+        'n_series' : 1,
         
         'inner_channel' : 'cold'
         }
@@ -98,8 +99,9 @@ params = {
 HX.set_parameters(
     C_canal_t = params['C_canal_t'], D_ext = params['D_ext'], H = params['H'], 
     H_canal_t = params['H_canal_t'], r0_in = params['r0_in'], t = params['t'],
+    n_series =  params['n_series'],
 
-    inner_channel = params['inner_channel'], Flow_Type = "CounterFlow", n_disc = 5) # 32
+    inner_channel = params['inner_channel'], Flow_Type = "CounterFlow", n_disc = 50) # 32
 
 # User defined values
 
@@ -120,17 +122,24 @@ UD_C_HTC = {'Liquid': 5000,
 # HX.set_htc(htc_type = 'User-Defined', UD_H_HTC = UD_H_HTC, UD_C_HTC = UD_C_HTC) # 'User-Defined' or 'Correlation'
 HX.set_htc(htc_type = 'Correlation_Disc', Corr_H = Corr_H, Corr_C = Corr_C) # 
 
-HX.set_DP() # equivalent to HX.set_DP(DP_type = None)
+# HX.set_DP() # equivalent to HX.set_DP(DP_type = None)
 # HX.set_DP(DP_type="User-Defined", UD_C_DP = 10000, UD_H_DP = 10000) # Fixed User-Defined values, equally distributed over discretizations
 # HX.set_DP(DP_type="Correlation_Global", Corr_C=Corr_C_DP, Corr_H=Corr_H_DP)
-# HX.set_DP(DP_type="Correlation_Disc", Corr_C=Corr_C_DP, Corr_H=Corr_H_DP)
+HX.set_DP(DP_type="Correlation_Disc", Corr_C=Corr_C_DP, Corr_H=Corr_H_DP)
 
 "Solve the component"
 HX.solve()
-# HX.plot_cells()
+HX.plot_cells()
 
 "Plot the spiral"
 
-# plot_spiral(HX)
+plot_spiral(HX)
 # W, B = plot_incidence(HX)
 # ax, W2, segs = plot_contacts(HX)
+
+# import matplotlib.pyplot as plt
+
+# plt.figure()
+# plt.plot(HX.curv_c, color = 'b')
+# plt.plot(HX.curv_h, color = 'r')
+# plt.show()
