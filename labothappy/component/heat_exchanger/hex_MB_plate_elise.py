@@ -950,6 +950,10 @@ class HexMBPlate(BaseComponent):
         self.Avec_c = self.w * C.geom['A']
         self._compute_charge()  # Computes the mass of fluid in each cell and the void fraction
 
+        # Subcooling and superheating at the outlet of each side [K]
+        self.DT_sc_h, self.DT_sh_h = self._outlet_sc_sh(H, self.hvec_h[0], self.pvec_h[0], self.Tvec_h[0])
+        self.DT_sc_c, self.DT_sh_c = self._outlet_sc_sh(C, self.hvec_c[-1], self.pvec_c[-1], self.Tvec_c[-1])
+
         self.ex_H.reset()
         self.ex_H.set_fluid(H.fluid)
         self.ex_H.set_p(self.pvec_h[0])
@@ -963,6 +967,34 @@ class HexMBPlate(BaseComponent):
         self.H_su, self.C_su, self.H_ex, self.C_ex = self.su_H, self.su_C, self.ex_H, self.ex_C
         self.solved = True
 
+    def _outlet_sc_sh(self, side, h_ex, p_ex, T_ex):
+        """Subcooling and superheating at the outlet of a side [K], as (DT_sc, DT_sh).
+        DT_sc = T_bub - T_ex if the outlet is subcooled liquid, 0 otherwise.
+        DT_sh = T_ex - T_dew if the outlet is superheated vapor, 0 otherwise.
+        Both are NaN when no saturation exists (incompressible or supercritical fluid)."""
+        if not side.two_phase_possible:
+            return np.nan, np.nan
+        p_ex = float(p_ex)
+        sat = {}
+        for AS in (side.AS_sat, side.AS_heos):   # Tabular backend first, full EOS as fallback
+            if AS is None:
+                continue
+            try:
+                for Q_flag in (0, 1):
+                    AS.update(CP.PQ_INPUTS, p_ex, Q_flag)
+                    sat[Q_flag] = (AS.hmass(), AS.T())
+                break
+            except ValueError:
+                sat = {}
+        if len(sat) < 2:
+            warnings.warn(f"Saturation state not found at the {side.label} side outlet "
+                          f"(p = {p_ex:.0f} Pa): subcooling/superheating set to NaN.", stacklevel=2)
+            return np.nan, np.nan
+        (h_bub, T_bub), (h_dew, T_dew) = sat[0], sat[1]
+        DT_sc = max(T_bub - T_ex, 0.0) if h_ex < h_bub else 0.0
+        DT_sh = max(T_ex - T_dew, 0.0) if h_ex > h_dew else 0.0
+        return float(DT_sc), float(DT_sh)
+
     def _compute_charge(self, n_gauss=8):
         """Fluid mass in every cell [kg].
 
@@ -971,23 +1003,26 @@ class HexMBPlate(BaseComponent):
         over the cell with Gauss-Legendre points, the quality varying linearly along
         the cell. The void fraction is strongly non-linear in x, so the mean of the
         two boundary densities would be far off (alpha ~ 0.5 for a full condensation cell)."""
+
         void_fraction_model = self.params.get('void_fraction_model', 'Homogeneous')
         frac = self.w / np.sum(self.w)  # Length (and volume) fraction of each cell
-        s_g, w_g = np.polynomial.legendre.leggauss(n_gauss)
+        s_g, w_g = np.polynomial.legendre.leggauss(n_gauss) # Gives the Gauss-Legendre points and weights on [-1, 1]
         s_g, w_g = 0.5 * (s_g + 1.0), 0.5 * w_g   # Gauss points and weights on [0, 1]
 
         for side in (self.H, self.C):
-            side.rhovec = np.array([self._state(side, h, p).rhomass() for h, p in zip(side.hvec, side.pvec)])  # Boundary densities
-            rho_cell = 0.5 * (side.rhovec[1:] + side.rhovec[:-1])     # Mean density of each cell [kg/m^3]
-            side.void_fraction = np.full(self.n_cells, np.nan)        # Mean void fraction of each two-phase cell [-]
+            side.rhovec = np.array([self._state(side, h, p).rhomass() for h, p in zip(side.hvec, side.pvec)])  # Densities at each boundaries
+            rho_cell = 0.5 * (side.rhovec[1:] + side.rhovec[:-1])     # Mean density of each cell [kg/m^3] = first estimate
+            side.void_fraction = np.full(self.n_cells, np.nan)        # Mean void fraction of each two-phase cell [-] (initialized to Nan)
 
-            for k in np.where(side.phases == 'two-phase')[0]:
-                x_a, x_b = np.clip(side.x[k:k + 2], 0.0, 1.0)
-                p_a, p_b = side.pvec[k:k + 2]
+            for k in np.where(side.phases == 'two-phase')[0]:  # For each cell flagged 'two-phase'
+                x_a, x_b = np.clip(side.x[k:k + 2], 0.0, 1.0)  # The boudaries qualities x_a and x_b are clipped to [0, 1] for safety
+                p_a, p_b = side.pvec[k:k + 2]    # = boundary pressures (taken)
                 alpha, rho = np.empty(n_gauss), np.empty(n_gauss)
                 for j, s in enumerate(s_g):
-                    p, x = p_a + s * (p_b - p_a), x_a + s * (x_b - x_a)
+                    p, x = p_a + s * (p_b - p_a), x_a + s * (x_b - x_a)   # At each Gauss point s, p and x are interpolated linearly between the boundaries. 
+                    # Asuumes that x varies linearly with Q
                     side.AS_sat.update(CP.PQ_INPUTS, p, x)
+                    # Compute the void-fraction of the cell:
                     try:
                         alpha[j] = compute_void_fraction(side.AS_sat, side.geom, side.m_dot,
                                                          void_fraction_model=void_fraction_model)
@@ -998,6 +1033,7 @@ class HexMBPlate(BaseComponent):
                     rho_l = side.AS_sat.rhomass()
                     side.AS_sat.update(CP.PQ_INPUTS, p, 1)
                     rho_v = side.AS_sat.rhomass()
+                    # Compute the density of the cell
                     rho[j] = compute_two_phase_density(x=x, rho_l=rho_l, rho_g=rho_v, alpha=alpha[j])
                 side.void_fraction[k] = np.dot(w_g, alpha)
                 rho_cell[k] = np.dot(w_g, rho)

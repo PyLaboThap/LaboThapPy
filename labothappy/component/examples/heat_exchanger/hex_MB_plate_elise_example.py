@@ -13,24 +13,30 @@ import numpy as np
 HX = HexMBPlate('Plate')
 
 # SWEP calibration tests 
-# 15	23	2,839	3,682	3	23,9	40	20,9	0,4551	4,176	95
+# 5	21,3	0,65	0,2546	11	22,1	39,3	10	0,2	1,077	44,31	2,61
 
 
-T_su_H=40+273.15
-P_su_H=CP.PropsSI('P', 'T', 23.9+273.15, 'Q', 1, 'R1233ZDE')
+T_su_H=39.3+273.15
+P_su_H=CP.PropsSI('P', 'T', 22.1+273.15, 'Q', 1, 'R1233ZDE')
 h_su_H = CP.PropsSI('H', 'T', T_su_H, 'P', P_su_H, 'R1233ZDE')
-m_dot_H = 0.4551
+m_dot_H = 0.2
 
-T_su_C = 15+273.15
+T_su_C = 5+273.15
 h_su_C = CP.PropsSI('H', 'T', T_su_C, 'P', 1e5, 'Water')
-print('h_su_C', h_su_C)
-m_dot_C = 2.839
+m_dot_C = 0.65
 
 HX.set_inputs(
     fluid_H='R1233ZDE', h_su_H=h_su_H, P_su_H=P_su_H, m_dot_H=m_dot_H,
     fluid_C='Water', h_su_C=h_su_C,  P_su_C=1e5, m_dot_C=m_dot_C
 )
 # 'R1233ZDE'
+
+corrugation_amplitude = 0.002
+phi = 1.26                      # Surface enlargement factor (calibration parameter)
+c = 6 * phi - 1
+X = np.sqrt(((np.sqrt(8 * c**2 - 56) - c) / 7)**2 - 1)
+corrugation_pitch = np.pi * corrugation_amplitude / X
+
 HX.set_parameters(flow_type='CounterFlow',          # Counter-flow: no LMTD correction (F = 1)
                         n_disc=3,                        # Number of regular cells (phase-change cells are added)
                         A_H=17.8, A_C=17.8,             # Heat transfer area [m^2]
@@ -42,13 +48,13 @@ HX.set_parameters(flow_type='CounterFlow',          # Counter-flow: no LMTD corr
                         W_plate = 0.1635,                # Longueur D
                         L_eff = 0.4485,                  # Longueur C
                         plate_pitch = 0.004,            
-                        corrugation_amplitude = 0.002,  
-                        corrugation_pitch = 0.00573,    # Estimation based on enlargement factor
+                        corrugation_amplitude = corrugation_amplitude,  
+                        corrugation_pitch = corrugation_pitch,    #0.00573,    # Estimation based on enlargement factor
                         chevron_angle = 60*(np.pi/180), # Estimation of the chevron angle (no ideal actually + check nomenclature! could be very different depending of the correlation)
                         k_wall = 45,                    # ???
                         R_fouling = 0.0001,
                         roughness = 0,
-                        void_fraction_model = 'Hughmark')             
+                        void_fraction_model = 'Zivi')             
 
 HX.set_htc(htc_type='correlation',
             htc_corr_h={'single-phase': 'Martin', 'two-phase': 'Longo_cond'},
@@ -73,6 +79,7 @@ print(f"Hot exhaust pressure    : {HX.ex_H.p:10.0f} Pa")
 print(f"Cold exhaust pressure   : {HX.ex_C.p:10.0f} Pa")
 print(f"Hot side charge         : {HX.charge_H * 1e3:10.2f} g")
 print(f"Cold side charge        : {HX.charge_C * 1e3:10.2f} g")
+print(f" Subcooling             : {HX.DT_sc_h}")
 dp_h = HX.su_H.p-HX.ex_H.p
 print(f"Hot pressure drop       : {dp_h:10.0f} Pa")
 dp_c = HX.su_C.p-HX.ex_C.p
