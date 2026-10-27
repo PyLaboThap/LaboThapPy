@@ -16,7 +16,7 @@ from labothappy.correlations.heat_exchanger.f_lmtd2 import f_lmtd2, F_shell_and_
 # from labothappy.correlations.pressure_drop.pressure_drop_distributor import pressure_drop
 from labothappy.correlations.pressure_drop.dp_corr_distributor import compute_dp
 from labothappy.correlations.convection.heat_transfer_distributor import compute_htc, NEEDS_Q_FLUX
-from labothappy.correlations.void_fraction.void_fraction import compute_void_fraction
+from labothappy.correlations.void_fraction.void_fraction import compute_void_fraction, VOID_FRACTION_MODELS, NEEDS_FLOW
 from labothappy.correlations.properties.two_phase import compute_two_phase_density
 
 HTC_TYPES   = ('correlation', 'user_defined')
@@ -291,13 +291,24 @@ class HexMBPlate(BaseComponent):
                     raise ValueError(f"Unknown regime(s) {sorted(unknown)} in {arg}. Allowed: {DP_REGIMES}.")
                 side.dp_corr = {regime: name for regime, name in dp_corr.items() if name is not None}  # Remove regimes given as None
 
+    def set_void_fraction(self, void_fraction_model='Homogeneous'):
+        """
+        void_fraction_model : void fraction correlation used for the two-phase charge,
+            one of VOID_FRACTION_MODELS ('Homogeneous', 'Zivi', 'Hughmark', ...).
+            Can also be given with set_parameters(void_fraction_model=...).
+        """
+        if void_fraction_model not in VOID_FRACTION_MODELS:
+            raise ValueError(f"void_fraction_model must be one of {VOID_FRACTION_MODELS}, get {void_fraction_model!r}.")
+        self.params['void_fraction_model'] = void_fraction_model
+
     def _setup_geometry(self):
         """
         Side geometry computations
         """
         p = self.params
         uses_correlations = (p.get('htc_type') == 'correlation'
-                    or p.get('dp_type') in ('correlation_global', 'correlation_disc'))
+                    or p.get('dp_type') in ('correlation_global', 'correlation_disc')
+                    or p.get('void_fraction_model') in NEEDS_FLOW)   # Void fraction models that need G and D_h
 
         
         if not uses_correlations:
@@ -784,8 +795,10 @@ class HexMBPlate(BaseComponent):
         if not self.check_calculable():
             raise ValueError("Component not calculable: check the inputs.")
 
+        self.set_void_fraction(self.params.get('void_fraction_model', 'Homogeneous'))  # Checks the name before solving
+
         # Some additional geometires need to be computed
-        self._setup_geometry() # Pour l'instant rien, à remplir
+        self._setup_geometry()
 
         self.check_parametrized()
 
@@ -885,7 +898,7 @@ class HexMBPlate(BaseComponent):
                             "check the geometry and the heat transfer coefficients.")
 
 
-    def objective_function(self, Q):
+    def objective_function(self, Q, max_iter=20):
         """Return 1 - sum(w) for the heat rate Q (w_k: area fraction of cell k)."""
         self.calculate_cell_boundaries(Q)  # Determines the different cell boundaries
         self._cell_states()               # Computes the mean properties of each cells and the LMTDs
@@ -903,7 +916,7 @@ class HexMBPlate(BaseComponent):
 
         # Iteration loop until w converges
         self.w = np.full(self.n_cells, 1.0 / self.n_cells)
-        for _ in range(20):
+        for _ in range(max_iter):
             self._compute_htc()
             self._compute_UA()                
             w_new = self.UA_req / self.UA_avail              # Ratio of the exchanger's area the cell needs
@@ -950,40 +963,55 @@ class HexMBPlate(BaseComponent):
         self.H_su, self.C_su, self.H_ex, self.C_ex = self.su_H, self.su_C, self.ex_H, self.ex_C
         self.solved = True
 
-    def _compute_charge(self):
-        """Fluid mass in every cell: cell volume times the mean of the boundary
-        densities (void-fraction model in two-phase)."""
+    def _compute_charge(self, n_gauss=8):
+        """Fluid mass in every cell [kg].
+
+        Single-phase cell: cell volume times the mean of the boundary densities.
+        Two-phase cell: the in-situ density alpha*rho_v + (1-alpha)*rho_l is averaged
+        over the cell with Gauss-Legendre points, the quality varying linearly along
+        the cell. The void fraction is strongly non-linear in x, so the mean of the
+        two boundary densities would be far off (alpha ~ 0.5 for a full condensation cell)."""
         void_fraction_model = self.params.get('void_fraction_model', 'Homogeneous')
-        frac = self.w / np.sum(self.w)  # Length fraction of each cell, used to compute the pressure drop in each cell
+        frac = self.w / np.sum(self.w)  # Length (and volume) fraction of each cell
+        s_g, w_g = np.polynomial.legendre.leggauss(n_gauss)
+        s_g, w_g = 0.5 * (s_g + 1.0), 0.5 * w_g   # Gauss points and weights on [0, 1]
+
         for side in (self.H, self.C):
-            n = len(side.hvec)
-            rho, void_fraction = np.empty(n), np.full(n, -1.0)
-            for i in range(n):
-                AS = self._state(side, side.hvec[i], side.pvec[i])
-                x = side.x[i] if side.two_phase_possible else np.nan
-                if side.two_phase_possible and 0.0 < x < 1.0:
-                    side.AS_sat.update(CP.PQ_INPUTS, side.pvec[i], 0)
+            side.rhovec = np.array([self._state(side, h, p).rhomass() for h, p in zip(side.hvec, side.pvec)])  # Boundary densities
+            rho_cell = 0.5 * (side.rhovec[1:] + side.rhovec[:-1])     # Mean density of each cell [kg/m^3]
+            side.void_fraction = np.full(self.n_cells, np.nan)        # Mean void fraction of each two-phase cell [-]
+
+            for k in np.where(side.phases == 'two-phase')[0]:
+                x_a, x_b = np.clip(side.x[k:k + 2], 0.0, 1.0)
+                p_a, p_b = side.pvec[k:k + 2]
+                alpha, rho = np.empty(n_gauss), np.empty(n_gauss)
+                for j, s in enumerate(s_g):
+                    p, x = p_a + s * (p_b - p_a), x_a + s * (x_b - x_a)
+                    side.AS_sat.update(CP.PQ_INPUTS, p, x)
+                    try:
+                        alpha[j] = compute_void_fraction(side.AS_sat, side.geom, side.m_dot,
+                                                         void_fraction_model=void_fraction_model)
+                    except Exception as e:
+                        raise RuntimeError(f"{side.label} side, cell {k}, void fraction '{void_fraction_model}' "
+                                           f"(x = {x:.3f}, p = {p:.0f} Pa): {type(e).__name__}: {e}") from e
+                    side.AS_sat.update(CP.PQ_INPUTS, p, 0)
                     rho_l = side.AS_sat.rhomass()
-                    side.AS_sat.update(CP.PQ_INPUTS, side.pvec[i], 1)
+                    side.AS_sat.update(CP.PQ_INPUTS, p, 1)
                     rho_v = side.AS_sat.rhomass()
-                    D = side.geom.get('D')
-                    A_cross = np.pi * D**2 / 4.0 if D is not None else 0.0
-                    G = getattr(side, 'G', None)
-                    m_dot = G * A_cross if G is not None else 0.0
-                    void_fraction[i] = compute_void_fraction(AS, side.geom, m_dot, void_fraction_model=void_fraction_model) # /!\ Change from m_dot to G !!!
-                    rho[i] = compute_two_phase_density(x=x, rho_l=rho_l, rho_g=rho_v, alpha=void_fraction[i])
-                else:
-                    rho[i] = AS.rhomass()
-                    
-            side.rhovec, side.void_fraction = rho, void_fraction
+                    rho[j] = compute_two_phase_density(x=x, rho_l=rho_l, rho_g=rho_v, alpha=alpha[j])
+                side.void_fraction[k] = np.dot(w_g, alpha)
+                rho_cell[k] = np.dot(w_g, rho)
+
             side.Vvec = side.geom['V'] * frac
-            side.charge_vec = side.Vvec * 0.5 * (rho[1:] + rho[:-1])  # Mass of fluid in each cell [kg]
+            side.charge_vec = side.Vvec * rho_cell  # Mass of fluid in each cell [kg]
 
         H, C = self.H, self.C
         self.charge_H = float(np.sum(H.charge_vec))
         self.charge_C = float(np.sum(C.charge_vec))
-        self.void_fraction_H = float(np.mean(H.void_fraction[1:]))
-        self.void_fraction_C = float(np.mean(C.void_fraction[1:]))
+        # Volume-weighted mean void fraction of the two-phase zone (nan if there is none)
+        for side, name in ((H, 'void_fraction_H'), (C, 'void_fraction_C')):
+            tp = ~np.isnan(side.void_fraction)
+            setattr(self, name, float(np.average(side.void_fraction[tp], weights=side.Vvec[tp])) if tp.any() else np.nan)
 
     def plot_Ts_pair(self):
         with warnings.catch_warnings():

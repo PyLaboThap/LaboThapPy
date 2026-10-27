@@ -19,6 +19,7 @@ import CoolProp.CoolProp as CP
 
 from labothappy.correlations.convection.plate_htc import htc_martin_plate_1phase, htc_cooper_pool_boiling, htc_longo_condensation
 from correlations.properties.thermal_conductivity import conducticity_R1233zd
+
 # Correlations whose htc depends on the heat flux
 NEEDS_Q_FLUX = {'Cooper'}
 

@@ -79,8 +79,9 @@ def compute_two_phase_density(x, rho_l, rho_g, alpha=None):
     """
     Compute two-phase density.
     
-    If alpha is provided: ρ_mix = 1 / (α/ρ_g + (1-α)/ρ_l)
-    Otherwise: use homogeneous model
+    In-situ (void-fraction weighted) density: ρ_mix = α·ρ_g + (1-α)·ρ_l
+    If alpha is not provided, the homogeneous void fraction is used, which
+    gives ρ_mix = 1 / (x/ρ_g + (1-x)/ρ_l).
     
     Parameters
     ----------
@@ -106,5 +107,5 @@ def compute_two_phase_density(x, rho_l, rho_g, alpha=None):
         from labothappy.correlations.void_fraction.void_fraction import void_fraction_homogeneous
         alpha = void_fraction_homogeneous(rho_l, rho_g, x)
     
-    # ρ_mix = 1 / (α/ρ_g + (1-α)/ρ_l)
-    return 1.0 / (alpha / rho_g + (1.0 - alpha) / rho_l)
+    # ρ_mix = α·ρ_g + (1-α)·ρ_l  (volume fractions weight the densities)
+    return alpha * rho_g + (1.0 - alpha) * rho_l

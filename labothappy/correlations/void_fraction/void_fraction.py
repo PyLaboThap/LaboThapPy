@@ -815,28 +815,60 @@ def void_fraction_cioncolini_thome(rho_l, rho_v, x):
 # VOID FRACTION COMPUTATION
 #=======================================================================
 
-def compute_void_fraction(AS, params, m_dot = None, void_fraction_model='Homogeneous'):
+VOID_FRACTION_MODELS = (
+    'Homogeneous', 'Zivi', 'Fauske', 'Premoli', 'Lockhart-Martinelli', 'Hughmark',
+    'Graham', 'Armand-Treschev', 'Bankoff', 'Rouhani-Axelsson', 'DIX',
+    'Woldesemayat-Ghajar', 'Cioncolini-Thome',
+)
+
+# Models that need the mass flux G (and the hydraulic diameter): the geometry must be known
+NEEDS_FLOW = ('Premoli', 'Hughmark', 'Graham', 'Rouhani-Axelsson', 'DIX', 'Woldesemayat-Ghajar')
+
+
+def _hydraulic_diameter_and_mass_flux(params, m_dot, G):
+    """
+    Hydraulic diameter and mass flux from the geometry dict.
+
+    d_hyd : 'd_hyd', 'D_h' (heat exchangers) or 'D' (pipes)
+    G     : given G, else m_dot over the flow section. The flow section is
+            n_channels * A_cs_channel when given (plate heat exchangers),
+            otherwise a circular section of diameter d_hyd (pipes).
+    """
+    d_hyd = next((params[k] for k in ('d_hyd', 'D_h', 'D') if params.get(k) is not None), None)
+    if G is None and m_dot is not None:
+        if params.get('A_cs_channel') is not None and params.get('n_channels') is not None:
+            G = m_dot / (params['A_cs_channel'] * params['n_channels'])
+        elif d_hyd is not None:
+            G = m_dot / (PI * d_hyd ** 2 / 4.0)
+    return d_hyd, G
+
+
+def compute_void_fraction(AS, params, m_dot=None, void_fraction_model='Homogeneous', G=None):
     """
     Compute void fraction for two-phase flow using the chosen correlation.
 
     Parameters
     ----------
-    AS : object
-        Fluid state with attributes Q (quality), rhol, rhog, mu_l, mu_g, P
-        (only the ones needed by the chosen model are accessed).
+    AS : CoolProp.AbstractState
+        Two-phase fluid state (pressure and quality already set).
     params : dict
-        May contain 'sigma', 'd_hyd', 'D', 'G', 'theta' depending on model.
+        Geometry. Depending on the model: hydraulic diameter ('d_hyd', 'D_h' or 'D'),
+        flow section ('A_cs_channel' and 'n_channels', else circular), 'theta'.
+    m_dot : float, optional
+        Total mass flow rate [kg/s], used to compute G when G is not given.
     void_fraction_model : str
-        One of: 'Homogeneous', 'Zivi', 'Fauske', 'Premoli',
-        'Lockhart-Martinelli', 'Hughmark',
-        'Graham', 'Armand-Treschev', 'Bankoff', 'Rouhani-Axelsson',
-        'DIX', 'Woldesemayat-Ghajar', 'Cioncolini-Thome'.
+        One of VOID_FRACTION_MODELS.
+    G : float, optional
+        Mass flux [kg/(m^2.s)]. Overrides the value computed from m_dot.
 
     Returns
     -------
     float
         Void fraction [-]
     """
+    if void_fraction_model not in VOID_FRACTION_MODELS:
+        raise ValueError(f"Unknown void fraction model: {void_fraction_model!r}. "
+                         f"Available: {VOID_FRACTION_MODELS}.")
 
     P = AS.p()
 
@@ -850,6 +882,12 @@ def compute_void_fraction(AS, params, m_dot = None, void_fraction_model='Homogen
 
     x = max(EPS, min(1.0 - EPS, x))
 
+    if void_fraction_model in NEEDS_FLOW:
+        d_hyd, G = _hydraulic_diameter_and_mass_flux(params, m_dot, G)
+        if d_hyd is None or G is None:
+            raise ValueError(f"The '{void_fraction_model}' void fraction model needs a hydraulic diameter "
+                             f"('d_hyd', 'D_h' or 'D') and a mass flux (G, or m_dot with the flow section).")
+
     if void_fraction_model == 'Homogeneous':
         alpha = void_fraction_homogeneous(rho_l, rho_v, x)
 
@@ -860,30 +898,15 @@ def compute_void_fraction(AS, params, m_dot = None, void_fraction_model='Homogen
         alpha = void_fraction_fauske(rho_l, rho_v, x)
 
     elif void_fraction_model == 'Premoli':
-        # mu_l = AS_l.viscosity()
-        sigma = AS.surface_tension()
-        d_hyd = params.get('d_hyd', params.get('D'))
-        A_cross = PI * d_hyd ** 2 / 4.0
-        G = m_dot / A_cross  # kg/(m²·s)
         alpha = void_fraction_premoli(rho_l, rho_v, x, mu_l, sigma, d_hyd, G)
 
     elif void_fraction_model == 'Lockhart-Martinelli':
-        # mu_l = AS_l.viscosity()
-        # mu_v = AS_v.viscosity()
         alpha = void_fraction_lockhart_martinelli(rho_l, rho_v, x, mu_l, mu_v)
 
     elif void_fraction_model == 'Hughmark':
-        # mu_l = AS_l.viscosity()
-        # mu_v = AS_v.viscosity()
-        d_hyd = params.get('d_hyd', params.get('D'))
-        A_cross = PI * d_hyd ** 2 / 4.0
-        G = m_dot / A_cross  # kg/(m²·s)
         alpha = void_fraction_hughmark(rho_l, rho_v, x, mu_l, mu_v, d_hyd, G)
 
     elif void_fraction_model == 'Graham':
-        d_hyd = params.get('d_hyd', params.get('D'))
-        A_cross = PI * d_hyd ** 2 / 4.0
-        G = m_dot / A_cross  # kg/(m²·s)
         alpha = void_fraction_graham(rho_v, x, d_hyd, G)
 
     elif void_fraction_model == 'Armand-Treschev':
@@ -893,32 +916,17 @@ def compute_void_fraction(AS, params, m_dot = None, void_fraction_model='Homogen
         alpha = void_fraction_bankoff(rho_l, rho_v, x, P)
 
     elif void_fraction_model == 'Rouhani-Axelsson':
-        d_hyd = params.get('d_hyd', params.get('D'))
-        A_cross = PI * d_hyd ** 2 / 4.0
-        G = m_dot / A_cross  # kg/(m²·s)
-        sigma = AS.surface_tension()
         alpha = void_fraction_rouhani_axelsson(rho_l, rho_v, x, G, sigma)
 
     elif void_fraction_model == 'DIX':
-        d_hyd = params.get('d_hyd', params.get('D'))
-        A_cross = PI * d_hyd ** 2 / 4.0
-        G = m_dot / A_cross  # kg/(m²·s)
-        sigma = AS.surface_tension()
         alpha = void_fraction_dix(rho_l, rho_v, x, G, sigma)
 
     elif void_fraction_model == 'Woldesemayat-Ghajar':
-        d_hyd = params.get('d_hyd', params.get('D'))
-        A_cross = PI * d_hyd ** 2 / 4.0
-        G = m_dot / A_cross  # kg/(m²·s)
-        sigma = AS.surface_tension()
         theta = params.get('theta', 90.0)
         alpha = void_fraction_woldesemayat_ghajar(rho_l, rho_v, x, G, sigma, d_hyd, P, theta)
 
     elif void_fraction_model == 'Cioncolini-Thome':
         alpha = void_fraction_cioncolini_thome(rho_l, rho_v, x)
-
-    else:
-        raise ValueError(f"Unknown void fraction model: {void_fraction_model}")
 
     # Safeguard output
     alpha = max(EPS, min(1.0 - EPS, alpha))
