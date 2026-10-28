@@ -12,8 +12,6 @@ from labothappy.connector.mass_connector import MassConnector
 from labothappy.connector.heat_connector import HeatConnector
 
 from labothappy.correlations.heat_exchanger.f_lmtd2 import f_lmtd2, F_shell_and_tube
-# from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.hex_MB_correlations import check_correlation_name
-# from labothappy.correlations.pressure_drop.pressure_drop_distributor import pressure_drop
 from labothappy.correlations.pressure_drop.dp_corr_distributor import compute_dp
 from labothappy.correlations.convection.heat_transfer_distributor import compute_htc, NEEDS_Q_FLUX
 from labothappy.correlations.void_fraction.void_fraction import compute_void_fraction, VOID_FRACTION_MODELS, NEEDS_FLOW
@@ -173,10 +171,6 @@ class HexMBPlate(BaseComponent):
         self.H = _Side('H')
         self.C = _Side('C')
 
-    # def get_required_inputs(self):
-    #     #List of required inputs
-    #     return['P_su_H', 'T_su_H', 'm_dot_H', 'fluid_H', 'P_su_C', 'T_su_C', 'm_dot_C', 'fluid_C']
-
     def get_required_inputs(self):
             #List of required inputs
             return['P_su_H', 'h_su_H', 'm_dot_H', 'fluid_H', 'P_su_C', 'h_su_C', 'm_dot_C', 'fluid_C']
@@ -205,7 +199,6 @@ class HexMBPlate(BaseComponent):
 
                 # No meaningful default: None means "not given"
                 'k_wall': None,                 # Wall thermal conductivity [W/m/K]
-                # 't_plate': None,                # Plate thickness [m]    -> COMPUTED!!
                 'n_plates': None,            # Number of plates [-]
                 'n_channels_H': None,        # Number of channels on the hot side [-]
                 'n_channels_C': None,        # Number of channels on the cold side [-]
@@ -353,7 +346,7 @@ class HexMBPlate(BaseComponent):
                 backend = "INCOMP"
             else:
                 backend = "HEOS" if self.params.get('AS_Type') == 'HEOS' else "BICUBIC&HEOS"
-            if side._AS_key != (backend, side.fluid): # Checks TO BE VERIFIED THESE LINES!!!
+            if side._AS_key != (backend, side.fluid): # Checks 
                 side.AS = CP.AbstractState(backend, side.fluid)
                 side.AS_sat = CP.AbstractState(backend, side.fluid)
                 side.AS_heos = None if side.incomp else CP.AbstractState("HEOS", side.fluid)
