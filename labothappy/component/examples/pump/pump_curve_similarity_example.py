@@ -2,7 +2,7 @@ from labothappy.component.pump.pump_curve_similarity import PumpCurveSimilarity
 import CoolProp.CoolProp as CP
 import numpy as np
 
-fluid = "CO2"
+fluid = "R1233zd(E)"
 
 if fluid == "R1233zd(E)":
 

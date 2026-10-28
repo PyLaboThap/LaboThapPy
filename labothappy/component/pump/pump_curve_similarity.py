@@ -316,7 +316,7 @@ class PumpCurveSimilarity(BaseComponent):
 
     def solve_MN(self):
         self.AS = CP.AbstractState("HEOS", self.su.fluid)
-        g = 9.81 # Gravity [m/s²]
+        g = 9.81  # Gravity [m/s²]
         self.V_dot_flag = 0  # Flag if flow is outside curve range
 
         # Known inputs
@@ -324,61 +324,55 @@ class PumpCurveSimilarity(BaseComponent):
         rho = self.su.D
         N = self.W.N_rot
         N_rated = self.params["N_rot_rated"]
+        s = N / N_rated  # Speed ratio [-]
 
-        # Convert mass flow to volumetric flow (m³/h)
-        V_dot = self.m_dot / rho * 3600
-        self.V_dot = V_dot
+        # Volumetric flow at actual conditions [m³/h]
+        self.V_dot = self.m_dot / rho * 3600
 
-        # Rated curves
+        # Rated curves (reference speed, reference fluid)
         V_dot_rated = self.params["V_dot_curve"]
         H_rated = self.params["Delta_H_curve"]
         eta_rated = self.params["eta_is_curve"]
         NPSH_r_rated = self.params["NPSH_r_curve"]
 
-        # Interpolators for rated curves
+        # Interpolators on the rated curves
         H_interp = interp1d(V_dot_rated, H_rated, kind="linear", fill_value="extrapolate")
         eta_interp = interp1d(V_dot_rated, eta_rated, kind="linear", fill_value="extrapolate")
         NPSH_r_interp = interp1d(V_dot_rated, NPSH_r_rated, kind="linear", fill_value="extrapolate")
 
-        # 1. Map actual Q to equivalent Q at rated speed
-        V_dot_eq = V_dot * (N_rated / N)
+        # 1. Map actual flow to the equivalent flow at rated speed (Q ~ N)
+        V_dot_eq = self.V_dot / s
 
-        # 2. Rated head at Q_eq
-        H_at_rated = H_interp(V_dot_eq)
+        # Flag if the equivalent point lies outside the manufacturer curves
+        if V_dot_eq < V_dot_rated[0] or V_dot_eq > V_dot_rated[-1]:
+            self.V_dot_flag = 1
+            print("Warning: equivalent flow outside curve range, results are extrapolated.")
 
-        # 3. Head at actual speed
-        H = H_at_rated * (N / N_rated)**2
-        self.Delta_H = H
+        # 2. Head: rated head at V_dot_eq, scaled to actual speed (H ~ N²)
+        self.Delta_H = float(H_interp(V_dot_eq)) * s**2
 
-        # 4. Compute exhaust pressure
-        P_ex = self.su.p + rho * g * H
+        # 3. Efficiency: unchanged along similar points (eta(Q_eq) at rated speed)
+        self.eta_is = float(eta_interp(V_dot_eq))
+        if self.eta_is <= 0:
+            raise ValueError(f"Non-physical efficiency ({self.eta_is:.3f}) at V_dot_eq = {V_dot_eq:.3f} m³/h")
+
+        # 4. NPSH required, scaled to actual speed (NPSH ~ N²)
+        self.NPSH_r = float(NPSH_r_interp(V_dot_eq)) * s**2
+
+        # 5. Exhaust pressure
+        P_ex = self.su.p + rho * g * self.Delta_H
         self.ex.set_p(P_ex)
 
-        # Flag out-of-range flows
-        if V_dot < V_dot_rated[0] or V_dot > V_dot_rated[-1]:
-            self.V_dot_flag = 1
-
-        # Efficiency at this speed (same scaling method)
-        eta = eta_interp(V_dot)
-        self.eta_is = eta
-
-        # NPSH required
-        self.NPSH_r = NPSH_r_interp(V_dot)
-
-        # 5. Thermodynamic outlet enthalpy
-        # Compute isentropic enthalpy
-        self.AS.update(CP.PSmass_INPUTS, self.ex.p, self.su.s)
+        # 6. Outlet enthalpy
+        self.AS.update(CP.PSmass_INPUTS, P_ex, self.su.s)
         h_ex_s = self.AS.hmass()
-        
-        # Actual enthalpy rise
-        h_ex = self.su.h + (h_ex_s - self.su.h)/eta
+        h_ex = self.su.h + (h_ex_s - self.su.h) / self.eta_is
         self.ex.set_h(h_ex)
-        self.ex.set_m_dot(self.su.m_dot)
+        self.ex.set_m_dot(self.m_dot)
 
-        # 6. Power
-        self.W_dot_hyd = g * H * self.m_dot  # Ideal hydraulic power [W]
-
-        self.W_dot_shaft = self.m_dot * (h_ex - self.su.h)
+        # 7. Power
+        self.W_dot_hyd = g * self.Delta_H * self.m_dot          # Ideal hydraulic power [W]
+        self.W_dot_shaft = self.m_dot * (h_ex - self.su.h)      # Shaft power [W]
         self.W.set_W_dot(self.W_dot_shaft)
 
     def print_results(self):
