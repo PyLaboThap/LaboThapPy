@@ -100,7 +100,7 @@ class Pipe(BaseComponent):
         for i, comp in enumerate(self.components):
             seg_type = "Straight" if isinstance(comp, StraightPipe) else "Curved Elbow"
             dp = comp.dP
-            charge = comp.m_charge
+            charge = comp.charge
             
             print(f"{i+1:<10} {seg_type:<12} {dp:<15.2f} {charge:<15.6f}")
         
