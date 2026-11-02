@@ -110,8 +110,8 @@ def _adapter_martin(AS, m_dot, geom, q_flux, T_wall):
             except:
                 raise RuntimeError(f"Problem computing wall viscosity at P={p}, T_wall={T_wall}")
 
-    # Mass flux through ONE channel
-    G_ch = m_dot / (geom['A_cs_channel'] * geom['n_channels'])
+    # Mass flux (= through one channel for a plate side, through the tube for a pipe)
+    G_ch = m_dot / geom['A_flow']
 
     return htc_martin_plate_1phase(
         G_ch=G_ch, mu=mu, cp=cp, k=k,
@@ -167,8 +167,8 @@ def _adapter_longo_cond(AS, m_dot, geom, q_flux, T_wall):
     # Saturated vapour (dew point for a mixture)
     AS.update(CP.PQ_INPUTS, p, 1.0)
     rho_V = AS.rhomass()
-    # Mass flux through ONE channel
-    G_ch = m_dot / (geom['A_cs_channel'] * geom['n_channels'])
+    # Mass flux (= through one channel for a plate side, through the tube for a pipe)
+    G_ch = m_dot / geom['A_flow']
     htc = htc_longo_condensation(x=x, G=G_ch, D_h=geom['D_h'], rho_L=rho_L, rho_V=rho_V, mu_L=mu_L, cp_L=cp_L, k_L=k_L)
 
     return htc

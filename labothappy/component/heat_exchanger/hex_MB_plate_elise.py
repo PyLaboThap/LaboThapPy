@@ -332,6 +332,7 @@ class HexMBPlate(BaseComponent):
                             'corrugation_pitch': p['corrugation_pitch'],    # Corrugation pitch [m]
                             'chevron_angle': p['chevron_angle'],    # Chevron angle [rad]
                             'A_cs_channel': A_cs_channel,    # Cross-flow section of one channel [m^2]
+                            'A_flow': A_cs_channel * p[f'n_channels_{s}'],    # Total cross-flow section of the side [m^2]
                             'D_h': D_h     # Hydraulic diameter of one channel [m]
                             }
         else:

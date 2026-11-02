@@ -84,8 +84,8 @@ def _adapter_churchill(AS, m_dot, geom, L, void_fraction_model):
             raise RuntimeError(f"Problem computing viscosity at P={p}, h={h}")
     rho = AS.rhomass()
 
-    # Mass flux through ONE channel
-    G = m_dot / (geom['A_cs_channel'] * geom['n_channels'])
+    # Mass flux (= through one channel for a plate side, through the tube for a pipe)
+    G = m_dot / geom['A_flow']
     v = G / rho # Mean velocity [m/s]
 
     Re = compute_reynolds(geom['D_h'], mu, rho, v)
@@ -121,8 +121,8 @@ def _adapter_martin(AS, m_dot, geom, L, void_fraction_model):
             raise RuntimeError(f"Problem computing viscosity at P={p}, h={h}")
     rho = AS.rhomass()
 
-    # Mass flux through ONE channel
-    G_ch = m_dot / (geom['A_cs_channel'] * geom['n_channels'])
+    # Mass flux (= through one channel for a plate side, through the tube for a pipe)
+    G_ch = m_dot / geom['A_flow']
 
     dp = dp_martin_plate(G_ch, rho, mu, geom['D_h'], geom['chevron_angle'], L)
 
@@ -143,8 +143,8 @@ def _adapter_msh(AS, m_dot, geom, L, void_fraction_model):
     mu_l = props["mu_l"]
     mu_v = props["mu_v"]
     sigma = props["sigma"]
-    # Mass flux through ONE channel
-    G = m_dot / (geom['A_cs_channel'] * geom['n_channels'])
+    # Mass flux (= through one channel for a plate side, through the tube for a pipe)
+    G = m_dot / geom['A_flow']
 
     dp = pressure_drop_muller_steinhagen_heck(G, x, rho_l, rho_v, mu_l, mu_v, geom['D_h'], L, geom['roughness'])
     
@@ -163,8 +163,8 @@ def _adapter_lockhart_martinelli(AS, m_dot, geom, L, void_fraction_model):
     mu_l = props["mu_l"]
     mu_v = props["mu_v"]
     sigma = props["sigma"]
-    # Mass flux through ONE channel
-    G = m_dot / (geom['A_cs_channel'] * geom['n_channels'])
+    # Mass flux (= through one channel for a plate side, through the tube for a pipe)
+    G = m_dot / geom['A_flow']
 
     dp = dp_lockhart_martinelli(G, x, rho_l, rho_v, mu_l, mu_v, geom['D_h'], L,
                                    C=4.67, chevron_angle=geom['chevron_angle'])
@@ -179,57 +179,3 @@ DP_CORRELATIONS = {
     'MSH':           _adapter_msh,
     'Lockhart-Martinelli': _adapter_lockhart_martinelli,
 }
-
-
-# dp_lockhart_martinelli_2phase(G, x, rho_l, rho_v, mu_l, mu_v, D_h, L,
-#                                   C=None, chevron_angle=None):
-# # ---------------- Condensation ----------------
-
-# def _adapter_longo_cond(AS, m_dot, geom, q_flux, T_wall):
-#     """Longo: condensation in brazed plates. Uses D_h = 2b, without Phi."""
-#     if geom['corrugation_amplitude'] is None:
-#       raise ValueError("Longo condensation needs corrugation_amplitude.")
-
-#     x = AS.Q()                                   # read BEFORE _sat_props updates AS = x_avg over the cell
-#     p = AS.p()                                   # read before updating AS
-
-#     # Saturated liquid (bubble point for a mixture)
-#     AS.update(CP.PQ_INPUTS, p, 0.0)
-#     fluid = AS.fluid_names()[0]
-#     rho_L = AS.rhomass()
-#     try:
-#         mu_L = AS.viscosity()
-#     except:
-#         try:
-#             mu_L = CP.PropsSI('viscosity', 'P', p, 'Q', 0, fluid)
-#         except:
-#             raise RuntimeError(f"Problem computing viscosity at P={p}, Q=0")
-#     cp_L = AS.cpmass()
-
-#     if fluid == 'R1233ZDE' or fluid == 'R1233zd(E)':
-#         T = AS.T()
-#         k_L = conducticity_R1233zd(T, p)
-#     else:
-#         try:
-#             k_L = AS.conductivity()
-#         except:
-#             try:
-#                 k_L = CP.PropsSI('L', 'P', p, 'Q', 0, fluid)
-#             except:
-#                 raise RuntimeError(f"Problem computing conductivity at P={p}, Q=0")
-
-#     # Saturated vapour (dew point for a mixture)
-#     AS.update(CP.PQ_INPUTS, p, 1.0)
-#     rho_V = AS.rhomass()
-#     # Mass flux through ONE channel
-#     G_ch = m_dot / (geom['A_cs_channel'] * geom['n_channels'])
-#     htc = htc_longo_condensation(x=x, G=G_ch, D_h=geom['D_h'], rho_L=rho_L, rho_V=rho_V, mu_L=mu_L, cp_L=cp_L, k_L=k_L)
-
-#     return htc
-
-
-# HTC_CORRELATIONS = {
-#     'Martin':     _adapter_martin,
-#     'Cooper':     _adapter_cooper,
-#     'Longo_cond': _adapter_longo_cond,
-# }
