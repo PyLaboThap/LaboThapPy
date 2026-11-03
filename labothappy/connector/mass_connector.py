@@ -101,6 +101,9 @@ class MassConnector:
         set_SH(self, value):
             Sets the superheating and updates the list of known variables.
 
+        is_two_phase(self):
+            Returns True if the current state is inside the two-phase dome, otherwise False.
+
         print_resume(self, unit_T='K', unit_p='Pa'):
             Prints a summary of the current properties in specified units.
 
@@ -643,7 +646,32 @@ class MassConnector:
             self.fluid = None
             self.AS = None
 
-            
+    def is_two_phase(self):
+        """
+        Return True if the current state lies strictly inside the two-phase dome
+        (h_sat_liq < h < h_sat_vap at the current pressure), False otherwise.
+
+        Returns False if the state is not known, if the fluid is incompressible,
+        or if the pressure is at or above the critical pressure.
+        Saturated liquid (x=0) and saturated vapour (x=1) are considered single-phase.
+        """
+        if not self.state_known or not hasattr(self, "AS_sat"):
+            return False
+
+        try:
+            if self.p >= self.AS.p_critical():
+                return False
+
+            self.AS_sat.update(CP.PQ_INPUTS, self.p, 0)
+            h_sat_liq = self.AS_sat.hmass()
+            self.AS_sat.update(CP.PQ_INPUTS, self.p, 1)
+            h_sat_vap = self.AS_sat.hmass()
+        except Exception as e:
+            warnings.warn(f"is_two_phase: could not compute saturation properties: {e}")
+            return False
+
+        return h_sat_liq < self.h < h_sat_vap
+
     def print_resume(self, unit_T='K', unit_p='Pa'):
         """
         Parameters
