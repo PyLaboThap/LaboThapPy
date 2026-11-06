@@ -9,7 +9,7 @@ Differences with hex_MB_charge_sensitive.py (same public interface):
 
 * All heat transfer and pressure drop correlations are called through one
   uniform interface, the same as the pipe correlations:
-      heat_transfer_coefficient(AS, geom, G, correlation=..., cond=...)
+      heat_transfer_coefficient(AS, geom, cond, correlation)   (cond: a dictionary)
       pressure_drop(AS, geom, G, correlation=..., cond=...)
   (see toolbox/heat_exchangers/hex_MB_charge_sensitive/hex_MB_correlations.py)
 * Hot and cold streams share the same code through a small `_Side` object.
@@ -23,6 +23,7 @@ Differences with hex_MB_charge_sensitive.py (same public interface):
 """
 
 import warnings
+from dataclasses import asdict
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -43,7 +44,9 @@ from labothappy.correlations.void_fraction.void_fraction import (
 from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.cell_overlap_MBHX import determine_cell_overlap
 from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.compute_LMTD_multipass import determine_LMTD_multipass
 from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.hex_MB_correlations import (
-    CellConditions, heat_transfer_coefficient, pressure_drop, check_correlation_name)
+    CellConditions, pressure_drop, check_correlation_name, bulk_properties, wall_viscosity)
+
+from labothappy.correlations.convection.heat_transfer_coefficient_dispatch import heat_transfer_coefficient
 
 # Bounds used by the external pinch analysis (kept from the original model)
 T_HOT_OUT_MIN = 218.0         # [K]
@@ -58,6 +61,15 @@ DENSITY_ONLY_VOID_FRACTION = {    # void-fraction models needing only (rho_l, rh
     'Cioncolini-Thome': void_fraction_cioncolini_thome}
 PHASE_TO_UD = {'liquid': 'Liquid', 'vapor': 'Vapor', 'two-phase': 'Two-Phase',
                'vapor-wet': 'Vapor-wet', 'transcritical': 'Transcritical'}
+
+
+def flow_state_from_phase(phase, side_name):
+    """Phase of a cell + side ('H'/'C') -> 'SP', 'EVAP' or 'COND'."""
+    if phase in ('two-phase', 'vapor-wet'):
+        return 'COND' if side_name == 'H' else 'EVAP'   # the hot side gives heat, the cold side receives it
+    if phase in ('liquid', 'vapor', 'transcritical'):
+        return 'SP'
+    raise ValueError(f"Unknown cell phase {phase!r}.")
 
 
 class _Side:
@@ -97,9 +109,9 @@ class _Side:
         if kind == 'dp' and phase == 'vapor-wet':
             key = '1P'
         name = table.get(key) or (table.get('1P') if key == 'SC' else None)
-        if name is None:
-            raise ValueError(f"No '{key}' {'heat transfer' if kind == 'htc' else 'pressure drop'} "
-                             f"correlation given for the {self.label} side (cell phase: {phase}).")
+        # if name is None:
+        #     raise ValueError(f"No '{key}' {'heat transfer' if kind == 'htc' else 'pressure drop'} "
+        #                      f"correlation given for the {self.label} side (cell phase: {phase}).")
         return name
 
 
@@ -115,7 +127,7 @@ class HexMBChargeSensitive(BaseComponent):
     fluid charge (with a void-fraction model in two-phase cells) follow from
     the converged cells.
 
-    **Geometries**: 'Plate', 'Shell&Tube', 'Tube&Fins', 'PCHE'.
+    **Geometries**: 'BPHE', 'Shell&Tube', 'Tube&Fins', 'PCHE'.
 
     **Assumptions**:
         - Steady state, no heat loss to the ambient.
@@ -140,7 +152,7 @@ class HexMBChargeSensitive(BaseComponent):
         Mvec_h / Mvec_c (charge per cell) [kg], M_h / M_c (total charge) [kg].
     """
 
-    HTX_TYPES = ('Plate', 'Shell&Tube', 'Tube&Fins', 'PCHE')
+    HTX_TYPES = ('BPHE', 'Shell&Tube', 'Tube&Fins', 'PCHE')
 
     def __init__(self, HTX_Type):
         super().__init__()
@@ -170,7 +182,7 @@ class HexMBChargeSensitive(BaseComponent):
         general = ['Flow_Type', 'htc_type', 'n_disc']
         corr_1p = {self.H.htc_corr.get('1P'), self.C.htc_corr.get('1P')}
 
-        if self.HTX_Type == 'Plate':
+        if self.HTX_Type == 'BPHE':
             geometry = ['A_c', 'A_h', 'h', 'l', 'l_v',
                         'C_CS', 'C_Dh', 'C_V_tot', 'C_canal_t', 'C_n_canals',
                         'H_CS', 'H_Dh', 'H_V_tot', 'H_canal_t', 'H_n_canals',
@@ -199,6 +211,11 @@ class HexMBChargeSensitive(BaseComponent):
                    UD_C_HTC with keys 'Liquid', 'Vapor', 'Two-Phase', 'Vapor-wet',
                    'Transcritical') or anything else = correlations, given in
                    Corr_H / Corr_C with keys '1P', '2P' and optionally 'SC'.
+
+        BPHE : '1P' is the single-phase correlation and '2P' the condensation
+                   (hot side) or evaporation (cold side) correlation; each value is
+                   the name of a correlation or 'auto'. These names are validated by
+                   BPHE_HTC at the first evaluation.
         """
         self.params['htc_type'] = htc_type
         self.Corr_H, self.Corr_C = Corr_H, Corr_C
@@ -211,8 +228,9 @@ class HexMBChargeSensitive(BaseComponent):
             else:
                 side.htc_type = "Correlation"
                 side.htc_corr = {k: v for k, v in dict(corr).items() if v is not None}
-                for name in side.htc_corr.values():
-                    check_correlation_name(name, "htc")
+                if self.HTX_Type != 'BPHE':
+                    for name in side.htc_corr.values():
+                        check_correlation_name(name, "htc")
 
     def set_DP(self, DP_type=None, Corr_H=None, Corr_C=None, UD_H_DP=None, UD_C_DP=None):
         """
@@ -249,10 +267,13 @@ class HexMBChargeSensitive(BaseComponent):
 
         self._UA_fh, self._UA_fc, self._R_extra = 1.0, 1.0, 0.0  # UA = 1/(fh/(ah Ah) + fc/(ac Ac) + R)
 
-        if self.HTX_Type == 'Plate':
+        if self.HTX_Type == 'BPHE':
             for side, pre, m, A in ((H, 'H', m_h, p['A_h']), (C, 'C', m_c, p['A_c'])):
                 side.geom = {**p, 'D': p[pre + '_Dh'], 'L': p['l'], 'K': K, 'theta': 0.0, 'A': A,
-                             'n_canals': p[pre + '_n_canals'], 'canal_t': p[pre + '_canal_t']}
+                             'n_canals': p[pre + '_n_canals'], 'canal_t': p[pre + '_canal_t'],
+                             'Dh': p[pre + '_Dh'],
+                             'beta': p['chevron_angle'],        # from the main flow direction (rad or deg)
+                             'p_co': p['plate_pitch_co']}
                 side.G = (m / p[pre + '_n_canals']) / p[pre + '_CS']
                 side.V = p[pre + '_V_tot']
             self._UA_fh = 1.0 + p['fooling']
@@ -304,6 +325,8 @@ class HexMBChargeSensitive(BaseComponent):
                 side.G = m / (A_channel * N * frac[pre]) / n_p
                 side.V = p[pre + '_V_tot']
 
+        for side in (H, C):
+            side.geom['HTX_Type'] = self.HTX_Type
         self.A_h, self.A_c = H.geom['A'], C.geom['A']
         self.G_h, self.G_c = H.G, C.G
 
@@ -541,6 +564,8 @@ class HexMBChargeSensitive(BaseComponent):
     # =========================================================================
 
     def objective_function(self, Q):
+        # print(Q)
+        
         """Return 1 - sum(w) for the heat rate Q (w_k: area fraction of cell k)."""
         self.calculate_cell_boundaries(Q)
         self._cell_states()
@@ -551,12 +576,16 @@ class HexMBChargeSensitive(BaseComponent):
         if self._multipass:
             self.w = self._w_geom_for_grid()      # cell positions used by the multi-pass routine
             self.LMTD_matrix, self.LMTD = determine_LMTD_multipass(self)
+            
         self.UA_req = self.Qvec_h / (self.F * self.LMTD)
         self.w = self.UA_req / self.UA_avail
         self.w_sum = float(np.sum(self.w))
         self.w_cumsum = np.cumsum(self.w)
         self.eval += 1
         self._last_Q = Q
+
+        # print(f"END {1.0 - self.w_sum}")
+
         return 1.0 - self.w_sum
 
     def _cell_states(self):
@@ -652,6 +681,27 @@ class HexMBChargeSensitive(BaseComponent):
             Q=self.Qvec_h[k], q=self.Qvec_h[k] * n / side.geom['A'],
             DT_lm=self.F[k] * self.LMTD[k], alpha_other=alpha_other)
 
+    def _cond_dict(self, side, k, AS, cond):
+        """Translate the CellConditions of cell k of a side into a dictionary.
+        AS must be set at the cell mean state (h, p).
+
+        Always : every field of CellConditions by name (fluid, m_dot, p, h, T, T_wall,
+                 x, T_sat, h_in, h_out, p_su, q, Q, DT_lm, alpha_other), plus
+                 G (mass flux in ONE channel), phase and flow_state ('SP', 'EVAP', 'COND').
+        BPHE, single phase : mu, k, Pr, cp, D (density), and mu_w (wall viscosity)
+                 except for gases, for which no viscosity correction is wanted."""
+        phase = side.phases[k]
+        d = asdict(cond)
+        d['G'] = side.G
+        d['phase'] = phase
+        d['flow_state'] = flow_state_from_phase(phase, side.name)
+        if self.HTX_Type == 'BPHE' and d['flow_state'] == 'SP':
+            b = bulk_properties(AS, cond)                          # needs AS at (h, p)
+            d.update(mu=b['mu'], k=b['k'], Pr=b['Pr'], cp=b['cp'], D=b['rho'])
+            if phase != 'vapor':                                   # liquid or transcritical
+                d['mu_w'] = wall_viscosity(AS, cond, b['mu'])      # moves AS: keep it last
+        return d
+
     def _compute_htc(self):
         """Heat transfer coefficient of every cell, hot side first (the cold
         side may need the hot-side value, e.g. Han boiling correlation)."""
@@ -666,12 +716,14 @@ class HexMBChargeSensitive(BaseComponent):
                 other = self.H.alpha[k] if side is self.C else np.nan
                 cond = self._cell_conditions(side, k, alpha_other=other)
                 AS = self._state(side, cond.h, cond.p)
-                try:
-                    side.alpha[k] = heat_transfer_coefficient(
-                        AS, side.geom, side.G, side.correlation(phase, 'htc'), cond)
-                except Exception as e:
-                    raise RuntimeError(f"{side.label} side, cell {k} ({phase}, T={cond.T:.2f} K, "
-                                       f"p={cond.p:.0f} Pa): {type(e).__name__}: {e}") from e
+                # try:
+                cond_d = self._cond_dict(side, k, AS, cond)
+                side.alpha[k] = heat_transfer_coefficient(
+                    AS, side.geom, cond_d, side.correlation(phase, 'htc'))
+                # except Exception as e:
+                #     raise RuntimeError(f"{side.label} side, cell {k} ({phase}, T={cond.T:.2f} K, "
+                #                        f"p={cond.p:.0f} Pa): {type(e).__name__}: {e}") from e
+                    
         self.alpha_h, self.alpha_c = self.H.alpha, self.C.alpha
 
     def _compute_UA(self):
@@ -837,7 +889,7 @@ class HexMBChargeSensitive(BaseComponent):
             return self._f_cache[Q]
         self._f = f
         Q_hi = Qmax * (1.0 - 1e-5)
-
+        
         # Warm start: narrow bracket around the previous solution
         if Q_guess is not None and Q_guess < Q_hi:
             a, b = 0.98 * Q_guess, min(1.02 * Q_guess, Q_hi)
@@ -852,6 +904,7 @@ class HexMBChargeSensitive(BaseComponent):
             if self._last_Q != Q_hi:
                 self.objective_function(Q_hi)
             return Q_hi
+
         self.pinched = False
         for frac in (1e-2, 1e-4, 1e-6):
             Q_lo = frac * Qmax

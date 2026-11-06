@@ -64,11 +64,11 @@ from labothappy.correlations.convection.pipe_htc import (
     gnielinski_pipe_htc, boiling_curve, horizontal_flow_boiling,
     flow_boiling_gungor_winterton, Liu_sCO2, Cheng_sCO2, thome_condensation,
     choi_boiling, Meshram)
-from labothappy.correlations.convection.plate_htc import (
-    water_plate_HTC, martin_BPHEX_HTC, muley_manglik_BPHEX_HTC,
-    han_boiling_BPHEX_HTC, han_cond_BPHEX_HTC, thonon_plate_HTC,
-    kumar_plate_HTC, martin_holger_plate_HTC, amalfi_plate_HTC,
-    shah_condensation_plate_HTC)
+# from labothappy.correlations.convection.plate_htc_old import (
+#     water_plate_HTC, martin_BPHEX_HTC, muley_manglik_BPHEX_HTC,
+#     han_boiling_BPHEX_HTC, han_cond_BPHEX_HTC, thonon_plate_HTC,
+#     kumar_plate_HTC, martin_holger_plate_HTC, amalfi_plate_HTC,
+#     shah_condensation_plate_HTC)
 from labothappy.correlations.convection.shell_and_tube_htc import (
     shell_bell_delaware_htc, shell_htc_kern)
 from labothappy.correlations.convection.tube_bank_htc import ext_tube_film_condens
@@ -300,11 +300,9 @@ def _htc_gnielinski_liquid(AS, geom, G, cond):
     s = saturated_properties(AS, cond)
     return gnielinski_pipe_htc(s["mu_l"], s["Pr_l"], s["mu_l"], s["k_l"], G, geom['D'], geom['L'])[0]
 
-
 def _htc_amalfi_plate(AS, geom, G, cond):
     return amalfi_plate_HTC(geom['D'], geom['l'], geom['w'], geom['amplitude'], geom['chevron_angle'],
                             geom['n_canals'], geom['A'], cond.m_dot, cond.p, AS)
-
 
 def _htc_shah_condensation_plate(AS, geom, G, cond):
     return shah_condensation_plate_HTC(geom['D'], geom['l_v'], geom['w_v'], geom['amplitude'],

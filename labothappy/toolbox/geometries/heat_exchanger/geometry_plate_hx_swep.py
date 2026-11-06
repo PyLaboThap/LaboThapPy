@@ -42,15 +42,15 @@ class PlateGeomSWEP(object):
         if name == "B35TM0x10/1P":
             
             # Heat transfer area  
-            self.A_h = 0.752 # m^2
-            self.A_c = 0.752 # m^2
+            self.A_h = 0.752/2 # m^2
+            self.A_c = 0.752/2 # m^2
             
             # HTX dimensions
             self.l = 0.393 # [m] : length
             self.w = 0.243 # [m] : width
             self.h = 0.0446 # [m] : height
             self.l_v = 0.324 # [m] : length between ports
-            self.casing_t = 0.05 # [m] : casing thickness # !!! arbitrary
+            self.casing_t = 0.00 # [m] : casing thickness # !!! arbitrary
             
             # Number and thickness of plates
             self.n_plates = 10
@@ -65,7 +65,7 @@ class PlateGeomSWEP(object):
             
             # Plate values 
             self.plate_cond = 45 # [W/(m*K)] : plate conduction
-            self.plate_pitch_co = 0.05 # 0.00745870973 # corrugated pitch # !!! arbitrary
+            self.plate_pitch_co = 0.005 # 0.00745870973 # corrugated pitch # !!! arbitrary
             self.chevron_angle = 20*np.pi/180 # !!! arbitrary
         
             # Total volume of each part
@@ -96,22 +96,22 @@ class PlateGeomSWEP(object):
             self.h = 0.041 # [m] : height
             self.l_v = 0.2682 # [m] : length between ports
             # self.w_v = 0.094 # [m] : width between ports
-            self.casing_t = 0.005 # [m] : casing thickness # !!! arbitrary
+            self.casing_t = 0 # [m] : casing thickness # !!! arbitrary
             
             # Number and thickness of plates
             self.n_plates = 24
-            self.t_plates = 0.0009 # [m] # !!! arbitrary
+            self.t_plates = 0.0005 # [m] # !!! arbitrary
             
             # Fooling factor
             self.fooling = 0.705/100
         
             # Number of canals
-            self.C_n_canals = 12
-            self.H_n_canals = 11
+            self.C_n_canals = 12 # 12
+            self.H_n_canals = 11 # 11
             
             # Plate values 
             self.plate_cond = 45 # [W/(m*K)] : plate conduction
-            self.plate_pitch_co = 0.005 # 0.00745870973 # corrugated pitch # !!! arbitrary
+            self.plate_pitch_co = 0.007 # 0.00745870973 # corrugated pitch # !!! arbitrary
             self.chevron_angle = 20*np.pi/180 # !!! arbitrary
         
             # Total volume of each part
@@ -143,7 +143,7 @@ class PlateGeomSWEP(object):
             self.h = 0.3426 # [m] : height F??
             self.l_v = 0.450 # [m] : length between ports H??
             self.w_v = 0.171 # [m] : width between ports H??
-            self.casing_t = 0.001 # [m] : casing thickness # !!! arbitrary
+            self.casing_t = 0 # [m] : casing thickness # !!! arbitrary
             
             # Number and thickness of plates
             self.n_plates = 140 # OK
@@ -308,7 +308,7 @@ class PlateGeomSWEP(object):
             # ORC mode:
             # self.casing_t = 0.001 # [m] : casing thickness # !!! arbitrary
             # HP mode:
-            self.casing_t = 0.0005 # [m] : casing thickness # !!! arbitrary
+            self.casing_t = 0 # [m] : casing thickness # !!! arbitrary
 
             # Number and thickness of plates
             self.n_plates = 140 # OK
