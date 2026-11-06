@@ -54,20 +54,8 @@ def han_BPHEX_DP(mu, G, Dh, beta, pitch_co, rho_v, rho_l, L_v, N_cp, m_dot, D_p)
     
     # Two phase related pressure drop
     DP_tp = f*(L_v*N_cp/Dh)*G**2*rho
-    
-    # Port pressure drop
-    G_p = 4*(m_dot/(np.pi*D_p**2))
 
-    DP_port = 1.4*G_p**2/(2*rho)
-
-    # Static head loss
-    DP_stat = -rho*g*L_v # negative because downward flow <-> Condenser
-
-    # The acceleration pressure drop for condensation is expressed as : ??? 
-    
-    DP_tot = DP_tp + DP_port + DP_stat
-    
-    return DP_tot
+    return DP_tp
 
 def _fanning_tube(Re):
     """

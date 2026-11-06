@@ -225,15 +225,8 @@ def BPHX_martin_SP_HTC(AS, geom, cond):
     beta = chevron_deg(geom['beta'])
     alpha = np.radians(beta)
 
-    # print(f"fluid : {AS.fluid_names()[0]}")
-    # print(f"G : {G}")
-    # print(f"mu : {mu}")
-    # print(f"Pr : {Pr}")
-    # print(f"k : {k}")
-
     Re = G * Dh / mu
     
-    print(Re)
     if not 200 <= Re <= 10000 or not 0 <= beta <= 80:
         warnings.warn("Martin HTC: outside the range of the data (200 <= Re <= 10000, "
                       "0-80 deg): extrapolated.")

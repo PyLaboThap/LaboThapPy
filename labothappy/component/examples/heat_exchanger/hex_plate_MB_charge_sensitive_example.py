@@ -14,6 +14,8 @@ Modification w/r to previous version:
 # # from __future__ import division, print_function
 # import __init__
 
+import numpy as np
+
 from labothappy.toolbox.geometries.heat_exchanger.geometry_plate_hx_swep import PlateGeomSWEP
 from labothappy.component.heat_exchanger.hex_MB_charge_sensitive_bis import HexMBChargeSensitive
 
@@ -28,7 +30,7 @@ from labothappy.component.heat_exchanger.hex_MB_charge_sensitive_bis import HexM
 
 HX = HexMBChargeSensitive('BPHE')
 
-case_study = "C5_DSH"
+case_study = "C5_EVAP"
 
 # BPHE correlation names (Corr_H / Corr_C): '1P' = single phase, '2P' = condensation on the
 # hot side and evaporation on the cold side; None or 'auto' = automatic selection.
@@ -60,15 +62,24 @@ if case_study == "C5_COND":
     HX_geom.set_parameters("B20Hx24/1P") 
     
     Corr_H = {"1P" : "Martin", "2P" : "Han"}
-    Corr_C = {"1P" : "Martin", "2P" : "Longo"}
+    Corr_C = {"1P" : "Martin", "2P" : "Longo"} 
     
     HX.set_parameters(
-        A_c = HX_geom.A_c, A_h = HX_geom.A_h, h = HX_geom.h, l = HX_geom.l, l_v = HX_geom.l_v, # 5
-        C_CS = HX_geom.C_CS, C_Dh = HX_geom.C_Dh, C_V_tot = HX_geom.C_V_tot, C_canal_t = HX_geom.C_canal_t, C_n_canals = HX_geom.C_n_canals, # 10
-        H_CS = HX_geom.H_CS, H_Dh = HX_geom.H_Dh, H_V_tot = HX_geom.H_V_tot, H_canal_t = HX_geom.H_canal_t, H_n_canals = HX_geom.H_n_canals, # 15
-        casing_t = HX_geom.casing_t, chevron_angle = HX_geom.chevron_angle, fooling = HX_geom.fooling, # 18
-        n_plates = HX_geom.n_plates, plate_cond = HX_geom.plate_cond, plate_pitch_co = HX_geom.plate_pitch_co, t_plates = HX_geom.t_plates, w = HX_geom.w, # 23
-        phi = 1, # surface enlargement factor
+        A_c = 0.616, 
+        A_h = 0.616, 
+        h = 0.041, 
+        l = 0.324, 
+        l_v = 0.2682, 
+        
+        n_channel_c = 12, 
+        n_channel_h = 11, 
+        
+        t_plates = 0.0005, # !!! arbitrary
+        beta = 10*np.pi/180, # !!! arbitrary, 
+        fooling = 0.705/100, 
+        n_plates = 24, 
+        plate_cond = 45, 
+        w = 0.094, 
         
         Flow_Type = 'CounterFlow', n_disc = 50)
 
@@ -100,16 +111,25 @@ if case_study == "C5_EVAP":
     Corr_C = {"1P" : "auto", "2P" : "Cooper"}
 
     HX.set_parameters(
-        A_c = HX_geom.A_c, A_h = HX_geom.A_h, h = HX_geom.h, l = HX_geom.l, l_v = HX_geom.l_v, # 5
-        C_CS = HX_geom.C_CS, C_Dh = HX_geom.C_Dh, C_V_tot = HX_geom.C_V_tot, C_canal_t = HX_geom.C_canal_t, C_n_canals = HX_geom.C_n_canals, # 10
-        H_CS = HX_geom.H_CS, H_Dh = HX_geom.H_Dh, H_V_tot = HX_geom.H_V_tot, H_canal_t = HX_geom.H_canal_t, H_n_canals = HX_geom.H_n_canals, # 15
-        casing_t = HX_geom.casing_t, chevron_angle = HX_geom.chevron_angle, fooling = HX_geom.fooling, # 18
-        n_plates = HX_geom.n_plates, plate_cond = HX_geom.plate_cond, plate_pitch_co = HX_geom.plate_pitch_co, t_plates = HX_geom.t_plates, w = HX_geom.w, # 23
-        phi = 1.17, # surface enlargement factor
+        A_c = 0.616, 
+        A_h = 0.616, 
+        h = 0.041, 
+        l = 0.324, 
+        l_v = 0.2682, 
         
-        Flow_Type = 'CounterFlow', n_disc = 5)
+        n_channel_c = 12, 
+        n_channel_h = 11, 
+        
+        t_plates = 0.0005, # !!! arbitrary
+        beta = 30*np.pi/180, # !!! arbitrary, 
+        fooling = 0.705/100, 
+        n_plates = 24, 
+        plate_cond = 45, 
+        w = 0.094, 
+        
+        Flow_Type = 'CounterFlow', n_disc = 50)
 
-    HX.set_DP(DP_type="User-Defined", UD_H_DP = 20*1e3, UD_C_DP = 50*1e3)
+    HX.set_DP(DP_type="User-Defined", UD_H_DP = 6*1e3, UD_C_DP = 11*1e3)
 
 if case_study == "C5_DSH":
     # ---------------------------------------------------------------------------------------------------------
@@ -136,12 +156,21 @@ if case_study == "C5_DSH":
     Corr_C = {"1P" : "Martin", "2P" : "Cooper"}
     
     HX.set_parameters(
-        A_c = HX_geom.A_c, A_h = HX_geom.A_h, h = HX_geom.h, l = HX_geom.l, l_v = HX_geom.l_v, # 5
-        C_CS = HX_geom.C_CS, C_Dh = HX_geom.C_Dh, C_V_tot = HX_geom.C_V_tot, C_canal_t = HX_geom.C_canal_t, C_n_canals = HX_geom.C_n_canals, # 10
-        H_CS = HX_geom.H_CS, H_Dh = HX_geom.H_Dh, H_V_tot = HX_geom.H_V_tot, H_canal_t = HX_geom.H_canal_t, H_n_canals = HX_geom.H_n_canals, # 15
-        casing_t = HX_geom.casing_t, chevron_angle = HX_geom.chevron_angle, fooling = HX_geom.fooling, # 18
-        n_plates = HX_geom.n_plates, plate_cond = HX_geom.plate_cond, plate_pitch_co = HX_geom.plate_pitch_co, t_plates = HX_geom.t_plates, w = HX_geom.w, # 23
-        phi = 1, # surface enlargement factor
+        A_c = 0.752, 
+        A_h = 0.752, 
+        h = 0.0446, 
+        l = 0.393, 
+        l_v = 0.324, # 5
+        
+        n_channel_c = 5, 
+        n_channel_h = 4, 
+        
+        t_plates = 0.0005, # !!! arbitrary
+        beta = 10*np.pi/180, # !!! arbitrary, 
+        fooling = 98.51/100, 
+        n_plates = 10, 
+        plate_cond = 45, 
+        w = 0.243, # 23
         
         Flow_Type = 'CounterFlow', n_disc = 50)
 
@@ -164,16 +193,7 @@ if case_study == "R1233zd(E)_COND":
         P_su_C = 2*1e5, # Pa
         m_dot_C = 2.6, # kg/s  # Make sure to include fluid information
     )
-    
-    {'Hsu_fluid': 'R1233zd(E)',
-      'Csu_T': 288.15,
-      'Csu_p': 200000.0,
-      'Csu_fluid': 'Water',
-      'Csu_m_dot': 2.6,
-      'Hsu_T': 334.3838266524477,
-      'Hsu_p': 200000.0,
-      'Hsu_m_dot': 0.41973076344816307}
-    
+
     "Geometry Loading"
     HX_geom = PlateGeomSWEP()
     HX_geom.set_parameters("P200THx140/1P_Condenser")
@@ -184,13 +204,23 @@ if case_study == "R1233zd(E)_COND":
     "Parameters Setting"
 
     HX.set_parameters(
-        # Set the geometry of the condenser
-        A_c=HX_geom.A_c, A_h=HX_geom.A_h, h=HX_geom.h, l=HX_geom.l, l_v=HX_geom.l_v, w_v=HX_geom.w_v,
-        C_CS=HX_geom.C_CS, C_Dh=HX_geom.C_Dh, C_V_tot=HX_geom.C_V_tot, C_canal_t=HX_geom.C_canal_t, C_n_canals=HX_geom.C_n_canals,
-        H_CS=HX_geom.H_CS, H_Dh=HX_geom.H_Dh, H_V_tot=HX_geom.H_V_tot, H_canal_t=HX_geom.H_canal_t, H_n_canals=HX_geom.H_n_canals,
-        casing_t=HX_geom.casing_t, chevron_angle=HX_geom.chevron_angle, fooling=HX_geom.fooling,
-        n_plates=HX_geom.n_plates, plate_cond=HX_geom.plate_cond, plate_pitch_co=HX_geom.plate_pitch_co, t_plates=HX_geom.t_plates, w=HX_geom.w,
-        amplitude=HX_geom.amplitude, phi=HX_geom.phi, Flow_Type='CounterFlow', n_disc=5)
+        A_c = 17.8, 
+        A_h = 17.8, 
+        h = 0.346, 
+        l = 0.525, 
+        l_v = 0.450, # 5
+        
+        n_channel_c = 70, 
+        n_channel_h = 69, 
+        
+        t_plates = 0.0005, # !!! arbitrary
+        beta = 30*np.pi/180, # !!! arbitrary, 
+        fooling = 0.258/100, 
+        n_plates = 140, 
+        plate_cond = 45, 
+        w = 0.243, # 23
+        
+        Flow_Type = 'CounterFlow', n_disc = 50)
 
     HX.set_DP(DP_type="User-Defined", UD_H_DP = 20*1e3, UD_C_DP = 50*1e3)
 

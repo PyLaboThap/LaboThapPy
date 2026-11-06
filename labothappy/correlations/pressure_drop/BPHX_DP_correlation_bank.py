@@ -220,7 +220,7 @@ def martin_plate_DP(AS, geom, cond):
    
     n_passes = geom.get('n_passes', 1)
     D_port = geom.get('D_port', 0)
-    Dh = geom['Dh']
+    Dh = geom['Dh']*geom['phi']
     L = (geom['L']-2*D_port)*n_passes
     
     beta = np.radians(chevron_deg(geom['beta']))

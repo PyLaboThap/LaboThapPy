@@ -183,11 +183,9 @@ class HexMBChargeSensitive(BaseComponent):
         corr_1p = {self.H.htc_corr.get('1P'), self.C.htc_corr.get('1P')}
 
         if self.HTX_Type == 'BPHE':
-            geometry = ['A_c', 'A_h', 'h', 'l', 'l_v',
-                        'C_CS', 'C_Dh', 'C_V_tot', 'C_canal_t', 'C_n_canals',
-                        'H_CS', 'H_Dh', 'H_V_tot', 'H_canal_t', 'H_n_canals',
-                        'casing_t', 'chevron_angle', 'fooling',
-                        'n_plates', 'plate_cond', 'plate_pitch_co', 't_plates', 'w']
+            geometry = ['A_c', 'A_h', 'h', 'l', 'l_v', 'w',
+                        'n_plates', 't_plates', 'n_channel_c', 'n_channel_h',
+                        'beta', 'fooling']
         elif self.HTX_Type == 'Shell&Tube':
             geometry = ['Baffle_cut', 'Shell_ID', 'Tube_L', 'Tube_OD', 'Tube_pass', 'Tube_t',
                         'central_spacing', 'foul_s', 'foul_t', 'n_series', 'n_parallel', 'n_tubes',
@@ -257,6 +255,18 @@ class HexMBChargeSensitive(BaseComponent):
     def _setup_geometry(self):
         """Side geometry dictionaries, mass fluxes, areas, volumes and the
         constant terms of the overall conductance UA."""
+
+        def _wavelength_from_phi(phi, a):
+            """Corrugation wavelength Lambda [m] of a sinusoidal profile of amplitude a [m] whose area
+            enlargement factor is phi (Martin: X = 2 pi a / Lambda,
+            phi = 1/6 (1 + sqrt(1 + X^2) + 4 sqrt(1 + X^2/2)))."""
+            if not 1.0 < phi < 30.0:
+                raise ValueError(f"Enlargement factor phi = {phi:.4g} outside ]1, 30[: check the heat transfer "
+                                 "area, the number of plates and the projected plate dimensions.")
+            f = lambda X: (1 + np.sqrt(1 + X**2) + 4*np.sqrt(1 + X**2 / 2)) / 6 - phi
+            X = brentq(f, 1e-9, 50.0)
+            return 2*np.pi*a / X
+                
         p = self.params
         p.setdefault('n_series', 1)
         p.setdefault('n_parallel', 1)
@@ -268,14 +278,41 @@ class HexMBChargeSensitive(BaseComponent):
         self._UA_fh, self._UA_fc, self._R_extra = 1.0, 1.0, 0.0  # UA = 1/(fh/(ah Ah) + fc/(ac Ac) + R)
 
         if self.HTX_Type == 'BPHE':
+                
+            p['n_channels'] = p['n_channel_h'] + p['n_channel_c']
+            
+            # Channel gap and corrugation amplitude
+            p['b'] = (p['h'] - p['n_plates'] * p['t_plates']) / p['n_channels'] # channel gap
+            p['a'] = p['b']/2 # corrugation amplitude
+            p['amplitude'] = p['a']
+            
+            # Enlargement factor and corrugation pitch, computed from the heat transfer area
+            n_active = p['n_plates'] - 2 # plates exchanging heat (the two end plates do not)
+            A_projected = n_active * p['l_v'] * p['w'] # TODO: projected area as defined by the manufacturer
+            p['phi'] = p['A_h'] / A_projected # enlargement factor
+            p['Lambda'] = _wavelength_from_phi(p['phi'], p['a']) # corrugated pitch (sinusoidal profile)
+            p['X'] = 2*np.pi*p['a']/p['Lambda'] # dimensionless corrugation parameter
+            
+            # Dh : hydraulic diameter
+            p['C_Dh'] = 2*p['b']
+            p['H_Dh'] = 2*p['b']
+            
+            # Canal Surface
+            p['C_A_flow'] = p['b']*p['w']*p['n_channel_c']
+            p['H_A_flow'] = p['b']*p['w']*p['n_channel_h']
+            
+            p['C_V_tot'] = p['C_A_flow']*p['l']      # channel volume (l_v would exclude the port zones)
+            p['H_V_tot'] = p['H_A_flow']*p['l']
+            
             for side, pre, m, A in ((H, 'H', m_h, p['A_h']), (C, 'C', m_c, p['A_c'])):
                 side.geom = {**p, 'D': p[pre + '_Dh'], 'L': p['l'], 'K': K, 'theta': 0.0, 'A': A,
-                             'n_canals': p[pre + '_n_canals'], 'canal_t': p[pre + '_canal_t'],
+                             'n_canals': p['n_channel_' + pre.lower()], 'canal_t': p['b'],
                              'Dh': p[pre + '_Dh'],
-                             'beta': p['chevron_angle'],        # from the main flow direction (rad or deg)
-                             'p_co': p['plate_pitch_co']}
-                side.G = (m / p[pre + '_n_canals']) / p[pre + '_CS']
+                             'beta': p['beta'],         # from the main flow direction (rad or deg)
+                             'p_co': p['Lambda']}           # corrugation pitch, computed from the area
+                side.G = m / p[pre + '_A_flow']             # mass flux in ONE channel = (m / n_channels) / (b w)
                 side.V = p[pre + '_V_tot']
+                
             self._UA_fh = 1.0 + p['fooling']
 
         elif self.HTX_Type in ('Shell&Tube', 'Tube&Fins'):
