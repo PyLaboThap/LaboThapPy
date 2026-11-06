@@ -611,7 +611,7 @@ if __name__ == "__main__":
         T_h_ex_vec   = []
         Q_dot_waste  = []
         
-        n_MW = 1*1e-3
+        n_MW = 0.8*1e-3
         W_dot_test = n_MW*1e6  # 1 MW target
     
         Optimizer = CO2RC_eff_optimizer('CO2')
@@ -632,7 +632,7 @@ if __name__ == "__main__":
                 PP_gh   = 3,
                 PP_rec  = 0,
                 PP_cd   = 3,
-                SC_cd   = 5,
+                SC_cd   = 0.1,
     
                 DP_h_gh  = 0,
                 DP_c_gh  = 50e3,
@@ -643,14 +643,14 @@ if __name__ == "__main__":
     
                 P_high_min       = 80e5,
                 P_high_max       = 130e5,
-                m_dot_min        = 10*n_MW,
-                m_dot_max        = 200*n_MW,
+                m_dot_min        = 50*n_MW,
+                m_dot_max        = 150*n_MW,
                 m_dot_HS_fact_min = 1,
-                m_dot_HS_fact_max = 10,
+                m_dot_HS_fact_max = 8,
                 m_dot_CS_fact_min = 1,
-                m_dot_CS_fact_max = 20,
+                m_dot_CS_fact_max = 15,
                 spliter_frac_min = 0.5,
-                spliter_frac_max = 1
+                spliter_frac_max = 0.9
             )
             
             # Optimizer.set_parameters(
