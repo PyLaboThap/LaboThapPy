@@ -31,7 +31,7 @@ from labothappy.component.heat_exchanger.hex_MB_charge_sensitive_bis import HexM
 
 HX = HexMBChargeSensitive('BPHE')
 
-case_study = "C5_COND"
+case_study = "Condenser_R1233ZDE"
 
 # "Setting inputs"
 if case_study == "C5_COND":
@@ -267,7 +267,7 @@ elif case_study == 'Condenser_R1233ZDE':
         A_c = 17.8, 
         A_h = 17.8, 
         h = 0.346, 
-        l = 0.45, 
+        l = 0.525, 
         l_v = 0.450, # 5
         
         n_channels_C = 70, 
@@ -374,17 +374,17 @@ HX.set_void_fraction('Zivi')
 "Solve the component"
 HX.solve()
 
-# print(f"Heat transfer rate      : {HX.Q_dot:10.1f} W")
-# print(f"Hot exhaust temperature : {HX.ex_H.T - 273.15:10.2f} °C")
-# print(f"Cold exhaust temperature: {HX.ex_C.T - 273.15:10.2f} °C")
-# print(f"Hot exhaust pressure    : {HX.ex_H.p:10.0f} Pa")
-# print(f"Cold exhaust pressure   : {HX.ex_C.p:10.0f} Pa")
-# print(f"Hot side charge         : {HX.M_H * 1e3:10.2f} g")
-# print(f"Cold side charge        : {HX.M_C * 1e3:10.2f} g")
-# print(f" Subcooling             : {HX.ex_H.SC}")
-# dp_h = HX.su_H.p-HX.ex_H.p
-# print(f"Hot pressure drop       : {dp_h:10.0f} Pa")
-# dp_c = HX.su_C.p-HX.ex_C.p
-# print(f"Cold pressure drop      : {dp_c:10.0f} Pa")
+print(f"Heat transfer rate      : {HX.Q_dot:10.1f} W")
+print(f"Hot exhaust temperature : {HX.ex_H.T - 273.15:10.2f} °C")
+print(f"Cold exhaust temperature: {HX.ex_C.T - 273.15:10.2f} °C")
+print(f"Hot exhaust pressure    : {HX.ex_H.p:10.0f} Pa")
+print(f"Cold exhaust pressure   : {HX.ex_C.p:10.0f} Pa")
+print(f"Hot side charge         : {HX.M_H * 1e3:10.2f} g")
+print(f"Cold side charge        : {HX.M_C * 1e3:10.2f} g")
+print(f" Subcooling             : {HX.ex_H.SC}")
+dp_h = HX.su_H.p-HX.ex_H.p
+print(f"Hot pressure drop       : {dp_h:10.0f} Pa")
+dp_c = HX.su_C.p-HX.ex_C.p
+print(f"Cold pressure drop      : {dp_c:10.0f} Pa")
 
-# HX.plot_cells()
+HX.plot_cells()

@@ -32,7 +32,6 @@ def _get_viscosity(AS, P, x):
     except ValueError:
         return np.nan   # not available in CoolProp for this fluid
 
-
 def get_saturated_phase_properties(AS):
     """
     Extract saturated liquid/vapor properties and quality from a two-phase

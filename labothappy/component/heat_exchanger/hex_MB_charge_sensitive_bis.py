@@ -423,19 +423,44 @@ class HexMBChargeSensitive(BaseComponent):
             p['C_A_flow'] = p['b']*p['w']*p['n_channels_C']
             p['H_A_flow'] = p['b']*p['w']*p['n_channels_H']
             
-            p['C_V_tot'] = p['C_A_flow']*p['l']      # channel volume (l_v would exclude the port zones)
-            p['H_V_tot'] = p['H_A_flow']*p['l']
+            # Port diameter: given, or a rough guess from the port-centre distance (volume only)
+            D_port = p.get('D_port',0)
+            if D_port == 0 and p['l'] > p['l_v']:            
+                D_port = 0.7 * (p['l'] - p['l_v'])          # port centre at (l - l_v)/2 from the plate edge
+                if p.get('l_h'):
+                    D_port = min(D_port, 0.7 * (p['w'] - p['l_h']))
+                warnings.warn(f"D_port not given: estimated at {D_port*1e3:.0f} mm from l and l_v "
+                              "(used for the port volume only).", stacklevel=2)
             
+            
+            A_port = np.pi * D_port**2 / 4 if D_port else 0.0
+            
+            self.params['D_port'] = D_port
+            
+            # Internal volume of each side [m^3]
+            #   channels : n_ch * b * (plate area - 4 port holes)   (mean gap between nested corrugated plates = b)
+            #   ports    : inlet + outlet manifolds through the whole plate pack (height h) + optional connections
+            #   V_H / V_C (manufacturer data) override the estimate when given
+            A_plate = p['l_v'] * p['w']
+            # A_port = np.pi * p['D_port']**2 / 4 if p.get('D_port') else 0.0
+            for pre in ('H', 'C'):
+                if p.get('V_' + pre) is not None:
+                    p[pre + '_V_ch'], p[pre + '_V_port'] = p['V_' + pre], 0.0
+                else:
+                    p[pre + '_V_ch'] = p['n_channels_' + pre] * p['b'] * (A_plate - 4 * A_port)
+                    p[pre + '_V_port'] = 2 * A_port * p['h'] + p.get('V_conn_' + pre, 0.0)
+                p[pre + '_V_tot'] = p[pre + '_V_ch'] + p[pre + '_V_port']
+
             for side, pre, m, A in ((H, 'H', m_h, p['A_h']), (C, 'C', m_c, p['A_c'])):
                 side.geom = {**p, 'D': p[pre + '_Dh'], 'L': p['l'], 'K': K, 'theta': 0.0, 'A': A,
-                             'n_canals': p['n_channels_' + pre.upper()], 'canal_t': p['b'],
+                             'n_canals': p['n_channels_' + pre], 'canal_t': p['b'],
                              'Dh': p[pre + '_Dh'],
-                             'beta': p['beta'],         # from the main flow direction (rad or deg)
-                             'p_co': p['Lambda']}           # corrugation pitch, computed from the area
-                side.G = m / p[pre + '_A_flow']             # mass flux in ONE channel = (m / n_channels) / (b w)
+                             'beta': p['beta'],          # from the main flow direction (rad or deg)
+                             'p_co': p['Lambda']}        # corrugation pitch, computed from the area
+                side.G = m / p[pre + '_A_flow']          # mass flux in ONE channel = (m / n_channels) / (b w)
+                side.V_ch = p[pre + '_V_ch']             # channels: distributed over the cells
+                side.V_port = p[pre + '_V_port']         # manifolds: half at the inlet state, half at the outlet
                 side.V = p[pre + '_V_tot']
-                
-            self._UA_fh = 1.0 + p['fooling']
 
         elif self.HTX_Type in ('STHE', 'TFHE'):
             D_in = p['Tube_OD'] - 2 * p['Tube_t']
