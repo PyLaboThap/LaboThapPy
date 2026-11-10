@@ -8,7 +8,10 @@ SP    : PCHE correlations  'Straight', 'Lee' (zigzag), 'Bennett_Chen' (zigzag, s
         or any pipe correlation name ('Gnielinski', 'Dittus_Boelter', 'Cheng', 'Liu', ...), evaluated
         on the equivalent tube (D = D_h, G of one channel).
         auto : Straight -> 'Straight' ; Zigzag -> 'Lee'.
-EVAP / COND : always the pipe correlations on the equivalent tube (choice or auto of pipe_HTC).
+EVAP / COND : curved pipe correlations (HCHE dispatcher) on the equivalent tube: 'Zhao' / 'Nariai' (EVAP),
+        'Zakeralhoseini' (COND); a pipe correlation name falls back to the straight pipe_HTC.
+Every non-PCHE path uses the curved pipe functions (HCHE dispatcher): SP auto name -> 'Sigalotti'.
+geom['R_curv'] : radius of curvature of the channel bends [m]; absent -> straight tube (R -> infinity).
 
 The equivalent tube is read from geom: Tube_ID (= D_h), Tube_L (= developed channel length), n_tubes,
 Tube_pass; cond['G'] is the mass flux of one channel (the pipe bank uses it first).
@@ -16,7 +19,7 @@ Tube_pass; cond['G'] is the mass flux of one channel (the pipe bank uses it firs
 import warnings
 from labothappy.correlations.convection.PCHE_HTC_correlation_bank import (
     PCHE_straight_HTC, PCHE_bennett_chen_HTC, PCHE_lee_zigzag_HTC)
-from labothappy.correlations.convection.pipe_HTC import pipe_HTC
+from labothappy.correlations.convection.curved_pipe_HTC import curved_pipe_HTC   
 
 _PCHE_SP_HTC = {'Straight': PCHE_straight_HTC, 'Lee': PCHE_lee_zigzag_HTC, 'Bennett_Chen': PCHE_bennett_chen_HTC}
 
@@ -35,6 +38,11 @@ def _equivalent_tube(geom):
     Dh = g.get('Dh') or g['Tube_ID']
     g.update(Tube_ID=Dh, Dh=Dh, Tube_pass=1)
     g.setdefault('Tube_L', g.get('L_c', g.get('L')))
+    g.setdefault('L', g['Tube_L'])
+    if 'R_curv' not in g:
+        if str(g.get('type_channel', 'Straight')).lower() == 'zigzag':
+            warnings.warn("PCHE: zigzag channel without geom['R_curv']: curved pipe correlations run as a straight tube.")
+        g['R_curv'] = 1e6
     return g
 
 
@@ -46,7 +54,7 @@ def _pipe(AS, geom, cond, state, name):
     if state != 'SP' and g['Tube_ID'] < _CONFINEMENT_D:
         warnings.warn(f"PCHE: two-phase flow in a D_h = {g['Tube_ID']*1e3:.2f} mm channel: confinement "
                       "effects are not in the tube correlations.")
-    return pipe_HTC(AS, g, cond, state, {state: name})
+    return curved_pipe_HTC(AS, g, {**cond, 'side': 'tube'}, state, {state: name})
 
 
 def PCHE_SP_HTC(AS, geom, cond, choice=None):
@@ -54,7 +62,7 @@ def PCHE_SP_HTC(AS, geom, cond, choice=None):
         choice = select_PCHE_HTC(geom, cond)
     if choice in _PCHE_SP_HTC:
         return _PCHE_SP_HTC[choice](AS, geom, cond)
-    return _pipe(AS, geom, cond, 'SP', choice)        # pipe correlation name (unknown name -> its ValueError)
+    return _pipe(AS, geom, cond, 'SP', choice)        # 'Sigalotti' (curved pipe) or a pipe correlation name
 
 
 def PCHE_HTC(AS, geom, cond, flow_state, choices=None):
@@ -63,3 +71,4 @@ def PCHE_HTC(AS, geom, cond, flow_state, choices=None):
         return PCHE_SP_HTC(AS, geom, cond, choice)
     if flow_state in ('EVAP', 'COND'):
         return _pipe(AS, geom, cond, flow_state, choice)
+    raise ValueError(f"PCHE HTC: flow_state {flow_state!r}: expected 'SP', 'EVAP' or 'COND'.")

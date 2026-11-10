@@ -5,6 +5,8 @@ from labothappy.correlations.convection.STHE_HTC import STHE_HTC
 from labothappy.correlations.convection.pipe_HTC import pipe_HTC
 from labothappy.correlations.convection.PCHE_HTC import PCHE_HTC
 from labothappy.correlations.convection.TFHE_HTC import TFHE_HTC
+from labothappy.correlations.convection.curved_pipe_HTC import curved_pipe_HTC
+from labothappy.correlations.convection.SPHE_HTC import SPHE_HTC
 
 _VALID_STATES = ('SP', 'EVAP', 'COND')
 _VALID_SIDES = ('shell', 'tube')
@@ -30,12 +32,14 @@ def heat_transfer_coefficient(AS, geom, cond, correlation):
            equivalent tube D = D_h) / EVAP / COND (pipe correlations). G (mass flux in ONE channel),
            mu, k, Pr, T (+ T_in, p_in, p_other_in for 'Bennett_Chen'); geom holds D_c, L_c, alpha,
            type_channel ('Straight' / 'Zigzag') and the equivalent tube (Dh, Tube_ID, Tube_L, n_tubes).
+    HCHE : coil side SP 'Sigalotti' / EVAP 'Zhao','Nariai' / COND 'Zakeralhoseini'; geom: Dh, R_curv (or D_coil, coil_pitch), L.
+    SPHE : SP 'Picon_Nunez','Rajavel','Curved_rect_duct','Rect_duct'; geom: Dh, R_curv, ch_w, H (or ch_b), L.
     TFHE ('Tube&Fins') : cond['side'] (or geom['side']) = 'fin' (gas side, single phase: Pismennyi, REDUCED
            coefficient referred to the total outer area) or 'tube' (pipe correlations). Fin side: m_dot (WHOLE
            side), rho, mu, k, Pr; geom holds the tube and fin geometry (Fin_OD, Fin_t, Fin_per_m, k_fin, w, ...)."""
     htx = geom.get('HTX_Type')
 
-    if htx in ('BPHE', 'STHE', 'PCHE', 'TFHE', 'Tube&Fins'):
+    if htx in ('BPHE', 'STHE', 'PCHE', 'TFHE', 'Tube&Fins', 'HCHE', 'SPHE'):
         state = cond.get('flow_state')
         if state not in _VALID_STATES:
             raise ValueError(f"cond['flow_state'] = {state!r}: expected one of {_VALID_STATES}.")
@@ -46,6 +50,12 @@ def heat_transfer_coefficient(AS, geom, cond, correlation):
 
         if htx == 'PCHE':
             return float(PCHE_HTC(AS, geom, cond, state, choices))
+
+        if htx == 'HCHE':                     # cond['side'] = 'tube' (coil); shell side not implemented
+            return float(curved_pipe_HTC(AS, geom, cond, state, choices))
+
+        if htx == 'SPHE':
+            return float(SPHE_HTC(AS, geom, cond, state, choices))
 
         if htx in ('TFHE', 'Tube&Fins'):      # cond['side'] / geom['side'] = 'fin' or 'tube'
             return float(TFHE_HTC(AS, geom, cond, state, choices))
@@ -59,5 +69,3 @@ def heat_transfer_coefficient(AS, geom, cond, correlation):
 
     raise NotImplementedError(f"heat_transfer_coefficient: HTX_Type {htx!r} is not handled "
                               "by the three-level scheme (the legacy registry is disabled).")
-    
-    
