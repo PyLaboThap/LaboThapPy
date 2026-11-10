@@ -10,7 +10,7 @@ Differences with hex_MB_charge_sensitive.py (same public interface):
 * All heat transfer and pressure drop correlations are called through one
   uniform interface, the same as the pipe correlations:
       heat_transfer_coefficient(AS, geom, cond, correlation)   (cond: a dictionary)
-      pressure_drop(AS, geom, G, correlation=..., cond=...)
+      pressure_drop(AS, geom, cond, correlation)               (cond: a dictionary)
   (see toolbox/heat_exchangers/hex_MB_charge_sensitive/hex_MB_correlations.py)
 * Hot and cold streams share the same code through a small `_Side` object.
 * The residual function handed to the root finder depends on Q only. Pressure
@@ -24,6 +24,7 @@ Differences with hex_MB_charge_sensitive.py (same public interface):
 
 import warnings
 from dataclasses import asdict
+from dataclasses import dataclass
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -43,10 +44,11 @@ from labothappy.correlations.void_fraction.void_fraction import (
 
 from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.cell_overlap_MBHX import determine_cell_overlap
 from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.compute_LMTD_multipass import determine_LMTD_multipass
-from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.hex_MB_correlations import (
-    CellConditions, pressure_drop, check_correlation_name, bulk_properties, wall_viscosity)
 
 from labothappy.correlations.convection.heat_transfer_coefficient_dispatch import heat_transfer_coefficient
+from labothappy.correlations.pressure_drop.pressure_drop_dispatch import pressure_drop, port_pressure_drop
+from labothappy.correlations.properties.thermal_conductivity import conducticity_R1233zd
+from labothappy.correlations.void_fraction.void_fraction import compute_void_fraction, VOID_FRACTION_MODELS, NEEDS_FLOW
 
 # Bounds used by the external pinch analysis (kept from the original model)
 T_HOT_OUT_MIN = 218.0         # [K]
@@ -71,6 +73,100 @@ def flow_state_from_phase(phase, side_name):
         return 'SP'
     raise ValueError(f"Unknown cell phase {phase!r}.")
 
+
+def _conductivity(AS, cond, T=None, p=None):
+    """Thermal conductivity, with the R1233zd(E) fit CoolProp lacks."""
+    if cond.fluid == 'R1233zd(E)':
+        return conducticity_R1233zd(cond.T if T is None else T, cond.p if p is None else p)
+    return AS.conductivity()
+
+
+def bulk_properties(AS, cond):
+    """mu, k, Pr, cp, rho at the bulk state (AS set at (h, p))."""
+    name = AS.fluid_names()[0]
+    T, p = AS.T(), cond.p
+    cp, rho = AS.cpmass(), AS.rhomass()
+    try:
+        mu, k = AS.viscosity(), AS.conductivity()
+    except ValueError:
+        mu = k = np.inf
+    if not np.isfinite(mu):          # tabular backends return inf instead of raising
+        mu = CP.PropsSI('V', 'T', T, 'P', p, name)
+    if not np.isfinite(k):
+        k = conducticity_R1233zd(T, p) if name == 'R1233zd(E)' else CP.PropsSI('L', 'T', T, 'P', p, name)
+    return {"mu": mu, "k": k, "Pr": mu * cp / k, "cp": cp, "rho": rho}
+
+
+def wall_viscosity(AS, cond, mu_bulk):
+    """Viscosity at the wall temperature, bulk value if it cannot be evaluated."""
+    try:
+        AS.update(CP.PT_INPUTS, cond.p, cond.T_wall)
+        mu_w = AS.viscosity()
+    except:
+        try:
+            mu_w = CP.PropsSI('V', 'T', cond.T_wall, 'P', cond.p, AS.fluid_names()[0])
+        except ValueError:
+            return mu_bulk
+        
+    return mu_w if np.isfinite(mu_w) else mu_bulk
+
+
+_SAT_CACHE = {}
+
+
+def saturated_properties(AS, cond):
+    """Saturated liquid / vapour properties at the cell pressure.
+
+    They depend only on (fluid, backend, p): results are cached with p rounded
+    to 1 Pa, which avoids recomputing them at every residual evaluation (this
+    matters for fluids with slow property fallbacks such as R1233zd(E))."""
+    key = (cond.fluid, AS.backend_name(), round(cond.p))
+    props = _SAT_CACHE.get(key)
+    if props is None:
+        if len(_SAT_CACHE) > 20000:
+            _SAT_CACHE.clear()
+        props = _SAT_CACHE[key] = _saturated_properties(AS, cond, float(round(cond.p)))
+    return props
+
+
+def _saturated_properties(AS, cond, p):
+    AS.update(CP.PQ_INPUTS, p, 0)
+    try:
+        mu_l = AS.viscosity()
+    except ValueError:
+        mu_l = CP.PropsSI('V', 'P', p, 'Q', 0, cond.fluid)
+    rho_l, h_l, cp_l = AS.rhomass(), AS.hmass(), AS.cpmass()
+    k_l = _conductivity(AS, cond, T=AS.T(), p=p)
+    AS.update(CP.PQ_INPUTS, p, 1)
+    rho_v, h_v = AS.rhomass(), AS.hmass()
+    return {"mu_l": mu_l, "rho_l": rho_l, "k_l": k_l, "cp_l": cp_l,
+            "Pr_l": mu_l * cp_l / k_l, "rho_v": rho_v, "i_fg": h_v - h_l}
+
+
+
+# =============================================================================
+# CELL OPERATING CONDITIONS
+# =============================================================================
+
+@dataclass
+class CellConditions:
+    """Operating data of one side of one cell (everything AS does not hold)."""
+    fluid: str
+    m_dot: float            # mass flow rate of the side, whole heat exchanger [kg/s]
+    p: float                # mean pressure of the cell [Pa]
+    h: float                # mean specific enthalpy of the cell [J/kg]
+    T: float                # mean bulk temperature of the cell [K]
+    T_wall: float           # wall temperature estimate [K]
+    x: float = float("nan")         # mean vapour quality (two-phase cells) [-]
+    T_sat: float = float("nan")     # mean saturation temperature [K]
+    h_in: float = float("nan")      # enthalpy at the cell boundary of lower enthalpy [J/kg]
+    h_out: float = float("nan")     # enthalpy at the cell boundary of higher enthalpy [J/kg]
+    p_su: float = float("nan")      # side inlet pressure [Pa]
+    q: float = float("nan")         # heat flux estimate [W/m^2]
+    Q: float = float("nan")         # cell heat rate [W]
+    DT_lm: float = float("nan")     # F * LMTD of the cell [K]
+    alpha_other: float = float("nan")  # HTC of the other side [W/(m^2 K)]
+    
 
 class _Side:
     """Settings and state of one fluid stream ('H' = hot, 'C' = cold).
@@ -127,7 +223,7 @@ class HexMBChargeSensitive(BaseComponent):
     fluid charge (with a void-fraction model in two-phase cells) follow from
     the converged cells.
 
-    **Geometries**: 'BPHE', 'Shell&Tube', 'Tube&Fins', 'PCHE'.
+    **Geometries**: 'BPHE', 'STHE' (shell & tube), 'TFHE', 'PCHE'.
 
     **Assumptions**:
         - Steady state, no heat loss to the ambient.
@@ -152,7 +248,7 @@ class HexMBChargeSensitive(BaseComponent):
         Mvec_h / Mvec_c (charge per cell) [kg], M_h / M_c (total charge) [kg].
     """
 
-    HTX_TYPES = ('BPHE', 'Shell&Tube', 'Tube&Fins', 'PCHE')
+    HTX_TYPES = ('BPHE', 'STHE', 'TFHE', 'PCHE')
 
     def __init__(self, HTX_Type):
         super().__init__()
@@ -186,20 +282,20 @@ class HexMBChargeSensitive(BaseComponent):
             geometry = ['A_c', 'A_h', 'h', 'l', 'l_v', 'w',
                         'n_plates', 't_plates', 'n_channel_c', 'n_channel_h',
                         'beta', 'fooling']
-        elif self.HTX_Type == 'Shell&Tube':
+        elif self.HTX_Type == 'STHE':
             geometry = ['Baffle_cut', 'Shell_ID', 'Tube_L', 'Tube_OD', 'Tube_pass', 'Tube_t',
                         'central_spacing', 'foul_s', 'foul_t', 'n_series', 'n_parallel', 'n_tubes',
                         'pitch_ratio', 'tube_cond', 'tube_layout', 'Shell_Side']
-            if "Shell_Bell_Delaware_HTC" in corr_1p:
+            if 'Bell_Delaware' in corr_1p:
                 geometry += ['D_OTL', 'N_strips', 'Tubesheet_t', 'clear_BS', 'clear_TB',
                              'inlet_spacing', 'outlet_spacing']
-        elif self.HTX_Type == 'Tube&Fins':
+        elif self.HTX_Type == 'TFHE':
             geometry = ['A_flow', 'Fin_OD', 'Fin_per_m', 'Fin_t', 'Fin_type', 'Finned_tube_flag',
                         'Tube_L', 'Tube_OD', 'Tube_cond', 'Tube_t', 'fouling', 'h', 'k_fin',
                         'Tube_pass', 'n_rows', 'n_series', 'n_parallel', 'n_tubes', 'pitch',
                         'pitch_ratio', 'tube_arrang', 'w', 'Fin_Side']
         else:  # PCHE
-            geometry = ['alpha', 'D_c', 'H_V_tot', 'C_V_tot', 'k_cond', 'L_c', 'N_c', 'N_p', 'R_p',
+            geometry = ['alpha', 'D_c', 'k_cond', 'L_c', 'N_c', 'N_p', 'R_p',   # channel volumes are computed from D_c, L_c
                         't_2', 't_3']
         return general + geometry
 
@@ -214,6 +310,13 @@ class HexMBChargeSensitive(BaseComponent):
                    (hot side) or evaporation (cold side) correlation; each value is
                    the name of a correlation or 'auto'. These names are validated by
                    BPHE_HTC at the first evaluation.
+
+        STHE : the correlations of the shell side (cond 'side' = 'shell', single phase only) are 'Kern',
+                   'Donohue' or 'Bell_Delaware'; those of the tube side ('tube') are the pipe correlations
+                   ('Gnielinski', 'Dittus_Boelter', 'Liu', 'Cheng', 'Thome', 'Dobson_Chato', 'Steiner_Taborek',
+                   'VDI', 'Gungor_Winterton', 'Choi', ...). '1P' is used for the single-phase cells
+                   (and 'SC' for transcritical ones), '2P' for the condensation (hot side) or evaporation
+                   (cold side) cells; None / 'auto' = automatic choice of the dispatcher.
         """
         self.params['htc_type'] = htc_type
         self.Corr_H, self.Corr_C = Corr_H, Corr_C
@@ -226,27 +329,46 @@ class HexMBChargeSensitive(BaseComponent):
             else:
                 side.htc_type = "Correlation"
                 side.htc_corr = {k: v for k, v in dict(corr).items() if v is not None}
-                if self.HTX_Type != 'BPHE':
-                    for name in side.htc_corr.values():
-                        check_correlation_name(name, "htc")
+                # if self.HTX_Type not in ('BPHE', 'STHE', 'PCHE', 'TFHE'):   # names validated by the HTC dispatchers
+                #     for name in side.htc_corr.values():
+                #         check_correlation_name(name, "htc")
 
     def set_DP(self, DP_type=None, Corr_H=None, Corr_C=None, UD_H_DP=None, UD_C_DP=None):
         """
         DP_type : None (no pressure drop), 'User-Defined' (UD_H_DP / UD_C_DP in Pa),
                   'Correlation_Global' (one evaluation at the inlet state) or
                   'Correlation_Disc' (cell by cell, iterated with the heat balance).
+                  Correlations exist for the 'BPHE' and the 'STHE' (shell: 'Kern', 'Donohue', 'Bell_Delaware';
+                  tubes: 'Churchill', 'Friedel', 'MSH', ... see pipe_DP_dispatcher).
+                  'TFHE': finned side 'Pismennyi' (gas), tubes: pipe correlations.
+                  'PCHE': the pipe correlations on the equivalent tube (D = D_h, L = L_c * n_series, roughness).
         """
         allowed = (None, "User-Defined", "Correlation_Global", "Correlation_Disc")
         if DP_type not in allowed:
             raise ValueError(f"DP_type must be one of {allowed}.")
+        if DP_type in ("Correlation_Global", "Correlation_Disc") and self.HTX_Type not in ('BPHE', 'STHE', 'PCHE', 'TFHE'):
+            raise NotImplementedError(f"No pressure drop correlation yet for {self.HTX_Type}: use DP_type None or "
+                                      "'User-Defined'.")
         self.params['DP_type'] = DP_type
         for side, corr, ud in ((self.H, Corr_H, UD_H_DP), (self.C, Corr_C, UD_C_DP)):
             side.dp_user = float(ud or 0.0)
             side.dp_corr = {}
             if DP_type in ("Correlation_Global", "Correlation_Disc"):
                 side.dp_corr = {k: v for k, v in dict(corr).items() if v is not None}
-                for name in side.dp_corr.values():
-                    check_correlation_name(name, "dp")
+                # if self.HTX_Type not in ('BPHE', 'STHE', 'PCHE', 'TFHE'):      # validated by the pressure drop dispatchers
+                #     for name in side.dp_corr.values():
+                #         check_correlation_name(name, "dp")
+
+    def set_void_fraction(self, void_fraction_model='Homogeneous'):
+        """
+        void_fraction_model : void fraction correlation used for the two-phase charge,
+            one of VOID_FRACTION_MODELS ('Homogeneous', 'Zivi', 'Hughmark', ...).
+            Can also be given with set_parameters(void_fraction_model=...).
+        """
+        if void_fraction_model not in VOID_FRACTION_MODELS:
+            raise ValueError(f"void_fraction_model must be one of {VOID_FRACTION_MODELS}, get {void_fraction_model!r}.")
+        self.params['void_fraction_model'] = void_fraction_model
+
 
     # =========================================================================
     # SET-UP: GEOMETRY AND FLUIDS
@@ -279,7 +401,7 @@ class HexMBChargeSensitive(BaseComponent):
 
         if self.HTX_Type == 'BPHE':
                 
-            p['n_channels'] = p['n_channel_h'] + p['n_channel_c']
+            p['n_channels'] = p['n_channels_H'] + p['n_channels_C']
             
             # Channel gap and corrugation amplitude
             p['b'] = (p['h'] - p['n_plates'] * p['t_plates']) / p['n_channels'] # channel gap
@@ -298,15 +420,15 @@ class HexMBChargeSensitive(BaseComponent):
             p['H_Dh'] = 2*p['b']
             
             # Canal Surface
-            p['C_A_flow'] = p['b']*p['w']*p['n_channel_c']
-            p['H_A_flow'] = p['b']*p['w']*p['n_channel_h']
+            p['C_A_flow'] = p['b']*p['w']*p['n_channels_C']
+            p['H_A_flow'] = p['b']*p['w']*p['n_channels_H']
             
             p['C_V_tot'] = p['C_A_flow']*p['l']      # channel volume (l_v would exclude the port zones)
             p['H_V_tot'] = p['H_A_flow']*p['l']
             
             for side, pre, m, A in ((H, 'H', m_h, p['A_h']), (C, 'C', m_c, p['A_c'])):
                 side.geom = {**p, 'D': p[pre + '_Dh'], 'L': p['l'], 'K': K, 'theta': 0.0, 'A': A,
-                             'n_canals': p['n_channel_' + pre.lower()], 'canal_t': p['b'],
+                             'n_canals': p['n_channels_' + pre.upper()], 'canal_t': p['b'],
                              'Dh': p[pre + '_Dh'],
                              'beta': p['beta'],         # from the main flow direction (rad or deg)
                              'p_co': p['Lambda']}           # corrugation pitch, computed from the area
@@ -315,13 +437,13 @@ class HexMBChargeSensitive(BaseComponent):
                 
             self._UA_fh = 1.0 + p['fooling']
 
-        elif self.HTX_Type in ('Shell&Tube', 'Tube&Fins'):
+        elif self.HTX_Type in ('STHE', 'TFHE'):
             D_in = p['Tube_OD'] - 2 * p['Tube_t']
             A_in_one_tube = np.pi * D_in ** 2 / 4
             L_flow = p['Tube_L'] * p['Tube_pass'] * n_s
             G_of = lambda m: (p['Tube_pass'] / n_p) * m / (A_in_one_tube * p['n_tubes'])
 
-            if self.HTX_Type == 'Shell&Tube':
+            if self.HTX_Type == 'STHE':
                 n_tot = p['n_tubes'] * n_s * n_p
                 A_in = np.pi * D_in * p['Tube_L'] * n_tot
                 A_out = np.pi * p['Tube_OD'] * p['Tube_L'] * n_tot
@@ -345,22 +467,29 @@ class HexMBChargeSensitive(BaseComponent):
                 self._R_extra = R_cond
                 outer_is_hot = p['Fin_Side'] == 'H'
 
+            outer_name = 'shell' if self.HTX_Type == 'STHE' else 'fin'
             for side, m, is_outer in ((H, m_h, outer_is_hot), (C, m_c, not outer_is_hot)):
                 side.geom = {**p, 'D': D_in, 'L': L_flow, 'K': K, 'theta': 0.0,
-                             'A': A_outer if is_outer else A_inner}
+                             'A': A_outer if is_outer else A_inner,
+                             'side': outer_name if is_outer else 'tube'}   # read by heat_transfer_coefficient
                 side.G = G_of(m)
                 side.V = V_outer if is_outer else V_inner
 
-        else:  # PCHE
+        else:  # PCHE: semi-circular channels of diameter D_c, developed channel length L_c
             D_h = np.pi * p['D_c'] / (2 + np.pi)
             A_channel = np.pi * p['D_c'] ** 2 / 8
-            N = p['N_c'] * p['N_p']
+            P_wet = (np.pi / 2 + 1) * p['D_c']            # full wetted perimeter (arc + flat side), D_h = 4 A_channel / P_wet
+            N = p['N_c'] * p['N_p']                       # channels per plate x plates (one block)
             frac = {'H': p['R_p'] / (1 + p['R_p']), 'C': 1 / (1 + p['R_p'])}
             for side, m, pre in ((H, m_h, 'H'), (C, m_c, 'C')):
-                A = frac[pre] * N * (np.pi / 2) * p['D_c'] * p['L_c'] * n_s * n_p
-                side.geom = {**p, 'D': D_h, 'L': p['L_c'] * n_s, 'K': K, 'theta': 0.0, 'A': A}
-                side.G = m / (A_channel * N * frac[pre]) / n_p
-                side.V = p[pre + '_V_tot']
+                N_side = N * frac[pre]
+                A = N_side * P_wet * p['L_c'] * n_s * n_p
+                side.geom = {**p, 'D': D_h, 'L': p['L_c'] * n_s, 'K': K, 'theta': 0.0, 'A': A,
+                             'Dh': D_h, 'Tube_ID': D_h, 'Tube_pass': 1,   # "equivalent tube" read by the pipe_* correlations
+                             'Tube_L': p['L_c'] * n_s,
+                             'n_tubes': N_side * n_p}
+                side.G = m / (A_channel * N_side) / n_p
+                side.V = N_side * A_channel * p['L_c'] * n_s * n_p
 
         for side in (H, C):
             side.geom['HTX_Type'] = self.HTX_Type
@@ -601,7 +730,6 @@ class HexMBChargeSensitive(BaseComponent):
     # =========================================================================
 
     def objective_function(self, Q):
-        # print(Q)
         
         """Return 1 - sum(w) for the heat rate Q (w_k: area fraction of cell k)."""
         self.calculate_cell_boundaries(Q)
@@ -620,8 +748,6 @@ class HexMBChargeSensitive(BaseComponent):
         self.w_cumsum = np.cumsum(self.w)
         self.eval += 1
         self._last_Q = Q
-
-        # print(f"END {1.0 - self.w_sum}")
 
         return 1.0 - self.w_sum
 
@@ -718,24 +844,29 @@ class HexMBChargeSensitive(BaseComponent):
             Q=self.Qvec_h[k], q=self.Qvec_h[k] * n / side.geom['A'],
             DT_lm=self.F[k] * self.LMTD[k], alpha_other=alpha_other)
 
-    def _cond_dict(self, side, k, AS, cond):
-        """Translate the CellConditions of cell k of a side into a dictionary.
-        AS must be set at the cell mean state (h, p).
+    def _cond_dict(self, side, phase, AS, cond):
+        """Translate the CellConditions of a cell (or of the inlet state) of a side into a dictionary.
+        AS must be set at the mean state (h, p) of the cell.
 
         Always : every field of CellConditions by name (fluid, m_dot, p, h, T, T_wall,
                  x, T_sat, h_in, h_out, p_su, q, Q, DT_lm, alpha_other), plus
-                 G (mass flux in ONE channel), phase and flow_state ('SP', 'EVAP', 'COND').
-        BPHE, single phase : mu, k, Pr, cp, D (density), and mu_w (wall viscosity)
-                 except for gases, for which no viscosity correction is wanted."""
-        phase = side.phases[k]
-        d = asdict(cond)
+                 G (mass flux in ONE channel / ONE tube), T_w (= T_wall), heating (the side is the cold
+                 one), phase and flow_state ('SP', 'EVAP', 'COND').
+        BPHE, STHE and PCHE, single phase and 'vapor-wet' cells : mu, k, Pr, cp, D and rho (density), and
+                 mu_w (wall viscosity) for liquids and transcritical fluids only.
+                 ('vapor-wet' condenses for the HTC but is single phase for the pressure drop.)"""
+        d = dict(cond.__dict__) 
         d['G'] = side.G
         d['phase'] = phase
         d['flow_state'] = flow_state_from_phase(phase, side.name)
-        if self.HTX_Type == 'BPHE' and d['flow_state'] == 'SP':
+        d['T_w'] = d['T_wall']                                     # name read by the pipe correlations
+        d['heating'] = (side.name == 'C')                          # the cold side is heated
+        other = self.H if side is self.C else self.C
+        d['T_in'], d['p_in'], d['p_other_in'] = side.T_su, side.p_su, other.p_su   # inlet values (PCHE Bennett & Chen)
+        if self.HTX_Type in ('BPHE', 'STHE', 'PCHE', 'TFHE') and (d['flow_state'] == 'SP' or phase == 'vapor-wet'):
             b = bulk_properties(AS, cond)                          # needs AS at (h, p)
-            d.update(mu=b['mu'], k=b['k'], Pr=b['Pr'], cp=b['cp'], D=b['rho'])
-            if phase != 'vapor':                                   # liquid or transcritical
+            d.update(mu=b['mu'], k=b['k'], Pr=b['Pr'], cp=b['cp'], D=b['rho'], rho=b['rho'])
+            if phase in ('liquid', 'transcritical'):
                 d['mu_w'] = wall_viscosity(AS, cond, b['mu'])      # moves AS: keep it last
         return d
 
@@ -754,7 +885,7 @@ class HexMBChargeSensitive(BaseComponent):
                 cond = self._cell_conditions(side, k, alpha_other=other)
                 AS = self._state(side, cond.h, cond.p)
                 # try:
-                cond_d = self._cond_dict(side, k, AS, cond)
+                cond_d = self._cond_dict(side, phase, AS, cond)
                 side.alpha[k] = heat_transfer_coefficient(
                     AS, side.geom, cond_d, side.correlation(phase, 'htc'))
                 # except Exception as e:
@@ -786,7 +917,7 @@ class HexMBChargeSensitive(BaseComponent):
 
     @property
     def _multipass(self):
-        return self.HTX_Type == 'Shell&Tube' and self.params.get('Tube_pass', 1) > 1
+        return self.HTX_Type == 'STHE' and self.params.get('Tube_pass', 1) > 1
 
     def _w_geom_for_grid(self):
         """Cell positions assumed for the tube/shell overlap: length proportional
@@ -805,6 +936,14 @@ class HexMBChargeSensitive(BaseComponent):
     # PRESSURE DROPS
     # =========================================================================
 
+    def _port_dp(self, side):
+        """Port / manifold loss of a side [Pa], for the whole exchanger: evaluated once, at the inlet
+        state. Needs geom['D_port'] (and geom['n_passes']): without a port diameter it is 0, with a warning."""
+        if self.HTX_Type != 'BPHE':
+            return 0.0
+        AS = self._state(side, side.h_su, side.p_su)
+        return port_pressure_drop(side.geom, {'m_dot': side.m_dot, 'D': AS.rhomass()})
+
     def _init_pressure_drops(self):
         DP_type = self.params.get('DP_type')
         for side in (self.H, self.C):
@@ -818,7 +957,7 @@ class HexMBChargeSensitive(BaseComponent):
             side.DP = self._limit_DP(side, side.DP)
 
     def _inlet_pressure_drop(self, side):
-        """Pressure drop of the whole side evaluated at the inlet state."""
+        """Pressure drop of the whole side evaluated at the inlet state (friction + port losses)."""
         if side.SC:
             phase = 'transcritical'
         elif side.two_phase_possible and 0.002 < side.x_su < 0.999:
@@ -829,20 +968,29 @@ class HexMBChargeSensitive(BaseComponent):
                               T=side.T_su, T_wall=0.5 * (self.H.T_su + self.C.T_su),
                               x=side.x_su, p_su=side.p_su, h_in=side.h_su, h_out=side.h_su)
         AS = self._state(side, side.h_su, side.p_su)
-        return pressure_drop(AS, side.geom, side.G, side.correlation(phase, 'dp'), cond)
+        cond_d = self._cond_dict(side, phase, AS, cond)
+        return pressure_drop(AS, side.geom, cond_d, side.correlation(phase, 'dp')) + self._port_dp(side)
 
     def _distributed_pressure_drops(self):
         """Cell-by-cell pressure drops for the current (converged) cells.
-        Returns the new totals and updates the pressure profiles."""
+        Returns the new totals and updates the pressure profiles.
+        The friction of a cell is the friction over the full flow length times the length fraction of the
+        cell; the port losses are added once per side, half in the cell of the inlet end and half in the
+        cell of the outlet end."""
         frac = self.w / np.sum(self.w)          # length fraction of every cell
         new = {}
         for side in (self.H, self.C):
             DPvec = np.empty(self.n_cells)
             for k in range(self.n_cells):
+                phase = side.phases[k]
                 cond = self._cell_conditions(side, k)
                 AS = self._state(side, cond.h, cond.p)
-                DPvec[k] = frac[k] * pressure_drop(AS, side.geom, side.G,
-                                                   side.correlation(side.phases[k], 'dp'), cond)
+                cond_d = self._cond_dict(side, phase, AS, cond)
+                DPvec[k] = frac[k] * pressure_drop(AS, side.geom, cond_d, side.correlation(phase, 'dp'))
+            port = self._port_dp(side)
+            i_in, i_out = (0, -1) if side.name == 'C' else (-1, 0)     # inlet end of the cell vectors
+            DPvec[i_in] += 0.5 * port
+            DPvec[i_out] += 0.5 * port
             side.DPvec = DPvec
             # cumulative profile from the side inlet (cold: index 0, hot: last index)
             s_cells = self.hnorm_c if side.name == 'C' else (1.0 - self.hnorm_h)[::-1]
@@ -973,7 +1121,12 @@ class HexMBChargeSensitive(BaseComponent):
             self.DPvec_c = np.abs(np.diff(self.pvec_c))
         self.Avec_h = self.w * self.A_h
         self.Avec_c = self.w * self.A_c
-        self._compute_charge()
+        
+        if self.params.get('charge_compute', True):
+            self._compute_charge()
+        else:
+            self.M_H = self.M_C = self.M_h = self.M_c = np.nan
+            self.void_fraction_H = self.void_fraction_C = np.nan
 
         self.ex_H.reset()
         self.ex_H.set_fluid(H.fluid)
@@ -988,42 +1141,97 @@ class HexMBChargeSensitive(BaseComponent):
         self.H_su, self.C_su, self.H_ex, self.C_ex = self.su_H, self.su_C, self.ex_H, self.ex_C
         self.solved = True
 
-    def _compute_charge(self):
-        """Fluid mass in every cell: cell volume times the mean of the boundary
-        densities (void-fraction model in two-phase)."""
-        model = self.params.get('void_fraction_model', 'Zivi')
-        frac = self.w / np.sum(self.w)
+    # def _compute_charge(self):
+    #     """Fluid mass in every cell: cell volume times the mean of the boundary
+    #     densities (void-fraction model in two-phase)."""
+    #     model = self.params.get('void_fraction_model', 'Zivi')
+    #     frac = self.w / np.sum(self.w)
+    #     for side in (self.H, self.C):
+    #         n = len(side.hvec)
+    #         D, eps = np.empty(n), np.full(n, -1.0)
+    #         for i in range(n):
+    #             AS = self._state(side, side.hvec[i], side.pvec[i])
+    #             x = side.x[i] if side.two_phase_possible else np.nan
+    #             if side.two_phase_possible and 0.0 < x < 1.0:
+    #                 side.AS_sat.update(CP.PQ_INPUTS, side.pvec[i], 0)
+    #                 rho_l = side.AS_sat.rhomass()
+    #                 side.AS_sat.update(CP.PQ_INPUTS, side.pvec[i], 1)
+    #                 rho_v = side.AS_sat.rhomass()
+    #                 if model in DENSITY_ONLY_VOID_FRACTION:
+    #                     # only densities needed: no transport property (e.g. R1233zd(E)
+    #                     # has no viscosity model) and no extra AbstractState
+    #                     eps[i] = DENSITY_ONLY_VOID_FRACTION[model](rho_l, rho_v, x)
+    #                 else:
+    #                     A_cross = np.pi * side.geom['D'] ** 2 / 4    # so that m_dot/A_cross = G
+    #                     eps[i] = compute_void_fraction(AS, side.geom, side.G * A_cross,
+    #                                                    void_fraction_model=model)
+    #                 D[i] = compute_two_phase_density(x=x, rho_l=rho_l, rho_g=rho_v, alpha=eps[i])
+    #             else:
+    #                 D[i] = AS.rhomass()
+    #         side.Dvec, side.eps_void = D, eps
+    #         side.Vvec = side.V * frac
+    #         side.Mvec = side.Vvec * 0.5 * (D[1:] + D[:-1])
+    #     H, C = self.H, self.C
+    #     self.Dvec_h, self.Dvec_c = H.Dvec, C.Dvec
+    #     self.eps_void_h, self.eps_void_c = H.eps_void, C.eps_void
+    #     self.Vvec_h, self.Vvec_c = H.Vvec, C.Vvec
+    #     self.Mvec_h, self.Mvec_c = H.Mvec, C.Mvec
+    #     self.M_h, self.M_c = float(np.sum(H.Mvec)), float(np.sum(C.Mvec))
+
+    def _compute_charge(self, n_gauss=8):
+        """Fluid mass in every cell [kg].
+
+        Single-phase cell: cell volume times the mean of the boundary densities.
+        Two-phase cell: the in-situ density alpha*rho_v + (1-alpha)*rho_l is averaged
+        over the cell with Gauss-Legendre points, the quality varying linearly along
+        the cell. The void fraction is strongly non-linear in x, so the mean of the
+        two boundary densities would be far off (alpha ~ 0.5 for a full condensation cell)."""
+
+        void_fraction_model = self.params.get('void_fraction_model', 'Homogeneous')
+        frac = self.w / np.sum(self.w)  # Length (and volume) fraction of each cell
+        s_g, w_g = np.polynomial.legendre.leggauss(n_gauss) # Gives the Gauss-Legendre points and weights on [-1, 1]
+        s_g, w_g = 0.5 * (s_g + 1.0), 0.5 * w_g   # Gauss points and weights on [0, 1]
+
         for side in (self.H, self.C):
-            n = len(side.hvec)
-            D, eps = np.empty(n), np.full(n, -1.0)
-            for i in range(n):
-                AS = self._state(side, side.hvec[i], side.pvec[i])
-                x = side.x[i] if side.two_phase_possible else np.nan
-                if side.two_phase_possible and 0.0 < x < 1.0:
-                    side.AS_sat.update(CP.PQ_INPUTS, side.pvec[i], 0)
+            side.rhovec = np.array([self._state(side, h, p).rhomass() for h, p in zip(side.hvec, side.pvec)])  # Densities at each boundaries
+            rho_cell = 0.5 * (side.rhovec[1:] + side.rhovec[:-1])     # Mean density of each cell [kg/m^3] = first estimate
+            side.void_fraction = np.full(self.n_cells, np.nan)        # Mean void fraction of each two-phase cell [-] (initialized to Nan)
+
+            for k in np.where(side.phases == 'two-phase')[0]:  # For each cell flagged 'two-phase'
+                x_a, x_b = np.clip(side.x[k:k + 2], 0.0, 1.0)  # The boudaries qualities x_a and x_b are clipped to [0, 1] for safety
+                p_a, p_b = side.pvec[k:k + 2]    # = boundary pressures (taken)
+                alpha, rho = np.empty(n_gauss), np.empty(n_gauss)
+                for j, s in enumerate(s_g):
+                    p, x = p_a + s * (p_b - p_a), x_a + s * (x_b - x_a)   # At each Gauss point s, p and x are interpolated linearly between the boundaries. 
+                    # Asuumes that x varies linearly with Q
+                    side.AS_sat.update(CP.PQ_INPUTS, p, x)
+                    # Compute the void-fraction of the cell:
+                    try:
+                        alpha[j] = compute_void_fraction(side.AS_sat, side.geom, side.m_dot,
+                                                         void_fraction_model=void_fraction_model)
+                    except Exception as e:
+                        raise RuntimeError(f"{side.label} side, cell {k}, void fraction '{void_fraction_model}' "
+                                           f"(x = {x:.3f}, p = {p:.0f} Pa): {type(e).__name__}: {e}") from e
+                    side.AS_sat.update(CP.PQ_INPUTS, p, 0)
                     rho_l = side.AS_sat.rhomass()
-                    side.AS_sat.update(CP.PQ_INPUTS, side.pvec[i], 1)
+                    side.AS_sat.update(CP.PQ_INPUTS, p, 1)
                     rho_v = side.AS_sat.rhomass()
-                    if model in DENSITY_ONLY_VOID_FRACTION:
-                        # only densities needed: no transport property (e.g. R1233zd(E)
-                        # has no viscosity model) and no extra AbstractState
-                        eps[i] = DENSITY_ONLY_VOID_FRACTION[model](rho_l, rho_v, x)
-                    else:
-                        A_cross = np.pi * side.geom['D'] ** 2 / 4    # so that m_dot/A_cross = G
-                        eps[i] = compute_void_fraction(AS, side.geom, side.G * A_cross,
-                                                       void_fraction_model=model)
-                    D[i] = compute_two_phase_density(x=x, rho_l=rho_l, rho_g=rho_v, alpha=eps[i])
-                else:
-                    D[i] = AS.rhomass()
-            side.Dvec, side.eps_void = D, eps
+                    # Compute the density of the cell
+                    rho[j] = compute_two_phase_density(x=x, rho_l=rho_l, rho_g=rho_v, alpha=alpha[j])
+                side.void_fraction[k] = np.dot(w_g, alpha)
+                rho_cell[k] = np.dot(w_g, rho)
+
             side.Vvec = side.V * frac
-            side.Mvec = side.Vvec * 0.5 * (D[1:] + D[:-1])
+            side.charge_vec = side.Vvec * rho_cell  # Mass of fluid in each cell [kg]
+
         H, C = self.H, self.C
-        self.Dvec_h, self.Dvec_c = H.Dvec, C.Dvec
-        self.eps_void_h, self.eps_void_c = H.eps_void, C.eps_void
-        self.Vvec_h, self.Vvec_c = H.Vvec, C.Vvec
-        self.Mvec_h, self.Mvec_c = H.Mvec, C.Mvec
-        self.M_h, self.M_c = float(np.sum(H.Mvec)), float(np.sum(C.Mvec))
+        self.M_H = float(np.sum(H.charge_vec))
+        self.M_C = float(np.sum(C.charge_vec))
+        # Volume-weighted mean void fraction of the two-phase zone (nan if there is none)
+        for side, name in ((H, 'void_fraction_H'), (C, 'void_fraction_C')):
+            tp = ~np.isnan(side.void_fraction)
+            setattr(self, name, float(np.average(side.void_fraction[tp], weights=side.Vvec[tp])) if tp.any() else np.nan)
+
 
     # =========================================================================
     # PLOTS AND PRINTS

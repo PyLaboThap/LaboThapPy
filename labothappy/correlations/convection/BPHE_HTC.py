@@ -7,16 +7,16 @@ Created on Thu Nov  5 10:51:41 2026
 
 #%% SINGLE PHASE : HTC
 
-from labothappy.correlations.convection.BPHX_HTC_correlation_bank import (
-    chevron_deg, BPHX_sinnott_SP_HTC, BPHX_martin_SP_HTC, BPHX_kumar_SP_HTC,
-    BPHX_thonon_SP_HTC, BPHX_muley_manglik_SP_HTC)
+from labothappy.correlations.convection.BPHE_HTC_correlation_bank import (
+    chevron_deg, BPHE_sinnott_SP_HTC, BPHE_martin_SP_HTC, BPHE_kumar_SP_HTC,
+    BPHE_thonon_SP_HTC, BPHE_muley_manglik_SP_HTC)
 
 _BPHX_SP_HTC = {
-    'Sinnott': BPHX_sinnott_SP_HTC,
-    'Kumar': BPHX_kumar_SP_HTC,
-    'Thonon': BPHX_thonon_SP_HTC,
-    'Muley_Manglik': BPHX_muley_manglik_SP_HTC,
-    'Martin': BPHX_martin_SP_HTC,
+    'Sinnott': BPHE_sinnott_SP_HTC,
+    'Kumar': BPHE_kumar_SP_HTC,
+    'Thonon': BPHE_thonon_SP_HTC,
+    'Muley_Manglik': BPHE_muley_manglik_SP_HTC,
+    'Martin': BPHE_martin_SP_HTC,
 }
 # These need cond['mu_w']; Martin treats it as optional.
 _NEEDS_MU_W = {'Sinnott', 'Kumar', 'Muley_Manglik'}
@@ -39,7 +39,7 @@ def select_plate_HTC(geom, cond):
         return 'Kumar'                            # explicit laminar / transition rows
     return 'Martin'                               # continuous, any angle, any Re
 
-def BPHX_SP_HTC(AS, geom, cond, choice=None):
+def BPHE_SP_HTC(AS, geom, cond, choice=None):
     """Single-phase heat transfer coefficient of one side [W/m2/K].
     choice: None/'auto' or the name of a correlation.
 
@@ -57,16 +57,17 @@ def BPHX_SP_HTC(AS, geom, cond, choice=None):
     if choice in _NEEDS_MU_W and 'mu_w' not in cond:
         c = dict(cond)
         c['mu_w'] = cond['mu']
+            
     return _BPHX_SP_HTC[choice](AS, geom, c)
 
 #%% TWO-PHASE : BOILING 
 
-from labothappy.correlations.convection.BPHX_HTC_correlation_bank import (
-    BPHX_cooper_boiling_HTC, BPHX_amalfi_boiling_HTC)
+from labothappy.correlations.convection.BPHE_HTC_correlation_bank import (
+    BPHE_cooper_boiling_HTC, BPHE_amalfi_boiling_HTC)
 
 _BPHX_EVAP_HTC = {
-    'Cooper': BPHX_cooper_boiling_HTC,
-    'Amalfi': BPHX_amalfi_boiling_HTC,
+    'Cooper': BPHE_cooper_boiling_HTC,
+    'Amalfi': BPHE_amalfi_boiling_HTC,
 }
 
 def select_plate_evaporation_HTC(geom, cond):
@@ -80,7 +81,7 @@ def select_plate_evaporation_HTC(geom, cond):
         return 'Cooper'
     return 'Amalfi'
  
-def BPHX_boiling_HTC(AS, geom, cond, choice=None):
+def BPHE_boiling_HTC(AS, geom, cond, choice=None):
     """Evaporation heat transfer coefficient of one side [W/m2/K].
     choice: None/'auto' or the name of a correlation.
  
@@ -98,13 +99,13 @@ def BPHX_boiling_HTC(AS, geom, cond, choice=None):
 
 #%% TWO-PHASE : CONDENSING 
 
-from labothappy.correlations.convection.BPHX_HTC_correlation_bank import (
-    BPHX_shah_condensing_HTC, BPHX_han_condensing_HTC, BPHX_longo_condensing_HTC)
+from labothappy.correlations.convection.BPHE_HTC_correlation_bank import (
+    BPHE_shah_condensing_HTC, BPHE_han_condensing_HTC, BPHE_longo_condensing_HTC)
   
 _BPHX_COND_HTC = {
-    'Shah': BPHX_shah_condensing_HTC,
-    'Han': BPHX_han_condensing_HTC,
-    'Longo': BPHX_longo_condensing_HTC,
+    'Shah': BPHE_shah_condensing_HTC,
+    'Han': BPHE_han_condensing_HTC,
+    'Longo': BPHE_longo_condensing_HTC,
 }
  
 #%% CONDENSATION : HTC
@@ -126,7 +127,7 @@ def select_plate_condensation_HTC(geom, cond):
             return 'Han'
     return 'Longo'
  
-def BPHX_condensing_HTC(AS, geom, cond, choice=None):
+def BPHE_condensing_HTC(AS, geom, cond, choice=None):
     """Condensation heat transfer coefficient of one side [W/m2/K].
     choice: None/'auto' or the name of a correlation.
  
@@ -146,9 +147,9 @@ def BPHX_condensing_HTC(AS, geom, cond, choice=None):
 #%% GLOBAL DISPATCHER
 
 _STATE_DISPATCH = {
-    'SP': BPHX_SP_HTC,
-    'EVAP': BPHX_boiling_HTC,
-    'COND': BPHX_condensing_HTC,
+    'SP': BPHE_SP_HTC,
+    'EVAP': BPHE_boiling_HTC,
+    'COND': BPHE_condensing_HTC,
 }
 
 def BPHE_HTC(AS, geom, cond, flow_state, choices=None):
@@ -156,6 +157,7 @@ def BPHE_HTC(AS, geom, cond, flow_state, choices=None):
     flow_state : 'SP', 'EVAP' ou 'COND'
     choices    : dict {'SP': nom, 'EVAP': nom, 'COND': nom}.
                  None, vide, 'auto' (ou valeur vide / 'auto' pour un état) = sélection automatique."""
+                 
     if flow_state not in _STATE_DISPATCH:
         raise ValueError(f"Unknown flow state {flow_state!r}: expected one of {sorted(_STATE_DISPATCH)}.")
 

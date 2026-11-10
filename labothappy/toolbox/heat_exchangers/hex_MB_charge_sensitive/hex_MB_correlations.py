@@ -60,54 +60,29 @@ from CoolProp.CoolProp import PropsSI
 from scipy.interpolate import interp1d
 
 # Existing correlations (called unchanged through the adapters below)
-from labothappy.correlations.convection.pipe_htc import (
-    gnielinski_pipe_htc, boiling_curve, horizontal_flow_boiling,
-    flow_boiling_gungor_winterton, Liu_sCO2, Cheng_sCO2, thome_condensation,
-    choi_boiling, Meshram)
+# from labothappy.correlations.convection.pipe_htc import (
+#     gnielinski_pipe_htc, boiling_curve, horizontal_flow_boiling,
+#     flow_boiling_gungor_winterton, Liu_sCO2, Cheng_sCO2, thome_condensation,
+#     choi_boiling, Meshram)
 # from labothappy.correlations.convection.plate_htc_old import (
 #     water_plate_HTC, martin_BPHEX_HTC, muley_manglik_BPHEX_HTC,
 #     han_boiling_BPHEX_HTC, han_cond_BPHEX_HTC, thonon_plate_HTC,
 #     kumar_plate_HTC, martin_holger_plate_HTC, amalfi_plate_HTC,
 #     shah_condensation_plate_HTC)
-from labothappy.correlations.convection.shell_and_tube_htc import (
-    shell_bell_delaware_htc, shell_htc_kern)
+# from labothappy.correlations.convection.STHE_HTC import (
+#     shell_bell_delaware_htc, shell_htc_kern)
 from labothappy.correlations.convection.tube_bank_htc import ext_tube_film_condens
-from labothappy.correlations.convection.fins_htc import htc_tube_and_fins
-from labothappy.correlations.convection.printed_circuit_htc import PCHE_Lee, PCHE_conv
-from labothappy.correlations.pressure_drop.pipe_DP import (
-    pressure_drop_pipe_single_phase, pressure_drop_pipe_frictional_two_phase)
-from labothappy.correlations.pressure_drop.shell_and_tube_DP import (
-    shell_DP_kern, shell_DP_donohue, shell_bell_delaware_DP)
-from labothappy.correlations.pressure_drop.fins_DP import DP_tube_and_fins
+# from labothappy.correlations.convection.fins_htc import htc_tube_and_fins
+# from labothappy.correlations.convection.printed_circuit_htc import PCHE_Lee, PCHE_conv
+# from labothappy.correlations.pressure_drop.pipe_DP import (
+#     pressure_drop_pipe_single_phase, pressure_drop_pipe_frictional_two_phase)
+# from labothappy.correlations.pressure_drop.shell_and_tube_DP import (
+#     shell_DP_kern, shell_DP_donohue, shell_bell_delaware_DP)
+# from labothappy.correlations.pressure_drop.fins_DP import DP_tube_and_fins
 from labothappy.correlations.properties.thermal_conductivity import conducticity_R1233zd
 
 X_MIN = 1e-4   # quality clipping used for two-phase correlations
 X_MAX = 1.0 - 1e-4
-
-
-# =============================================================================
-# CELL OPERATING CONDITIONS
-# =============================================================================
-
-@dataclass
-class CellConditions:
-    """Operating data of one side of one cell (everything AS does not hold)."""
-    fluid: str
-    m_dot: float            # mass flow rate of the side, whole heat exchanger [kg/s]
-    p: float                # mean pressure of the cell [Pa]
-    h: float                # mean specific enthalpy of the cell [J/kg]
-    T: float                # mean bulk temperature of the cell [K]
-    T_wall: float           # wall temperature estimate [K]
-    x: float = float("nan")         # mean vapour quality (two-phase cells) [-]
-    T_sat: float = float("nan")     # mean saturation temperature [K]
-    h_in: float = float("nan")      # enthalpy at the cell boundary of lower enthalpy [J/kg]
-    h_out: float = float("nan")     # enthalpy at the cell boundary of higher enthalpy [J/kg]
-    p_su: float = float("nan")      # side inlet pressure [Pa]
-    q: float = float("nan")         # heat flux estimate [W/m^2]
-    Q: float = float("nan")         # cell heat rate [W]
-    DT_lm: float = float("nan")     # F * LMTD of the cell [K]
-    alpha_other: float = float("nan")  # HTC of the other side [W/(m^2 K)]
-
 
 # =============================================================================
 # PROPERTY HELPERS (shared by the adapters)

@@ -38,9 +38,23 @@ def _zeta_martin(Re, alpha):
            + (1 - np.cos(alpha)) / np.sqrt(zeta1))
     return 1.0 / rhs**2
 
+def _fanning_tube(Re):
+    """
+    Smooth circular tube Fanning friction factor as used in ACHP's
+    Lockhart-Martinelli implementation (laminar 16/Re, turbulent Blasius-type
+    0.046 Re^-0.2, linear blend for 1000 < Re < 2000).
+    """
+    if Re < 1000:
+        return 16 / Re
+    elif Re > 2000:
+        return 0.046 / Re ** 0.2
+    else:
+        w = (Re - 1000) / (2000 - 1000)
+        return (1 - w) * 16 / Re + w * 0.046 / Re ** 0.2
+
 #%% SINGLE PHASE : Friction DP
 
-def sinnott_plate_DP(AS, geom, cond):
+def BPHX_sinnott_SP_DP(AS, geom, cond):
     """
     Coulson & Richardson's Chemical Engineering Design Vol. 6
     
@@ -74,7 +88,7 @@ def sinnott_plate_DP(AS, geom, cond):
 
     return DP_f
 
-def kumar_plate_DP(AS, geom, cond):
+def BPHX_kumar_SP_DP(AS, geom, cond):
     """
     Kumar, H., The Plate Heat Exchanger: Construction and Design,
     IChemE Symp. Ser. 86, 1275-1288, 1984.
@@ -123,7 +137,7 @@ def kumar_plate_DP(AS, geom, cond):
 
     return DP_f
 
-def thonon_plate_DP(AS, geom, cond):
+def BPHX_thonon_SP_DP(AS, geom, cond):
     """
     Thonon, B., Design Method for Plate Evaporators and Condensers,
     BHR Group Conf. Ser. 18, 37-47, 1995.
@@ -171,7 +185,7 @@ def thonon_plate_DP(AS, geom, cond):
 
     return DP_f
 
-def muley_manglik_plate_DP(AS, geom, cond):
+def BPHX_muley_manglik_SP_DP(AS, geom, cond):
     """
     Muley, A. & Manglik, R.M. (1999). J. Heat Transfer 121(1):110-117.
 
@@ -208,7 +222,7 @@ def muley_manglik_plate_DP(AS, geom, cond):
 
     return DP_f
 
-def martin_plate_DP(AS, geom, cond):
+def BPHX_martin_SP_DP(AS, geom, cond):
     """
     Martin, H. (1996), Chem. Eng. Process. 35, 301-310; VDI Heat Atlas N6.
     Frictional pressure drop over the full flow length. Port losses are NOT
@@ -231,10 +245,138 @@ def martin_plate_DP(AS, geom, cond):
 
     return dp
 
-#%% TWO-PHASE : GENERIC
+#%% TWO-PHASE : BOILING + CONDENSING
 
+def BPHX_lockhart_martinelli_DP(AS, geom, cond):
+    """
+    Two-phase FRICTIONAL pressure drop with the Lockhart-Martinelli separated
+    flow model, in the analytical form of Chisholm (1967).
 
-#%% TWO-PHASE : BOILING 
+    Original validity: adiabatic two-phase flow in horizontal, smooth circular
+    tubes (Lockhart & Martinelli, 1949). Applying it to a plate heat exchanger
+    is an extrapolation.
 
+    cond : G (total mass flux in ONE channel) [kg/m2/s], x (mean quality of the cell) [-],
+           p (saturation pressure) [Pa]
+    geom : Dh [m] (2*b/enlargement_factor for a PHE),
+           L (TOTAL flow path length: plate length x number of passes) [m],
+           beta (chevron angle from the main flow direction, rad or deg),
+           optional: lm_C (Chisholm constant; None -> chosen from the laminar/turbulent
+                     regime of each phase: 5, 10, 12 or 20),
+                     lm_plate_friction (default True: Martin's PHE friction factor for each phase,
+                     C not refitted for plates; False: smooth tube friction factors, original method)
+
+    Returns dp [Pa]: frictional two-phase pressure drop over the FULL flow length L
+    (acceleration, gravity and port losses NOT included, see plate_port_DP).
+    """
+    
+    G = cond['G']
+    if not np.isfinite(cond['x']):
+        raise ValueError("Lockhart-Martinelli DP: cond['x'] must be finite (two-phase cell expected).")
+    x = min(max(float(cond['x']), 0.0), 1.0)
+    p_sat = cond['p']
+
+    Dh, L = geom['Dh'], geom['L']
+    C = geom.get('lm_C')
+    alpha = np.radians(chevron_deg(geom['beta'])) if geom.get('lm_plate_friction', True) else None
+
+    # Saturated properties
+    s = _sat_props(AS, p_sat)
+    rho_l, rho_v, mu_l, mu_v = s["rho_l"], s["rho_v"], s["mu_l"], s["mu_v"]
+    if not np.isfinite(mu_v):
+        raise ValueError("Lockhart-Martinelli DP needs the vapour viscosity, not available for this fluid.")
+
+    # 1. Reynolds number of each phase flowing ALONE at its actual flow rate
+    Re_l = G * (1 - x) * Dh / mu_l
+    Re_v = G * x * Dh / mu_v
+
+    # 2. Single-phase frictional pressure gradients [Pa/m]
+    def dpdz_single(Re, G_phase, rho):
+        if G_phase <= 0:
+            return 0.0
+        if alpha is None:
+            f_F = _fanning_tube(Re)                      # Fanning
+            return 2 * f_F * G_phase**2 / (rho * Dh)
+        zeta = _zeta_martin(Re, alpha)                   # Darcy
+        return zeta * G_phase**2 / (2 * rho * Dh)
+
+    dpdz_l = dpdz_single(Re_l, G * (1 - x), rho_l)
+    dpdz_v = dpdz_single(Re_v, G * x, rho_v)
+
+    # 3. Chisholm constant from the flow regime of each phase
+    #    (1500 used as transition Re to ensure continuity, as in ACHP)
+    if C is None:
+        if Re_l > 1500 and Re_v > 1500:
+            C = 20.0    # turbulent liquid - turbulent vapour
+        elif Re_l < 1500 and Re_v > 1500:
+            C = 12.0    # laminar liquid - turbulent vapour
+        elif Re_l > 1500 and Re_v < 1500:
+            C = 10.0    # turbulent liquid - laminar vapour
+        else:
+            C = 5.0     # laminar liquid - laminar vapour
+
+    # 4. Two-phase gradient (Chisholm form, identical to phi_l^2*dpdz_l = phi_v^2*dpdz_v)
+    dpdz = dpdz_l + C * np.sqrt(dpdz_l * dpdz_v) + dpdz_v
+
+    return dpdz * L
 
 #%% TWO-PHASE : CONDENSING 
+
+from labothappy.correlations.convection.BPHE_HTC_correlation_bank import _sat_props
+
+def BPHX_han_condensing_DP(AS, geom, cond):
+    """
+    Han, Lee & Kim (2003), J. Korean Phys. Soc. 43(1), 66-73 (to be checked).
+    Frictional pressure drop of a condensing flow in a brazed plate heat exchanger.
+    Port losses are NOT included (see plate_port_DP).
+
+        f    = Ge3 Re_eq^Ge4
+        Ge3  = 3521.1  (p_co/Dh)^4.17   theta^-7.75
+        Ge4  = -1.024  (p_co/Dh)^0.0925 theta^-1.3
+        dP_f = f (L/Dh) G^2 / rho_m
+
+    cond : G (mass flux in ONE channel) [kg/m2/s], x (mean quality of the cell) [-], p [Pa]
+    geom : Dh [m], p_co (corrugation pitch) [m],
+           beta (chevron angle from the main flow direction, rad or deg),
+           L (TOTAL flow path length: plate length x number of passes) [m]
+    Returns dP [Pa] over the FULL flow length.
+
+    Differences with the previous version (to be checked against the paper):
+      - Re_eq = G_eq Dh / mu_l with G_eq = G [(1-x) + x sqrt(rho_l/rho_v)] (equivalent Reynolds number,
+        as in the Han condensation HTC); before: G Dh / mu.
+      - rho_m = homogeneous density 1 / (x/rho_v + (1-x)/rho_l), and G^2 / rho_m; before: G^2 (rho_v + rho_l),
+        which is not a pressure (kg^3 m^-7 s^-2).
+      - L is the total path length, as in the other plate DP functions; before: L_v N_cp, where N_cp (number
+        of channels per pass) multiplied the pressure drop by the number of channels.
+      - theta = angle from the flow direction (Han's pi/2 - beta), as in the Han condensation HTC.
+    """
+    G = cond['G']
+    x = min(max(cond['x'], 0.0), 1.0)
+    p_sat = cond['p']
+
+    Dh, L, p_co = geom['Dh'], geom['L'], geom['p_co']
+    theta = np.radians(chevron_deg(geom['beta']))            # from the flow direction = Han's pi/2 - beta
+    if not 0.0 < theta <= np.pi / 2:
+        raise ValueError(f"Han condensation DP: angle {theta} rad from the flow direction "
+                         "outside ]0, pi/2].")
+    if not 13 <= G <= 34 or not 45 <= np.degrees(theta) <= 70:
+        warnings.warn("Han condensation DP: outside the range of the Han data (G 13-34 kg/m2/s, "
+                      "45-70 deg from the flow direction): extrapolated.")
+
+    # Saturated properties
+    s = _sat_props(AS, p_sat)
+    rho_l, rho_v, mu_l = s["rho_l"], s["rho_v"], s["mu_l"]
+
+    # Equivalent Reynolds number
+    G_eq = G * ((1 - x) + x * np.sqrt(rho_l / rho_v))
+    Re_eq = G_eq * Dh / mu_l
+
+    # Friction factor
+    Ge3 = 3521.1 * (p_co / Dh) ** 4.17 * theta ** (-7.75)
+    Ge4 = -1.024 * (p_co / Dh) ** 0.0925 * theta ** (-1.3)
+    f = Ge3 * Re_eq ** Ge4
+
+    # Frictional pressure drop over the full flow length
+    rho_m = 1.0 / (x / rho_v + (1.0 - x) / rho_l)
+    return f * (L / Dh) * G**2 / rho_m
+

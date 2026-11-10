@@ -104,7 +104,7 @@ def _compute_sat_props(AS, fluid, p):
 
 #%% SINGLE PHASE
 
-def BPHX_sinnott_SP_HTC(AS, geom, cond):
+def BPHE_sinnott_SP_HTC(AS, geom, cond):
     """
     Coulson & Richardson's Chemical Engineering Design Vol. 6
     
@@ -133,7 +133,7 @@ def BPHX_sinnott_SP_HTC(AS, geom, cond):
     
     return h_conv
 
-def BPHX_kumar_SP_HTC(AS, geom, cond):
+def BPHE_kumar_SP_HTC(AS, geom, cond):
     """Kumar, H., The Plate Heat Exchanger: Construction and Design,
     IChemE Symp. Ser. 86, 1275-1288, 1984.
     Angle measured from the direction perpendicular to the flow (geom['beta'] is
@@ -167,7 +167,7 @@ def BPHX_kumar_SP_HTC(AS, geom, cond):
     Nu = np.interp(beta, angles, Nu_tab) * Pr**(1/3) * (mu / mu_w)**0.17
     return k / Dh * Nu
 
-def BPHX_thonon_SP_HTC(AS, geom, cond):
+def BPHE_thonon_SP_HTC(AS, geom, cond):
     """Thonon, B., Design Method for Plate Evaporators and Condensers,
     BHR Group Conf. Ser. 18, 37-47, 1995.  Valid for 50 <= Re <= 15000.
     Angle measured from the direction perpendicular to the flow (geom['beta'] is
@@ -187,7 +187,7 @@ def BPHX_thonon_SP_HTC(AS, geom, cond):
     Nu = np.interp(beta, angles, Nu_tab) * Pr**(1/3)
     return k / Dh * Nu
 
-def BPHX_muley_manglik_SP_HTC(AS, geom, cond):
+def BPHE_muley_manglik_SP_HTC(AS, geom, cond):
     """
     Muley, A. & Manglik, R.M. (1999). Experimental Study of Turbulent Flow Heat
     Transfer and Pressure Drop in a Plate Heat Exchanger With Chevron Plates.
@@ -216,12 +216,14 @@ def BPHX_muley_manglik_SP_HTC(AS, geom, cond):
     Nu = C * D * Re**p * Pr**(1/3) * (mu/mu_w)**0.14
     return k / Dh * Nu
 
-def BPHX_martin_SP_HTC(AS, geom, cond):
+def BPHE_martin_SP_HTC(AS, geom, cond):
     """Martin (1996), VDI Heat Atlas N6. Angle from the main flow direction.
     cond['mu_w'] is optional: without it the viscosity correction is 1 (gases)."""
+    
     G, mu, Pr, k = cond['G'], cond['mu'], cond['Pr'], cond['k']
     mu_w = cond.get('mu_w')
-    Dh = geom['Dh']
+    phi = geom.get('phi', 1.17)
+    Dh = geom['Dh']/phi
     beta = chevron_deg(geom['beta'])
     alpha = np.radians(beta)
 
@@ -233,11 +235,12 @@ def BPHX_martin_SP_HTC(AS, geom, cond):
     zeta = _zeta_martin(Re, alpha)                       # log10 version
     visc = (mu / mu_w) ** (1/6) if mu_w else 1.0
     Nu = 0.122 * Pr**(1/3) * visc * (zeta * Re**2 * np.sin(2*alpha))**0.374
+
     return k / Dh * Nu
 
 #%% TWO-PHASE : BOILING 
 
-def BPHX_cooper_boiling_HTC(AS, geom, cond):
+def BPHE_cooper_boiling_HTC(AS, geom, cond):
     """
     Nucleate pool boiling heat transfer coefficient, after M.G. Cooper (1984),
     "Heat flow rates in saturated nucleate boiling - A wide-ranging examination
@@ -269,7 +272,7 @@ def BPHX_cooper_boiling_HTC(AS, geom, cond):
     
     return htc
 
-def BPHX_amalfi_boiling_HTC(AS, geom, cond):
+def BPHE_amalfi_boiling_HTC(AS, geom, cond):
     """
     Amalfi, Vakili-Farahani & Thome (2016), Int. J. Refrig. 61, 185-203 (Part 2).
     Flow boiling in plate heat exchangers.
@@ -328,7 +331,7 @@ def BPHX_amalfi_boiling_HTC(AS, geom, cond):
 
 #%% TWO-PHASE : CONDENSING 
 
-def BPHX_shah_condensing_HTC(AS, geom, cond):
+def BPHE_shah_condensing_HTC(AS, geom, cond):
     """
     Shah (2021) condensation in plate heat exchangers (to be checked against the paper),
     forced-convection branch from Longo et al. (2015).
@@ -343,11 +346,10 @@ def BPHX_shah_condensing_HTC(AS, geom, cond):
     x = cond['x']
     p_sat = cond['p']
     
-    Dh = geom['Dh']
-    if 'phi' not in geom:
-        warnings.warn("Shah condensation: 'phi' not given in geom, using 1.17.")
     phi = geom.get('phi', 1.17)
 
+    Dh = geom['Dh']/phi
+    
     if not 2.3 <= G <= 165:
         warnings.warn("Shah condensation: mass flux outside the validated range "
                       "(2.3-165 kg/m2/s): extrapolated.")
@@ -373,7 +375,7 @@ def BPHX_shah_condensing_HTC(AS, geom, cond):
               * (rho_l * (rho_l - rho_v) * g * k_l**3 / mu_l**2) ** (1/3))
     return max(h_grav, h_fc)
 
-def BPHX_han_condensing_HTC(AS, geom, cond):
+def BPHE_han_condensing_HTC(AS, geom, cond):
     """
     Han, Lee & Kim (2003), J. Korean Phys. Soc. 43(1), 66-73 (to be checked).
     Condensation in brazed plate HX, Nu = Ge1 Re_eq^Ge2 Pr^(1/3).
@@ -416,7 +418,7 @@ def BPHX_han_condensing_HTC(AS, geom, cond):
     Nu = Ge1 * Re_eq ** Ge2 * Pr_l ** (1 / 3)
     return Nu * k_l / Dh
 
-def BPHX_longo_condensing_HTC(AS, geom, cond):
+def BPHE_longo_condensing_HTC(AS, geom, cond):
     """
     Condensation HTC in a brazed plate heat exchanger, in the simplified form used
     by ACHP (Bell, ACHP docs, Plate-Heat-Exchangers, eqs. 21-23), built on:

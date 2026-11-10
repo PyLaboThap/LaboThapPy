@@ -13,7 +13,7 @@ Modification w/r to previous version:
 
 from labothappy.toolbox.plots.plot_MB_STHE import plot_MB_STHE
 
-from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
+from labothappy.component.heat_exchanger.hex_MB_charge_sensitive_bis import HexMBChargeSensitive
 from CoolProp.CoolProp import PropsSI    
 
 
@@ -26,13 +26,13 @@ start_time = time.time()
 
 "HTX Instanciation"
 
-case_study = 'R134a'
+case_study = 'Methanol'
 n_disc = 30
         
 # # -------------------------------------------------------------------------------------------------------------
 # # Methanol Sensible HT Case
 
-HX = HexMBChargeSensitive('Shell&Tube')
+HX = HexMBChargeSensitive('STHE')
 
 if case_study == 'Methanol':
 
@@ -82,11 +82,10 @@ if case_study == 'Methanol':
         Flow_Type = params['Flow_Type'], n_disc = params['n_disc'])
     
     # "Correlation Loading"
+    Corr_C = {"1P" : "Gnielinski", "2P" : "VDI"}
+    Corr_H = {"1P" : "Kern", "2P" : "Kern"}
     
-    Corr_C = {"1P" : "Gnielinski", "2P" : "Flow_boiling"}
-    Corr_H = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
-    
-    Corr_H_DP = {"1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
+    Corr_H_DP = {"1P" : "Kern", "2P" : "Kern"}
     Corr_C_DP = {"1P" : "Churchill", "2P" : "MSH"}
 # -------------------------------------------------------------------------------------------------------------
 
@@ -143,11 +142,10 @@ if case_study == 'R134a':
     
     # "Correlation Loading"
     
-    Corr_C = {"1P" : "Gnielinski", "2P" : "Flow_boiling"}
-    # Corr_C = {"1P" : "Gnielinski", "2P" : "Flow_boiling_gungor_winterton"}
-    Corr_H = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
+    Corr_C = {"1P" : "Gnielinski", "2P" : "VDI"}
+    Corr_H = {"1P" : "Kern", "2P" : "Kern"}
     
-    Corr_H_DP = {"1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
+    Corr_H_DP = {"1P" : "Kern", "2P" : "Kern"}
     Corr_C_DP = {"1P" : "Churchill", "2P" : "MSH"}
 
 if case_study == 'R134a_cond':
@@ -202,7 +200,7 @@ if case_study == 'R134a_cond':
     
     Corr_H = {"1P" : "Gnielinski", "2P" : "Thome_Condensation"}
     # Corr_C = {"1P" : "Gnielinski", "2P" : "Flow_boiling_gungor_winterton"}
-    Corr_C = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
+    Corr_C = {"1P" : "Kern", "2P" : "Kern"}
     
     Corr_C_DP = {"1P" : "Churchill", "2P" : "Churchill"}
     Corr_H_DP = {"1P" : "Churchill", "2P" : "MSH"}
@@ -257,10 +255,10 @@ if case_study == 'R32':
     
     # "Correlation Loading"
     
-    Corr_C = {"1P" : "Gnielinski", "2P" : "choi_boiling"}
-    Corr_H = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
+    Corr_C = {"1P" : "Gnielinski", "2P" : "Choi"}
+    Corr_H = {"1P" : "Kern", "2P" : "Kern"}
     
-    Corr_H_DP = {"1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
+    Corr_H_DP = {"1P" : "Kern", "2P" : "Kern"}
     Corr_C_DP = {"1P" : "Konakov", "2P" : "MSH"}
 
 # -------------------------------------------------------------------------------------------------------------
@@ -319,9 +317,9 @@ if case_study == 'CO2_GasCooler_1':
     # "Correlation Loading"
     
     Corr_H = {"1P" : "Gnielinski", "2P" : "Flow_boiling", "SC" : "Liu_sCO2"}
-    Corr_C = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
+    Corr_C = {"1P" : "Kern", "2P" : "Kern"}
     
-    Corr_C_DP = {"1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
+    Corr_C_DP = {"1P" : "Kern", "2P" : "Kern"}
     Corr_H_DP = {"1P" : "Churchill", "2P" : "MSH", "SC" : "Cheng-CO2"} 
 
 # -------------------------------------------------------------------------------------------------------------
@@ -376,9 +374,9 @@ if case_study == 'CO2_GasCooler_2':
     # "Correlation Loading"
     
     Corr_H = {"1P" : "Gnielinski", "2P" : "Flow_boiling", "SC" : "Liu_sCO2"}
-    Corr_C = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
+    Corr_C = {"1P" : "Kern", "2P" : "Kern"}
     
-    Corr_C_DP = {"1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
+    Corr_C_DP = {"1P" : "Kern", "2P" : "Kern"}
     Corr_H_DP = {"1P" : "Konakov", "2P" : "MSH", "SC" : "Cheng-CO2"} 
 
 # # -------------------------------------------------------------------------------------------------------------
@@ -437,10 +435,10 @@ if case_study == 'CO2_CD':
     # "Correlation Loading"
     
     Corr_H = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Thome_Condensation"}
-    Corr_C = {"SC" : "Shell_Kern_HTC", "1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
+    Corr_C = {"SC" : "Kern", "1P" : "Kern", "2P" : "Kern"}
     
     Corr_H_DP = {"SC" : "Konakov", "1P" : "Konakov", "2P" : "MSH"}
-    Corr_C_DP = {"SC" : "Shell_Kern_DP", "1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
+    Corr_C_DP = {"SC" : "Kern", "1P" : "Kern", "2P" : "Kern"}
         
 # # -------------------------------------------------------------------------------------------------------------
 

@@ -12,7 +12,6 @@ import numpy as np
 
 HX = HexMBPlate('Plate')
 
-
 case_study = 'Evaporator_C5'
 
 if case_study == 'Condenser_R1233ZDE':

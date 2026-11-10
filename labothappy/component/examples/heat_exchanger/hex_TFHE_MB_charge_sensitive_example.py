@@ -24,66 +24,74 @@ start_time = time.time()
 
 "HTX Instanciation"
 
-HX = HexMBChargeSensitive('Tube&Fins')
+case_study = "REC"
+
+HX = HexMBChargeSensitive('TFHE')
 
 # "Setting inputs"
 
 # -------------------------------------------------------------------------------------------------------------
+if case_study == "REC":
 
-# # DECAGONE Recuperator HTX case
-
-HX.set_inputs(
-    # First fluid
-    fluid_H = 'Cyclopentane',
-    T_su_H = 133.8 + 273.15, # K
-    P_su_H = 0.8*1e5, # Pa
-    m_dot_H = 13.76, # kg/s
-
-    # Second fluid
-    fluid_C = 'Cyclopentane',
-    T_su_C = 35.1 + 273.15, # K
-    P_su_C = 31.5*1e5, # Pa
-    m_dot_C = 13.76, # kg/s  # Make sure to include fluid information
-)
-
-"Correlation Loading"
-
-# Corr_H = {"1P" : "Tube_And_Fins", "2P" : "ext_tube_film_condens"}
-Corr_H = {"1P" : "Tube_And_Fins", "2P" : "Tube_And_Fins"}
-Corr_C = {"1P" : "Gnielinski", "2P" : "Boiling_curve"}
-
-Corr_H_DP = {"1P" : "Tube_And_Fins_DP", "2P" : "Tube_And_Fins_DP"}
-Corr_C_DP = {"1P" : "Churchill", "2P" : "Friedel"}
+    # DECAGONE Recuperator HTX case
+    HX.set_inputs(
+        # First fluid
+        fluid_H = 'Cyclopentane',
+        T_su_H = 133.8 + 273.15, # K
+        P_su_H = 0.8*1e5, # Pa
+        m_dot_H = 13.76, # kg/s
+    
+        # Second fluid
+        fluid_C = 'Cyclopentane',
+        T_su_C = 35.1 + 273.15, # K
+        P_su_C = 31.5*1e5, # Pa
+        m_dot_C = 13.76, # kg/s  # Make sure to include fluid information
+    )
+    
+    "Correlation Loading"
+    
+    # Corr_H = {"1P" : "Tube_And_Fins", "2P" : "ext_tube_film_condens"}
+    # Fin side (hot): Pismennyi on the gas; for a two-phase / vapor-wet cell the same correlation is reused
+    # (phase change ignored, warning). Tube side (cold): pipe correlations, None = automatic choice
+    # (cyclopentane = hydrocarbon: Steiner-Taborek / VDI / Gungor-Winterton for boiling).
+    Corr_H = {"1P" : "Pismennyi", "2P" : "Pismennyi"}
+    Corr_C = {"1P" : "Gnielinski", "2P" : None}
+    
+    # Pressure drop correlations do not exist yet for the finned side: use DP_type = "User-Defined" below
+    Corr_H_DP = {"1P" : "Pismennyi", "2P" : "Pismennyi"}
+    Corr_C_DP = {"1P" : "Churchill", "2P" : "Friedel"}
 
 # -------------------------------------------------------------------------------------------------------------
 
-# DECAGONE ACC HTX case
+# elif case_study == "REC":
 
-# HX.set_inputs(
-#     # First fluid
-#     fluid_H = 'Cyclopentane',
-#     T_su_H = 53.6 + 273.15, # K
-#     P_su_H = 0.7*1e5, # Pa
-#     m_dot_H = 13.8/2, # kg/s
-
-#     # Second fluid
-#     Csu_fluid = 'Air',
-#     Csu_T = 12 + 273.15, # K
-#     Csu_p = 1.05*1e5, # Pa
-#     Csu_m_dot = 158.5, # kg/s  # Make sure to include fluid information
-# )
-
-# "Geometry Loading"
-
-# HX_geom = TubeAndFinsGeom()
-# HX_geom.set_parameters("DECAGONE_ACC") 
-
-# Fin_Side = 'C'
-
-# "Correlation Loading"
-
-# Corr_H = {"1P" : "Gnielinski", "2P" : "Horizontal_Tube_Internal_Condensation"}
-# Corr_C = {"1P" : "Tube_And_Fins", "2P" : "Boiling_curve"}
+#     # DECAGONE ACC HTX case
+    
+#     HX.set_inputs(
+#         # First fluid
+#         fluid_H = 'Cyclopentane',
+#         T_su_H = 53.6 + 273.15, # K
+#         P_su_H = 0.7*1e5, # Pa
+#         m_dot_H = 13.8/2, # kg/s
+    
+#         # Second fluid
+#         Csu_fluid = 'Air',
+#         Csu_T = 12 + 273.15, # K
+#         Csu_p = 1.05*1e5, # Pa
+#         Csu_m_dot = 158.5, # kg/s  # Make sure to include fluid information
+#     )
+    
+#     "Geometry Loading"
+    
+#     HX_geom = TubeAndFinsGeom()
+#     HX_geom.set_parameters("DECAGONE_ACC") 
+    
+#     Fin_Side = 'C'
+    
+#     "Correlation Loading"
+    
+#     Corr_H = {"1P" : "Gnielinski", "2P" : "Horizontal_Tube_Internal_Condensation"}
+#     Corr_C = {"1P" : "Tube_And_Fins", "2P" : "Boiling_curve"}
 
 # -------------------------------------------------------------------------------------------------------------
 
@@ -117,9 +125,9 @@ params = {
 
 HX.set_parameters(
     A_flow = params['A_flow'], Fin_OD = params['Fin_OD'], Fin_per_m = params['Fin_per_m'], Fin_t = params['Fin_t'], Fin_type = params['Fin_type'], # 10
-    Finned_tube_flag = params['Tube_t'], Tube_L = params['Tube_L'], Tube_OD = params['Tube_OD'], # 15
+    Finned_tube_flag = params['Finned_tube_flag'], Tube_L = params['Tube_L'], Tube_OD = params['Tube_OD'], # 15
     Tube_cond = params['Tube_cond'], Tube_t = params['Tube_t'], fouling = params['fouling'], h = params['h'], k_fin = params['k_fin'], # 20
-    Tube_pass = params['Tube_pass'], n_rows = params['n_rows'], n_series = params['n_series'], n_tubes = params['n_tubes'], pitch_ratio = params['pitch_ratio'], tube_arrang = params['tube_arrang'], w = params['w'], # 30
+    Tube_pass = params['Tube_pass'], n_rows = params['n_rows'], n_series = params['n_series'], n_parallel = params['n_parallel'], n_tubes = params['n_tubes'], pitch_ratio = params['pitch_ratio'], tube_arrang = params['tube_arrang'], w = params['w'], # 30
 
     Fin_Side = params['Fin_Side'], # 28
 
@@ -145,9 +153,9 @@ HX.set_parameters(
 HX.set_htc(htc_type = 'Correlation', Corr_H = Corr_H, Corr_C = Corr_C) # 
 
 # HX.set_DP() # equivalent to HX.set_DP(DP_type = None)
-HX.set_DP(DP_type="User-Defined", UD_C_DP = 10000, UD_H_DP = 10000) # Fixed User-Defined values, equally distributed over discretizations
+# HX.set_DP(DP_type="User-Defined", UD_C_DP = 10000, UD_H_DP = 10000) # Fixed User-Defined values, equally distributed over discretizations
 # HX.set_DP(DP_type="Correlation_Global", Corr_C=Corr_C_DP, Corr_H=Corr_H_DP)
-# HX.set_DP(DP_type="Correlation_Disc", Corr_C=Corr_C_DP, Corr_H=Corr_H_DP)
+HX.set_DP(DP_type="Correlation_Disc", Corr_C=Corr_C_DP, Corr_H=Corr_H_DP)
 
 "Solve the component"
 HX.solve()
