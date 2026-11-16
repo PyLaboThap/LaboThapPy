@@ -413,7 +413,7 @@ class TES_step(BaseComponent):
                 & (T_profile <= self.T_PCM+(DT_gaus/2)), T_profile > self.T_PCM+(DT_gaus/2)],
             [self.cp_sol,lambda T:self.cp_sol + (self.cp_liq-self.cp_sol) *(T-(self.T_PCM-(DT_gaus/2)))/DT_gaus,self.cp_liq])
 
-       sigma = (DT_gaus/2)/3
+        sigma = (DT_gaus/2)/3
 
         A = self.Dh_latent / (sigma*np.sqrt(2*np.pi))
 
