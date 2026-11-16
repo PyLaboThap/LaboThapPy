@@ -17,7 +17,7 @@ from toolbox.geometries.heat_exchanger.c_geometry_HXs_Zorlu import Zorlu_HXs
 
 import numpy as np
 
-HX_name = 'RECUPERATOR'
+HX_name = 'PREHEATER'
 """
 HX names:
     PREHEATER
@@ -30,7 +30,7 @@ HX names:
 n_disc =30
     
 if HX_name == "PREHEATER":
-    Type_HX = 'MB'   # 'epsNTU'  or 'MB'
+    Type_HX = 'epsNTU'   # 'epsNTU'  or 'MB'
     
     if Type_HX == 'MB':
     
