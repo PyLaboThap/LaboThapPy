@@ -547,10 +547,10 @@ if __name__ == "__main__":
             )
         
         Sep.set_parameters(
-            BD=0.085,   # m body diameter
-            BH=0.22,   # m body height
-            D_in=0.0141, # inlet pipe inner diameter
-            S=0.120,    # m outlet pipe length
+            BD=0.15,   # m body diameter
+            BH=0.3,   # m body height
+            D_in=0.03, # inlet pipe inner diameter
+            S=0.2,    # m outlet pipe length
             IP=0.030,   # m inlet position
             BD_ref= 0.085, # Body diameter of reference 
             BH_ref= 0.22, # Body Height of reference 
@@ -585,7 +585,7 @@ if __name__ == "__main__":
         
             2. TREND: η vs MFR and LCR  (Figs. 4 & 5)
                - η decreases with MFR up to ~90 g/s, then increases         (U-shape)
-               - η increases with LCR at every MFR                           (monotone)
+               - η increases with LCR at every MFR                          (monotone)
         
             3. TREND: geometry effect on relative η  (Table 3, EC column)
                All four alternative designs improve η vs Reference:

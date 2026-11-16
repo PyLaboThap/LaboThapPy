@@ -1,8 +1,8 @@
 
-from connector.mass_connector import MassConnector
-from connector.heat_connector import HeatConnector
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.connector.heat_connector import HeatConnector
 
-from component.base_component import BaseComponent
+from labothappy.component.base_component import BaseComponent
 
 # from component.heat_exchanger.moving_boundary.simple_model.modules.U import U_Gnielinski_calibrated, U_DittusBoelter, U_Cooper_calibrater, U_Thonon
 
@@ -163,10 +163,14 @@ class HexCstEff(BaseComponent):
     def update_connectors(self, Q_dot):
         
         "Mass Connectors"
+        self.ex_C.reset()
+
         self.ex_C.set_fluid(self.su_C.fluid)
         self.ex_C.set_m_dot(self.su_C.m_dot)
         self.ex_C.set_h(self.su_C.h + Q_dot/self.su_C.m_dot)
         self.ex_C.set_p(self.su_C.p - self.DP_c)
+
+        self.ex_H.reset()
 
         self.ex_H.set_fluid(self.su_H.fluid)
         self.ex_H.set_m_dot(self.su_H.m_dot)

@@ -1,8 +1,8 @@
 
 import numpy as np
-from component.base_component import BaseComponent
-from connector.mass_connector import MassConnector
-from connector.work_connector import WorkConnector
+from labothappy.component.base_component import BaseComponent
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.connector.work_connector import WorkConnector
 import CoolProp.CoolProp as CP
 
 class ExpanderCstEff(BaseComponent):
@@ -129,6 +129,8 @@ class ExpanderCstEff(BaseComponent):
 
     def update_connectors(self, h_ex, w_exp, p_ex, W_dot_exp):
         """Update the connectors with the calculated values."""
+        self.ex.reset()
+        
         self.ex.set_fluid(self.su.fluid)
         self.ex.set_h(h_ex)
         self.ex.set_p(p_ex)

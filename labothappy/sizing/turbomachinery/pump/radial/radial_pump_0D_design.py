@@ -1,8 +1,9 @@
 
 import numpy as np
 import CoolProp.CoolProp as CP
-from correlations.turbomachinery.correlations_0D import cordier_line
-from toolbox.economics.cpi_data import actualize_price
+
+from labothappy.correlations.turbomachinery.correlations_0D import cordier_line
+from labothappy.toolbox.economics.cpi_data import actualize_price
 
 class RadialPumpODDesign():
     
@@ -246,6 +247,31 @@ class RadialPumpODDesign():
     
         return best_col, best_row
     
+    def export_params_dict(self):
+
+        return {
+            "type": "Radial Pump Stack",
+            
+            "mass_flow_kg_s": self.inputs['m_dot'],
+            "total_to_static_efficiency": self.eta_is,
+            "pressure_ratio": round(self.inputs['P_ex']/self.inputs['P_su'],2),
+            "n_parallel": self.n_parallel,
+
+            "H1": self.inputs["H1"],
+            "H2": self.inputs["H2"],
+            "v1": self.inputs["v1"],
+            "v2": self.inputs["v2"],            
+            "T_su": self.inputs["T_su"],
+            "P_su": self.inputs["P_su"],
+            "P_ex": self.inputs["P_ex"],
+            
+            "D": self.D,
+            "Omega_s": self.Omega_s,
+            "Omega_s_imp": self.Omega_s_imp,
+            
+            "CAPEX": self.CAPEX,
+        }
+    
     def design(self):
         
         self.eta_matrix = np.zeros([len(self.params["n_parallel_choices"]), len(self.params['Omega_choices'])])
@@ -262,9 +288,11 @@ class RadialPumpODDesign():
         index_omega, index_npp = self.pick_npp_by_threshold(self.eta_matrix)
 
         self.Omega = self.params['Omega_choices'][index_omega]
-        self.n_parallel = self.params["n_parallel_choices"][index_npp]
+        self.n_parallel = float(self.params["n_parallel_choices"][index_npp])
 
         self.Omega_system()
+    
+        
         self.cost_estimation()
         
         return 
@@ -279,11 +307,11 @@ if __name__ == "__main__":
         
         T_su = 5.15 + 273.15, # T
         
-        H1 = 0, # m
-        H2 = 0, # m
+        H1 = 0.0, # m
+        H2 = 0.0, # m
         
-        v1 = 0, # m/s
-        v2 = 0, # m/s
+        v1 = 0.0, # m/s
+        v2 = 0.0, # m/s
         
         m_dot = 500, # kg/s
         )

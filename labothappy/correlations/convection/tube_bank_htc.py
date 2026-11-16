@@ -209,7 +209,7 @@ def DP_external_flow_inline_bank(fluid, T_in, P_mean, u_flow, D_out, S_T, S_L):
     # pressure drop 
     Eu = euler_coeff(a,b,Re_max) # Euler number	
     DP_row = (1/2)*Eu*rho*V_max**2 # average pressure drop across 1 row
-        
+    
     return DP_row
 
 def DP_external_flow_staggered_bank(fluid, T_in, P_mean, u_flow, D_out, S_T, S_L):

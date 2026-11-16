@@ -11,9 +11,9 @@ from labothappy.component.solar.parabolic_trough_collector import PTCollector
 PT_geom = PT_Collector_Geom()
 PT_geom.set_parameters("Soponova_MicroCSP")
 
-case = "plant_sizing"
+case_study = "study_disc"
 
-if case == "study_disc":
+if case_study == "study_disc":
     n_disc_vec = np.linspace(1,50,50)
     Q_dot_vec = np.zeros(len(n_disc_vec))
 
@@ -53,7 +53,7 @@ if case == "study_disc":
     plt.xlabel("Discretizations")
     plt.ylabel("Absorbed Power [kW]")
 
-if case == "plant_sizing":
+if case_study == "plant_sizing":
     
     Q_dot_need = 14*1e6 # W
     DT_need = 10 # K

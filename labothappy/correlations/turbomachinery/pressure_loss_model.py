@@ -45,14 +45,6 @@ def balje_binsley(Re, t_TE, chord, t_blade, xhi1, xhi2):
     den_Yp = 1 + 2 * (np.sin(xhi2)**2) * (B**2 - A)
     Yp = abs(1- num_Yp/den_Yp)
     
-    # print(f"H_TE_2 : {H_TE}")
-    # print(f"theta_2 : {theta_star}")
-    # print(f"t_TE : {t_TE}")
-    # print(f"t_blade : {t_blade}")
-    # print(f"A_2 : {A}")
-    # print(f"B_2 : {B}")
-    # print(f"stagger_2 : {xhi2}")
-    
     return Yp
 
 def kacker_okaapu(AR, solidity, alpha1, alpha2, beta1):

@@ -5,8 +5,8 @@ Created on Fri May 10 14:31:24 2024
 @author: Basile
 """
 
-from connector.mass_connector import MassConnector
-from component.base_component import BaseComponent
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.component.base_component import BaseComponent
 
 class TankSpliter(BaseComponent):
     """
@@ -102,6 +102,7 @@ class TankSpliter(BaseComponent):
                     for i in range(len(self.outlet_repartition)):
                         outlet_num = i + 1
                         connector = getattr(self, f"ex_{outlet_num}")
+                        connector.reset()
                         connector.set_fluid(self.su.fluid)
                         connector.set_p(self.su.p)
                         connector.set_h(self.su.h)

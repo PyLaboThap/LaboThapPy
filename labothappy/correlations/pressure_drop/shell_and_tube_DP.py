@@ -191,14 +191,6 @@ def shell_DP_kern(m_dot, T_wall, h_in, P_in, AS, params):
     phi_s = (mu/mu_w)**(0.14)  
     
     DP = (f*G**2 * params['Shell_ID'] * (params['cross_passes'] + 1))/(2*rho*D_hydro*phi_s)
-    
-    print(f"rho :{rho}")
-    print(f"D_hydro:{D_hydro}")
-    print(f"phi_s :{phi_s}")
-    print(f"N_B :{params['cross_passes'] + 1}")
-    print(f"Shell_ID :{params['Shell_ID']}")
-    print(f"f :{f}")
-    print(f"G :{G}")
         
     return DP
 

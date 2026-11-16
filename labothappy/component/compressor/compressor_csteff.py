@@ -1,8 +1,8 @@
 import __init__
 
-from component.base_component import BaseComponent
-from connector.mass_connector import MassConnector
-from connector.work_connector import WorkConnector
+from labothappy.component.base_component import BaseComponent
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.connector.work_connector import WorkConnector
 
 from CoolProp.CoolProp import PropsSI
 import CoolProp.CoolProp as CP
@@ -69,33 +69,37 @@ class CompressorCstEff(BaseComponent):
         ]
 
     def solve(self):
+        
+        self.solved = False
+        
         self.check_calculable()
         self.check_parametrized()
         # self.print_setup()
         self.AS = CP.AbstractState('HEOS', self.su.fluid)
 
-        try:
-            self.AS.update(CP.PSmass_INPUTS, self.ex.p, self.su.s)
-            h_ex_is = self.AS.hmass()
-            
-            self.AS.T()
-            
-            h_ex = self.su.h + (h_ex_is - self.su.h) / self.params['eta_is']
-            w = h_ex - self.su.h
-            W_dot = self.su.m_dot*w
-            self.update_connectors(h_ex, w, W_dot)
+        self.AS.update(CP.PSmass_INPUTS, self.ex.p, self.su.s)
+        self.h_ex_is = self.AS.hmass()
+        
+        self.AS.T()
+        
+        h_ex = self.su.h + (self.h_ex_is - self.su.h) / self.params['eta_is']
+        w = h_ex - self.su.h
+        W_dot = self.su.m_dot*w
+        self.update_connectors(h_ex, w, W_dot)
 
-            self.solved = True
-            # self.print_states_connectors()
-        except Exception as e:
-            print(f"Error: {e}")
-            self.solved = False
-            return
+        self.solved = True
+
+        return
     
     def update_connectors(self, h_ex, w, W_dot):
+        
+        self.ex.reset()
+        
         self.ex.set_h(h_ex)
+        self.ex.set_p(self.inputs['P_ex'])
         self.ex.set_fluid(self.su.fluid)
         self.ex.set_m_dot(self.su.m_dot)
+        
         self.W.set_w(w)
         self.W.set_W_dot(W_dot)
 

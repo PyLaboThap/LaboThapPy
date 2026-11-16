@@ -168,7 +168,7 @@ def thome_condensation(AS, D_i, G, P_sat, T_sat, T_wall, x):
     h_tp : Condensing heat transfer coefficient
     """
     
-    from correlations.properties.void_fraction import void_fraction
+    from labothappy.correlations.void_fraction.void_fraction_old import void_fraction
     g = 9.81 # m/s^2
     
     # Flow Area
@@ -512,6 +512,7 @@ def horizontal_flow_boiling(AS, G, P_sat, x, D_in, q):
         "Nitrogen": 4380, "N2": 4380,
         "Argon": 3870, "Ar": 3870,
         "Oxygen": 4120, "O2": 4120,
+        "CarbonDioxide": 5500, "CO2": 5500,
     } # W/(m**2 * K)
     
     a_0 = a_0_dict[fluid]
@@ -1065,6 +1066,20 @@ def Cheng_sCO2(G, q, T_w, P, h_in, h_out, mu, k, D_in, fluid):
         # print(f"h_bot : {h_bot}")     
         
         return (h_top + h_bot)/2
+
+def Meshram(Dh, G, k, mu, Pr):
+    """
+    Modeling and analysis of a printed circuit heat exchanger for supercritical CO2 power cycle applications
+    
+    Ajinkya Meshram, Ankush Kumar Jaiswal, Sagar D. Khivsara, Jesus D. Ortega, Clifford Ho, Rucha Bapat, Pradip Dutta
+    """
+    Re = G*Dh/mu
+
+    Nu = 0.0177 * Re**0.871 * Pr**0.7
+
+    h_conv = Nu*k/Dh
+    
+    return h_conv
         
 def Liu_sCO2(G, P, T_w, k, rho, mu, cp, D_in, fluid):
     """

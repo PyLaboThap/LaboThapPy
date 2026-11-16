@@ -18,10 +18,8 @@ from correlations.convection.printed_circuit_htc import PCHE_Lee, PCHE_conv
 
 
 from connector.mass_connector import MassConnector
-from connector.work_connector import WorkConnector
 from connector.heat_connector import HeatConnector
 
-from CoolProp.CoolProp import PropsSI
 import CoolProp.CoolProp as CP
 from scipy.interpolate import interp1d
 import numpy as np
@@ -493,8 +491,8 @@ class HexeNTU(BaseComponent):
 
             self.AS_H.update(CP.HmassP_INPUTS, self.su_H.h, self.su_H.p)
             cp_h = self.AS_H.cpmass()
-            
-            self.AS_C.update(CP.HmassP_INPUTS, self.su_H.h, self.su_C.p)
+
+            self.AS_C.update(CP.HmassP_INPUTS, self.su_C.h, self.su_C.p)
             cp_c = self.AS_C.cpmass()
 
             

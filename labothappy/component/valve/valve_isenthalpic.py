@@ -1,5 +1,5 @@
-from component.base_component import BaseComponent
-from connector.mass_connector import MassConnector
+from labothappy.component.base_component import BaseComponent
+from labothappy.connector.mass_connector import MassConnector
 
 
 class ValveIsenthalpic(BaseComponent):
@@ -72,6 +72,10 @@ class ValveIsenthalpic(BaseComponent):
             return
     
     def update_connectors(self, h_ex):
+        
+        self.ex.reset()
+        
+        self.ex.set_p(self.inputs['P_ex'])
         self.ex.set_h(h_ex)
         self.ex.set_fluid(self.su.fluid)
         self.ex.set_m_dot(self.su.m_dot)

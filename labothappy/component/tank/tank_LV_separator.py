@@ -24,8 +24,8 @@ import __init__
  
 "INTERNAL IMPORTS"
 
-from connector.mass_connector import MassConnector
-from component.base_component import BaseComponent
+from labothappy.connector.mass_connector import MassConnector
+from labothappy.component.base_component import BaseComponent
 
 # !!! Put what you need to import here from the library
 
@@ -122,21 +122,19 @@ class TankLVSeparator(BaseComponent):
         # print ('No required parameters')
         return []
 
-           
-
-    def update_connectors(self, x_ex_l, T_ex_l, h_ex_l, p_ex_l, m_dot_l, x_ex_v, T_ex_v, h_ex_v, p_ex_v, m_dot_v):
+    def update_connectors(self, h_ex_l, p_ex_l, m_dot_l, h_ex_v, p_ex_v, m_dot_v):
         """Update mass connectors after solving"""
+        self.ex_l.reset()
+        
         self.ex_l.set_fluid(self.su.fluid)
-        self.ex_l.set_x(x_ex_l)
-        self.ex_l.set_T(T_ex_l)
-        self.ex_l.set_h(h_ex_l) 
+        self.ex_l.set_h(h_ex_l)
         self.ex_l.set_p(p_ex_l)
         self.ex_l.set_m_dot(m_dot_l)  
     
+        self.ex_v.reset()
+
         self.ex_v.set_fluid(self.su.fluid)
-        self.ex_v.set_x(x_ex_v)
-        self.ex_v.set_T(T_ex_v)
-        self.ex_v.set_h(h_ex_v) 
+        self.ex_v.set_h(h_ex_v)
         self.ex_v.set_p(p_ex_v)
         self.ex_v.set_m_dot(m_dot_v)  
 
@@ -167,36 +165,44 @@ class TankLVSeparator(BaseComponent):
         # Get saturation temperature at supply pressure
         self.AS.update(CP.PQ_INPUTS,P_su, 0.5)
         T_sat =self.AS.T ()
-    
-        if 0 <= x_su <= 1:  # Two-phase mixture
-            m_dot_l = (1 - x_su) * m_dot_su
-            m_dot_v = x_su * m_dot_su
-        else:
-            if T_su > T_sat:  # Vapor phase
-                m_dot_v = m_dot_su
-                m_dot_l = 0
-            else:  # Liquid phase
-                m_dot_l = m_dot_su
-                m_dot_v = 0
-                
-                # Set exhaust enthalpy
-        x_ex_v=1
-        T_ex_v=T_su
-        self.AS.update(CP.PQ_INPUTS, P_su, x_ex_v)
-        h_ex_v = self.AS.hmass ()
-        P_ex_v=P_su
         
-        x_ex_l=0
-        self.AS.update(CP.PQ_INPUTS, P_su, x_ex_l)
-        h_ex_l = self.AS.hmass ()
-        T_ex_l=T_su
-        P_ex_l=P_su
+        if P_su > self.AS.p_critical() or T_su > self.AS.T_critical():
+            x_su = 1
+            # Update mass connectors
+            self.update_connectors(self.su.h, self.su.p, self.su.m_dot, self.su.h, self.su.p, 0)
+            self.solved = True  # Mark as solved
+            return
+        else:
+            if 0 <= x_su <= 1:  # Two-phase mixture
+                m_dot_l = (1 - x_su) * m_dot_su
+                m_dot_v = x_su * m_dot_su
+            else:
+                if T_su > T_sat:  # Vapor phase
+                    m_dot_v = m_dot_su
+                    m_dot_l = 0
+                else:  # Liquid phase
+                    m_dot_l = m_dot_su
+                    m_dot_v = 0
+                    
+                    # Set exhaust enthalpy
+            x_ex_v=1
+            T_ex_v=T_su
+            self.AS.update(CP.PQ_INPUTS, P_su, x_ex_v)
+            h_ex_v = self.AS.hmass ()
+            P_ex_v=P_su
+            
+            x_ex_l=0
+            self.AS.update(CP.PQ_INPUTS, P_su, x_ex_l)
+            h_ex_l = self.AS.hmass ()
+            T_ex_l=T_su
+            P_ex_l=P_su
         
                 
         # Update mass connectors
-        self.update_connectors(x_ex_l, T_ex_l, h_ex_l, P_ex_l, m_dot_l, x_ex_v, T_ex_v, h_ex_v, P_ex_v, m_dot_v)
+        self.update_connectors(h_ex_l, P_ex_l, m_dot_l, h_ex_v, P_ex_v, m_dot_v)
         self.solved = True  # Mark as solved
-        
+        return
+    
     # !!! These shall fit the output of your model
     def print_results(self):
         print("=== Liquid vapor separator ===")
