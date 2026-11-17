@@ -97,20 +97,19 @@ def _adapter_martin(AS, m_dot, geom, q_flux, T_wall):
             except:
                 raise RuntimeError(f"Problem computing conductivity at P={p}, h={h}")
         
-    # Wall viscosity (optional)
-    if T_wall is None:
-        mu_wall = None
-    else:
+    # Wall viscosity (optional, single-phase correction only)
+    mu_wall = None
+    if T_wall is not None:
         try:
-            AS.update(CP.PT_INPUTS, AS.p(), T_wall)
-            mu_wall = AS.viscosity()
-        except:
-            try:
-                mu_wall = CP.PropsSI('V', 'P', p, 'T', T_wall, fluid)
-            except ValueError:
-                # on the saturation line: impose the phase present at the wall
-                phase = 'liquid' if T_wall <= CP.PropsSI('T', 'P', p, 'Q', 0, fluid) else 'gas'
+            T_sat = CP.PropsSI('T', 'P', p, 'Q', 0.5, fluid)
+            bulk_is_vapour = AS.T() > T_sat
+            wall_is_vapour = T_wall > T_sat
+            if bulk_is_vapour == wall_is_vapour and abs(T_wall - T_sat) > 0.5:
+                phase = 'gas' if wall_is_vapour else 'liquid'
                 mu_wall = CP.PropsSI('V', 'P|' + phase, p, 'T', T_wall, fluid)
+            # otherwise: wall across or on the saturation line -> no correction
+        except ValueError:
+            mu_wall = None
 
     # Mass flux (= through one channel for a plate side, through the tube for a pipe)
     G_ch = m_dot / geom['A_flow']
