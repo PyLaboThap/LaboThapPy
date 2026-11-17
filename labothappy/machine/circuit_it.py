@@ -1521,6 +1521,7 @@ from CoolProp.CoolProp import PropsSI
 #         self.print_all_states()
 #         self.print_energy_balance()
 # -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 Created on Thu Jan 08 2026
 Revised 2026-11-12:
@@ -1535,6 +1536,16 @@ Changes are tagged [CHANGED] or [NEW] in the code.
 @author: elise neven
 @email: elise.neven@uliege.be
 """
+
+import copy
+from contextlib import contextmanager
+
+from machine.base_circuit import BaseCircuit
+
+from scipy.optimize import fsolve, root
+import numpy as np
+from CoolProp.CoolProp import PropsSI
+
 
 class IterativeCircuit(BaseCircuit):
     def __init__(self, fluid=None):
@@ -1940,6 +1951,12 @@ class IterativeCircuit(BaseCircuit):
             print(f"Iteration : {self.n_it}")
             print("=" * 30)
 
+        # 0. [CHANGED] Build the solving order FIRST: the DFS solves components
+        #    and writes on the connectors, so it must happen before the reset,
+        #    otherwise the first sweep starts from a polluted state.
+        if not self.solving_order:
+            self._build_solve_order()
+
         # 1. Reset all connectors
         self._clear_all_connectors()
 
@@ -1957,9 +1974,6 @@ class IterativeCircuit(BaseCircuit):
         self._pre_snapshot = pre_snapshot
 
         # 4. Solve components in DFS order
-        if not self.solving_order:
-            self._build_solve_order()
-
         self.reset_solved_marker()
         for name in self.solving_order:
             if self.print_flag:
