@@ -4,6 +4,7 @@ Created on Fri May 10 14:31:24 2024
 
 @author: Basile
 
+MODIFICATION BY ELISE:
 Extended with optional pressure-drop and refrigerant-charge computation.
 If the geometry is not provided, the component behaves exactly as before
 (isobaric, isenthalpic splitting, no charge computed).
