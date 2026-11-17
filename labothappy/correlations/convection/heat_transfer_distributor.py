@@ -106,9 +106,11 @@ def _adapter_martin(AS, m_dot, geom, q_flux, T_wall):
             mu_wall = AS.viscosity()
         except:
             try:
-                mu_wall = CP.PropsSI('viscosity', 'P', p, 'T', T_wall, fluid)
-            except:
-                raise RuntimeError(f"Problem computing wall viscosity at P={p}, T_wall={T_wall}")
+                mu_wall = CP.PropsSI('V', 'P', p, 'T', T_wall, fluid)
+            except ValueError:
+                # on the saturation line: impose the phase present at the wall
+                phase = 'liquid' if T_wall <= CP.PropsSI('T', 'P', p, 'Q', 0, fluid) else 'gas'
+                mu_wall = CP.PropsSI('V', 'P|' + phase, p, 'T', T_wall, fluid)
 
     # Mass flux (= through one channel for a plate side, through the tube for a pipe)
     G_ch = m_dot / geom['A_flow']
