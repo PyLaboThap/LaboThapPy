@@ -442,3 +442,76 @@ def STHE_bell_delaware_shell_HTC(AS, geom, cond):
     h = h_id*J_c*J_l*J_b*J_r*J_s
 
     return h
+
+#%% SHELL-SIDE BOILING (pool boiling on the tubes, no bundle factor)
+
+def STHE_mostinski_boiling_HTC(AS, geom, cond):
+    """
+    Nucleate pool boiling heat transfer coefficient on the shell side of a shell & tube
+    evaporator using the Mostinski reduced-pressure corresponding states method.
+
+    Parameters
+    ----------
+    AS : CoolProp abstract state object
+        Fluid property provider.
+    geom : dict
+        Geometry dictionary (not used by this method, required for interface consistency).
+    cond : dict
+        Condition dictionary containing:
+        - p : saturation pressure [Pa]
+        - q : local heat flux on the outer tube surface [W/m^2]
+
+    Returns
+    -------
+    h : float
+        Boiling heat transfer coefficient [W/(m^2 K)].
+
+    Reference
+    ---------
+    Mostinski, I.L. (1963) Application of the rule of corresponding states for the calculation
+    of heat transfer and critical heat flux. Teploenergetika 4, 66 (English abstract:
+    Br. Chem. Eng. 8(8), 586, 1963). As presented in Cao, E. (2009) Heat Transfer in Process
+    Engineering, McGraw-Hill, and in Serth, R.W. (2014) Process Heat Transfer, 2nd ed.,
+    Academic Press.
+
+    Implementation follows the independent implementation in the ht library (C. Bell),
+    ht.boiling_nucleic.Montinsky (heat-flux form), which cites the references above. The
+    constant 0.00417 requires the critical pressure in kPa (some sources write 3.7e-5 or
+    3.596e-5 with p_crit in Pa).
+
+    Validity
+    --------
+    Single tube / pool boiling; NO tube-bundle factor is applied (the bundle effect of kettle
+    reboilers is not included: labothappy limitation).
+    Independent of geometry, mass flux, and quality (geom, cond['x'] not used).
+    """
+    # 1) Read saturation pressure and local heat flux from conditions dictionary
+    p_sat = cond['p']
+    q = cond['q']
+
+    # 2) Obtain critical pressure from the abstract state and compute reduced pressure
+    p_crit = AS.p_critical()
+    p_red = p_sat / p_crit
+
+    # 3) Check that the reduced pressure is within the valid range ]0, 1[
+    if not 0.0 < p_red < 1.0:
+        raise ValueError(f"Mostinski: reduced pressure {p_red:.3f} outside ]0, 1[.")
+
+    # 4) Check that the heat flux is finite and strictly positive
+    if not (np.isfinite(q) and q > 0.0):
+        raise ValueError(f"Mostinski: heat flux q = {q} must be finite and > 0.")
+
+    # 5) Convert critical pressure from Pa to kPa
+    p_crit_kPa = p_crit / 1000.0
+
+    # 6) Compute the pressure factor F_p as a function of reduced pressure
+    term_one = 1.8 * p_red**0.17
+    term_two = 4.0 * p_red**1.2
+    term_three = 10.0 * p_red**10
+    F_p = term_one + term_two + term_three
+
+    # 7) Compute the nucleate boiling heat transfer coefficient
+    h = 0.00417 * p_crit_kPa**0.69 * q**0.7 * F_p
+
+    # 8) Return the heat transfer coefficient
+    return h

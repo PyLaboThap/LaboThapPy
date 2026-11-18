@@ -3,15 +3,14 @@
 Heat transfer coefficients of spiral plate heat exchangers (SPHE), (AS, geom, cond) formalism.
 Every function returns h [W/m2/K] for one channel (single phase).
 
-geom : Dh               hydraulic diameter of the channel [m]   (Dh = 2 b w / (b + w) for a rectangular channel)
+geom : Dh               hydraulic diameter of the channel [m]   (Dh = 2 b H / (b + H) for a rectangular channel)
        R_curv           mean radius of curvature of the channel [m]
-       ch_w             channel width (plate height, direction of the axis) [m]
-       ch_b  (or H)     channel spacing (gap between plates) [m]
+       ch_b  (or ch_w)  channel gap b = spacing between the plates [m] (the SPHE geometry sets ch_w = ch_b = b)
+       H                plate height = channel height, direction of the spiral axis [m]
        L                developed length of the channel [m]
 cond : G [kg/m2/s] mass flux of ONE channel, mu, k, Pr (+ mu_w, default mu)
 
-Notation kept from the original file: in Picon-Nunez / Rajavel, 'ch_w' is the dimension used in the
-curvature term (ch_w / 2R)^(1/6) and in H/ch_w. CHECK which dimension your geometry assigns to it.
+In Picon-Nunez / Rajavel, 'ch_w' is the channel gap: curvature term (ch_w / 2R)^(1/6) and ratio H/ch_w.
 """
 import numpy as np
 from labothappy.correlations.convection.pipe_HTC_correlation_bank import _gnielinski_core
@@ -20,11 +19,14 @@ from labothappy.correlations.convection.curved_pipe_HTC_correlation_bank import 
 
 
 def _AR(geom):
-    b = geom.get('ch_b', geom.get('H'))
-    w = geom.get('ch_w')
-    if b is None or w is None:
-        raise KeyError("SPHE rectangular duct: geom needs 'ch_w' and 'ch_b' (or 'H').")
-    return min(b, w) / max(b, w)
+    """Aspect ratio of the rectangular channel, short side / long side [-] (<= 1).
+    gap = geom['ch_b'] (or 'ch_w'), height = geom['H'] (plate height)."""
+    gap = geom.get('ch_b', geom.get('ch_w'))
+    height = geom.get('H')
+    if gap is None or height is None:
+        raise KeyError("SPHE rectangular duct: geom needs the gap 'ch_b' (or 'ch_w') "
+                       "and the plate height 'H'.")
+    return min(gap, height) / max(gap, height)
 
 
 def _Nu_lam_rect(AR):
@@ -103,3 +105,79 @@ def SPHE_rajavel_HTC(AS, geom, cond):
     Re = G * D / mu
     Nu = 0.02846 * Re ** 0.828 * Pr ** 0.336 * (H / ch_w) ** (-0.0871)
     return Nu * k / D
+
+
+def SPHE_morimoto_hotta_HTC(AS, geom, cond):
+    """
+    Morimoto and Hotta (1986) single-phase heat transfer coefficient for a spiral plate heat
+    exchanger.
+
+    Parameters:
+    AS : object
+        Fluid state object (unused in correlation, but part of the signature).
+    geom : dict
+        Geometry dictionary containing:
+        - 'Dh' (or 'D', 'Tube_ID'): hydraulic diameter of the channel, 2 H b / (H + b) [m]
+        - 'R_curv': mean radius of curvature of the spiral channel [m]
+    cond : dict
+        Condition dictionary containing flow properties:
+        - 'G': mass flux of ONE channel [kg/m2/s]
+        - 'mu': dynamic viscosity [Pa*s]
+        - 'k': thermal conductivity [W/m/K]
+        - 'Pr': Prandtl number [-]
+
+    Returns:
+    float
+        Heat transfer coefficient h [W/m2/K].
+
+    Reference:
+    Morimoto, E., Hotta, K. (1986) Study of geometric structure and heat transfer characteristics of
+    spiral plate heat exchanger. Transactions of the Japan Society of Mechanical Engineers Series B
+    52(474), 926-933 (in Japanese). doi:10.1299/kikaib.52.926
+
+    Implementation follows the independent implementation in the ht library (C. Bell),
+    ht.conv_internal.Morimoto_Hotta, which cites the reference above (also Bidabadi, Sadaghiani,
+    Azad 2013, Scientia Iranica 20(5), 1445-1454; Turgut & Coban 2016, Heat and Mass Transfer,
+    doi:10.1007/s00231-016-1861-y).
+
+    Validity range:
+    Not given by the reference library (paper in Japanese). A warning is raised if Re < 2000: this
+    lower limit is a labothappy safeguard (turbulent-type correlation), not from the paper.
+
+    Definitions:
+    Re and Nu based on hydraulic diameter (Dh) with bulk properties. R_m is the mean spiral radius.
+    """
+    import warnings
+
+    # 1. Check required conditions and extract properties
+    _need_cond(cond, 'G', 'mu', 'k', 'Pr')
+    G = cond['G']
+    mu = cond['mu']
+    k = cond['k']
+    Pr = cond['Pr']
+
+    # Extract hydraulic diameter and mean radius of curvature
+    Dh = _D(geom)
+    R_m = _R_curv(geom)
+
+    # Calculate Reynolds number based on hydraulic diameter and bulk properties
+    Re = G * Dh / mu
+
+    # Emit warning if Re is below the turbulent safeguard limit
+    if Re < 2000:
+        warnings.warn(
+            "SPHE Morimoto & Hotta: Re < 2000. This lower limit is a labothappy "
+            "safeguard (turbulent-type correlation), not from the paper."
+        )
+
+    # Calculate Nusselt number using the Morimoto & Hotta (1986) correlation
+    # Nu = 0.0239 * (1 + 5.54 * Dh / R_m) * Re**0.806 * Pr**0.268
+    curvature_term = 1.0 + 5.54 * Dh / R_m
+    reynolds_term = Re ** 0.806
+    prandtl_term = Pr ** 0.268
+    Nu = 0.0239 * curvature_term * reynolds_term * prandtl_term
+
+    # Calculate heat transfer coefficient from Nusselt number
+    h = Nu * k / Dh
+
+    return h

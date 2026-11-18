@@ -14,11 +14,15 @@ shell side (outside the coil): NO correlation provided -> NotImplementedError.
 import warnings
 from labothappy.correlations.convection.curved_pipe_HTC_correlation_bank import (
     curved_pipe_sigalotti_SP_HTC, curved_pipe_zakeralhoseini_condensing_HTC, curved_pipe_zhao_boiling_HTC, curved_pipe_nariai_boiling_HTC,
+    curved_pipe_schmidt_SP_HTC, curved_pipe_mori_nakayama_SP_HTC, curved_pipe_xin_ebadian_SP_HTC,
     _D, _R_curv)
 from labothappy.correlations.convection.pipe_HTC_correlation_bank import _sat_props
 from labothappy.correlations.convection.pipe_HTC import pipe_HTC
 
-_HCHE = {'SP': {'Sigalotti': curved_pipe_sigalotti_SP_HTC},
+_HCHE = {'SP': {'Sigalotti': curved_pipe_sigalotti_SP_HTC,
+                'Schmidt': curved_pipe_schmidt_SP_HTC,               # turbulent, explicit choice
+                'Mori_Nakayama': curved_pipe_mori_nakayama_SP_HTC,   # turbulent, explicit choice
+                'Xin_Ebadian': curved_pipe_xin_ebadian_SP_HTC},      # turbulent, explicit choice
          'EVAP': {'Zhao': curved_pipe_zhao_boiling_HTC, 'Nariai': curved_pipe_nariai_boiling_HTC},
          'COND': {'Zakeralhoseini': curved_pipe_zakeralhoseini_condensing_HTC}}
 _AUTO = {'SP': 'Sigalotti', 'COND': 'Zakeralhoseini'}      # EVAP: see select_evap_HTC

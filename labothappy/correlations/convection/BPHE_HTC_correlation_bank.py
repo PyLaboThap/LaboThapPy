@@ -238,7 +238,87 @@ def BPHE_martin_SP_HTC(AS, geom, cond):
 
     return k / Dh * Nu
 
-#%% TWO-PHASE : BOILING 
+def BPHE_khan_khan_SP_HTC(AS, geom, cond):
+    """
+    Single-phase heat transfer coefficient for chevron plate heat exchangers.
+    Khan, T.S., Khan, M.S., Chyu, M.-C., Ayub, Z.H. (2010). Experimental
+    investigation of single phase convective heat transfer coefficient in a
+    corrugated plate heat exchanger for multiple plate configurations.
+    Applied Thermal Engineering 30(8), 1058-1065.
+    DOI: 10.1016/j.applthermaleng.2010.01.021
+
+    Implementation follows the independent implementation in the ht library
+    (C. Bell), ht.conv_plate.Nu_plate_Khan_Khan, which cites the reference above.
+
+    Parameters
+    ----------
+    AS : CoolProp.AbstractState
+        Not used; kept for common signature.
+    geom : dict
+        'Dh' : hydraulic diameter of the channel [m]
+        'beta' : chevron angle from the main flow direction [rad or deg]
+    cond : dict
+        'G' : mass flux in ONE channel [kg/m2/s]
+        'mu' : dynamic viscosity (bulk) [Pa s]
+        'Pr' : Prandtl number (bulk) [-]
+        'k' : thermal conductivity (bulk) [W/m/K]
+
+    Returns
+    -------
+    h : float
+        Heat transfer coefficient [W/m2/K].
+
+    Definitions
+    -----------
+    Reynolds number based on Dh with bulk properties.
+    Nusselt number based on Dh.
+    No wall-viscosity correction (the paper only recommends a blanket
+    Sieder-Tate (mu/mu_w)^0.14; the ht implementation has none).
+
+    Validity (warning if outside)
+    -----------------------------
+    500 <= Re <= 2500, 30 <= beta <= 60 deg, 3.5 <= Pr <= 6.
+    Tested fluid: water.
+    """
+    # 1) Extract conditions
+    G = cond['G']
+    mu = cond['mu']
+    Pr = cond['Pr']
+    k = cond['k']
+
+    # 2) Extract geometry
+    Dh = geom['Dh']
+    beta = chevron_deg(geom['beta'])
+
+    # 3) Reynolds number (Khan et al. 2010, as implemented in ht)
+    Re = G * Dh / mu
+
+    # 4) Angle ratio (Khan et al. 2010, as implemented in ht)
+    beta_max = 60.0
+    beta_ratio = beta / beta_max
+
+    # 5) Coefficient C (Khan et al. 2010, as implemented in ht)
+    C = 0.0161 * beta_ratio + 0.1298
+
+    # 6) Exponent m (Khan et al. 2010, as implemented in ht)
+    m = 0.198 * beta_ratio + 0.6398
+
+    # 7) Nusselt number (Khan et al. 2010, as implemented in ht)
+    Nu = C * Re**m * Pr**0.35
+
+    # 8) Heat transfer coefficient (Khan et al. 2010, as implemented in ht)
+    h = Nu * k / Dh
+
+    # 9) Validity warnings (one warning for all three conditions)
+    if not (500 <= Re <= 2500 and 30 <= beta <= 60 and 3.5 <= Pr <= 6):
+        warnings.warn(
+            "Khan-Khan HTC: outside validated range "
+            "(500 <= Re <= 2500, 30-60 deg, 3.5 <= Pr <= 6, water): extrapolated."
+        )
+
+    return h
+
+#%% TWO-PHASE : BOILING
 
 def BPHE_cooper_boiling_HTC(AS, geom, cond):
     """
@@ -329,7 +409,455 @@ def BPHE_amalfi_boiling_HTC(AS, geom, cond):
               * Bd**0.235 * Bo**0.198 * rho_star**-0.223)
     return Nu * k_l / Dh
 
-#%% TWO-PHASE : CONDENSING 
+def BPHE_han_lee_kim_boiling_HTC(AS, geom, cond):
+    """
+    Han, Lee & Kim (2003) flow boiling (evaporation) in brazed plate heat exchangers.
+    Applied Thermal Engineering 23(10), 1209-1225. doi:10.1016/S1359-4311(03)00061-9
+
+    Implementation follows the independent implementation in the ht library (C. Bell),
+    ht.boiling_plate.h_boiling_Han_Lee_Kim, which cites the reference above
+    (reviewed in Amalfi et al. 2016 Part 1, IJR 61, 166-184, doi:10.1016/j.ijrefrig.2015.07.010).
+
+    Parameters
+    ----------
+    AS : CoolProp.AbstractState
+        Fluid state (left in a saturated state on return; caller must re-set it).
+    geom : dict
+        Geometry dictionary with keys:
+        - 'Dh' : hydraulic diameter [m]
+        - 'p_co' : corrugation pitch (wavelength) [m]
+        - 'beta' : chevron angle from the main flow direction [rad or deg]
+          (Han's paper measures its angle beta_H from the horizontal axis and writes
+          (pi/2 - beta_H): that is exactly theta used here.)
+    cond : dict
+        Operating conditions with keys:
+        - 'G' : mass flux in ONE channel [kg/m2/s]
+        - 'x' : vapour quality of the cell [-]
+        - 'q' : local heat flux [W/m2]
+        - 'p' : saturation pressure [Pa]
+
+    Returns
+    -------
+    h : float
+        Heat transfer coefficient [W/m2/K].
+
+    Validity (warning if outside)
+    -----------------------------
+    G 13-34 kg/m2/s; x 0.15-0.9; q 2500-8500 W/m2; theta 45-70 deg from the flow
+    direction (plates of 45, 35 and 20 deg in Han's convention); fluids R410A and R22;
+    evaporating temperature 5-15 degC (not checked).
+
+    Definitions
+    -----------
+    G is the mass flux in one channel (flow area = 2 x amplitude x plate width).
+    Re_eq and Bo_eq use the equivalent mass flux G_eq (Akers-type) and saturated-liquid
+    properties. Pr is the Prandtl number of the saturated liquid.
+    """
+    # 1) Read conditions
+    G = cond['G']           # [kg/m2/s] mass flux in one channel
+    x = cond['x']           # [-] vapour quality
+    q = cond['q']           # [W/m2] local heat flux
+    p_sat = cond['p']       # [Pa] saturation pressure
+
+    # 2) Read geometry
+    Dh = geom['Dh']         # [m] hydraulic diameter
+    p_co = geom['p_co']     # [m] corrugation pitch (wavelength)
+    # Chevron angle from the main flow direction [rad]
+    # Han's beta_H is from horizontal; theta = pi/2 - beta_H = angle from flow
+    theta = np.radians(chevron_deg(geom['beta']))
+
+    # 3) Angle validity (same as Han condensation)
+    if not 0.0 < theta <= np.pi / 2:
+        raise ValueError(f"Han-Lee-Kim boiling: angle {theta:.3f} rad from the flow "
+                         "direction outside ]0, pi/2].")
+
+    # 4) Quality check and clamp (as in Amalfi)
+    if not np.isfinite(x):
+        raise ValueError("Han-Lee-Kim boiling: cond['x'] must be finite "
+                         "(two-phase cell expected).")
+    x = min(max(x, 1e-4), 1.0 - 1e-4)
+
+    # 5) Saturated properties at p_sat
+    s = _sat_props(AS, p_sat)
+    k_l = s["k_l"]          # [W/m/K] liquid thermal conductivity
+    rho_l = s["rho_l"]      # [kg/m3] liquid density
+    rho_v = s["rho_v"]      # [kg/m3] vapour density
+    mu_l = s["mu_l"]        # [Pa s] liquid dynamic viscosity
+    Pr_l = s["Pr_l"]        # [-] liquid Prandtl number
+    h_lv = s["h_lv"]        # [J/kg] latent heat
+
+    # 6) Equivalent mass flux (Akers-type)
+    G_eq = G * ((1.0 - x) + x * (rho_l / rho_v) ** 0.5)   # [kg/m2/s]
+
+    # 7) Equivalent Reynolds number
+    Re_eq = G_eq * Dh / mu_l                               # [-]
+
+    # 8) Equivalent Boiling number with guard (q=0 would give h=0)
+    Bo_eq = q / (G_eq * h_lv)                              # [-]
+    Bo_eq = max(Bo_eq, 1e-6)
+
+    # 9) Geometry coefficients (Eq. from paper)
+    Ge1 = 2.81 * (p_co / Dh) ** (-0.041) * theta ** (-2.83)
+    Ge2 = 0.746 * (p_co / Dh) ** (-0.082) * theta ** (0.61)
+
+    # 10) Heat transfer coefficient (direct, not through Nu)
+    h = Ge1 * (k_l / Dh) * (Re_eq ** Ge2) * (Pr_l ** 0.4) * (Bo_eq ** 0.3)
+
+    # 11) Validity warnings
+    if not (13.0 <= G <= 34.0):
+        warnings.warn(f"Han-Lee-Kim boiling: G = {G:.1f} kg/m2/s outside "
+                      "validated range [13, 34]: extrapolated.")
+    if not (0.15 <= x <= 0.9):
+        warnings.warn(f"Han-Lee-Kim boiling: x = {x:.3f} outside "
+                      "validated range [0.15, 0.9]: extrapolated.")
+    if not (2500.0 <= q <= 8500.0):
+        warnings.warn(f"Han-Lee-Kim boiling: q = {q:.0f} W/m2 outside "
+                      "validated range [2500, 8500]: extrapolated.")
+    theta_deg = np.degrees(theta)
+    if not (45.0 <= theta_deg <= 70.0):
+        warnings.warn(f"Han-Lee-Kim boiling: theta = {theta_deg:.1f} deg from flow "
+                      "direction outside validated range [45, 70]: extrapolated.")
+
+    return h
+
+def BPHE_yan_lin_boiling_HTC(AS, geom, cond):
+    """
+    Yan & Lin (1999) flow boiling heat transfer coefficient for plate heat exchangers.
+    Journal of Heat Transfer 121(1), 118-127. DOI: 10.1115/1.2825924
+
+    Implementation follows the independent implementation in the ht library
+    (C. Bell), ht.boiling_plate.h_boiling_Yan_Lin, which cites the reference above.
+
+    Parameters
+    ----------
+    AS : CoolProp.AbstractState
+        Fluid state object (left in a saturated state on return).
+    geom : dict
+        Geometry dictionary with keys:
+        - 'Dh' : hydraulic diameter [m]
+        (chevron angle 'beta' is present in geom but NOT used by this correlation)
+    cond : dict
+        Operating conditions with keys:
+        - 'G' : mass flux in ONE channel [kg/m2/s]
+        - 'x' : mean vapour quality of the cell [-]
+        - 'q' : local heat flux [W/m2]
+        - 'p' : saturation pressure [Pa]
+
+    Returns
+    -------
+    h : float
+        Flow boiling heat transfer coefficient [W/m2/K].
+
+    Validity range (claimed by authors)
+    -----------------------------------
+    2000 <= Re_eq <= 10000.
+    Tested with R134a, one plate with chevron angle 60 deg, x 0.1-0.8,
+    q 11-15 kW/m2, G 55-70 kg/m2/s.
+
+    Definitions
+    -----------
+    - G is the mass flux in ONE channel.
+    - Re_eq uses G_eq and saturated-liquid properties.
+    - Bo_eq uses G_eq and saturated-liquid properties.
+    - Re_lo uses the total mass flux G as if all liquid.
+    - Pr is the Prandtl number of the saturated liquid.
+    - geom['beta'] is not used in this correlation.
+    """
+    # 1) Read inputs from dictionaries
+    G = cond['G']           # mass flux in one channel [kg/m2/s]
+    x = cond['x']           # vapour quality [-]
+    q = cond['q']           # heat flux [W/m2]
+    p_sat = cond['p']       # saturation pressure [Pa]
+    Dh = geom['Dh']         # hydraulic diameter [m]
+
+    # 2) Quality check and clamp (same approach as Amalfi)
+    if not np.isfinite(x):
+        raise ValueError("Yan-Lin boiling: cond['x'] must be finite (two-phase cell expected).")
+    x = min(max(x, 1e-4), 1.0 - 1e-4)
+
+    # 3) Saturated properties at p_sat
+    s = _sat_props(AS, p_sat)
+    k_l = s["k_l"]          # liquid thermal conductivity [W/m/K]
+    rho_l = s["rho_l"]      # liquid density [kg/m3]
+    rho_v = s["rho_v"]      # vapour density [kg/m3]
+    mu_l = s["mu_l"]        # liquid dynamic viscosity [Pa*s]
+    Pr_l = s["Pr_l"]        # liquid Prandtl number [-]
+    h_lv = s["h_lv"]        # latent heat [J/kg]
+
+    # 4) Equivalent mass flux (Eq. in Yan & Lin 1999)
+    G_eq = G * ((1.0 - x) + x * (rho_l / rho_v) ** 0.5)
+
+    # 5) Equivalent Reynolds number
+    Re_eq = G_eq * Dh / mu_l
+
+    # 6) All-liquid Reynolds number (total mass flux as liquid)
+    Re_lo = G * Dh / mu_l
+
+    # 7) Equivalent Boiling number with guard against zero heat flux
+    Bo_eq = q / (G_eq * h_lv)
+    Bo_eq = max(Bo_eq, 1e-6)
+
+    # 8) Heat transfer coefficient (Yan & Lin 1999 correlation)
+    h = (1.926
+         * (k_l / Dh)
+         * Re_eq
+         * Pr_l ** (1.0 / 3.0)
+         * Bo_eq ** 0.3
+         * Re_lo ** (-0.5))
+
+    # 9) Validity warning (claimed range 2000 <= Re_eq <= 10000)
+    if not (2000 <= Re_eq <= 10000):
+        warnings.warn(
+            f"Yan-Lin boiling: Re_eq = {Re_eq:.1f} outside the claimed range "
+            "[2000, 10000]. Correlation extrapolated."
+        )
+
+    return h
+
+def BPHE_lee_kang_kim_boiling_HTC(AS, geom, cond):
+    """
+    Lee, Kang & Kim (2014) flow boiling heat transfer correlation for plate heat exchangers.
+
+    Parameters
+    ----------
+    AS : CoolProp.AbstractState
+        Fluid state object (must be set to the working fluid).
+    geom : dict
+        Geometry dictionary with key:
+        - 'Dh' : hydraulic diameter [m]. In this library Dh = 2*b (plate gap).
+          The correlation uses the equivalent diameter D_eq = 4*a = 2*b,
+          which is exactly geom['Dh'].
+    cond : dict
+        Operating conditions with keys:
+        - 'G' : mass flux in ONE channel [kg/m2/s]
+        - 'x' : mean vapour quality of the cell [-]
+        - 'q' : local heat flux [W/m2]
+        - 'p' : saturation pressure [Pa]
+
+    Returns
+    -------
+    h : float
+        Flow boiling heat transfer coefficient [W/m2/K].
+
+    Reference
+    ---------
+    Lee, E., Kang, H., Kim, Y. (2014). Flow boiling heat transfer and pressure drop
+    of water in a plate heat exchanger with corrugated channels at low mass flux
+    conditions. International Journal of Heat and Mass Transfer, 77, 37-45.
+    doi:10.1016/j.ijheatmasstransfer.2014.05.019
+
+    Implementation follows the independent implementation in the ht library
+    (C. Bell), ht.boiling_plate.h_boiling_Lee_Kang_Kim, which cites the reference
+    above (reviewed in Amalfi et al. 2016 Part 1, IJR 61, 166-184,
+    doi:10.1016/j.ijrefrig.2015.07.010).
+
+    Validity range (warning if outside)
+    -----------------------------------
+    G: 14.5-33.6 kg/m2/s; q: 15000-30000 W/m2; x: 0.09-0.6;
+    Re_ratio: 2.3-32.1; Bo: 0.00019-0.001; X_tt: 0.028-0.3.
+    Fluid: water. Also stated: 200 < Re < 600, mean absolute deviation 4.4 %.
+    (Re definition not given, so not checked.)
+
+    Definitions
+    -----------
+    - G is the mass flux in ONE channel.
+    - Bo = q / (G * h_lv) (Boiling number).
+    - Re_ratio = Re_g / Re_l = (x * mu_l) / ((1 - x) * mu_v).
+    - X_tt = ((1 - x) / x)^0.875 * (rho_v / rho_l)^0.5 * (mu_l / mu_v)^0.125
+      (Lockhart-Martinelli parameter, turbulent-turbulent).
+    - Saturated properties at p_sat: k_l, rho_l, rho_v, mu_l, mu_v, h_lv.
+    - D_eq = geom['Dh'] = 2 * b (plate gap).
+    - geom['beta'] is not used by this correlation.
+    """
+    # 1) Read inputs from cond and geom
+    G = cond['G']           # [kg/m2/s] mass flux in one channel
+    x = cond['x']           # [-] vapour quality
+    q = cond['q']           # [W/m2] heat flux
+    p_sat = cond['p']       # [Pa] saturation pressure
+    D_eq = geom['Dh']       # [m] equivalent diameter (D_eq = 4a = 2b)
+
+    # 2) Quality check and clamp (avoid division by zero)
+    if not np.isfinite(x):
+        raise ValueError("Lee-Kang-Kim boiling: cond['x'] must be finite.")
+    x = min(max(x, 1e-4), 1.0 - 1e-4)
+
+    # 3) Saturated properties at p_sat
+    s = _sat_props(AS, p_sat)
+    k_l = s["k_l"]          # [W/m/K] liquid thermal conductivity
+    rho_l = s["rho_l"]      # [kg/m3] liquid density
+    rho_v = s["rho_v"]      # [kg/m3] vapour density
+    mu_l = s["mu_l"]        # [Pa s] liquid dynamic viscosity
+    mu_v = s["mu_v"]        # [Pa s] vapour dynamic viscosity
+    h_lv = s["h_lv"]        # [J/kg] latent heat
+
+    # 4) Vapour viscosity must be available (finite)
+    if not np.isfinite(mu_v):
+        raise ValueError("Lee-Kang-Kim boiling: vapour viscosity not available "
+                         "for this fluid at the given pressure.")
+
+    # 5) Boiling number with guard against q = 0
+    Bo = q / (G * h_lv)     # [-] Boiling number
+    Bo = max(Bo, 1e-6)      # guard: q = 0 would give h = 0
+
+    # 6) Ratio of vapour-alone to liquid-alone Reynolds numbers
+    # Re_ratio = Re_g / Re_l = (x / (1 - x)) * (mu_l / mu_v)
+    Re_ratio = (x / (1.0 - x)) * (mu_l / mu_v)
+
+    # 7) Lockhart-Martinelli parameter (turbulent-turbulent, paper exponents)
+    # X_tt = ((1 - x) / x)^0.875 * (rho_v / rho_l)^0.5 * (mu_l / mu_v)^0.125
+    X_tt = ((1.0 - x) / x) ** 0.875 * (rho_v / rho_l) ** 0.5 * (mu_l / mu_v) ** 0.125
+
+    # 8) Two branches depending on Re_ratio
+    if Re_ratio < 9.0:
+        # Equation for Re_ratio < 9
+        h = (98.7 * (k_l / D_eq) * Re_ratio ** -0.0848 *
+             Bo ** -0.0597 * X_tt ** 0.0973)
+    else:
+        # Equation for Re_ratio >= 9
+        h = (234.9 * (k_l / D_eq) * Re_ratio ** -0.576 *
+             Bo ** -0.275 * X_tt ** 0.66)
+
+    # 9) Validity range warnings (list all parameters that are outside)
+    warnings_list = []
+    if not (14.5 <= G <= 33.6):
+        warnings_list.append(f"G = {G:.1f} kg/m2/s (range 14.5-33.6)")
+    if not (15000 <= q <= 30000):
+        warnings_list.append(f"q = {q:.0f} W/m2 (range 15000-30000)")
+    if not (0.09 <= x <= 0.6):
+        warnings_list.append(f"x = {x:.3f} (range 0.09-0.6)")
+    if not (2.3 <= Re_ratio <= 32.1):
+        warnings_list.append(f"Re_ratio = {Re_ratio:.2f} (range 2.3-32.1)")
+    if not (0.00019 <= Bo <= 0.001):
+        warnings_list.append(f"Bo = {Bo:.6f} (range 0.00019-0.001)")
+    if not (0.028 <= X_tt <= 0.3):
+        warnings_list.append(f"X_tt = {X_tt:.4f} (range 0.028-0.3)")
+
+    if warnings_list:
+        msg = ("Lee-Kang-Kim boiling: outside validated range: " +
+               "; ".join(warnings_list) + ". Fluid: water.")
+        warnings.warn(msg)
+
+    return h
+
+def BPHE_huang_sheer_boiling_HTC(AS, geom, cond):
+    """
+    Huang, Sheer & Bailey-McEwan (2012) flow boiling heat transfer coefficient
+    for plate heat exchangers. International Journal of Refrigeration 35(2),
+    325-335. DOI: 10.1016/j.ijrefrig.2011.11.002.
+    Also: Huang, J. (2011) Performance analysis of plate heat exchangers used
+    as refrigerant evaporators, PhD thesis, University of the Witwatersrand.
+
+    Implementation follows the independent implementation in the ht library
+    (C. Bell), ht.boiling_plate.h_boiling_Huang_Sheer, which cites the
+    references above. As noted by ht, the printed equation of the 2012 paper
+    misses a square on the bubble diameter in the group
+    (h_lv d_o^2 / alpha_l^2); the corrected, dimensionless form is used here.
+
+    Parameters
+    ----------
+    AS : CoolProp.AbstractState
+        CoolProp state object set to the working fluid. Must be already
+        initialised with the fluid name and backend.
+    geom : dict
+        Geometry dictionary (not used by this correlation; present for API
+        compatibility). Keys read: none.
+    cond : dict
+        Operating conditions dictionary with keys:
+        - 'q' : local heat flux [W/m2]
+        - 'p' : saturation pressure [Pa]
+
+    Returns
+    -------
+    h : float
+        Flow boiling heat transfer coefficient [W/m2/K].
+
+    Validity (data ranges from the paper)
+    -------------------------------------
+    - Heat flux q: 1850 - 10750 W/m2
+    - Saturation temperature T_sat: 1.9 - 13.04 degC (275.05 - 286.19 K)
+    - Fluids tested: mainly R134a and R507A (222 points), two points for
+      ammonia and R12
+    - Chevron angles: 28 - 60 deg
+    - Mass flux G: 5.6 - 52.25 kg/m2/s
+    - Quality x: 0.21 - 0.95
+
+    The correlation depends only on fluid saturated properties, heat flux q,
+    and saturation temperature T_sat. It does NOT use geometry, mass flux G,
+    or quality x. Because T_sat appears explicitly, the correlation should be
+    used with caution for fluids or temperatures far from the experimental data.
+
+    Definitions
+    -----------
+    - d_o : bubble departure diameter [m]
+    - alpha_l : thermal diffusivity of saturated liquid [m2/s]
+    - Properties at saturation: k_l, rho_l, rho_v, cp_l, Pr_l, h_lv, sigma
+    """
+    # 1) Inputs from cond dictionary
+    q = cond['q']                 # local heat flux [W/m2]
+    p_sat = cond['p']             # saturation pressure [Pa]
+
+    # Fixed parameters used in the correlation development
+    contact_angle = 35.0          # contact angle [deg] (used as a number in degrees)
+    g = 9.80665                   # gravitational acceleration [m/s2]
+
+    # 2) Guard on heat flux (same style as Cooper)
+    if not (np.isfinite(q) and q > 0.0):
+        raise ValueError(f"Huang-Sheer boiling: heat flux q = {q} must be finite and > 0.")
+
+    # 3) Saturated properties at p_sat
+    s = _sat_props(AS, p_sat)
+    k_l = s["k_l"]                # liquid thermal conductivity [W/m/K]
+    rho_l = s["rho_l"]            # liquid density [kg/m3]
+    rho_v = s["rho_v"]            # vapour density [kg/m3]
+    cp_l = s["cp_l"]              # liquid specific heat [J/kg/K]
+    Pr_l = s["Pr_l"]              # liquid Prandtl number [-]
+    h_lv = s["h_lv"]              # latent heat [J/kg]
+    sigma = s["sigma"]            # surface tension [N/m]
+
+    # 4) Saturation temperature [K]
+    # Do this AFTER _sat_props because _sat_props may return cached values
+    # without touching AS. We need AS in a known state for T().
+    AS.update(CP.PQ_INPUTS, p_sat, 0)
+    T_sat = AS.T()                # saturation temperature [K]
+
+    # 5) Bubble departure diameter d_o [m]
+    # Equation from the paper (corrected form as used in ht library)
+    d_o = 0.0146 * contact_angle * (2.0 * sigma / (g * (rho_l - rho_v))) ** 0.5
+
+    # 6) Thermal diffusivity of the liquid alpha_l [m2/s]
+    alpha_l = k_l / (rho_l * cp_l)
+
+    # 7) Heat transfer coefficient h [W/m2/K]
+    # Write the correlation in several steps with intermediate variables
+    # for readability (one operation per line).
+    group1 = k_l / d_o
+    group2 = (q * d_o) / (k_l * T_sat)
+    group3 = (h_lv * d_o ** 2) / (alpha_l ** 2)
+
+    h = (1.87e-3
+         * group1
+         * (group2 ** 0.56)
+         * (group3 ** 0.31)
+         * (Pr_l ** 0.33))
+
+    # 8) Validity warnings (do not stop, just warn)
+    if not (1850.0 <= q <= 10750.0):
+        warnings.warn(
+            f"Huang-Sheer boiling: heat flux q = {q:.1f} W/m2 outside the "
+            f"validated range [1850, 10750] W/m2: extrapolated."
+        )
+    if not (275.05 <= T_sat <= 286.19):
+        warnings.warn(
+            f"Huang-Sheer boiling: saturation temperature T_sat = {T_sat:.2f} K "
+            f"({T_sat - 273.15:.2f} degC) outside the validated range "
+            f"[275.05, 286.19] K: extrapolated. "
+            f"Correlation should be used with caution for fluids or temperatures "
+            f"far from the experimental data (mainly R134a, R507A)."
+        )
+
+    return h
+
+#%% TWO-PHASE : CONDENSING
 
 def BPHE_shah_condensing_HTC(AS, geom, cond):
     """

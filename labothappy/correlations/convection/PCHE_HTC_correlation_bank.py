@@ -7,6 +7,7 @@ geom : D_c (channel diameter), L_c (developed channel length), alpha (bending an
        channel [deg]); Dh (optional, default pi*D_c/(2+pi))
 cond : G (mass flux in ONE channel), mu, k, Pr, rho, T (bulk), m_dot is not needed.
 """
+import warnings
 import numpy as np
 
 
@@ -94,22 +95,61 @@ def PCHE_bennett_chen_HTC(AS, geom, cond):
     return (PCHE_bennett_chen_cold_HTC if cond.get('heating') else PCHE_bennett_chen_hot_HTC)(AS, geom, cond)
 
 
-# bending angle [deg] -> (pitch p, height h) of the zigzag [m], Lee et al. (2024)
-_ZIGZAG_PH = ((10, 12.93e-3, 1.14e-3), (20, 12.09e-3, 2.2e-3), (30, 10.95e-3, 3.16e-3), (40, 9.53e-3, 4.0e-3))
-
-
 def PCHE_lee_zigzag_HTC(AS, geom, cond):
-    """Zigzag channel, bending angle alpha in ]0, 40] deg (Jiang et al. 2018; Lee et al. 2024).
-    Re <= 2000 : Nu = 0.0479 Re^0.7089 Pr^(1/3) (h/p)^0.3 ; Re > 2000 : Nu = 0.0845 Re^0.721 Pr^0.33."""
+    """Zigzag semicircular channel of a PCHE: heat transfer coefficient h [W/m2/K].
+
+    Re <= 2000 (laminar / transition), Lee et al. (2024), Eq. (3):
+        Nu = 0.0479 Re^0.7089 (h/p)^0.30 Pr^0.33
+        h/p = zigzag amplitude / pitch. Table I of the paper (alpha 10/20/30/40 deg) gives
+        h/p = tan(alpha) / 2 to 4 digits, so h/p is computed from the bending angle.
+        Validity: 300 <= Re <= 2000, 10 <= alpha <= 40 deg, water (CFD, Transition SST),
+        D_c = 1.5 mm; +-15 % vs CFD, +-20 % vs Kim & No (2011) and Chen et al. (2016) data.
+        Ref: Y. Lee, S. Lee, H.B. Park, K.W. Seo, D. Lee, Thermal-hydraulic performance analysis
+        of zigzag channel PCHE according to bending angle, Trans. Korean Nuclear Society Spring
+        Meeting, Jeju, May 9-10, 2024.
+    Re > 2000 (turbulent), Jiang et al. (2018), Eq. (23a), "high-angle" (40 deg) channel:
+        Nu = 0.0845 Re^0.721 Pr^(1/3)
+        Validity: 3000 <= Re <= 20600 (fit of Heatric data), sCO2, D_c = 2 mm, alpha = 40 deg.
+        Ref: Y. Jiang, E. Liese, S.E. Zitney, D. Bhattacharyya, Design and dynamic modeling of
+        printed circuit heat exchangers for supercritical carbon dioxide Brayton power cycles
+        (2018).
+
+    Definitions: Re = G Dh / mu with Dh = pi D_c / (2 + pi) (Jiang Eq. 8; Lee does not state it),
+    bulk properties of the cell; Nu on Dh.
+    geom : alpha [deg] (bending angle from the main flow direction), D_c [m] (or Dh [m])
+    cond : G [kg/m2/s] (one channel), mu [Pa s], k [W/m/K], Pr [-]
+    Returns h [W/m2/K]. Outside the validity ranges: warning, value extrapolated."""
     _need(cond, 'G', 'mu', 'k', 'Pr')
     Dh = _dh(geom)
-    Re, Pr = cond['G'] * Dh / cond['mu'], cond['Pr']
+    alpha = geom['alpha']
+    Pr = cond['Pr']
+
+    # Reynolds number on the hydraulic diameter of the semicircular channel
+    Re = cond['G'] * Dh / cond['mu']
+
     if Re <= 2000:
-        alpha = geom['alpha']
-        if not 0 < alpha <= 40:
-            raise ValueError(f"PCHE_lee_zigzag_HTC: bending angle {alpha} deg outside ]0, 40].")
-        p, h = next((p, h) for a, p, h in _ZIGZAG_PH if alpha <= a)
-        Nu = 0.0479 * Re ** 0.7089 * Pr ** (1 / 3) * (h / p) ** 0.3
+        # A zigzag needs 0 < alpha < 90 deg (tan(alpha) > 0)
+        if not 0 < alpha < 90:
+            raise ValueError(f"PCHE_lee_zigzag_HTC: bending angle {alpha} deg outside ]0, 90[.")
+        # Lee et al. (2024): range of the CFD data
+        if not 10 <= alpha <= 40:
+            warnings.warn(f"PCHE_lee_zigzag_HTC: bending angle {alpha} deg outside the range "
+                          "10-40 deg of Lee et al. (2024): extrapolated.")
+        if Re < 300:
+            warnings.warn(f"PCHE_lee_zigzag_HTC: Re = {Re:.0f} below 300, lower limit of "
+                          "Lee et al. (2024): extrapolated.")
+        # Amplitude over pitch of the zigzag, from the bending angle (Table I: h/p = tan(alpha)/2)
+        h_over_p = np.tan(np.radians(alpha)) / 2
+        # Lee et al. (2024), Eq. (3)
+        Nu = 0.0479 * Re ** 0.7089 * h_over_p ** 0.30 * Pr ** 0.33
     else:
-        Nu = 0.0845 * Re ** 0.721 * Pr ** 0.33
+        # Jiang et al. (2018): fit of Heatric data, high-angle (40 deg) channel only
+        if Re < 3000 or Re > 20600:
+            warnings.warn(f"PCHE_lee_zigzag_HTC: Re = {Re:.0f} outside 3000-20600, range of "
+                          "Jiang et al. (2018) Eq. (23a): extrapolated.")
+        if alpha != 40:
+            warnings.warn(f"PCHE_lee_zigzag_HTC: Jiang et al. (2018) Eq. (23a) is for a 40 deg "
+                          f"channel, used here with alpha = {alpha} deg.")
+        # Jiang et al. (2018), Eq. (23a)
+        Nu = 0.0845 * Re ** 0.721 * Pr ** (1 / 3)
     return Nu * cond['k'] / Dh

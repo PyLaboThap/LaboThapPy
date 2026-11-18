@@ -56,16 +56,22 @@ def BPHX_SP_DP(AS, geom, cond, choice=None):
 
 #%% TWO-PHASE : BOILING
 
-from labothappy.correlations.pressure_drop.BPHX_DP_correlation_bank import BPHX_lockhart_martinelli_DP
+from labothappy.correlations.pressure_drop.BPHX_DP_correlation_bank import (
+    BPHX_lockhart_martinelli_DP, BPHX_amalfi_boiling_DP)
 
 _BPHX_EVAP_DP = {
     'Lockhart_Martinelli': BPHX_lockhart_martinelli_DP,
+    'Amalfi': BPHX_amalfi_boiling_DP,
 }
 
 def select_plate_evaporation_DP(geom, cond):
-    """Automatic choice of the evaporation friction correlation (heuristic).
-      - only Lockhart-Martinelli is available for the moment (separated flow model, Chisholm form;
+    """Automatic choice of the evaporation friction correlation (heuristic), same rule as
+    select_plate_evaporation_HTC so that HTC and DP come from the same paper:
+      - chevron angle in geom  -> Amalfi (plate-specific, Amalfi et al. 2016 Part 2)
+      - otherwise              -> Lockhart-Martinelli (separated flow model, Chisholm form;
         extrapolated from smooth tubes, with Martin's friction factor for each phase)."""
+    if 'beta' in geom:
+        return 'Amalfi'
     return 'Lockhart_Martinelli'
 
 def BPHX_boiling_DP(AS, geom, cond, choice=None):
@@ -74,6 +80,7 @@ def BPHX_boiling_DP(AS, geom, cond, choice=None):
 
     cond : G (mass flux in ONE channel) [kg/m2/s], x (mean quality) [-], p (saturation pressure) [Pa]
     geom : Dh, L, beta; optional lm_C and lm_plate_friction (Lockhart-Martinelli).
+    Amalfi reads geom['beta'] directly (from the main flow direction, deg or rad).
     Acceleration, gravity and port losses are not included."""
     if choice in (None, 'auto'):
         choice = select_plate_evaporation_DP(geom, cond)

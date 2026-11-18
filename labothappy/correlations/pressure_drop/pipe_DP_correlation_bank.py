@@ -250,6 +250,469 @@ def _pipe_lockhart_martinelli_dp(AS, geom, cond):
     return _two_phase_dp(AS, geom, cond, model)
 
 
+def pipe_xu_fang_condensing_DP(AS, geom, cond):
+    """
+    Xu & Fang (2013) two-phase frictional pressure drop for CONDENSING flow in tubes.
+
+    Parameters
+    ----------
+    AS : CoolProp.AbstractState
+        Fluid state (used for saturated properties at cond['p']).
+    geom : dict
+        Geometry dictionary with keys:
+        - 'Tube_ID' or ('Tube_OD', 'Tube_t') : tube inner diameter [m]
+        - 'L' : total flow length (straight length x passes) [m]
+        - 'K' : absolute roughness [m], default 0.0
+        - 'theta' : inclination angle [deg], default 0.0 (positive = upward flow)
+    cond : dict
+        Operating conditions with keys:
+        - 'G' : mass flux in ONE tube [kg/m2/s] (or 'm_dot' with geom 'n_tubes', 'n_passes')
+        - 'p' : saturation pressure [Pa]
+        - 'x' : vapour quality [-] (clipped to [1e-6, 1-1e-6])
+        - optional 'sigma' : surface tension [N/m] if CoolProp has no model
+
+    Returns
+    -------
+    dp : float
+        Pressure drop [Pa] over geom['L'] = frictional + gravity (geom['theta']),
+        no acceleration term (consistent with other pipe DP functions in this file).
+
+    Reference
+    ---------
+    Xu, Y., Fang, X. (2013). A new correlation of two-phase frictional pressure drop
+    for condensing flow in pipes. Nuclear Engineering and Design, 263, 87-96.
+    doi:10.1016/j.nucengdes.2013.04.017
+
+    Implementation follows the independent implementation in the fluids library
+    (C. Bell), fluids.two_phase.Xu_Fang, which cites the reference above.
+
+    Validity
+    --------
+    Condensing flow, database of the paper (range not given in the reference library).
+    No explicit validity warning is emitted beyond those of the helper functions.
+
+    Notes
+    -----
+    - Diameter in Reynolds numbers is the tube inner diameter.
+    - Saturated liquid/vapour properties at cond['p'] are used.
+    - Quality is the local quality cond['x'].
+    - Churchill friction factor (Darcy) is used for single-phase friction factors,
+      whereas the reference library uses its own Colebrook solution.
+    """
+    # 1. Read geometry and flow conditions
+    D = _tube_ID(geom)                    # tube inner diameter [m]
+    L = geom['L']                         # total flow length [m]
+    K = geom.get('K', 0.0)                # absolute roughness [m]
+    G = _tube_G(geom, cond)               # mass flux in one tube [kg/m2/s]
+    x = min(max(cond['x'], 1e-6), 1 - 1e-6)  # quality, clipped
+    p = cond['p']                         # saturation pressure [Pa]
+
+    # 2. Saturated properties at pressure p
+    s = _sat_props(AS, p, cond)           # rho_l, rho_v, mu_l, mu_v, (sigma)
+    rho_l = s['rho_l']
+    rho_v = s['rho_v']
+    mu_l = s['mu_l']
+    mu_v = s['mu_v']
+
+    # Surface tension is needed for Weber number
+    _need_sigma(AS, s)
+    sigma = s['sigma']
+
+    # 3. Liquid-only flow
+    Re_lo = G * D / mu_l
+    f_lo = friction_factor_churchill(K, D, Re_lo)
+    dp_lo = _friction_dp(f_lo, G, rho_l, D, L)
+
+    # 4. Vapour-only flow
+    Re_vo = G * D / mu_v
+    f_vo = friction_factor_churchill(K, D, Re_vo)
+    dp_vo = _friction_dp(f_vo, G, rho_v, D, L)
+
+    # 5. Ratio of vapour-only to liquid-only pressure drop
+    Y2 = dp_vo / dp_lo
+
+    # 6. Homogeneous density and velocity
+    rho_h = 1.0 / (x / rho_v + (1.0 - x) / rho_l)
+    v_h = G / rho_h
+
+    # 7. Froude number (squared form, as in fluids library) and Weber number
+    Fr = v_h**2 / (G_GRAVITY * D)
+    We = v_h**2 * D * rho_h / sigma
+
+    # 8. Two-phase multiplier phi_lo^2 (Xu & Fang 2013, as implemented in fluids)
+    term_vapour = Y2 * x**3
+    term_liquid = (1.0 - x**2.59)**0.632
+    bracket = (1.0
+               + 2.0 * x**1.17 * (Y2 - 1.0)
+               + 0.00775 * x**-0.475 * Fr**0.535 * We**0.188)
+    phi_lo2 = term_vapour + term_liquid * bracket
+
+    # 9. Frictional pressure drop + gravity term with homogeneous density
+    dp_friction = phi_lo2 * dp_lo
+    return dp_friction + _gravity(geom, rho_h)
+
+
+def pipe_chisholm_DP(AS, geom, cond):
+    """Two-phase frictional pressure drop in tubes, Chisholm (1973) B-coefficient method
+    (evaporating flow; used for evaporation and condensation).
+
+    Implementation follows the independent implementation in the fluids library (C. Bell),
+    fluids.two_phase.Chisholm (without the optional 1978 roughness correction), which cites
+    the reference below (also in Thome, Wolverine Engineering Data Book III, 2004).
+
+    Parameters
+    ----------
+    AS : CoolProp.AbstractState
+        Fluid state object.
+    geom : dict
+        Geometry dictionary with keys:
+        - 'Tube_ID' [m] (or 'Tube_OD' [m] and 'Tube_t' [m])
+        - 'L' [m]: full flow length
+        - 'K' [m]: absolute roughness (default 0)
+        - 'theta' [deg]: inclination angle (default 0, positive = upward)
+    cond : dict
+        Condition dictionary with keys:
+        - 'p' [Pa]: pressure
+        - 'x' [-]: vapor quality
+        - 'G' [kg/m2/s]: mass flux in ONE tube (or 'm_dot' [kg/s] + geom n_tubes, n_passes)
+
+    Returns
+    -------
+    float
+        Total pressure drop over geom['L'] [Pa] = friction + gravity (geom['theta']),
+        no acceleration.
+
+    Reference
+    ---------
+    Chisholm, D. (1973) Pressure gradients due to friction during the flow of evaporating
+    two-phase mixtures in smooth tubes and channels. International Journal of Heat and Mass
+    Transfer 16(2), 347-358. doi:10.1016/0017-9310(73)90063-X
+
+    Notes: Darcy friction factors from friction_factor_churchill (labothappy choice, as Friedel
+    and MSH of this file); the fluids library uses its own Colebrook solution. Saturated
+    properties at cond['p']; liquid-only / vapour-only flows with the total mass flux.
+    """
+    # 1. Read tube inner diameter [m], full length [m], and absolute roughness [m]
+    D = _tube_ID(geom)
+    L = geom['L']
+    K = geom.get('K', 0.0)
+
+    # Calculate mass flux in one tube [kg/m2/s]
+    G = _tube_G(geom, cond)
+
+    # Read and bound vapor quality [-] between 1e-6 and 1 - 1e-6
+    x = cond['x']
+    x = min(max(x, 1e-6), 1.0 - 1e-6)
+
+    # Read pressure [Pa]
+    p = cond['p']
+
+    # 2. Get saturated fluid properties: densities [kg/m3] and dynamic viscosities [Pa s]
+    s = _sat_props(AS, p, cond)
+    rho_l = s['rho_l']
+    rho_v = s['rho_v']
+    mu_l = s['mu_l']
+    mu_v = s['mu_v']
+
+    # 3. Liquid-only flow pressure drop calculation
+    Re_lo = G * D / mu_l
+    f_lo = friction_factor_churchill(K, D, Re_lo)
+    dp_lo = _friction_dp(f_lo, G, rho_l, D, L)
+
+    # 4. Vapour-only flow pressure drop calculation
+    Re_vo = G * D / mu_v
+    f_vo = friction_factor_churchill(K, D, Re_vo)
+    dp_vo = _friction_dp(f_vo, G, rho_v, D, L)
+
+    # 5. Calculate Gamma parameter and Blasius exponent
+    Gamma = (dp_vo / dp_lo) ** 0.5
+    n = 0.25
+
+    # 6. Calculate coefficient B based on Gamma and mass flux G (Chisholm 1973)
+    if Gamma <= 9.5:
+        if G <= 500.0:
+            B = 4.8
+        elif 500.0 < G < 1900.0:
+            B = 2400.0 / G
+        else:
+            B = 55.0 / (G ** 0.5)
+    elif Gamma <= 28.0:
+        if G <= 600.0:
+            B = 520.0 / (Gamma * (G ** 0.5))
+        else:
+            B = 21.0 / Gamma
+    else:
+        B = 15000.0 / ((Gamma ** 2) * (G ** 0.5))
+
+    # 7. Calculate two-phase multiplier phi2
+    exponent = (2.0 - n) / 2.0
+    bracket = B * (x ** exponent) * ((1.0 - x) ** exponent) + (x ** (2.0 - n))
+    phi2 = 1.0 + ((Gamma ** 2) - 1.0) * bracket
+
+    # 8. Calculate frictional pressure drop
+    dp_friction = phi2 * dp_lo
+
+    # Calculate homogeneous density [kg/m3] for the gravity term
+    rho_h = 1.0 / (x / rho_v + (1.0 - x) / rho_l)
+
+    # Return total pressure drop: frictional + gravity
+    return dp_friction + _gravity(geom, rho_h)
+
+
+def pipe_gronnerud_boiling_DP(AS, geom, cond):
+    """
+    Gronnerud (1972) two-phase frictional pressure drop for evaporating refrigerants in tubes.
+
+    Implementation follows the independent implementation in the fluids library
+    (C. Bell), fluids.two_phase.Gronnerud, which cites the reference below as presented
+    in the ASHRAE Handbook Fundamentals (2013) and Thome, Wolverine Engineering Data Book III
+    (2004).
+
+    Parameters
+    ----------
+    AS : CoolProp.AbstractState
+        AbstractState for the fluid (used only for saturation properties via _sat_props).
+    geom : dict
+        Geometry dictionary with keys:
+        - 'Tube_ID' or ('Tube_OD', 'Tube_t') : tube inner diameter [m]
+        - 'L' : total flow length (straight length x passes) [m]
+        - 'K' : absolute roughness [m], default 0.0
+        - 'theta' : inclination angle [deg], default 0.0 (positive = upward flow)
+    cond : dict
+        Operating conditions dictionary with keys:
+        - 'G' : mass flux in ONE tube [kg/m2/s] (or 'm_dot' with geom['n_tubes'], geom['n_passes'])
+        - 'x' : vapor quality [-] (clipped to [1e-6, 1-1e-6])
+        - 'p' : saturation pressure [Pa]
+
+    Returns
+    -------
+    dp : float
+        Total pressure drop [Pa] over geom['L'] = frictional (Gronnerud) + gravity (geom['theta']),
+        no acceleration term (consistent with the other pipe DP functions in this file).
+
+    Reference
+    ---------
+    Gronnerud, R. (1972) Investigation of liquid hold-up, flow resistance and heat transfer in
+    circulation type evaporators. 4. Two-phase flow resistance in boiling refrigerants. Proc.
+    Freudenstadt Meeting, IIR, 1972-1, 127-138.
+
+    Validity
+    --------
+    Developed for evaporators; 0 < x < 1 (fluids library notes). No range warning emitted.
+
+    Notes
+    -----
+    - Single-phase friction factor uses Churchill (1977) via friction_factor_churchill (Darcy),
+      whereas the reference fluids library uses its own Colebrook solution.
+    - Surface tension is not required by this correlation.
+    - Homogeneous density is used for the gravity term: rho_h = 1 / (x/rho_v + (1-x)/rho_l).
+    """
+    # --- 1. Read geometry and conditions (common to all pipe DP functions) ---
+    D = _tube_ID(geom)                     # tube inner diameter [m]
+    L = geom['L']                          # total flow length [m]
+    K = geom.get('K', 0.0)                 # absolute roughness [m]
+    G = _tube_G(geom, cond)                # mass flux in one tube [kg/m2/s]
+    x = min(max(cond['x'], 1e-6), 1 - 1e-6)  # vapor quality [-], clipped
+    p = cond['p']                          # saturation pressure [Pa]
+
+    # --- 2. Saturated properties at pressure p ---
+    s = _sat_props(AS, p, cond)            # dict with rho_l, rho_v, mu_l, mu_v (sigma not needed)
+    rho_l = s['rho_l']
+    rho_v = s['rho_v']
+    mu_l = s['mu_l']
+    mu_v = s['mu_v']
+
+    # --- 3. Liquid-only Froude number (Gronnerud 1972, as implemented in fluids) ---
+    v_lo = G / rho_l                       # liquid-only velocity [m/s]
+    Fr_lo = v_lo**2 / (G_GRAVITY * D)      # liquid-only Froude number [-]
+
+    # --- 4. Froude function f_Fr (Gronnerud 1972, as implemented in fluids) ---
+    if Fr_lo >= 1.0:
+        f_Fr = 1.0
+    else:
+        log_term = np.log(1.0 / Fr_lo)
+        f_Fr = Fr_lo**0.3 + 0.0055 * log_term**2
+
+    # --- 5. Friction gradient factor dpdz_Fr (Gronnerud 1972, as implemented in fluids) ---
+    dpdz_Fr = f_Fr * (x + 4.0 * (x**1.8 - x**10 * f_Fr**0.5))
+
+    # --- 6. Two-phase multiplier phi_gd (Gronnerud 1972, as implemented in fluids) ---
+    property_ratio = (rho_l / rho_v) / (mu_l / mu_v)**0.25
+    phi_gd = 1.0 + dpdz_Fr * (property_ratio - 1.0)
+
+    # --- 7. Liquid-only pressure drop dp_lo (Gronnerud 1972, as implemented in fluids) ---
+    Re_lo = G * D / mu_l                   # liquid-only Reynolds number [-]
+    f_lo = friction_factor_churchill(K, D, Re_lo)  # Darcy friction factor [-]
+    dp_lo = _friction_dp(f_lo, G, rho_l, D, L)     # liquid-only frictional DP [Pa]
+
+    # --- 8. Two-phase frictional DP + gravity (Gronnerud 1972, as implemented in fluids) ---
+    dp_friction = phi_gd * dp_lo           # two-phase frictional DP [Pa]
+
+    # Homogeneous density for gravity term
+    rho_h = 1.0 / (x / rho_v + (1.0 - x) / rho_l)
+    dp_gravity = _gravity(geom, rho_h)     # gravity DP [Pa]
+
+    return dp_friction + dp_gravity
+
+
+def pipe_kim_mudawar_condensing_DP(AS, geom, cond):
+    """
+    Kim & Mudawar (2012) universal approach for two-phase frictional pressure drop in
+    adiabatic and condensing mini/micro-channel flows.
+
+    Parameters
+    ----------
+    AS : CoolProp.AbstractState
+        Fluid state (used for critical pressure and saturation properties).
+    geom : dict
+        Geometry dictionary with keys:
+        - 'Tube_ID' or ('Tube_OD', 'Tube_t') : tube inner diameter [m]
+        - 'L' : total flow length [m]
+        - 'theta' : inclination angle [deg], default 0 (positive = upward)
+    cond : dict
+        Flow conditions with keys:
+        - 'G' : mass flux in one tube [kg/m2/s] (or 'm_dot' with 'n_tubes', 'n_passes')
+        - 'x' : vapour quality [-]
+        - 'p' : pressure [Pa]
+
+    Returns
+    -------
+    dP : float
+        Total pressure drop over geom['L'] [Pa] = frictional + gravity (geom['theta']),
+        no acceleration term (consistent with other pipe DP functions in this file).
+
+    Reference
+    ---------
+    Kim, S.-M., Mudawar, I. (2012) Universal approach to predicting two-phase frictional
+    pressure drop for adiabatic and condensing mini/micro-channel flows.
+    International Journal of Heat and Mass Transfer 55(11-12), 3246-3261.
+    doi:10.1016/j.ijheatmasstransfer.2012.02.047
+
+    Implementation follows the independent implementation in the fluids library
+    (C. Bell), fluids.two_phase.Kim_Mudawar, which cites the reference above
+    (also Kim & Mudawar 2014, IJHMT 77, 74-97, doi:10.1016/j.ijheatmasstransfer.2014.04.035).
+
+    Validity
+    --------
+    Hydraulic diameter 0.0695-6.22 mm; mass flux 4-8528 kg/m2/s; reduced pressure
+    0.0052-0.91 (p / p_critical). 7115 data points from 36 sources; fluids: air, CO2,
+    N2, water, ethanol, R12, R22, R134a, R236ea, R245fa, R404A, R407C, propane,
+    methane, ammonia.
+
+    Notes
+    -----
+    This model uses its OWN Darcy friction factor (from the paper), roughness is NOT used:
+    Re < 2000: f = 64 / Re; 2000 <= Re < 20000: f = 0.316 * Re**-0.25; Re >= 20000:
+    f = 0.184 * Re**-0.2. The branch logic is written inline for liquid and vapour phases.
+    """
+    # 1. Read geometry and flow conditions
+    D = _tube_ID(geom)                    # hydraulic diameter [m]
+    L = geom['L']                         # total flow length [m]
+    G = _tube_G(geom, cond)               # mass flux in one tube [kg/m2/s]
+    x = min(max(cond['x'], 1e-6), 1 - 1e-6)  # quality, clipped to avoid 0/1
+    p = cond['p']                         # pressure [Pa]
+
+    # 2. Saturated properties at pressure p
+    s = _sat_props(AS, p, cond)           # rho_l, rho_v, mu_l, mu_v
+    rho_l = s['rho_l']
+    rho_v = s['rho_v']
+    mu_l = s['mu_l']
+    mu_v = s['mu_v']
+
+    # Surface tension (needed for Suratman number)
+    _need_sigma(AS, s)
+    sigma = s['sigma']
+
+    # 3. Validity checks (warn if outside ranges)
+    # Hydraulic diameter: 0.0695-6.22 mm
+    if D < 0.0695e-3 or D > 6.22e-3:
+        warnings.warn(
+            f"Kim-Mudawar condensing: D_h = {D*1000:.2f} mm outside validity range "
+            f"[0.0695, 6.22] mm",
+            stacklevel=2
+        )
+    # Mass flux: 4-8528 kg/m2/s
+    if G < 4 or G > 8528:
+        warnings.warn(
+            f"Kim-Mudawar condensing: G = {G:.1f} kg/m2/s outside validity range "
+            f"[4, 8528] kg/m2/s",
+            stacklevel=2
+        )
+    # Reduced pressure: 0.0052-0.91
+    p_crit = AS.p_critical()              # critical pressure [Pa]
+    p_red = p / p_crit
+    if p_red < 0.0052 or p_red > 0.91:
+        warnings.warn(
+            f"Kim-Mudawar condensing: reduced pressure p/p_crit = {p_red:.4f} "
+            f"outside validity range [0.0052, 0.91]",
+            stacklevel=2
+        )
+
+    # 4. Liquid flowing alone (Kim & Mudawar 2012)
+    G_l = G * (1 - x)                     # liquid mass flux [kg/m2/s]
+    Re_l = G_l * D / mu_l                 # liquid Reynolds number [-]
+
+    # Liquid friction factor (paper's own correlation, no roughness)
+    if Re_l < 2000:
+        f_l = 64.0 / Re_l
+    elif Re_l < 20000:
+        f_l = 0.316 * Re_l ** -0.25
+    else:
+        f_l = 0.184 * Re_l ** -0.2
+
+    dp_l = _friction_dp(f_l, G_l, rho_l, D, L)  # liquid-only pressure drop [Pa]
+
+    # 5. Vapour flowing alone (Kim & Mudawar 2012)
+    G_v = G * x                           # vapour mass flux [kg/m2/s]
+    Re_v = G_v * D / mu_v                 # vapour Reynolds number [-]
+
+    # Vapour friction factor (paper's own correlation, no roughness)
+    if Re_v < 2000:
+        f_v = 64.0 / Re_v
+    elif Re_v < 20000:
+        f_v = 0.316 * Re_v ** -0.25
+    else:
+        f_v = 0.184 * Re_v ** -0.2
+
+    dp_v = _friction_dp(f_v, G_v, rho_v, D, L)  # vapour-only pressure drop [Pa]
+
+    # 6. Liquid-only Reynolds number (Kim & Mudawar 2012)
+    Re_lo = G * D / mu_l                  # based on total mass flux
+
+    # 7. Suratman number of the vapour (Kim & Mudawar 2012)
+    Su_vo = rho_v * sigma * D / (mu_v ** 2)
+
+    # 8. Martinelli parameter X and transition Reynolds number (Kim & Mudawar 2012)
+    X = (dp_l / dp_v) ** 0.5
+    Re_c = 2000.0                         # transition Reynolds number
+
+    # 9. Chisholm parameter C (Kim & Mudawar 2012) - four regimes
+    rho_ratio = rho_l / rho_v
+
+    if Re_l < Re_c and Re_v < Re_c:
+        # laminar liquid, laminar vapour
+        C = 3.5e-5 * Re_lo ** 0.44 * Su_vo ** 0.50 * rho_ratio ** 0.48
+    elif Re_l < Re_c and Re_v >= Re_c:
+        # laminar liquid, turbulent vapour
+        C = 0.0015 * Re_lo ** 0.59 * Su_vo ** 0.19 * rho_ratio ** 0.36
+    elif Re_l >= Re_c and Re_v < Re_c:
+        # turbulent liquid, laminar vapour
+        C = 8.7e-4 * Re_lo ** 0.17 * Su_vo ** 0.50 * rho_ratio ** 0.14
+    else:
+        # turbulent liquid, turbulent vapour
+        C = 0.39 * Re_lo ** 0.03 * Su_vo ** 0.10 * rho_ratio ** 0.35
+
+    # 10. Two-phase multiplier and frictional pressure drop (Kim & Mudawar 2012)
+    phi_l2 = 1.0 + C / X + 1.0 / (X ** 2)
+    dp_friction = phi_l2 * dp_l
+
+    # 11. Homogeneous density for gravity term
+    rho_h = 1.0 / (x / rho_v + (1 - x) / rho_l)
+
+    # 12. Total pressure drop = friction + gravity (no acceleration)
+    return dp_friction + _gravity(geom, rho_h)
+
+
 #%% PUBLIC NAMES: <phase> TAG, as the pipe HTC (same implementation for evaporation and condensation)
 
 def pipe_friedel_boiling_DP(AS, geom, cond):

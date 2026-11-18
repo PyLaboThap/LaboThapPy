@@ -92,7 +92,7 @@ def _clamp_x(x, eps=1e-6):
 def _gnielinski_core(mu, Pr, mu_w, k, G, Dh, L):
     """Laminar Stephan-Preusser / transition Gnielinski / turbulent Sieder-Tate."""
     def stephan_preusser(Re):
-        Nu_1 = 0.0677 * (Re * Pr * (Dh / L)**1.33)
+        Nu_1 = 0.0677 * (Re * Pr * (Dh / L))**1.33
         Nu_2 = 1 + 0.1 * Pr * (Re * Dh / L)**0.3
         return 3.657 + Nu_1 / Nu_2
 
@@ -244,6 +244,104 @@ def pipe_cheng_sCO2_HTC(AS, geom, cond):
     Nu_bot = 1.512 * (Re**0.878) * (Pr_ave**0.685) * (SBO_w**0.69) * (Fr_VL_w**(-0.0213))
     return 0.5 * (Nu_top + Nu_bot) * k / D_in
 
+
+def pipe_petukhov_supercritical_HTC(AS, geom, cond):
+    """
+    Petukhov et al. (1983) correlation for single-phase turbulent flow in a tube at
+    supercritical / near-critical pressure, with wall-property corrections of the
+    Darcy friction factor.
+
+    Implementation follows the independent implementation in the ht library
+    (C. Bell), ht.conv_supercritical.Nu_Petukhov, which cites the reference below
+    (assessed in Chen, Fang, Xu, Su 2015, Annals of Nuclear Energy 76, 451-460,
+    doi:10.1016/j.anucene.2014.10.027: second best in the normal heat transfer
+    category, MAD 12.0 %).
+
+    Arguments
+    ---------
+    AS : CoolProp AbstractState
+        Fluid state object (will be moved to wall state (p, T_w)).
+    geom : dict
+        Geometry dictionary with keys:
+        - 'Tube_ID' [m]  (or 'Tube_OD' [m] and 'Tube_t' [m])
+    cond : dict
+        Operating conditions dictionary with keys:
+        - 'G' [kg/m2/s]  mass flux in ONE tube (or 'm_dot' [kg/s] + geom n_tubes, n_passes)
+        - 'p' [Pa]       bulk pressure
+        - 'T_w' [K]      wall temperature
+        - 'rho' [kg/m3]  bulk density
+        - 'mu' [Pa s]    bulk dynamic viscosity
+        - 'Pr' [-]       bulk Prandtl number (uses bulk cp of the cell, not integral-averaged)
+        - 'k' [W/m/K]    bulk thermal conductivity
+
+    Returns
+    -------
+    h : float
+        Heat transfer coefficient [W/m2/K].
+
+    Reference
+    ---------
+    Petukhov, B.S., Kurganov, V.A., Ankudinov, V.B. (1983) Heat transfer and flow
+    resistance in the turbulent pipe flow of a fluid with near-critical state
+    parameters. High Temperature 21(1), 81-89.
+
+    Validity
+    --------
+    Turbulent correlation. Warns if Re_b < 1e4 (labothappy safeguard, not from the paper).
+    Pr_b uses the bulk cp of the cell (as in ht library), not an integral-averaged cp.
+
+    Definitions
+    -----------
+    G : mass flux in one tube [kg/m2/s]
+    Re_b, Pr_b, k_b : bulk properties of the cell (from cond)
+    rho_w, mu_w : wall properties at (p, T_w)
+    f : Darcy friction factor
+    Nu : Nusselt number based on tube inner diameter D
+    AS : moved to wall state (p, T_w) inside the function
+    """
+    # 1. Geometry and bulk conditions
+    G = _tube_G(geom, cond)                     # mass flux in one tube [kg/m2/s]
+    D = _tube_ID(geom)                          # tube inner diameter [m]
+    p = cond['p']                               # bulk pressure [Pa]
+    T_w = cond['T_w']                           # wall temperature [K]
+
+    # Bulk properties of the cell (from cond dictionary)
+    rho_b = cond['rho']                         # bulk density [kg/m3]
+    mu_b = cond['mu']                           # bulk dynamic viscosity [Pa s]
+    Pr_b = cond['Pr']                           # bulk Prandtl number [-]
+    k_b = cond['k']                             # bulk thermal conductivity [W/m/K]
+
+    # 2. Wall properties (move AS to wall state)
+    AS.update(CP.PT_INPUTS, p, T_w)             # set AS to (p, T_w)
+    rho_w = AS.rhomass()                        # wall density [kg/m3]
+    mu_w = AS.viscosity()                       # wall dynamic viscosity [Pa s]
+
+    # 3. Bulk Reynolds number
+    Re_b = G * D / mu_b                         # bulk Reynolds number [-]
+
+    # 4. Isothermal friction factor (Filonenko, Darcy)
+    f_0 = (1.82 * np.log10(Re_b) - 1.64) ** -2  # Darcy friction factor [-]
+
+    # 5. Friction factor with property corrections
+    f = f_0 * (rho_w / rho_b) ** 0.4 * (mu_w / mu_b) ** 0.2  # corrected Darcy friction factor [-]
+
+    # 6. Nusselt number (Petukhov equation)
+    numerator = (f / 8.0) * Re_b * Pr_b
+    denominator = 1.0 + 900.0 / Re_b + 12.7 * (f / 8.0) ** 0.5 * (Pr_b ** (2.0 / 3.0) - 1.0)
+    Nu = numerator / denominator                # Nusselt number [-]
+
+    # 7. Heat transfer coefficient
+    h = Nu * k_b / D                            # HTC [W/m2/K]
+
+    # Validity warning (turbulent correlation safeguard)
+    if Re_b < 1e4:
+        warnings.warn(
+            'Petukhov supercritical HTC: Re_b = {:.0f} < 1e4. '
+            'Correlation is for turbulent flow; this limit is a labothappy safeguard.'.format(Re_b)
+        )
+
+    return h
+
 #%% CONDENSATION INSIDE TUBES
 
 def pipe_thome_condensing_HTC(AS, geom, cond):
@@ -320,6 +418,161 @@ def pipe_dobson_chato_condensing_HTC(AS, geom, cond):
         else:
             Nu = dobson_chato()
     return Nu * k_l / D_in
+
+
+def pipe_shah_condensing_HTC(AS, geom, cond):
+    """
+    Shah (1979, 1981) in-tube film condensation heat transfer coefficient.
+
+    Implementation follows the independent implementation in the ht library
+    (C. Bell), ht.condensation.Shah, which cites the references below (also given
+    in Kakac, Boilers, Evaporators and Condensers, Wiley 1991).
+
+    Parameters
+    ----------
+    AS : CoolProp AbstractState
+        Fluid state object.
+    geom : dict
+        Geometry dictionary containing 'Tube_ID' [m] (or 'Tube_OD' [m] and 'Tube_t' [m]),
+        straight tube length 'Tube_L' [m] (if needed), and optionally 'n_tubes' [-]
+        and 'n_passes' [-].
+    cond : dict
+        Conditions dictionary containing:
+        - 'p' : saturation pressure [Pa]
+        - 'x' : vapor quality [-]
+        - 'G' : mass flux inside ONE tube [kg/(m^2 s)] (optional if 'm_dot' [kg/s]
+          and geom are provided)
+
+    Returns
+    -------
+    float
+        Heat transfer coefficient h [W/(m^2 K)] on the inner surface.
+
+    References
+    ----------
+    Shah, M.M. (1979) A general correlation for heat transfer during film
+    condensation inside pipes. International Journal of Heat and Mass Transfer
+    22(4), 547-556. doi:10.1016/0017-9310(79)90058-9.
+    Shah, M.M. (1981) ASHRAE Transactions 87(3), 1086-1100.
+
+    Validity range
+    --------------
+    0.002 <= p_red <= 0.44; Re_lo >= 350.
+    Fluids tested in the original 1979 data: water, R11, R12, R22, R113, methanol,
+    ethanol, benzene, toluene, trichloroethylene.
+    Diameter D: 7-40 mm.
+    Mass flux G: 11-211 kg/(m^2 s) (ranges of the 1979 data "as usually reported").
+
+    Definitions
+    -----------
+    - G of one tube [kg/(m^2 s)]
+    - Re_lo with the total flow as liquid [-]
+    - Saturated-liquid properties (mu_l, k_l, Pr_l)
+    - Reduced pressure p_red = p / p_crit [-]
+    - No vapour property used
+    - Returns h [W/(m^2 K)] on the inner surface
+    """
+    # 1. Mass flux in one tube, internal diameter, pressure, and clamped quality
+    G = _tube_G(geom, cond)
+    D = _tube_ID(geom)
+    p = cond['p']
+    x = _clamp_x(cond['x'])
+
+    # 2. Saturated-liquid properties at p
+    s = _sat_props(AS, p, cond)
+    mu_l = s['mu_l']
+    k_l = s['k_l']
+    Pr_l = s['Pr_l']
+
+    # 3. Reduced pressure
+    p_crit = AS.p_critical()
+    p_red = p / p_crit
+
+    # 4. Liquid-only Reynolds number (all the flow as liquid)
+    Re_lo = G * D / mu_l
+
+    # 5. Liquid-only HTC, Dittus-Boelter correlation
+    h_lo = 0.023 * Re_lo**0.8 * Pr_l**0.4 * k_l / D
+
+    # 6. Two-phase multiplier terms
+    term_liquid = (1 - x)**0.8
+    term_vapour = 3.8 * x**0.76 * (1 - x)**0.04 / p_red**0.38
+
+    # 7. Two-phase heat transfer coefficient
+    h = h_lo * (term_liquid + term_vapour)
+
+    # Validity checks and warnings
+    outside_validity = False
+    warning_messages = []
+
+    if p_red < 0.002 or p_red > 0.44:
+        outside_validity = True
+        warning_messages.append(f"Reduced pressure p_red = {p_red:.4f} outside [0.002, 0.44]")
+
+    if Re_lo < 350:
+        outside_validity = True
+        warning_messages.append(f"Liquid-only Reynolds Re_lo = {Re_lo:.1f} below 350")
+
+    if outside_validity:
+        full_message = ("Shah condensing HTC: " + ", ".join(warning_messages)
+                        + " (validity range exceeded): extrapolated.")
+        warnings.warn(full_message)
+
+    return h
+
+
+def pipe_cavallini_smith_zecchin_condensing_HTC(AS, geom, cond):
+    """Cavallini, Smith & Zecchin (1974) forced-convection condensation inside tubes.
+    Single correlation for annular flow regime using an equivalent Reynolds number.
+    cond : G [kg/m2/s] (or m_dot [kg/s] + geom n_tubes, n_passes), p [Pa], x [-]
+    geom : Tube_ID [m] (or Tube_OD [m] and Tube_t [m])
+    Returns h [W/m2/K].
+    Reference: Cavallini, A., Smith, J.R., Zecchin, R. (1974) A dimensionless correlation for
+    heat transfer in forced convection condensation. 6th International Heat Transfer Conference,
+    Tokyo, 309-313.
+    Implementation follows the independent implementation in the ht library (C. Bell),
+    ht.condensation.Cavallini_Smith_Zecchin, which cites the reference above (also given in
+    Kakac, Boilers, Evaporators and Condensers, Wiley 1991).
+    Validity range not given in the reference library; forced-convection (annular) condensation.
+    Labothappy safeguard: warns if Re_eq < 1000 (turbulent Dittus-Boelter-type form),
+    not from the paper.
+    Definitions: G per tube; Re_l, Re_v with each phase flowing alone; saturated properties at p;
+    Nu based on tube ID with liquid thermal conductivity; quality clamped to [1e-6, 1-1e-6]."""
+    # Step 1: mass flux, diameter, pressure, quality
+    G = _tube_G(geom, cond)
+    D = _tube_ID(geom)
+    p = cond['p']
+    x = _clamp_x(cond['x'])
+
+    # Step 2: saturated properties at pressure p
+    s = _sat_props(AS, p, cond)
+    rho_l = s['rho_l']
+    rho_v = s['rho_v']
+    mu_l = s['mu_l']
+    mu_v = s['mu_v']
+    k_l = s['k_l']
+    Pr_l = s['Pr_l']
+
+    # Step 3: liquid-phase Reynolds number (liquid flowing alone)
+    Re_l = G * (1.0 - x) * D / mu_l
+
+    # Step 4: vapour-phase Reynolds number (vapour flowing alone)
+    Re_v = G * x * D / mu_v
+
+    # Step 5: equivalent Reynolds number (Cavallini, Smith, Zecchin 1974, as implemented in ht)
+    Re_eq = Re_v * (mu_v / mu_l) * (rho_l / rho_v)**0.5 + Re_l
+
+    # Validity safeguard: turbulent correlation form
+    if Re_eq < 1000:
+        warnings.warn('Cavallini-Smith-Zecchin: Re_eq < 1000, correlation is for turbulent '
+                      'annular flow.')
+
+    # Step 6: Nusselt number (liquid properties, Dittus-Boelter type)
+    Nu = 0.05 * Re_eq**0.8 * Pr_l**0.33
+
+    # Step 7: heat transfer coefficient
+    h = Nu * k_l / D
+    return h
 
 #%% BOILING INSIDE TUBES
 
@@ -518,6 +771,223 @@ def pipe_choi_boiling_HTC(AS, geom, cond):
 
     F_m = (1 + 0.039 * cp_l * (T_sat_dew - T_sat_bubble) / h_lv)**(-1)
     return E * h_l + S * F_m * h_nb
+
+
+def pipe_chen_boiling_HTC(AS, geom, cond):
+    """
+    Chen (1966) saturated flow boiling in tubes with Edelstein fit of the suppression factor S.
+    Superposition model: h = S * h_nb + F * h_l.
+
+    Arguments
+    ---------
+    AS   : CoolProp AbstractState (will be moved by saturation / wall property calls).
+    geom : dict with keys
+           'Tube_ID' [m]  (or 'Tube_OD' [m] and 'Tube_t' [m]).
+    cond : dict with keys
+           'G'       [kg/m2/s]  mass flux in ONE tube (or 'm_dot' [kg/s] + geom n_tubes, n_passes),
+           'p'       [Pa]       saturation pressure,
+           'x'       [-]        vapour quality (clamped to ]0, 1[),
+           'T_w'     [K]        wall temperature (required),
+           'q'       [W/m2]     NOT used by this correlation (present for API consistency).
+
+    Returns
+    -------
+    h : float
+        Heat transfer coefficient [W/m2/K].
+
+    Reference
+    ---------
+    Chen, J.C. (1966) Correlation for boiling heat transfer to saturated fluids in convective flow.
+    Industrial & Engineering Chemistry Process Design and Development 5(3), 322-329.
+    doi:10.1021/i260019a023.
+    S factor fit: Edelstein, S., Perez, A.J., Chen, J.C. (1984) AIChE Journal 30(5), 840-841,
+    doi:10.1002/aic.690300528.
+    Nucleate term: Forster & Zuber (1955).
+    Implementation follows the independent implementation in the ht library (C. Bell),
+    ht.boiling_flow.Chen_Edelstein, which cites the references above (model assembled as in
+    Bertsch, Groll, Garimella 2008, Nanoscale Microscale Thermophys. Eng. 12(3), 187-227).
+
+    Validity
+    --------
+    Quality range of the original water / hydrocarbon data as usually reported (0.01-0.71);
+    not given by ht. Warning emitted outside this range.
+
+    Definitions
+    -----------
+    G          : mass flux in one tube [kg/m2/s].
+    Re_l       : liquid-only Reynolds number (liquid flowing alone in the tube).
+    X_tt       : Martinelli parameter (turbulent-turbulent).
+    Properties : saturated at pressure p (T_sat = mean of bubble and dew temperatures for mixtures).
+    dT_sat     : T_w - T_sat. If dT_sat <= 0: no nucleate term (labothappy choice).
+    dp_sat     : p_sat(T_w) - p.
+    AS         : is moved by the saturation and wall property calls.
+    """
+    # 1. Geometry, flow, pressure, quality, wall temperature
+    G = _tube_G(geom, cond)                     # [kg/m2/s]
+    D = _tube_ID(geom)                          # [m]
+    p = cond['p']                               # [Pa]
+    x = _clamp_x(cond['x'])                     # [-]
+    if 'T_w' not in cond:
+        raise KeyError("Chen boiling: cond must contain 'T_w' [K] (wall temperature).")
+    T_w = cond['T_w']                           # [K]
+
+    # 2. Saturated properties at pressure p
+    s = _sat_props(AS, p, cond)
+    rho_l = s['rho_l']                          # [kg/m3]
+    rho_v = s['rho_v']                          # [kg/m3]
+    mu_l = s['mu_l']                            # [Pa s]
+    mu_v = s['mu_v']                            # [Pa s]
+    k_l = s['k_l']                              # [W/m/K]
+    cp_l = s['cp_l']                            # [J/kg/K]
+    Pr_l = s['Pr_l']                            # [-]
+    h_lv = s['h_lv']                            # [J/kg]
+    sigma = s['sigma']                          # [N/m]
+    T_sat = s['T_sat']                          # [K]
+    _need_sigma(AS, s)                          # ensure sigma is available
+
+    # 3. Liquid-phase Reynolds number (liquid flowing alone)
+    Re_l = D * G * (1.0 - x) / mu_l             # [-]
+
+    # 4. Liquid-alone HTC (Dittus-Boelter, Eq. in Chen 1966)
+    h_l = 0.023 * Re_l**0.8 * Pr_l**0.4 * k_l / D   # [W/m2/K]
+
+    # 5. Martinelli parameter (turbulent-turbulent)
+    X_tt = ((1.0 - x) / x)**0.9 * (rho_v / rho_l)**0.5 * (mu_l / mu_v)**0.1   # [-]
+
+    # 6. Enhancement factor F (Chen 1966)
+    F = (1.0 + X_tt**-0.5)**1.78                # [-]
+
+    # 7. Two-phase Reynolds number
+    Re_tp = Re_l * F**1.25                      # [-]
+
+    # 8. Suppression factor S (Edelstein fit, 1984)
+    S = 0.9622 - 0.5822 * np.arctan(Re_tp / 6.18e4)   # [-]
+
+    # 9. Wall superheat
+    dT_sat = T_w - T_sat                        # [K]
+
+    # 10. Nucleate boiling HTC (Forster-Zuber, 1955)
+    if dT_sat <= 0.0:
+        # Labothappy choice: no nucleate boiling without positive superheat
+        # (Forster-Zuber term needs dT_sat > 0 and dp_sat > 0).
+        h_nb = 0.0
+    else:
+        # Saturation pressure at wall temperature
+        AS.update(CP.QT_INPUTS, 0, T_w)         # move AS to saturated liquid at T_w
+        p_sat_w = AS.p()                        # [Pa]
+        dp_sat = p_sat_w - p                    # [Pa]
+
+        # Forster-Zuber written on several lines for readability
+        numerator = k_l**0.79 * cp_l**0.45 * rho_l**0.49
+        denominator = sigma**0.5 * mu_l**0.29 * h_lv**0.24 * rho_v**0.24
+        h_nb = 0.00122 * numerator / denominator * dT_sat**0.24 * dp_sat**0.75   # [W/m2/K]
+
+    # 11. Total HTC (Chen superposition)
+    h = S * h_nb + F * h_l                      # [W/m2/K]
+
+    # Validity warning (quality range from original data, not given by ht)
+    if x < 0.01 or x > 0.71:
+        warnings.warn(
+            f"Chen boiling: quality x = {x:.3f} outside usual range 0.01-0.71 "
+            "(original water/hydrocarbon data range as usually reported; not given by ht)."
+        )
+
+    return h
+
+
+def pipe_liu_winterton_boiling_HTC(AS, geom, cond):
+    """
+    Saturated flow boiling in tubes using the Liu and Winterton (1991) asymptotic superposition
+    model with the Cooper pool boiling correlation.
+
+    Arguments:
+    AS   : CoolProp AbstractState of the fluid (modified in-place for saturation properties)
+    geom : dict containing tube geometry with SI units:
+           'Tube_ID' [m] (or 'Tube_OD' [m] and 'Tube_t' [m])
+           'n_tubes' [-], 'n_passes' [-] (optional, used if 'G' is absent in cond)
+    cond : dict containing flow conditions with SI units:
+           'p' [Pa] - saturation pressure
+           'x' [-] - thermodynamic vapor quality
+           'T_w' [K] - inner wall temperature
+           'G' [kg/(m^2 s)] - mass flux inside one tube (optional if 'm_dot' and geom are provided)
+           'm_dot' [kg/s] - total mass flow rate (optional, used if 'G' is absent)
+
+    Returns:
+    h : float - two-phase heat transfer coefficient [W/(m^2 K)]
+
+    Reference:
+    Liu, Z., Winterton, R.H.S. (1991) A general correlation for saturated and subcooled flow
+    boiling in tubes and annuli, based on a nucleate pool boiling equation. International
+    Journal of Heat and Mass Transfer 34(11), 2759-2766. doi:10.1016/0017-9310(91)90234-6.
+
+    Validity range and fluids tested:
+    About 5000 data points (water, refrigerants, ethylene glycol; saturated and subcooled boiling)
+    according to the paper title and abstract; range not checked.
+
+    Definitions:
+    G of one tube; Re_lo with the total flow as liquid; saturated properties; dT_sat = T_w - T_sat
+    (if dT_sat <= 0: no nucleate term, labothappy choice); Cooper with Rp = 1 um and M in g/mol;
+    returns h [W/m^2/K].
+
+    Implementation follows the independent implementation in the ht library (C. Bell),
+    ht.boiling_flow.Liu_Winterton (wall-superheat form), which cites the reference above
+    (reviewed in Fang, Zhou, Li 2013, IJR 36(8), 2017-2039). The low-Froude correction for
+    horizontal tubes of the paper is not implemented (as in ht).
+    """
+    # 1. Read geometry, mass flux, pressure, quality, and wall temperature
+    G = _tube_G(geom, cond)
+    D = _tube_ID(geom)
+    p = cond['p']
+
+    if 'T_w' not in cond:
+        raise KeyError("Liu-Winterton boiling HTC: cond needs 'T_w' [K].")
+    T_w = cond['T_w']
+
+    x = _clamp_x(cond['x'])
+
+    # 2. Get saturated liquid properties
+    s = _sat_props(AS, p, cond)
+    rho_l = s['rho_l']
+    rho_v = s['rho_v']
+    mu_l = s['mu_l']
+    k_l = s['k_l']
+    Pr_l = s['Pr_l']
+    T_sat = s['T_sat']
+
+    # 3. Critical pressure and molar mass
+    p_crit = AS.p_critical()
+    p_red = p / p_crit
+    if p_red >= 0.95:
+        warnings.warn("Liu-Winterton boiling HTC: reduced pressure p_red >= 0.95 (validity limit).")
+
+    M = AS.molar_mass() * 1000.0
+
+    # 4. Liquid-only Reynolds number
+    Re_lo = G * D / mu_l
+
+    # 5. Liquid-only heat transfer coefficient (Dittus-Boelter equation)
+    h_lo = 0.023 * Re_lo**0.8 * Pr_l**0.4 * k_l / D
+
+    # 6. Enhancement factor
+    F = (1.0 + x * Pr_l * (rho_l / rho_v - 1.0))**0.35
+
+    # 7. Suppression factor
+    S = 1.0 / (1.0 + 0.055 * F**0.1 * Re_lo**0.16)
+
+    # 8. Wall superheat and nucleate boiling contribution (Cooper pool boiling)
+    dT_sat = T_w - T_sat
+    if dT_sat <= 0.0:
+        # Labothappy choice: no nucleate boiling without positive superheat
+        h_nb = 0.0
+    else:
+        # Cooper pool boiling, wall-superheat form, roughness Rp = 1 um (log10(Rp) = 0)
+        inner = 55.0 * dT_sat**0.67 * p_red**0.12 * (-np.log10(p_red))**-0.55 * M**-0.5
+        h_nb = inner**(1.0 / 0.33)
+
+    # 9. Asymptotic superposition combining convective and nucleate boiling terms
+    h = ((F * h_lo)**2.0 + (S * h_nb)**2.0)**0.5
+
+    return h
 
 #%% EXTERNAL BOILING (outside the tubes): unchanged, T-based signatures
 

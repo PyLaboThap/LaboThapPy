@@ -9,7 +9,7 @@ Created on Thu Nov  5 10:51:41 2026
 
 from labothappy.correlations.convection.BPHE_HTC_correlation_bank import (
     chevron_deg, BPHE_sinnott_SP_HTC, BPHE_martin_SP_HTC, BPHE_kumar_SP_HTC,
-    BPHE_thonon_SP_HTC, BPHE_muley_manglik_SP_HTC)
+    BPHE_thonon_SP_HTC, BPHE_muley_manglik_SP_HTC, BPHE_khan_khan_SP_HTC)
 
 _BPHX_SP_HTC = {
     'Sinnott': BPHE_sinnott_SP_HTC,
@@ -17,6 +17,7 @@ _BPHX_SP_HTC = {
     'Thonon': BPHE_thonon_SP_HTC,
     'Muley_Manglik': BPHE_muley_manglik_SP_HTC,
     'Martin': BPHE_martin_SP_HTC,
+    'Khan_Khan': BPHE_khan_khan_SP_HTC,
 }
 # These need cond['mu_w']; Martin treats it as optional.
 _NEEDS_MU_W = {'Sinnott', 'Kumar', 'Muley_Manglik'}
@@ -63,11 +64,16 @@ def BPHE_SP_HTC(AS, geom, cond, choice=None):
 #%% TWO-PHASE : BOILING 
 
 from labothappy.correlations.convection.BPHE_HTC_correlation_bank import (
-    BPHE_cooper_boiling_HTC, BPHE_amalfi_boiling_HTC)
+    BPHE_cooper_boiling_HTC, BPHE_amalfi_boiling_HTC, BPHE_han_lee_kim_boiling_HTC,
+    BPHE_yan_lin_boiling_HTC, BPHE_lee_kang_kim_boiling_HTC, BPHE_huang_sheer_boiling_HTC)
 
 _BPHX_EVAP_HTC = {
     'Cooper': BPHE_cooper_boiling_HTC,
     'Amalfi': BPHE_amalfi_boiling_HTC,
+    'Han_Lee_Kim': BPHE_han_lee_kim_boiling_HTC,     # needs geom['p_co']
+    'Yan_Lin': BPHE_yan_lin_boiling_HTC,
+    'Lee_Kang_Kim': BPHE_lee_kang_kim_boiling_HTC,   # water data
+    'Huang_Sheer': BPHE_huang_sheer_boiling_HTC,     # q and T_sat only
 }
 
 def select_plate_evaporation_HTC(geom, cond):

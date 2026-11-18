@@ -3,7 +3,7 @@
 Single-phase frictional pressure drop of spiral plate heat exchanger channels (rectangular, curved), (AS, geom, cond)
 formalism. Returns the pressure drop over the full flow length geom['L'] [Pa].
 
-geom : Dh, R_curv, L, ch_w (channel gap), H (plate height), K (roughness, default 0), theta
+geom : Dh, R_curv, L, ch_b or ch_w (channel gap), H (plate height), K (roughness, default 0), theta
 cond : G [kg/m2/s] mass flux of ONE channel, mu, rho or D
 
 Straight rectangular duct (Shah & London, laminar, Darcy):

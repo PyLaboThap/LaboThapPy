@@ -8,13 +8,15 @@ COND : helical pipe correlation: 'Zakeralhoseini' (R1234yf).
 """
 import warnings
 from labothappy.correlations.convection.SPHE_HTC_correlation_bank import (
-    SPHE_picon_nunez_HTC, SPHE_rajavel_HTC, SPHE_curved_rect_duct_HTC, SPHE_rect_duct_HTC)
+    SPHE_picon_nunez_HTC, SPHE_rajavel_HTC, SPHE_curved_rect_duct_HTC, SPHE_rect_duct_HTC,
+    SPHE_morimoto_hotta_HTC)
 from labothappy.correlations.convection.curved_pipe_HTC_correlation_bank import (
     curved_pipe_zhao_boiling_HTC, curved_pipe_nariai_boiling_HTC, curved_pipe_zakeralhoseini_condensing_HTC)
 
 _SPHE = {
     'SP':   {'Picon_Nunez': SPHE_picon_nunez_HTC, 'Rajavel': SPHE_rajavel_HTC,
-             'Curved_rect_duct': SPHE_curved_rect_duct_HTC, 'Rect_duct': SPHE_rect_duct_HTC},
+             'Curved_rect_duct': SPHE_curved_rect_duct_HTC, 'Rect_duct': SPHE_rect_duct_HTC,
+             'Morimoto_Hotta': SPHE_morimoto_hotta_HTC},
     'EVAP': {'Zhao': curved_pipe_zhao_boiling_HTC, 'Nariai': curved_pipe_nariai_boiling_HTC},
     'COND': {'Zakeralhoseini': curved_pipe_zakeralhoseini_condensing_HTC},
 }

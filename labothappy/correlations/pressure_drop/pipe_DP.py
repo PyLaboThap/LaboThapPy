@@ -11,7 +11,9 @@ from labothappy.correlations.pressure_drop.pipe_DP_correlation_bank import (
     pipe_friedel_boiling_DP, pipe_msh_boiling_DP, pipe_choi_boiling_DP, pipe_homogeneous_boiling_DP,
     pipe_lockhart_martinelli_boiling_DP,
     pipe_friedel_condensing_DP, pipe_msh_condensing_DP, pipe_choi_condensing_DP, pipe_homogeneous_condensing_DP,
-    pipe_lockhart_martinelli_condensing_DP)
+    pipe_lockhart_martinelli_condensing_DP,
+    pipe_xu_fang_condensing_DP, pipe_chisholm_DP, pipe_gronnerud_boiling_DP,
+    pipe_kim_mudawar_condensing_DP)
 from labothappy.correlations.convection.pipe_HTC_correlation_bank import _sat_props
 
 _PIPE_SP_DP = {
@@ -28,6 +30,8 @@ _PIPE_EVAP_DP = {
     'Choi': pipe_choi_boiling_DP,
     'Lockhart_Martinelli': pipe_lockhart_martinelli_boiling_DP,
     'Homogeneous': pipe_homogeneous_boiling_DP,
+    'Chisholm': pipe_chisholm_DP,
+    'Gronnerud': pipe_gronnerud_boiling_DP,
 }
 _PIPE_COND_DP = {
     'Friedel': pipe_friedel_condensing_DP,
@@ -35,6 +39,9 @@ _PIPE_COND_DP = {
     'Choi': pipe_choi_condensing_DP,
     'Lockhart_Martinelli': pipe_lockhart_martinelli_condensing_DP,
     'Homogeneous': pipe_homogeneous_condensing_DP,
+    'Xu_Fang': pipe_xu_fang_condensing_DP,
+    'Chisholm': pipe_chisholm_DP,
+    'Kim_Mudawar': pipe_kim_mudawar_condensing_DP,    # mini / micro-channels (D 0.07-6.2 mm)
 }
 
 def _cheng_available():

@@ -17,6 +17,8 @@ from labothappy.correlations.convection.pipe_HTC_correlation_bank import (
     pipe_steiner_taborek_boiling_HTC, pipe_vdi_boiling_HTC,
     pipe_gungor_winterton_boiling_HTC, pipe_choi_boiling_HTC,
     pipe_thome_condensing_HTC, pipe_dobson_chato_condensing_HTC,
+    pipe_shah_condensing_HTC, pipe_cavallini_smith_zecchin_condensing_HTC,
+    pipe_chen_boiling_HTC, pipe_liu_winterton_boiling_HTC, pipe_petukhov_supercritical_HTC,
     _tube_ID, _tube_G, _A0_VDI)
 
 #%% FLUID FAMILIES
@@ -59,6 +61,7 @@ _PIPE_SP_HTC = {
     'Meshram': pipe_meshram_HTC,
     'Liu': pipe_liu_sCO2_HTC,
     'Cheng': pipe_cheng_sCO2_HTC,
+    'Petukhov_SC': pipe_petukhov_supercritical_HTC,   # needs cond T_w; explicit choice only
 }
 
 
@@ -106,6 +109,8 @@ _PIPE_EVAP_HTC = {
     'VDI': pipe_vdi_boiling_HTC,
     'Gungor_Winterton': pipe_gungor_winterton_boiling_HTC,
     'Choi': pipe_choi_boiling_HTC,
+    'Chen': pipe_chen_boiling_HTC,                    # needs cond T_w; explicit choice only
+    'Liu_Winterton': pipe_liu_winterton_boiling_HTC,  # needs cond T_w; explicit choice only
 }
 
 # Priority by fluid family (first feasible wins). Reasons:
@@ -171,6 +176,8 @@ def pipe_boiling_HTC(AS, geom, cond, choice=None):
 _PIPE_COND_HTC = {
     'Thome': pipe_thome_condensing_HTC,
     'Dobson_Chato': pipe_dobson_chato_condensing_HTC,
+    'Shah': pipe_shah_condensing_HTC,
+    'Cavallini_Smith_Zecchin': pipe_cavallini_smith_zecchin_condensing_HTC,
 }
 
 

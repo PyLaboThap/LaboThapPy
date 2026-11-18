@@ -234,7 +234,7 @@ def BPHX_martin_SP_DP(AS, geom, cond):
    
     n_passes = geom.get('n_passes', 1)
     D_port = geom.get('D_port', 0)
-    Dh = geom['Dh']*geom['phi']
+    Dh = geom['Dh']/geom['phi']
     L = (geom['L']-2*D_port)*n_passes
     
     beta = np.radians(chevron_deg(geom['beta']))
@@ -320,9 +320,49 @@ def BPHX_lockhart_martinelli_DP(AS, geom, cond):
 
     return dpdz * L
 
-#%% TWO-PHASE : CONDENSING 
+#%% TWO-PHASE : BOILING 
 
 from labothappy.correlations.convection.BPHE_HTC_correlation_bank import _sat_props
+
+def BPHX_amalfi_boiling_DP(AS, geom, cond):
+    """
+    Amalfi, Vakili-Farahani & Thome (2016), international journal of refrigeration 61 (2016) 185 – 203
+    Flow boiling and frictional pressure gradients in plate heat exchangers. Part 2: Comparison of literature methods to database and new prediction methods
+    """
+    beta_max_deg=70.0
+    g = 9.81
+    
+    p_sat = cond['p']
+    x = cond['x']
+    G = cond['G']
+
+    if not np.isfinite(x):
+        raise ValueError("Amalfi boiling: cond['x'] must be finite (two-phase cell expected).")
+    x = min(max(x, 1e-4), 1.0 - 1e-4)
+    
+    beta = chevron_deg(geom['beta'])
+    Dh, L = geom['Dh'], geom['L']
+    
+    # Saturated properties
+    s = _sat_props(AS, p_sat)
+    rho_l = s["rho_l"]
+    rho_v = s["rho_v"]
+    sigma = s["sigma"]
+
+    beta_star = beta / beta_max_deg
+    rho_star = rho_l / rho_v
+    rho_m = 1.0 / (x / rho_v + (1.0 - x) / rho_l)       # homogeneous density
+    Bd = (rho_l - rho_v) * g * Dh**2 / sigma
+
+    We = G**2 * Dh / (rho_m * sigma)
+    
+    C = 2.125*beta_star**9.993 + 0.955
+    f_tp = C * 15.698 * We**-0.475 * Bd**0.255 * rho_star**-0.571 # fanning friction factor
+
+    return f_tp * (L / Dh) * G**2 / rho_m
+
+
+#%% TWO-PHASE : CONDENSING 
 
 def BPHX_han_condensing_DP(AS, geom, cond):
     """
