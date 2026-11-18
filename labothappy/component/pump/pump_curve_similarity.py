@@ -523,5 +523,6 @@ class PumpCurveSimilarity(BaseComponent):
         self.ex.set_m_dot(self.su.m_dot)
         self.W.set_w(w_pp)
         self.W.set_W_dot(W_dot_pp)
-        
+        if self.params['V'] is not None:
+            self.charge = ((self.su.D+self.ex.D)/2)*self.params["V"]
         
