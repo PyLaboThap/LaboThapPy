@@ -1,11 +1,20 @@
-# # -*- coding: utf-8 -*-
 # """
 # Created on Thu Jan 08 2026
-    
+# Revised 2026-11-12:
+#     - residual function is now deterministic (cycle guesses frozen during a solver run)
+#     - real convergence check (per-residual tolerances + solver exit flag)
+#     - controllable finite-difference step (fd_step) for noisy components
+#     - residuals returned/printed as plain floats
+#     - debugging tools (states, energy balance, residual tables, determinism check, scans)
+
+# Changes are tagged [CHANGED] or [NEW] in the code.
+
 # @author: elise neven
 # @email: elise.neven@uliege.be
 # """
 
+# import copy
+# from contextlib import contextmanager
 
 # from machine.base_circuit import BaseCircuit
 
@@ -13,9 +22,10 @@
 # import numpy as np
 # from CoolProp.CoolProp import PropsSI
 
+
 # class IterativeCircuit(BaseCircuit):
 #     def __init__(self, fluid=None):
-        
+
 #         super().__init__()
 
 #         # Properties and inputs
@@ -24,29 +34,36 @@
 #         self.source_inputs = {}
 
 #         # Variables vectors/dictionary
-#         self.res_vars = [] # List of residual variables
-#         self.it_vars = {} # Dictionary of iteration variables
+#         self.res_vars = []  # List of residual variables
+#         self.it_vars = {}   # Dictionary of iteration variables
 
 #         # Solve related variables
-#         self.solve_start_components = [] # Ordered list of components to solve
-#         self.solving_order = []          # DFS-determined solving order
-#         self.converged = False # Convergence flag
-#         self.cycle_guesses = {} # Initial guesses — updated after each sweep
+#         self.solve_start_components = []  # Ordered list of components to solve
+#         self.solving_order = []           # DFS-determined solving order
+#         self.converged = False            # Convergence flag
+#         self.cycle_guesses = {}           # Initial guesses (frozen during a solver run)
+
+#         # [NEW] diagnostics
+#         self.history = []          # one entry per residual evaluation: {"it", "x", "res"}
+#         self.last_residuals = []   # detailed info on the last residual evaluation
+#         self.guess_drift = {}      # applied vs recalculated value of each cycle guess
+#         self.solver_message = ""   # exit message of the last solver run
+#         self.fd_step = None        # relative finite-difference step (None = scipy default)
+#         self.n_it = 0
+#         self._trace = None         # [NEW] per-component snapshots, used by find_component_memory()
+
+#     # =======================================================================
+#     # Inputs, guesses, iteration and residual variables
+#     # =======================================================================
 
 #     def set_source_properties(self, **kwargs):
 
 #         target = kwargs.pop("target")
 
 #         component_name, connector_name = target.split(":")
-#         component = self.get_component(component_name)
 
-#         connector = getattr(component.model, connector_name)
-
-#         # Store inputs
 #         for var, value in kwargs.items():
-
 #             name = f"{target}-{var.upper()}"
-
 #             self.source_inputs[name] = {
 #                 "target": target,
 #                 "component": component_name,
@@ -55,22 +72,11 @@
 #                 "value": value
 #             }
 
-#     #     # Apply immediately
-#     #     connector.set_properties(**kwargs)
-
 #     def _apply_source_inputs(self):
-
 #         for inp in self.source_inputs.values():
-
 #             component = self.get_component(inp["component"])
-
 #             connector = getattr(component.model, inp["connector"])
-
-#             variable = inp["variable"]
-
-#             value = inp["value"]
-
-#             connector.set_properties(**{variable: value})
+#             connector.set_properties(**{inp["variable"]: inp["value"]})
 
 #     def set_cycle_input(self, **kwargs):
 #         target = kwargs.pop("target")
@@ -96,16 +102,12 @@
 #         """
 #         Set an initial value on a connector for DFS bootstrapping only.
 
-#         Unlike set_cycle_input, this value is NOT re-enforced at each
-#         iteration — it is applied once to help the DFS find a starting
-#         component, then left free for the sweep to overwrite.
-
-#         Unlike set_iteration_variable, it is NOT part of the solver's
-#         unknown vector — fsolve does not control it.
-
-#         Use this for connector properties that need an initial value to
-#         make the circuit calculable, but whose converged value will be
-#         determined naturally by the cycle propagation.
+#         [CHANGED] The guess is now held FIXED while the solver runs, so that the
+#         residual function F(x) depends only on x. If the guess sits on a
+#         connector that is read before the sweep recalculates it, it acts as a
+#         hidden input: print_cycle_guesses() will flag it. Turn such a guess
+#         into an iteration variable + closure residual, or use
+#         solve(update_guesses=True) to update it in an outer loop.
 
 #         Parameters
 #         ----------
@@ -118,7 +120,6 @@
 #         component_name, connector_name = target.split(":")
 #         component = self.get_component(component_name)
 
-#         # Store for reapplication after each _clear_all_connectors
 #         for variable, value in kwargs.items():
 #             name = f"{target}-{variable}"
 #             self.cycle_guesses[name] = {
@@ -126,11 +127,17 @@
 #                 "component": component_name,
 #                 "connector": connector_name,
 #                 "variable":  variable,
-#                 "value":     value
+#                 "value":     value,
+#                 "initial":   value,   # [NEW] kept to allow reset_cycle_guesses()
 #             }
 
 #         # Apply immediately for DFS bootstrapping
 #         component.set_properties(connector_name, **kwargs)
+
+#     def reset_cycle_guesses(self):
+#         """[NEW] Restore all cycle guesses to the values given by the user."""
+#         for g in self.cycle_guesses.values():
+#             g["value"] = g["initial"]
 
 #     def set_iteration_variable(self, target, variable, guess=None, tolerance=1e-6):
 
@@ -186,629 +193,6 @@
 
 #         Self-closure (closes=None, target_value=None):
 #             F = value_after_sweep(target) - value_before_sweep(target)
-#             Works when the target connector is recalculated by the sweep
-#             (e.g. an enthalpy that propagates through the cycle).
-
-#         Cross-closure (closes provided, target_value=None):
-#             F = value_after_sweep(target) - value_before_sweep(closes)
-#             Use when the two ends of the loop live on different connectors
-#             (e.g. pressure must match between Condenser:ex_H and ExpansionValve:su).
-
-#         Target mode (target_value provided):
-#             F = calculated_value(target) - target_value
-#             Drives a connector variable toward a fixed external value.
-#             If variable is "SC" or "SH", residual is computed on enthalpy
-#             internally via CoolProp.
-
-#         Parameters
-#         ----------
-#         target : str
-#             "ComponentName:connector_name-variable" — POST-sweep read location.
-#         tolerance : float
-#             Convergence tolerance (kept for reference).
-#         closes : str, optional
-#             "ComponentName:connector_name-variable" — PRE-sweep read location.
-#             Only used in cross-closure mode.
-#         target_value : float, optional
-#             External target value. If None, closure mode is used.
-#         scale : float, optional
-#             Normalisation factor. Defaults to _default_residual_scale(variable).
-#         """
-#         connector_part, variable = target.rsplit("-", 1)
-#         component_name, connector_name = connector_part.split(":")
-
-#         # Parse closes string if provided
-#         if closes is not None:
-#             closes_connector_part, closes_variable = closes.rsplit("-", 1)
-#             closes_component, closes_connector = closes_connector_part.split(":")
-#         else:
-#             closes_component  = component_name
-#             closes_connector  = connector_name
-#             closes_variable   = variable
-
-#         self.res_vars.append({
-#             "target":           target,
-#             "component":        component_name,
-#             "connector":        connector_name,
-#             "variable":         variable,
-#             "closes_component": closes_component,
-#             "closes_connector": closes_connector,
-#             "closes_variable":  closes_variable,
-#             "target_value":     float(target_value) if target_value is not None else None,
-#             "tol":              tolerance,
-#             "scale":            scale
-#         })
-
-#     def _default_residual_scale(self, variable):
-#         default_scales = {
-#             "p": 1e5,     # Pa
-#             "T": 1.0,     # K
-#             "h": 1e5,     # J/kg
-#             "s": 1e3,     # J/kg/K
-#             "m": 1e-2,    # kg/s
-#             "q": 1e3,     # W
-#             "w": 1e3      # W
-#         }
-
-#         return default_scales.get(variable, 1.0)
-    
-#     def _clear_all_connectors(self):
-#         """
-#         Reset all connectors in the circuit before a new iteration.
-#         Keeps the fluid but removes thermodynamic states.
-#         """
-
-#         for comp in self.components.values():
-#             model = comp.model
-
-#             for attr in dir(model):
-#                 obj = getattr(model, attr)
-
-#                 if hasattr(obj, "reset"):  # MassConnector
-#                     obj.reset()
-
-
-#     def _get_iteration_vector(self):
-#         """
-#         Returns initial solver vector x0
-#         """
-#         return np.array([it["x0"] for it in self.it_vars.values()])
-
-#     # -----------------------------------------------------------------------
-#     # DFS solve order  (ported from circuit_mix)
-#     # -----------------------------------------------------------------------
-
-#     def check_all_component_solved(self) -> bool:
-#         return all(c.model.solved for c in self.components.values())
-
-#     def reset_solved_marker(self):
-#         for c in self.components.values():
-#             c.model.solved = False
-
-#     def recursive_solve(self, component_name: str):
-#         if self.print_flag:
-#             print(f"Solving {component_name}")
-        
-#         component       = self.get_component(component_name)
-#         component_model = component.model
-#         if component_model.solved:
-#             return
-#         component_model.check_calculable()
-#         component_model.check_parametrized()
-#         if not component_model.parametrized:
-#             raise ValueError(f"Component '{component_name}' not parametrized.")
-#         if component_model.calculable:
-#             component_model.solve()
-#             if component_name not in self.solving_order:
-#                 self.solving_order.append(component_name)
-#         else:
-#             return
-#         for output_port in component.next:
-#             self.recursive_solve(component.next[output_port].name)
-
-#     def _build_solve_order(self):
-#         """
-#         Determine solving order via DFS traversal (ported from circuit_mix).
-#         Populates self.solving_order and self.solve_start_components.
-#         """
-#         if self.print_flag:
-#             print("Starting solving order definition")
-        
-#         # Apply initial guesses so components can evaluate check_calculable()
-#         x0 = self._get_iteration_vector()
-#         self._apply_iteration_vector(x0)
-
-#         for component_name in self.components:
-#             if self.components[component_name].model.check_calculable():
-#                 self.solve_start_components.append(component_name)
-
-#         for start in self.solve_start_components:
-#             self.recursive_solve(start)
-#             if self.check_all_component_solved():
-#                 break
-
-#         if not self.check_all_component_solved():
-#             blocking = [c for c in self.components
-#                         if not self.components[c].model.check_calculable()]
-#             raise RuntimeError(
-#                 f"Setup failed. Blocking components (not calculable): {blocking}"
-#             )
-
-#         else:
-#             if self.print_flag:
-#                 print("Setup completed !")
-        
-#         # Reset solved markers — the DFS solve above was only for ordering
-#         self.reset_solved_marker()
-
-#     def _solve_circuit(self, x):
-                        
-#         self.n_it += 1
-
-#         self.x_log.append(x)
-
-#         if self.print_flag:            
-#             print(f"="*30)
-#             print(f"Iteration : {self.n_it}")
-#             print(f"="*30)
-
-#         # 1️⃣ Reset all connectors
-#         self._clear_all_connectors()
-
-#         # 2️⃣ Apply iteration variables + inputs
-#         self._apply_iteration_vector(x)
-
-#         # 3️⃣ Snapshot PRE-solve values (used by closure residuals)
-#         pre_snapshot = {}
-#         for rv in self.res_vars:
-#             if rv["target_value"] is None:
-#                 key = (rv["closes_component"], rv["closes_connector"], rv["closes_variable"])
-#                 pre_snapshot[key] = self._read_variable(
-#                     f"{rv['closes_component']}:{rv['closes_connector']}", rv["closes_variable"]
-#                 )
-#         self._pre_snapshot = pre_snapshot
-
-#         # 4️⃣ Solve components in DFS order
-#         if not self.solving_order:
-#             self._build_solve_order()
-
-#         self.reset_solved_marker()
-#         for name in self.solving_order: 
-
-#             if self.print_flag:
-#                 print(f"Solving {name}")
-                
-#             self.components[name].solve()
-
-#         # 5️⃣ Update cycle guesses from calculated connector values
-#         self._update_cycle_guesses()
-
-#         # 6️⃣ Compute residuals
-#         residuals = []
-
-#         for rv in self.res_vars:
-#             var      = rv["variable"]
-#             comp_key = f"{rv['component']}:{rv['connector']}"
-
-#             # --- Determine target ---
-#             if rv["target_value"] is None:
-#                 # Closure mode: target is the value imposed before the sweep
-#                 target_val = self._read_variable_pre(rv)
-                                
-#             elif var in ("SC", "SH"):
-#                 # SC/SH target: convert to enthalpy via CoolProp
-#                 p = self._read_variable(comp_key, "p")
-#                 T_sat = PropsSI('T', 'P', p, 'Q', 0.5, self.fluid)
-#                 sign  = -1 if var == "SC" else 1
-#                 T_target = T_sat + sign * rv["target_value"]
-#                 target_val = PropsSI('H', 'P', p, 'T', T_target, self.fluid)
-#                 var = "h"   # residual is now on h
-#             else:
-#                 target_val = rv["target_value"]
-
-#             calculated = self._read_variable(comp_key, var)
-
-#             scale = (
-#                 rv["scale"]
-#                 if rv["scale"] is not None
-#                 else self._default_residual_scale(var)
-#             )
-            
-#             res = (calculated - target_val) / scale
-
-#             residuals.append(float(res))
-            
-#         if self.print_flag:            
-#             print(f"residuals : {residuals}")
-            
-#         # self.print_states()
-        
-#         return np.array(residuals, dtype=float)
-
-#     def _apply_cycle_guesses(self):
-#         """Re-apply stored guess values after _clear_all_connectors."""
-#         for g in self.cycle_guesses.values():
-#             component = self.get_component(g["component"])
-#             component.set_properties(g["connector"], **{g["variable"]: g["value"]})
-
-#     def _update_cycle_guesses(self):
-#         """
-#         After a sweep, read back the calculated values from the connectors
-#         and update the stored guesses — so the next iteration starts from
-#         the latest computed state rather than the original initial value.
-#         """
-#         for g in self.cycle_guesses.values():
-#             component = self.get_component(g["component"])
-#             connector = getattr(component.model, g["connector"])
-#             calculated = getattr(connector, g["variable"], None)
-#             if calculated is not None:
-#                 g["value"] = calculated
-
-#     def _apply_cycle_inputs(self):
-#         for inp in self.inputs.values():
-
-#             component = self.get_component(inp["component"])
-
-#             connector = inp["connector"]
-
-#             variable = inp["variable"]
-
-#             value = inp["value"]
-
-#             component.set_properties(connector, **{variable: value})
-        
-#     def _apply_iteration_vector(self, x):
-
-#         # 1️⃣ reapply source inputs
-#         self._apply_source_inputs()
-
-#         # 2️⃣ reapply cycle guesses (updated after each sweep)
-#         self._apply_cycle_guesses()
-
-#         # 3️⃣ reapply cycle inputs (fixed — overrides guesses if overlap)
-#         self._apply_cycle_inputs()
-
-#         # 4️⃣ apply iteration variables
-#         for value, it in zip(x, self.it_vars.values()):
-#             for entry in it["entries"]:
-#                 entry["setter"](value)
-
-#     def _read_variable_pre(self, rv):
-#         """Return the pre-sweep snapshot value for a closure residual."""
-#         key = (rv["closes_component"], rv["closes_connector"], rv["closes_variable"])
-#         return self._pre_snapshot.get(key, 0.0)
-
-#     def _read_variable(self, target, variable):
-#         component_name, connector_name = target.split(":")
-#         component = self.get_component(component_name)
-#         connector = getattr(component.model, connector_name)
-#         return getattr(connector, variable)
-    
-#     # ── private solver backends ─────────────────────────────────────────────────
-    
-#     def _solve_fsolve(self, x0):
-#         """Original fsolve backend — unchanged behaviour."""
-#         return fsolve(self._solve_circuit, x0)
-    
-    
-#     def _solve_root(self, x0, root_method='hybr'):
-#         """
-#         scipy.optimize.root backend.
-    
-#         Recommended methods:
-#           'hybr'    — Powell's hybrid (same engine as fsolve, more diagnostics)
-#           'lm'      — Levenberg-Marquardt (robust to near-singular Jacobians)
-#           'broyden1'— quasi-Newton, good when the Jacobian is expensive
-#           'krylov'  — matrix-free, efficient for large systems
-#         """
-#         result = root(self._solve_circuit, x0, method=root_method,
-#                       options={'maxfev': 2000, 'xtol': 1e-5})
-#         if not result.success:
-#             print(f"[root/{root_method}] did not converge: {result.message}")
-#         return result.x
-    
-    
-#     def _solve_newton(self, x0, tol=1e-5, max_iter=100, eps=1e-6):
-#         """
-#         Baseline Newton-Raphson with finite-difference Jacobian.
-    
-#         Useful as a reference / debugging baseline — the iteration is
-#         fully transparent and easy to instrument.
-#         """
-#         x = np.array(x0, dtype=float)
-#         n = len(x)
-        
-        
-#         for it in range(max_iter):
-#             self.n_it += 1
-#             F = np.array(self._solve_circuit(x), dtype=float)
-#             # print(f"Evap P_sat : {self.components['Evaporator'].model.ex_C.p}")
-
-#             norm = np.linalg.norm(F)
-#             if norm < tol:
-#                 if self.print_flag:
-#                     print(f"[newton] converged in {it+1} iterations (|F|={norm:.2e})")
-#                 return x
-    
-#             # Finite-difference Jacobian  J[i,j] = dF_i/dx_j
-#             J = np.zeros((n, n))
-#             for j in range(n):
-#                 x_fwd = x.copy()
-#                 x_fwd[j] += eps
-#                 F_fwd = np.array(self._solve_circuit(x_fwd), dtype=float)
-#                 J[:, j] = (F_fwd - F) / eps
-#                 # print(f"Evap P_sat : {self.components['Evaporator'].model.su_C.p}")
-                
-#             # Newton step  J·dx = -F
-#             try:
-#                 dx = np.linalg.solve(J, -F)
-#                 # print(f"Evap P_sat : {self.components['Evaporator'].model.su_C.p}")
-#             except np.linalg.LinAlgError:
-#                 print("[newton] singular Jacobian — aborting")
-#                 self.converged = False
-#                 return x
-    
-#             x = x + dx
-    
-#             # print(f"x : {x}")
-        
-        
-#         print(f"[newton] reached max_iter={max_iter} without converging "
-#               f"(|F|={np.linalg.norm(np.array(self._solve_circuit(x))):.2e})")
-#         return x
-
-#     def solve(self, method='fsolve'):
-#         """
-#         Solve the circuit.
-        
-#         Parameters
-#         ----------
-#         method : str
-#             'fsolve'   — original scipy fsolve (default, backward-compatible)
-#             'root'     — scipy.optimize.root (more methods/diagnostics available)
-#             'newton'   — baseline Newton-Raphson with finite-difference Jacobian
-#         """
-#         root_methods = {'hybr', 'lm', 'broyden1', 'broyden2', 'anderson', 'krylov', 'df-sane'}
-        
-#         self.n_it = 0
-#         if not self.solving_order:
-#             self._build_solve_order()
-#         self.reset_solved_marker()
-#         x0 = self._get_iteration_vector()
-        
-#         self.x_log = [x0]
-        
-#         try:
-#             if method == 'fsolve':
-#                 sol = self._solve_fsolve(x0)
-    
-#             elif method == 'newton':
-#                 sol = self._solve_newton(x0)
-    
-#             elif method in root_methods:
-#                 sol = self._solve_root(x0, root_method=method)
-    
-#             else:
-#                 raise ValueError(f"Unknown method '{method}'. "
-#                                  f"Choose from: 'fsolve', 'newton', a root method: {root_methods}.")
-
-#         except Exception as e:
-#             print(f"Error during solving ({method}): {e}")
-#             self.converged = False
-#             return
-    
-#         self._apply_iteration_vector(sol)
-#         residuals = self._solve_circuit(sol)²&
-#         self.converged = np.all(np.abs(residuals) < 1.0)
-        
-#         return sol
-
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Jan 08 2026
-Revised 2026-11-12:
-    - residual function is now deterministic (cycle guesses frozen during a solver run)
-    - real convergence check (per-residual tolerances + solver exit flag)
-    - controllable finite-difference step (fd_step) for noisy components
-    - residuals returned/printed as plain floats
-    - debugging tools (states, energy balance, residual tables, determinism check, scans)
-
-Changes are tagged [CHANGED] or [NEW] in the code.
-
-@author: elise neven
-@email: elise.neven@uliege.be
-"""
-
-import copy
-from contextlib import contextmanager
-
-from machine.base_circuit import BaseCircuit
-
-from scipy.optimize import fsolve, root
-import numpy as np
-from CoolProp.CoolProp import PropsSI
-
-
-# class IterativeCircuit(BaseCircuit):
-#     def __init__(self, fluid=None):
-
-#         super().__init__()
-
-#         # Properties and inputs
-#         self.fluid = fluid           # Working fluid
-#         self.inputs = {}             # Fixed cycle imputs
-#         self.source_inputs = {}      # Fixed source inputs
-
-#         # Variables vectors/dictionary
-#         self.res_vars = []  # List of residual variables
-#         self.it_vars = {}   # Dictionary of iteration variables
-
-#         # Solve related variables
-#         self.solve_start_components = []  # Ordered list of components to solve
-#         self.solving_order = []           # DFS-determined solving order
-#         self.converged = False            # Convergence flag
-#         self.cycle_guesses = {}           # Initial guesses (frozen during a solver run)
-
-#         # [NEW] diagnostics
-#         self.history = []          # one entry per residual evaluation: {"it", "x", "res"}
-#         self.last_residuals = []   # detailed info on the last residual evaluation
-#         self.guess_drift = {}      # applied vs recalculated value of each cycle guess
-#         self.solver_message = ""   # exit message of the last solver run
-#         self.fd_step = None        # relative finite-difference step (None = scipy default)
-#         self.n_it = 0              # number of solver iteration
-
-#     # =======================================================================
-#     # Inputs, guesses, iteration and residual variables
-#     # =======================================================================
-
-#     def set_source_properties(self, **kwargs):
-#         # Stores the values in the source_inputs dictionary.
-#         target = kwargs.pop("target")
-
-#         component_name, connector_name = target.split(":")
-
-#         for var, value in kwargs.items():
-#             name = f"{target}-{var.upper()}"
-#             self.source_inputs[name] = {
-#                 "target": target,
-#                 "component": component_name,
-#                 "connector": connector_name,
-#                 "variable": var,
-#                 "value": value
-#             }
-
-#     def _apply_source_inputs(self):
-#         # Apply the source inputs into the connectors.
-#         for inp in self.source_inputs.values():
-#             component = self.get_component(inp["component"])
-#             connector = getattr(component.model, inp["connector"])
-#             connector.set_properties(**{inp["variable"]: inp["value"]})
-
-#     def set_cycle_input(self, **kwargs):
-#         # Stores the inputs in the inputs dictionnary
-#         # Also applies directly the inputs into the connectors.
-#         target = kwargs.pop("target")
-
-#         component_name, connector_name = target.split(":")
-#         component = self.get_component(component_name)
-
-#         # 1. Store inputs
-#         for var, value in kwargs.items():
-#             input_name = f"{target}-{var.upper()}"
-#             self.inputs[input_name] = {
-#                 "target": target,
-#                 "component": component_name,
-#                 "connector": connector_name,
-#                 "variable": var,
-#                 "value": value
-#             }
-
-#         # 2. Apply values to component model
-#         component.set_properties(connector_name, **kwargs)
-
-#     def set_cycle_guess(self, **kwargs):
-#         """
-#         Set an initial value on a connector for DFS bootstrapping only.
-
-#         The guess is held FIXED while the solver runs, so that the
-#         residual function F(x) depends only on x. If the guess sits on a
-#         connector that is read before the sweep recalculates it, it acts as a
-#         hidden input: print_cycle_guesses() will flag it. Turn such a guess
-#         into an iteration variable + closure residual, or use
-#         solve(update_guesses=True) to update it in an outer loop.
-
-#         Parameters
-#         ----------
-#         target : str
-#             "ComponentName:connector_name"
-#         **kwargs : float
-#             One or more variable=value pairs (e.g. SH=34, p=1e5).
-#         """
-#         target = kwargs.pop("target")
-#         component_name, connector_name = target.split(":")
-#         component = self.get_component(component_name)
-
-#         for variable, value in kwargs.items():
-#             name = f"{target}-{variable}"
-#             self.cycle_guesses[name] = {
-#                 "target":    target,
-#                 "component": component_name,
-#                 "connector": connector_name,
-#                 "variable":  variable,
-#                 "value":     value,
-#                 "initial":   value,   # [NEW] kept to allow reset_cycle_guesses()
-#             }
-
-#         # Apply immediately for DFS bootstrapping
-#         component.set_properties(connector_name, **kwargs)
-
-#     def reset_cycle_guesses(self):
-#         """Restore all cycle guesses to the values given by the user."""
-#         for g in self.cycle_guesses.values():
-#             g["value"] = g["initial"]
-
-#     def set_iteration_variable(self, target, variable, guess=None, tolerance=1e-6):
-
-#         # 1. Turn the target into a list
-#         if isinstance(target, str):
-#             targets = [target]        # "Pump:ex" -> ["Pump:ex"]
-#         else:
-#             targets = list(target)    # ["A:ex", "B:su"] stays a list
-#         # You can pass one connector or several. The same variable will be defined for both connectors.
-#         # For example, target=["Expander:ex", "Pump:su"] would force both to the same pressure, using one entry of x.
-
-#         # 2. Build a name
-#         var = variable
-#         name = f"{'+'.join(targets)}-{var}"   # Name in case two connectors are defined (ie. "Expander:ex+Pump:su-p")
-
-#         # 3. For each target: find the connector and check it
-#         entries = []
-
-#         for tgt in targets:
-#             component_name, connector_name = tgt.split(":")         # "Pump", "ex"
-#             component = self.get_component(component_name)          # "Pump" object in the circuit
-#             connector = getattr(component.model, connector_name)    # = pump.model.ex
-
-#             # Safety checks:
-#             if not hasattr(connector, var):      # does pump.model.ex have an attribute "p"?
-#                 raise AttributeError(f"{tgt} has no attribute '{var}'")
-
-#             setter_name = f"set_{var}"   # "set_p"
-#             if not hasattr(connector, setter_name):   # does it have a method set_p()?
-#                 raise AttributeError(f"{tgt} has no setter '{setter_name}()'")
-
-#             # 4. Stores the setter itself
-#             entries.append({
-#                 "target": tgt,
-#                 "component": component_name,
-#                 "connector": connector_name,
-#                 "variable": var,
-#                 "connector_obj": connector,
-#                 "setter": getattr(connector, setter_name)
-#             })
-
-#         # 5. Check the guess and register the unknown
-#         if guess is None:
-#             raise ValueError(
-#                 f"Initial guess for iteration variable '{name}' is None"    # Without a guess: no starting points => error!
-#             )
-
-#         self.it_vars[name] = {
-#             "name": name,
-#             "variable": var,
-#             "entries": entries,
-#             "x0": float(guess),
-#             "tolerance": tolerance
-#         }
-
-#     def set_residual_variable(self, target, tolerance, closes=None, target_value=None, scale=None):
-#         """
-#         Define a residual variable.
-
-#         Three modes:
-
-#         Self-closure (closes=None, target_value=None):
-#             F = value_after_sweep(target) - value_before_sweep(target)
 
 #         Cross-closure (closes provided, target_value=None):
 #             F = value_after_sweep(target) - value_before_sweep(closes)
@@ -834,15 +218,13 @@ from CoolProp.CoolProp import PropsSI
 #         scale : float, optional
 #             Normalisation factor. Defaults to _default_residual_scale(variable).
 #         """
-#         # 1. Split the target string
-#         connector_part, variable = target.rsplit("-", 1)                 # "Condenser:ex_H"  and  "SC"
-#         component_name, connector_name = connector_part.split(":")       # "Condenser"       and  "ex_H"
+#         connector_part, variable = target.rsplit("-", 1)
+#         component_name, connector_name = connector_part.split(":")
 
-#         # 2. Work out where the “before” value is read
-#         if closes is not None:    # If no closes part, the value is read at the same position before and after the sweep
+#         if closes is not None:
 #             closes_connector_part, closes_variable = closes.rsplit("-", 1)
 #             closes_component, closes_connector = closes_connector_part.split(":")
-#         else:    # If there's a closes variable, the residual is computed based on two values taken from different connectors
+#         else:
 #             closes_component = component_name
 #             closes_connector = connector_name
 #             closes_variable = variable
@@ -1045,6 +427,12 @@ from CoolProp.CoolProp import PropsSI
 #             print(f"Iteration : {self.n_it}")
 #             print("=" * 30)
 
+#         # 0. [CHANGED] Build the solving order FIRST: the DFS solves components
+#         #    and writes on the connectors, so it must happen before the reset,
+#         #    otherwise the first sweep starts from a polluted state.
+#         if not self.solving_order:
+#             self._build_solve_order()
+
 #         # 1. Reset all connectors
 #         self._clear_all_connectors()
 
@@ -1062,14 +450,13 @@ from CoolProp.CoolProp import PropsSI
 #         self._pre_snapshot = pre_snapshot
 
 #         # 4. Solve components in DFS order
-#         if not self.solving_order:
-#             self._build_solve_order()
-
 #         self.reset_solved_marker()
 #         for name in self.solving_order:
 #             if self.print_flag:
 #                 print(f"Solving {name}")
 #             self.components[name].solve()
+#             if self._trace is not None:
+#                 self._trace.append((name, self._component_snapshot(name)))
 
 #         # 5. [CHANGED] record (but do not apply) how far each guess drifted
 #         self._record_guess_drift()
@@ -1299,7 +686,55 @@ from CoolProp.CoolProp import PropsSI
 #             n = item[0]
 #             return (0 if n.startswith("su") else 1 if n.startswith("ex") else 2, n)
 
-#         return sorted(conns, key=order)
+#         # [NEW] drop aliases (e.g. H_su is the same object as su_H)
+#         unique, seen = [], set()
+#         for n, o in sorted(conns, key=order):
+#             if id(o) not in seen:
+#                 seen.add(id(o))
+#                 unique.append((n, o))
+#         return unique
+
+#     def _component_snapshot(self, component_name):
+#         """{port: {var: value}} for every mass connector of a component."""
+#         return {n: {v: getattr(c, v, None) for v in ("p", "T", "h", "m_dot")}
+#                 for n, c in self._mass_connectors(component_name)}
+
+#     def find_component_memory(self, x=None, rtol=1e-9):
+#         """
+#         Run the same sweep twice and report the FIRST component (in solving
+#         order) whose ports differ between the two runs. Everything before it
+#         was identical, so this component keeps an internal state between calls
+#         (warm start of an inner solver, cached guess, counter...).
+#         """
+#         x = np.asarray(x if x is not None else self._get_iteration_vector(), dtype=float)
+#         traces = []
+#         with self._quiet():
+#             for _ in range(2):
+#                 self._trace = []
+#                 try:
+#                     self._solve_circuit(x)
+#                 finally:
+#                     traces.append(self._trace)
+#                     self._trace = None
+
+#         for (name, a), (_, b) in zip(*traces):
+#             diffs = []
+#             for port in a:
+#                 for var, va in a[port].items():
+#                     vb = b[port][var]
+#                     if va is None or vb is None:
+#                         if va is not vb:
+#                             diffs.append((port, var, va, vb))
+#                     elif abs(va - vb) > rtol * max(abs(va), 1.0):
+#                         diffs.append((port, var, va, vb))
+#             if diffs:
+#                 print(f"\nFirst component giving different results for identical inputs: {name}")
+#                 for port, var, va, vb in diffs:
+#                     print(f"  {port}-{var}: run 1 = {va}   run 2 = {vb}")
+#                 return name
+
+#         print("\nAll components gave identical results in both runs ✓")
+#         return None
 
 #     @staticmethod
 #     def _fmt(v, factor=1.0, offset=0.0, spec="10.3f"):
@@ -1419,13 +854,18 @@ from CoolProp.CoolProp import PropsSI
 #             print("No cycle guesses (or no evaluation yet).")
 #             return
 #         print(f"\n{'cycle guess':<40}{'applied':>14}{'recalculated':>14}  status")
+#         first = self.solving_order[0] if self.solving_order else None
 #         for name, (applied, calc) in self.guess_drift.items():
+#             g = self.cycle_guesses[name]
+#             read_first = (g["component"] == first and g["connector"].startswith("su"))
 #             if calc is None:
 #                 status = "not recalculated"
 #             elif abs(calc - applied) <= rtol * max(abs(applied), 1e-12):
 #                 status = "ok"
+#             elif read_first:
+#                 status = f"⚠ HIDDEN INPUT — read by {first} (solved first) before being recalculated"
 #             else:
-#                 status = "⚠ HIDDEN INPUT — cycle disagrees"
+#                 status = "differs — harmless only if overwritten before being read"
 #             calc_s = f"{calc:>14.6g}" if calc is not None else f"{'-':>14}"
 #             print(f"{name:<40}{applied:>14.6g}{calc_s}  {status}")
 
@@ -1520,7 +960,6 @@ from CoolProp.CoolProp import PropsSI
 #         self.print_cycle_guesses()
 #         self.print_all_states()
 #         self.print_energy_balance()
-# -*- coding: utf-8 -*-
 # -*- coding: utf-8 -*-
 """
 Created on Thu Jan 08 2026
@@ -1766,6 +1205,44 @@ class IterativeCircuit(BaseCircuit):
             "scale":            scale
         })
 
+    def set_iteration_function(self, name, setter, guess):
+        """
+        [NEW] Iteration variable that is NOT a connector variable (e.g. a flow
+        split fraction, a component parameter). Before every sweep the solver
+        calls setter(value).
+
+        name   : label shown in the debug tables
+        setter : function taking one float
+        guess  : initial value
+        """
+        if guess is None:
+            raise ValueError(f"Initial guess for iteration variable '{name}' is None")
+        self.it_vars[name] = {
+            "name": name,
+            "variable": name,
+            "entries": [{"target": name, "setter": setter}],
+            "x0": float(guess),
+            "tolerance": None,
+        }
+
+    def set_residual_function(self, name, func, tolerance, scale=1.0):
+        """
+        [NEW] Residual computed by a function, after the sweep.
+
+        func() must return (calculated, reference): F = (calculated - reference) / scale.
+        Use it for equations between two calculated values, e.g. "branch 2 arrives
+        at the convergent at the same pressure as branch 1".
+
+        tolerance and scale are in the physical unit of the compared values.
+        """
+        self.res_vars.append({
+            "target": name,
+            "func": func,
+            "target_value": None,
+            "tol": tolerance,
+            "scale": scale,
+        })
+
     def _default_residual_scale(self, variable):
         default_scales = {
             "p": 1e5,     # Pa
@@ -1966,7 +1443,7 @@ class IterativeCircuit(BaseCircuit):
         # 3. Snapshot PRE-solve values (used by closure residuals)
         pre_snapshot = {}
         for rv in self.res_vars:
-            if rv["target_value"] is None:
+            if rv.get("func") is None and rv["target_value"] is None:   # closure residuals only
                 key = (rv["closes_component"], rv["closes_connector"], rv["closes_variable"])
                 pre_snapshot[key] = self._read_variable(
                     f"{rv['closes_component']}:{rv['closes_connector']}", rv["closes_variable"]
@@ -2002,6 +1479,20 @@ class IterativeCircuit(BaseCircuit):
         details = []
 
         for rv in self.res_vars:
+            # [NEW] residual given by a function: (calculated, reference)
+            if rv.get("func") is not None:
+                calculated, target_val = rv["func"]()
+                diff = float(calculated - target_val)
+                res = diff / rv["scale"]
+                residuals.append(res)
+                details.append({
+                    "target": rv["target"], "compared": "func",
+                    "calculated": float(calculated), "reference": float(target_val),
+                    "diff": diff, "scaled": res, "tol": rv["tol"],
+                    "ok": abs(diff) <= rv["tol"],
+                })
+                continue
+
             var = rv["variable"]
             comp_key = f"{rv['component']}:{rv['connector']}"
 
@@ -2308,22 +1799,32 @@ class IterativeCircuit(BaseCircuit):
             self.print_component_states(name)
 
     def _side_balances(self, component_name):
-        """Enthalpy flow change m·(h_ex - h_su) per side ('', '_H', '_C', ...)."""
+        """
+        [CHANGED] Enthalpy flow change sum(m·h)_ex - sum(m·h)_su, grouped by FLUID
+        (not by port suffix), so components with several inlets/outlets
+        (su_1..su_3, ex1..ex3) are balanced correctly. A heat exchanger still
+        gives one line per fluid (hot and cold sides).
+        """
         sides = {}
         for cname, c in self._mass_connectors(component_name):
             if cname.startswith("su"):
-                side, key = cname[2:], "su"
+                key = "su"
             elif cname.startswith("ex"):
-                side, key = cname[2:], "ex"
+                key = "ex"
             else:
                 continue
-            s = sides.setdefault(side, {"fluid": getattr(c, "fluid", None)})
+            fluid = getattr(c, "fluid", None)
+            s = sides.setdefault(str(fluid), {"fluid": fluid, "m_su": None, "m_ex": None,
+                                              "H_su": None, "H_ex": None, "complete": True})
             m, h = getattr(c, "m_dot", None), getattr(c, "h", None)
-            s["m_" + key] = m
-            s["H_" + key] = m * h if (m is not None and h is not None) else None
+            if m is None or h is None:
+                s["complete"] = False
+                continue
+            s["m_" + key] = (s["m_" + key] or 0.0) + m
+            s["H_" + key] = (s["H_" + key] or 0.0) + m * h
         for s in sides.values():
-            H_su, H_ex = s.get("H_su"), s.get("H_ex")
-            s["dH"] = H_ex - H_su if (H_su is not None and H_ex is not None) else None
+            ok = s["complete"] and s["H_su"] is not None and s["H_ex"] is not None
+            s["dH"] = s["H_ex"] - s["H_su"] if ok else None
         return sides
 
     def print_energy_balance(self):
@@ -2332,12 +1833,12 @@ class IterativeCircuit(BaseCircuit):
         For the working fluid, the sum of m·(h_ex - h_su) over all components is
         exactly the mismatch at the links: it must be ~0 for a closed cycle.
         """
-        print(f"\n{'component':<14}{'side':<6}{'fluid':<12}{'m_su':>9}{'m_ex':>9}{'ΔH [W]':>14}")
+        print(f"\n{'component':<16}{'fluid':<12}{'m_su':>9}{'m_ex':>9}{'ΔH [W]':>14}")
         total_wf, missing = 0.0, False
         order = self.solving_order or list(self.components)
         for name in order:
-            for side, s in self._side_balances(name).items():
-                print(f"{name:<14}{side or '-':<6}{str(s['fluid']):<12}"
+            for s in self._side_balances(name).values():
+                print(f"{name:<16}{str(s['fluid']):<12}"
                       f"{self._fmt(s.get('m_su'), 1, 0, '9.4f')[-9:]}"
                       f"{self._fmt(s.get('m_ex'), 1, 0, '9.4f')[-9:]}"
                       f"{self._fmt(s['dH'], 1, 0, '14.1f')}")
