@@ -140,7 +140,7 @@ def curved_pipe_zakeralhoseini_condensing_HTC(AS, geom, cond):
     cond : G, p, x      geom : Dh, R_curv (or D_coil), L"""
     _need_cond(cond, 'G', 'p', 'x')
     D, L, R, G, p = _D(geom), _L(geom), _R_curv(geom), cond['G'], cond['p']
-    x = _clamp_x(cond['x'], 1e-4)
+    x = _clamp_x(cond['x'], 1e-2)
     p_crit = AS.p_critical()
     s = _sat_props(AS, p, cond)
     G_l = (1 - x) * G

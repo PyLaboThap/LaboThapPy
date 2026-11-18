@@ -13,7 +13,7 @@ Modification w/r to previous version:
 
 from labothappy.toolbox.plots.plot_MB_STHE import plot_MB_STHE
 
-from labothappy.component.heat_exchanger.hex_MB_charge_sensitive_bis import HexMBChargeSensitive
+from labothappy.component.heat_exchanger.hex_MB import HexMB
 from CoolProp.CoolProp import PropsSI    
 
 
@@ -32,7 +32,7 @@ n_disc = 30
 # # -------------------------------------------------------------------------------------------------------------
 # # Methanol Sensible HT Case
 
-HX = HexMBChargeSensitive('STHE')
+HX = HexMB('STHE')
 
 if case_study == 'Methanol':
 

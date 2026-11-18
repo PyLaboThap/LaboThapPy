@@ -44,12 +44,8 @@ def _tube_G(geom, cond):
 
 def _sigma(AS, p):
     """Surface tension at saturation pressure p [N/m] (AS first, PropsSI as a fallback)."""
-    try:
-        AS.update(CP.PQ_INPUTS, p, 0.5)
-        return AS.surface_tension()
-    except Exception:
-        return PropsSI('I', 'P', p, 'Q', 0.5, AS.fluid_names()[0])
-
+    AS.update(CP.PQ_INPUTS, p, 0.5)
+    return AS.surface_tension()
 
 def _sat_props(AS, p, cond=None):
     """Saturated liquid / vapor properties at p (moves AS).

@@ -11,7 +11,7 @@ Modification w/r to previous version:
     - x_di_c correct calculation.
 """
 
-from labothappy.component.heat_exchanger.hex_MB_charge_sensitive_bis import HexMBChargeSensitive
+from labothappy.component.heat_exchanger.hex_MB_charge_sensitive_bis import HexMB
 
 #%%
 
@@ -22,7 +22,7 @@ from labothappy.component.heat_exchanger.hex_MB_charge_sensitive_bis import HexM
 
 "HTX Instanciation"
 
-HX = HexMBChargeSensitive('PCHE')
+HX = HexMB('PCHE')
 
 test_case = "test_CO2"
 

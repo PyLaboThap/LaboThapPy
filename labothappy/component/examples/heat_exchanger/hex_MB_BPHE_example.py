@@ -18,7 +18,7 @@ import numpy as np
 
 import CoolProp.CoolProp as CP
 from labothappy.toolbox.geometries.heat_exchanger.geometry_plate_hx_swep import PlateGeomSWEP
-from labothappy.component.heat_exchanger.hex_MB_charge_sensitive_bis import HexMBChargeSensitive
+from labothappy.component.heat_exchanger.hex_MB import HexMB
 
 #%%
 
@@ -29,9 +29,9 @@ from labothappy.component.heat_exchanger.hex_MB_charge_sensitive_bis import HexM
 
 "HTX Instanciation"
 
-HX = HexMBChargeSensitive('BPHE')
+HX = HexMB('BPHE')
 
-case_study = "Condenser_R1233ZDE"
+case_study = "C5_EVAP"
 
 # "Setting inputs"
 if case_study == "C5_COND":
@@ -76,7 +76,7 @@ if case_study == "C5_COND":
         plate_cond = 45, 
         w = 0.094, 
         
-        charge_compute = False,
+        charge_compute = True,
 
         Flow_Type = 'CounterFlow', n_disc = 50)
 
@@ -84,7 +84,6 @@ if case_study == "C5_COND":
 
     Corr_H_DP = {'1P': 'Martin', '2P':'Lockhart_Martinelli'}
     Corr_C_DP = {'1P': 'Martin', '2P':'Lockhart_Martinelli'}
-    
     
 elif case_study == "C5_EVAP":
     # ---------------------------------------------------------------------------------------------------------
@@ -388,3 +387,4 @@ dp_c = HX.su_C.p-HX.ex_C.p
 print(f"Cold pressure drop      : {dp_c:10.0f} Pa")
 
 HX.plot_cells()
+HX.plot_cells_geom()

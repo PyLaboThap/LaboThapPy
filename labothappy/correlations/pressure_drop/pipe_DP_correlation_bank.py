@@ -211,8 +211,10 @@ def _pipe_choi_dp(AS, geom, cond):
         else:
             raise KeyError("Choi pressure drop: cond needs 'x_out' (or 'h_in' and 'h_out').")
         x_ex = min(max(x_ex, 0.0), 1.0)
-        if abs(x_ex - x_su) < 1e-9:
-            raise ValueError("Choi pressure drop: the quality does not change over the pipe (K_f = 0).")
+        
+        # if abs(x_ex - x_su) < 1e-9:
+        #     raise ValueError("Choi pressure drop: the quality does not change over the pipe (K_f = 0).")
+            
         rho_su = 1.0 / (x_su / s['rho_v'] + (1 - x_su) / s['rho_l'])
         rho_ex = 1.0 / (x_ex / s['rho_v'] + (1 - x_ex) / s['rho_l'])
         Re_fo = G * D / s['mu_l']
@@ -220,7 +222,6 @@ def _pipe_choi_dp(AS, geom, cond):
         f_N = 0.00506 * Re_fo**(-0.0951) * K_f**0.1554
         return f_N * L * (1.0 / rho_ex + 1.0 / rho_su) / D * G**2
     return _two_phase_dp(AS, geom, cond, model)
-
 
 def _pipe_homogeneous_dp(AS, geom, cond):
     """Homogeneous model: McAdams mixture viscosity, homogeneous density, Churchill friction factor."""
