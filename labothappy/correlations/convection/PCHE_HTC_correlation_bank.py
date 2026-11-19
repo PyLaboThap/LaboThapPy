@@ -153,3 +153,80 @@ def PCHE_lee_zigzag_HTC(AS, geom, cond):
         # Jiang et al. (2018), Eq. (23a)
         Nu = 0.0845 * Re ** 0.721 * Pr ** (1 / 3)
     return Nu * cond['k'] / Dh
+
+
+def PCHE_jiang_zigzag_HTC(AS, geom, cond):
+    """Zigzag semicircular channel of a PCHE: single-phase TURBULENT heat transfer coefficient
+    h [W/m2/K] from Jiang et al. (2018). Two fits are provided: a "low-angle" (30 deg) and a
+    "high-angle" (40 deg) channel. The 30 deg fit is used for alpha <= 35 deg, the 40 deg fit above
+    (same rule as the pressure-drop function PCHE_lee_jiang_zigzag_SP_DP).
+
+    Reference:
+        Y. Jiang, E. Liese, S.E. Zitney, D. Bhattacharyya, Design and dynamic modeling of printed
+        circuit heat exchangers for supercritical carbon dioxide Brayton power cycles (2018),
+        Eqs. (22a), (23a), (8), Fig. 3. Preprint, journal not stated. The fits are regressions of
+        Heatric data (Le Pierres et al., 2011).
+
+    Arguments:
+        AS : not used (common interface).
+        geom : dict with keys
+            'alpha' [deg] : bending angle of the zigzag from the main flow direction (0 < alpha < 90).
+            'D_c' [m]   : channel diameter (used if 'Dh' not provided).
+            'Dh'  [m]   : optional hydraulic diameter; default pi*D_c/(2+pi) (Jiang Eq. 8).
+        cond : dict with bulk properties of the cell (single-phase)
+            'G'   [kg/m2/s] : mass flux in ONE channel.
+            'mu'  [Pa s]    : dynamic viscosity.
+            'k'   [W/m/K]   : thermal conductivity.
+            'Pr'  [-]       : Prandtl number.
+
+    Returns:
+        h [W/m2/K] : heat transfer coefficient on the channel wall.
+
+    Validity:
+        3000 <= Re <= 20600 (range of the Heatric data used for the fit).
+        alpha = 30 deg (Eq. 22a) or 40 deg (Eq. 23a) only; other angles are extrapolated.
+        Fluid: supercritical CO2. Channel diameter D_c = 2 mm (Heatric data).
+        Fully developed turbulent flow assumed. No laminar branch: for Re < 3000 use 'Lee'.
+
+    Definitions:
+        Re = G * Dh / mu  with Dh = pi * D_c / (2 + pi) (Jiang Eq. 8).
+        Nu = h * Dh / k   on the same Dh.
+        Bulk properties of the cell; G is the mass flux of one channel.
+        AS is not used (common interface).
+    """
+    # Required bulk properties
+    _need(cond, 'G', 'mu', 'k', 'Pr')
+
+    # Hydraulic diameter (Jiang Eq. 8) and bending angle
+    Dh = _dh(geom)
+    alpha = geom['alpha']
+
+    # A zigzag channel requires 0 < alpha < 90 deg
+    if not 0 < alpha < 90:
+        raise ValueError(f"PCHE_jiang_zigzag_HTC: bending angle {alpha} deg outside ]0, 90[.")
+
+    # Reynolds number on the hydraulic diameter
+    Re = cond['G'] * Dh / cond['mu']
+    Pr = cond['Pr']
+
+    # Validity warning for Reynolds number (Heatric data range)
+    if Re < 3000 or Re > 20600:
+        warnings.warn(f"PCHE_jiang_zigzag_HTC: Re = {Re:.0f} outside 3000-20600, "
+                      "range of Jiang et al. (2018) fit: extrapolated.")
+
+    # Validity warning for bending angle (fits exist for 30 and 40 deg only)
+    if alpha != 30 and alpha != 40:
+        warnings.warn("PCHE_jiang_zigzag_HTC: Jiang et al. (2018) gives fits for 30 and 40 deg "
+                      "only: the 30 deg fit is used for alpha <= 35 deg, the 40 deg fit above.")
+
+    # Choice of correlation: low-angle (30 deg) for alpha <= 35, high-angle (40 deg) above
+    if alpha <= 35:
+        # Jiang et al. (2018), Eq. (22a): low-angle (30 deg) channel
+        Nu = 0.0176 * Re ** 0.809 * Pr ** (1 / 3)
+    else:
+        # Jiang et al. (2018), Eq. (23a): high-angle (40 deg) channel
+        Nu = 0.0845 * Re ** 0.721 * Pr ** (1 / 3)
+
+    # Heat transfer coefficient h = Nu * k / Dh
+    h = Nu * cond['k'] / Dh
+    return h

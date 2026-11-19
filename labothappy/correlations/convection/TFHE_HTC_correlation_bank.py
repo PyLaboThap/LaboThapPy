@@ -15,7 +15,9 @@ geom : Tube_OD, Tube_t, Tube_L, Fin_OD, Fin_t, Fin_per_m, k_fin, n_tubes, n_rows
        pitch_ratio (annular) or pitch_V, pitch_H (square), n_parallel (optional)
 cond : m_dot (WHOLE finned side), rho, mu, k, Pr   (bulk properties of the gas)
 """
+import warnings
 import numpy as np
+from scipy.special import i0, i1, k0, k1      # Bessel functions (Kern & Kraus fin efficiency)
 
 _NEEDED = ('Tube_OD', 'Tube_t', 'Tube_L', 'Fin_OD', 'Fin_t', 'Fin_per_m', 'k_fin', 'n_tubes', 'n_rows',
            'Tube_pass', 'w')
@@ -116,3 +118,727 @@ def TFHE_pismennyi_HTC(AS, geom, cond):
     if ft == 'square':
         return TFHE_pismennyi_square_HTC(AS, geom, cond)
     raise ValueError(f"TFHE HTC: geom['Fin_type'] = {geom.get('Fin_type')!r}: expected 'Annular' or 'Square'.")
+
+#%% CIRCULAR (ANNULAR) FINS: Briggs-Young, ESDU high fin, Ganguli-VDI (Kern & Kraus fin efficiency)
+
+def TFHE_briggs_young_HTC(AS, geom, cond):
+    """
+    Gas-side heat transfer coefficient of a staggered (triangular pitch) bank of tubes with
+    circular (annular) fins, Briggs & Young (1963). Air coolers.
+
+    Definitions: Re = rho V_max Tube_OD / mu, V_max = gas velocity in the minimum flow area A_min
+    (min of the transverse and diagonal gaps, fins included, as ht / fluids); bulk gas
+    properties; Nu on Tube_OD. Fin efficiency of Kern & Kraus (1972) (exact annular fin, Bessel
+    functions). Returns the REDUCED h referred to the TOTAL outer area (tube + fins), fin
+    efficiency included (labothappy convention, as the Pis'mennyi functions)
+    = ht h_bare_tube_basis / A_increase (ht returns h on the bare-tube area).
+
+    Implementation follows ht.air_cooler.h_Briggs_Young (C. Bell), which cites the reference
+    below; areas and minimum flow area as fluids.geometry.AirCooledExchanger; fin efficiency
+    of Kern & Kraus (1972) as ht.core.fin_efficiency_Kern_Kraus.
+
+    Validity (ht notes; warning outside): 1000 < Re < 8000, 11.13 mm < Tube_OD < 40.89 mm,
+    1.42 mm < fin height < 16.57 mm, 0.33 mm < fin thickness < 2.02 mm,
+    1.30 mm < fin pitch < 4.06 mm, 24.49 mm < transverse pitch < 111 mm; triangular
+    (staggered) banks; air.
+
+    Parameters
+    ----------
+    AS : CoolProp AbstractState
+        Not used, kept for the common (AS, geom, cond) interface.
+    geom : dict
+        Dictionary of geometry parameters with SI units:
+        - 'Fin_type' : str, fin type ('Annular')
+        - 'Tube_OD' : float, tube outer (root) diameter [m]
+        - 'Fin_OD' : float, fin outer diameter [m]
+        - 'Fin_t' : float, fin thickness [m]
+        - 'Fin_per_m' : float, number of fins per metre of tube [1/m]
+        - 'Tube_L' : float, tube length [m]
+        - 'k_fin' : float, fin thermal conductivity [W/m/K]
+        - 'n_rows' : float or int, number of tube rows [-]
+        - 'Tube_pass' : float or int, number of tube passes [-]
+        - 'n_tubes' : float or int, total number of tubes [-]
+        - 'pitch_V' : float, transverse pitch (normal to gas flow) [m]
+        - 'pitch_H' : float, longitudinal pitch (parallel to gas flow) [m]
+        - 'n_parallel' : float or int, optional, number of parallel paths [-]
+        - 'tube_arrang' : str, optional, tube arrangement ('Staggered' or 'Inline')
+    cond : dict
+        Dictionary of operating conditions with SI units:
+        - 'm_dot' : float, total gas mass flow rate through the finned side [kg/s]
+        - 'rho' : float, bulk gas density [kg/m3]
+        - 'mu' : float, bulk gas dynamic viscosity [Pa s]
+        - 'k' : float, bulk gas thermal conductivity [W/m/K]
+        - 'Pr' : float, bulk gas Prandtl number [-]
+
+    Returns
+    -------
+    h_reduced : float
+        Reduced heat transfer coefficient referred to the total outer area [W/m2/K].
+
+    Reference
+    ---------
+    Briggs, D.E., Young, E.H. (1963) Convection heat transfer and pressure drop of air flowing
+    across triangular banks of finned tubes. Chemical Engineering Progress Symposium Series
+    59(41) (Heat Transfer - Houston).
+    """
+    # Step 1. Check the fin shape
+    fin_type = str(geom.get('Fin_type', 'Annular')).strip().lower()
+    if fin_type != 'annular':
+        raise ValueError(
+            f"TFHE Briggs-Young: correlation is for circular (annular) fins only. "
+            f"Received geom['Fin_type'] = {geom.get('Fin_type')!r}."
+        )
+
+    # Tube arrangement check
+    tube_arrangement = str(geom.get('tube_arrang', 'Staggered')).strip().lower()
+    if tube_arrangement == 'inline':
+        warnings.warn(
+            "Briggs-Young: correlation for staggered (triangular pitch) banks, used here for "
+            "an inline bank.",
+            UserWarning
+        )
+
+    # Step 2. Inputs (SI units)
+    D = geom['Tube_OD']
+    D_fin = geom['Fin_OD']
+    t_fin = geom['Fin_t']
+    fin_density = geom['Fin_per_m']
+    L_tube = geom['Tube_L']
+    k_fin = geom['k_fin']
+    tube_rows = geom['n_rows'] * geom['Tube_pass']
+    tubes_per_row = geom['n_tubes'] / tube_rows
+    pitch_normal = geom['pitch_V']
+    pitch_parallel = geom['pitch_H']
+    n_parallel = geom.get('n_parallel', 1)
+    m_dot = cond['m_dot'] / n_parallel
+    rho = cond['rho']
+    mu = cond['mu']
+    k = cond['k']
+    Pr = cond['Pr']
+
+    # Step 3. Fin dimensions and areas of ONE tube
+    fin_height = (D_fin - D) / 2
+    fin_interval = 1.0 / fin_density
+    bare_length = fin_interval - t_fin
+    A_tube_showing = np.pi * D * L_tube * (1.0 - t_fin / fin_interval)
+    A_per_fin = 2.0 * np.pi / 4.0 * (D_fin**2 - D**2) + np.pi * D_fin * t_fin
+    A_fin = fin_density * L_tube * A_per_fin
+    A_total = A_tube_showing + A_fin
+
+    # Step 4. Minimum flow area and maximum velocity
+    pitch_diagonal = np.sqrt(pitch_parallel**2 + (pitch_normal / 2.0)**2)
+    blockage = D + 2.0 * fin_density * fin_height * t_fin
+    A_diagonal = 2.0 * tubes_per_row * L_tube * (pitch_diagonal - blockage)
+    A_normal = tubes_per_row * L_tube * (pitch_normal - blockage)
+    A_min = min(A_diagonal, A_normal)
+    V_max = m_dot / (A_min * rho)
+    Re = rho * V_max * D / mu
+
+    # Validity checks (ranges of the ht notes): warning, then computed anyway
+    if not (1000.0 < Re < 8000.0):
+        warnings.warn(f"Briggs-Young: Re = {Re:.0f} outside the validity range (1000, 8000).",
+                      UserWarning)
+    if not (0.01113 < D < 0.04089):
+        warnings.warn(f"Briggs-Young: Tube_OD = {D * 1e3:.2f} mm outside the validity range "
+                      "(11.13 mm, 40.89 mm).", UserWarning)
+    if not (0.00142 < fin_height < 0.01657):
+        warnings.warn(f"Briggs-Young: fin height = {fin_height * 1e3:.2f} mm outside the "
+                      "validity range (1.42 mm, 16.57 mm).", UserWarning)
+    if not (0.00033 < t_fin < 0.00202):
+        warnings.warn(f"Briggs-Young: fin thickness = {t_fin * 1e3:.3f} mm outside the "
+                      "validity range (0.33 mm, 2.02 mm).", UserWarning)
+    if not (0.00130 < fin_interval < 0.00406):
+        warnings.warn(f"Briggs-Young: fin pitch = {fin_interval * 1e3:.2f} mm outside the "
+                      "validity range (1.30 mm, 4.06 mm).", UserWarning)
+    if not (0.02449 < pitch_normal < 0.111):
+        warnings.warn(f"Briggs-Young: transverse pitch = {pitch_normal * 1e3:.2f} mm outside "
+                      "the validity range (24.49 mm, 111 mm).", UserWarning)
+
+    # Nusselt number, Briggs & Young (1963) (as ht h_Briggs_Young; Pr exponent 1/3)
+    term_re = Re**0.681
+    term_pr = Pr**(1.0 / 3.0)
+    term_geom1 = (bare_length / fin_height)**0.2
+    term_geom2 = (bare_length / t_fin)**0.1134
+    Nu = 0.134 * term_re * term_pr * term_geom1 * term_geom2
+
+    # Heat transfer coefficient of the finned surface, before the fin efficiency
+    h = Nu * k / D
+
+    # Step 5. Fin efficiency (Kern & Kraus, 1972) and reduced HTC
+    m_fin = np.sqrt(2.0 * h / (k_fin * t_fin))
+    r_e = D_fin / 2.0
+    r_o = D / 2.0
+    numerator = i1(m_fin * r_e) * k1(m_fin * r_o) - k1(m_fin * r_e) * i1(m_fin * r_o)
+    denominator = i0(m_fin * r_o) * k1(m_fin * r_e) + i1(m_fin * r_e) * k0(m_fin * r_o)
+    eta_fin = 2.0 * r_o / (m_fin * (r_e**2 - r_o**2)) * numerator / denominator
+    h_reduced = (eta_fin * A_fin + A_tube_showing) / A_total * h
+
+    return h_reduced
+
+
+def TFHE_esdu_high_fin_HTC(AS, geom, cond):
+    """
+    Gas-side heat transfer coefficient of a staggered bank of high-fin tubes
+    (circular fins) using the ESDU method.
+
+    Nu = 0.242 Re^0.658 (bare length / fin height)^0.297 (P_normal / P_parallel)^-0.091
+         Pr^(1/3) F1 F2
+    F2 = row correction: 0.76, 0.84, 0.92 for 1, 2, 3 rows, 1 for 4 rows or more.
+    F1 = (Pr / Pr_wall)^0.26 (wall property correction) is NOT applied (F1 = 1): the wall
+    Prandtl number is not available in cond.
+
+    Definitions: Re = rho V_max Tube_OD / mu, V_max = gas velocity in the minimum flow area A_min
+    (min of the transverse and diagonal gaps, fins included, as ht / fluids); bulk gas
+    properties; Nu on Tube_OD. Fin efficiency of Kern & Kraus (1972) (exact annular fin, Bessel
+    functions). Returns the REDUCED h referred to the TOTAL outer area (tube + fins), fin
+    efficiency included (labothappy convention, as the Pis'mennyi functions).
+
+    Implementation follows ht.air_cooler.h_ESDU_high_fin (C. Bell), which cites the
+    reference below; areas and minimum flow area as fluids.geometry.AirCooledExchanger;
+    fin efficiency of Kern & Kraus (1972) as ht.core.fin_efficiency_Kern_Kraus.
+
+    Validity (data of ESDU 86022 as listed in ht; warning outside): 4 to 11 fins per inch,
+    Tube_OD 3/8 to 2 inch, fin height 1/3 to 5/8 inch, Fin_OD / Tube_OD 1.2 to 2.4,
+    5000 <= Re <= 50000; staggered banks; gases.
+
+    Parameters
+    ----------
+    AS : CoolProp AbstractState
+        Not used, kept for the common (AS, geom, cond) interface.
+    geom : dict
+        Geometry dictionary containing:
+        - 'Fin_type' : str, fin type (must be 'annular')
+        - 'Tube_OD' : float, tube outer (root) diameter [m]
+        - 'Fin_OD' : float, fin outer diameter [m]
+        - 'Fin_t' : float, fin thickness [m]
+        - 'Fin_per_m' : float, fin density [1/m]
+        - 'Tube_L' : float, tube length [m]
+        - 'k_fin' : float, fin thermal conductivity [W/m/K]
+        - 'n_rows' : float, number of tube rows [-]
+        - 'Tube_pass' : float, number of tube passes [-]
+        - 'n_tubes' : float, total number of tubes [-]
+        - 'pitch_V' : float, transverse pitch (90 deg to gas flow) [m]
+        - 'pitch_H' : float, longitudinal pitch (along gas flow) [m]
+        - 'n_parallel' : float (optional), number of parallel banks [-]
+        - 'tube_arrang' : str (optional), tube arrangement ('staggered' or 'inline')
+    cond : dict
+        Conditions dictionary containing:
+        - 'm_dot' : float, total gas mass flow rate through the finned side [kg/s]
+        - 'rho' : float, bulk gas density [kg/m3]
+        - 'mu' : float, bulk gas dynamic viscosity [Pa s]
+        - 'k' : float, bulk gas thermal conductivity [W/m/K]
+        - 'Pr' : float, bulk gas Prandtl number [-]
+
+    Returns
+    -------
+    h_reduced : float
+        Reduced heat transfer coefficient referred to the total outer area
+        (tube + fins), fin efficiency included [W/m2/K].
+        (= ht h_bare_tube_basis / A_increase, where ht returns h on the bare-tube area).
+
+    Reference
+    ---------
+    ESDU 86022 (1986) High-fin staggered tube banks: heat transfer and pressure drop
+    for turbulent single phase gas flow; as given in Hewitt, G.F., Shires, G.L.,
+    Bott, T.R. (1994) Process Heat Transfer, CRC Press.
+    """
+    # Step 1. Check the fin shape
+    fin_type = str(geom.get('Fin_type', 'Annular')).strip().lower()
+    if fin_type != 'annular':
+        raise ValueError(
+            "TFHE: correlation is for circular (annular) fins only; "
+            f"received geom['Fin_type'] = {geom.get('Fin_type')!r}."
+        )
+
+    # Step 2. Inputs (SI units)
+    D = geom['Tube_OD']
+    D_fin = geom['Fin_OD']
+    t_fin = geom['Fin_t']
+    fin_density = geom['Fin_per_m']
+    L_tube = geom['Tube_L']
+    k_fin = geom['k_fin']
+
+    tube_rows = geom['n_rows'] * geom['Tube_pass']
+    tubes_per_row = geom['n_tubes'] / tube_rows
+    pitch_normal = geom['pitch_V']
+    pitch_parallel = geom['pitch_H']
+    n_parallel = geom.get('n_parallel', 1)
+
+    m_dot = cond['m_dot'] / n_parallel
+    rho = cond['rho']
+    mu = cond['mu']
+    k = cond['k']
+    Pr = cond['Pr']
+
+    # Validity checks (warnings.warn for each limit exceeded, compute anyway)
+    # Fin density range: 4 to 11 fins per inch -> 157.48 to 433.07 [1/m]
+    if not (157.48 <= fin_density <= 433.07):
+        warnings.warn(
+            f"Fin density {fin_density} [1/m] is outside the validity range "
+            "[157.48, 433.07] [1/m] (ESDU 86022)."
+        )
+
+    # Tube outer diameter range: 3/8 to 2 inch -> 9.525 mm to 50.8 mm
+    if not (0.009525 <= D <= 0.0508):
+        warnings.warn(
+            f"Tube outer diameter {D} [m] is outside the validity range "
+            "[0.009525, 0.0508] [m] (ESDU 86022)."
+        )
+
+    fin_height = (D_fin - D) / 2
+    # Fin height range: 1/3 to 5/8 inch -> 8.467 mm to 15.875 mm
+    if not (0.008467 <= fin_height <= 0.015875):
+        warnings.warn(
+            f"Fin height {fin_height} [m] is outside the validity range "
+            "[0.008467, 0.015875] [m] (ESDU 86022)."
+        )
+
+    fin_ratio = D_fin / D
+    # Fin tip to root diameter ratio range: 1.2 to 2.4
+    if not (1.2 <= fin_ratio <= 2.4):
+        warnings.warn(
+            f"Fin tip to root diameter ratio {fin_ratio} is outside the "
+            "validity range [1.2, 2.4] (ESDU 86022)."
+        )
+
+    # Tube arrangement check: staggered banks only
+    tube_arrang = str(geom.get('tube_arrang', 'Staggered')).strip().lower()
+    if tube_arrang == 'inline':
+        warnings.warn(
+            "Tube arrangement is 'inline', but ESDU 86022 is valid for "
+            "staggered banks only."
+        )
+
+    # Step 3. Fin dimensions and areas of ONE tube (fin_height computed above)
+    fin_interval = 1 / fin_density
+    bare_length = fin_interval - t_fin
+    A_tube_showing = np.pi * D * L_tube * (1 - t_fin / fin_interval)
+    A_per_fin = 2 * np.pi / 4 * (D_fin**2 - D**2) + np.pi * D_fin * t_fin
+    A_fin = fin_density * L_tube * A_per_fin
+    A_total = A_tube_showing + A_fin
+
+    # Step 4. Minimum flow area, maximum velocity, and Reynolds number
+    pitch_diagonal = np.sqrt(pitch_parallel**2 + (pitch_normal / 2)**2)
+    blockage = D + 2 * fin_density * fin_height * t_fin
+    A_diagonal = 2 * tubes_per_row * L_tube * (pitch_diagonal - blockage)
+    A_normal = tubes_per_row * L_tube * (pitch_normal - blockage)
+    A_min = min(A_diagonal, A_normal)
+    V_max = m_dot / (A_min * rho)
+    Re = rho * V_max * D / mu
+
+    # Reynolds number validity range: 5000 <= Re <= 50000
+    if not (5000 <= Re <= 50000):
+        warnings.warn(
+            f"Reynolds number Re = {Re} is outside the validity range "
+            "[5000, 50000] (ESDU 86022)."
+        )
+
+    # ESDU 86022 (Hewitt et al. 1994)
+    # 1. Row correction factor F2
+    if tube_rows < 2:
+        F2 = 0.76
+    elif tube_rows < 3:
+        F2 = 0.84
+    elif tube_rows < 4:
+        F2 = 0.92
+    else:
+        F2 = 1.0
+
+    # 2. Nusselt number
+    term_re = Re**0.658
+    term_geom = (bare_length / fin_height)**0.297
+    term_pitch = (pitch_normal / pitch_parallel)**-0.091
+    term_pr = Pr**(1 / 3)
+    Nu = 0.242 * term_re * term_geom * term_pitch * term_pr * F2
+
+    # 3. The wall-property correction F1 = (Pr / Pr_wall)^0.26 is NOT applied (F1 = 1:
+    # the wall Prandtl number is not available in cond).
+
+    # 4. Heat transfer coefficient of the finned surface, before the fin efficiency
+    h = Nu * k / D
+
+    # Step 5. Fin efficiency, Kern & Kraus (1972), and reduced h
+    m_fin = np.sqrt(2 * h / (k_fin * t_fin))
+    r_e = D_fin / 2
+    r_o = D / 2
+    numerator = i1(m_fin * r_e) * k1(m_fin * r_o) - k1(m_fin * r_e) * i1(m_fin * r_o)
+    denominator = i0(m_fin * r_o) * k1(m_fin * r_e) + i1(m_fin * r_e) * k0(m_fin * r_o)
+    eta_fin = 2 * r_o / (m_fin * (r_e**2 - r_o**2)) * numerator / denominator
+    h_reduced = (eta_fin * A_fin + A_tube_showing) / A_total * h
+
+    return h_reduced
+
+
+def TFHE_ganguli_vdi_HTC(AS, geom, cond):
+    """Gas-side heat transfer coefficient of an in-line or staggered bank of tubes with
+    circular (annular) fins, using the Ganguli et al. (1985) correlation with the VDI
+    Heat Atlas (2010) modifications.
+
+    Nu = C Re^0.6 Pr^(1/3) A_increase^-0.15, A_increase = total outer area / bare tube area.
+    C (VDI): inline 0.22 (0.2 below 4 rows); staggered 0.38 (0.2, 0.33, 0.36 for 1, 2, 3 rows).
+
+    Definitions: Re = rho V_max Tube_OD / mu, V_max = gas velocity in the minimum flow area A_min
+    (min of the transverse and diagonal gaps, fins included, as ht / fluids); bulk gas
+    properties; Nu on Tube_OD. Fin efficiency of Kern & Kraus (1972) (exact annular fin, Bessel
+    functions). Returns the REDUCED h referred to the TOTAL outer area (tube + fins), fin
+    efficiency included (labothappy convention, as the Pis'mennyi functions).
+
+    Parameters
+    ----------
+    AS : CoolProp AbstractState
+        Not used, kept for the common (AS, geom, cond) interface.
+    geom : dict
+        Geometry dictionary containing:
+        - 'Fin_type' : str, must be 'annular' (case insensitive)
+        - 'Tube_OD' : float, tube outer (root) diameter [m]
+        - 'Fin_OD' : float, fin outer diameter [m]
+        - 'Fin_t' : float, fin thickness [m]
+        - 'Fin_per_m' : float, number of fins per metre of tube [1/m]
+        - 'Tube_L' : float, tube length [m]
+        - 'k_fin' : float, fin thermal conductivity [W/m/K]
+        - 'n_rows' : float, number of tube rows [ - ]
+        - 'Tube_pass' : float, number of tube passes [ - ]
+        - 'n_tubes' : float, total number of tubes [ - ]
+        - 'pitch_V' : float, transverse pitch (90 deg to gas flow) [m]
+        - 'pitch_H' : float, longitudinal pitch (along gas flow) [m]
+        - 'tube_arrang' : str, 'inline' or 'staggered' (note: ht guesses arrangement
+          from pitch ratios close to 1, while labothappy reads geom['tube_arrang'])
+        - 'n_parallel' : float, optional, number of parallel passes [ - ]
+    cond : dict
+        Condition dictionary containing:
+        - 'm_dot' : float, whole finned side gas mass flow rate [kg/s]
+        - 'rho' : float, bulk gas density [kg/m3]
+        - 'mu' : float, bulk gas dynamic viscosity [Pa s]
+        - 'k' : float, bulk gas thermal conductivity [W/m/K]
+        - 'Pr' : float, bulk gas Prandtl number [ - ]
+
+    Returns
+    -------
+    h_reduced : float
+        Reduced heat transfer coefficient referred to the total outer area
+        (tube + fins), fin efficiency included [W/m2/K].
+        Calculated as: h_reduced = ht h_bare_tube_basis / A_increase,
+        where ht returns h on the bare-tube area.
+
+    Reference
+    ---------
+    Ganguli, A., Tung, S.S., Taborek, J. (1985) Parametric study of air-cooled heat
+    exchanger finned tube geometry. AIChE Symposium Series 81, 122-128; with the
+    modifications of the VDI Heat Atlas, 2nd edition (2010).
+
+    Implementation
+    --------------
+    Implementation follows ht.air_cooler.h_Ganguli_VDI (C. Bell), which cites the
+    reference above; areas and minimum flow area as fluids.geometry.AirCooledExchanger;
+    fin efficiency of Kern & Kraus (1972) as ht.core.fin_efficiency_Kern_Kraus.
+
+    Validity
+    --------
+    Validity range: unknown (not given in ht / VDI summary); air.
+    """
+    # Step 1. Check the fin shape
+    fin_type = str(geom.get('Fin_type', 'Annular')).strip().lower()
+    if fin_type != 'annular':
+        raise ValueError(
+            f"TFHE Ganguli VDI HTC: correlation is for circular (annular) fins only. "
+            f"Received geom['Fin_type'] = {geom.get('Fin_type')!r}."
+        )
+
+    # Step 2. Inputs (SI units)
+    D = geom['Tube_OD']
+    D_fin = geom['Fin_OD']
+    t_fin = geom['Fin_t']
+    fin_density = geom['Fin_per_m']
+    L_tube = geom['Tube_L']
+    k_fin = geom['k_fin']
+    tube_rows = geom['n_rows'] * geom['Tube_pass']
+    tubes_per_row = geom['n_tubes'] / tube_rows
+    pitch_normal = geom['pitch_V']
+    pitch_parallel = geom['pitch_H']
+    n_parallel = geom.get('n_parallel', 1)
+    m_dot = cond['m_dot'] / n_parallel
+    rho = cond['rho']
+    mu = cond['mu']
+    k = cond['k']
+    Pr = cond['Pr']
+
+    # Read arrangement from geometry
+    arrangement = str(geom.get('tube_arrang', 'Staggered')).strip().lower()
+    if arrangement not in ('inline', 'staggered'):
+        raise ValueError(
+            f"TFHE Ganguli VDI HTC: tube_arrang must be 'inline' or 'staggered', "
+            f"got {geom.get('tube_arrang')!r}."
+        )
+
+    # Step 3. Fin dimensions and areas of ONE tube
+    fin_height = (D_fin - D) / 2
+    fin_interval = 1 / fin_density
+    A_bare_tube = np.pi * D * L_tube
+    A_tube_showing = np.pi * D * L_tube * (1 - t_fin / fin_interval)
+    A_per_fin = 2 * np.pi / 4 * (D_fin**2 - D**2) + np.pi * D_fin * t_fin
+    A_fin = fin_density * L_tube * A_per_fin
+    A_total = A_tube_showing + A_fin
+    A_increase = A_total / A_bare_tube
+
+    # Step 4. Minimum flow area and maximum velocity
+    pitch_diagonal = np.sqrt(pitch_parallel**2 + (pitch_normal / 2)**2)
+    blockage = D + 2 * fin_density * fin_height * t_fin
+    A_diagonal = 2 * tubes_per_row * L_tube * (pitch_diagonal - blockage)
+    A_normal = tubes_per_row * L_tube * (pitch_normal - blockage)
+    A_min = min(A_diagonal, A_normal)
+    V_max = m_dot / (A_min * rho)
+    Re = rho * V_max * D / mu
+
+    # Step 5. VDI coefficient based on arrangement and number of rows
+    if arrangement == 'inline':
+        if tube_rows < 4:
+            coefficient = 0.2
+        else:
+            coefficient = 0.22
+    else:
+        if tube_rows < 1.5:
+            coefficient = 0.2
+        elif tube_rows < 2.5:
+            coefficient = 0.33
+        elif tube_rows < 3.5:
+            coefficient = 0.36
+        else:
+            coefficient = 0.38
+
+    # Nusselt number correlation (Ganguli et al. / VDI)
+    Nu = coefficient * Re**0.6 * Pr**(1 / 3) * A_increase**-0.15
+
+    # Heat transfer coefficient of the finned surface, before the fin efficiency
+    h = Nu * k / D
+
+    # Step 6. Fin efficiency, Kern & Kraus (1972), and reduced h
+    m_fin = np.sqrt(2 * h / (k_fin * t_fin))
+    r_e = D_fin / 2
+    r_o = D / 2
+
+    numerator = i1(m_fin * r_e) * k1(m_fin * r_o) - k1(m_fin * r_e) * i1(m_fin * r_o)
+    denominator = i0(m_fin * r_o) * k1(m_fin * r_e) + i1(m_fin * r_e) * k0(m_fin * r_o)
+    eta_fin = 2 * r_o / (m_fin * (r_e**2 - r_o**2)) * numerator / denominator
+
+    h_reduced = (eta_fin * A_fin + A_tube_showing) / A_total * h
+
+    # TODO: validity range from Ganguli et al. (1985)
+
+    return h_reduced
+
+
+#%% CONTINUOUS PLAIN PLATE FINS (Fin_type 'Square'): Wang, Chi, Chang (2000), Schmidt fin efficiency
+
+def TFHE_wang_plain_fin_HTC(AS, geom, cond):
+    """
+    Gas-side heat transfer coefficient of a staggered bank of round tubes with
+    continuous plain plate fins (Wang, Chi, Chang 2000). The correlation includes
+    the fin-collar contact conductance. Returns the REDUCED heat transfer coefficient
+    referred to the TOTAL outer area (fins + exposed tube), surface efficiency included
+    (labothappy convention, as the Pis'mennyi functions): h_reduced = eta_o * h.
+
+    Definitions: Re_Dc = rho * u_max * D_c / mu, u_max = gas velocity in the minimum
+    free flow area A_c, D_c = Tube_OD + 2 * Fin_t (fin collar diameter). Bulk gas
+    properties. j = Colburn factor = h * Pr^(2/3) / (rho * u_max * cp).
+    Fin efficiency: Schmidt (1949) equivalent circular fin, staggered layout (ACHP then
+    replaces it by a Perrotin-Clodic (2006) form: NOT used here).
+    Independent implementation: tested against ACHP PlainFins (h before efficiency)
+    and Schmidt by hand.
+
+    Equations as implemented in ACHP (Purdue), ACHP/FinCorrelations.py, function PlainFins.
+
+    Validity: unknown (TODO, paper not available); air-side coils with small tubes
+    (D_c about 6-13 mm).
+
+    Parameters
+    ----------
+    AS : CoolProp AbstractState
+        Not used, kept for the common (AS, geom, cond) interface.
+    geom : dict
+        Dictionary of geometry parameters with SI units:
+        - 'Fin_type' : str, fin type (must be 'Square' for continuous plate fins)
+        - 'Tube_OD' : float, tube outer diameter [m]
+        - 'Fin_t' : float, fin thickness [m]
+        - 'Fin_per_m' : float, number of fins per metre of tube [1/m]
+        - 'Tube_L' : float, tube length [m]
+        - 'k_fin' : float, fin thermal conductivity [W/m/K]
+        - 'n_rows' : float or int, number of tube rows [-]
+        - 'Tube_pass' : float or int, number of tube passes [-]
+        - 'n_tubes' : float or int, total number of tubes [-]
+        - 'pitch_V' : float, transverse pitch (normal to gas flow) [m]
+        - 'pitch_H' : float, longitudinal pitch (along gas flow) [m]
+        - 'n_parallel' : float or int, optional, number of parallel paths [-]
+        - 'tube_arrang' : str, optional, tube arrangement ('Staggered' or 'Inline')
+    cond : dict
+        Dictionary of operating conditions with SI units (bulk gas properties):
+        - 'm_dot' : float, total gas mass flow rate through the finned side [kg/s]
+        - 'rho' : float, bulk gas density [kg/m3]
+        - 'mu' : float, bulk gas dynamic viscosity [Pa s]
+        - 'k' : float, bulk gas thermal conductivity [W/m/K]
+        - 'Pr' : float, bulk gas Prandtl number [-]
+
+    Returns
+    -------
+    h_reduced : float
+        Reduced heat transfer coefficient referred to the total outer area
+        (fins + exposed tube), surface efficiency included [W/m2/K].
+
+    Reference
+    ---------
+    Wang, C.-C., Chi, K.-Y., Chang, C.-J. (2000) Heat transfer and friction
+    characteristics of plain fin-and-tube heat exchangers, part II: Correlation.
+    International Journal of Heat and Mass Transfer (2000). Volume / pages / DOI:
+    TODO: check (paper not available).
+
+    Fin efficiency: Schmidt, T.E. (1949) Heat transfer calculations for extended
+    surfaces. Refrigerating Engineering 57, 351-357 (as cited by ACHP; not checked).
+    """
+    # Step 1. Check fin type (must be continuous plate fins, 'Square' in labothappy)
+    fin_type = str(geom.get('Fin_type', 'Square')).strip().lower()
+    if fin_type != 'square':
+        warnings.warn(
+            "Wang plain fin: correlation for continuous plate fins (Fin_type 'Square'). "
+            f"Received geom['Fin_type'] = {geom.get('Fin_type')!r}.",
+            UserWarning
+        )
+
+    # Step 2. Check tube arrangement (staggered banks only)
+    tube_arrangement = str(geom.get('tube_arrang', 'Staggered')).strip().lower()
+    if tube_arrangement == 'inline':
+        warnings.warn(
+            "Wang plain fin: staggered banks only. "
+            f"Received geom['tube_arrang'] = {geom.get('tube_arrang')!r}.",
+            UserWarning
+        )
+
+    # Step 3. Read geometry parameters (SI units)
+    D_o = geom['Tube_OD']              # tube outer diameter [m]
+    t_fin = geom['Fin_t']              # fin thickness [m]
+    Fin_per_m = geom['Fin_per_m']      # fins per metre [1/m]
+    L_tube = geom['Tube_L']            # tube length [m]
+    k_fin = geom['k_fin']              # fin thermal conductivity [W/m/K]
+    tube_rows = geom['n_rows'] * geom['Tube_pass']  # number of tube rows crossed by gas [-]
+    tubes_per_row = geom['n_tubes'] / tube_rows     # tubes per row [-]
+    P_t = geom['pitch_V']              # transverse pitch [m]
+    P_l = geom['pitch_H']              # longitudinal pitch [m]
+    n_parallel = geom.get('n_parallel', 1)          # number of parallel paths [-]
+
+    # Step 4. Read operating conditions (SI units)
+    m_dot_total = cond['m_dot']        # total mass flow rate [kg/s]
+    rho = cond['rho']                  # bulk gas density [kg/m3]
+    mu = cond['mu']                    # bulk gas dynamic viscosity [Pa s]
+    k = cond['k']                      # bulk gas thermal conductivity [W/m/K]
+    Pr = cond['Pr']                    # bulk gas Prandtl number [-]
+
+    # Step 5. Specific heat capacity from Prandtl number
+    cp = Pr * k / mu                   # specific heat [J/kg/K]
+
+    # Step 6. Mass flow rate per parallel path
+    m_dot = m_dot_total / n_parallel   # [kg/s]
+
+    # Step 7. Geometry calculations (ACHP PlainFins order)
+    # 7.1 Fin pitch and fin collar diameter
+    F_p = 1.0 / Fin_per_m              # fin pitch [m]
+    D_c = D_o + 2.0 * t_fin            # fin collar outside diameter [m]
+
+    # 7.2 Number of fins
+    N_fin = L_tube * Fin_per_m         # number of fins [-]
+
+    # 7.3 Fin sheet height (extends beyond outer tubes)
+    height = P_t * (tubes_per_row + 1) # [m]
+
+    # 7.4 Face area
+    A_duct = height * L_tube           # face area [m2]
+
+    # 7.5 Minimum free flow area
+    A_c = (A_duct
+           - t_fin * N_fin * (height - D_c * tubes_per_row)
+           - tubes_per_row * D_c * L_tube)  # [m2]
+
+    # 7.6 Maximum velocity and Reynolds number on collar diameter
+    u_max = m_dot / (rho * A_c)        # [m/s]
+    Re_Dc = rho * u_max * D_c / mu     # [-]
+
+    # 7.7 Flow depth
+    depth = (tube_rows + 1) * P_l      # [m]
+
+    # 7.8 Area of one fin (both sides, minus tube cutouts)
+    A_one_fin = 2.0 * (height * P_l * (tube_rows + 1)
+                       - tubes_per_row * tube_rows * np.pi * D_c**2 / 4.0)
+
+    # 7.9 Total fin area
+    A_f = N_fin * A_one_fin            # [m2]
+
+    # 7.10 Total outer area (fins + exposed tube)
+    A_o = (A_f
+           + tubes_per_row * tube_rows * np.pi * D_c * (L_tube - N_fin * t_fin))  # [m2]
+
+    # 7.11 Hydraulic diameter
+    D_h = 4.0 * A_c * depth / A_o      # [m]
+
+    # Step 8. Colburn j factor (Wang et al. 2000, as in ACHP)
+    if tube_rows == 1:
+        # Single row correlation
+        log_Re = np.log(Re_Dc)
+        P1 = 1.9 - 0.23 * log_Re
+        P2 = -0.236 + 0.126 * log_Re
+
+        term1 = 0.108
+        term2 = Re_Dc ** -0.29
+        term3 = (P_t / P_l) ** P1
+        term4 = (F_p / D_c) ** -1.084
+        term5 = (F_p / D_h) ** -0.786
+        term6 = (F_p / P_t) ** P2
+        j = term1 * term2 * term3 * term4 * term5 * term6
+    else:
+        # Multi-row correlation (tube_rows >= 2)
+        N = tube_rows
+        log_Re = np.log(Re_Dc)
+
+        P3 = -0.361 - 0.042 * N / log_Re + 0.158 * np.log(N * (F_p / D_c) ** 0.41)
+        P4 = -1.224 - 0.076 * (P_l / D_h) ** 1.42 / log_Re
+        P5 = -0.083 + 0.058 * N / log_Re
+        P6 = -5.735 + 1.21 * np.log(Re_Dc / N)
+
+        term1 = 0.086
+        term2 = Re_Dc ** P3
+        term3 = N ** P4
+        term4 = (F_p / D_c) ** P5
+        term5 = (F_p / D_h) ** P6
+        term6 = (F_p / P_t) ** -0.93
+        j = term1 * term2 * term3 * term4 * term5 * term6
+
+    # Step 9. Convective heat transfer coefficient on total outer area A_o
+    h = j * rho * u_max * cp / (Pr ** (2.0 / 3.0))  # [W/m2/K]
+
+    # Step 10. Fin efficiency (Schmidt 1949, staggered layout, as in ACHP)
+    # 10.1 Tube radius (uses tube OD, not collar diameter)
+    r = D_o / 2.0
+
+    # 10.2 Equivalent fin geometry
+    X_D = np.sqrt(P_l**2 + P_t**2 / 4.0) / 2.0
+    X_T = P_t / 2.0
+
+    # 10.3 Equivalent fin radius ratio
+    ratio = 1.27 * X_T / r * np.sqrt(X_D / X_T - 0.3)
+
+    # 10.4 Fin parameter m
+    m = np.sqrt(2.0 * h / (k_fin * t_fin))
+
+    # 10.5 Phi factor
+    phi = (ratio - 1.0) * (1.0 + 0.35 * np.log(ratio))
+
+    # 10.6 Fin efficiency
+    m_r_phi = m * r * phi
+    if m_r_phi == 0.0:
+        eta_fin = 1.0
+    else:
+        eta_fin = np.tanh(m_r_phi) / m_r_phi
+
+    # 10.7 Overall surface efficiency
+    eta_o = 1.0 - (A_f / A_o) * (1.0 - eta_fin)
+
+    # Step 11. Reduced heat transfer coefficient (referred to total outer area)
+    h_reduced = eta_o * h
+
+    return h_reduced

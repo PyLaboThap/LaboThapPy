@@ -5,6 +5,7 @@ from labothappy.correlations.pressure_drop.pipe_DP import pipe_DP
 from labothappy.correlations.pressure_drop.TFHE_DP import TFHE_DP
 from labothappy.correlations.pressure_drop.curved_pipe_DP import curved_pipe_DP
 from labothappy.correlations.pressure_drop.SPHE_DP import SPHE_DP
+from labothappy.correlations.pressure_drop.PCHE_DP import PCHE_DP
 
 _VALID_STATES = ('SP', 'EVAP', 'COND')
 _VALID_SIDES = ('shell', 'tube')
@@ -27,7 +28,8 @@ def pressure_drop(AS, geom, cond, correlation):
     STHE : cond['side'] (or geom['side']) = 'shell' (single phase only: STHE_DP) or 'tube' (pipe_DP).
     TFHE : cond['side'] (or geom['side']) = 'fin' (gas side: Pismennyi bank pressure drop,
            TFHE_DP) or 'tube' (pipe_DP).
-    PCHE : pipe_DP on the equivalent tube (geom D_h / Tube_ID, L, K; cond G of ONE channel); no port losses.
+    PCHE : PCHE_DP (SP zigzag: 'Lee_Jiang', auto for geom['type_channel'] = 'Zigzag'; otherwise pipe_DP
+           names on the equivalent tube: geom D_h / Tube_ID, L, K; cond G of ONE channel); no port losses.
     SPHE : SPHE_DP (spiral plate: SP 'Picon_Nunez', 'Curved_rect_duct', 'Rect_duct', 'Sigalotti', 'Ito';
            two phase: curved pipe correlations on D_h and the cell R_curv).
     SCHE (SPCE), HCHE : curved_pipe_DP (curved pipes: SP 'Sigalotti', 'Ito'; EVAP 'Cioncolini', 'Ruffell';
@@ -43,8 +45,8 @@ def pressure_drop(AS, geom, cond, correlation):
         if htx == 'BPHE':
             return float(BPHE_DP(AS, geom, cond, state, choices))
 
-        if htx == 'PCHE':      # same as the pipe pressure drop, on the equivalent tube (D_h, L_c * n_series, K, G of one channel)
-            return float(pipe_DP(AS, geom, cond, state, choices))
+        if htx == 'PCHE':      # PCHE dispatcher: zigzag 'Lee_Jiang', else pipe_DP on the equivalent tube
+            return float(PCHE_DP(AS, geom, cond, state, choices))
 
         if htx == 'SPHE':      # spiral plate: rectangular curved channel (G of one channel, R_curv of the cell)
             return float(SPHE_DP(AS, geom, cond, state, choices))

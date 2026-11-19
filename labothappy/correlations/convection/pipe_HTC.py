@@ -19,6 +19,7 @@ from labothappy.correlations.convection.pipe_HTC_correlation_bank import (
     pipe_thome_condensing_HTC, pipe_dobson_chato_condensing_HTC,
     pipe_shah_condensing_HTC, pipe_cavallini_smith_zecchin_condensing_HTC,
     pipe_chen_boiling_HTC, pipe_liu_winterton_boiling_HTC, pipe_petukhov_supercritical_HTC,
+    pipe_shah_1982_boiling_HTC,
     _tube_ID, _tube_G, _A0_VDI)
 
 #%% FLUID FAMILIES
@@ -111,6 +112,7 @@ _PIPE_EVAP_HTC = {
     'Choi': pipe_choi_boiling_HTC,
     'Chen': pipe_chen_boiling_HTC,                    # needs cond T_w; explicit choice only
     'Liu_Winterton': pipe_liu_winterton_boiling_HTC,  # needs cond T_w; explicit choice only
+    'Shah_1982': pipe_shah_1982_boiling_HTC,          # needs cond q; explicit choice only
 }
 
 # Priority by fluid family (first feasible wins). Reasons:
@@ -183,7 +185,9 @@ _PIPE_COND_HTC = {
 
 def _thome_available():
     try:
-        from labothappy.correlations.void_fraction.void_fraction_old import void_fraction  # noqa: F401
+        # Thome needs the Steiner horizontal Rouhani-Axelsson void fraction (El Hajal 2003 map)
+        from labothappy.correlations.void_fraction.void_fraction import (  # noqa: F401
+            void_fraction_rouhani_axelsson_steiner)
         return True
     except ImportError:
         return False
@@ -195,7 +199,8 @@ def select_pipe_condensation_HTC(AS, geom, cond):
         (data: 3-7 mm tubes, G 25-800 kg/m2/s, R12 / R22 / R134a / R32-R125)
       - otherwise                                                  -> Thome (flow-regime based, wide
         refrigerant database, 3-21 mm tubes; fluid enters through its properties only)
-    Thome falls back on Dobson-Chato if the void fraction module cannot be imported."""
+    Thome falls back on Dobson-Chato if void_fraction_rouhani_axelsson_steiner (void_fraction.py)
+    cannot be imported."""
     if 'T_w' not in cond:
         raise KeyError("Condensation HTC: cond needs 'T_w'.")
     D = _D(geom)

@@ -45,7 +45,12 @@ def _tube_G(geom, cond):
 def _sigma(AS, p):
     """Surface tension at saturation pressure p [N/m] (AS first, PropsSI as a fallback)."""
     AS.update(CP.PQ_INPUTS, p, 0.5)
-    return AS.surface_tension()
+    try:
+        return AS.surface_tension()
+    except ValueError:
+        # Tabular backends (BICUBIC&HEOS, used by hex_MB) can refuse surface_tension():
+        # same fallback as BPHE_HTC_correlation_bank._compute_sat_props
+        return PropsSI('surface_tension', 'P', p, 'Q', 0, AS.fluid_names()[0])
 
 def _sat_props(AS, p, cond=None):
     """Saturated liquid / vapor properties at p (moves AS).
@@ -344,50 +349,363 @@ def pipe_petukhov_supercritical_HTC(AS, geom, cond):
 
 #%% CONDENSATION INSIDE TUBES
 
-def pipe_thome_condensing_HTC(AS, geom, cond):
-    """Thome / El Hajal (stratified-annular, Biberg void-fraction geometry) in-tube condensation.
-    cond : G, p, x, T_w (wall temperature [K])      geom : Tube_ID
-    Void fraction: labothappy.correlations.void_fraction.void_fraction_old.void_fraction.
-    Reference: Thome, El Hajal, Cavallini, Condensation in horizontal tubes (2003)."""
-    from labothappy.correlations.void_fraction.void_fraction_old import void_fraction
-    g = 9.81
-    D_i = _tube_ID(geom)
-    G, P_sat, x = _tube_G(geom, cond), cond['p'], min(max(cond['x'], 0.0), 1.0)
-    if 'T_w' not in cond:
-        raise KeyError("Thome condensation: cond needs 'T_w'.")
+def pipe_el_hajal_flow_pattern(AS, geom, cond):
+    """
+    Flow pattern map for condensation inside horizontal plain tubes.
+    Returns a dictionary containing the local flow regime and the quantities
+    needed by the Thome condensation model. Bubbly flow is not identified
+    (no heat transfer model for it in Part 2).
 
-    s = _sat_props(AS, P_sat, cond)
-    _need_sigma(AS, s)
-    rho_L, rho_G, mu_L, lambda_L, Pr_L = s['rho_l'], s['rho_v'], s['mu_l'], s['k_l'], s['Pr_l']
-    sigma, h_LG, T_sat = s['sigma'], s['h_lv'], s['T_sat']
-    dT = max(T_sat - cond['T_w'], 1e-3)
+    Arguments
+    ---------
+    AS : CoolProp AbstractState
+        Fluid state object (moved by saturation property calls).
+    geom : dict
+        Geometry dictionary with keys:
+        - 'Tube_ID' [m] (or 'Tube_OD' [m] and 'Tube_t' [m])
+        - 'n_tubes' [-], 'n_passes' [-] (optional, used if 'G' is absent in cond)
+    cond : dict
+        Operating conditions dictionary with keys:
+        - 'p' [Pa]       saturation pressure
+        - 'x' [-]        vapour quality (clamped to ]0, 1[)
+        - 'G' [kg/m2/s]  mass flux in ONE tube (optional if 'm_dot' [kg/s] and geom are provided)
+        - 'sigma' [N/m]  surface tension (optional if CoolProp provides it)
 
-    r = D_i / 2
-    A = np.pi * r**2
-    eps = void_fraction(x, rho_G, rho_L)[0]
-    A_L = (1 - eps) * A
+    Returns
+    -------
+    out : dict
+        Dictionary with keys:
+        - 'regime'      [-]  local flow regime ('S', 'SW', 'MF', 'A', 'I')
+        - 'eps'         [-]  local void fraction (log-mean epsilon)
+        - 'theta_strat' [rad] local stratified angle (Biberg expression)
+        - 'G_wavy'      [kg/m2/s] local wavy mass flux transition threshold
+        - 'G_strat'     [kg/m2/s] local stratified mass flux transition threshold
+        - 'G_mist'      [kg/m2/s] local mist mass flux transition threshold
+        - 'x_IA'        [-]  annular-intermittent transition quality
 
-    u_L = G * (1 - x) / (rho_L * (1 - eps)) if eps != 1 else G / rho_L
-    u_G = G * x / (rho_G * eps) if eps != 0 else G / rho_G
+    Reference
+    ---------
+    El Hajal, J., Thome, J.R., Cavallini, A. (2003) Condensation in horizontal tubes,
+    part 1: two-phase flow pattern map. International Journal of Heat and Mass Transfer
+    46, 3349-3363.
+    Equation numbers refer to this paper.
 
-    # Biberg expression for the stratified (dry) angle
-    theta = 2 * np.pi - 2 * (np.pi * (1 - eps) + (1.5 * np.pi)**(1 / 3) * (1 - 2 * (1 - eps) + (1 - eps)**(1 / 3) - eps**(1 / 3))
-                             - 0.005 * (1 - eps) * eps * (1 - 2 * (1 - eps)) * (1 + 4 * ((1 - eps)**2 + eps**2)))
+    Validity range and fluids tested
+    --------------------------------
+    16 < G < 1532 kg/m2/s; 3.14 mm < D < 21.4 mm; 0.02 < p / p_crit < 0.8;
+    76 < (We/Fr)_L < 884. Twenty fluids including ammonia and refrigerants (paper Section 9).
 
-    # Liquid film thickness
-    if (2 * np.pi - theta) / (2 * np.pi) >= 1e-3:
-        delta = (D_i - np.sqrt(D_i**2 - A_L / ((2 * np.pi - theta) / 8))) / 2
+    Definitions
+    -----------
+    - G : mass flux in one tube [kg/m2/s]
+    - D : tube inner diameter [m]
+    - p : pressure [Pa]
+    - x : vapor quality [-]
+    - rho_L, rho_V : liquid and vapor densities [kg/m3]
+    - mu_L, mu_V : liquid and vapor dynamic viscosities [Pa s]
+    - sigma : surface tension [N/m]
+    - g : gravitational acceleration [m/s2] = 9.81 m/s2
+    """
+    # Void fraction models of labothappy (void_fraction.py): the functions behind
+    # compute_void_fraction (called directly: it rebuilds two AbstractStates at each call)
+    from labothappy.correlations.void_fraction.void_fraction import (
+        void_fraction_homogeneous, void_fraction_rouhani_axelsson_steiner)
+
+    # 1. Inputs and properties
+    G = _tube_G(geom, cond)                     # mass flux inside one tube [kg/m2/s]
+    D = _tube_ID(geom)                          # tube inner diameter [m]
+    p = cond['p']                               # saturation pressure [Pa]
+    x_local = _clamp_x(cond['x'])               # local quality [-]
+
+    s = _sat_props(AS, p, cond)                 # saturated properties at p
+    _need_sigma(AS, s)                          # ensure surface tension is available
+    rho_L = s['rho_l']                          # liquid density [kg/m3]
+    rho_V = s['rho_v']                          # vapor density [kg/m3]
+    mu_L = s['mu_l']                            # liquid viscosity [Pa s]
+    mu_V = s['mu_v']                            # vapor viscosity [Pa s]
+    sigma = s['sigma']                          # surface tension [N/m]
+    g = 9.81                                    # gravitational acceleration [m/s2]
+
+    # 2. Quality grid (Step 1)
+    x_grid = np.linspace(0.001, 0.999, 999)     # grid of qualities [-]
+    x_all = np.append(x_grid, x_local)          # grid + local quality (local is last element) [-]
+
+    # 3. Void fraction, LM epsilon (Eqs. 1, 2, 6) and geometry (Eqs. 7-12, Part 2 Eq. 19) (Step 2)
+    # The labothappy void fraction functions take one quality at a time: loop over x_all
+    eps_h = np.zeros(len(x_all))
+    eps_ra = np.zeros(len(x_all))
+    for i in range(len(x_all)):
+        eps_h[i] = void_fraction_homogeneous(rho_L, rho_V, x_all[i])             # Eq. 1
+        # Eq. 2, Steiner horizontal Rouhani-Axelsson
+        eps_ra[i] = void_fraction_rouhani_axelsson_steiner(rho_L, rho_V, x_all[i], G, sigma)
+    eps = (eps_h - eps_ra) / np.log(eps_h / eps_ra)                             # Eq. 6 (LM epsilon)
+
+    A_Ld = np.pi * (1 - eps) / 4  # A_L / D^2 (Eqs. 7-9)
+    A_Vd = np.pi * eps / 4                                                      # A_V / D^2
+
+    term_biberg_1 = np.pi * (1 - eps)
+    bracket_2 = 1 - 2 * (1 - eps) + (1 - eps)**(1 / 3) - eps**(1 / 3)
+    term_biberg_2 = (3 * np.pi / 2)**(1 / 3) * bracket_2
+    bracket_3 = (1 - 2 * (1 - eps)) * (1 + 4 * ((1 - eps)**2 + eps**2))
+    term_biberg_3 = (1 / 200) * (1 - eps) * eps * bracket_3
+    # Stratified angle, explicit expression of Biberg (Part 2 Eq. 19)
+    theta_strat = 2 * np.pi - 2 * (term_biberg_1 + term_biberg_2 - term_biberg_3)
+
+    h_Ld = 0.5 * (1 - np.cos((2 * np.pi - theta_strat) / 2))                    # Eq. 11
+
+    # 4. Transition curves (Step 3)
+    We_Fr_L = g * D**2 * rho_L / sigma                                          # Eq. 20 (scalar)
+
+    # Stratified-wavy to intermittent / annular transition, condensation (Eq. 16)
+    height_term = (1 - (2 * h_Ld - 1)**2)**0.5
+    term_1 = 16 * A_Vd**3 * g * D * rho_L * rho_V / (x_all**2 * np.pi**2 * height_term)
+    term_2 = np.pi**2 / (25 * h_Ld**2) * We_Fr_L**(-1.023) + 1
+    exponent = -(x_all**2 - 0.97)**2 / (x_all * (1 - x_all))
+    G_wavy = (term_1 * term_2)**0.5 + 50 - 75 * np.exp(exponent)
+
+    term_strat_num = 226.3**2 * A_Ld * A_Vd**2 * rho_V * (rho_L - rho_V) * mu_L * g
+    term_strat_den = x_all**2 * (1 - x_all) * np.pi**3
+    G_strat = (term_strat_num / term_strat_den)**(1 / 3) + 20 * x_all           # Eq. 17
+
+    x_IA_denom = 0.2914 * (rho_V / rho_L)**(-1 / 1.75) * (mu_L / mu_V)**(-1 / 7) + 1
+    x_IA = 1 / x_IA_denom                                                       # Eq. 18 (scalar)
+
+    xi = (1.138 + 2 * np.log10(np.pi / (1.5 * A_Ld)))**(-2)                     # Eq. 21
+    G_mist_num = 7680 * A_Vd**2 * g * D * rho_L * rho_V
+    G_mist_den = x_all**2 * np.pi**2 * xi * We_Fr_L
+    G_mist = (G_mist_num / G_mist_den)**0.5                                     # Eq. 19
+
+    # 5. Minima held for x > x_min (paper p. 3356) (Step 4)
+    grid_len = len(x_grid)
+
+    idx_min_wavy = np.argmin(G_wavy[:grid_len])
+    x_min_wavy = x_grid[idx_min_wavy]
+    G_wavy_min = G_wavy[idx_min_wavy]
+    if x_local > x_min_wavy:
+        G_wavy_local = G_wavy_min
     else:
-        delta = D_i
+        G_wavy_local = G_wavy[-1]
 
-    c, m, n = 0.003, 0.5, 0.74
-    Re_L = (4 * G * (1 - x) * delta) / ((1 - eps) * mu_L) if eps != 1 else 0.0
-    f_i = 1 + (u_G / u_L)**0.5 * ((rho_L - rho_G) * g * delta**2 / sigma)**0.25
-    h_c = c * (Re_L**n) * (Pr_L**m) * (lambda_L / delta) * f_i if delta != 0 else 0.0
+    idx_min_mist = np.argmin(G_mist[:grid_len])
+    x_min_mist = x_grid[idx_min_mist]
+    G_mist_min = G_mist[idx_min_mist]
+    if x_local > x_min_mist:
+        G_mist_local = G_mist_min
+    else:
+        G_mist_local = G_mist[-1]
 
-    h_f = 0.728 * ((rho_L * (rho_L - rho_G) * g * h_LG * lambda_L**3) / (mu_L * D_i * dT))**0.25
+    G_strat_local = G_strat[-1]
+    eps_local = eps[-1]
+    theta_strat_local = theta_strat[-1]
 
-    return (h_f * r * theta + (2 * np.pi - theta) * r * h_c) / (2 * np.pi * r)
+    # 6. Regime determination (paper p. 3356, logic in this order) (Step 5)
+    if G < G_strat_local:
+        regime = 'S'        # fully stratified
+    elif G < G_wavy_local:
+        regime = 'SW'       # stratified-wavy
+    elif G > G_mist_local:
+        regime = 'MF'       # mist
+    elif x_local >= x_IA:
+        regime = 'A'        # annular
+    else:
+        regime = 'I'        # intermittent
+
+    # 7. Validity checks and warnings (paper Section 9)
+    p_crit = AS.p_critical()
+    p_red = p / p_crit
+
+    outside_validity = False
+    warning_messages = []
+
+    if G <= 16 or G >= 1532:
+        outside_validity = True
+        warning_messages.append(f"Mass flux G = {G:.1f} kg/m2/s outside [16, 1532]")
+
+    if D <= 3.14e-3 or D >= 21.4e-3:
+        outside_validity = True
+        warning_messages.append(f"Diameter D = {D * 1e3:.2f} mm outside [3.14, 21.4] mm")
+
+    if p_red <= 0.02 or p_red >= 0.8:
+        outside_validity = True
+        warning_messages.append(f"Reduced pressure p_red = {p_red:.3f} outside [0.02, 0.8]")
+
+    if We_Fr_L <= 76 or We_Fr_L >= 884:
+        outside_validity = True
+        warning_messages.append(f"(We/Fr)_L = {We_Fr_L:.1f} outside [76, 884]")
+
+    if outside_validity:
+        full_message = ("El Hajal flow pattern map: " + ", ".join(warning_messages)
+                        + " (validity range exceeded): extrapolated.")
+        warnings.warn(full_message)
+
+    # 8. Return dictionary
+    return {
+        'regime': regime,
+        'eps': eps_local,
+        'theta_strat': theta_strat_local,
+        'G_wavy': G_wavy_local,
+        'G_strat': G_strat_local,
+        'G_mist': G_mist_local,
+        'x_IA': x_IA
+    }
+
+
+def pipe_thome_condensing_HTC(AS, geom, cond):
+    """
+    In-tube condensation heat transfer coefficient, Thome, El Hajal & Cavallini (2003), Part 2,
+    with the flow pattern map of Part 1.
+
+    Parameters
+    ----------
+    AS : CoolProp AbstractState
+        Fluid state object (will be moved by saturation and wall property calls).
+    geom : dict
+        Geometry dictionary containing:
+        - 'Tube_ID' [m] (or 'Tube_OD' [m] and 'Tube_t' [m])
+        - 'n_tubes' [-], 'n_passes' [-] (optional, used if 'G' is absent in cond)
+    cond : dict
+        Conditions dictionary containing:
+        - 'p' [Pa]       saturation pressure
+        - 'x' [-]        thermodynamic vapor quality
+        - 'T_w' [K]      inner wall temperature (required, raises KeyError if absent)
+        - 'G' [kg/m2/s]  mass flux inside ONE tube (or 'm_dot' [kg/s] + geom n_tubes, n_passes)
+        - 'm_dot' [kg/s] total mass flow rate (optional, used if 'G' is absent)
+
+    Returns
+    -------
+    h : float
+        Two-phase heat transfer coefficient [W/m2/K] on the inner surface.
+
+    References
+    ----------
+    Thome, J.R., El Hajal, J., Cavallini, A. (2003) Condensation in horizontal tubes, part 2:
+    new heat transfer model based on flow regimes. International Journal of Heat and Mass
+    Transfer 46, 3365-3387.
+    Flow pattern map: El Hajal, J., Thome, J.R., Cavallini, A. (2003) part 1, IJHMT 46, 3349-3363.
+
+    Validity range and fluids tested
+    --------------------------------
+    24 <= G <= 1022 kg/m2/s; 3.1 <= D <= 21.4 mm; 0.02 <= p / p_crit <= 0.80.
+    15 fluids tested: refrigerants (R-11, R-12, R-22, R-32, R-113, R-125, R-134a, R-236ea,
+    R-32/R-125, R-404A, R-410A) and hydrocarbons (propane, n-butane, iso-butane, propylene).
+    85% of refrigerant data within +-20%.
+
+    Definitions and implementation details
+    --------------------------------------
+    - Void fraction: LM epsilon of Part 1 (log-mean of the homogeneous and of the Steiner
+      horizontal Rouhani-Axelsson void fractions), from the labothappy void_fraction models,
+      through pipe_el_hajal_flow_pattern.
+    - Regimes and falling film angle theta:
+      * 'A', 'I', 'MF': theta = 0.0 (fully annular, intermittent, mist)
+      * 'SW': stratified-wavy, theta = theta_strat * ((G_wavy - G) / (G_wavy - G_strat))**0.5
+      * 'S': fully stratified, theta = theta_strat; f_i multiplied by G / G_strat (Eq. 16)
+    - delta = D/2 rule: whenever delta > d/2, delta is set equal to d/2; negative argument
+      indicates liquid does not fit in the wetted sector even with delta = d/2.
+    - Quality limits (Part 2 p. 3373): x > 0.99 is reset to 0.99; x < 0.01 (lower limit of
+      applicability) emits a warning, x kept >= 1e-6. Data of the paper: 0.03 < x < 0.97.
+    - Wall temperature: dT = max(T_sat - T_w, 1e-3) (labothappy choice to avoid a division by zero
+      if T_w >= T_sat).
+    """
+    # 1. Inputs: G, D, p, T_w, g
+    G = _tube_G(geom, cond)
+    D = _tube_ID(geom)
+    p = cond['p']
+    if 'T_w' not in cond:
+        raise KeyError("Thome condensing HTC: cond needs 'T_w' [K].")
+    T_w = cond['T_w']
+    g = 9.81
+
+    # 2. Quality limits (Part 2 p. 3373)
+    x = cond['x']
+    if x > 0.99:
+        x = 0.99
+    elif x < 0.01:
+        warnings.warn(f"Thome condensing HTC: quality x = {x} below the lower limit of "
+                      "applicability x = 0.01 of Thome et al. (2003).")
+        x = max(x, 1e-6)
+
+    # 3. Saturated properties
+    s = _sat_props(AS, p, cond)
+    _need_sigma(AS, s)
+    rho_L = s['rho_l']
+    rho_V = s['rho_v']
+    mu_L = s['mu_l']
+    k_L = s['k_l']
+    Pr_L = s['Pr_l']
+    h_LV = s['h_lv']
+    sigma = s['sigma']
+    T_sat = s['T_sat']
+
+    # 4. Flow pattern and void fraction (calls pipe_el_hajal_flow_pattern from the same module)
+    fp = pipe_el_hajal_flow_pattern(AS, geom, {**cond, 'x': x})
+    eps = fp['eps']
+    theta_strat = fp['theta_strat']
+    regime = fp['regime']
+
+    # 5. Falling film angle theta (Eq. 6 and implementation steps 4-6)
+    if regime in ('A', 'I', 'MF'):
+        theta = 0.0
+    elif regime == 'SW':
+        numerator_SW = fp['G_wavy'] - G
+        denominator_SW = fp['G_wavy'] - fp['G_strat']
+        theta = theta_strat * (numerator_SW / denominator_SW)**0.5
+    else:
+        theta = theta_strat             # regime 'S', fully stratified
+
+    # 6. Liquid area and film thickness (Eqs. 4, 10)
+    A = np.pi * D**2 / 4.0
+    A_L = (1.0 - eps) * A
+    argument = D**2 - 8.0 * A_L / (2.0 * np.pi - theta)
+    if argument < 0:
+        delta = D / 2.0
+    else:
+        delta = (D - np.sqrt(argument)) / 2.0
+
+    if delta > D / 2.0:
+        delta = D / 2.0
+
+    # 7. Velocities (Eqs. 11, 12)
+    u_L = G * (1.0 - x) / (rho_L * (1.0 - eps))
+    u_V = G * x / (rho_V * eps)
+
+    # 8. Liquid film Reynolds number (Eq. 8)
+    Re_L = 4.0 * G * (1.0 - x) * delta / ((1.0 - eps) * mu_L)
+
+    # 9. Interfacial roughness factor (Eq. 15, Eq. 16 for regime 'S')
+    roughness_term = (u_V / u_L)**0.5 * ((rho_L - rho_V) * g * delta**2 / sigma)**0.25
+    if regime == 'S':
+        f_i = 1.0 + roughness_term * (G / fp['G_strat'])
+    else:
+        f_i = 1.0 + roughness_term
+
+    # 10. Convective condensation (Eq. 7)
+    c = 0.003
+    n = 0.74
+    m = 0.5
+    alpha_c = c * Re_L**n * Pr_L**m * k_L / delta * f_i
+
+    # 11. Falling film condensation, Nusselt (Eq. 17)
+    dT = max(T_sat - T_w, 1e-3)
+    alpha_f = 0.728 * (rho_L * (rho_L - rho_V) * g * h_LV * k_L**3 / (mu_L * D * dT))**0.25
+
+    # 12. Local coefficient (Eq. 2)
+    r = D / 2.0
+    alpha_tp = (alpha_f * r * theta + (2.0 * np.pi - theta) * r * alpha_c) / (2.0 * np.pi * r)
+
+    # Validity range checks (warnings emitted, calculation completed anyway)
+    p_crit = AS.p_critical()
+    p_red = p / p_crit
+    if G < 24 or G > 1022:
+        warnings.warn(f"Thome condensing HTC: mass flux G = {G:.1f} kg/m2/s outside the "
+                      "tested range [24, 1022].")
+    if D < 0.0031 or D > 0.0214:
+        warnings.warn(f"Thome condensing HTC: tube diameter D = {D * 1e3:.2f} mm outside the "
+                      "tested range [3.1, 21.4] mm.")
+    if p_red < 0.02 or p_red > 0.80:
+        warnings.warn(f"Thome condensing HTC: reduced pressure p_red = {p_red:.3f} outside the "
+                      "tested range [0.02, 0.80].")
+
+    return alpha_tp
 
 
 def pipe_dobson_chato_condensing_HTC(AS, geom, cond):
@@ -988,6 +1306,141 @@ def pipe_liu_winterton_boiling_HTC(AS, geom, cond):
     h = ((F * h_lo)**2.0 + (S * h_nb)**2.0)**0.5
 
     return h
+
+def pipe_shah_1982_boiling_HTC(AS, geom, cond):
+    """
+    Saturated flow boiling heat transfer coefficient inside a tube using the Shah (1982)
+    chart correlation in equation form.
+
+    Equations numbered as in the independent implementation of the ThermoCycle library
+    (Shah1982.mo, Eqs. 1-14). ThermoCycle smooths the switches between regimes with
+    transition functions; they are NOT reproduced here: sharp switches as in Shah (1982)
+    and in the ACHP implementation (Correlations.ShahEvaporation_Average).
+
+    Arguments
+    ---------
+    AS : CoolProp AbstractState
+        Fluid state object (will be moved by saturation property calls).
+    geom : dict
+        Geometry dictionary with keys:
+        - 'Tube_ID' [m] (or 'Tube_OD' [m] and 'Tube_t' [m])
+        - 'theta' [deg] (optional, tube inclination from the horizontal, default 0.0)
+    cond : dict
+        Operating conditions dictionary with keys:
+        - 'p' [Pa]       saturation pressure
+        - 'x' [-]        vapour quality (clamped to ]0, 1[)
+        - 'q' [W/m2]     local wall heat flux (required, must be >= 0)
+        - 'G' [kg/m2/s]  mass flux in ONE tube (optional if 'm_dot' [kg/s] and geom are provided)
+
+    Returns
+    -------
+    h : float
+        Saturated flow boiling heat transfer coefficient [W/m2/K].
+
+    Reference
+    ---------
+    Shah, M.M. (1982) Chart correlation for saturated boiling heat transfer: equations and further
+    study. ASHRAE Transactions 88(1), 185-196.
+
+    Validity range
+    --------------
+    Validity range: not given by the reference implementations (TODO from Shah 1982);
+    saturated boiling, water and refrigerants (Shah's database).
+    Inclined tubes (theta not 0 or 90 deg): not covered by Shah, treated as horizontal (warning).
+
+    Definitions
+    -----------
+    - Re_l: liquid alone, G * (1 - x) * D / mu_l [-], with properties saturated at p
+      (T_sat = mean of bubble and dew temperatures for mixtures, as _sat_props).
+    - Bo: boiling number with the wall heat flux q and h_lv [-].
+    - Fr_l: liquid Froude number of the whole flow as liquid [-].
+    - q: wall heat flux [W/m2].
+    - Returns the local h [W/m2/K] at quality x.
+    """
+    # Check required inputs
+    if 'q' not in cond:
+        raise KeyError("Shah 1982 boiling HTC: cond needs 'q' [W/m2] (local wall heat flux).")
+
+    q = cond['q']
+    if q < 0:
+        raise ValueError("Shah 1982 is a boiling correlation: q must be >= 0.")
+
+    # 1. Geometry, mass flux, pressure, and quality
+    G = _tube_G(geom, cond)                     # mass flux in one tube [kg/m2/s]
+    D = _tube_ID(geom)                          # tube inner diameter [m]
+    p = cond['p']                               # saturation pressure [Pa]
+    x = _clamp_x(cond['x'])                     # vapor quality [-]
+    theta = geom.get('theta', 0.0)              # tube inclination [deg]
+
+    # 2. Saturated properties at pressure p
+    s = _sat_props(AS, p, cond)
+    rho_l = s['rho_l']                          # saturated liquid density [kg/m3]
+    rho_v = s['rho_v']                          # saturated vapor density [kg/m3]
+    mu_l = s['mu_l']                            # saturated liquid dynamic viscosity [Pa s]
+    k_l = s['k_l']                              # saturated liquid thermal conductivity [W/m/K]
+    Pr_l = s['Pr_l']                            # saturated liquid Prandtl number [-]
+    h_lv = s['h_lv']                            # latent heat of vaporization [J/kg]
+
+    # 3. Liquid-alone heat transfer coefficient, Dittus-Boelter (Eq. 5)
+    Re_l = G * (1.0 - x) * D / mu_l             # liquid-alone Reynolds number [-]
+    h_l = 0.023 * Re_l**0.8 * Pr_l**0.4 * k_l / D   # liquid-alone HTC [W/m2/K]
+
+    # 4. Convection number (Eq. 2)
+    Co = ((1.0 - x) / x)**0.8 * (rho_v / rho_l)**0.5   # convection number [-]
+
+    # 5. Boiling number (Eq. 3)
+    Bo = q / (G * h_lv)                         # boiling number [-]
+
+    # 6. Liquid Froude number (Eq. 4)
+    g = 9.81                                    # gravitational acceleration [m/s2]
+    Fr_l = G**2 / (rho_l**2 * g * D)            # liquid Froude number [-]
+
+    # 7. Parameter N, depends on the tube orientation
+    if abs(theta) != 0.0 and abs(theta) != 90.0:
+        warnings.warn(
+            f"Shah (1982) gives horizontal and vertical tubes only: inclined tube "
+            f"(theta = {theta} deg) treated as horizontal."
+        )
+    if abs(theta) == 90.0:
+        N = Co                                  # vertical tube, all Fr_l (Eq. 13)
+    elif Fr_l >= 0.04:
+        N = Co                                  # horizontal tube, Fr_l >= 0.04 (Eq. 13)
+    else:
+        N = 0.38 * Fr_l**-0.3 * Co              # horizontal tube, Fr_l < 0.04 (Eq. 14)
+
+    # 8. Constant F (Eqs. 11-12)
+    if Bo >= 11e-4:
+        F = 14.70                               # Eq. 11
+    else:
+        F = 15.43                               # Eq. 12
+
+    # 9. Convective boiling enhancement factor psi_cb (Eq. 8)
+    psi_cb = 1.8 / N**0.8                       # [-]
+
+    # 10. Flow boiling regimes and two-phase multiplier psi
+    if N > 1.0:
+        # Nucleate boiling regime
+        if Bo > 0.3e-4:
+            psi_nb = 230.0 * Bo**0.5            # Eq. 6
+        else:
+            psi_nb = 1.0 + 46.0 * Bo**0.5       # Eq. 7
+        psi = max(psi_nb, psi_cb)
+    elif 0.1 < N <= 1.0:
+        # Bubble suppression regime
+        psi_bs = F * Bo**0.5 * np.exp(2.74 * N**-0.1)   # Eq. 9
+        psi = max(psi_bs, psi_cb)
+    else:
+        # Convective boiling / low convection number regime (N <= 0.1)
+        psi_bs = F * Bo**0.5 * np.exp(2.47 * N**-0.15)  # Eq. 10
+        psi = max(psi_bs, psi_cb)
+
+    # 11. Two-phase heat transfer coefficient (Eq. 1: psi = h_TP / h_l)
+    h = psi * h_l                               # [W/m2/K]
+
+    # TODO: validity range from Shah (1982).
+
+    return h
+
 
 #%% EXTERNAL BOILING (outside the tubes): unchanged, T-based signatures
 

@@ -879,7 +879,7 @@ def compute_void_fraction(AS, params, m_dot=None, void_fraction_model='Homogeneo
     mu_l = props["mu_l"]
     mu_v = props["mu_v"]
     sigma = props["sigma"]
-
+    
     x = max(EPS, min(1.0 - EPS, x))
 
     if void_fraction_model in NEEDS_FLOW:

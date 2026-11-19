@@ -328,6 +328,9 @@ def BPHX_amalfi_boiling_DP(AS, geom, cond):
     """
     Amalfi, Vakili-Farahani & Thome (2016), international journal of refrigeration 61 (2016) 185 – 203
     Flow boiling and frictional pressure gradients in plate heat exchangers. Part 2: Comparison of literature methods to database and new prediction methods
+
+    f_tp is a FANNING friction factor: dP = 4 f_tp (L/Dh) G^2 / (2 rho_m) = 2 f_tp (L/Dh) G^2 / rho_m
+    (rho_m: homogeneous density). Returns the frictional dP [Pa] over the length L.
     """
     beta_max_deg=70.0
     g = 9.81
@@ -359,7 +362,8 @@ def BPHX_amalfi_boiling_DP(AS, geom, cond):
     C = 2.125*beta_star**9.993 + 0.955
     f_tp = C * 15.698 * We**-0.475 * Bd**0.255 * rho_star**-0.571 # fanning friction factor
 
-    return f_tp * (L / Dh) * G**2 / rho_m
+    # Fanning notation: dP = 4 f (L/Dh) G^2 / (2 rho_m)
+    return 4.0 * f_tp * (L / Dh) * G**2 / (2.0 * rho_m)
 
 
 #%% TWO-PHASE : CONDENSING 

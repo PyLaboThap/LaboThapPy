@@ -8,6 +8,7 @@ SP    : PCHE correlations  'Straight', 'Lee' (zigzag), 'Bennett_Chen' (zigzag, s
         or any pipe correlation name ('Gnielinski', 'Dittus_Boelter', 'Cheng', 'Liu', ...), evaluated
         on the equivalent tube (D = D_h, G of one channel).
         auto : Straight -> 'Straight' ; Zigzag -> 'Lee'.
+        'Jiang' (zigzag, turbulent only, Jiang et al. 2018 30 / 40 deg fits): explicit choice only.
 EVAP / COND : curved pipe correlations (HCHE dispatcher) on the equivalent tube: 'Zhao' / 'Nariai' (EVAP),
         'Zakeralhoseini' (COND); a pipe correlation name falls back to the straight pipe_HTC.
 Every non-PCHE path uses the curved pipe functions (HCHE dispatcher): SP auto name -> 'Sigalotti'.
@@ -18,10 +19,11 @@ Tube_pass; cond['G'] is the mass flux of one channel (the pipe bank uses it firs
 """
 import warnings
 from labothappy.correlations.convection.PCHE_HTC_correlation_bank import (
-    PCHE_straight_HTC, PCHE_bennett_chen_HTC, PCHE_lee_zigzag_HTC)
-from labothappy.correlations.convection.curved_pipe_HTC import curved_pipe_HTC   
+    PCHE_straight_HTC, PCHE_bennett_chen_HTC, PCHE_lee_zigzag_HTC, PCHE_jiang_zigzag_HTC)
+from labothappy.correlations.convection.curved_pipe_HTC import curved_pipe_HTC
 
 _PCHE_SP_HTC = {'Straight': PCHE_straight_HTC, 'Lee': PCHE_lee_zigzag_HTC, 'Bennett_Chen': PCHE_bennett_chen_HTC}
+_PCHE_SP_HTC['Jiang'] = PCHE_jiang_zigzag_HTC   # zigzag turbulent, 30 / 40 deg fits (explicit choice only)
 
 # Pipe correlations established for tubes of several mm: warn below this hydraulic diameter [m]
 _PIPE_MIN_D = {'Cheng': 8e-3, 'Liu': 4e-3, 'Gungor_Winterton': 3e-3, 'Friedel': 0.0}

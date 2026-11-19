@@ -10,13 +10,19 @@ Pressure drops are those of the FULL flow length of the side (the model scales t
 """
 import warnings
 from labothappy.correlations.pressure_drop.TFHE_DP_correlation_bank import TFHE_pismennyi_DP
+from labothappy.correlations.pressure_drop.TFHE_DP_correlation_bank import TFHE_esdu_high_fin_DP
+from labothappy.correlations.pressure_drop.TFHE_DP_correlation_bank import TFHE_wang_plain_fin_DP
 from labothappy.correlations.pressure_drop.pipe_DP import pipe_DP
 from labothappy.correlations.convection.TFHE_HTC import _ensure_gas_props
 
 # same formula for both fin shapes: the names of the HTC dispatcher are accepted so that one set of names serves both
 _TFHE_FIN_DP = {'Pismennyi': TFHE_pismennyi_DP,
                 'Pismennyi_Annular': TFHE_pismennyi_DP,
-                'Pismennyi_Square': TFHE_pismennyi_DP}
+                'Pismennyi_Square': TFHE_pismennyi_DP,
+                # circular (annular) fins, staggered banks, explicit choice; includes entrance / exit
+                'ESDU_high_fin': TFHE_esdu_high_fin_DP}
+# continuous plain plate fins (Fin_type 'Square'), staggered, explicit choice; core friction only
+_TFHE_FIN_DP['Wang_plain_fin'] = TFHE_wang_plain_fin_DP
 
 
 def TFHE_fin_DP(AS, geom, cond, flow_state, choices=None):

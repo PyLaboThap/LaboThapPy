@@ -4,7 +4,9 @@ Tube & fins (TFHE) HTC dispatcher: HX type -> side ('fin' / 'tube') -> flow stat
 (AS, geom, cond) formalism.
 
 side 'fin'  : finned side (gas): 'Pismennyi' (= None / 'auto'), routed on geom['Fin_type'] ('Annular' or 'Square'),
-              or a forced shape 'Pismennyi_Annular' / 'Pismennyi_Square'. Two-phase / 'vapor-wet' cells (EVAP / COND)
+              or a forced shape 'Pismennyi_Annular' / 'Pismennyi_Square';
+              circular fins only (explicit choice): 'Briggs_Young', 'ESDU_high_fin', 'Ganguli_VDI'.
+              continuous plain plate fins ('Square', explicit choice): 'Wang_plain_fin'. Two-phase / 'vapor-wet' cells (EVAP / COND)
               reuse the same correlation (phase change ignored, warning).
               Returns the REDUCED coefficient (referred to the total outer area geom['A'], fin
               efficiency included).
@@ -13,12 +15,21 @@ side 'tube' : SP / EVAP / COND inside the tubes: pipe correlations (pipe_HTC).
 import warnings
 from labothappy.correlations.convection.TFHE_HTC_correlation_bank import (
     TFHE_pismennyi_HTC, TFHE_pismennyi_annular_HTC, TFHE_pismennyi_square_HTC)
+from labothappy.correlations.convection.TFHE_HTC_correlation_bank import (
+    TFHE_briggs_young_HTC, TFHE_esdu_high_fin_HTC, TFHE_ganguli_vdi_HTC)
+from labothappy.correlations.convection.TFHE_HTC_correlation_bank import TFHE_wang_plain_fin_HTC
 from labothappy.correlations.convection.pipe_HTC_correlation_bank import _sat_props, _clamp_x
 from labothappy.correlations.convection.pipe_HTC import pipe_HTC
 
 _TFHE_FIN_HTC = {'Pismennyi': TFHE_pismennyi_HTC,                       # routed on geom['Fin_type']
                  'Pismennyi_Annular': TFHE_pismennyi_annular_HTC,       # forced fin shape
-                 'Pismennyi_Square': TFHE_pismennyi_square_HTC}
+                 'Pismennyi_Square': TFHE_pismennyi_square_HTC,
+                 # circular (annular) fins only, explicit choice (Kern & Kraus fin efficiency)
+                 'Briggs_Young': TFHE_briggs_young_HTC,                 # staggered banks
+                 'ESDU_high_fin': TFHE_esdu_high_fin_HTC,               # staggered banks
+                 'Ganguli_VDI': TFHE_ganguli_vdi_HTC}                   # inline or staggered
+# continuous plain plate fins (Fin_type 'Square'), staggered, explicit choice (Schmidt fin efficiency)
+_TFHE_FIN_HTC['Wang_plain_fin'] = TFHE_wang_plain_fin_HTC
 
 
 def select_fin_HTC(geom, cond):
