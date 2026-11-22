@@ -445,9 +445,20 @@ class TES_step(BaseComponent):
         mu_f = self.AS.viscosity()
         cp_f = self.AS.cpmass()
         lambda_f = self.AS.conductivity()
+        phase_bulk = self.AS.phase()
 
         self.AS.update(CP.PT_INPUTS, p_HTF, T_wall)
         mu_w = self.AS.viscosity()
+
+        # wall on the other side of the saturation (subcooled boiling or wet-wall desuperheating, not modelled):
+        # saturated viscosity on the bulk side
+        if self.AS.phase() != phase_bulk:
+            if phase_bulk == CP.iphase_liquid:
+                self.AS.update(CP.PQ_INPUTS, p_HTF, 0)
+                mu_w = self.AS.viscosity()
+            elif phase_bulk == CP.iphase_gas:
+                self.AS.update(CP.PQ_INPUTS, p_HTF, 1)
+                mu_w = self.AS.viscosity()
 
         Re = 4*m_dot_tube/(np.pi*self.Di_tube*mu_f)
         Pr = cp_f*mu_f/lambda_f
@@ -471,9 +482,20 @@ class TES_step(BaseComponent):
         mu_f = self.AS.viscosity()
         cp_f = self.AS.cpmass()
         lambda_f = self.AS.conductivity()
+        phase_bulk = self.AS.phase()
 
         self.AS.update(CP.PT_INPUTS, p_HTF, T_wall)
         mu_w = self.AS.viscosity()
+
+        # wall on the other side of the saturation (subcooled boiling or wet-wall desuperheating, not modelled):
+        # saturated viscosity on the bulk side
+        if self.AS.phase() != phase_bulk:
+            if phase_bulk == CP.iphase_liquid:
+                self.AS.update(CP.PQ_INPUTS, p_HTF, 0)
+                mu_w = self.AS.viscosity()
+            elif phase_bulk == CP.iphase_gas:
+                self.AS.update(CP.PQ_INPUTS, p_HTF, 1)
+                mu_w = self.AS.viscosity()
 
         Pr = cp_f*mu_f/lambda_f
 
@@ -629,10 +651,11 @@ class TES_step(BaseComponent):
 
 
     def solve_h_HTF_ex(self, h_HTF_in, T_PCM_eq, p_HTF, m_dot_tube, L_mesh):
-        """ To calculate the outlet temperature of a mesh, to get the proper LMTD """
+        """ To calculate the outlet enthalpy of a mesh, with a Brent on the area of the mesh """
 
-        tol_brent = 1e-2
-        
+        tol_brent = 1e-2 # [J/kg]
+        disc_h = 20
+
         self.AS.update(CP.HmassP_INPUTS, h_HTF_in, p_HTF)
         T_HTF_in = self.AS.T()
 
@@ -643,44 +666,40 @@ class TES_step(BaseComponent):
 
         A_i = np.pi * self.Di_tube * L_mesh
 
-        # Initialising to a possible value, if not entering the Brent. But normally, never reached
-
         def residual_Ai(h_ex):
-            # As we sufficiently discretise dA_i, we consider that we don't have to re-calculate an LMTD
-            # for the local area dA_i, and that (T_local - T_PCM_eq) = LMTD_local is accurate enough.
-            # Similarily, the bulk fluid temperature is considered as being the local fluid temperature 
-            
-            disc_h = 20
-            Ai_length = []
-            h_edges = np.linspace(h_HTF_in,h_ex, disc_h+1)
+
+            h_edges = np.linspace(h_HTF_in, h_ex, disc_h+1)
             h_mid = 0.5*(h_edges[1:] + h_edges[:-1])
-            dh = (h_HTF_in-h_ex)/disc_h
 
-            # initialisation
+            # DT at the edges of each sub-interval, for a local LMTD
+            DT_edges = np.zeros(disc_h+1)
+            for j in range(disc_h+1):
+                self.AS.update(CP.HmassP_INPUTS, h_edges[j], p_HTF)
+                DT_edges[j] = self.AS.T() - T_PCM_eq
+
             T_wall = T_PCM_eq
+            Ai_calc = 0
 
-            for i in h_mid:
-                self.AS.update(CP.HmassP_INPUTS, h_mid[i], p_HTF) # le +dh/2 fait qu'on est au centre de la sous maille, c'est bien ça ?
+            for j in range(disc_h):
+
+                self.AS.update(CP.HmassP_INPUTS, h_mid[j], p_HTF)
                 T_local = self.AS.T()
                 is_two_phase = (self.AS.phase() == CP.iphase_twophase)
                 if is_two_phase:
-                    x_in = self.AS.Qmass()
+                    x_local = self.AS.Qmass()
 
-                # no T_wall re-initialisation: it takes the precedent T_wall right?
                 for _ in range(30):
 
                     if is_two_phase:
-                        alpha = horizontal_tube_internal_condensation(self.wf, m_dot_tube, p_HTF, x_in, T_wall, self.Di_tube)
+                        alpha = horizontal_tube_internal_condensation(self.wf, m_dot_tube, p_HTF, x_local, T_wall, self.Di_tube)
                     elif self.htc_correlation == 'Hausen':
-                        alpha = self.HTC_calculation_Hausen(T_local, T_wall, p_HTF, m_dot_tube, L_mesh) # T_HTF_bulk replaced by T_local
+                        alpha = self.HTC_calculation_Hausen(h_mid[j], T_wall, p_HTF, m_dot_tube, L_mesh)
                     else:
-                        alpha = self.HTC_calculation_Gnielinski(T_local, T_wall, p_HTF, m_dot_tube, L_mesh)
+                        alpha = self.HTC_calculation_Gnielinski(h_mid[j], T_wall, p_HTF, m_dot_tube, L_mesh)
 
-                    UA = self.U_eq(L_mesh, alpha)[1]
+                    U_local = self.U_eq(L_mesh, alpha)[0]
 
-                    Q_dot = UA*(T_local - T_PCM_eq) # (T_local - T_PCM_eq) = local LMTD, as it is discretised enough
-
-                    T_wall_new = T_local - Q_dot/(alpha*A_i)
+                    T_wall_new = T_local - U_local*(T_local - T_PCM_eq)/alpha
 
                     if abs(T_wall_new-T_wall) < 1e-3:
                         T_wall = T_wall_new
@@ -688,30 +707,27 @@ class TES_step(BaseComponent):
 
                     T_wall = T_wall_new
 
-                U_local = self.U_eq(L_mesh, alpha)[0]
+                DT_a = DT_edges[j]
+                DT_b = DT_edges[j+1]
+                if abs(DT_a - DT_b) < 1e-6:
+                    LMTD_local = DT_a
+                else:
+                    LMTD_local = (DT_a - DT_b)/np.log(DT_a/DT_b)
 
-                dA_i = m_dot_tube * dh /  (U_local * (T_local - T_PCM_eq))   
-                Ai_length.append(dA_i)
+                # > 0 in charge and in discharge (dh and LMTD_local have the same sign)
+                Ai_calc += m_dot_tube*(h_edges[j] - h_edges[j+1]) / (U_local*LMTD_local)
 
-            Ai_calc = np.sum(Ai_length)
+            return A_i - Ai_calc
 
-            return A_i - Ai_calc # vérifier le signe de ça quand ça part dans le brent
-
+        # h_ex between h_HTF_in (A = 0) and the enthalpy at T_PCM_eq (A infinite)
         tol_T = 1e-3
-        # Calulate the min/max boundary of the h_ex, equal to the enthalpy at PCM_eq temperature
-        self.AS.update(CP.PT_INPUTS, p_HTF, T_PCM_eq+self.sign_mode*tol_T)
+        self.AS.update(CP.PT_INPUTS, p_HTF, T_PCM_eq + self.sign_mode*tol_T)
         h_PCM_bound = self.AS.hmass()
-        self.AS.update(CP.PT_INPUTS, p_HTF, T_HTF_in+self.sign_mode*tol_T)
-        h_in_bound = self.AS.hmass()
 
         if self.sign_mode==1:
-            h_ex = brentq(residual_Ai,
-                            h_PCM_bound,
-                            h_in_bound, tol_brent)
+            h_ex = brentq(residual_Ai, h_PCM_bound, h_HTF_in, xtol=tol_brent)
         else:
-            h_ex = brentq(residual_Ai,
-                            h_in_bound,
-                            h_PCM_bound, tol_brent)
+            h_ex = brentq(residual_Ai, h_HTF_in, h_PCM_bound, xtol=tol_brent)
 
         self.AS.update(CP.HmassP_INPUTS, h_ex, p_HTF)
         T_HTF_ex = self.AS.T()
