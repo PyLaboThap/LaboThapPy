@@ -467,7 +467,7 @@ class TES_step(BaseComponent):
     def HTC_calculation_Gnielinski(self, h_HTF_bulk, T_wall, p_HTF, m_dot_tube, L_mesh):
 
 
-        self.AS.update(CP.CP.HmassP_INPUTS, h_HTF_bulk, p_HTF)
+        self.AS.update(CP.HmassP_INPUTS, h_HTF_bulk, p_HTF)
         mu_f = self.AS.viscosity()
         cp_f = self.AS.cpmass()
         lambda_f = self.AS.conductivity()
@@ -717,6 +717,82 @@ class TES_step(BaseComponent):
         T_HTF_ex = self.AS.T()
 
         return T_HTF_ex, h_ex
+
+
+
+    def solve_h_HTF_ex_nobrent(self, h_HTF_in, T_PCM_eq, p_HTF, m_dot_tube, L_mesh, N_sub=20):
+        """ To calculate the outlet enthalpy of a mesh, by marching on N_sub sub-meshes (midpoint method, RK2) """
+
+        self.AS.update(CP.HmassP_INPUTS, h_HTF_in, p_HTF)
+        T_HTF_in = self.AS.T()
+
+        DT1 = self.sign_mode*(T_HTF_in - T_PCM_eq)
+
+        if DT1 < 1e-1:
+            return T_HTF_in, h_HTF_in
+
+        L_sub = L_mesh / N_sub
+        A_sub = np.pi * self.Di_tube * L_sub
+
+        # the HTF cannot go beyond T_PCM_eq
+        self.AS.update(CP.PT_INPUTS, p_HTF, T_PCM_eq)
+        h_HTF_PCM = self.AS.hmass()
+
+        def Q_dot_sub_mesh(h_HTF, T_wall):
+
+            self.AS.update(CP.HmassP_INPUTS, h_HTF, p_HTF)
+            T_HTF = self.AS.T()
+            is_two_phase = (self.AS.phase() == CP.iphase_twophase)
+            if is_two_phase:
+                x_HTF = self.AS.Qmass()
+
+            for _ in range(30):
+
+                # L_mesh for the entrance effect, as in solve_T_HTF_ex_LMTD
+                if is_two_phase:
+                    alpha = horizontal_tube_internal_condensation(self.wf, m_dot_tube, p_HTF, x_HTF, T_wall, self.Di_tube)
+                elif self.htc_correlation == 'Hausen':
+                    alpha = self.HTC_calculation_Hausen(h_HTF, T_wall, p_HTF, m_dot_tube, L_mesh)
+                else:
+                    alpha = self.HTC_calculation_Gnielinski(h_HTF, T_wall, p_HTF, m_dot_tube, L_mesh)
+
+                UA_sub = self.U_eq(L_sub, alpha)[1]
+
+                # short sub-mesh: local DT ~ LMTD of the sub-mesh
+                Q_dot_sub = UA_sub*(T_HTF - T_PCM_eq)
+
+                T_wall_new = T_HTF - Q_dot_sub/(alpha*A_sub)
+
+                if abs(T_wall_new - T_wall) < 1e-3:
+                    T_wall = T_wall_new
+                    break
+
+                T_wall = T_wall_new
+
+            return Q_dot_sub, T_wall
+
+        h = h_HTF_in
+        T_wall = T_PCM_eq
+
+        for k in range(N_sub):
+
+            # prediction of the middle of the sub-mesh with the inlet DT
+            Q_dot_in, T_wall = Q_dot_sub_mesh(h, T_wall)
+            h_mid = h - (Q_dot_in/2)/m_dot_tube
+
+            # Q_dot with the DT in the middle of the sub-mesh
+            Q_dot_mid, T_wall = Q_dot_sub_mesh(h_mid, T_wall)
+            h = h - Q_dot_mid/m_dot_tube
+
+            if self.sign_mode*(h - h_HTF_PCM) <= 0:
+                h = h_HTF_PCM
+                break
+
+        h_HTF_ex = h
+        self.AS.update(CP.HmassP_INPUTS, h_HTF_ex, p_HTF)
+        T_HTF_ex = self.AS.T()
+
+        return T_HTF_ex, h_HTF_ex
 
 
 
