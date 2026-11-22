@@ -619,7 +619,7 @@ class TES_step(BaseComponent):
             T_wall = T_PCM_eq
 
             htf_htc = 6000
-
+ 
         else:
 
             if self.sign_mode==1:
