@@ -30,7 +30,7 @@ from connector.heat_connector import HeatConnector
 
 from component.base_component import BaseComponent
 
-from correlations.convection.pipe_htc import gnielinski_pipe_htc
+from correlations.convection.pipe_htc import gnielinski_pipe_htc, horizontal_tube_internal_condensation
 
 import CoolProp.CoolProp as CP
 from CoolProp.CoolProp import PropsSI
@@ -259,7 +259,7 @@ class TES_step(BaseComponent):
 
         self.rho_tube = 7800 # kg/m^3
         self.cp_tube = 500 # J/kg/K
-        self.lambda_tube = 45 # W/(m*K)
+        self.lambda_tube = 45 # W/(m*K) # 
         self.thk_tube = 2e-3 # m
         self.De_tube = 17.2e-3 # m
         self.L_tube = 1 #m
@@ -438,25 +438,16 @@ class TES_step(BaseComponent):
 
 
 
-    def HTC_calculation_Hausen(self, T_HTF_bulk, T_wall, p_HTF, m_dot_tube, L_mesh):
+    def HTC_calculation_Hausen(self, h_HTF_bulk, T_wall, p_HTF, m_dot_tube, L_mesh):
 
-        if not self.AS_on:
-            mu_f = PropsSI("V","P",p_HTF,"T",T_HTF_bulk,self.wf)
-            mu_w = PropsSI("V","P",p_HTF,"T",T_wall,self.wf)
-        else:
-            self.AS.update(CP.PT_INPUTS, p_HTF, T_HTF_bulk)
-            mu_f = self.AS.viscosity()
-            self.AS.update(CP.PT_INPUTS, p_HTF, T_wall)
-            mu_w = self.AS.viscosity()
 
-        if not self.AS_on:
-            cp_f = PropsSI("C","P",p_HTF,"T",T_HTF_bulk,self.wf)
-            lambda_f = PropsSI("L","P",p_HTF,"T",T_HTF_bulk,self.wf)
-        else:
-            self.AS.update(CP.PT_INPUTS, p_HTF, T_HTF_bulk)
-            cp_f = self.AS.cpmass()
-            lambda_f = self.AS.conductivity()
+        self.AS.update(CP.HmassP_INPUTS, h_HTF_bulk, p_HTF)
+        mu_f = self.AS.viscosity()
+        cp_f = self.AS.cpmass()
+        lambda_f = self.AS.conductivity()
 
+        self.AS.update(CP.PT_INPUTS, p_HTF, T_wall)
+        mu_w = self.AS.viscosity()
 
         Re = 4*m_dot_tube/(np.pi*self.Di_tube*mu_f)
         Pr = cp_f*mu_f/lambda_f
@@ -473,32 +464,24 @@ class TES_step(BaseComponent):
 
 
 
-    def HTC_calculation_Gnielinski(self, T_HTF_bulk, T_wall, p_HTF, m_dot_tube, L_mesh):
+    def HTC_calculation_Gnielinski(self, h_HTF_bulk, T_wall, p_HTF, m_dot_tube, L_mesh):
 
-        if not self.AS_on:
-            mu_f = PropsSI("V","P",p_HTF,"T",T_HTF_bulk,self.wf)
-            mu_w = PropsSI("V","P",p_HTF,"T",T_wall,self.wf)
-        else:
-            self.AS.update(CP.PT_INPUTS, p_HTF, T_HTF_bulk)
-            mu_f = self.AS.viscosity()
-            self.AS.update(CP.PT_INPUTS, p_HTF, T_wall)
-            mu_w = self.AS.viscosity()
 
-        if not self.AS_on:
-            cp_f = PropsSI("C","P",p_HTF,"T",T_HTF_bulk,self.wf)
-            lambda_f = PropsSI("L","P",p_HTF,"T",T_HTF_bulk,self.wf)
-        else:
-            self.AS.update(CP.PT_INPUTS, p_HTF, T_HTF_bulk)
-            cp_f = self.AS.cpmass()
-            lambda_f = self.AS.conductivity()
+        self.AS.update(CP.CP.HmassP_INPUTS, h_HTF_bulk, p_HTF)
+        mu_f = self.AS.viscosity()
+        cp_f = self.AS.cpmass()
+        lambda_f = self.AS.conductivity()
+
+        self.AS.update(CP.PT_INPUTS, p_HTF, T_wall)
+        mu_w = self.AS.viscosity()
 
         Pr = cp_f*mu_f/lambda_f
 
         S_i = math.pi * self.Di_tube**2/4
         G = m_dot_tube / S_i
-        htf_htc = gnielinski_pipe_htc(mu_f, Pr, mu_w, lambda_f, G, self.Di_tube, L_mesh)[0]
+        alpha = gnielinski_pipe_htc(mu_f, Pr, mu_w, lambda_f, G, self.Di_tube, L_mesh)[0]
 
-        return htf_htc
+        return alpha
 
 
 
@@ -518,7 +501,6 @@ class TES_step(BaseComponent):
             T_wall = T_PCM_eq
             htf_htc = 9600
             return T_HTF_in, h_HTF_in, T_HTF_in, T_wall, htf_htc
-
 
         A_i = np.pi * self.Di_tube * L_mesh
         if print_htc_history:
@@ -645,6 +627,99 @@ class TES_step(BaseComponent):
         return T_HTF_ex, h_HTF_ex, T_HTF_bulk, T_wall, htf_htc
 
 
+
+    def solve_h_HTF_ex(self, h_HTF_in, T_PCM_eq, p_HTF, m_dot_tube, L_mesh):
+        """ To calculate the outlet temperature of a mesh, to get the proper LMTD """
+
+        tol_brent = 1e-2
+        
+        self.AS.update(CP.HmassP_INPUTS, h_HTF_in, p_HTF)
+        T_HTF_in = self.AS.T()
+
+        DT1 = self.sign_mode*(T_HTF_in - T_PCM_eq)
+
+        if DT1 < 1e-1:
+            return T_HTF_in, h_HTF_in
+
+        A_i = np.pi * self.Di_tube * L_mesh
+
+        # Initialising to a possible value, if not entering the Brent. But normally, never reached
+
+        def residual_Ai(h_ex):
+            # As we sufficiently discretise dA_i, we consider that we don't have to re-calculate an LMTD
+            # for the local area dA_i, and that (T_local - T_PCM_eq) = LMTD_local is accurate enough.
+            # Similarily, the bulk fluid temperature is considered as being the local fluid temperature 
+            
+            disc_h = 20
+            Ai_length = []
+            h_edges = np.linspace(h_HTF_in,h_ex, disc_h+1)
+            h_mid = 0.5*(h_edges[1:] + h_edges[:-1])
+            dh = (h_HTF_in-h_ex)/disc_h
+
+            # initialisation
+            T_wall = T_PCM_eq
+
+            for i in h_mid:
+                self.AS.update(CP.HmassP_INPUTS, h_mid[i], p_HTF) # le +dh/2 fait qu'on est au centre de la sous maille, c'est bien ça ?
+                T_local = self.AS.T()
+                is_two_phase = (self.AS.phase() == CP.iphase_twophase)
+                if is_two_phase:
+                    x_in = self.AS.Qmass()
+
+                # no T_wall re-initialisation: it takes the precedent T_wall right?
+                for _ in range(30):
+
+                    if is_two_phase:
+                        alpha = horizontal_tube_internal_condensation(self.wf, m_dot_tube, p_HTF, x_in, T_wall, self.Di_tube)
+                    elif self.htc_correlation == 'Hausen':
+                        alpha = self.HTC_calculation_Hausen(T_local, T_wall, p_HTF, m_dot_tube, L_mesh) # T_HTF_bulk replaced by T_local
+                    else:
+                        alpha = self.HTC_calculation_Gnielinski(T_local, T_wall, p_HTF, m_dot_tube, L_mesh)
+
+                    UA = self.U_eq(L_mesh, alpha)[1]
+
+                    Q_dot = UA*(T_local - T_PCM_eq) # (T_local - T_PCM_eq) = local LMTD, as it is discretised enough
+
+                    T_wall_new = T_local - Q_dot/(alpha*A_i)
+
+                    if abs(T_wall_new-T_wall) < 1e-3:
+                        T_wall = T_wall_new
+                        break
+
+                    T_wall = T_wall_new
+
+                U_local = self.U_eq(L_mesh, alpha)[0]
+
+                dA_i = m_dot_tube * dh /  (U_local * (T_local - T_PCM_eq))   
+                Ai_length.append(dA_i)
+
+            Ai_calc = np.sum(Ai_length)
+
+            return A_i - Ai_calc # vérifier le signe de ça quand ça part dans le brent
+
+        tol_T = 1e-3
+        # Calulate the min/max boundary of the h_ex, equal to the enthalpy at PCM_eq temperature
+        self.AS.update(CP.PT_INPUTS, p_HTF, T_PCM_eq+self.sign_mode*tol_T)
+        h_PCM_bound = self.AS.hmass()
+        self.AS.update(CP.PT_INPUTS, p_HTF, T_HTF_in+self.sign_mode*tol_T)
+        h_in_bound = self.AS.hmass()
+
+        if self.sign_mode==1:
+            h_ex = brentq(residual_Ai,
+                            h_PCM_bound,
+                            h_in_bound, tol_brent)
+        else:
+            h_ex = brentq(residual_Ai,
+                            h_in_bound,
+                            h_PCM_bound, tol_brent)
+
+        self.AS.update(CP.HmassP_INPUTS, h_ex, p_HTF)
+        T_HTF_ex = self.AS.T()
+
+        return T_HTF_ex, h_ex
+
+
+
     def set_initial_state(self, T_PCM_eq_init):
         """
         Initial temperature of the equivalent material (PCM + lattice) [K]:
@@ -656,9 +731,12 @@ class TES_step(BaseComponent):
 
 
     def solve(self):
+        
         """Step t_n -> t_n+1. Does NOT change h_PCM_state: call advance() to accept the new state."""
         self.check_calculable()
         self.check_parametrized()
+
+        with_h_ex = True # for tests with the enthalpy version of solve_h/T_HTF_ex, allowing two phase in the tubes
 
         if not (self.calculable and self.parametrized):
             self.solved = False
@@ -670,7 +748,7 @@ class TES_step(BaseComponent):
 
         if self.AS is None or self.wf != self.su.fluid:
             self.wf = self.su.fluid
-            self.AS = CP.AbstractState("HEOS", self.wf)
+            self.AS = CP.AbstractState("BICUBIC&HEOS", self.wf)
 
         Nx = self.Nx
         p_HTF = self.su.p # no pressure drop
@@ -702,16 +780,13 @@ class TES_step(BaseComponent):
                 else:
                     self.sign_mode = -1
 
-                """ version with LMTD """
-                T_HTF_ex_mesh, h_HTF_ex_mesh, T_HTF_bulk, T_wall, htf_htc = self.solve_T_HTF_ex_LMTD(T_HTF[i],
+                if not with_h_ex:
+                    T_HTF_ex_mesh, h_HTF_ex_mesh, T_HTF_bulk, T_wall, htf_htc = self.solve_T_HTF_ex_LMTD(T_HTF[i],
                         self.T_PCM_state[i], p_HTF, m_dot_tube, self.L_mesh)
-
-                if not self.AS_on:
-                    h_HTF_ex_mesh = PropsSI("H","P",p_HTF,"T",T_HTF_ex_mesh,self.wf)
                 else:
-                    self.AS.update(CP.PT_INPUTS, p_HTF, T_HTF_ex_mesh)
-                    h_HTF_ex_mesh = self.AS.hmass()
-
+                    T_HTF_ex_mesh, h_HTF_ex_mesh = self.solve_h_HTF_ex(h_HTF[i],
+                                            self.T_PCM_state[i], p_HTF, m_dot_tube, self.L_mesh)
+                
                 # positive when charging
                 # Q_dot_local is the Q_dot on only one mesh (of one tube branch)
                 self.Q_dot_local[i] = m_dot_tube * (h_HTF[i] - h_HTF_ex_mesh)
@@ -1272,7 +1347,7 @@ class TES_simulation:
             self.mode = "discharge"
             self.sign_mode = -1
 
-        AS = CP.AbstractState("HEOS", fluid)
+        AS = CP.AbstractState("BICUBIC&HEOS", fluid)
         AS.update(CP.PT_INPUTS, p_HTF, T_HTF_su)
         h_HTF_su = AS.hmass()
 
