@@ -298,6 +298,7 @@ T_HTF_init = T_su_HTF
 T_PCM_eq_init = 80 +273.15 # °C
 
 
+n_subsegment_cell = 5 # number of HTF sub-segments per cell
 n_pass_box = 4
 n_segment_box = 16
 n_box_parallel = 1
@@ -335,7 +336,8 @@ n_box_serie = 1
 
 
 SIM.set_parameters(n_segment_box = n_segment_box, n_pass_box = n_pass_box,
-                   n_box_parallel = n_box_parallel, n_box_serie = n_box_serie)
+                   n_box_parallel = n_box_parallel, n_box_serie = n_box_serie,
+                   n_subsegment_cell = n_subsegment_cell)
 # SIM.set_parameters(htc_correlation = 'Hausen') # default: 'Gnielinski'
 
 

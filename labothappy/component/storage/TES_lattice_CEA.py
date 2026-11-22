@@ -207,7 +207,8 @@ class TES_step(BaseComponent):
         dt: Time step [s]
 
         (optional) Geometry of the box (De_tube, thk_tube, L_tube, V_TES, volume fractions...), see __init__,
-        htc_correlation ('Gnielinski' or 'Hausen')
+        htc_correlation ('Gnielinski' or 'Hausen'),
+        n_subsegment_cell (number of HTF sub-segments per cell in solve_h_HTF_ex, default 5)
 
     **Inputs**:
 
@@ -289,6 +290,7 @@ class TES_step(BaseComponent):
         self.n_box_serie = None
         self.n_pass_box = None
         self.n_box_parallel = None
+        self.n_subsegment_cell = 5 # number of HTF sub-segments per cell (RK2 in solve_h_HTF_ex)
 
         self.dt = None # time step [s]
 
@@ -507,154 +509,8 @@ class TES_step(BaseComponent):
 
 
 
-    def solve_T_HTF_ex_LMTD(self, T_HTF_in, T_PCM_eq, p_HTF, m_dot_tube, L_mesh):
-        """ To calculate the outlet temperature of a mesh, to get the proper LMTD """
-        print_htc_history = False
-
-        if not self.AS_on:
-            h_HTF_in = PropsSI("H","P",p_HTF,"T",T_HTF_in,self.wf)
-        else:
-            self.AS.update(CP.PT_INPUTS, p_HTF, T_HTF_in)
-            h_HTF_in = self.AS.hmass()
-
-        DT1 = self.sign_mode*(T_HTF_in - T_PCM_eq)
-
-        if DT1 < 1e-1:
-            T_wall = T_PCM_eq
-            htf_htc = 9600
-            return T_HTF_in, h_HTF_in, T_HTF_in, T_wall, htf_htc
-
-        A_i = np.pi * self.Di_tube * L_mesh
-        if print_htc_history:
-            htc_history = []
-
-        # Initialising to a possible value, if not entering the Brent. But normally, never reached
-        T_wall_save = [T_PCM_eq]
-        htf_htc_save = [6000]
-
-        def residual_LMTD(T_HTF_ex):
-
-            DT1 = self.sign_mode*(T_HTF_in - T_PCM_eq)
-            DT2 = self.sign_mode*(T_HTF_ex - T_PCM_eq)
-
-            if DT2 <= 0:
-                return -1e20, 0
-
-            if abs(DT1 - DT2) < 1e-6:
-                LMTD = DT1
-            else:
-                LMTD = (DT1 - DT2)/np.log(DT1/DT2)
-
-            T_HTF_bulk = 0.5*(T_HTF_in + T_HTF_ex)
-
-            T_wall = T_PCM_eq
-
-            for _ in range(30):
-
-                if self.htc_correlation == 'Hausen':
-                    htf_htc = self.HTC_calculation_Hausen(T_HTF_bulk, T_wall, p_HTF, m_dot_tube, L_mesh)
-                else:
-                    htf_htc = self.HTC_calculation_Gnielinski(T_HTF_bulk, T_wall, p_HTF, m_dot_tube, L_mesh)
-                UA = self.U_eq(L_mesh, htf_htc)[1]
-
-                Q_dot = self.sign_mode*UA*LMTD
-
-                T_wall_new = T_HTF_bulk - Q_dot/(htf_htc*A_i)
-
-                if abs(T_wall_new-T_wall) < 1e-3:
-                    T_wall = T_wall_new
-                    break
-
-                T_wall = T_wall_new
-            T_wall_save.append(T_wall)
-            htf_htc_save.append(htf_htc)
-
-            if not self.AS_on:
-                h_HTF_in = PropsSI("H","P",p_HTF,"T",T_HTF_in,self.wf)
-            else:
-                self.AS.update(CP.PT_INPUTS, p_HTF, T_HTF_in)
-                h_HTF_in = self.AS.hmass()
-
-            if not self.AS_on:
-                h_HTF_ex = PropsSI("H","P",p_HTF,"T",T_HTF_ex,self.wf)
-            else:
-                self.AS.update(CP.PT_INPUTS, p_HTF, T_HTF_ex)
-                h_HTF_ex = self.AS.hmass()
-
-            Q_dot_HTF = m_dot_tube*(h_HTF_in-h_HTF_ex)
-
-
-            if debug:
-                print(f"m_dot_tube = {m_dot_tube}")
-                print(f"h_HTF_in = {h_HTF_in}")
-                print(f"h_HTF_ex = {h_HTF_ex}")
-                print(f"h_HTF_in-h_HTF_ex = {h_HTF_in-h_HTF_ex}")
-
-            if debug:
-                print("--------------------------------")
-                print(f"T_HTF_ex = {T_HTF_ex-273.15:.2f} °C")
-                print(f"Q_UA = {Q_dot:.2f}")
-                print(f"Q_HTF = {Q_dot_HTF:.2f}")
-                print(f"res = {Q_dot-Q_dot_HTF:.2f}")
-
-            if print_htc_history:
-                htc_history.append(htf_htc)
-
-            return Q_dot - Q_dot_HTF
-
-
-
-        if abs(T_HTF_in - T_PCM_eq) < 0.05:
-
-            T_HTF_ex = T_HTF_in
-
-            if not self.AS_on:
-                h_HTF_ex = PropsSI("H","P", p_HTF,"T", T_HTF_ex, self.wf)
-            else:
-                self.AS.update(CP.PT_INPUTS, p_HTF, T_HTF_ex)
-                h_HTF_ex = self.AS.hmass()
-
-            T_HTF_bulk = T_HTF_in
-
-            T_wall = T_PCM_eq
-
-            htf_htc = 6000
- 
-        else:
-
-            if self.sign_mode==1:
-                T_HTF_ex = brentq(residual_LMTD,
-                              T_PCM_eq+1e-3,
-                              T_HTF_in-1e-3)
-            else:
-                T_HTF_ex = brentq(residual_LMTD,
-                              T_HTF_in+1e-3,
-                              T_PCM_eq-1e-3)
-
-            if not self.AS_on:
-                h_HTF_ex = PropsSI("H","P",p_HTF,"T",T_HTF_ex,self.wf)
-            else:
-                self.AS.update(CP.PT_INPUTS, p_HTF, T_HTF_ex)
-                h_HTF_ex = self.AS.hmass()
-
-            T_HTF_bulk = 0.5*(T_HTF_in + T_HTF_ex)
-
-            T_wall = T_wall_save[-1]
-
-            htf_htc = htf_htc_save[-1]
-
-            if print_htc_history:
-                print(f"HTC = {htc_history[-1]}")
-
-        return T_HTF_ex, h_HTF_ex, T_HTF_bulk, T_wall, htf_htc
-
-
-
-    def solve_h_HTF_ex(self, h_HTF_in, T_PCM_eq, p_HTF, m_dot_tube, L_mesh):
-        """ To calculate the outlet enthalpy of a mesh, with a Brent on the area of the mesh """
-
-        tol_brent = 1e-2 # [J/kg]
-        disc_h = 20
+    def solve_h_HTF_ex(self, h_HTF_in, T_PCM_eq, p_HTF, m_dot_tube, L_mesh, n_subsegment_cell=5):
+        """ To calculate the outlet enthalpy of a cell, by marching on n_subsegment_cell sub-segments (midpoint method, RK2) """
 
         self.AS.update(CP.HmassP_INPUTS, h_HTF_in, p_HTF)
         T_HTF_in = self.AS.T()
@@ -664,97 +520,14 @@ class TES_step(BaseComponent):
         if DT1 < 1e-1:
             return T_HTF_in, h_HTF_in
 
-        A_i = np.pi * self.Di_tube * L_mesh
-
-        def residual_Ai(h_ex):
-
-            h_edges = np.linspace(h_HTF_in, h_ex, disc_h+1)
-            h_mid = 0.5*(h_edges[1:] + h_edges[:-1])
-
-            # DT at the edges of each sub-interval, for a local LMTD
-            DT_edges = np.zeros(disc_h+1)
-            for j in range(disc_h+1):
-                self.AS.update(CP.HmassP_INPUTS, h_edges[j], p_HTF)
-                DT_edges[j] = self.AS.T() - T_PCM_eq
-
-            T_wall = T_PCM_eq
-            Ai_calc = 0
-
-            for j in range(disc_h):
-
-                self.AS.update(CP.HmassP_INPUTS, h_mid[j], p_HTF)
-                T_local = self.AS.T()
-                is_two_phase = (self.AS.phase() == CP.iphase_twophase)
-                if is_two_phase:
-                    x_local = self.AS.Qmass()
-
-                for _ in range(30):
-
-                    if is_two_phase:
-                        alpha = horizontal_tube_internal_condensation(self.wf, m_dot_tube, p_HTF, x_local, T_wall, self.Di_tube)
-                    elif self.htc_correlation == 'Hausen':
-                        alpha = self.HTC_calculation_Hausen(h_mid[j], T_wall, p_HTF, m_dot_tube, L_mesh)
-                    else:
-                        alpha = self.HTC_calculation_Gnielinski(h_mid[j], T_wall, p_HTF, m_dot_tube, L_mesh)
-
-                    U_local = self.U_eq(L_mesh, alpha)[0]
-
-                    T_wall_new = T_local - U_local*(T_local - T_PCM_eq)/alpha
-
-                    if abs(T_wall_new-T_wall) < 1e-3:
-                        T_wall = T_wall_new
-                        break
-
-                    T_wall = T_wall_new
-
-                DT_a = DT_edges[j]
-                DT_b = DT_edges[j+1]
-                if abs(DT_a - DT_b) < 1e-6:
-                    LMTD_local = DT_a
-                else:
-                    LMTD_local = (DT_a - DT_b)/np.log(DT_a/DT_b)
-
-                # > 0 in charge and in discharge (dh and LMTD_local have the same sign)
-                Ai_calc += m_dot_tube*(h_edges[j] - h_edges[j+1]) / (U_local*LMTD_local)
-
-            return A_i - Ai_calc
-
-        # h_ex between h_HTF_in (A = 0) and the enthalpy at T_PCM_eq (A infinite)
-        tol_T = 1e-3
-        self.AS.update(CP.PT_INPUTS, p_HTF, T_PCM_eq + self.sign_mode*tol_T)
-        h_PCM_bound = self.AS.hmass()
-
-        if self.sign_mode==1:
-            h_ex = brentq(residual_Ai, h_PCM_bound, h_HTF_in, xtol=tol_brent)
-        else:
-            h_ex = brentq(residual_Ai, h_HTF_in, h_PCM_bound, xtol=tol_brent)
-
-        self.AS.update(CP.HmassP_INPUTS, h_ex, p_HTF)
-        T_HTF_ex = self.AS.T()
-
-        return T_HTF_ex, h_ex
-
-
-
-    def solve_h_HTF_ex_nobrent(self, h_HTF_in, T_PCM_eq, p_HTF, m_dot_tube, L_mesh, N_sub=20):
-        """ To calculate the outlet enthalpy of a mesh, by marching on N_sub sub-meshes (midpoint method, RK2) """
-
-        self.AS.update(CP.HmassP_INPUTS, h_HTF_in, p_HTF)
-        T_HTF_in = self.AS.T()
-
-        DT1 = self.sign_mode*(T_HTF_in - T_PCM_eq)
-
-        if DT1 < 1e-1:
-            return T_HTF_in, h_HTF_in
-
-        L_sub = L_mesh / N_sub
-        A_sub = np.pi * self.Di_tube * L_sub
+        L_subsegment = L_mesh / n_subsegment_cell
+        A_subsegment = np.pi * self.Di_tube * L_subsegment
 
         # the HTF cannot go beyond T_PCM_eq
         self.AS.update(CP.PT_INPUTS, p_HTF, T_PCM_eq)
         h_HTF_PCM = self.AS.hmass()
 
-        def Q_dot_sub_mesh(h_HTF, T_wall):
+        def Q_dot_subsegment(h_HTF, T_wall):
 
             self.AS.update(CP.HmassP_INPUTS, h_HTF, p_HTF)
             T_HTF = self.AS.T()
@@ -772,12 +545,12 @@ class TES_step(BaseComponent):
                 else:
                     alpha = self.HTC_calculation_Gnielinski(h_HTF, T_wall, p_HTF, m_dot_tube, L_mesh)
 
-                UA_sub = self.U_eq(L_sub, alpha)[1]
+                UA_subsegment = self.U_eq(L_subsegment, alpha)[1]
 
-                # short sub-mesh: local DT ~ LMTD of the sub-mesh
-                Q_dot_sub = UA_sub*(T_HTF - T_PCM_eq)
+                # short sub-segment: local DT ~ LMTD of the sub-segment
+                Q_dot = UA_subsegment*(T_HTF - T_PCM_eq)
 
-                T_wall_new = T_HTF - Q_dot_sub/(alpha*A_sub)
+                T_wall_new = T_HTF - Q_dot/(alpha*A_subsegment)
 
                 if abs(T_wall_new - T_wall) < 1e-3:
                     T_wall = T_wall_new
@@ -785,19 +558,19 @@ class TES_step(BaseComponent):
 
                 T_wall = T_wall_new
 
-            return Q_dot_sub, T_wall
+            return Q_dot, T_wall
 
         h = h_HTF_in
         T_wall = T_PCM_eq
 
-        for k in range(N_sub):
+        for k in range(n_subsegment_cell):
 
-            # prediction of the middle of the sub-mesh with the inlet DT
-            Q_dot_in, T_wall = Q_dot_sub_mesh(h, T_wall)
+            # prediction of the middle of the sub-segment with the inlet DT
+            Q_dot_in, T_wall = Q_dot_subsegment(h, T_wall)
             h_mid = h - (Q_dot_in/2)/m_dot_tube
 
-            # Q_dot with the DT in the middle of the sub-mesh
-            Q_dot_mid, T_wall = Q_dot_sub_mesh(h_mid, T_wall)
+            # Q_dot with the DT in the middle of the sub-segment
+            Q_dot_mid, T_wall = Q_dot_subsegment(h_mid, T_wall)
             h = h - Q_dot_mid/m_dot_tube
 
             if self.sign_mode*(h - h_HTF_PCM) <= 0:
@@ -827,8 +600,6 @@ class TES_step(BaseComponent):
         """Step t_n -> t_n+1. Does NOT change h_PCM_state: call advance() to accept the new state."""
         self.check_calculable()
         self.check_parametrized()
-
-        with_h_ex = True # for tests with the enthalpy version of solve_h/T_HTF_ex, allowing two phase in the tubes
 
         if not (self.calculable and self.parametrized):
             self.solved = False
@@ -872,12 +643,9 @@ class TES_step(BaseComponent):
                 else:
                     self.sign_mode = -1
 
-                if not with_h_ex:
-                    T_HTF_ex_mesh, h_HTF_ex_mesh, T_HTF_bulk, T_wall, htf_htc = self.solve_T_HTF_ex_LMTD(T_HTF[i],
-                        self.T_PCM_state[i], p_HTF, m_dot_tube, self.L_mesh)
-                else:
-                    T_HTF_ex_mesh, h_HTF_ex_mesh = self.solve_h_HTF_ex(h_HTF[i],
-                                            self.T_PCM_state[i], p_HTF, m_dot_tube, self.L_mesh)
+
+                T_HTF_ex_mesh, h_HTF_ex_mesh = self.solve_h_HTF_ex(h_HTF[i],
+                                        self.T_PCM_state[i], p_HTF, m_dot_tube, self.L_mesh, self.n_subsegment_cell)
                 
                 # positive when charging
                 # Q_dot_local is the Q_dot on only one mesh (of one tube branch)
@@ -1075,6 +843,7 @@ class TES_lattice:
             f.write(f"n_box_serie = {TES.n_box_serie}\n")
             f.write(f"n_pass_box = {TES.n_pass_box}\n")
             f.write(f"n_segment_box = {TES.n_segment_box}\n")
+            f.write(f"n_subsegment_cell = {TES.n_subsegment_cell}\n")
 
             f.write("\n")
             f.write(f"T_su_HTF = {self.T_HTF[1,0]-273.15:.2f} °C\n")
