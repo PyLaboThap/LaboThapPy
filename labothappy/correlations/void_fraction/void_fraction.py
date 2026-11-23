@@ -618,6 +618,35 @@ def void_fraction_rouhani_axelsson(rho_l, rho_v, x, G, sigma):
     return alpha
 
 #======================================================================
+# Rouhani-Axelsson void fraction model : Steiner horizontal tube version (Drift-flux correlations)
+#======================================================================
+
+def void_fraction_rouhani_axelsson_steiner(rho_l, rho_v, x, G, sigma):
+    """
+    Rouhani-Axelsson void fraction, HORIZONTAL tube version of Steiner (1993) (drift-flux method).
+
+    Formula:
+    --------
+    C0      = 1 + 0.12*(1-x)                                     (horizontal; vertical form: 1 + 0.2*(1-x))
+    V_drift = 1.18*(1-x)*(g*sigma*(rho_l-rho_v)/rho_l**2)**0.25  (drift velocity, x (1-x) factor of Steiner)
+    alpha   = (x/rho_v) / (C0*(x/rho_v + (1-x)/rho_l) + V_drift/G)
+
+    Parameters: rho_l, rho_v [kg/m3], x [-], G [kg/(m2.s)], sigma [N/m].  Returns alpha [-].
+
+    References
+    ----------
+    Steiner, D. (1993). VDI-Waermeatlas (VDI Heat Atlas), Chapter Hbb. VDI-Gesellschaft.
+    As written in El Hajal, J., Thome, J.R., Cavallini, A. (2003). "Condensation in horizontal tubes,
+    part 1: two-phase flow pattern map." Int. J. Heat Mass Transfer 46, 3349-3363, Eq. (2).
+    Same as fluids.two_phase_voidage.Steiner (C. Bell).
+    """
+    C0 = 1 + 0.12 * (1 - x)
+    V_drift = 1.18 * (1 - x) * ((G_GRAVITY * sigma * (rho_l - rho_v)) / (rho_l ** 2)) ** 0.25
+    alpha = (x / rho_v) / (C0 * (x / rho_v + (1 - x) / rho_l) + V_drift / G)
+    return alpha
+
+
+#======================================================================
 # Chexal/Dix void fraction model (Drift-flux correlations)
 #======================================================================
 

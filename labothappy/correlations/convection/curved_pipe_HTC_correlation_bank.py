@@ -363,7 +363,7 @@ def curved_pipe_xin_ebadian_SP_HTC(AS, geom, cond):
 
     Validity Range
     --------------
-    - Reynolds number (Re) : Re < 1e5 (turbulent, above critical Reynolds number)
+    - Reynolds number (Re) : 5e3 < Re < 1e5 (Xin & Ebadian 1997, Eq. 6)
     - Prandtl number (Pr) : 0.7 < Pr < 5
     - Curvature ratio (curv) : 0.0267 < curv < 0.0884
     """
@@ -385,9 +385,10 @@ def curved_pipe_xin_ebadian_SP_HTC(AS, geom, cond):
     Re = G * D / mu
 
     # Check validity ranges and warn if outside
-    if not (Re < 1e5):
+    if not (5e3 < Re < 1e5):
         warnings.warn(
-            f"Xin & Ebadian SP HTC: Re = {Re:.2e} is outside the validity range (Re < 1e5)."
+            f"Xin & Ebadian SP HTC: Re = {Re:.2e} is outside the validity range (5e3 < Re < 1e5, "
+            "Eq. 6)."
         )
     if not (0.7 < Pr < 5.0):
         warnings.warn(
@@ -415,16 +416,41 @@ def curved_pipe_xin_ebadian_SP_HTC(AS, geom, cond):
 
 
 def curved_pipe_zakeralhoseini_condensing_HTC(AS, geom, cond):
-    """Condensation of R1234yf in helically coiled tubes (Zakeralhoseini et al.):
-    h_tp = h_l * 0.27 (1 + 2.98 / X_tt^0.8) P_r^-0.75, h_l = curved-pipe single-phase h of the liquid flowing alone.
-    cond : G, p, x      geom : Dh, R_curv (or D_coil), L"""
+    """Condensation of R1234yf in helically coiled tubes (Zakeralhoseini et al. 2020), Eq. (25):
+    h_tp = h_l * 0.27 (1 + 2.98 / X_tt^0.8) p_r^-0.75, with h_l = Nu_l k_l / d and Nu_l from
+    Mori & Nakayama, Eq. (22): Nu_l = (1/41) Re_l^(5/6) Pr_l^0.4 (d/D)^(1/12)
+    {1 + 0.061 / [Re_l (d/D)^2.5]^(1/6)}, Re_l = G (1 - x) d / mu_l (Eq. 23), D = coil diameter
+    (the printed "p_r^0.4" of Eq. 22 is read as Pr_l^0.4, as in Mori-Nakayama).
+    cond : G, p, x      geom : Dh, R_curv (or D_coil), L
+    Reference: Zakeralhoseini, S., Sajadi, B., et al. (2020) Experimental investigation of the heat
+    transfer coefficient and pressure drop of R1234yf during flow condensation in helically coiled
+    tubes, Int. J. Thermal Sciences 157, 106516, Eqs. (21)-(25).
+    Validity: R1234yf, d 8.2 mm, coil 95.3 mm, pitch 16.7 mm, Tsat 20 / 30 C, G 95-285 kg/m2/s,
+    x 0.1-0.8; 95 % of data within +-15 %. Eq. (22): Pr_l > 1 and Re_l (d/D)^2.5 > 0.4.
+    (2026-11-21: h_l was the 'Sigalotti' single-phase curved h; corrected to Eq. (22).)"""
     _need_cond(cond, 'G', 'p', 'x')
     D, L, R, G, p = _D(geom), _L(geom), _R_curv(geom), cond['G'], cond['p']
     x = _clamp_x(cond['x'], 1e-2)
     p_crit = AS.p_critical()
     s = _sat_props(AS, p, cond)
-    G_l = (1 - x) * G
-    h_l = _curved_pipe_1P(s['mu_l'], s['Pr_l'], s['mu_l'], s['k_l'], G_l, D, L, R)
+    # Validity warnings (paper range)
+    if not 95 <= G <= 285:
+        warnings.warn(f"Zakeralhoseini 2020: G = {G:.0f} kg/m2/s outside 95-285.")
+    if not 0.1 <= x <= 0.8:
+        warnings.warn(f"Zakeralhoseini 2020: x = {x:.2f} outside 0.1-0.8.")
+    # Liquid Reynolds number, Eq. (23), and tube / coil diameter ratio
+    Re_l = G * (1 - x) * D / s['mu_l']
+    d_over_Dc = D / (2.0 * R)
+    Pr_l = s['Pr_l']
+    if Pr_l <= 1 or Re_l * d_over_Dc ** 2.5 <= 0.4:
+        warnings.warn("Zakeralhoseini 2020: Mori-Nakayama Eq. (22) used outside Pr_l > 1, "
+                      "Re_l (d/D)^2.5 > 0.4.")
+    # Liquid Nusselt number, Mori & Nakayama, Eq. (22)
+    term_main = (1.0 / 41.0) * Re_l ** (5.0 / 6.0) * Pr_l ** 0.4 * d_over_Dc ** (1.0 / 12.0)
+    term_corr = 1.0 + 0.061 / (Re_l * d_over_Dc ** 2.5) ** (1.0 / 6.0)
+    Nu_l = term_main * term_corr
+    h_l = Nu_l * s['k_l'] / D
+    # Martinelli parameter and Eq. (25)
     inv_Xtt = (x / (1 - x)) ** 0.9 * (s['rho_l'] / s['rho_v']) ** 0.5 * (s['mu_v'] / s['mu_l']) ** 0.1
     return h_l * 0.27 * (1 + 2.98 / (1.0 / inv_Xtt) ** 0.8) * (p / p_crit) ** (-0.75)
 
@@ -442,13 +468,27 @@ def _boiling_inputs(AS, geom, cond):
 
 def curved_pipe_zhao_boiling_HTC(AS, geom, cond):
     """Convective boiling in small horizontal helically coiled tubes, once-through steam generator (Zhao et al. 2003):
-    h_tp = (1.6 X_tt^-0.74 + 183000 Bo^1.46) h_liq, h_liq = Dittus-Boelter-type 0.023 Re_l^0.8 Pr_l^0.4 k_l/D, G_l = (1 - x) G.
-    cond : G, p, x, q      geom : Dh"""
+    h_tp = (1.6 X_tt^-0.74 + 183000 Bo^1.46) h_lo, h_lo = Dittus-Boelter 0.023 Re_lo^0.8 Pr_l^0.4 k_l/D,
+    Re_lo = G D / mu_l: TOTAL flow assumed liquid (text after Eq. 10 of the paper).
+    cond : G, p, x, q      geom : Dh
+    Reference: Zhao, L., Guo, L., Bai, B., Hou, Y., Zhang, X. (2003) Convective boiling heat transfer and
+    two-phase flow characteristics inside a small horizontal helically coiled tubing once-through steam
+    generator, Int. J. Heat Mass Transfer 46, 4779-4788, Eqs. (10), (21), (22).
+    Validity: steam-water, d 9 mm, coil D 292 mm, pitch 30 mm, p 0.5-3.5 MPa, G 236-943 kg/m2/s,
+    q 0-900 kW/m2, x up to 0.95; mean deviation 12 %.
+    (2026-11-21: h_lo was computed on (1 - x) G; corrected to the total flow, paper definition.)"""
     s, x, inv_Xtt, Bo = _boiling_inputs(AS, geom, cond)
     D = _D(geom)
-    Re_l = (1 - x) * cond['G'] * D / s['mu_l']
-    h_liq = 0.023 * Re_l ** 0.8 * s['Pr_l'] ** 0.4 * s['k_l'] / D
-    return (1.6 * inv_Xtt ** 0.74 + 183000 * Bo ** 1.46) * h_liq
+    # Validity warnings (paper range)
+    if not 0.5e6 <= cond['p'] <= 3.5e6:
+        warnings.warn(f"Zhao 2003: p = {cond['p'] / 1e6:.2f} MPa outside 0.5-3.5 MPa (steam-water data).")
+    if not 236 <= cond['G'] <= 943:
+        warnings.warn(f"Zhao 2003: G = {cond['G']:.0f} kg/m2/s outside 236-943.")
+    # Zhao et al. (2003): h_lo for the total flow assumed liquid (Re = G d / mu_l, nomenclature)
+    Re_lo = cond['G'] * D / s['mu_l']
+    h_lo = 0.023 * Re_lo ** 0.8 * s['Pr_l'] ** 0.4 * s['k_l'] / D
+    # Eq. (21)
+    return (1.6 * inv_Xtt ** 0.74 + 183000 * Bo ** 1.46) * h_lo
 
 
 def curved_pipe_nariai_boiling_HTC(AS, geom, cond):

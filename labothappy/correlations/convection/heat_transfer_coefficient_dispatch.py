@@ -23,7 +23,8 @@ def heat_transfer_coefficient(AS, geom, cond, correlation):
 
     BPHE : G, p, x, q, m_dot; mu, k, Pr (+ mu_w) for single phase.
     STHE : cond['side'] (or geom['side']) selects the side of the shell & tube exchanger.
-      'shell' : single phase only. m_dot (WHOLE side), mu, k, Pr, cp (+ mu_w optional);
+      'shell' : SP: m_dot (WHOLE side), mu, k, Pr, cp (+ mu_w optional);
+                EVAP / COND: m_dot, p, x, q, T_w;
                 geom holds the shell & tube parameters (Tube_OD, pitch_ratio, Shell_ID, ...).
       'tube'  : SP / EVAP / COND, inside the tubes (pipe correlations). G (mass flux in ONE tube,
                 or m_dot of the whole side), p, x, q, T_w, mu, k, Pr (+ mu_w, rho, cp, h_in, h_out
@@ -52,7 +53,7 @@ def heat_transfer_coefficient(AS, geom, cond, correlation):
         if htx == 'PCHE':
             return float(PCHE_HTC(AS, geom, cond, state, choices))
 
-        if htx in ('HCHE', 'SCHE'):                     # cond['side'] = 'tube' (coil); shell side not implemented
+        if htx in ('HCHE', 'SCHE'):                     # HCHE: coil side only (shell side not implemented); SCHE: both sides
             return float(curved_pipe_HTC(AS, geom, cond, state, choices))
 
         if htx == 'SPHE':
@@ -63,7 +64,7 @@ def heat_transfer_coefficient(AS, geom, cond, correlation):
 
         side = cond.get('side', geom.get('side'))
         if side == 'shell':
-            return float(STHE_HTC(AS, geom, cond, state, choices))   # only 'SP' implemented
+            return float(STHE_HTC(AS, geom, cond, state, choices))   # SP, EVAP, COND
         if side == 'tube':
             return float(pipe_HTC(AS, geom, cond, state, choices))
         raise ValueError(f"STHE: cond['side'] (or geom['side']) = {side!r}: expected one of {_VALID_SIDES}.")

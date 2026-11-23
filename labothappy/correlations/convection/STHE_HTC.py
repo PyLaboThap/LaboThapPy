@@ -3,7 +3,9 @@
 Shell-side HTC dispatcher of shell & tube heat exchangers, same style as BPHX_HTC_dispatcher:
 HX type -> flow state (SP / EVAP / COND) -> correlation, with the (AS, geom, cond) formalism.
 Implemented: SP (Kern, Donohue, Bell-Delaware) and EVAP (Cooper, Mostinski pool boiling, no
-tube-bundle factor). COND (shell-side condensation) is not implemented yet.
+tube-bundle factor).
+Added 2026-11-23: EVAP 'Shah' (Shah 2017, tube bundle, automatic when the Kern geometry is known)
+and COND 'Rose_Kern' (Bonneau et al. 2019 recommendation).
 """
 
 #%% SINGLE PHASE : SHELL-SIDE HTC
@@ -61,15 +63,21 @@ def STHE_SP_HTC(AS, geom, cond, choice=None):
 
 from labothappy.correlations.convection.STHE_HTC_correlation_bank import STHE_mostinski_boiling_HTC
 from labothappy.correlations.convection.BPHE_HTC_correlation_bank import BPHE_cooper_boiling_HTC
+from labothappy.correlations.convection.STHE_HTC_correlation_bank import (
+    STHE_shah_bundle_boiling_HTC, STHE_rose_kern_condensing_HTC)
 
 _STHE_EVAP_HTC = {
     'Cooper': BPHE_cooper_boiling_HTC,          # Cooper (1984) pool boiling, needs p, q (+ roughness)
     'Mostinski': STHE_mostinski_boiling_HTC,    # Mostinski (1963) reduced-pressure method, p, q
+    'Shah': STHE_shah_bundle_boiling_HTC,       # Shah (2017) tube bundle, m_dot, p, x, q + Kern geometry
 }
 
 def select_shell_evaporation_HTC(geom, cond):
     """Automatic choice of the shell-side boiling HTC: Cooper (1984), built on a wide multi-fluid
-    pool boiling database. Both correlations are single-tube pool boiling: no tube-bundle factor."""
+    pool boiling database. Both correlations are single-tube pool boiling: no tube-bundle factor.
+    Shah (2017) tube-bundle correlation when the Kern geometry and m_dot, x are known."""
+    if 'm_dot' in cond and 'x' in cond and not _missing(geom, 'Kern'):
+        return 'Shah'
     return 'Cooper'
 
 def STHE_boiling_HTC(AS, geom, cond, choice=None):
@@ -83,16 +91,38 @@ def STHE_boiling_HTC(AS, geom, cond, choice=None):
         raise ValueError(f"Unknown correlation {choice!r}: {sorted(_STHE_EVAP_HTC)} or None/'auto'.")
     return _STHE_EVAP_HTC[choice](AS, geom, cond)
 
+#%% TWO-PHASE : SHELL-SIDE CONDENSATION (horizontal tube bundle)
+
+_STHE_COND_HTC = {
+    'Rose_Kern': STHE_rose_kern_condensing_HTC,  # Rose/Fujii/Nusselt single tube x Kern N^(-1/6)
+}
+
+def select_shell_condensation_HTC(geom, cond):
+    """Automatic choice of the shell-side condensation HTC: Rose (single tube) with Kern
+    inundation, as recommended by Bonneau et al. (2019)."""
+    return 'Rose_Kern'
+
+def STHE_condensation_HTC(AS, geom, cond, choice=None):
+    """Shell-side condensation heat transfer coefficient [W/m2/K] (outer tube surface).
+    choice: None/'auto' or the name of a correlation of _STHE_COND_HTC.
+    cond : m_dot [kg/s], p [Pa], x [-], T_w [K]; geom : Kern geometry (+ N_rows optional)."""
+    if choice in (None, 'auto'):
+        choice = select_shell_condensation_HTC(geom, cond)
+    elif choice not in _STHE_COND_HTC:
+        raise ValueError(f"Unknown correlation {choice!r}: {sorted(_STHE_COND_HTC)} or None/'auto'.")
+    return _STHE_COND_HTC[choice](AS, geom, cond)
+
 #%% GLOBAL DISPATCHER
 
 _STATE_DISPATCH = {
     'SP': STHE_SP_HTC,
     'EVAP': STHE_boiling_HTC,
+    'COND': STHE_condensation_HTC,
 }
 
 def STHE_HTC(AS, geom, cond, flow_state, choices=None):
     """Shell-side HTC of a shell & tube heat exchanger.
-    flow_state : 'SP' or 'EVAP' ('vapor-wet' etc. must be mapped to 'SP' by the caller if wanted)
+    flow_state : 'SP', 'EVAP' or 'COND' ('vapor-wet' etc. must be mapped to 'SP' by the caller if wanted)
     choices    : dict {'SP': name}. None, empty, 'auto' (or empty / 'auto' for a state) = automatic."""
     if flow_state not in _STATE_DISPATCH:
         raise NotImplementedError(f"STHE shell-side HTC: flow state {flow_state!r} not implemented "

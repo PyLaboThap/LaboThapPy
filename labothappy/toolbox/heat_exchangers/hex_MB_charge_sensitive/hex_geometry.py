@@ -415,15 +415,45 @@ class TFHEGeometry(_TubeGeometry):
 
 
 class PCHEGeometry(HXGeometry):
+    """Printed circuit heat exchanger: N_p plates of N_c etched channels, hot / cold plate ratio R_p.
+
+    Channel cross-section, p['channel_section']:
+        'semicircular' (default, previous behaviour): etched half-circle of diameter D_c [m]
+            A_channel = pi D_c^2 / 8,   P_wet = (pi/2 + 1) D_c,   D_h = pi D_c / (2 + pi)
+        'rectangular': passage between two etched fins (Ngo et al. 2007, Table 1 and Fig. 3):
+            g_f [m] = fin gap (width of the passage, measured normal to the fins)
+            d_f [m] = fin depth (etching depth)
+            A_channel = g_f d_f,        P_wet = 2 (g_f + d_f),  D_h = 4 A_channel / P_wet
+            (Ngo: g_f 1.31 mm, d_f 0.94 mm -> D_h 1.095 mm, paper 1.09 mm; 96 channels -> A_c
+            11.82e-5 m2 = Table 1.)
+    Channel path, p['type_channel'] (used by the correlations only): 'Straight', 'Zigzag', 'S_fin'.
+    L_c [m] = developed length of one channel (along the zigzag / S path).
+    Heat transfer area of a side = N_side * P_wet * L_c (all walls of the passage, cover plate
+    included, as in the semicircular case)."""
     HTX_TYPE = 'PCHE'
 
     def required_parameters(self, corr_1p=()):
-        return ['alpha', 'D_c', 'k_cond', 'L_c', 'N_c', 'N_p', 'R_p', 't_2', 't_3']
+        # D_c (semicircular) or g_f, d_f (rectangular) are checked in solve: they depend on
+        # channel_section, which required_parameters does not see.
+        return ['alpha', 'k_cond', 'L_c', 'N_c', 'N_p', 'R_p', 't_2', 't_3']
 
     def solve(self, p, m_h, m_c, n_s=1, n_p=1, K=0.0):
-        D_h = np.pi * p['D_c'] / (2 + np.pi)
-        A_channel = np.pi * p['D_c'] ** 2 / 8
-        P_wet = (np.pi / 2 + 1) * p['D_c']
+        section = str(p.get('channel_section', 'semicircular')).lower()
+        if section == 'semicircular':
+            if p.get('D_c') is None:
+                raise KeyError("PCHE: channel_section 'semicircular' needs D_c [m].")
+            A_channel = np.pi * p['D_c'] ** 2 / 8
+            P_wet = (np.pi / 2 + 1) * p['D_c']
+        elif section == 'rectangular':
+            if p.get('g_f') is None or p.get('d_f') is None:
+                raise KeyError("PCHE: channel_section 'rectangular' needs g_f (fin gap) and "
+                               "d_f (fin depth) [m].")
+            A_channel = p['g_f'] * p['d_f']
+            P_wet = 2 * (p['g_f'] + p['d_f'])
+        else:
+            raise ValueError(f"PCHE: channel_section {p.get('channel_section')!r}: expected "
+                             "'semicircular' or 'rectangular'.")
+        D_h = 4 * A_channel / P_wet        # = pi D_c / (2 + pi) for the semicircle
         N = p['N_c'] * p['N_p']
         frac = {'H': p['R_p'] / (1 + p['R_p']), 'C': 1 / (1 + p['R_p'])}
         sides = {}
@@ -435,8 +465,8 @@ class PCHEGeometry(HXGeometry):
                                     'n_tubes': N_side * n_p}, 'PCHE')
             sides[pre] = SideGeometry(g, A, A_channel * N_side * n_p, N_side * A_channel * p['L_c'] * n_s * n_p)
         return GeometryResult(sides['H'], sides['C'], R_extra=wall_resistance('PCHE', p, A=sides['H'].A))
-
-
+    
+    
 class SPHEGeometry(HXGeometry):
     """Spiral plate heat exchanger (double Archimedean spiral, see spiral_geometry). Parameter names are those
     of the previous model.

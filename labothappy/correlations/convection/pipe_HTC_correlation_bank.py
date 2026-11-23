@@ -162,12 +162,26 @@ def pipe_meshram_HTC(AS, geom, cond):
 
 def pipe_liu_sCO2_HTC(AS, geom, cond):
     """Liu et al. (2014), sCO2 cooled in a large tube.
-    Validity: D 4-10.7 mm, T_in 25-67 C, P 7.5-8.5 MPa, G 74-200 kg/m2/s, CO2.
-    cond : G, p, T_w, k, rho, mu, cp  (bulk values)      geom : Tube_ID
-    Reference: Liu, He, Yang, Fei, Experimental study on heat transfer and pressure drop of
-    supercritical CO2 cooled in a large tube, 2014."""
+    Validity (Table 2 of the paper): horizontal tubes, CO2 cooling, D 10.7 mm (p 7.5 / 8.0 / 8.5 MPa,
+    0.4-0.8 kg/min, i.e. G ~74-148 kg/m2/s, T_in 25-67 C), D 6 mm (8.0 MPa, 0.35 kg/min, T_in 25-58 C)
+    and D 4 mm (8.0 MPa, 0.6 kg/min, T_in 32-53 C); Eq. (29) is presented for the 10.7 mm tube
+    (most data within +-15 %).
+    cond : G, p, T_w, k, rho, mu, cp  (bulk values); T (bulk, optional: cooling check)
+    geom : Tube_ID
+    Definitions: Nu_w = h d / lambda (Eq. 8: lambda of CO2, wall or bulk not stated; bulk k used here),
+    Re_w = G d / mu_w, Pr_w, rho_w, cp_w at the wall temperature, rho_b, cp_b bulk.
+    Reference: Liu, Z.-B., He, Y.-L., Yang, Y.-F., Fei, J.-Y. (2014) Experimental study on heat transfer
+    and pressure drop of supercritical CO2 cooled in a large tube, Appl. Therm. Eng. 70, 307-315,
+    Eq. (29)."""
     D = _tube_ID(geom)
     G, rho, cp = _tube_G(geom, cond), cond['rho'], cond['cp']
+    # Validity warnings (test matrix of Table 2)
+    if not 7.5e6 <= cond['p'] <= 8.5e6:
+        warnings.warn(f"Liu 2014 sCO2: p = {cond['p'] / 1e6:.2f} MPa outside 7.5-8.5 MPa (Table 2).")
+    if not 4e-3 <= D <= 10.7e-3:
+        warnings.warn(f"Liu 2014 sCO2: D = {D * 1e3:.2f} mm outside 4-10.7 mm (Table 2).")
+    if cond.get('T') is not None and cond['T_w'] > cond['T']:
+        warnings.warn("Liu 2014 sCO2: correlation for CO2 COOLING (wall colder than the bulk).")
     AS.update(CP.PT_INPUTS, cond['p'], cond['T_w'])           # wall state (moves AS)
     rho_w, cp_w, mu_w, Pr_w = AS.rhomass(), AS.cpmass(), AS.viscosity(), AS.Prandtl()
     Re_w = G * D / mu_w
@@ -181,8 +195,15 @@ def pipe_cheng_sCO2_HTC(AS, geom, cond):
     cond : G, q, T_w, p, mu, k, h_in, h_out (cell enthalpies; h if h_in/h_out absent)
     geom : Tube_ID
     References: Cheng, Xu, Cao, Zhou, Liu, Supercritical carbon dioxide heat transfer in horizontal
-    tube based on the Froude number analysis (2024); Banuti (2015, 2019) for T_minus / T_plus;
-    Yang & Yang (2012) for the pseudo-critical temperature."""
+    tube based on the Froude number analysis (2024), Energy 294, 130980, Eqs. (28)-(33), (38)-(40);
+    Banuti (2015, 2019) for T_minus / T_plus; Yang & Yang (2012) for the pseudo-critical temperature.
+    Definitions: Re_b = G d / mu_b; Pr_b,ave = mu_b cp_ave / k_b with cp_ave = (i_w - i_b)/(T_w - T_b),
+    i_b = mean of the cell inlet / outlet enthalpies; x = pseudo-vapor quality (cell average);
+    Fr_VL,w = G^2 x^2 / (rho_w^2 g d) (Eq. 33); SBO_w = q / (G i_w) (Eq. 32) uses an ABSOLUTE enthalpy:
+    CoolProp default reference state (the paper used NIST data). The paper gives Nu_top and Nu_bot
+    (Eqs. 39-40); labothappy returns their mean (perimeter-averaged estimate, labothappy choice).
+    Paper ranges: Re_b 6.18e4-5.35e5, Fr_VL,w 7.58e-5-1834 (warnings).
+    (2026-11-21: Fr_VL,w used x_in not squared and cp_ave the inlet state: corrected.)"""
     fluid = AS.fluid_names()[0]
     D_in = _tube_ID(geom)
     G, q, T_w, P = _tube_G(geom, cond), cond['q'], cond['T_w'], cond['p']
@@ -233,18 +254,24 @@ def pipe_cheng_sCO2_HTC(AS, geom, cond):
     x_ave = 0.5 * (x_pb_in + x_pb_out)
 
     Re = G * D_in / mu
-    T_in = PropsSI('T', 'H', h_in, 'P', P, fluid)
-    dT = T_w - T_in
+    if not 6.18e4 <= Re <= 5.35e5:
+        warnings.warn(f"Cheng 2024 sCO2: Re_b = {Re:.3g} outside 6.18e4-5.35e5 (paper range).")
+    # Bulk enthalpy and temperature of the cell (mean of inlet and outlet enthalpies)
+    h_b = 0.5 * (h_in + h_out)
+    T_b = PropsSI('T', 'H', h_b, 'P', P, fluid)
+    dT = T_w - T_b
     if abs(dT) < 1e-6:
         dT = 1e-6
-    cp_ave = (h_w - h_in) / dT
+    cp_ave = (h_w - h_b) / dT                        # Eq. after (40): cp = (i_w - i_b) / (T_w - T_b)
     Pr_ave = mu * cp_ave / k
 
     if x_ave < 0 or x_ave > 1:                       # vapor-like / liquid-like
         return 0.019 * (Re**0.79) * (Pr_ave**0.51) * k / D_in
 
     g = 9.81
-    Fr_VL_w = G**2 * x_pb_in / (rho_w**2 * g * D_in)             # two-phase-like
+    Fr_VL_w = G**2 * x_ave**2 / (rho_w**2 * g * D_in)            # two-phase-like, Eq. (33)
+    if not 7.58e-5 <= Fr_VL_w <= 1834:
+        warnings.warn(f"Cheng 2024 sCO2: Fr_VL,w = {Fr_VL_w:.3g} outside 7.58e-5-1834 (paper range).")
     Nu_top = 0.127 * (Re**1.065) * (Pr_ave**1.053) * (SBO_w**0.66) * (Fr_VL_w**(-0.012))
     Nu_bot = 1.512 * (Re**0.878) * (Pr_ave**0.685) * (SBO_w**0.69) * (Fr_VL_w**(-0.0213))
     return 0.5 * (Nu_top + Nu_bot) * k / D_in
@@ -911,9 +938,14 @@ _A0_VDI = {
     "Tetrachloromethane": 2320, "CCl4": 2320, "Tetrafluoromethane": 4500, "CF4": 4500,
     "Helium": 1990, "He": 1990, "Hydrogen": 12220, "H2": 12220, "Neon": 8920, "Ne": 8920,
     "Nitrogen": 4380, "N2": 4380, "Argon": 3870, "Ar": 3870, "Oxygen": 4120, "O2": 4120,
-    "CarbonDioxide": 5500, "CO2": 5500,
-    "n-Propane": 4000, "Water": 25580, "H2O": 25580, "Ammonia": 7000, "NH3": 7000,   # added (from memory of the VDI table): to check
+    "CarbonDioxide": 18890, "CO2": 18890,
+    "n-Propane": 4000, "Water": 25580, "H2O": 25580, "Ammonia": 36640, "NH3": 36640,
+    "SulfurHexafluoride": 12230, "SF6": 12230, "R13B1": 3380,
 }  # fluids missing here (R1233zd(E), ...): give cond['a_0']
+# 2026-11-21: values checked against Steiner & Taborek (1992) Table 2 (from VDI-Waermeatlas 1991):
+# NH3 was 7000 and CO2 5500 (wrong); Table 2 gives 36,640 and 18,890 at q_o = 150 kW/m2.
+# The a_0 of water, NH3, CO2, SF6 are given at q_o = 150 kW/m2, cryogenics at 10 kW/m2, helium at
+# 1 kW/m2, R13B1 at 30 kW/m2, all others at 20 kW/m2 (Table 1 / Table 2).
 
 
 def _a0(fluid, cond):
@@ -926,10 +958,19 @@ def _a0(fluid, cond):
 
 def pipe_steiner_taborek_boiling_HTC(AS, geom, cond):
     """Steiner-Taborek asymptotic model (Wolverine Engineering Data Book, Boiling inside plain tubes).
-    cond : G, p, x, q (local heat flux); h_nb_o (optional, reference nucleate boiling HTC at q_o = 20 kW/m2;
+    cond : G, p, x, q (local heat flux); h_nb_o (optional, reference nucleate boiling HTC at the
+           normalized heat flux q_o of the fluid group below and p_r = 0.1;
            default: VDI a_0 of the fluid, or the cyclopentane estimate of the original code)
     geom : Tube_ID, Tube_L
-    Convective part: liquid-only (total flow) Gnielinski/Sieder-Tate HTC, no wall viscosity correction."""
+    Convective part: liquid-only (total flow) Gnielinski/Sieder-Tate HTC, no wall viscosity correction.
+    Reference: Steiner, D., Taborek, J. (1992) Flow boiling heat transfer in vertical tubes correlated
+    by an asymptotic model, Heat Transfer Engineering 13(2), 43-69, Eqs. (3)-(15), Tables 1-3.
+    Normalized heat flux q_o (Table 1): 150 kW/m2 inorganic fluids (water, NH3, CO2, SF6), 20 kW/m2
+    hydrocarbons / refrigerants / organics (30 kW/m2 R13B1, Table 2), 10 kW/m2 cryogenics (H2 to O2),
+    1 kW/m2 helium. Validity: vertical tubes, rho_L / rho_G 3.75-5000; Eq. (5) F_tp for x <= 0.6.
+    (2026-11-21 corrections vs the paper: q_o by fluid group (was 20 kW/m2 for all); convective-only
+    branch Eq. (5a) (alpha_LO multiplier, exponent 0.01, density ratio placement); F(M) <= 2.5 and
+    Table 3 values for H2, He, NH3; nf Eq. (10b) for cryogenics.)"""
     fluid = AS.fluid_names()[0]
     D_in, L = _tube_ID(geom), geom['Tube_L']
     G, P_sat, x, q_act = _tube_G(geom, cond), cond['p'], _clamp_x(cond['x']), cond['q']
@@ -947,15 +988,36 @@ def pipe_steiner_taborek_boiling_HTC(AS, geom, cond):
     q_ONB = (2 * sigma * T_sat * h_L) / (r_o * rho_v * h_lv)         # onset of nucleate boiling
 
     if q_act < q_ONB:                                                # convective boiling only
+        # Eq. (5a): alpha_cb / alpha_LO = F_tp, h_v = alpha_GO (total flow as gas)
         h_v = _gnielinski_core(mu_v, Pr_v, mu_v, k_v, G, D_in, L)
-        a = (1 - x)**1.5 + 1.9 * x**0.6 * (1 - x)**0.1 * (rho_l / rho_v)**0.35
-        b = (h_v / h_L) * x**0.01 * (1 + 8 * (1 - x)**0.7) * (rho_l / rho_v)**0.67
+        a = (1 - x)**1.5 + 1.9 * x**0.6 * (1 - x)**0.01 * (rho_l / rho_v)**0.35
+        b = (h_v / h_L) * x**0.01 * (1 + 8 * (1 - x)**0.7 * (rho_l / rho_v)**0.67)
         F_tp = 1 if (a == 0 or b == 0) else (a**(-2.2) + b**(-2))**(-0.5)
-        return F_tp * h_v
+        return F_tp * h_L                                            # Eq. (4)
 
     # Nucleate + convective (asymptotic, exponent 3)
     M = AS.molar_mass() * 1e3                                        # g/mol
-    q_o = 20000
+
+    # Fluid groups of Table 1 (normalized heat flux q_o) and Eq. (10b) (cryogenics)
+    inorganic = ('Water', 'H2O', 'Ammonia', 'NH3', 'CarbonDioxide', 'CO2', 'SulfurHexafluoride', 'SF6')
+    cryogenic = ('Hydrogen', 'H2', 'ParaHydrogen', 'Neon', 'Ne', 'Nitrogen', 'N2', 'Argon', 'Ar',
+                 'Oxygen', 'O2')
+    helium = ('Helium', 'He')
+    if fluid in helium:
+        q_o = 1000
+    elif fluid in cryogenic:
+        q_o = 10000
+    elif fluid in inorganic:
+        q_o = 150000
+    elif fluid in ('R13B1', 'CBrF3'):
+        q_o = 30000
+    else:
+        q_o = 20000
+
+    # Eq. (5) F_tp is given for x <= 0.6
+    if x > 0.6:
+        warnings.warn(f"Steiner-Taborek: x = {x:.2f} > 0.6, Eq. (5) F_tp used outside its stated "
+                      "range (Steiner & Taborek 1992).")
     if 'h_nb_o' in cond:
         h_nb_o = cond['h_nb_o']
     elif fluid == 'Cyclopentane':
@@ -966,8 +1028,20 @@ def pipe_steiner_taborek_boiling_HTC(AS, geom, cond):
 
     F_tp = ((1 - x)**1.5 + 1.9 * x**0.6 * (rho_l / rho_v)**0.35)**1.1
     F_pf = 2.816 * P_r**0.45 + (3.4 + (1.7 / (1 - P_r**7))) * P_r**3.7
-    nf = 0.8 - 0.1 * np.e**(1.75 * P_r)
-    F_M = 0.377 + 0.199 * np.log(M) + 0.000028427 * M**2
+    if fluid in cryogenic or fluid in helium:
+        nf = 0.7 - 0.13 * np.exp(1.105 * P_r)                        # Eq. (10b), cryogenics
+    else:
+        nf = 0.8 - 0.1 * np.e**(1.75 * P_r)                          # Eq. (10a)
+
+    # Residual factor F(M): Table 3 for H2, He, NH3; otherwise Eq. (14), limited to 2.5
+    if fluid in ('Hydrogen', 'H2', 'ParaHydrogen'):
+        F_M = 0.35
+    elif fluid in helium:
+        F_M = 0.86
+    elif fluid in ('Ammonia', 'NH3'):
+        F_M = 1.24
+    else:
+        F_M = min(0.377 + 0.199 * np.log(M) + 0.000028427 * M**2, 2.5)
     R_p, R_p_o = 1e-6, 1e-6
     F_nb = F_pf * (q_act / q_o)**nf * (R_p / R_p_o)**0.133 * (D_in / D_in_o)**(-0.4) * F_M
     return ((h_nb_o * F_nb)**3 + (h_L * F_tp)**3)**(1 / 3)
@@ -986,7 +1060,8 @@ def pipe_vdi_boiling_HTC(AS, geom, cond):
         q_0 = 1000
     elif fluid in ('H2', 'N2', 'Neon', 'Air', 'O2', 'Ar', 'Hydrogen', 'Nitrogen', 'Oxygen', 'Argon'):
         q_0 = 10000
-    elif fluid in ('H2O', 'NH3', 'CO2', 'SF6', 'Water', 'Ammonia'):
+    elif fluid in ('H2O', 'NH3', 'CO2', 'SF6', 'Water', 'Ammonia', 'CarbonDioxide',
+                   'SulfurHexafluoride'):     # CoolProp names added 2026-11-21
         q_0 = 150000
     else:
         q_0 = 20000
@@ -1021,7 +1096,11 @@ def pipe_vdi_boiling_HTC(AS, geom, cond):
 def pipe_gungor_winterton_boiling_HTC(AS, geom, cond):
     """Gungor & Winterton (1986): h = E h_l + S h_nb, h_nb = Cooper pool boiling.
     cond : G, p, x, q      geom : Tube_ID
-    Reference: Gungor & Winterton, A general correlation for flow boiling in tubes and annuli (1986)."""
+    Reference: Gungor, K.E., Winterton, R.H.S. (1986) A general correlation for flow boiling in tubes
+    and annuli, Int. J. Heat Mass Transfer 29(3), 351-358, Eqs. (2)-(12).
+    Definitions: Re_l = G (1 - x) d / mu_l (liquid fraction) in h_l AND in the suppression factor S
+    (Eq. 10); Fr = G^2 / (rho_l^2 g d); properties at saturation; returns h [W/m2/K].
+    (2026-11-21: S used a two-phase Re_tp = G d / mu_tp before; corrected to Re_l, Eq. 10.)"""
     D_in = _tube_ID(geom)
     G, P_sat, q = _tube_G(geom, cond), cond['p'], cond['q']
     x = _clamp_x(cond['x'])
@@ -1030,13 +1109,6 @@ def pipe_gungor_winterton_boiling_HTC(AS, geom, cond):
     rho_l, rho_v, mu_l, mu_v, k_l, Pr_l, h_lv = s['rho_l'], s['rho_v'], s['mu_l'], s['mu_v'], s['k_l'], s['Pr_l'], s['h_lv']
     P_crit, MM = AS.p_critical(), AS.molar_mass()
     P_r = P_sat / P_crit
-
-    # two-phase viscosity at (p, x): CoolProp when defined, McAdams otherwise
-    try:
-        AS.update(CP.PQ_INPUTS, P_sat, x)
-        mu_tp = AS.viscosity()
-    except Exception:
-        mu_tp = 1.0 / (x / mu_v + (1 - x) / mu_l)
 
     # liquid-fraction convective HTC: Dittus-Boelter with Re_l = G (1 - x) D / mu_l
     Re_l = G * (1 - x) * D_in / mu_l
@@ -1053,8 +1125,8 @@ def pipe_gungor_winterton_boiling_HTC(AS, geom, cond):
         E_2, S_2 = 1.0, 1.0
 
     E = E_2 * (1 + 24000 * Bo**1.16 + 1.37 * (1 / X_tt)**0.86)
-    Re_tp = G * D_in / mu_tp                                  # (alternative: Re_l with 2.53e-6)
-    S = S_2 / (1 + 0.00000115 * E**2 * Re_tp**1.17)
+    # Gungor & Winterton (1986) Eq. (10): S uses the liquid Reynolds number Re_l = G (1 - x) d / mu_l
+    S = S_2 / (1 + 1.15e-6 * E**2 * Re_l**1.17)
 
     h_nb = 55 * P_r**0.12 * (-0.4343 * np.log(P_r))**(-0.55) * (MM * 1e3)**(-0.5) * q**0.67   # Cooper
     return E * h_f + S * h_nb

@@ -17,6 +17,7 @@ Curved-channel friction (Darcy), curv = Dh / (2 R), Re = G Dh / mu, De = Re sqrt
 The two branches are continuous at Re_cr (checked for curv ~ 0.02-0.05). These relations are written from the
 literature, not from your previous spiral_ducts_DP.py: compare them with it before relying on the numbers.
 """
+import warnings
 import numpy as np
 
 from labothappy.correlations.pressure_drop.pipe_DP_correlation_bank import friction_factor_churchill
@@ -65,12 +66,15 @@ def _dp_fanning(f, G, rho, L, D):
 
 
 def curved_pipe_sigalotti_SP_DP(AS, geom, cond):
-    """Sigalotti, Alvarado-Rodriguez & Rendon (2023), after White / Ito (spiral_ducts_DP.curved_pipe_1P_DP).
-    Re < Re_cr = 12730 curv^0.2 : laminar (White, curv <= 0.066 and De > 11.6, else 16/Re);
-    Re_cr <= Re < 1.5e5         : 'transition' f = 16 * 0.1064 sqrt(De) / Re;
-    Re >= 1.5e5                 : turbulent f = 0.08 Re^-1/4 + 0.012 sqrt(curv).
-    Two differences with your file: (i) laminar with De <= 11.6 (the White formula is undefined there) uses 16/Re;
-    (ii) the turbulent f is NOT divided by Re again (f = FRe / Re in your file gives f ~ 1e-6: assumed a slip)."""
+    """Sigalotti, Alvarado-Rodriguez & Rendon (2023), Fluids 8(12) 308 (review), after White / Ito.
+    FANNING f; gamma = curv = D/(2R); De = Re sqrt(curv).
+    Re < Re_cr = 12730 curv^0.2 (Eq. 12, 0.001165 < curv < 0.0667): laminar, White (1929) Eq. (16)
+        (11.6 < De < 2000, curv <= 0.066), 16/Re for De <= 11.6 (straight-pipe limit);
+    Re >= Re_cr: turbulent, White (1932) Eq. (17) f = 0.08 Re^-1/4 + 0.012 sqrt(curv), valid
+        1.5e4 < Re < 1e5 (the paper prints "FRe =": typo, it is F; F Re would give f ~ 1e-6).
+    Warnings outside these ranges.
+    (2026-11-21: Re_cr <= Re < 1.5e5 used Adler's LAMINAR law 16 * 0.1064 sqrt(De) / Re (f 20-70 % low,
+    x3 jump at 1.5e5) and White Eq. 17 only above 1.5e5: corrected, Eq. 17 used above Re_cr.)"""
     _need_cond(cond, 'G', 'mu')
     D, L, R = _D(geom), _L(geom), _R_curv(geom)
     rho = cond['rho'] if 'rho' in cond else cond['D']
@@ -78,14 +82,21 @@ def curved_pipe_sigalotti_SP_DP(AS, geom, cond):
     Re = G * D / cond['mu']
     curv = D / (2.0 * R)
     De = Re * np.sqrt(curv)
+    if not 0.001165 < curv < 0.0667:
+        warnings.warn(f"Sigalotti DP: curv = {curv:.4g} outside 0.001165-0.0667 (Re_cr, Eq. 12).")
     if Re < 12730.0 * curv ** 0.2:
+        # Laminar: White (1929), Sigalotti Eq. (16)
+        if curv > 0.066 or De > 2000:
+            warnings.warn(f"Sigalotti DP laminar: De = {De:.0f}, curv = {curv:.4g} outside "
+                          "De < 2000, curv <= 0.066 (White, Eq. 16).")
         if curv <= 0.066 and De > 11.6:
             f = 16.0 / (1.0 - (1.0 - (11.6 / De) ** 0.45) ** (1.0 / 0.45)) / Re
         else:
             f = 16.0 / Re
-    elif Re < 1.5e5:
-        f = 16.0 * 0.1064 * np.sqrt(De) / Re
     else:
+        # Turbulent: White (1932), Sigalotti Eq. (17), FANNING, valid 1.5e4 < Re < 1e5
+        if Re < 1.5e4 or Re > 1.0e5:
+            warnings.warn(f"Sigalotti DP turbulent: Re = {Re:.3g} outside 1.5e4-1e5 (White, Eq. 17).")
         f = 0.08 * Re ** -0.25 + 0.012 * np.sqrt(curv)
     return _dp_fanning(f, G, rho, L, D) + G_GRAVITY * rho * L * np.sin(np.radians(geom.get('theta', 0.0)))
 
@@ -96,14 +107,32 @@ def _ito_turb_lo(G, D, mu, rho, L, curv):
     return (0.304 * Re ** -0.25 + 0.029 * np.sqrt(curv)) * (L / D) * G ** 2 / (2.0 * rho)
 
 
-def curved_pipe_cioncolini_boiling_DP(AS, geom, cond, C=20.0):
-    """Cioncolini, Santini & Ricotti (2008), after Fsadni & Whitty (2016): phi_l^2 = (1 + C/Xtt + 1/Xtt^2)
-    (1 + 0.0044 (q/G)^0.7), liquid alone with Ito. cond: G, p, x, q [W/m2] (heating; default 0 = no heating term;
-    q < 0 -> 0). Water, d = 4-5 mm, D = 130-376 mm, 290 < G < 690, x < 0.9."""
+def curved_pipe_cioncolini_boiling_DP(AS, geom, cond, C=None):
+    """Cioncolini, Santini & Ricotti (2008), Exp. Therm. Fluid Sci. 32, 1301-1312, Eq. (20) (also in
+    Fsadni & Whitty 2016): Lockhart-Martinelli phi_l^2 = (1 + C/Xtt + 1/Xtt^2) with the Tarasova heating
+    correction (1 + 0.0044 (q/G)^0.7) (dimensional: q in W/m2, G in kg/m2/s), liquid alone with Ito.
+    This is an existing straight-pipe correlation that the authors found to fit their coil data (not
+    their own fit); Tarasova was developed for 4.9-19.6 MPa, G 501-2577, q 101-1671 kW/m2.
+    C = 20 if Re_lo > 2000 and Re_go > 2000, C = 10 if Re_lo > 2000 and Re_go < 2000 (paper);
+    Re_lo = G d / mu_l, Re_go = G d / mu_v (total flow as liquid / as gas). C may be forced by argument.
+    cond: G, p, x, q [W/m2] (heating; default 0 = no heating term; q < 0 -> 0).
+    Paper range: water, d 4.03 / 4.98 mm, D/d 26.1-93.3, p 120-660 kPa, G 290-690, q 50-440 kW/m2.
+    (2026-11-21: C = 10 case added.)"""
     _need_cond(cond, 'G', 'p', 'x')
     D, L, R = _D(geom), _L(geom), _R_curv(geom)
     G, x = cond['G'], _clamp_x(cond['x'], 1e-6)
     s = _sat_props(AS, cond['p'], cond)
+    if C is None:
+        # Chisholm constant of the paper (flow regime of liquid-only and gas-only flows)
+        Re_lo = G * D / s['mu_l']
+        Re_go = G * D / s['mu_v']
+        if Re_lo <= 2000:
+            warnings.warn(f"Cioncolini 2008: Re_lo = {Re_lo:.0f} <= 2000, C not given by the paper "
+                          "(C = 20 used).")
+        if Re_go < 2000:
+            C = 10.0
+        else:
+            C = 20.0
     inv_Xtt = (x / (1 - x)) ** 0.9 * (s['rho_l'] / s['rho_v']) ** 0.5 * (s['mu_v'] / s['mu_l']) ** 0.1
     q = max(cond.get('q', 0.0), 0.0)
     phi_l2 = (1 + C * inv_Xtt + inv_Xtt ** 2) * (1 + 0.0044 * (q / G) ** 0.7)

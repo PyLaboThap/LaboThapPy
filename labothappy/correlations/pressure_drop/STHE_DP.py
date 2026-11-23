@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-Shell-side pressure drop dispatcher of shell & tube heat exchangers (single phase only for now),
+Shell-side pressure drop dispatcher of shell & tube heat exchangers (SP; EVAP and COND: Ishihara),
 same style as STHE_HTC_dispatcher. The automatic choice mirrors select_shell_HTC, so that the HTC and
 the pressure drop of the shell side come from the same family of correlations.
 """
 
 from labothappy.correlations.pressure_drop.STHE_DP_correlation_bank import (
     STHE_kern_shell_DP, STHE_donohue_shell_DP, STHE_bell_delaware_shell_DP)
+from labothappy.correlations.pressure_drop.STHE_DP_correlation_bank import STHE_ishihara_two_phase_DP
 from labothappy.correlations.convection.STHE_HTC import select_shell_HTC, _missing
 
 _STHE_SP_DP = {
@@ -32,7 +33,21 @@ def STHE_SP_DP(AS, geom, cond, choice=None):
     return _STHE_SP_DP[choice](AS, geom, cond)
 
 
-_STATE_DISPATCH = {'SP': STHE_SP_DP}
+_STHE_2P_DP = {
+    'Ishihara': STHE_ishihara_two_phase_DP,    # Ishihara et al. (1980), frictional, Kern single phase
+}
+
+
+def STHE_two_phase_DP(AS, geom, cond, choice=None):
+    """Two-phase shell-side frictional pressure drop [Pa] (EVAP and COND). Automatic: Ishihara."""
+    if choice in (None, 'auto'):
+        choice = 'Ishihara'
+    elif choice not in _STHE_2P_DP:
+        raise ValueError(f"Unknown correlation {choice!r}: {sorted(_STHE_2P_DP)} or None/'auto'.")
+    return _STHE_2P_DP[choice](AS, geom, cond)
+
+
+_STATE_DISPATCH = {'SP': STHE_SP_DP, 'EVAP': STHE_two_phase_DP, 'COND': STHE_two_phase_DP}
 
 
 def STHE_DP(AS, geom, cond, flow_state, choices=None):

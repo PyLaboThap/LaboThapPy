@@ -25,7 +25,7 @@ def pressure_drop(AS, geom, cond, correlation):
     {'SP': name, 'EVAP': name, 'COND': name}.
 
     BPHE : plate correlations (BPHE_DP).
-    STHE : cond['side'] (or geom['side']) = 'shell' (single phase only: STHE_DP) or 'tube' (pipe_DP).
+    STHE : cond['side'] (or geom['side']) = 'shell' (SP, EVAP, COND: STHE_DP) or 'tube' (pipe_DP).
     TFHE : cond['side'] (or geom['side']) = 'fin' (gas side: Pismennyi bank pressure drop,
            TFHE_DP) or 'tube' (pipe_DP).
     PCHE : PCHE_DP (SP zigzag: 'Lee_Jiang', auto for geom['type_channel'] = 'Zigzag'; otherwise pipe_DP

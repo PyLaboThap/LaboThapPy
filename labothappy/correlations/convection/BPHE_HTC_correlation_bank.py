@@ -491,7 +491,7 @@ def BPHE_han_lee_kim_boiling_HTC(AS, geom, cond):
 
     # 7) Equivalent Reynolds number
     Re_eq = G_eq * Dh / mu_l                               # [-]
-
+    
     # 8) Equivalent Boiling number with guard (q=0 would give h=0)
     Bo_eq = q / (G_eq * h_lv)                              # [-]
     Bo_eq = max(Bo_eq, 1e-6)
@@ -524,7 +524,7 @@ def BPHE_yan_lin_boiling_HTC(AS, geom, cond):
     """
     Yan & Lin (1999) flow boiling heat transfer coefficient for plate heat exchangers.
     Journal of Heat Transfer 121(1), 118-127. DOI: 10.1115/1.2825924
-
+    
     Implementation follows the independent implementation in the ht library
     (C. Bell), ht.boiling_plate.h_boiling_Yan_Lin, which cites the reference above.
 
@@ -861,22 +861,34 @@ def BPHE_huang_sheer_boiling_HTC(AS, geom, cond):
 
 def BPHE_shah_condensing_HTC(AS, geom, cond):
     """
-    Shah (2021) condensation in plate heat exchangers (to be checked against the paper),
-    forced-convection branch from Longo et al. (2015).
+    Shah (2021) condensation in plate heat exchangers, forced-convection branch from
+    Longo et al. (2015). Checked against the paper 2026-11-21.
+
+    Reference: Shah, M.M. (2021) Heat transfer during condensation in corrugated plate heat
+    exchangers, Int. J. Refrigeration 127, 180-193, Eqs. (18), (19), (21), (36), section 3:
+    h = larger of h_grav (36) and h_fc (21) if Re_eq < 1600, h = h_fc if Re_eq >= 1600.
 
     cond : G (mass flux in ONE channel) [kg/m2/s], x (mean quality of the cell) [-],
            p (saturation pressure) [Pa]
-    geom : Dh (hydraulic diameter) [m],
+    geom : Dh (hydraulic diameter D_hyd = 2b, as given by the BPHE geometry) [m],
            phi (surface enlargement factor, NOT the chevron angle) [-], default 1.17
-    Returns h [W/m2/K].
+    Returns h [W/m2/K] on the ACTUAL (enlarged) heat transfer area.
+
+    Definitions: Re_eq = G_eq D_hyd / mu_f, G_eq = G [(1 - x) + x (rho_f/rho_g)^0.5],
+    Re_LS = G (1 - x) D_hyd / mu_f, D_hyd = 2b (paper: "the diameter used is D_hyd"). The paper's
+    h is based on the PROJECTED area (factor phi in Eqs. 21, 36); the labothappy BPHE area is the
+    actual area (phi = A_h / A_projected), so h_paper / phi is returned (= Eqs. 21, 36 without phi).
+    Validity: chevron 30-75 deg (MAD 19.5 % for 40-65 deg), 18 fluids, p_r 0.0083-0.8,
+    G 2.3-165 kg/m2/s, q 2.5-93.5 kW/m2, x 0-1.
+    (2026-11-21: Dh / phi was used as diameter and the phi factor was kept with the actual area:
+    h_fc +28 %, h_grav +23 % at phi = 1.17. Corrected.)
     """
-    G = cond['G']    
+    G = cond['G']
     x = cond['x']
     p_sat = cond['p']
-    
-    phi = geom.get('phi', 1.17)
 
-    Dh = geom['Dh']/phi
+    # D_hyd = 2b (Shah 2021: all correlations use D_hyd)
+    Dh = geom['Dh']
     
     if not 2.3 <= G <= 165:
         warnings.warn("Shah condensation: mass flux outside the validated range "
@@ -896,10 +908,12 @@ def BPHE_shah_condensing_HTC(AS, geom, cond):
     G_eq = G * ((1 - x) + x * (rho_l / rho_v) ** 0.5)
     Re_eq = G_eq * Dh / mu_l
 
-    h_fc = 1.875 * (k_l / Dh) * phi * Re_eq**0.445 * Pr_l**(1/3)
+    # Eq. (21) divided by phi: actual-area basis
+    h_fc = 1.875 * (k_l / Dh) * Re_eq**0.445 * Pr_l**(1/3)
     if Re_eq >= 1600:
         return h_fc
-    h_grav = (1.32 * phi * Re_l**(-1/3)
+    # Eq. (36) divided by phi: actual-area basis
+    h_grav = (1.32 * Re_l**(-1/3)
               * (rho_l * (rho_l - rho_v) * g * k_l**3 / mu_l**2) ** (1/3))
     return max(h_grav, h_fc)
 

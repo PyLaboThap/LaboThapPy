@@ -11,10 +11,13 @@ geom : see each function; cross_passes (number of baffles; default round(Tube_L 
        n_parallel (optional) divides the flow rate.
 """
 
+import warnings
+
 import numpy as np
 
 from labothappy.correlations.convection.STHE_HTC_correlation_bank import (
     s_max_kern, s_max, s_L, d_h, bell_delaware_coefs)
+from labothappy.correlations.convection.pipe_HTC_correlation_bank import _sat_props
 
 #%% HELPERS
 
@@ -183,3 +186,140 @@ def STHE_bell_delaware_shell_DP(AS, geom, cond):
     DP_PC = (N_b - 1) * DP_ideal * R_l * R_b                 # central baffle spaces
     DP_PE = DP_ideal * (1 + N_tcw / N_tcc) * R_b * R_s       # entrance & exit baffle spaces
     return DP_PE + DP_PC + DP_w
+
+#%% TWO-PHASE : ISHIHARA
+
+def STHE_ishihara_two_phase_DP(AS, geom, cond):
+    """
+    Frictional two-phase pressure drop [Pa] of the shell side (whole shell) for
+    two-phase cross flow over a horizontal tube bundle using the Ishihara
+    correlation.
+
+    Parameters
+    ----------
+    AS : CoolProp AbstractState
+        Fluid property provider (moved to saturation by _sat_props).
+    geom : dict
+        Geometry dictionary containing:
+        - 'Tube_OD' : Outer diameter of the tubes [m]
+        - 'pitch_ratio' : Ratio of tube pitch to tube OD [-]
+        - 'Shell_ID' : Inner diameter of the shell [m]
+        - 'central_spacing' : Baffle spacing [m]
+        - 'tube_layout' : Tube layout angle (0 or 45 = square, others = triangular) [deg]
+        - 'n_parallel' : Optional, number of parallel streams (default 1) [-]
+        - Additional keys required by STHE_kern_shell_DP (e.g., 'cross_passes' or 'Tube_L').
+    cond : dict
+        Condition dictionary containing:
+        - 'm_dot' : Total mass flow rate of the whole side [kg/s]
+        - 'p' : Pressure [Pa]
+        - 'x' : Vapour quality [-]
+
+    Returns
+    -------
+    float
+        Frictional two-phase pressure drop [Pa] (positive, no momentum or gravity terms).
+
+    References
+    ----------
+    Ishihara, K., Palen, J.W., Taborek, J. (1980), Critical review of correlations
+    for predicting two-phase flow pressure drop across tube banks, Heat Transfer
+    Engineering 1(3), 23-33; as given by Consolini, Robinson, Thome (2006),
+    Heat Transfer Engineering 27(3), doi 10.1080/01457630500453832,
+    Eqs. 14a, 14b, 16a, 16b (C = 8).
+
+    Validity Range
+    --------------
+    - Mass flux G >= 42 kg/(m^2 s) (emits a warning if lower, as the method
+      underpredicts at low mass flux).
+    - Vapour quality x between 0 and 1 (clipped with a warning if out of bounds).
+    - TODO: Validity beyond the specified mass flux threshold is unknown.
+    """
+    # Step 1: Quality check and clipping
+    x = cond['x']
+    if x < 0.0 or x > 1.0:
+        warnings.warn(
+            f"Vapour quality x = {x} is out of the [0, 1] range. "
+            "It has been clipped."
+        )
+        x = np.clip(x, 0.0, 1.0)
+
+    # Shell-side mass flux calculation
+    n_parallel = geom.get('n_parallel', 1)
+    m_dot_shell = cond['m_dot'] / n_parallel
+    S = s_max_kern(
+        geom['Tube_OD'],
+        geom['pitch_ratio'],
+        geom['Shell_ID'],
+        geom['central_spacing'],
+        geom['tube_layout']
+    )
+    G = m_dot_shell / S
+
+    # Warning if mass flux is below the recommended threshold
+    if G < 42.0:
+        warnings.warn(
+            f"Mass flux G = {G:.2f} kg/(m^2 s) is below 42 kg/(m^2 s). "
+            "The Ishihara method may underpredict pressure drop at low mass flux."
+        )
+
+    # Step 2: Saturated properties at pressure p
+    sat_props = _sat_props(AS, cond['p'], cond)
+    rho_l = sat_props['rho_l']
+    rho_v = sat_props['rho_v']
+    mu_l = sat_props['mu_l']
+    mu_v = sat_props['mu_v']
+
+    # Step 4: Special cases for single-phase extremes
+    if x <= 0.0:
+        cond_l = dict(cond)
+        cond_l['m_dot'] = cond['m_dot']
+        cond_l['mu'] = mu_l
+        cond_l['rho'] = rho_l
+        cond_l['mu_w'] = mu_l
+        return STHE_kern_shell_DP(AS, geom, cond_l)
+
+    if x >= 1.0:
+        cond_g = dict(cond)
+        cond_g['m_dot'] = cond['m_dot']
+        cond_g['mu'] = mu_v
+        cond_g['rho'] = rho_v
+        cond_g['mu_w'] = mu_v
+        return STHE_kern_shell_DP(AS, geom, cond_g)
+
+    # Step 3: Single-phase pressure drops using the Kern function
+    # Liquid-only single-phase pressure drop (Consolini Eqs. 15a/15b)
+    cond_l = dict(cond)
+    cond_l['m_dot'] = cond['m_dot'] * (1.0 - x)
+    cond_l['mu'] = mu_l
+    cond_l['rho'] = rho_l
+    cond_l['mu_w'] = mu_l
+    DP_l = STHE_kern_shell_DP(AS, geom, cond_l)
+
+    # Vapour-only single-phase pressure drop
+    cond_g = dict(cond)
+    cond_g['m_dot'] = cond['m_dot'] * x
+    cond_g['mu'] = mu_v
+    cond_g['rho'] = rho_v
+    cond_g['mu_w'] = mu_v
+    DP_g = STHE_kern_shell_DP(AS, geom, cond_g)
+
+    # Step 5: Martinelli parameter for turbulent-turbulent flow (Consolini et al.)
+    term_x = (1.0 - x) / x
+    term_rho = rho_v / rho_l
+    term_mu = mu_l / mu_v
+    X_tt = (term_x**0.9) * (term_rho**0.5) * (term_mu**0.1)
+
+    # Step 6: Liquid Reynolds number on tube outer diameter
+    Re_l = G * geom['Tube_OD'] * (1.0 - x) / mu_l
+
+    # Step 7: Two-phase multiplier and total frictional pressure drop
+    if Re_l > 2000.0:
+        # Re_l > 2000: liquid multiplier (Consolini Eqs. 16a and 14a)
+        Phi_l2 = 1.0 + (8.0 / X_tt) + (1.0 / (X_tt**2))
+        DP = Phi_l2 * DP_l
+    else:
+        # Re_l <= 2000: vapour multiplier (Consolini Eqs. 16b and 14b)
+        Phi_g2 = 1.0 + (8.0 * X_tt) + (X_tt**2)
+        DP = Phi_g2 * DP_g
+
+    return float(DP)
