@@ -12,8 +12,9 @@ Three classes, one per level of the dynamic architecture:
                      solve() computes the step without changing the state, advance() accepts it.
     TES_lattice    : the memory of a TES_step. Stores the history of all the steps (heat maps, Q(t)...),
                      saves / loads it and makes all the plots in one command (plot_all).
-    TES_simulation : standalone simulation of the TES alone (constant HTF inlet, optional bypass),
-                     i.e. the old solve(Dt_ch_dis, ...), and the sizing of the TES.
+    TES_simulation : standalone simulation of the TES alone: constant HTF inlet with optional bypass (simulate,
+                     i.e. the old solve(Dt_ch_dis, ...)) or HTF supply m_dot(t), T(t) imposed, e.g. measured
+                     (simulate_measured), and the sizing of the TES.
                      It is NOT the generic integrator of a whole dynamic cycle.
 
 Use (see component/examples/storage/TES_lattice_CEA_example.py):
@@ -40,6 +41,7 @@ import numpy as np
 import math
 import matplotlib.pyplot as plt
 import matplotlib.colors as mc
+from matplotlib.lines import Line2D
 from pathlib import Path
 from datetime import datetime
 from time import perf_counter
@@ -119,6 +121,24 @@ def label_stack(ax, items, x=0.97, y_top=0.95, ha="right"):
     for k, (text, color) in enumerate(items):
         ax.text(x, y_top - k * dy_stack, text, transform=ax.transAxes, color=color,
                 fontsize=fontsize_annot, ha=ha, va="top")
+
+
+def model_exp_key(ax, x, y_top, ha="right"):
+    """
+    Key of the two styles used on the figures, drawn instead of written: a line = model, a cross = exp.
+    No frame: the key is in neutral dark colour (valid for every curve), the data are coloured.
+    (x, y_top): top corner of the frame in axes coordinates, top right corner if ha = "right", top left if "left".
+    On a figure with a y2 axis, give the top axis (twinx drawn last), otherwise the curves are drawn over the frame.
+    """
+    handles = [Line2D([], [], color=color_key, lw=line_width),
+               Line2D([], [], color=color_key, marker="x", ls="none", markersize=np.sqrt(marker_size_exp),
+                      markeredgewidth=1.5)]
+    leg = ax.legend(handles, ["model", "exp."], loc="upper right" if ha == "right" else "upper left",
+                    bbox_to_anchor=(x, y_top), bbox_transform=ax.transAxes, borderaxespad=0,
+                    fontsize=fontsize_annot, labelcolor=color_key, handlelength=1.8, handletextpad=0.6,
+                    frameon=False)
+    leg.set_zorder(10)
+    return leg
 
 
 def shades(color, n):
@@ -717,7 +737,10 @@ class TES_lattice:
     def __init__(self, TES):
         self.TES = TES
         self.mode = None # 'charge' or 'discharge', for the titles (deduced from Q_tot if None)
+        self.title = None # title of the figures; if None: built from the HTF inlet of the 1st step (see fig_title)
         self.bypass_on = False
+        self.measured_inputs = False # True: HTF supply m_dot(t), T(t) imposed (e.g. measured), not constant
+        self.skip_exp = skip_exp # only one experimental point out of skip_exp is plotted
         self.solving_time = None # s
         self.reset()
 
@@ -818,7 +841,7 @@ class TES_lattice:
             T_PCM_eq=self.T_PCM_eq, h_PCM_eq=self.h_PCM_eq,
             Q_dot_local=self.Q_dot_local, Q_dot_tot=self.Q_dot_tot, Q_tot=self.Q_tot, Q_cum=self.Q_cum,
             tau=TES.dt, Nx=TES.Nx, n_box_parallel=TES.n_box_parallel, n_box_serie=TES.n_box_serie,
-            n_pass_box=TES.n_pass_box, m_dot_tot=self.m_dot_in_TES[0])
+            n_pass_box=TES.n_pass_box, m_dot_tot=self.m_dot_in_TES[0], measured_inputs=self.measured_inputs)
 
         with open(result_folder / f"simulation_parameters-{name_simu}.txt", "w") as f:
 
@@ -835,8 +858,13 @@ class TES_lattice:
             f.write(f"n_subsegment_cell = {TES.n_subsegment_cell}\n")
 
             f.write("\n")
-            f.write(f"T_su_HTF = {self.T_HTF[1,0]-273.15:.2f} °C\n")
-            f.write(f"m_dot_tot = {self.m_dot_in_TES[0]:.6f} kg/s\n")
+            if self.measured_inputs:
+                f.write("HTF supply = measured (imposed m_dot(t), T_su(t))\n")
+                f.write(f"T_su_HTF = {np.min(self.T_HTF[1:,0])-273.15:.2f} to {np.max(self.T_HTF[1:,0])-273.15:.2f} °C\n")
+                f.write(f"m_dot = {np.min(self.m_dot_in_TES):.6f} to {np.max(self.m_dot_in_TES):.6f} kg/s\n")
+            else:
+                f.write(f"T_su_HTF = {self.T_HTF[1,0]-273.15:.2f} °C\n")
+                f.write(f"m_dot_tot = {self.m_dot_in_TES[0]:.6f} kg/s\n")
             f.write(f"bypass_on = {self.bypass_on}\n")
 
             f.write("\n")
@@ -879,7 +907,9 @@ class TES_lattice:
         self.T_HTF_ex = self.T_HTF[:,-1]
 
         TES.set_parameters(dt=data["tau"].item())
-        self.bypass_on = not np.allclose(self.m_dot_in_TES, self.m_dot_in_TES[0])
+        self.measured_inputs = bool(data["measured_inputs"]) if "measured_inputs" in data else False
+        # variable m_dot without measured inputs = bypass
+        self.bypass_on = (not self.measured_inputs) and (not np.allclose(self.m_dot_in_TES, self.m_dot_in_TES[0]))
         return self
 
 
@@ -895,7 +925,12 @@ class TES_lattice:
 
 
     def fig_title(self, extra=None):
-        """'Charge – T_HTF,in = 135 °C – 700 kg/h' (simulation: no date)."""
+        """
+        self.title if given (e.g. with measured inputs, whose 1st step is not representative),
+        else 'Charge – T_HTF,in = 135 °C – 700 kg/h' (simulation: no date).
+        """
+        if self.title is not None:
+            return " – ".join([self.title, extra]) if extra else self.title
         parts = [self.get_mode().capitalize(),
                  rf"$T_{{HTF,in}}$ = {round(self.T_HTF[1,0]-273.15, 1):g} °C",
                  f"{self.m_dot_in_TES[0]*3600:.0f} kg/h"]
@@ -905,10 +940,10 @@ class TES_lattice:
 
 
     def exp_col(self, exp, key):
-        """One column of the experimental data (dict or DataFrame), one point out of skip_exp. None if absent."""
+        """One column of the experimental data (dict or DataFrame), one point out of self.skip_exp. None if absent."""
         if exp is None or key not in exp:
             return None
-        return np.asarray(exp[key], dtype=float)[::skip_exp]
+        return np.asarray(exp[key], dtype=float)[::self.skip_exp]
 
 
     def index_PCM(self):
@@ -942,7 +977,8 @@ class TES_lattice:
             Q_dot_key = "Q_dot_smooth_kW" if "Q_dot_smooth_kW" in exp else "Q_dot_kW"
             ax1.scatter(t_exp, self.exp_col(exp, Q_dot_key), color=colors["Q_dot"], s=marker_size_exp, marker="x")
             ax2.scatter(t_exp, self.exp_col(exp, "Q_TES_kWh"), color=colors["Q_TES"], s=marker_size_exp, marker="x")
-            label_stack(ax1, [("lines: model", color_key), ("crosses: exp.", color_key)], y_top=0.55)
+            # on ax2 (drawn over ax1), same place as the old text key
+            model_exp_key(ax2, 0.97, 0.55)
 
         ax1.set_xlabel("Time [h]", fontsize=fontsize_label)
         ax1.set_ylabel(r"$\dot{Q}_{TES}$ [kW]", fontsize=fontsize_label)
@@ -991,8 +1027,6 @@ class TES_lattice:
 
         items.sort(key=lambda item: item[2], reverse=True)
         stack = [(label, color) for label, color, _ in items]
-        if t_exp is not None:
-            stack += [("", color_key), ("lines: model", color_key), ("crosses: exp.", color_key)]
 
         x_stack = 1.03
         if self.bypass_on:
@@ -1003,6 +1037,9 @@ class TES_lattice:
             x_stack = 1.24
 
         label_stack(ax, stack, x=x_stack, y_top=1.0, ha="left")
+        if t_exp is not None:
+            # below the stacked labels, one empty line in between
+            model_exp_key(ax, x_stack, 1.0 - (len(stack) + 1)*dy_stack, ha="left")
 
         ax.set_xlabel("Time [h]", fontsize=fontsize_label)
         ax.set_ylabel(r"$T$ [°C]", fontsize=fontsize_label)
@@ -1115,12 +1152,13 @@ class TES_lattice:
             ax2.set_ylabel(r"$T_{PCM}$ [°C]", fontsize=fontsize_label)
             # key of the shades, stacked on the right (the curves end at the same point: no label at the end)
             stack = [(r"$T_{PCM}$ at length:", cols[-1])] + [(label, c) for label, c in zip(("0 %", "50 %", "100 %"), cols)]
-            if has_exp:
-                stack += [("", color_key), ("lines: model", color_key), ("crosses: exp.", color_key)]
             label_stack(ax, stack, x=1.24, y_top=1.0, ha="left")
+            if has_exp:
+                # below the stacked labels, one empty line in between
+                model_exp_key(ax2, 1.24, 1.0 - (len(stack) + 1)*dy_stack, ha="left")
 
         elif has_exp:
-            label_stack(ax, [("lines: model", color_key), ("crosses: exp.", color_key)])
+            model_exp_key(ax, 0.97, 0.95)
 
         ax.set_title(self.fig_title(), fontsize=fontsize_title, pad=14)
         fig.tight_layout()
@@ -1156,8 +1194,10 @@ class TES_lattice:
 # =============================================================================
 class TES_simulation:
     """
-    Standalone simulation of the TES alone (no cycle): constant HTF inlet during Dt_ch_dis, with an optional
-    bypass that keeps the HTF after the mixing at T_target. Replaces the old solve(Dt_ch_dis, ...).
+    Standalone simulation of the TES alone (no cycle):
+        simulate          : constant HTF inlet during Dt_ch_dis, with an optional bypass that keeps the HTF after
+                            the mixing at T_target. Replaces the old solve(Dt_ch_dis, ...).
+        simulate_measured : HTF supply m_dot(t), T(t) imposed (e.g. measured in a test), no bypass.
     Also contains the sizing of the TES (number of boxes in series / in parallel).
 
     The TES_step is in self.TES, its memory (TES_lattice) in self.history.
@@ -1210,6 +1250,7 @@ class TES_simulation:
 
         self.history.mode = self.mode
         self.history.bypass_on = bypass_on
+        self.history.measured_inputs = False
         self.history.record_initial_state()
 
         # outlet of the TES at t_0: not computed yet, taken equal to the inlet (as in the old solve)
@@ -1244,6 +1285,74 @@ class TES_simulation:
                 T_HTF_mix_out = None
 
             self.history.record_step(T_HTF_mix_out)
+
+            if self.print_flag:
+                print(f"Q_dot_tot_local[{n}]={TES.Q_dot_tot/1000:.3f} kW")
+
+        self.history.to_arrays()
+        self.history.solving_time = perf_counter() - t0_perf
+
+        return self.history
+
+
+    def simulate_measured(self, time, m_dot, T_HTF_su, tau, p_HTF, T_PCM_eq_init, fluid, Dt_ch_dis=None):
+        """
+        Simulation of the TES alone with imposed HTF supply conditions that vary in time (e.g. measured in a test).
+        No bypass: all the flow goes through the TES.
+
+        time: time of the data [s], from the start of the simulation (t = 0), increasing
+        m_dot: HTF flow rate entering the whole TES at each time [kg/s]
+        T_HTF_su: HTF supply temperature at each time [K]
+        tau: time step [s]
+        p_HTF: HTF pressure [Pa], one value or one value per time
+        T_PCM_eq_init: initial temperature of the PCM + lattice [K], uniform (one value) or one value per mesh
+        Dt_ch_dis: duration of the simulation [s] (default: up to the last time of the data)
+
+        The supply conditions at t_n are linearly interpolated in the data, and used for the step t_n -> t_n+1
+        (explicit Euler, as in simulate). The mode (charge / discharge) of the titles is deduced from Q_tot.
+        Returns the history (TES_lattice).
+        """
+        t0_perf = perf_counter()
+        TES = self.TES
+
+        time = np.asarray(time, dtype=float)
+        m_dot = np.asarray(m_dot, dtype=float)
+        T_HTF_su = np.asarray(T_HTF_su, dtype=float)
+        p_HTF = np.broadcast_to(np.asarray(p_HTF, dtype=float), time.shape)
+
+        if Dt_ch_dis is None:
+            Dt_ch_dis = time[-1]
+        Nt = math.floor(Dt_ch_dis / tau) + 1
+
+        AS = CP.AbstractState("BICUBIC&HEOS", fluid)
+
+        def supply_at(t):
+            """HTF supply at time t: h [J/kg], p [Pa], m_dot [kg/s]"""
+            p_su = np.interp(t, time, p_HTF)
+            AS.update(CP.PT_INPUTS, p_su, np.interp(t, time, T_HTF_su))
+            return AS.hmass(), p_su, np.interp(t, time, m_dot)
+
+        TES.set_parameters(dt=tau)
+        TES.set_initial_state(T_PCM_eq_init)
+
+        h_su, p_su, m_dot_su = supply_at(0)
+        TES.set_inputs(fluid=fluid, h_su=h_su, P_su=p_su, m_dot=m_dot_su)
+
+        self.mode = None
+        self.sign_mode = None
+        self.history.mode = None
+        self.history.bypass_on = False
+        self.history.measured_inputs = True
+        self.history.record_initial_state()
+
+        for n in range(Nt-1):
+
+            h_su, p_su, m_dot_su = supply_at(n*tau)
+            TES.set_inputs(fluid=fluid, h_su=h_su, P_su=p_su, m_dot=m_dot_su)
+            TES.solve()
+            TES.advance()
+
+            self.history.record_step()
 
             if self.print_flag:
                 print(f"Q_dot_tot_local[{n}]={TES.Q_dot_tot/1000:.3f} kW")
