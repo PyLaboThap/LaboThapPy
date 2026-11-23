@@ -1179,7 +1179,7 @@ class TES_simulation:
         self.history = TES_lattice(self.TES)
         self.mode = None
         self.sign_mode = None
-        self.print_flag = 1
+        self.print_flag = False
 
 
     def set_parameters(self, **kwargs):
