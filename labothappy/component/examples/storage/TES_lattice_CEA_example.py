@@ -4,15 +4,15 @@ Created on Mon Nov 16 2026
 
 @author: titouanjanod
 
-Example of the PCM-TES lattice model (TES_lattice_CEA.py): standalone simulation (or sizing) of the TES alone,
-then all the figures and the saving of the results.
-Same cases as the __main__ of titouanjanod_perso/WP3/dynamic_modelling/lattice_TES_duCEA.py:
-uncomment the case to simulate.
+Example of the PCM-TES lattice model (TES_lattice_CEA.py): simulation of the TES alone, with a constant HTF inlet,
+or sizing of the number of modules. Then all the figures, with the measurements if available, and the saving of
+the results.
+
+Choose the campaign and the settings in "User choices", the data of each campaign are in "Campaigns".
 """
 
 import os
 import sys
-import numpy as np
 import matplotlib.pyplot as plt
 
 # Absolute path to the LaboThapPy folder (4 levels above this file), if labothappy is not installed
@@ -23,399 +23,234 @@ if LABOTHAPPY_PATH not in sys.path:
 from labothappy.component.storage.TES_lattice_CEA import TES_simulation, create_result_folder, use_svg_inline
 
 
-# Initilising variables if not needed because simulation and not sizing
-Q_TES_predesign = None
-T_target = None
-T_HTF_min = None
-T_HTF_max = None
+# =============================================================================
+# User choices
+# =============================================================================
+# "Yvernault_charge", "Yvernault_discharge", "CEA_SoC_erythritol", "Zorlu_UC" or "Torrecid_charge_sizing"
+campaign = "CEA_SoC_erythritol"
 
+do_sizing = False # True: sizing of the number of modules (only for the campaigns with sizing data), then simulation
+bypass_on = False # True: part of the HTF bypasses the TES, to keep the mixed outlet at T_target
 
-SIM = TES_simulation()
-
-
-""" TES Yvernault """
-# fluid = "water"
-# SIM.set_parameters(
-#         T_PCM = 74 + 273.15,
-#         cp_liq = 2.2e3,
-#         Dh_latent = 238e3,
-#         cp_sol = 2.4e3,
-#         rho_PCM_sol = 939,
-#         rho_PCM_liq = 858,
-#         lambda_eq = 8
-#         )
-# Q_TES_predesign = 120*3600*1000 # J
-# T_HTF_min = 20 + 273.15 # °C
-# T_HTF_max = 85 + 273.15 # °C
-# """ charging"""
-# T_su_HTF = 85 +273.15# °C
-# m_dot_tot = 525 / 3600 # kg/s
-# p_HTF_init = 3e5 # Pa
-# T_HTF_init = 85 +273.15 # °C
-# T_PCM_eq_init = 40 +273.15 # °C
-# T_target = 80 + 273.15 # °C
-
-# """ discharging """
-# T_su_HTF = 65 + 273.15# °C
-# m_dot_tot = 266 / 3600 # kg/s
-# p_HTF_init = 3e5 # Pa
-# T_HTF_init = 65 +273.15 # °C
-# T_PCM_eq_init = 84 +273.15 # °C
-# T_target = 65 + 273.15 # °C
-
-
-# n_box_parallel = 1
-# n_box_serie = 1
-# n_pass_box = 16
-# n_segment_box = 32 # number of segment per length of the box
-# Dt_ch_dis = 8*3600 # Time of charge or discharge, in seconds
-
-
-
-""" TES Torrecid """
-# fluid = "cyclopentane"
-# SIM.set_parameters(
-#         T_PCM = 168 + 273.15,
-#         Dh_latent = 270e3,
-#         cp_sol = 1.4e3,
-#         cp_liq = 2.7e3,
-#         rho_PCM_sol = 1520,
-#         rho_PCM_liq = 1520,
-#         lambda_eq = 16.5
-#         )
-
-# Q_TES_predesign = 10919.2*3600*1000 # J
-# T_HTF_min = 31.8 + 273.15 # °C
-# T_HTF_max = 190 + 273.15 # °C
-
-# T_su_HTF = 190 +273.15# °C
-# m_dot_tot = 14.34 # kg/s
-
-# p_HTF_init = 35.81e5 # Pa
-# T_HTF_init = 190 +273.15 # °C
-# T_PCM_eq_init = 31.8 +273.15 # °C
-
-# T_target = 172 + 273.15 # °C
-
-# # n_box_parallel = 8
-# # n_box_serie = 37
-# n_pass_box = 1
-# n_segment_box = 2
-
-
-
-""" T_PCM = 92°C """
-# fluid = "cyclopentane"
-# SIM.set_parameters(
-#         T_PCM = 97.2 + 273.15,
-#         cp_sol = 1.5e3,
-#         cp_liq = 2.8e3,
-#         Dh_latent = 185e3,
-#         rho_PCM_sol = 1414,
-#         rho_PCM_liq = 1414,
-#         lambda_eq = 8
-#         )
-
-# Q_TES_predesign = 10919.2*3600*1000 # J
-# T_HTF_min = 140 + 273.15 # °C
-# T_HTF_max = 190 + 273.15 # °C
-
-# T_su_HTF = 190 +273.15# °C
-# m_dot_tot = 14.34 # kg/s
-
-# p_HTF_init = 35.81e5 # Pa
-# T_HTF_init = 190 +273.15 # °C
-# T_PCM_eq_init = 160 +273.15 # °C
-
-# T_target = 172 + 273.15 # °C
-
-# n_box_parallel = 8
-# n_box_serie = 37
-# n_pass_box = 1
-# n_segment_box = 16
-
-
-
-""" T_PCM = 150°C """
-# fluid = "cyclopentane"
-# SIM.set_parameters(
-#         T_PCM = 150 + 273.15,
-#         cp_sol = 1.7e3,
-#         cp_liq = 2.5e3,
-#         Dh_latent = 173e3,
-#         rho_PCM_sol = 1620,
-#         rho_PCM_liq = 1620,
-#         lambda_eq = 8
-#         )
-
-# Q_TES_predesign = 10919.2*3600*1000 # J
-# T_HTF_min = 140 + 273.15 # °C
-# T_HTF_max = 190 + 273.15 # °C
-
-# T_su_HTF = 190 +273.15# °C
-# m_dot_tot = 14.34 # kg/s
-
-# p_HTF_init = 35.81e5 # Pa
-# T_HTF_init = 190 +273.15 # °C
-# T_PCM_eq_init = 160 +273.15 # °C
-
-# T_target = 172 + 273.15 # °C
-
-
-
-""" T_PCM = 186°C """
-# fluid = "cyclopentane"
-# SIM.set_parameters(
-#         T_PCM = 186 + 273.15,
-#         cp_sol = 1.7e3,
-#         cp_liq = 2.7e3,
-#         Dh_latent = 358e3,
-#         rho_PCM_sol = 1470,
-#         rho_PCM_liq = 1470,
-#         lambda_eq = 8
-#         )
-# """ charging - REC """
-# Q_TES_predesign = 8097*3600*1000 # J
-# T_HTF_min = 85.78 + 273.15 # °C
-# T_HTF_max = 226 + 273.15 # °C
-# T_su_HTF = 226 +273.15# °C
-# m_dot_tot = 5.112 # kg/s
-# p_HTF_init = 40.57e5 # Pa
-# T_HTF_init = T_su_HTF
-# T_PCM_eq_init = 172.5 +273.15 # °C
-# T_target = 196 + 273.15 # °C
-# """ charging - no REC """
-# Q_TES_predesign = 10069*3600*1000 # J
-# T_HTF_min = 22.12 + 273.15 # °C
-# T_HTF_max = 223 + 273.15 # °C
-# T_su_HTF = 223 +273.15# °C
-# m_dot_tot = 7.307 # kg/s
-# p_HTF_init = 40e5 # Pa
-# T_HTF_init = T_su_HTF
-# T_PCM_eq_init = 22.12 +273.15 # °C
-# T_target = 196 + 273.15 # °C
-# """ discharging - REC """
-# Q_TES_predesign = 8097*3600*1000 # J
-# T_su_HTF = 85.78 +273.15# °C
-# m_dot_tot = 4.11 # kg/s
-# p_HTF_init = 35.57e5 # Pa
-# T_HTF_init = T_su_HTF
-# T_PCM_eq_init = 196 +273.15 # °C
-# T_target = 172.5 + 273.15 # °C
-# T_HTF_min = T_su_HTF
-# T_HTF_max = T_PCM_eq_init
-# """ discharging - no REC """
-# Q_TES_predesign = 10069*3600*1000 # J
-# T_su_HTF = 22.12 +273.15# °C
-# m_dot_tot = 3.776 # kg/s
-# p_HTF_init = 36.57e5 # Pa
-# T_HTF_init = T_su_HTF
-# T_PCM_eq_init = 196 +273.15 # °C
-# T_target = 153.3 + 273.15 # °C
-# T_HTF_min = T_su_HTF
-# T_HTF_max = T_PCM_eq_init
-
-# n_pass_box = 1
-# n_segment_box = 2
-# n_box_parallel = 9
-# n_box_serie = 23
-
-
-
-""" T_PCM = 224°C """
-# fluid = "cyclopentane"
-# SIM.set_parameters(
-#         T_PCM = 135 + 273.15,
-#         cp_sol = 1.8e3,
-#         cp_liq = 2.8e3,
-#         Dh_latent = 260e3,
-#         rho_PCM_sol = 1750,
-#         rho_PCM_liq = 1750,
-#         lambda_eq = 8
-#         )
-# """Charging with rec """
-# Q_TES_predesign = 7971*3600*1000 # J
-# T_HTF_min = 85.78 + 273.15 # °C
-# T_HTF_max = 236 + 273.15 # °C
-# T_su_HTF = 236 +273.15# °C
-# m_dot_tot = 18.17 # kg/s
-# p_HTF_init = 50e5 # Pa
-# T_HTF_init = 236 +273.15 # °C
-# T_PCM_eq_init = 85.78 +273.15 # °C
-# T_target = 229 + 273.15 # °C
-# """Charging no rec """
-# Q_TES_predesign = 8801*3600*1000 # J
-# T_HTF_min = 85.78 + 273.15 # °C
-# T_HTF_max = 236 + 273.15 # °C
-# T_su_HTF = 236 +273.15# °C
-# m_dot_tot = 20.06 # kg/s
-# p_HTF_init = 50e5 # Pa
-# T_HTF_init = 236 +273.15 # °C
-# T_PCM_eq_init = 85.78 +273.15 # °C
-# T_target = 229 + 273.15 # °C
-# """ discharging - REC """
-# Q_TES_predesign = 7971*3600*1000 # J
-# T_su_HTF = 85.78 +273.15 # °C
-# m_dot_tot = 4.093 # kg/s
-# p_HTF_init = 42e5 # Pa
-# T_HTF_init = T_su_HTF
-# T_PCM_eq_init = 229 +273.15 # °C
-# T_target = 171.6 + 273.15 # °C
-# T_HTF_min = T_su_HTF
-# T_HTF_max = T_PCM_eq_init
-# """ discharging - no REC """
-# Q_TES_predesign = 8801*3600*1000 # J
-# T_su_HTF = 22.12 +273.15# °C
-# m_dot_tot = 3.644 # kg/s
-# p_HTF_init = 42e5 # Pa
-# T_HTF_init = T_su_HTF
-# T_PCM_eq_init = 229 +273.15 # °C
-# T_target = 142.7 + 273.15 # °C
-# T_HTF_min = T_su_HTF
-# T_HTF_max = T_PCM_eq_init
-
-# n_pass_box = 1
-# n_segment_box = 4
-# n_box_parallel = 10
-# n_box_serie = 19
-
-
-""" SEHRENE experimental campain """
-fluid = "water"
-SIM.set_parameters(
-        T_PCM = 118.9 + 273.15,
-        cp_sol = 1.637e3,
-        cp_liq = 2.846e3,
-        Dh_latent = 335.5e3,
-        rho_PCM_sol = 1448.4,
-        rho_PCM_liq = 1281.5,
-        lambda_eq = 8
-        )
-T_su_HTF = 135 +273.15 # °C
-m_dot_tot = 700 / 3600 # kg/s
-p_HTF_init = 6e5 # Pa
-T_HTF_init = T_su_HTF
-T_PCM_eq_init = 80 +273.15 # °C
-
-
-n_subsegment_cell = 5 # number of HTF sub-segments per cell
-n_pass_box = 4
-n_segment_box = 16
-n_box_parallel = 1
-n_box_serie = 1
-
-
-
-# """ Zorlu use case """
-# fluid = "cyclopentane"
-# SIM.set_parameters(
-#         T_PCM = 135 + 273.15,
-#         cp_sol = 1043,
-#         cp_liq = 763.3,
-#         Dh_latent = 221e3,
-#         rho_PCM_sol = 1200,
-#         rho_PCM_liq = 1200,
-#         lambda_eq = 12
-#         )
-# """ discharging - REC """
-# # Q_TES_predesign = 7971*3600*1000 # J
-# T_su_HTF = 96.1 +273.15 # °C
-# m_dot_tot = 62.74 # kg/s
-# p_HTF_init = 22.258e5 # Pa
-# T_HTF_init = T_su_HTF
-# T_PCM_eq_init = 170.4 +273.15 # °C
-# T_target = 124.8 + 273.15 # °C
-# T_HTF_min = T_su_HTF
-# T_HTF_max = T_PCM_eq_init
-
-# n_pass_box = 1
-# n_segment_box = 2
-# n_box_parallel = 31
-# n_box_serie = 200
-
-
-
-SIM.set_parameters(n_segment_box = n_segment_box, n_pass_box = n_pass_box,
-                   n_box_parallel = n_box_parallel, n_box_serie = n_box_serie,
-                   n_subsegment_cell = n_subsegment_cell)
-# SIM.set_parameters(htc_correlation = 'Hausen') # default: 'Gnielinski'
-
-
-name_simu = "Erythritol comparaison Bénédicte 4"
-test_solo = True # i.e. simu or design?
-bypass_on = False
-Dt_ch_dis = 9*3600 # Time of charge or discharge, in seconds
-tau = 20 # time constant / time step, [s]
+duration_simu_forced = None # [s], if not None: replaces the duration of the campaign
+dt = 20 # time step [s] (explicit Euler)
+n_segment_module = 32 # number of cells along one module
+n_subsegment_cell = 5 # number of HTF sub-segments per cell (the PCM stays at one temperature per cell)
 
 save_results = False
 result_root = r"C:\Users\titou\OneDrive - Universite de Liege\!SEHRENE\WP3\TES modelling\Results"
+run_name = "Erythritol comparaison Bénédicte 5" # name of the results folder, and suffix of the saved files
+show_plots = True
 
-# Experimental data of the CEA (B. Champel) on the figures: loaded with plots_tests_CEA.py of titouanjanod_perso
-plot_exp_CEA = False
-name_CEA_test = "2026-02-10 CH (80) 135 700kgh"
-CEA_SCRIPT_DIR = r"C:\Users\titou\Documents\GitHub\titouanjanod_perso\TES_related"
-
-
-if Q_TES_predesign is None:
-    Q_TES_predesign = 7971 * 3600 * 1000  # J
-    T_target = 171.6 + 273.15             # °C
-    T_HTF_min = 25 + 273.15 # °C
-    T_HTF_max = 100 + 273.15 # °C
+SIM = TES_simulation()
+# optional, default: 'Gnielinski'
+SIM.set_parameters(htc_correlation = 'Hausen')
 
 
+# =============================================================================
+# Experimental data on the figures (optional)
+# =============================================================================
+# plot_all(exp=exp_data) adds the measurements (crosses) on the figures of the model.
+# exp_data is a pandas DataFrame or a dict of arrays, with these columns:
+#   t_h          time from the start of the test [h]
+#   Q_dot_kW     heat rate exchanged between the HTF and the TES, > 0 in charge and in discharge [kW]
+#                (Q_dot_smooth_kW is used instead if present)
+#   Q_TES_kWh    energy exchanged since the start, > 0 in charge and in discharge [kWh]
+#   T_HTF_ex_C   HTF outlet temperature [°C]
+#   T_PCM_min_C, T_PCM_avg_C, T_PCM_max_C   (optional) min / mean / max of the PCM thermocouples [°C]
+# With your own data, e.g. a csv file whose columns are renamed as above:
+#   import pandas as pd
+#   exp_data = pd.read_csv("my_test.csv")
+exp_data = None
+plot_exp = True # plot the measurements of the campaign, if it has some
+
+
+# =============================================================================
+# Campaigns
+# =============================================================================
+if campaign in ("Yvernault_charge", "Yvernault_discharge"):
+    # Tests of Yvernault, L., Vesin, S., & Pouvreau, J. (2026) https://doi.org/10.1016/j.est.2026.120714
+    fluid = "water"
+    SIM.set_parameters(
+            T_PCM = 74 + 273.15,
+            cp_liq = 2.2e3,
+            Dh_latent = 238e3,
+            cp_sol = 2.4e3,
+            rho_PCM_sol = 939,
+            rho_PCM_liq = 858,
+            lambda_eq = 8
+            )
+    p_HTF = 3e5 # Pa
+    duration_simu = 8*3600 # s
+
+    if campaign == "Yvernault_charge":
+        T_HTF_su = 85 + 273.15 # K
+        m_dot_tot = 525 / 3600 # kg/s
+        T_PCM_eq_init = 40 + 273.15 # K
+        T_target = 80 + 273.15 # K
+    else:
+        T_HTF_su = 65 + 273.15 # K
+        m_dot_tot = 266 / 3600 # kg/s
+        T_PCM_eq_init = 84 + 273.15 # K
+        T_target = 65 + 273.15 # K
+
+    n_pass_module = 16
+    n_module_parallel = 1
+    n_module_serie = 1
+
+
+elif campaign == "CEA_SoC_erythritol":
+    # CEA Grenoble campaign for the State of Charge (SoC) measurement (B. Champel), SEHRENE deliverable D4.7
+    fluid = "water"
+    SIM.set_parameters(
+            T_PCM = 118.9 + 273.15,
+            cp_sol = 1.637e3,
+            cp_liq = 2.846e3,
+            Dh_latent = 335.5e3,
+            rho_PCM_sol = 1448.4,
+            rho_PCM_liq = 1281.5,
+            lambda_eq = 8
+            )
+    T_HTF_su = 135 + 273.15 # K
+    m_dot_tot = 700 / 3600 # kg/s
+    p_HTF = 6e5 # Pa
+    T_PCM_eq_init = 80 + 273.15 # K
+    T_target = None # no bypass in these tests
+    duration_simu = 9*3600 # s
+
+    n_pass_module = 4
+    n_module_parallel = 1
+    n_module_serie = 1
+
+    # measurements, loaded with titouanjanod_perso/TES_related/plots_tests_CEA.py
+    if plot_exp:
+        CEA_SCRIPT_DIR = r"C:\Users\titou\Documents\GitHub\titouanjanod_perso\TES_related"
+        if CEA_SCRIPT_DIR not in sys.path:
+            sys.path.append(CEA_SCRIPT_DIR)
+        from plots_tests_CEA import load_CEA_test, compute_derived
+        exp_data = compute_derived(load_CEA_test("2026-02-10 CH (80) 135 700kgh"))
+
+
+elif campaign == "Zorlu_UC":
+    # Discharge of the REC, initial data of SEHRENE deliverable D3.3
+    fluid = "cyclopentane"
+    SIM.set_parameters(
+            T_PCM = 135 + 273.15,
+            cp_sol = 1043,
+            cp_liq = 763.3,
+            Dh_latent = 221e3,
+            rho_PCM_sol = 1200,
+            rho_PCM_liq = 1200,
+            lambda_eq = 12
+            )
+    T_HTF_su = 96.1 + 273.15 # K
+    m_dot_tot = 62.74 # kg/s
+    p_HTF = 22.258e5 # Pa
+    T_PCM_eq_init = 170.4 + 273.15 # K
+    T_target = 124.8 + 273.15 # K
+    duration_simu = 9*3600 # s
+
+    # sizing data
+    Q_TES_predesign = 7971*3600*1000 # J
+    T_HTF_min = T_HTF_su
+    T_HTF_max = T_PCM_eq_init
+
+    # replaced by the result of the sizing if do_sizing
+    n_pass_module = 1
+    n_module_parallel = 31
+    n_module_serie = 200
+
+
+elif campaign == "Torrecid_charge_sizing":
+    # Charge, initial data of SEHRENE deliverable D3.3
+    fluid = "cyclopentane"
+    SIM.set_parameters(
+            T_PCM = 168 + 273.15,
+            Dh_latent = 270e3,
+            cp_sol = 1.4e3,
+            cp_liq = 2.7e3,
+            rho_PCM_sol = 1520,
+            rho_PCM_liq = 1520,
+            lambda_eq = 16.5
+            )
+    T_HTF_su = 190 + 273.15 # K
+    m_dot_tot = 14.34 # kg/s
+    p_HTF = 35.81e5 # Pa
+    T_PCM_eq_init = 31.8 + 273.15 # K
+    T_target = 172 + 273.15 # K
+    duration_simu = 9*3600 # s
+
+    # sizing data
+    Q_TES_predesign = 10919.2*3600*1000 # J
+    T_HTF_min = 31.8 + 273.15 # K
+    T_HTF_max = 190 + 273.15 # K
+
+    # replaced by the result of the sizing if do_sizing
+    n_pass_module = 1
+    n_module_parallel = 8
+    n_module_serie = 37
+
+else:
+    raise ValueError(f"Unknown campaign: '{campaign}'")
+
+
+if duration_simu_forced is not None:
+    duration_simu = duration_simu_forced
+
+# "module" in this example = "box" in the model
+SIM.set_parameters(n_segment_box = n_segment_module, n_pass_box = n_pass_module,
+                   n_box_parallel = n_module_parallel, n_box_serie = n_module_serie,
+                   n_subsegment_cell = n_subsegment_cell)
+
+
+# =============================================================================
+# Sizing (optional) and simulation
+# =============================================================================
 use_svg_inline()
 
 if save_results:
-    result_folder = create_result_folder(result_root, name_simu)
+    result_folder = create_result_folder(result_root, run_name)
 else:
     result_folder = None
 
+if do_sizing:
+    if campaign not in ("Zorlu_UC", "Torrecid_charge_sizing"):
+        raise ValueError(f"No sizing data for the campaign '{campaign}'")
 
-if test_solo==False:
-    best_config = SIM.TES_sizing(T_target, Q_TES_predesign, T_HTF_min, T_HTF_max, Dt_ch_dis, tau, m_dot_tot, T_HTF_init,
-                                 p_HTF_init, T_PCM_eq_init, fluid, bypass_on)
+    best_config = SIM.TES_sizing(T_target, Q_TES_predesign, T_HTF_min, T_HTF_max, duration_simu, dt, m_dot_tot,
+                                 T_HTF_su, p_HTF, T_PCM_eq_init, fluid, bypass_on)
+    print("best_config = ", best_config)
 
-    print("best_config= ", best_config)
-
-    n_box_serie = best_config["N_series"]
-    n_box_parallel = best_config["N_parallel"]
-    SIM.set_parameters(n_box_serie = n_box_serie, n_box_parallel = n_box_parallel)
+    SIM.set_parameters(n_box_serie = best_config["N_series"], n_box_parallel = best_config["N_parallel"])
 
     if save_results:
-        with open(result_folder / f"best_config-{name_simu}.txt", "w") as f:
+        with open(result_folder / f"best_config-{run_name}.txt", "w") as f:
+            for key in ("N_parallel", "N_series", "N_box", "margin", "index", "target_reached"):
+                f.write(f"{key} = {best_config[key]}\n")
 
-            f.write(f"N_parallel = {best_config['N_parallel']}\n")
-            f.write(f"N_series = {best_config['N_series']}\n")
-            f.write(f"N_box = {best_config['N_box']}\n")
-            f.write(f"margin = {best_config['margin']}\n")
-            f.write(f"index = {best_config['index']}\n")
-            f.write(f"target_reached = {best_config['target_reached']}\n")
+history = SIM.simulate(duration_simu, dt, m_dot_tot, T_HTF_su, p_HTF, T_PCM_eq_init, fluid, T_target, bypass_on)
 
 
-history = SIM.simulate(Dt_ch_dis, tau, m_dot_tot, T_HTF_init, p_HTF_init, T_PCM_eq_init, fluid, T_target, bypass_on)
-
-
+# =============================================================================
+# Results
+# =============================================================================
 print("Model type: 1D (no radial consideration)")
 print("-----------")
-print(f"tau= {tau} sec")
-print(f"Nt= {len(history.time)} time discretisations")
-print(f"Nx= {SIM.TES.Nx} axial discretisations")
+print(f"dt = {dt} s")
+print(f"Nt = {len(history.time)} time steps")
+print(f"N_cells = {SIM.TES.Nx} cells along the HTF flow")
+print(f"n_subsegment_cell = {n_subsegment_cell} HTF sub-segments per cell")
 print("-----------")
 print(f"Q_tot = {history.Q_tot/3.6e6:.2f} kWh")
-print(f"Solving time= {history.solving_time:.2f}")
+print(f"Solving time = {history.solving_time:.2f} s")
 
+if not plot_exp:
+    exp_data = None
 
-exp = None
-if plot_exp_CEA:
-    if CEA_SCRIPT_DIR not in sys.path:
-        sys.path.append(CEA_SCRIPT_DIR)
-    from plots_tests_CEA import load_CEA_test, compute_derived
-    exp = compute_derived(load_CEA_test(name_CEA_test))
-
-
-figs = history.plot_all(save_dir=result_folder, name_simu=name_simu, exp=exp)
+figs = history.plot_all(save_dir=result_folder, name_simu=run_name, exp=exp_data)
 
 if save_results:
-    history.save_results(result_folder, name_simu)
+    history.save_results(result_folder, run_name)
 
-plt.show()
+if show_plots:
+    plt.show()
