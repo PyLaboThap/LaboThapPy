@@ -45,14 +45,16 @@ def PCHE_straight_HTC(AS, geom, cond):
 def _bennett_chen_inputs(geom, cond):
     """Common inputs of the Bennett & Chen correlations.
     m_dot : mass flow of ONE channel [kg/s]; Re : Reynolds number [local value of the cell, the paper uses
-    the inlet value]; theta : bend angle of the paper [rad], the INTERIOR angle (pi = straight channel),
-    so theta = pi - alpha with geom['alpha'] the deviation from the flow axis [deg] (Lee convention);
+    the inlet value]; theta : bend angle of the paper [rad], the INTERIOR angle at the apex of the zigzag
+    (Fig. 1 of the paper; pi = straight channel). Each segment deviates by alpha from the main flow
+    direction (geom['alpha'] [deg], Lee convention), so theta = pi - 2 alpha
+    (Table 3: theta 84-170 deg <-> alpha 5-48 deg). Corrected 2026-11-23 (A2-bis, was pi - alpha);
     Lf/Dh : developed channel length over hydraulic diameter."""
     _need(cond, 'G', 'mu')
     Dh, D_c = _dh(geom), geom['D_c']
     m_dot = cond['G'] * np.pi * D_c ** 2 / 8
     Re = cond['G'] * Dh / cond['mu']
-    theta = np.pi - np.radians(geom['alpha'])
+    theta = np.pi - 2 * np.radians(geom['alpha'])
     return m_dot, Re, theta, geom['L_c'] / Dh
 
 
@@ -60,21 +62,30 @@ def PCHE_bennett_chen_hot_HTC(AS, geom, cond):
     """Zigzag channel, HOT-side Nusselt number of Bennett & Chen (2020), Thermal Science and Engineering
     Progress 17, 100383 (doi 10.1016/j.tsep.2019.100383), Eq. (22), Table 5 (also Table 3 of Lee et al. 2022,
     where the sign of a1 and the '+' between the terms are lost):
-        Nu = a1 Re^a2 m^a3 theta^a4 (Lf/Dh)^a5 + a6 m^a7 T_in^a8
+        Nu = a1 Re^a2 m^a3 theta^a4 (Lf/Dh)^a5 + a6 m^a7 T_r^a8
+    T_r = T_h,in / T_critical is the REDUCED inlet temperature: stated only in K. Bennett's PhD
+    dissertation (UNLV 2019, doi 10.34917/18608592, p. 187, Eq. 80, Table 30 = Table 5 of the paper).
+    With T in K (as the paper seems to imply) Nu is negative everywhere. Checked 2026-11-23 (A2-ter):
+    with T_r the printed coefficients give 17.65 for the thesis Ishizuka case (thesis: 17.63) and
+    reproduce the thesis values of the 50 CFD cases (median 2 %).
+    m = mass flow of ONE hot channel [kg/s] (the thesis CFD cases have two hot channels per cold one).
     Supercritical CO2, CFD fit (r2 = 0.64): +-30 % at best, mean error 25 % for Re >= 1200, only
-    'a rough estimate'. Validity (Table 3): m 5e-5 .. 5e-4 kg/s per channel, bend angle 84-170 deg,
-    T_h,in 500-900 K, p_h,in 2-10 MPa, Dh ~ 0.6-1.2 mm.
-    WARNING: with the published coefficients the two terms are almost equal (~1e4) and the ratio
-    term2/term1 is < 1 for every Re >= ~10 in the validity range, so Nu comes out NEGATIVE for all
-    admissible inputs (checked on m = 5e-5 .. 5e-4 kg/s, T = 500-900 K, Re 1500-16000): the printed
-    Table 5 very probably contains a typo. This function raises ValueError in that case; do not use it
-    until the coefficients are checked. The cold-side formula behaves normally (Nu ~ 15-60).
-    cond : G, mu, k, T_in (inlet temperature of the side [K], default cond['T'])."""
+    'a rough estimate'. Validity (Table 3): Re >= 1200, bend angle 84-170 deg, T_h,in 500-900 K,
+    p_h,in 2-10 MPa, Dh ~ 0.6-1.2 mm, m about 2.5e-5 .. 2.5e-4 kg/s per hot channel.
+    The two terms nearly cancel (~1e4 each): a ValueError is kept as a guard if Nu <= 0.
+    cond : G, mu, k, T_in (inlet temperature of the side [K], default cond['T']).
+    AS : CoolProp AbstractState of the fluid (T_critical)."""
     _need(cond, 'k')
     m, Re, th, LD = _bennett_chen_inputs(geom, cond)
-    T_in = cond.get('T_in', cond['T'])
+    # Inlet temperature: cond['T'] is read only when 'T_in' is missing
+    if 'T_in' in cond:
+        T_in = cond['T_in']
+    else:
+        T_in = cond['T']
+    # Reduced inlet temperature (thesis p. 187)
+    T_r = T_in / AS.T_critical()
     Nu = (-2.2631e6 * Re ** 1.0515e-3 * m ** 6.5405e-1 * th ** -2.0665e-4 * LD ** 8.0885e-5
-          + 2.2967e6 * m ** 6.5429e-1 * T_in ** -1.3319e-3)
+          + 2.2967e6 * m ** 6.5429e-1 * T_r ** -1.3319e-3)
     if Nu <= 0:
         raise ValueError(f"PCHE_bennett_chen_hot_HTC: Nu = {Nu:.3g} <= 0, outside the range of the fit "
                          "(Re >= 1200 and m in 5e-5 .. 5e-4 kg/s per channel).")
@@ -82,16 +93,34 @@ def PCHE_bennett_chen_hot_HTC(AS, geom, cond):
 
 
 def PCHE_bennett_chen_cold_HTC(AS, geom, cond):
-    """COLD-side counterpart, Eq. (26), Table 6 (p in MPa, assumed from Table 3; T in K):
-        Nu = a1 Re^a2 m^a3 theta^a4 (Lf/Dh)^a5 + a6 m^a7 p_c,in^a8 + a9 T_c,in^a10 p_h,in^a11
+    """COLD-side counterpart, Eq. (26), Table 6 (= thesis Eq. 84, Table 31):
+        Nu = a1 Re^a2 m^a3 theta^a4 (Lf/Dh)^a5 + a6 m^a7 p_r,c^a8 + a9 T_r,c^a10 p_h,in^a11
+    Reduced temperature and pressure (K. Bennett PhD dissertation, UNLV 2019, p. 195): T_r,c = T_c,in /
+    T_critical, p_r,c = p_c,in / p_critical. p_h,in (hot inlet pressure) kept in MPa: labothappy reading,
+    reducing it too breaks the agreement with the thesis values; the third term is then negligible.
+    Checked 2026-11-23 (A2-ter): thesis values of the 50 CFD cases, median ratio 0.996.
+    m = mass flow of ONE cold channel [kg/s].
     Validity (Table 3): T_c,in 305-450 K, p_c,in 7.5-20 MPa, p_h,in 2-10 MPa, m 5e-5 .. 5e-4 kg/s.
-    cond : G, mu, k, T_in, p_in [Pa] of the cold side and p_other_in [Pa] (inlet pressure of the hot side)."""
+    cond : G, mu, k, T_in, p_in [Pa] of the cold side and p_other_in [Pa] (inlet pressure of the hot side).
+    AS : CoolProp AbstractState of the fluid (T_critical, p_critical)."""
     _need(cond, 'k', 'p_other_in')
     m, Re, th, LD = _bennett_chen_inputs(geom, cond)
-    T_in, p_c, p_h = cond.get('T_in', cond['T']), cond.get('p_in', cond['p']) / 1e6, cond['p_other_in'] / 1e6
+    # Inlet temperature and pressure: cond['T'] / cond['p'] are read only when T_in / p_in are missing
+    if 'T_in' in cond:
+        T_in = cond['T_in']
+    else:
+        T_in = cond['T']
+    if 'p_in' in cond:
+        p_in = cond['p_in']
+    else:
+        p_in = cond['p']
+    # Reduced cold inlet temperature and pressure (thesis p. 195); hot inlet pressure in MPa
+    T_r = T_in / AS.T_critical()
+    p_r = p_in / AS.p_critical()
+    p_h = cond['p_other_in'] / 1e6
     Nu = (3.7047e-12 * Re ** 3.0848 * m ** -1.7767 * th ** -2.6196e-1 * LD ** -2.9133
-          + 3.0520e3 * m ** 5.6786e-1 * p_c ** -8.7924e-2
-          + 1.5024e1 * T_in ** -7.1049 * p_h ** -1.0171e1)
+          + 3.0520e3 * m ** 5.6786e-1 * p_r ** -8.7924e-2
+          + 1.5024e1 * T_r ** -7.1049 * p_h ** -1.0171e1)
     return Nu * cond['k'] / _dh(geom)
 
 
@@ -179,9 +208,11 @@ def PCHE_lee_zigzag_HTC(AS, geom, cond):
 
 def PCHE_jiang_zigzag_HTC(AS, geom, cond):
     """Zigzag semicircular channel of a PCHE: single-phase TURBULENT heat transfer coefficient
-    h [W/m2/K] from Jiang et al. (2018). Two fits are provided: a "low-angle" (30 deg) and a
-    "high-angle" (40 deg) channel. The 30 deg fit is used for alpha <= 35 deg, the 40 deg fit above
-    (same rule as the pressure-drop function PCHE_lee_jiang_zigzag_SP_DP).
+    h [W/m2/K] from Jiang et al. (2018). The paper gives a "low-angle" (30 deg) and a
+    "high-angle" (40 deg) fit. Since 2026-11-23 (E21) the 40 deg fit is used for EVERY angle: the
+    30 deg fit is ~2 x below the independent sources at 32.5-37 deg (LOGS report
+    e16_bennett_check_2026-11-23.md). NOTE: the pressure-drop function PCHE_lee_jiang_zigzag_SP_DP
+    still switches to the 30 deg friction fit for alpha <= 35 deg.
 
     Reference:
         Y. Jiang, E. Liese, S.E. Zitney, D. Bhattacharyya, Design and dynamic modeling of printed
@@ -206,7 +237,7 @@ def PCHE_jiang_zigzag_HTC(AS, geom, cond):
 
     Validity:
         3000 <= Re <= 20600 (range of the Heatric data used for the fit).
-        alpha = 30 deg (Eq. 22a) or 40 deg (Eq. 23a) only; other angles are extrapolated.
+        Eq. (23a) fitted at alpha = 40 deg; other angles are extrapolated (warning).
         Fluid: supercritical CO2. Channel diameter D_c = 2 mm (Heatric data).
         Fully developed turbulent flow assumed. No laminar branch: for Re < 3000 use 'Lee'.
 
@@ -236,18 +267,16 @@ def PCHE_jiang_zigzag_HTC(AS, geom, cond):
         warnings.warn(f"PCHE_jiang_zigzag_HTC: Re = {Re:.0f} outside 3000-20600, "
                       "range of Jiang et al. (2018) fit: extrapolated.")
 
-    # Validity warning for bending angle (fits exist for 30 and 40 deg only)
-    if alpha != 30 and alpha != 40:
+    # Validity warning for bending angle (Eq. 23a is the 40 deg fit)
+    if alpha != 40:
         warnings.warn("PCHE_jiang_zigzag_HTC: Jiang et al. (2018) gives fits for 30 and 40 deg "
-                      "only: the 30 deg fit is used for alpha <= 35 deg, the 40 deg fit above.")
+                      f"only; the 40 deg fit (Eq. 23a) is used for every angle (alpha = {alpha} deg).")
 
-    # Choice of correlation: low-angle (30 deg) for alpha <= 35, high-angle (40 deg) above
-    if alpha <= 35:
-        # Jiang et al. (2018), Eq. (22a): low-angle (30 deg) channel
-        Nu = 0.0176 * Re ** 0.809 * Pr ** (1 / 3)
-    else:
-        # Jiang et al. (2018), Eq. (23a): high-angle (40 deg) channel
-        Nu = 0.0845 * Re ** 0.721 * Pr ** (1 / 3)
+    # Jiang et al. (2018), Eq. (23a): high-angle (40 deg) channel, used for EVERY angle.
+    # 2026-11-23 (E21, Basile's choice): the low-angle fit Eq. (22a), Nu = 0.0176 Re^0.809 Pr^(1/3),
+    # is no longer used: at 32.5-37 deg it gives ~0.5 x every independent source (Kim SG 2016,
+    # Meshram 2016, Katz 2021) and ~0.9 x a straight channel; Eq. (23a) is within 0.7-1.4 x of them.
+    Nu = 0.0845 * Re ** 0.721 * Pr ** (1 / 3)
 
     # Heat transfer coefficient h = Nu * k / Dh
     h = Nu * cond['k'] / Dh

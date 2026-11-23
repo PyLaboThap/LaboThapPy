@@ -427,7 +427,14 @@ def curved_pipe_zakeralhoseini_condensing_HTC(AS, geom, cond):
     tubes, Int. J. Thermal Sciences 157, 106516, Eqs. (21)-(25).
     Validity: R1234yf, d 8.2 mm, coil 95.3 mm, pitch 16.7 mm, Tsat 20 / 30 C, G 95-285 kg/m2/s,
     x 0.1-0.8; 95 % of data within +-15 %. Eq. (22): Pr_l > 1 and Re_l (d/D)^2.5 > 0.4.
-    (2026-11-21: h_l was the 'Sigalotti' single-phase curved h; corrected to Eq. (22).)"""
+    (2026-11-21: h_l was the 'Sigalotti' single-phase curved h; corrected to Eq. (22).)
+    Straight-tube limit (labothappy choice, 2026-11-23, not from the paper): Eq. (22) diverges when
+    d/D -> 0 (its correction term grows as (d/D)^(-1/3)). For a weakly curved pipe, d / (2 R) <= 0.01
+    (same straight threshold as the single-phase curved functions of this file), h_l is the
+    STRAIGHT-tube liquid-only h (Gnielinski core: Stephan-Preusser / Gnielinski / Sieder-Tate) at the
+    same Re_l of Eq. (23), with mu_w = mu_l; the multiplier of Eq. (25) is kept (extrapolation: it was
+    fitted on coil data only, a warning is issued). For turbulent liquid (Re_l > ~1e4) both h_l agree
+    within ~1 % at the Mori-Nakayama limit; for laminar Re_l the straight h_l is lower (up to x0.3)."""
     _need_cond(cond, 'G', 'p', 'x')
     D, L, R, G, p = _D(geom), _L(geom), _R_curv(geom), cond['G'], cond['p']
     x = _clamp_x(cond['x'], 1e-2)
@@ -442,14 +449,26 @@ def curved_pipe_zakeralhoseini_condensing_HTC(AS, geom, cond):
     Re_l = G * (1 - x) * D / s['mu_l']
     d_over_Dc = D / (2.0 * R)
     Pr_l = s['Pr_l']
-    if Pr_l <= 1 or Re_l * d_over_Dc ** 2.5 <= 0.4:
+    # Straight-tube limit (see docstring): weakly curved pipe, d / (2 R) <= 0.01
+    curvature_ratio = D / (2.0 * R)
+    is_straight = curvature_ratio <= 0.01
+    if is_straight:
+        warnings.warn(f"Zakeralhoseini 2020: d/(2R) = {curvature_ratio:.2e} <= 0.01, straight-tube "
+                      "limit used (liquid h = straight Gnielinski core, Eq. (25) multiplier "
+                      "extrapolated from coil data).")
+    elif Pr_l <= 1 or Re_l * d_over_Dc ** 2.5 <= 0.4:
         warnings.warn("Zakeralhoseini 2020: Mori-Nakayama Eq. (22) used outside Pr_l > 1, "
                       "Re_l (d/D)^2.5 > 0.4.")
-    # Liquid Nusselt number, Mori & Nakayama, Eq. (22)
-    term_main = (1.0 / 41.0) * Re_l ** (5.0 / 6.0) * Pr_l ** 0.4 * d_over_Dc ** (1.0 / 12.0)
-    term_corr = 1.0 + 0.061 / (Re_l * d_over_Dc ** 2.5) ** (1.0 / 6.0)
-    Nu_l = term_main * term_corr
-    h_l = Nu_l * s['k_l'] / D
+    if is_straight:
+        # Liquid-only h of a straight tube at G (1 - x), i.e. at the Re_l of Eq. (23)
+        G_liquid = G * (1 - x)
+        h_l = _gnielinski_core(s['mu_l'], Pr_l, s['mu_l'], s['k_l'], G_liquid, D, L)
+    else:
+        # Liquid Nusselt number, Mori & Nakayama, Eq. (22)
+        term_main = (1.0 / 41.0) * Re_l ** (5.0 / 6.0) * Pr_l ** 0.4 * d_over_Dc ** (1.0 / 12.0)
+        term_corr = 1.0 + 0.061 / (Re_l * d_over_Dc ** 2.5) ** (1.0 / 6.0)
+        Nu_l = term_main * term_corr
+        h_l = Nu_l * s['k_l'] / D
     # Martinelli parameter and Eq. (25)
     inv_Xtt = (x / (1 - x)) ** 0.9 * (s['rho_l'] / s['rho_v']) ** 0.5 * (s['mu_v'] / s['mu_l']) ** 0.1
     return h_l * 0.27 * (1 + 2.98 / (1.0 / inv_Xtt) ** 0.8) * (p / p_crit) ** (-0.75)

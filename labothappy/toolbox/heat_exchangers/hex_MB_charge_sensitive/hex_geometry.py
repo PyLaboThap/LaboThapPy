@@ -237,7 +237,7 @@ def wall_resistance(htx, p, A=None, L=None, n_tot=1):
     if htx in ('STHE', 'TFHE'):
         return np.log(p['Tube_OD'] / (p['Tube_OD'] - 2 * p['Tube_t'])) / (2 * np.pi * k * L * n_tot)
     t = {'BPHE': lambda: p['t_plates'], 'SPHE': lambda: p['t'], 'SCHE': lambda: p['t_wall'],
-         'PCHE': lambda: p.get('t_wall', p.get('t_2'))}[htx]()
+         'PCHE': lambda: p.get('t_wall', p.get('t_3'))}[htx]()
     if t is None:
         raise KeyError(f"{htx}: wall thickness missing for the wall resistance (k_wall is set).")
     return t / (k * A)
@@ -435,7 +435,7 @@ class PCHEGeometry(HXGeometry):
     def required_parameters(self, corr_1p=()):
         # D_c (semicircular) or g_f, d_f (rectangular) are checked in solve: they depend on
         # channel_section, which required_parameters does not see.
-        return ['alpha', 'k_cond', 'L_c', 'N_c', 'N_p', 'R_p', 't_2', 't_3']
+        return ['alpha', 'k_wall', 'L_c', 'N_c', 'N_p', 'R_p', 't_2', 't_3']
 
     def solve(self, p, m_h, m_c, n_s=1, n_p=1, K=0.0):
         section = str(p.get('channel_section', 'semicircular')).lower()
