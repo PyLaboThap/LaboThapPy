@@ -127,17 +127,6 @@ def shades(color, n):
     return [tuple(w + (1 - w) * c) for w in np.linspace(*white_mix, n)]
 
 
-def use_svg_inline():
-    """In the VS Code interactive window / Jupyter: render figures as SVG so 'Export' offers .svg."""
-    try:
-        from IPython import get_ipython
-        if get_ipython() is not None:
-            from matplotlib_inline.backend_inline import set_matplotlib_formats
-            set_matplotlib_formats("svg", "png")
-    except ImportError:
-        pass
-
-
 def create_result_folder(root_path, name_simu):
 
     folder_name = datetime.now().strftime(f"%Y_%m_%d-%H_%M_%S simulation - {name_simu}")

@@ -20,8 +20,7 @@ LABOTHAPPY_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", 
 if LABOTHAPPY_PATH not in sys.path:
     sys.path.append(LABOTHAPPY_PATH)
 
-from labothappy.component.storage.TES_lattice_CEA import TES_simulation, create_result_folder, use_svg_inline
-
+from labothappy.component.storage.TES_lattice_CEA import TES_simulation, create_result_folder 
 
 # =============================================================================
 # User choices
@@ -33,13 +32,13 @@ do_sizing = False # True: sizing of the number of modules (only for the campaign
 bypass_on = False # True: part of the HTF bypasses the TES, to keep the mixed outlet at T_target
 
 duration_simu_forced = None # [s], if not None: replaces the duration of the campaign
-dt = 20 # time step [s] (explicit Euler)
+dt = 20 # time step [s]
 n_segment_module = 32 # number of cells along one module
 n_subsegment_cell = 5 # number of HTF sub-segments per cell (the PCM stays at one temperature per cell)
 
 save_results = False
-result_root = r"C:\Users\titou\OneDrive - Universite de Liege\!SEHRENE\WP3\TES modelling\Results"
 run_name = "Erythritol comparaison Bénédicte 5" # name of the results folder, and suffix of the saved files
+result_root = r"C:\Users\titou\OneDrive - Universite de Liege\!SEHRENE\WP3\TES modelling\Results"
 show_plots = True
 
 SIM = TES_simulation()
@@ -132,7 +131,7 @@ elif campaign == "CEA_SoC_erythritol":
 
 
 elif campaign == "Zorlu_UC":
-    # Discharge of the REC, initial data of SEHRENE deliverable D3.3
+    # Discharge of the TES, initial data of SEHRENE deliverable D3.3
     fluid = "cyclopentane"
     SIM.set_parameters(
             T_PCM = 135 + 273.15,
@@ -206,7 +205,6 @@ SIM.set_parameters(n_segment_box = n_segment_module, n_pass_box = n_pass_module,
 # =============================================================================
 # Sizing (optional) and simulation
 # =============================================================================
-use_svg_inline()
 
 if save_results:
     result_folder = create_result_folder(result_root, run_name)
