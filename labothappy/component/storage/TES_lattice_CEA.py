@@ -185,6 +185,11 @@ class TES_step(BaseComponent):
         - Latent heat taken into account with a gaussian apparent cp -> one h_PCM(T_PCM) curve
         - Charge or discharge decided in each mesh (HTF hotter or colder than the PCM)
         - HTF: no thermal inertia, no pressure drop, no heat loss to the ambient
+        - Heat losses (if UA_amb > 0): the HTF gives all its heat to the equivalent material, which loses heat to the
+          ambient. The casing and the insulation even out the temperatures, so the whole TES is seen as one point at
+          T_PCM_mean (mean of the meshes): Q_dot_loss = UA_amb * n_box * (T_PCM_mean - T_amb), shared equally by all
+          the meshes of all the branches (as in Yvernault et al. 2026). Losses of the collectors / bends are included
+          in UA_amb, fitted on a standby test.
         - Explicit Euler: the HTF profile of the step is computed with the PCM state at t_n
 
     **Connectors**:
@@ -194,6 +199,8 @@ class TES_step(BaseComponent):
         ex (MassConnector): HTF exhaust.
 
         Q (HeatConnector): heat given by the HTF to the whole TES [W] (> 0 in charge, < 0 in discharge).
+
+        Q_amb (HeatConnector): heat lost by the whole TES to the ambient [W] (> 0 if T_PCM_mean > T_amb).
 
     **Parameters**:
 
@@ -217,7 +224,9 @@ class TES_step(BaseComponent):
 
         (optional) Geometry of the box (De_tube, thk_tube, L_tube, V_TES, volume fractions...), see __init__,
         htc_correlation ('Gnielinski' or 'Hausen'),
-        n_subsegment_cell (number of HTF sub-segments per cell in solve_h_HTF_ex, default 5)
+        n_subsegment_cell (number of HTF sub-segments per cell in solve_h_HTF_ex, default 5),
+        UA_amb (conductance between the PCM and the ambient of ONE box [W/K], default 0 = no heat loss. One value
+        for the whole simulation: it is multiplied by the number of boxes n_box_serie * n_box_parallel)
 
     **Inputs**:
 
@@ -229,11 +238,15 @@ class TES_step(BaseComponent):
 
         m_dot: HTF mass flow rate entering the whole TES [kg/s]
 
+        T_amb: Ambient temperature [K] (only required if UA_amb > 0)
+
     **Outputs**:
 
         h_ex, P_ex: HTF exhaust specific enthalpy [J/kg] and pressure [Pa] (= P_su)
 
         Q_dot_tot: Heat given by the HTF to the TES [W]
+
+        Q_dot_loss_tot: Heat lost by the TES to the ambient [W]
 
         h_PCM_new, T_PCM_new: State of the equivalent material at t_n+1 [J/kg], [K] (accepted by advance())
 
@@ -249,6 +262,7 @@ class TES_step(BaseComponent):
         self.su = MassConnector() # HTF supply
         self.ex = MassConnector() # HTF exhaust
         self.Q = HeatConnector()  # heat given by the HTF to the TES [W]
+        self.Q_amb = HeatConnector() # heat lost by the TES to the ambient [W]
 
         self.wf = None
         self.AS = None
@@ -301,6 +315,9 @@ class TES_step(BaseComponent):
         self.n_box_parallel = None
         self.n_subsegment_cell = 5 # number of HTF sub-segments per cell (RK2 in solve_h_HTF_ex)
 
+        # heat losses: conductance between the PCM and the ambient of ONE box [W/K] (0: no heat loss)
+        self.UA_amb = 0
+
         self.dt = None # time step [s]
 
         # state of the TES (one value per mesh) and state at t_n+1 computed by solve()
@@ -312,6 +329,8 @@ class TES_step(BaseComponent):
 
 
     def get_required_inputs(self):
+        if self.UA_amb > 0:
+            return ['fluid', 'h_su', 'P_su', 'm_dot', 'T_amb']
         return ['fluid', 'h_su', 'P_su', 'm_dot']
 
     def get_required_parameters(self):
@@ -366,6 +385,8 @@ class TES_step(BaseComponent):
         self.n_tubes_parallel = self.n_tubes_box/self.n_pass_box * self.n_box_parallel
         m_PCM_branch = (self.m_PCM+self.m_foam)*(self.n_pass_box/self.n_tubes_box)*self.n_box_serie
         self.m_PCM_mesh = m_PCM_branch / self.Nx
+        # UA_amb of the whole TES shared equally by all the meshes of all the branches [W/K]
+        self.UA_amb_mesh = self.UA_amb * self.n_box_serie * self.n_box_parallel / (self.n_tubes_parallel * self.Nx)
 
         # h_PCM(T_PCM) curve of the equivalent material, computed once
         self.T_profile, self.cp_profile, self.h_profile = self.enthalpy_profile_creation()
@@ -407,7 +428,6 @@ class TES_step(BaseComponent):
         DT_lat = 0.01
         # Total width of the PCM profile
         DT_tot = 350
-
 
         T_solid = np.arange(self.T_PCM-(DT_tot/2),self.T_PCM-(DT_gaus/2), DT_sens)
 
@@ -633,6 +653,15 @@ class TES_step(BaseComponent):
         self.h_PCM_new = np.zeros(Nx)
         self.T_PCM_new = np.zeros(Nx)
 
+        # heat lost by the equivalent material to the ambient [W], one mesh of one branch, > 0 if T_PCM_mean > T_amb.
+        # The whole TES is one point at T_PCM_mean (state at t_n, explicit Euler), the loss is shared equally.
+        # Applied even without flow (standby).
+        if self.UA_amb > 0:
+            T_PCM_mean = np.mean(self.T_PCM_state)
+            self.Q_dot_loss_local = np.full(Nx, self.UA_amb_mesh * (T_PCM_mean - self.Q_amb.T_amb))
+        else:
+            self.Q_dot_loss_local = np.zeros(Nx)
+
         h_HTF[0] = self.su.h
         self.AS.update(CP.HmassP_INPUTS, h_HTF[0], p_HTF)
         T_HTF[0] = self.AS.T()
@@ -652,7 +681,6 @@ class TES_step(BaseComponent):
                 else:
                     self.sign_mode = -1
 
-
                 T_HTF_ex_mesh, h_HTF_ex_mesh = self.solve_h_HTF_ex(h_HTF[i],
                                         self.T_PCM_state[i], p_HTF, m_dot_tube, self.L_mesh, self.n_subsegment_cell)
                 
@@ -660,7 +688,7 @@ class TES_step(BaseComponent):
                 # Q_dot_local is the Q_dot on only one mesh (of one tube branch)
                 self.Q_dot_local[i] = m_dot_tube * (h_HTF[i] - h_HTF_ex_mesh)
 
-            self.h_PCM_new[i] = self.h_PCM_state[i] + self.Q_dot_local[i]*self.dt/self.m_PCM_mesh
+            self.h_PCM_new[i] = self.h_PCM_state[i] + (self.Q_dot_local[i] - self.Q_dot_loss_local[i])*self.dt/self.m_PCM_mesh
             self.T_PCM_new[i] = self.interpolate_T_PCM(self.h_PCM_new[i], self.h_profile, self.T_profile)
 
             h_HTF[i+1] = h_HTF_ex_mesh
@@ -670,6 +698,8 @@ class TES_step(BaseComponent):
         self.T_HTF_nodes = T_HTF
         # heat given by the HTF to the whole TES [W]
         self.Q_dot_tot = np.sum(self.Q_dot_local) * self.n_tubes_parallel
+        # heat lost by the whole TES to the ambient [W]
+        self.Q_dot_loss_tot = np.sum(self.Q_dot_loss_local) * self.n_tubes_parallel
 
         self.update_connectors()
         self.solved = True
@@ -683,8 +713,9 @@ class TES_step(BaseComponent):
         self.ex.set_p(self.su.p) # no pressure drop
         self.ex.set_h(self.h_HTF_nodes[-1])
 
-        "Heat connector"
+        "Heat connectors"
         self.Q.set_Q_dot(self.Q_dot_tot)
+        self.Q_amb.set_Q_dot(self.Q_dot_loss_tot)
 
 
     def advance(self):
@@ -702,6 +733,7 @@ class TES_step(BaseComponent):
         print("=== TES Results ===")
         print(f"  - t: {self.t} [s]")
         print(f"  - Q_dot_tot: {self.Q_dot_tot} [W]")
+        print(f"  - Q_dot_loss_tot: {self.Q_dot_loss_tot} [W]")
         print(f"  - T_HTF_ex: {self.T_HTF_nodes[-1]} [K]")
         print(f"  - T_PCM (first, last mesh): {self.T_PCM_state[0]}, {self.T_PCM_state[-1]} [K]")
         print("=========================")
@@ -712,6 +744,7 @@ class TES_step(BaseComponent):
         print(f"  - su: fluid={self.su.fluid}, T={self.su.T} [K], p={self.su.p} [Pa], h={self.su.h} [J/kg], m_dot={self.su.m_dot} [kg/s]")
         print(f"  - ex: fluid={self.ex.fluid}, T={self.ex.T} [K], p={self.ex.p} [Pa], h={self.ex.h} [J/kg], m_dot={self.ex.m_dot} [kg/s]")
         print(f"  - Q_dot: {self.Q.Q_dot} [W]")
+        print(f"  - Q_dot_amb: {self.Q_amb.Q_dot} [W], T_amb = {self.Q_amb.T_amb} [K]")
         print("=========================")
 
 
@@ -732,6 +765,9 @@ class TES_lattice:
     After to_arrays():
         time [s], T_PCM_eq / h_PCM_eq (Nt x Nx), T_HTF / h_HTF (Nt x Nx+1: inlet of each mesh + outlet),
         T_HTF_ex, p_HTF, m_dot_in_TES, T_HTF_mix_out, Q_dot_local (one tube branch), Q_dot_tot [W], Q_tot, Q_cum [J]
+        (heat given by the HTF), Q_dot_loss_local, Q_dot_loss_tot [W], Q_loss_tot, Q_loss_cum [J] (heat lost to the
+        ambient, same convention), T_amb [K] (nan if no heat loss).
+        Energy stored in the PCM since t_0: Q_cum - Q_loss_cum.
     """
 
     def __init__(self, TES):
@@ -755,6 +791,14 @@ class TES_lattice:
         self.m_dot_list = []
         self.T_HTF_mix_out_list = []
         self.Q_dot_local_list = []
+        self.Q_dot_loss_local_list = []
+        self.T_amb_list = []
+
+
+    def T_amb_now(self):
+        """Ambient temperature of the TES_step [K], nan if not set (no heat loss)."""
+        T_amb = self.TES.Q_amb.T_amb
+        return np.nan if T_amb is None else T_amb
 
 
     def record_initial_state(self):
@@ -762,7 +806,7 @@ class TES_lattice:
         TES = self.TES
         self.reset()
 
-        T_HTF_su = PropsSI("T", "H", TES.su.h, "P", TES.su.p, TES.su.fluid)
+        T_HTF_su = PropsSI("T", "H", TES.su.h, "P", TES.su.p, TES.su.fluid) # il faudrait remplacer ça par un abstractstate
 
         self.time_list.append(TES.t)
         self.h_PCM_list.append(TES.h_PCM_state.copy())
@@ -773,6 +817,7 @@ class TES_lattice:
         self.p_HTF_list.append(TES.su.p)
         self.m_dot_list.append(TES.su.m_dot)
         self.T_HTF_mix_out_list.append(T_HTF_su)
+        self.T_amb_list.append(self.T_amb_now())
 
 
     def record_step(self, T_HTF_mix_out=None):
@@ -794,6 +839,8 @@ class TES_lattice:
         self.m_dot_list.append(TES.su.m_dot)
         self.T_HTF_mix_out_list.append(T_HTF_mix_out)
         self.Q_dot_local_list.append(TES.Q_dot_local.copy())
+        self.Q_dot_loss_local_list.append(TES.Q_dot_loss_local.copy())
+        self.T_amb_list.append(self.T_amb_now())
 
 
     def to_arrays(self):
@@ -810,6 +857,8 @@ class TES_lattice:
         self.T_HTF_mix_out = np.array(self.T_HTF_mix_out_list)
         # Q_dot_local[n] is the step n -> n+1: last row = 0
         self.Q_dot_local = np.vstack([np.array(self.Q_dot_local_list).reshape(-1, Nx), np.zeros((1, Nx))])
+        self.Q_dot_loss_local = np.vstack([np.array(self.Q_dot_loss_local_list).reshape(-1, Nx), np.zeros((1, Nx))])
+        self.T_amb = np.array(self.T_amb_list, dtype=float)
 
         self.compute_totals()
         return self
@@ -826,6 +875,10 @@ class TES_lattice:
         self.Q_tot = np.sum(self.Q_dot_tot) * self.TES.dt
         # Cumulated energy
         self.Q_cum = np.cumsum(self.Q_dot_tot) * self.TES.dt
+        # Heat lost to the ambient (same convention)
+        self.Q_dot_loss_tot = np.sum(self.Q_dot_loss_local, axis=1) * self.TES.n_tubes_parallel
+        self.Q_loss_tot = np.sum(self.Q_dot_loss_tot) * self.TES.dt
+        self.Q_loss_cum = np.cumsum(self.Q_dot_loss_tot) * self.TES.dt
 
 
     # -------------------------------------------------------------------------
@@ -840,6 +893,8 @@ class TES_lattice:
             T_HTF=self.T_HTF, h_HTF=self.h_HTF, T_HTF_mix_out=self.T_HTF_mix_out, p_HTF=self.p_HTF,
             T_PCM_eq=self.T_PCM_eq, h_PCM_eq=self.h_PCM_eq,
             Q_dot_local=self.Q_dot_local, Q_dot_tot=self.Q_dot_tot, Q_tot=self.Q_tot, Q_cum=self.Q_cum,
+            Q_dot_loss_local=self.Q_dot_loss_local, Q_dot_loss_tot=self.Q_dot_loss_tot, Q_loss_tot=self.Q_loss_tot,
+            Q_loss_cum=self.Q_loss_cum, T_amb=self.T_amb, UA_amb=TES.UA_amb,
             tau=TES.dt, Nx=TES.Nx, n_box_parallel=TES.n_box_parallel, n_box_serie=TES.n_box_serie,
             n_pass_box=TES.n_pass_box, m_dot_tot=self.m_dot_in_TES[0], measured_inputs=self.measured_inputs)
 
@@ -876,6 +931,14 @@ class TES_lattice:
                     f"cp_sol = {TES.cp_sol:.0f} J/(kg.K), cp_liq = {TES.cp_liq:.0f} J/(kg.K), lambda_eq = {TES.lambda_eq} W/(m.K)\n")
             f.write(f"htc_correlation = {TES.htc_correlation}\n")
 
+            f.write("\n")
+            if TES.UA_amb > 0:
+                f.write(f"UA_amb = {TES.UA_amb} W/K per box ({TES.UA_amb*TES.n_box_serie*TES.n_box_parallel} W/K in total)\n")
+                f.write(f"T_amb = {np.nanmin(self.T_amb)-273.15:.2f} to {np.nanmax(self.T_amb)-273.15:.2f} °C\n")
+                f.write(f"Q_loss_tot = {self.Q_loss_tot/3.6e6:.3f} kWh\n")
+            else:
+                f.write("UA_amb = 0 (no heat loss)\n")
+
             if self.solving_time is not None:
                 f.write("\n")
                 f.write(f"Solving time = {self.solving_time:.2f} s\n")
@@ -905,6 +968,21 @@ class TES_lattice:
         self.Q_tot = data["Q_tot"]
         self.Q_cum = data["Q_cum"]
         self.T_HTF_ex = self.T_HTF[:,-1]
+
+        # heat losses (files saved before the heat losses: no loss)
+        if "Q_dot_loss_local" in data:
+            self.Q_dot_loss_local = data["Q_dot_loss_local"]
+            self.Q_dot_loss_tot = data["Q_dot_loss_tot"]
+            self.Q_loss_tot = data["Q_loss_tot"]
+            self.Q_loss_cum = data["Q_loss_cum"]
+            self.T_amb = data["T_amb"]
+            TES.set_parameters(UA_amb=data["UA_amb"].item())
+        else:
+            self.Q_dot_loss_local = np.zeros_like(self.Q_dot_local)
+            self.Q_dot_loss_tot = np.zeros_like(self.Q_dot_tot)
+            self.Q_loss_tot = 0.0
+            self.Q_loss_cum = np.zeros_like(self.Q_cum)
+            self.T_amb = np.full(len(self.time), np.nan)
 
         TES.set_parameters(dt=data["tau"].item())
         self.measured_inputs = bool(data["measured_inputs"]) if "measured_inputs" in data else False
@@ -1215,11 +1293,13 @@ class TES_simulation:
         self.TES.set_parameters(**kwargs)
 
 
-    def simulate(self, Dt_ch_dis, tau, m_dot_tot, T_HTF_su, p_HTF, T_PCM_eq_init, fluid, T_target=None, bypass_on=False):
+    def simulate(self, Dt_ch_dis, tau, m_dot_tot, T_HTF_su, p_HTF, T_PCM_eq_init, fluid, T_target=None, bypass_on=False,
+                 T_amb=None):
         """
         Dt_ch_dis: duration of the charge / discharge [s], tau: time step [s], m_dot_tot: HTF flow rate [kg/s],
         T_HTF_su: HTF inlet temperature [K], p_HTF: HTF pressure [Pa], T_PCM_eq_init: initial PCM temperature [K],
-        T_target: HTF temperature after the mixing with the bypass [K] (only if bypass_on).
+        T_target: HTF temperature after the mixing with the bypass [K] (only if bypass_on),
+        T_amb: ambient temperature [K] (only required if UA_amb > 0).
         Returns the history (TES_lattice).
         """
         t0_perf = perf_counter()
@@ -1246,6 +1326,8 @@ class TES_simulation:
             h_target = AS.hmass()
 
         m_dot_in_TES = m_dot_tot
+        if T_amb is not None:
+            TES.set_inputs(T_amb=T_amb)
         TES.set_inputs(fluid=fluid, h_su=h_HTF_su, P_su=p_HTF, m_dot=m_dot_in_TES)
 
         self.history.mode = self.mode
@@ -1295,7 +1377,7 @@ class TES_simulation:
         return self.history
 
 
-    def simulate_measured(self, time, m_dot, T_HTF_su, tau, p_HTF, T_PCM_eq_init, fluid, Dt_ch_dis=None):
+    def simulate_measured(self, time, m_dot, T_HTF_su, tau, p_HTF, T_PCM_eq_init, fluid, Dt_ch_dis=None, T_amb=None):
         """
         Simulation of the TES alone with imposed HTF supply conditions that vary in time (e.g. measured in a test).
         No bypass: all the flow goes through the TES.
@@ -1307,6 +1389,7 @@ class TES_simulation:
         p_HTF: HTF pressure [Pa], one value or one value per time
         T_PCM_eq_init: initial temperature of the PCM + lattice [K], uniform (one value) or one value per mesh
         Dt_ch_dis: duration of the simulation [s] (default: up to the last time of the data)
+        T_amb: ambient temperature [K], one value or one value per time (only required if UA_amb > 0)
 
         The supply conditions at t_n are linearly interpolated in the data, and used for the step t_n -> t_n+1
         (explicit Euler, as in simulate). The mode (charge / discharge) of the titles is deduced from Q_tot.
@@ -1319,6 +1402,8 @@ class TES_simulation:
         m_dot = np.asarray(m_dot, dtype=float)
         T_HTF_su = np.asarray(T_HTF_su, dtype=float)
         p_HTF = np.broadcast_to(np.asarray(p_HTF, dtype=float), time.shape)
+        if T_amb is not None:
+            T_amb = np.broadcast_to(np.asarray(T_amb, dtype=float), time.shape)
 
         if Dt_ch_dis is None:
             Dt_ch_dis = time[-1]
@@ -1336,6 +1421,8 @@ class TES_simulation:
         TES.set_initial_state(T_PCM_eq_init)
 
         h_su, p_su, m_dot_su = supply_at(0)
+        if T_amb is not None:
+            TES.set_inputs(T_amb=np.interp(0, time, T_amb))
         TES.set_inputs(fluid=fluid, h_su=h_su, P_su=p_su, m_dot=m_dot_su)
 
         self.mode = None
@@ -1348,6 +1435,8 @@ class TES_simulation:
         for n in range(Nt-1):
 
             h_su, p_su, m_dot_su = supply_at(n*tau)
+            if T_amb is not None:
+                TES.set_inputs(T_amb=np.interp(n*tau, time, T_amb))
             TES.set_inputs(fluid=fluid, h_su=h_su, P_su=p_su, m_dot=m_dot_su)
             TES.solve()
             TES.advance()
@@ -1410,10 +1499,11 @@ class TES_simulation:
 
 
     def TES_sizing(self, T_target, Q_TES_predesign, T_HTF_min, T_HTF_max, Dt_ch_dis, tau, m_dot_tot, T_HTF_init, p_HTF_init,
-               T_PCM_eq_init, fluid, bypass_on):
+               T_PCM_eq_init, fluid, bypass_on, T_amb=None):
         """
         Smallest configuration (n_box_parallel, n_box_serie) whose HTF outlet reaches T_target at the end of Dt_ch_dis.
-        The other parameters (n_segment_box, n_pass_box, PCM...) are the ones already set.
+        The other parameters (n_segment_box, n_pass_box, PCM, UA_amb...) are the ones already set.
+        T_amb: ambient temperature [K] (only required if UA_amb > 0).
         """
 
         # génération des configurations
@@ -1433,7 +1523,7 @@ class TES_simulation:
 
             self.set_parameters(n_box_parallel=n_parallel_test, n_box_serie=n_serie_test)
             history = self.simulate(Dt_ch_dis, tau, m_dot_tot, T_HTF_init, p_HTF_init, T_PCM_eq_init, fluid,
-                                    T_target, bypass_on)
+                                    T_target, bypass_on, T_amb)
 
             target_margin[i] = self.sign_mode*(T_target - history.T_HTF_ex[-1])
 

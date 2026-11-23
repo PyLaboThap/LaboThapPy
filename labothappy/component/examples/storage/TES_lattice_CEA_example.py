@@ -36,6 +36,11 @@ campaign = "CEA_SoC_erythritol"
 do_sizing = False # True: sizing of the number of modules (only for the campaigns with sizing data), then simulation
 bypass_on = False # True: part of the HTF bypasses the TES, to keep the mixed outlet at T_target
 
+# Heat losses of the PCM to the ambient: Q_dot_loss = UA_amb * n_module * (T_PCM_mean - T_amb)
+# UA_amb [W/K] is the value of ONE module, given in "Campaigns" (0 if unknown). False: UA_amb = 0 (no loss).
+heat_losses = True
+T_amb = 20 + 273.15 # [K] ambient temperature (only used if heat_losses)
+
 # -----------------------------------------------------------------------------
 # HTF supply (= what enters the TES): constant or measured
 # -----------------------------------------------------------------------------
@@ -153,6 +158,9 @@ if campaign in ("Yvernault_charge", "Yvernault_discharge"):
     n_module_parallel = 1
     n_module_serie = 1
 
+    # Yvernault et al.: U = 1.06 W/(m2.K) on A = 2.5 m2, fitted on a standby period
+    UA_amb_module = 1.06 * 2.5 # W/K
+
 
 elif campaign == "CEA_SoC_erythritol":
     # CEA Grenoble campaign for the State of Charge (SoC) measurement (B. Champel), SEHRENE deliverable D4.7
@@ -177,6 +185,10 @@ elif campaign == "CEA_SoC_erythritol":
     n_pass_module = 4
     n_module_parallel = 1
     n_module_serie = 1
+
+    # CEA analysis of a 2.5-day standby after a charge (3 periods, "A" = 4.75 to 6 W/K): mean value.
+    # Fitted with T_shell - T_ext, here used with T_PCM_mean - T_amb (T_shell not available to us): to be refitted.
+    UA_amb_module = 5.3 # W/K
 
     # measurements, loaded with titouanjanod_perso/TES_related/plots_tests_CEA.py
     #   constant supply: test with the same nominal values as above, for the crosses on the figures
@@ -250,6 +262,8 @@ elif campaign == "Zorlu_UC":
     n_module_parallel = 31
     n_module_serie = 200
 
+    UA_amb_module = 0 # W/K, unknown: no heat loss
+
 
 elif campaign == "Torrecid_charge_sizing":
     # Charge, initial data of SEHRENE deliverable D3.3
@@ -280,6 +294,8 @@ elif campaign == "Torrecid_charge_sizing":
     n_module_parallel = 8
     n_module_serie = 37
 
+    UA_amb_module = 0 # W/K, unknown: no heat loss
+
 else:
     raise ValueError(f"Unknown campaign: '{campaign}'")
 
@@ -296,6 +312,10 @@ SIM.set_parameters(n_segment_box = n_segment_module, n_pass_box = n_pass_module,
                    n_box_parallel = n_module_parallel, n_box_serie = n_module_serie,
                    n_subsegment_cell = n_subsegment_cell)
 
+# heat losses: UA_amb of ONE module, the model multiplies it by the number of modules
+SIM.set_parameters(UA_amb = UA_amb_module if heat_losses else 0)
+T_amb_simu = T_amb if heat_losses else None
+
 
 # =============================================================================
 # Sizing (optional) and simulation
@@ -311,7 +331,7 @@ if do_sizing:
         raise ValueError(f"No sizing data for the campaign '{campaign}'")
 
     best_config = SIM.TES_sizing(T_target, Q_TES_predesign, T_HTF_min, T_HTF_max, duration_simu, dt, m_dot_tot,
-                                 T_HTF_su, p_HTF, T_PCM_eq_init, fluid, bypass_on)
+                                 T_HTF_su, p_HTF, T_PCM_eq_init, fluid, bypass_on, T_amb=T_amb_simu)
     print("best_config = ", best_config)
 
     SIM.set_parameters(n_box_serie = best_config["N_series"], n_box_parallel = best_config["N_parallel"])
@@ -324,10 +344,11 @@ if do_sizing:
 if HTF_supply == "measured":
     # m_dot(t) and T_HTF,su(t) of the test, interpolated at each time step
     history = SIM.simulate_measured(exp_data["t_s"], exp_data["m_dot_kg_s"], exp_data["T_HTF_su_C"] + 273.15,
-                                    dt, p_HTF, T_PCM_eq_init, fluid, duration_simu)
+                                    dt, p_HTF, T_PCM_eq_init, fluid, duration_simu, T_amb=T_amb_simu)
     history.title = title_measured
 else:
-    history = SIM.simulate(duration_simu, dt, m_dot_tot, T_HTF_su, p_HTF, T_PCM_eq_init, fluid, T_target, bypass_on)
+    history = SIM.simulate(duration_simu, dt, m_dot_tot, T_HTF_su, p_HTF, T_PCM_eq_init, fluid, T_target, bypass_on,
+                           T_amb=T_amb_simu)
 
 
 # =============================================================================
@@ -340,7 +361,11 @@ print(f"Nt = {len(history.time)} time steps")
 print(f"N_cells = {SIM.TES.Nx} cells along the HTF flow")
 print(f"n_subsegment_cell = {n_subsegment_cell} HTF sub-segments per cell")
 print("-----------")
-print(f"Q_tot = {history.Q_tot/3.6e6:.2f} kWh")
+print(f"Q_tot = {history.Q_tot/3.6e6:.2f} kWh (given by the HTF)")
+if SIM.TES.UA_amb > 0:
+    print(f"Q_loss = {history.Q_loss_tot/3.6e6:.2f} kWh (lost to the ambient, UA_amb = {SIM.TES.UA_amb} W/K per module, "
+          f"T_amb = {T_amb-273.15:.1f} °C)")
+    print(f"Q_stored = Q_tot - Q_loss = {(history.Q_tot-history.Q_loss_tot)/3.6e6:.2f} kWh")
 print(f"Solving time = {history.solving_time:.2f} s")
 
 if HTF_supply == "measured":
