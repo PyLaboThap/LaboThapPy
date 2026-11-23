@@ -4,7 +4,7 @@ Created on Mon Nov 16 2026
 
 @author: titouanjanod
 
-Example of the PCM-TES lattice model (TES_lattice_CEA.py): simulation of the TES alone with a constant HTF supply
+Example of the PCM-TES lattice model (TES_lattice.py): simulation of the TES alone with a constant HTF supply
 (T_HTF,su, m_dot), optionally the sizing of the number of modules, then all the figures and the saving of the results.
 
 To run it: choose a campaign and the settings in "User choices", then run the file.
@@ -26,8 +26,8 @@ LABOTHAPPY_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", 
 if LABOTHAPPY_PATH not in sys.path:
     sys.path.append(LABOTHAPPY_PATH)
 
-from labothappy.component.storage.TES_lattice_CEA import TES_simulation, create_result_folder
-from labothappy.component.storage.TES_lattice_CEA import skip_exp as skip_exp_default
+from labothappy.component.storage.TES_lattice import TES_simulation, create_result_folder
+from labothappy.component.storage.TES_lattice import skip_exp as skip_exp_default
 
 # =============================================================================
 # User choices

@@ -17,7 +17,7 @@ Three classes, one per level of the dynamic architecture:
                      (simulate_measured), and the sizing of the TES.
                      It is NOT the generic integrator of a whole dynamic cycle.
 
-Use (see component/examples/storage/TES_lattice_CEA_example.py):
+Use (see component/examples/storage/TES_lattice_example.py):
     SIM = TES_simulation()
     SIM.set_parameters(T_PCM=..., cp_sol=..., ..., n_segment_box=..., n_box_serie=..., n_pass_box=..., n_box_parallel=...)
     history = SIM.simulate(Dt_ch_dis, tau, m_dot_tot, T_HTF_su, p_HTF, T_PCM_eq_init, fluid)
