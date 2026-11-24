@@ -884,8 +884,30 @@ class TES_lattice:
     # -------------------------------------------------------------------------
     # Save / load
     # -------------------------------------------------------------------------
-    def save_results(self, result_folder, name_simu=""):
-        """results.npz + simulation_parameters-<name_simu>.txt in result_folder."""
+    def Q_final_comparison(self, exp=None):
+        """
+        Energy exchanged with the HTF at the end of the simulation [kWh], > 0 in charge and in discharge:
+        Q_final_model, and if exp is given (column Q_TES_kWh, at the end time of the simulation):
+        Q_final_exp, dQ_final = model - exp [kWh] and dQ_final_pct = (model - exp) / exp [%].
+        """
+        sign = 1 if self.get_mode() == "charge" else -1
+        res = {"Q_final_model_kWh": sign * self.Q_tot / 3.6e6}
+        if exp is not None and "Q_TES_kWh" in exp and "t_h" in exp:
+            t_exp_h = np.asarray(exp["t_h"], dtype=float)
+            t_end_h = self.time[-1] / 3600
+            Q_exp = float(np.interp(t_end_h, t_exp_h, np.asarray(exp["Q_TES_kWh"], dtype=float)))
+            res.update(Q_final_exp_kWh=Q_exp, dQ_final_kWh=res["Q_final_model_kWh"] - Q_exp,
+                       dQ_final_pct=100 * (res["Q_final_model_kWh"] - Q_exp) / Q_exp if Q_exp != 0 else np.nan,
+                       t_end_h=t_end_h, exp_shorter=bool(t_exp_h[-1] < t_end_h))
+        return res
+
+
+    def save_results(self, result_folder, name_simu="", exp=None):
+        """
+        results.npz + simulation_parameters-<name_simu>.txt in result_folder.
+        exp (optional, same format as for the plots): the final energy of the measurements is written next to the
+        model one in the txt (see Q_final_comparison).
+        """
         TES = self.TES
         result_folder = Path(result_folder)
 
@@ -938,6 +960,16 @@ class TES_lattice:
                 f.write(f"Q_loss_tot = {self.Q_loss_tot/3.6e6:.3f} kWh\n")
             else:
                 f.write("UA_amb = 0 (no heat loss)\n")
+
+            # energy exchanged with the HTF at the end, model vs measurements (> 0 in charge and in discharge)
+            Qf = self.Q_final_comparison(exp)
+            f.write("\n")
+            f.write(f"Q_final_model = {Qf['Q_final_model_kWh']:.3f} kWh (HTF side)\n")
+            if "Q_final_exp_kWh" in Qf:
+                f.write(f"Q_final_exp = {Qf['Q_final_exp_kWh']:.3f} kWh (at t = {Qf['t_end_h']:.3f} h)\n")
+                f.write(f"Q_final_model - Q_final_exp = {Qf['dQ_final_kWh']:+.3f} kWh ({Qf['dQ_final_pct']:+.2f} %)\n")
+                if Qf["exp_shorter"]:
+                    f.write("(!) the measurements end before the simulation: Q_final_exp = last measured value\n")
 
             if self.solving_time is not None:
                 f.write("\n")

@@ -294,7 +294,7 @@ figs = history.plot_all(exp=exp_data)
 if save_results:
     for key, fig in figs.items():
         fig.savefig(Path(result_folder) / f"{key}-{run_name}.svg", bbox_inches="tight")
-    history.save_results(result_folder, run_name)
+    history.save_results(result_folder, run_name, exp=exp_data)
 
 if show_plots:
     plt.show()
