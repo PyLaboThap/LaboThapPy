@@ -409,8 +409,8 @@ class TES_step(BaseComponent):
 
         # For R_PCM : application of R_1-R_m (eqs. 6 & 10) in Katsuno, A., & Murakami, T. (2023). https://doi.org/10.1109/ACCESS.2023.3339153
         dr2 = r_pcm_o**2 - r_alu_o**2
-        R1_pcm = 1/(4*np.pi*L_tubes_tot_m*steps.lambda_eq) * (2*r_pcm_o**2/dr2*np.log(r_pcm_o/r_alu_o) - 1)
-        Rm_pcm = 1/(8*np.pi*L_tubes_tot_m*steps.lambda_eq*dr2) * (-r_pcm_o**2 - r_alu_o**2
+        R1_pcm = 1/(4*np.pi*L_mesh*steps.lambda_eq) * (2*r_pcm_o**2/dr2*np.log(r_pcm_o/r_alu_o) - 1)
+        Rm_pcm = 1/(8*np.pi*L_mesh*steps.lambda_eq*dr2) * (-r_pcm_o**2 - r_alu_o**2
                                                                 + 4*r_alu_o**2*r_pcm_o**2/dr2*np.log(r_pcm_o/r_alu_o))
         R_pcm = R1_pcm + Rm_pcm
 
@@ -810,8 +810,9 @@ class TES_lattice:
         TES = self.TES
         self.reset()
 
-        self.AS.update(CP.HmassP_INPUTS, TES.su.h, TES.su.p)
-        T_HTF_su = self.AS.T()
+        AS = CP.AbstractState("BICUBIC&HEOS", TES.su.fluid)
+        AS.update(CP.HmassP_INPUTS, TES.su.h, TES.su.p)
+        T_HTF_su = AS.T()
         
         self.time_list.append(TES.t)
         self.h_PCM_list.append(TES.h_PCM_state.copy())
