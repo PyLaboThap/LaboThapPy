@@ -296,7 +296,7 @@ class TES_step(BaseComponent):
         self.cp_liq = None # J/kg/K
         self.Dh_latent = None # J/kg
         self.cp_sol = None # J/kg/K
-        self.thk_PCM = 58.9e-3 # m
+        self.thk_PCM = 58.924e-3 # m, so that A_PCM_cylindrical = A_PCM_real
         self.rho_PCM_sol = None # kg/m^3
         self.rho_PCM_liq = None # kg/m^3
 
