@@ -13,7 +13,7 @@ Modification w/r to previous version:
 
 # from __future__ import division, print_function
 # import __init__
-from labothappy.component.heat_exchanger.hex_MB import HexMBChargeSensitive
+from labothappy.component.heat_exchanger.hex_MB import HexMB
 
 #%%
 
@@ -26,7 +26,7 @@ start_time = time.time()
 
 case_study = "REC"
 
-HX = HexMBChargeSensitive('TFHE')
+HX = HexMB('TFHE')
 
 # "Setting inputs"
 
@@ -86,7 +86,7 @@ if case_study == "REC":
 #     HX_geom = TubeAndFinsGeom()
 #     HX_geom.set_parameters("DECAGONE_ACC") 
     
-#     Fin_Side = 'C'
+#     fin_side = 'C'
     
 #     "Correlation Loading"
     
@@ -99,37 +99,37 @@ if case_study == "REC":
 
 params = {
         'A_flow' : 3.36, # [m2]    
-        'fouling' : 0.9, # [(m^2*K)/W]
-        'Fin_OD' : 0.0350625, # [m]
-        'Fin_per_m' : 400, # [-]
-        'Fin_t' : 0.00025, # [m]
-        'k_fin' : 50, # [W/(m*K)] : Steel
-        'Fin_type' : "Square", # [-]
-        'Finned_tube_flag' : 1, # [-]
+        'R_f' : 0.9, # [(m^2*K)/W]
+        'D_f_o' : 0.0350625, # [m]
+        'f_density' : 400, # [1/m]
+        't_f' : 0.00025, # [m]
+        'k_f' : 50, # [W/(m*K)] : Steel
+        'fin_type' : "Square", # [-]
+        'finned' : 1, # [-]
         'h' : 1.6, # [m]
-        'Tube_pass' : 6, # [-]
+        'n_passes' : 6, # [-]
         'n_rows' : 4, # [-]
         'n_series' : 1, # [-]
         'n_parallel' : 1, # [-]
-        'pitch_ratio' : 2.125, # [-]
-        'tube_arrang' : "Staggered", # [-]
-        'Tube_cond' : 50, # [(m^2*K)/W]
-        'Tube_L' : 4.5, # [m]
-        'Tube_OD' : 0.0165, # [m]        
-        'Tube_t' : 0.0015, # [m]        
-        'n_tubes' : 480, # [-]
+        'PR' : 2.125, # [-]
+        'theta' : 45, # [deg] tube layout: 30, 45 or 60 = staggered, 0 or 90 = inline
+        'k_wall' : 50, # [W/(m*K)]
+        'L_t' : 4.5, # [m]
+        'D_t_o' : 0.0165, # [m]        
+        't_t' : 0.0015, # [m]        
+        'n_t' : 480, # [-]
         'w' : 0.787, # [m]
         
-        'Fin_Side' : 'H'
+        'fin_side' : 'H'
         }
 
 HX.set_parameters(
-    A_flow = params['A_flow'], Fin_OD = params['Fin_OD'], Fin_per_m = params['Fin_per_m'], Fin_t = params['Fin_t'], Fin_type = params['Fin_type'], # 10
-    Finned_tube_flag = params['Finned_tube_flag'], Tube_L = params['Tube_L'], Tube_OD = params['Tube_OD'], # 15
-    Tube_cond = params['Tube_cond'], Tube_t = params['Tube_t'], fouling = params['fouling'], h = params['h'], k_fin = params['k_fin'], # 20
-    Tube_pass = params['Tube_pass'], n_rows = params['n_rows'], n_series = params['n_series'], n_parallel = params['n_parallel'], n_tubes = params['n_tubes'], pitch_ratio = params['pitch_ratio'], tube_arrang = params['tube_arrang'], w = params['w'], # 30
+    A_flow = params['A_flow'], D_f_o = params['D_f_o'], f_density = params['f_density'], t_f = params['t_f'], fin_type = params['fin_type'], # 10
+    finned = params['finned'], L_t = params['L_t'], D_t_o = params['D_t_o'], # 15
+    k_wall = params['k_wall'], t_t = params['t_t'], R_f = params['R_f'], h = params['h'], k_f = params['k_f'], # 20
+    n_passes = params['n_passes'], n_rows = params['n_rows'], n_series = params['n_series'], n_parallel = params['n_parallel'], n_t = params['n_t'], PR = params['PR'], theta = params['theta'], w = params['w'], # 30
 
-    Fin_Side = params['Fin_Side'], # 28
+    fin_side = params['fin_side'], # 28
 
     Flow_Type = 'CrossFlow', n_disc = 50) # 32
 

@@ -119,7 +119,7 @@ def compute_LMTD_STHE(HX, debug = 0):
     w_sum = sum(w_LMTD)
     # w_sum = sum(HX.w)
     
-    # overlap_matrix = determine_cell_overlap(w_LMTD, HX.params['Tube_pass'], HX.params['Shell_Side'])
+    # overlap_matrix = determine_cell_overlap(w_LMTD, HX.params['n_passes'], HX.params['shell_side'])
     overlap_matrix = HX.overlap_matrix
     
     LMTD_matrix = np.zeros([len(HX.hvec_c)-1, len(HX.hvec_h)-1])
@@ -144,7 +144,7 @@ def compute_LMTD_STHE(HX, debug = 0):
             print(f"Tube cell : {k}")
             print(f"contacts shell cells : {contact_j}")
         
-        if HX.params['Shell_Side'] == 'H':
+        if HX.params['shell_side'] == 'H':
             Tki = HX.Tvec_c[k]
             Tko = HX.Tvec_c[k+1]
         else:
@@ -159,7 +159,7 @@ def compute_LMTD_STHE(HX, debug = 0):
                 
                 print(f"Contact with shell cell {j}")
             
-            if HX.params['Shell_Side'] == 'H':
+            if HX.params['shell_side'] == 'H':
                 Tji = HX.Tvec_h[j+1]
                 Tjo = HX.Tvec_h[j]
             else:
@@ -177,7 +177,7 @@ def compute_LMTD_STHE(HX, debug = 0):
             w_end_j = w_cum[j+1]
             
             x_rel_j = np.array([w_start_j, w_end_j])/w_sum
-            x_rel_k = compute_cell_x_position(w_start_k, w_end_k, HX.params['Tube_pass'], w_sum)
+            x_rel_k = compute_cell_x_position(w_start_k, w_end_k, HX.params['n_passes'], w_sum)
             
             if debug:
                 print(f"x_rel_k : {x_rel_k}")
@@ -232,7 +232,7 @@ def compute_LMTD_STHE(HX, debug = 0):
                     print(f"Tki : {Tki_int}, Tko : {Tko_int}")
                     print(f"Tji : {Tji_int}, Tjo : {Tjo_int}")
                 
-                if HX.params['Shell_Side'] == 'H':
+                if HX.params['shell_side'] == 'H':
                     Thi = Tjo_int
                     Tho = Tji_int
                     
@@ -372,7 +372,7 @@ def compute_LMTD_SPHE(HX, U=None, debug=False):
     """
     P = HX.params
     H = P['H']
-    a = (P['C_canal_t'] + P['H_canal_t'] + 2 * P['t']) / TWO_PI
+    a = (P['b_C'] + P['b_H'] + 2 * P['t']) / TWO_PI
     r0 = P['r0_in']
     RL = P['radial_limits']
     th_h, th_c = P['theta_end']['hot'], P['theta_end']['cold']
@@ -410,7 +410,7 @@ def compute_LMTD_SPHE(HX, U=None, debug=False):
     thH, thC = boundaries('hot'), boundaries('cold')
 
     # sheet1 orientation depends on which channel is inside
-    if P['inner_channel'] == "cold":     # hot outer: hot(θ) | sheet1(θ+2π) | cold(θ+2π)
+    if P['inner_ch'] == "cold":     # hot outer: hot(θ) | sheet1(θ+2π) | cold(θ+2π)
         shift_c, shift_s1 = TWO_PI, TWO_PI
     else:                                # hot inner: cold(θ-2π) | sheet1(θ) | hot(θ)
         shift_c, shift_s1 = -TWO_PI, 0.0
@@ -514,7 +514,7 @@ def _sphe_geometry_arrays(HX, w):
     segment par segment, shift = 0 puis shift = 2π.
     """
     P = HX.params
-    a = (P['C_canal_t'] + P['H_canal_t'] + 2 * P['t']) / TWO_PI
+    a = (P['b_C'] + P['b_H'] + 2 * P['t']) / TWO_PI
     n = len(w)
  
     def r(el, th):
@@ -599,7 +599,7 @@ def _sphe_geometry_cached(HX, w):
     """
     P = HX.params
     key = (
-        P['C_canal_t'], P['H_canal_t'], P['t'], P['r0_in'],
+        P['b_C'], P['b_H'], P['t'], P['r0_in'],
         _freeze(P['radial_limits']), _freeze(P['theta_end']),
         len(w), w.tobytes(),
     )

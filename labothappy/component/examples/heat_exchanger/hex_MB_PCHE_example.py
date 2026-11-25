@@ -11,7 +11,7 @@ Modification w/r to previous version:
     - x_di_c correct calculation.
 """
 
-from labothappy.component.heat_exchanger.hex_MB_charge_sensitive_bis import HexMB
+from labothappy.component.heat_exchanger.hex_MB import HexMB
 
 #%%
 
@@ -24,7 +24,7 @@ from labothappy.component.heat_exchanger.hex_MB_charge_sensitive_bis import HexM
 
 HX = HexMB('PCHE')
 
-test_case = "test_CO2"
+test_case = "TCO2_recup"
 
 # # "Setting inputs"
 
@@ -51,13 +51,13 @@ if test_case == "test_CO2":
     
     "Geometry Loading"
     params = {'alpha': 40, # Channel zigzag angle
-              'D_c': 2*1e-3, # Channel diameter
+              'D_ch': 2*1e-3, # Channel diameter
               'C_V_tot' : 1, 
               'H_V_tot' : 1, 
-              'k_cond': 60, # plate conductivity
-              'L_c': 1.5, # channel length
-              'N_c': 112, # n channels per plate
-              'N_p': 256, # n plates
+              'k_wall': 60, # plate conductivity
+              'L_ch': 1.5, # channel length
+              'n_ch_p': 112, # n channels per plate
+              'n_p': 256, # n plates
               'R_p': 1, # n_hot_channel_row / n_cold_channel_row
               't_2': 0.63*1e-3, # Horizontal pitch
               't_3': 1*1e-3, # Plate thickness
@@ -73,8 +73,8 @@ if test_case == "test_CO2":
     # "Parameters Setting"
 
     HX.set_parameters(
-        alpha = params['alpha'], C_V_tot = params['C_V_tot'], H_V_tot = params['H_V_tot'], D_c = params['D_c'], k_cond = params['k_cond'], L_c = params['L_c'],
-        N_c = params['N_c'], N_p = params['N_p'], R_p = params['R_p'], t_2 = params['t_2'], t_3 = params['t_3'], type_channel = params['type_channel'],
+        alpha = params['alpha'], C_V_tot = params['C_V_tot'], H_V_tot = params['H_V_tot'], D_ch = params['D_ch'], k_wall = params['k_wall'], L_ch = params['L_ch'],
+        n_ch_p = params['n_ch_p'], n_p = params['n_p'], R_p = params['R_p'], t_2 = params['t_2'], t_3 = params['t_3'], type_channel = params['type_channel'],
         
         Flow_Type = 'CounterFlow', H_DP_ON = True, C_DP_ON = True, n_disc = 50) # 27
 
@@ -96,13 +96,13 @@ if test_case == "TCO2_recup":
     
     "Geometry Loading"
     params = {'alpha': 32.62, # Channel zigzag angle
-              'D_c': 2.42*1e-3, # Channel diameter
+              'D_ch': 2.42*1e-3, # Channel diameter
               'C_V_tot' : 1, 
               'H_V_tot' : 1, 
-              'k_cond': 60, # plate conductivity
-              'L_c': 0.7432303013776589, # channel length
-              'N_c': 736, # n channels per plate
-              'N_p': 563, # n plates
+              'k_wall': 60, # plate conductivity
+              'L_ch': 0.7432303013776589, # channel length
+              'n_ch_p': 736, # n channels per plate
+              'n_p': 563, # n plates
               'R_p': 1, # n_hot_channel_row / n_cold_channel_row
               't_2': 0.0012282802564224898, # Horizontal pitch
               't_3': 0.0009428803890487963, # Plate_thickness
@@ -122,8 +122,8 @@ if test_case == "TCO2_recup":
     # "Parameters Setting"
     
     HX.set_parameters(
-        alpha = params['alpha'], C_V_tot = params['C_V_tot'], H_V_tot = params['H_V_tot'], D_c = params['D_c'], k_cond = params['k_cond'], L_c = params['L_c'], 
-        N_c = params['N_c'], N_p = params['N_p'], R_p = params['R_p'], t_2 = params['t_2'], t_3 = params['t_3'],
+        alpha = params['alpha'], C_V_tot = params['C_V_tot'], H_V_tot = params['H_V_tot'], D_ch = params['D_ch'], k_wall = params['k_wall'], L_ch = params['L_ch'], 
+        n_ch_p = params['n_ch_p'], n_p = params['n_p'], R_p = params['R_p'], t_2 = params['t_2'], t_3 = params['t_3'],
         
         Flow_Type = 'CounterFlow', H_DP_ON = True, C_DP_ON = True, n_disc = 50) # 27
     

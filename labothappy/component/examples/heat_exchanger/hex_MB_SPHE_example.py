@@ -29,16 +29,16 @@ if case_study == "Condenser":
     Corr_H_DP = {"1P" : "Picon_Nunez", "2P" : "Choi"}
     Corr_C_DP = {"1P" : "Picon_Nunez", "2P" : "Choi"}
     
-    params = dict(C_canal_t=0.005, H_canal_t=0.005, D_ext=0.39, H=0.39, r0_in=1e-3, t=0.002,
-                  inner_channel='cold', charge_compute = False, k_wall = 50)
+    params = dict(b_C=0.005, b_H=0.005, D_ext=0.39, H=0.39, r0_in=1e-3, t=0.002,
+                  inner_ch='cold', charge_compute = False, k_wall = 50)
 
-    params = {'C_canal_t' : 0.005, 
-              'H_canal_t' : 0.005, 
+    params = {'b_C' : 0.005, 
+              'b_H' : 0.005, 
               'D_ext' : 0.4, 
               'H' : 0.4, 
               'r0_in' : 1e-3, 
               't' : 0.002,
-              'inner_channel' : 'cold', 
+              'inner_ch' : 'cold', 
               'charge_compute' : False}
 
 elif case_study == "Evaporator":
@@ -52,11 +52,11 @@ elif case_study == "Evaporator":
     Corr_H_DP = {"1P" : "Picon_Nunez", "2P" : "Choi"}
     Corr_C_DP = {"1P" : "Picon_Nunez", "2P" : "Choi"}
     
-    params = dict(C_canal_t=0.00143, H_canal_t=0.00174, D_ext=0.18, H=0.1, r0_in=2.5e-2, t=0.002,
-                  inner_channel='hot', charge_compute = False, k_wall = 50)
+    params = dict(b_C=0.00143, b_H=0.00174, D_ext=0.18, H=0.1, r0_in=2.5e-2, t=0.002,
+                  inner_ch='hot', charge_compute = False, k_wall = 50)
 
-# Geometry: give ONE of D_ext (outer diameter), N (number of turns) or A_spiral (exchange area of one spiral).
-# Optional: k_plate (wall conduction), foul_H / foul_C [m2 K/W], n_parallel. (n_series > 1 is not available.)
+# Geometry: give ONE of D_ext (outer diameter), n_turns (number of turns) or A_sp (exchange area of one spiral).
+# Optional: k_wall (wall conduction), R_f_H / R_f_C [m2 K/W], n_parallel. (n_series > 1 is not available.)
 HX.set_parameters(**params, Flow_Type="CounterFlow", n_disc=100)
 
 
@@ -88,6 +88,6 @@ HX.plot_cells()
 # # W, B = plot_incidence(HX)
 # # ax, W2, segs = plot_contacts(HX)
 
-# print(f"Q = {HX.Q_dot/1e3:.2f} kW | N = {HX.params['N']:.2f} turns | A = {HX.A_h:.3f} m2 | "
-#       f"L_hot = {HX.params['L_hot']:.2f} m, L_cold = {HX.params['L_cold']:.2f} m")
+# print(f"Q = {HX.Q_dot/1e3:.2f} kW | N = {HX.params['n_turns']:.2f} turns | A = {HX.A_h:.3f} m2 | "
+#       f"L_H = {HX.params['L_H']:.2f} m, L_C = {HX.params['L_C']:.2f} m")
 

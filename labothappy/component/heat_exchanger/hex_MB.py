@@ -20,6 +20,11 @@ Differences with hex_MB_charge_sensitive.py (same public interface):
   rate) returns that heat rate instead of failing.
 * Distributed pressure drops are evaluated once per outer iteration instead
   of at every residual evaluation.
+* Automatic correlation choice (name None or 'auto'): ONE correlation per side and per cell phase
+  (liquid, vapor, two-phase, transcritical), chosen at the state where the fluid enters the phase
+  and kept for every cell of that phase (no switch from one cell to the next, continuous residual).
+  The names chosen are in self.auto_correlations after solve().
+  params['corr_choice'] = 'per_cell' restores the previous behaviour (choice at every cell).
 """
 
 import warnings
@@ -43,8 +48,10 @@ from labothappy.correlations.void_fraction.void_fraction import (
 
 from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.hex_geometry import make_geometry, GEOMETRIES
 
-from labothappy.correlations.convection.heat_transfer_coefficient_dispatch import heat_transfer_coefficient
-from labothappy.correlations.pressure_drop.pressure_drop_dispatch import pressure_drop, port_pressure_drop
+from labothappy.correlations.convection.heat_transfer_coefficient_dispatch import (
+    heat_transfer_coefficient, auto_htc_correlation)
+from labothappy.correlations.pressure_drop.pressure_drop_dispatch import (
+    pressure_drop, port_pressure_drop, auto_dp_correlation)
 from labothappy.correlations.properties.thermal_conductivity import conducticity_R1233zd
 
 # Bounds used by the external pinch analysis (kept from the original model)
@@ -696,7 +703,7 @@ class HexMB(BaseComponent):
         self.F = np.ones(n)
         flow = self.params['Flow_Type']
         if flow == "CounterFlow" or self.HTX_Type in ('SPHE', 'SCHE') \
-                or (flow == 'Shell&Tube' and self.params.get('Tube_pass', 1) == 1):
+                or (flow == 'Shell&Tube' and self.params.get('n_passes', 1) == 1):
             return
         Thi, Tho = self.Tvec_h[1:], self.Tvec_h[:-1]
         Tci, Tco = self.Tvec_c[:-1], self.Tvec_c[1:]
@@ -711,7 +718,7 @@ class HexMB(BaseComponent):
                 # residual jump by orders of magnitude where the exact F is still ~1)
                 if R > 10:
                     F = 1.0
-                elif self.params['Tube_pass'] % 2 == 0:
+                elif self.params['n_passes'] % 2 == 0:
                     F = F_shell_and_tube(R, P, self.params['n_series'])
                     if not (np.isfinite(F) and F > 0):      # outside the formula's range
                         F = self._f_lmtd2(R, P)
@@ -773,6 +780,109 @@ class HexMB(BaseComponent):
                 d['mu_w'] = wall_viscosity(AS, cond, b['mu'])      # moves AS: keep it last
         return d
 
+    # =========================================================================
+    # AUTOMATIC CORRELATION CHOICE: ONE CORRELATION PER SIDE AND PER PHASE
+    # =========================================================================
+
+    def _phase_correlation(self, side, phase, kind):
+        """Correlation name for a cell of a side.
+        - name given by the user (Corr_H / Corr_C): returned as it is;
+        - None or 'auto': the name chosen ONCE for this side and this phase
+          (_choose_at_phase_entry), kept for every cell of the phase during the solve
+          (no switch between cells).
+        kind : 'htc' or 'dp'.
+        params['corr_choice'] = 'per_cell': None / 'auto' is returned (automatic choice at every
+        cell, previous behaviour)."""
+        name = side.correlation(phase, kind)
+        if name not in (None, 'auto'):
+            return name
+        if self.params.get('corr_choice', 'per_phase') == 'per_cell':
+            return name
+
+        # A 'vapor-wet' cell (superheated bulk, wet wall) condenses for the heat transfer and is
+        # single phase for the pressure drop: it takes the choice of the two-phase zone (htc) or of
+        # the vapor zone (dp) of the same side.
+        if phase == 'vapor-wet':
+            if kind == 'htc':
+                phase = 'two-phase'
+            else:
+                phase = 'vapor'
+
+        key = (side.name, phase, kind)
+        if key not in self._auto_choice:
+            chosen = self._choose_at_phase_entry(side, phase, kind)
+            self._auto_choice[key] = chosen
+            self.auto_correlations[f"{side.label} {phase} {kind}"] = chosen
+        return self._auto_choice[key]
+
+    def _phase_entry_state(self, side, phase):
+        """Enthalpy [J/kg] and pressure [Pa] where the fluid of a side enters a phase.
+        The pressure is the side inlet pressure (pressure drop neglected for the choice).
+          - phase of the side inlet, or no saturation (incompressible, transcritical): inlet state
+          - two-phase: cold side (heated) just after the bubble point, hot side (cooled) just
+            before the dew point
+          - vapor: just after the dew point;  liquid: just before the bubble point
+        'Just' = 0.01 % of the latent heat inside the phase, so that the state is not exactly
+        on the saturation curve (single-phase properties are then defined)."""
+        if not side.two_phase_possible:
+            return side.h_su, side.p_su
+
+        if side.x_su <= 0.0:
+            inlet_phase = 'liquid'
+        elif side.x_su >= 1.0:
+            inlet_phase = 'vapor'
+        else:
+            inlet_phase = 'two-phase'
+        if phase == inlet_phase:
+            return side.h_su, side.p_su
+
+        step = 1e-4 * (side.h_dew_su - side.h_bub_su)       # 0.01 % of the latent heat
+        if phase == 'two-phase':
+            if side.name == 'C':
+                return side.h_bub_su + step, side.p_su
+            return side.h_dew_su - step, side.p_su
+        if phase == 'vapor':
+            return side.h_dew_su + step, side.p_su
+        return side.h_bub_su - step, side.p_su                 # liquid
+
+    def _choose_at_phase_entry(self, side, phase, kind):
+        """Name of the correlation that the automatic rules choose for a side and a phase,
+        evaluated ONCE at the state where the fluid enters the phase (_phase_entry_state).
+        Conditions of this state:
+          mass flux of the side, inlet pressure,
+          wall temperature = mean of the two inlet temperatures,
+          heat flux q = Qmax / A of the side (mean flux at the maximum heat rate: an upper estimate,
+          read by the rules that need q, e.g. the supercritical CO2 windows).
+        If the rules cannot choose at this state, None is returned (automatic choice at every
+        cell for this phase) with a warning."""
+        h, p = self._phase_entry_state(side, phase)
+        AS = self._state(side, h, p)
+
+        # Vapour quality of the entry state (nan without saturation)
+        if side.two_phase_possible:
+            x = (h - side.h_bub_su) / (side.h_dew_su - side.h_bub_su)
+        else:
+            x = np.nan
+
+        # Mean heat flux at the maximum heat rate [W/m2]
+        q = self._Qmax_for_choice / side.geom['A']
+
+        cond = CellConditions(fluid=side.fluid, m_dot=side.m_dot, p=p, h=h, T=AS.T(),
+                              T_wall=0.5 * (self.H.T_su + self.C.T_su), x=x,
+                              h_in=h, h_out=h, p_su=side.p_su, q=q)
+        cond_d = self._cond_dict(side, phase, AS, cond)
+        AS = self._state(side, h, p)            # _cond_dict may move AS (wall viscosity)
+        try:
+            if kind == 'htc':
+                return auto_htc_correlation(AS, side.geom, cond_d)
+            return auto_dp_correlation(AS, side.geom, cond_d)
+        except Exception as e:
+            warnings.warn(f"{side.label} side, {phase}: the automatic {kind} correlation could "
+                          f"not be chosen at the entry state of the phase "
+                          f"({type(e).__name__}: {e}); "
+                          "automatic choice at every cell instead.", stacklevel=2)
+            return None
+
     def _compute_htc(self):
         """Heat transfer coefficient of every cell, hot side first (the cold
         side may need the hot-side value, e.g. Han boiling correlation)."""
@@ -793,7 +903,7 @@ class HexMB(BaseComponent):
                 if side.name in self._R_cells:             # curved channels: radius of curvature of the cell
                     geom_k = {**side.geom, 'R_curv': float(self._R_cells[side.name][k])}
                 side.alpha[k] = heat_transfer_coefficient(
-                    AS, geom_k, cond_d, side.correlation(phase, 'htc'))
+                    AS, geom_k, cond_d, self._phase_correlation(side, phase, 'htc'))
                 # except Exception as e:
                 #     raise RuntimeError(f"{side.label} side, cell {k} ({phase}, T={cond.T:.2f} K, "
                 #                        f"p={cond.p:.0f} Pa): {type(e).__name__}: {e}") from e
@@ -907,7 +1017,8 @@ class HexMB(BaseComponent):
                               x=side.x_su, p_su=side.p_su, h_in=side.h_su, h_out=side.h_su)
         AS = self._state(side, side.h_su, side.p_su)
         cond_d = self._cond_dict(side, phase, AS, cond)
-        return pressure_drop(AS, side.geom, cond_d, side.correlation(phase, 'dp')) + self._port_dp(side)
+        return pressure_drop(AS, side.geom, cond_d, self._phase_correlation(side, phase, 'dp')) \
+            + self._port_dp(side)
 
     def _distributed_pressure_drops(self):
         """Cell-by-cell pressure drops for the current (converged) cells.
@@ -927,7 +1038,8 @@ class HexMB(BaseComponent):
                 geom_k = side.geom
                 if side.name in self._R_cells:             # curved channels: radius of curvature of the cell
                     geom_k = {**side.geom, 'R_curv': float(self._R_cells[side.name][k])}
-                DPvec[k] = frac[k] * pressure_drop(AS, geom_k, cond_d, side.correlation(phase, 'dp'))
+                DPvec[k] = frac[k] * pressure_drop(AS, geom_k, cond_d,
+                                                   self._phase_correlation(side, phase, 'dp'))
             port = self._port_dp(side)
             i_in, i_out = (0, -1) if side.name == 'C' else (-1, 0)     # inlet end of the cell vectors
             DPvec[i_in] += 0.5 * port
@@ -966,6 +1078,13 @@ class HexMB(BaseComponent):
         rtol_dp = self.params.get('DP_rtol', 1e-3)
         max_outer = int(self.params.get('max_outer_iter', 30))
         disc = self.params.get('DP_type') == "Correlation_Disc"
+
+        # Automatic correlation choice, one per side and per phase (see _phase_correlation):
+        # chosen again at every solve (the inputs may have changed)
+        self._auto_choice = {}              # (side, phase, kind) -> correlation name
+        self.auto_correlations = {}         # same, readable: 'hot liquid htc' -> name
+        self._Qmax_for_choice = np.nan      # Qmax of the first outer iteration (heat flux estimate)
+
         self._init_pressure_drops()
         self.eval = 0
         Q = None
@@ -977,6 +1096,8 @@ class HexMB(BaseComponent):
         for it in range(max_outer):
             self.outer_iterations = it + 1
             self._compute_Qmax()
+            if np.isnan(self._Qmax_for_choice):
+                self._Qmax_for_choice = self.Qmax
             if only_external or not and_solve:
                 self.Q_dot = self.Qmax
                 return self.Qmax

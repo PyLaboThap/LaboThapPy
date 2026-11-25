@@ -22,8 +22,8 @@ if case_study == "Condenser":
     
     Corr_H = {"1P": "Sigalotti", "2P": "Zakeralhoseini"}
     Corr_C = {"1P": "Sigalotti", "2P": None}
-    params = dict(C_canal_w=0.00463, C_canal_h=0.00463, H_canal_w=0.00178, H_canal_h=0.00178,
-                  D_ext=0.23, H=0.11, r0_in=3e-2, pitch_H=0.00496, pitch_V=0.00496, inner_channel='hot',
+    params = dict(w_ch_C=0.00463, h_ch_C=0.00463, w_ch_H=0.00178, h_ch_H=0.00178,
+                  D_ext=0.23, H=0.11, r0_in=3e-2, P_H=0.00496, P_V=0.00496, inner_ch='hot',
                   charge_compute = False)
     n_disc = 50
 
@@ -37,8 +37,8 @@ elif case_study == "Evaporator":
     
     Corr_H = {"1P": "Sigalotti", "2P": None}
     Corr_C = {"1P": "Sigalotti", "2P": "Zhao"}
-    params = dict(C_canal_w=0.00444, C_canal_h=0.00444, H_canal_w=0.00495, H_canal_h=0.00495,
-                  D_ext=0.25, H=0.071, r0_in=3e-2, pitch_H=0.00706, pitch_V=0.00706, inner_channel='hot',
+    params = dict(w_ch_C=0.00444, h_ch_C=0.00444, w_ch_H=0.00495, h_ch_H=0.00495,
+                  D_ext=0.25, H=0.071, r0_in=3e-2, P_H=0.00706, P_V=0.00706, inner_ch='hot',
                   charge_compute = False)
     
     n_disc = 50
@@ -46,7 +46,7 @@ elif case_study == "Evaporator":
     Corr_H_DP = {"1P" : "Churchill", "2P" : "Choi"}
     Corr_C_DP = {"1P" : "Churchill", "2P" : "Choi"}
 
-# Geometry: give ONE of D_ext or N. Optional: exchange_frac, k_wall, t_wall, n_parallel (n_series > 1 not available).
+# Geometry: give ONE of D_ext or n_turns. Optional: exchange_frac, k_wall, t_wall, n_parallel (n_series > 1 not available).
 HX.set_parameters(**params, Flow_Type="CounterFlow", n_disc=n_disc)
 HX.set_htc(htc_type='Correlation', Corr_H=Corr_H, Corr_C=Corr_C)
 # HX.set_DP()
@@ -59,5 +59,5 @@ HX.plot_cells()
 
 plot_spiral(HX)
 
-# print(f"Q = {HX.Q_dot/1e3:.2f} kW | N = {HX.params['N']:.2f} turns | A_h = {HX.A_h:.3f} m2, A_c = {HX.A_c:.3f} m2")
+# print(f"Q = {HX.Q_dot/1e3:.2f} kW | N = {HX.params['n_turns']:.2f} turns | A_h = {HX.A_h:.3f} m2, A_c = {HX.A_c:.3f} m2")
 

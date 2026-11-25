@@ -173,7 +173,7 @@ def f_lmtd2(R,P,params,C_r):
         flag = flag_ntu
         
     if params['Flow_Type'] == 'Shell&Tube':
-        if params['Tube_pass'] > 1 and P < 0.1:
+        if params['n_passes'] > 1 and P < 0.1:
             F = 1
         
     return F
@@ -182,7 +182,7 @@ if __name__ == "__main__":
     
     params = {
         'Flow_Type' : 'Shell&Tube',
-        'Tube_pass' : 2,
+        'n_passes' : 2,
         'n_series' : 1
         }
     

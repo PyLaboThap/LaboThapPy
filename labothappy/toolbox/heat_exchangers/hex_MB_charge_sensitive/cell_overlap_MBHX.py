@@ -85,7 +85,7 @@ def determine_cell_overlap_SPHE(hx, flow_from="inner"):
 
     P = hx.params
     H = P['H']
-    a = (P['C_canal_t'] + P['H_canal_t'] + 2 * P['t']) / TWO_PI
+    a = (P['b_C'] + P['b_H'] + 2 * P['t']) / TWO_PI
     r0 = P['r0_in']
     RL = P['radial_limits']
     th_h = P['theta_end']['hot']
@@ -128,7 +128,7 @@ def determine_cell_overlap_SPHE(hx, flow_from="inner"):
     loH, hiH = np.minimum(tkH[:-1], tkH[1:]), np.maximum(tkH[:-1], tkH[1:])
 
     # --- sheet1 orientation depends on which channel is inside ------------------
-    if P['inner_channel'] == "cold":
+    if P['inner_ch'] == "cold":
         # hot is outer: hot(θ) | sheet1(θ+2π) | cold(θ+2π)
         shift_c, shift_s1 = TWO_PI, TWO_PI
     else:
@@ -185,19 +185,19 @@ def determine_cell_mean_curvature_radius_SPHE(hx, channel="hot", flow_from="inne
 
     P = hx.params
     H = P['H']
-    a = (P['C_canal_t'] + P['H_canal_t'] + 2 * P['t']) / (2 * np.pi)
+    a = (P['b_C'] + P['b_H'] + 2 * P['t']) / (2 * np.pi)
     r0 = P['r0_in']
 
     # --- sélection du canal -----------------------------------------------------
     ch = channel.lower()
     if ch in ('hot', 'chaud'):
         el = "hot"
-        canal_t = P['H_canal_t']
-        Dh = P.get('H_Dh', 2 * H * canal_t / (H + canal_t))
+        canal_t = P['b_H']
+        Dh = P.get('Dh_H', 2 * H * canal_t / (H + canal_t))
     elif ch in ('cold', 'froid'):
         el = "cold"
-        canal_t = P['C_canal_t']
-        Dh = P.get('C_Dh', 2 * H * canal_t / (H + canal_t))
+        canal_t = P['b_C']
+        Dh = P.get('Dh_C', 2 * H * canal_t / (H + canal_t))
     else:
         raise ValueError("Le paramètre 'channel' doit être 'hot' ou 'cold'.")
 

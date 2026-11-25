@@ -16,8 +16,8 @@ def _check_spiral(hx, fname):
 
 
 def _pitch(P):
-    """Pas radial : pitch_H pour le SCHE, C_canal_t + H_canal_t + 2t pour le SPHE (identiques via les alias)."""
-    return P['pitch_H'] if 'pitch_H' in P else P['C_canal_t'] + P['H_canal_t'] + 2 * P['t']
+    """Pas radial : P_H pour le SCHE, b_C + b_H + 2t pour le SPHE (identiques via les alias)."""
+    return P['P_H'] if 'P_H' in P else P['b_C'] + P['b_H'] + 2 * P['t']
 
 
 def _wall_label(hx):
@@ -28,16 +28,16 @@ def _wall_label(hx):
 def _sphe_like_limits(P):
     """
     Limites radiales fictives pour tracer un SCHE en vue en plan comme un SPHE :
-    deux bandes de canal séparées par deux parois minces, sur un pas pitch_H.
+    deux bandes de canal séparées par deux parois minces, sur un pas P_H.
     Épaisseurs des canaux proportionnelles à leurs largeurs. Purement visuel (non exact).
     """
     p = _pitch(P)
     t = min(P.get('t_wall_min', 0.1 * p), 0.2 * p)            # épaisseur de paroi tracée
-    wc, wh = P['C_canal_w'], P['H_canal_w']
+    wc, wh = P['w_ch_C'], P['w_ch_H']
     tc = (p - 2 * t) * wc / (wc + wh)
     th = (p - 2 * t) - tc
     base = min(P['radial_limits']['cold'][0], P['radial_limits']['hot'][0])
-    if P['inner_channel'] == "cold":
+    if P['inner_ch'] == "cold":
         # froid(θ) | sheet2(θ) | chaud(θ) | sheet1(θ+2π) | froid(θ+2π)
         lim = {'cold': (0.0, tc), 'sheet2': (tc, tc + t), 'hot': (tc + t, tc + t + th), 'sheet1': (-t, 0.0)}
     else:
@@ -53,7 +53,7 @@ def _sheet1_orientation(P):
         (sheet1 évaluée à θ + shift_s1) ;
       - pos_s2 / pos_s1 : position relative dans le canal chaud de la face portée par sheet2 / sheet1.
     """
-    if P['inner_channel'] == "cold":
+    if P['inner_ch'] == "cold":
         # froid(θ) | sheet2(θ) | chaud(θ) | sheet1(θ+2π) | froid(θ+2π)
         return TWO_PI, TWO_PI, 0.22, 0.78
     # chaud intérieur : froid(θ-2π) | sheet1(θ) | chaud(θ) | sheet2(θ) | froid(θ)
@@ -64,17 +64,17 @@ def _sheet1_orientation(P):
 def plot_SCHE_section(hx, ax=None, n_turns=3, n_layers=3, first_turn=None, annotate=True, n_pts=60):
     """Coupe radiale (plan r-z, à θ = 0) des canaux d'un SCHE, comme la cellule unitaire de l'article.
 
-    Convention de la cellule (hauteur pitch_V, largeur pitch_H) :
+    Convention de la cellule (hauteur P_V, largeur P_H) :
       - canaux elliptiques complets : largeur totale *_canal_w, hauteur totale *_canal_h
-      - canal froid centré à z = (l + 1/4)·pitch_V, canal chaud à z = (l + 3/4)·pitch_V
+      - canal froid centré à z = (l + 1/4)·P_V, canal chaud à z = (l + 3/4)·P_V
         (rangées décalées d'une demi-cellule, comme radialement)
-      - les deux canaux sont décalés radialement selon radial_limits (même pas pitch_H)
-    pitch_H / pitch_V = écarts centre à centre entre deux canaux du même fluide ;
-    chaud et froid sont décalés de (pitch_H/2, pitch_V/2).
+      - les deux canaux sont décalés radialement selon radial_limits (même pas P_H)
+    P_H / P_V = écarts centre à centre entre deux canaux du même fluide ;
+    chaud et froid sont décalés de (P_H/2, P_V/2).
 
     n_turns, n_layers : fenêtre tracée (None -> tous les tours / toutes les couches)
     first_turn        : premier tour tracé (None -> tours du milieu de la spirale)
-    annotate          : cotes (largeurs / hauteurs des canaux, pitch_H, pitch_V, épaisseur de plaque)
+    annotate          : cotes (largeurs / hauteurs des canaux, P_H, P_V, épaisseur de plaque)
 
     """
     _check_spiral(hx, "plot_SCHE_section")
@@ -82,11 +82,11 @@ def plot_SCHE_section(hx, ax=None, n_turns=3, n_layers=3, first_turn=None, annot
         raise ValueError("plot_SCHE_section : réservé au SCHE.")
 
     P = hx.params
-    p, pv = _pitch(P), P['pitch_V']
+    p, pv = _pitch(P), P['P_V']
     a = p / TWO_PI
     mm = 1e3
-    n_ch = P.get('n_ch', int(P['H'] // pv))           # canaux de chaque fluide empilés
-    n_plates = P.get('n_plates', 2 * n_ch + 1)       # plaques : centre chaud -> centre froid, + 2 plaques de bord
+    n_ch = P.get('n_p', int(P['H'] // pv))            # couches de canaux de chaque fluide (n_p)
+    n_plates = 2 * n_ch + 1                # plaques : centre chaud -> centre froid, + 2 plaques de bord
 
     # tours présents dans la coupe θ = 0 pour chaque canal : θ = 2πk <= theta_end
     k_max = {el: int(np.floor(P['theta_end'][el] / TWO_PI + 1e-9)) for el in ('hot', 'cold')}
@@ -114,18 +114,18 @@ def plot_SCHE_section(hx, ax=None, n_turns=3, n_layers=3, first_turn=None, annot
     # métal : fond de la fenêtre (de la nervure avant le premier canal à celle après le dernier)
     t_rib = 0.25 * p                                   # marge de métal aux bords de la fenêtre
     edges = []
-    for el, wch in (('cold', P['C_canal_w']), ('hot', P['H_canal_w'])):
+    for el, wch in (('cold', P['w_ch_C']), ('hot', P['w_ch_H'])):
         for k in ks[el]:
             xc = r_center(el, k)
             edges += [xc - 0.5 * wch, xc + 0.5 * wch]
     x_lo, x_hi = min(edges) - 0.5 * t_rib, max(edges) + 0.5 * t_rib
     # bas du métal : sous le bas des canaux de la première couche (+ marge)
-    z_lo = min(0.0, min(0.25 * pv - 0.5 * P['C_canal_h'], 0.75 * pv - 0.5 * P['H_canal_h']) - 0.1 * pv)
+    z_lo = min(0.0, min(0.25 * pv - 0.5 * P['h_ch_C'], 0.75 * pv - 0.5 * P['h_ch_H']) - 0.1 * pv)
     ax.add_patch(plt.Rectangle((x_lo * mm, z_lo * mm), (x_hi - x_lo) * mm, (l1 * pv - z_lo) * mm,
                                color="0.72", lw=0, zorder=0))
 
-    cfg = {"cold": dict(w=P['C_canal_w'], h=P['C_canal_h'], z0=0.25, color="tab:blue", name="froid"),
-           "hot":  dict(w=P['H_canal_w'], h=P['H_canal_h'], z0=0.75, color="tab:red",  name="chaud")}
+    cfg = {"cold": dict(w=P['w_ch_C'], h=P['h_ch_C'], z0=0.25, color="tab:blue", name="froid"),
+           "hot":  dict(w=P['w_ch_H'], h=P['h_ch_H'], z0=0.75, color="tab:red",  name="chaud")}
     for el, c in cfg.items():
         for k in ks[el]:
             xc = r_center(el, k)
@@ -186,14 +186,14 @@ def plot_SCHE_section(hx, ax=None, n_turns=3, n_layers=3, first_turn=None, annot
                    f"w chaud = {wh*mm:.2f} mm")
             z_top += 0.35 * pv
 
-        # pitch_H : entre deux centres de canaux froids successifs (dernière couche)
+        # P_H : entre deux centres de canaux froids successifs (dernière couche)
         kc = k0 if k0 <= k_max['cold'] else k0 - 1
         xa, xb = r_center('cold', kc), r_center('cold', kc + 1)
-        cote_h(xa, xb, z_cold(l1 - 1), z_cold(l1 - 1), z_top, f"pitch_H = {p*mm:.2f} mm")
+        cote_h(xa, xb, z_cold(l1 - 1), z_cold(l1 - 1), z_top, f"P_H = {p*mm:.2f} mm")
 
-        # pitch_V : entre deux centres de canaux froids superposés (à gauche)
+        # P_V : entre deux centres de canaux froids superposés (à gauche)
         x_att = r_center('cold', ks['cold'][0]) if ks['cold'] else x_lo
-        cote_v(z_cold(0), z_cold(1), x_att, x_lo if l1 < 2 else x_att, xl, f"pitch_V\n{pv*mm:.2f} mm")
+        cote_v(z_cold(0), z_cold(1), x_att, x_lo if l1 < 2 else x_att, xl, f"P_V\n{pv*mm:.2f} mm")
 
         # épaisseur d'une plaque : entre deux plans de liaison (à gauche, dernière couche)
         if l1 >= 2:
@@ -228,11 +228,11 @@ def plot_spiral(hx, ax=None, n=2000, w=None, values_c=None, values_h=None,
     """Vue en plan de l'échangeur à spirale (SPHE ou SCHE), avec la discrétisation des DEUX fluides.
 
     SPHE : tôles spiralées de hauteur H.
-    SCHE : vue en plan d'UNE couche ; les n_plates couches empilées sont identiques.
+    SCHE : vue en plan d'UNE couche ; les n_p couches empilées sont identiques.
            Les bandes grises sont les nervures entre canaux (largeur e_H / 2 de part et d'autre).
 
-    Lit hx.params (rempli par setup_geom) : t, C_canal_t, H_canal_t (ou pitch_H), r0_in, D_ext, N,
-    radial_limits, theta_end, inner_channel (+ L_cold, L_hot si présents, pour contrôle).
+    Lit hx.params (rempli par setup_geom) : t, b_C, b_H (ou P_H), r0_in, D_ext, N,
+    radial_limits, theta_end, inner_ch (+ L_C, L_H si présents, pour contrôle).
 
     w            : vecteur des parts ; None -> hx.w ; absent -> tracé sans discrétisation.
     values_c/h   : une valeur par cellule pour colorer les cellules ; None -> teintes alternées.
@@ -248,7 +248,7 @@ def plot_spiral(hx, ax=None, n=2000, w=None, values_c=None, values_h=None,
     P = hx.params
     p = _pitch(P)
     a = p / TWO_PI
-    theta_max = TWO_PI * P['N']
+    theta_max = TWO_PI * P['n_turns']
     with_section = section and hx.HTX_Type == 'SCHE'
     approx = hx.HTX_Type == 'SCHE'
     if approx:                                        # SCHE tracé comme un SPHE (approximation visuelle)
@@ -283,7 +283,7 @@ def plot_spiral(hx, ax=None, n=2000, w=None, values_c=None, values_h=None,
             return None
         s_of = lambda th: F(r(el, th)) - F(r(el, 0.0))
         L = float(s_of(th_end))
-        key = 'L_cold' if el == 'cold' else 'L_hot'
+        key = 'L_C' if el == 'cold' else 'L_H'
         if not approx and key in P and abs(P[key] - L) > 1e-6 * L:
             print(f"⚠ {key}(params) = {P[key]:.4f} m ≠ longueur recalculée {L:.4f} m")
         frac = np.r_[0.0, np.cumsum(w)]
@@ -368,9 +368,9 @@ def plot_spiral(hx, ax=None, n=2000, w=None, values_c=None, values_h=None,
     ax.set_aspect("equal")
     ax.set_xlabel("x [m]")
     ax.set_ylabel("y [m]")
-    title = f"Spirale – p = {p*1e3:.2f} mm, N = {P['N']:.2f} tours, canal intérieur : {P['inner_channel']}"
+    title = f"Spirale – p = {p*1e3:.2f} mm, N = {P['n_turns']:.2f} tours, canal intérieur : {P['inner_ch']}"
     if hx.HTX_Type == 'SCHE':
-        title += f"\nVue d'une couche – {P.get('n_plates', '?')} couches de pas {P['pitch_V']*1e3:.2f} mm"
+        title += f"\nVue d'une couche – {P.get('n_p', '?')} couches de pas {P['P_V']*1e3:.2f} mm"
     ax.set_title(title)
     ax.legend(loc="upper right", fontsize=8)
 
@@ -391,7 +391,7 @@ def plot_incidence(HX, w=None, tol_incid=1e-9, ax=None):
 
     W est calculée par determine_cell_overlap_SPHE, c'est-à-dire exactement la matrice
     utilisée par le solveur (frontières de cellules en longueur de canal, les deux
-    orientations de inner_channel gérées).
+    orientations de inner_ch gérées).
     """
     _check_spiral(HX, "plot_incidence")
 
@@ -443,13 +443,13 @@ def plot_contacts(hx, ax=None, w=None, flow_from="inner", flow_from_hot=None,
 
     Chaque canal est découpé en sous-segments là où le partenaire change.
 
-    Géométrie (cf. radial_limits), selon inner_channel :
+    Géométrie (cf. radial_limits), selon inner_ch :
         'cold' : froid(θ) | sheet2(θ) | chaud(θ) | sheet1(θ+2π) | froid(θ+2π)
         'hot'  : froid(θ-2π) | sheet1(θ) | chaud(θ) | sheet2(θ) | froid(θ)
     Le chaud en θ touche donc toujours le froid en θ via sheet2, et le froid en θ ± 2π via sheet1.
 
     SCHE : sheet1/sheet2 sont les deux parois d'échange du canal chaud ; l'aire affichée
-    utilise H_contact (= n_plates · P_ex / 2) au lieu de H.
+    utilise H_contact (= n_p · P_ex / 2) au lieu de H.
 
     Retourne (ax, W, segs) : W[i, j] = fraction de l'aire d'échange totale, segs = liste de
     (θ_a, θ_b, i, j_sheet2, j_sheet1) en angle du canal chaud.
@@ -460,7 +460,7 @@ def plot_contacts(hx, ax=None, w=None, flow_from="inner", flow_from_hot=None,
     H = P.get('H_contact', P['H'])                  # hauteur d'échange par paroi
     p = _pitch(P)
     a = p / TWO_PI
-    theta_max = TWO_PI * P['N']
+    theta_max = TWO_PI * P['n_turns']
     th_h, th_c = P['theta_end']['hot'], P['theta_end']['cold']
     shift_c, shift_s1, pos_s2, pos_s1 = _sheet1_orientation(P)
 

@@ -858,15 +858,15 @@ def _hydraulic_diameter_and_mass_flux(params, m_dot, G):
     """
     Hydraulic diameter and mass flux from the geometry dict.
 
-    d_hyd : 'd_hyd', 'D_h' (heat exchangers) or 'D' (pipes)
+    d_hyd : 'd_hyd', 'D_h' or 'Dh' (heat exchangers) or 'D' (pipes)
     G     : given G, else m_dot over the flow section. The flow section is
-            n_channels * A_cs_channel when given (plate heat exchangers),
+            n_ch * A_cs_channel when given (plate heat exchangers),
             otherwise a circular section of diameter d_hyd (pipes).
     """
-    d_hyd = next((params[k] for k in ('d_hyd', 'D_h', 'D') if params.get(k) is not None), None)
+    d_hyd = next((params[k] for k in ('d_hyd', 'D_h', 'Dh', 'D') if params.get(k) is not None), None)
     if G is None and m_dot is not None:
-        if params.get('A_cs_channel') is not None and params.get('n_channels') is not None:
-            G = m_dot / (params['A_cs_channel'] * params['n_channels'])
+        if params.get('A_cs_channel') is not None and params.get('n_ch') is not None:
+            G = m_dot / (params['A_cs_channel'] * params['n_ch'])
         elif d_hyd is not None:
             G = m_dot / (PI * d_hyd ** 2 / 4.0)
     return d_hyd, G
@@ -881,8 +881,9 @@ def compute_void_fraction(AS, params, m_dot=None, void_fraction_model='Homogeneo
     AS : CoolProp.AbstractState
         Two-phase fluid state (pressure and quality already set).
     params : dict
-        Geometry. Depending on the model: hydraulic diameter ('d_hyd', 'D_h' or 'D'),
-        flow section ('A_cs_channel' and 'n_channels', else circular), 'theta'.
+        Geometry. Depending on the model: hydraulic diameter ('d_hyd', 'D_h', 'Dh' or 'D'),
+        flow section ('A_cs_channel' and 'n_ch', else circular),
+        'gamma' (inclination [deg]; 'theta' still read for the pipe components).
     m_dot : float, optional
         Total mass flow rate [kg/s], used to compute G when G is not given.
     void_fraction_model : str
@@ -915,7 +916,7 @@ def compute_void_fraction(AS, params, m_dot=None, void_fraction_model='Homogeneo
         d_hyd, G = _hydraulic_diameter_and_mass_flux(params, m_dot, G)
         if d_hyd is None or G is None:
             raise ValueError(f"The '{void_fraction_model}' void fraction model needs a hydraulic diameter "
-                             f"('d_hyd', 'D_h' or 'D') and a mass flux (G, or m_dot with the flow section).")
+                             f"('d_hyd', 'D_h', 'Dh' or 'D') and a mass flux (G, or m_dot with the flow section).")
 
     if void_fraction_model == 'Homogeneous':
         alpha = void_fraction_homogeneous(rho_l, rho_v, x)
@@ -951,7 +952,9 @@ def compute_void_fraction(AS, params, m_dot=None, void_fraction_model='Homogeneo
         alpha = void_fraction_dix(rho_l, rho_v, x, G, sigma)
 
     elif void_fraction_model == 'Woldesemayat-Ghajar':
-        theta = params.get('theta', 90.0)
+        # inclination [deg]: 'gamma' (heat exchanger geometries); 'theta' is still the name used by
+        # the pipe components (component/pipe), not renamed
+        theta = params.get('gamma', params.get('theta', 90.0))
         alpha = void_fraction_woldesemayat_ghajar(rho_l, rho_v, x, G, sigma, d_hyd, P, theta)
 
     elif void_fraction_model == 'Cioncolini-Thome':

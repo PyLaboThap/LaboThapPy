@@ -31,7 +31,7 @@ from labothappy.component.heat_exchanger.hex_MB import HexMB
 
 HX = HexMB('BPHE')
 
-case_study = "C5_EVAP"
+case_study = "R1233zd(E)_COND"
 
 # "Setting inputs"
 if case_study == "C5_COND":
@@ -60,20 +60,20 @@ if case_study == "C5_COND":
     Corr_C = {"1P" : "Martin", "2P" : "Longo"} 
     
     HX.set_parameters(
-        A_c = 0.616, 
-        A_h = 0.616, 
+        A_C = 0.616, 
+        A_H = 0.616, 
         h = 0.041, 
         l = 0.324, 
         l_v = 0.2682, 
         
-        n_channels_C = 12, 
-        n_channels_H = 11, 
+        n_ch_C = 12, 
+        n_ch_H = 11, 
         
-        t_plates = 0.0005, # !!! arbitrary
+        t_p = 0.0005, # !!! arbitrary
         beta = 10*np.pi/180, # !!! arbitrary, 
-        fooling = 0.705/100, 
-        n_plates = 24, 
-        plate_cond = 45, 
+        R_f = 0.705/100, 
+        n_p = 24, 
+        k_wall = 45, 
         w = 0.094, 
         
         charge_compute = True,
@@ -111,20 +111,20 @@ elif case_study == "C5_EVAP":
     Corr_C = {"1P" : "auto", "2P" : "Cooper"}
 
     HX.set_parameters(
-        A_c = 0.616, 
-        A_h = 0.616, 
+        A_C = 0.616, 
+        A_H = 0.616, 
         h = 0.041, 
         l = 0.324, 
         l_v = 0.2682, 
         
-        n_channels_C = 12, 
-        n_channels_H = 11, 
+        n_ch_C = 12, 
+        n_ch_H = 11, 
         
-        t_plates = 0.0005, # !!! arbitrary
+        t_p = 0.0005, # !!! arbitrary
         beta = 30*np.pi/180, # !!! arbitrary, 
-        fooling = 0.705/100, 
-        n_plates = 24, 
-        plate_cond = 45, 
+        R_f = 0.705/100, 
+        n_p = 24, 
+        k_wall = 45, 
         w = 0.094, 
         
         charge_compute = False,
@@ -161,20 +161,20 @@ elif case_study == "C5_DSH":
     Corr_C = {"1P" : "Martin", "2P" : "Cooper"}
     
     HX.set_parameters(
-        A_c = 0.752, 
-        A_h = 0.752, 
+        A_C = 0.752, 
+        A_H = 0.752, 
         h = 0.0446, 
         l = 0.393, 
         l_v = 0.324, # 5
         
-        n_channels_C = 5, 
-        n_channels_H = 4, 
+        n_ch_C = 5, 
+        n_ch_H = 4, 
         
-        t_plates = 0.0005, # !!! arbitrary
+        t_p = 0.0005, # !!! arbitrary
         beta = 10*np.pi/180, # !!! arbitrary, 
-        fooling = 98.51/100, 
-        n_plates = 10, 
-        plate_cond = 45, 
+        R_f = 98.51/100, 
+        n_p = 10, 
+        k_wall = 45, 
         w = 0.243, # 23
         
         charge_compute = False,
@@ -214,20 +214,20 @@ elif case_study == "R1233zd(E)_COND":
     "Parameters Setting"
 
     HX.set_parameters(
-        A_c = 17.8, 
-        A_h = 17.8, 
+        A_C = 17.8, 
+        A_H = 17.8, 
         h = 0.346, 
         l = 0.525, 
         l_v = 0.450, # 5
         
-        n_channels_C = 70, 
-        n_channels_H = 69, 
+        n_ch_C = 70, 
+        n_ch_H = 69, 
         
-        t_plates = 0.0005, # !!! arbitrary
+        t_p = 0.0005, # !!! arbitrary
         beta = 30*np.pi/180, # !!! arbitrary, 
-        fooling = 0.258/100, 
-        n_plates = 140, 
-        plate_cond = 45, 
+        R_f = 0.258/100, 
+        n_p = 140, 
+        k_wall = 45, 
         w = 0.243, # 23
         
         charge_compute = False,
@@ -263,20 +263,20 @@ elif case_study == 'Condenser_R1233ZDE':
     corrugation_pitch = np.pi * corrugation_amplitude / X
 
     HX.set_parameters(
-        A_c = 17.8, 
-        A_h = 17.8, 
+        A_C = 17.8, 
+        A_H = 17.8, 
         h = 0.346, 
         l = 0.525, 
         l_v = 0.450, # 5
         
-        n_channels_C = 70, 
-        n_channels_H = 69, 
+        n_ch_C = 70, 
+        n_ch_H = 69, 
         
-        t_plates = 0.0005, # !!! arbitrary
+        t_p = 0.0005, # !!! arbitrary
         beta = 60*np.pi/180, # !!! arbitrary, 
-        fooling = 0, 
-        n_plates = 140, 
-        plate_cond = 45, 
+        R_f = 0, 
+        n_p = 140, 
+        k_wall = 45, 
         w = 0.243, # 23
         
         charge_compute = True,
@@ -287,9 +287,9 @@ elif case_study == 'Condenser_R1233ZDE':
     #                         n_disc=3,                        # Number of regular cells (phase-change cells are added)
     #                         A_H=17.8, A_C=17.8,             # Heat transfer area [m^2]
     #                         V_C=16.63*1e-3, V_H=16.87*1e-3,       # Total volume of each side [m^3] (à vérifier quel côté est lequel!!)
-    #                         n_plates = 140,
-    #                         n_channels_H = 69,
-    #                         n_channels_C = 70,
+    #                         n_p = 140,
+    #                         n_ch_H = 69,
+    #                         n_ch_C = 70,
     #                         L_plate = 0.45,                  # Longueur H
     #                         W_plate = 0.1635,                # Longueur D
     #                         L_eff = 0.4485,                  # Longueur C
@@ -317,20 +317,20 @@ elif case_study == 'Evaporator_R1233ZDE':
     )
 
     HX.set_parameters(
-        A_c = 17.8, 
-        A_h = 17.8, 
+        A_C = 17.8, 
+        A_H = 17.8, 
         h = 0.346, 
         l = 0.525, 
         l_v = 0.450, # 5
         
-        n_channels_C = 70, 
-        n_channels_H = 69, 
+        n_ch_C = 70, 
+        n_ch_H = 69, 
         
-        t_plates = 0.0005, # !!! arbitrary
+        t_p = 0.0005, # !!! arbitrary
         beta = 30*np.pi/180, # !!! arbitrary, 
-        fooling = 0, 
-        n_plates = 140, 
-        plate_cond = 45, 
+        R_f = 0, 
+        n_p = 140, 
+        k_wall = 45, 
         w = 0.243, # 23
         
         charge_compute = True,

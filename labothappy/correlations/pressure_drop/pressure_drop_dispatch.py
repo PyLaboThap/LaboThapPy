@@ -76,3 +76,88 @@ def port_pressure_drop(geom, cond):
     if geom.get('HTX_Type') == 'BPHE':
         return float(BPHX_port_DP(geom, cond))
     return 0.0
+
+
+# =============================================================================
+# NAME OF THE AUTOMATIC CHOICE (used by hex_MB to fix one correlation per phase)
+# =============================================================================
+
+def auto_dp_correlation(AS, geom, cond):
+    """Name of the correlation that pressure_drop(AS, geom, cond, None) would choose for the state
+    in cond, WITHOUT computing the pressure drop.
+
+    Purpose: the model (hex_MB) calls it once per side and per phase, at a representative state of
+    the phase, and then gives this name explicitly to every cell of the phase. The automatic rules
+    (select_* functions of each dispatcher) are not duplicated: they are called here.
+
+    Arguments
+    ---------
+    AS   : CoolProp AbstractState set at the state of cond (h, p)
+    geom : geometry dictionary of the side (as for pressure_drop)
+    cond : condition dictionary (as for pressure_drop): flow_state 'SP', 'EVAP' or 'COND' and phase
+           ('vapor-wet' cells use the single-phase pressure drop, as in pressure_drop)
+
+    Returns
+    -------
+    str : name of the correlation, valid as an explicit choice for pressure_drop.
+    """
+    # Selection functions of the dispatchers (imported here to keep this helper self-contained)
+    from labothappy.correlations.pressure_drop.BPHX_DP import (
+        select_plate_DP, select_plate_evaporation_DP, select_plate_condensation_DP)
+    from labothappy.correlations.pressure_drop.STHE_DP import select_shell_DP
+    from labothappy.correlations.pressure_drop.pipe_DP import (
+        select_pipe_DP, select_pipe_two_phase_DP)
+    from labothappy.correlations.pressure_drop.PCHE_DP import select_PCHE_DP
+
+    htx = geom.get('HTX_Type')
+    # Same flow state as pressure_drop: a 'vapor-wet' cell has a single-phase pressure drop
+    if cond.get('phase') == 'vapor-wet':
+        state = 'SP'
+    else:
+        state = cond.get('flow_state')
+    if state not in _VALID_STATES:
+        raise ValueError(f"Pressure drop: flow state {state!r}, expected one of {_VALID_STATES}.")
+    side = cond.get('side', geom.get('side'))
+
+    if htx == 'BPHE':
+        if state == 'SP':
+            return select_plate_DP(geom, cond)
+        if state == 'EVAP':
+            return select_plate_evaporation_DP(geom, cond)
+        return select_plate_condensation_DP(geom, cond)
+
+    if htx == 'STHE':
+        if side == 'tube':
+            if state == 'SP':
+                return select_pipe_DP(AS, geom, cond)
+            return select_pipe_two_phase_DP(AS, geom, cond)
+        if state == 'SP':
+            return select_shell_DP(geom, cond)
+        return 'Ishihara'                               # STHE_two_phase_DP automatic choice
+
+    if htx == 'TFHE':
+        if side == 'tube':
+            if state == 'SP':
+                return select_pipe_DP(AS, geom, cond)
+            return select_pipe_two_phase_DP(AS, geom, cond)
+        return 'Pismennyi'                              # TFHE_fin_DP automatic choice
+
+    if htx == 'PCHE':
+        if state == 'SP':
+            name = select_PCHE_DP(geom, cond)
+            if name is None:                            # straight channel: pipe rule
+                name = select_pipe_DP(AS, geom, cond)
+            return name
+        return select_pipe_two_phase_DP(AS, geom, cond)
+
+    if htx == 'SPHE':
+        if state == 'SP':
+            return 'Picon_Nunez'                        # SPHE_DP automatic choice
+        return select_pipe_two_phase_DP(AS, geom, cond)
+
+    if htx in _CURVED_PIPE_TYPES:
+        if state == 'SP':
+            return 'Sigalotti'                          # curved_pipe_DP automatic choice
+        return select_pipe_two_phase_DP(AS, geom, cond)
+
+    raise NotImplementedError(f"auto_dp_correlation: heat exchanger type {htx!r} is not handled.")

@@ -15,7 +15,7 @@ def plot_MB_STHE(HX, H_total=0.3, L_total=1.0, props=None, legend_range=None, sa
     w = np.array(HX.w)
     w = w/np.sum(w)
 
-    n_passes = HX.params["Tube_pass"]
+    n_passes = HX.params["n_passes"]
     
     # Marges et dimensions des tubes
     spacing_frac = 0.3/n_passes
@@ -31,7 +31,7 @@ def plot_MB_STHE(HX, H_total=0.3, L_total=1.0, props=None, legend_range=None, sa
     shell_rect = plt.Rectangle((0,0), L_total, H_total, edgecolor='black', facecolor='lightgray')
     ax.add_patch(shell_rect)
     
-    if HX.params['Shell_Side'] == 'H':
+    if HX.params['shell_side'] == 'H':
         tube_color = 'blue'
         shell_color = 'red'
     else:
@@ -431,7 +431,7 @@ def plot_MB_STHE(HX, H_total=0.3, L_total=1.0, props=None, legend_range=None, sa
         cell_centers = np.cumsum(w) - 0.5 * w
         norm = mcolors.Normalize(vmin=0.0, vmax=1.0)
 
-        if HX.params['Shell_Side'] == 'H':
+        if HX.params['shell_side'] == 'H':
             cmap_shell = plt.cm.Reds
             cmap_tube = plt.cm.Blues_r
         else:
