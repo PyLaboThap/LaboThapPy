@@ -15,6 +15,7 @@ import numpy as np
 
 from labothappy.correlations.convection.pipe_HTC_correlation_bank import _sat_props
 from labothappy.correlations.convection.BPHE_HTC_correlation_bank import BPHE_cooper_boiling_HTC
+from labothappy.correlations.convection.correlation_warnings import ValidityRangeWarning
 
 #%% GEOMETRY HELPERS
 
@@ -600,7 +601,8 @@ def STHE_rose_kern_condensing_HTC(AS, geom, cond):
     
     x = cond['x']
     if x < 0.0 or x > 1.0:
-        warnings.warn(f"Vapour quality x = {x} outside [0, 1], clipping to bounds.")
+        warnings.warn(f"Vapour quality x = {x} outside [0, 1], clipping to bounds.",
+                      ValidityRangeWarning)
         x = np.clip(x, 0.0, 1.0)
         
     g = 9.81
@@ -770,7 +772,8 @@ def STHE_shah_bundle_boiling_HTC(AS, geom, cond):
 
     # Check quality bounds
     if x < 0.0 or x > 1.0:
-        warnings.warn(f"STHE_shah_bundle_boiling_HTC: quality x = {x} outside [0, 1]. Clipped.")
+        warnings.warn(f"STHE_shah_bundle_boiling_HTC: quality x = {x} outside [0, 1]. Clipped.",
+                      ValidityRangeWarning)
         x = np.clip(x, 0.0, 1.0)
 
     # 2) Validate heat flux
@@ -835,25 +838,25 @@ def STHE_shah_bundle_boiling_HTC(AS, geom, cond):
     # 9) Validity checks (Shah 2017 Table 1)
     if not (0.005 <= p_red <= 0.2866):
         warnings.warn(f"STHE_shah_bundle_boiling_HTC: reduced pressure p_red = {p_red:.4f} "
-                      f"is outside validity range [0.005, 0.2866].")
+                      f"is outside validity range [0.005, 0.2866].", ValidityRangeWarning)
     if not (0.15 <= G <= 1391.0):
         warnings.warn(f"STHE_shah_bundle_boiling_HTC: mass flux G = {G:.2f} kg/(m^2 s) "
-                      f"is outside validity range [0.15, 1391].")
+                      f"is outside validity range [0.15, 1391].", ValidityRangeWarning)
     if not (1e3 <= q <= 1e6):
         warnings.warn(f"STHE_shah_bundle_boiling_HTC: heat flux q = {q:.1f} W/m^2 "
-                      f"is outside validity range [1e3, 1e6].")
+                      f"is outside validity range [1e3, 1e6].", ValidityRangeWarning)
     if not (0.0 <= x <= 0.98):
         warnings.warn(f"STHE_shah_bundle_boiling_HTC: quality x = {x:.3f} "
-                      f"is outside validity range [0, 0.98].")
+                      f"is outside validity range [0, 0.98].", ValidityRangeWarning)
     if not (3e-3 <= D <= 25.4e-3):
         warnings.warn(f"STHE_shah_bundle_boiling_HTC: tube OD D = {D:.5f} m "
-                      f"is outside validity range [3e-3, 25.4e-3].")
+                      f"is outside validity range [3e-3, 25.4e-3].", ValidityRangeWarning)
     if not (1.17 <= geom['PR'] <= 2.0):
         warnings.warn(f"STHE_shah_bundle_boiling_HTC: pitch ratio = {geom['PR']:.2f} "
-                      f"is outside validity range [1.17, 2.0].")
+                      f"is outside validity range [1.17, 2.0].", ValidityRangeWarning)
     if not (7.0 <= Re_L <= 52117.0):
         warnings.warn(f"STHE_shah_bundle_boiling_HTC: liquid Reynolds number Re_L = {Re_L:.1f} "
-                      f"is outside validity range [7, 52117].")
+                      f"is outside validity range [7, 52117].", ValidityRangeWarning)
 
     # Return final heat transfer coefficient
     return h

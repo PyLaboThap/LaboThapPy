@@ -21,6 +21,7 @@ import numpy as np
 
 from labothappy.correlations.convection.pipe_HTC_correlation_bank import (
     _tube_ID, _tube_G, _sat_props, _need_sigma)
+from labothappy.correlations.convection.correlation_warnings import ValidityRangeWarning
 
 EPS = 1e-12
 G_GRAVITY = 9.81  # m/s^2
@@ -39,31 +40,70 @@ def friction_factor_churchill(K, d_hyd, Re):
 
 
 def friction_factor_swamee_jain(K, d_hyd, Re):
-    """Swamee & Jain (1976): explicit Colebrook-White, turbulent flow (Re >= 5000)."""
+    """Swamee & Jain (1976): explicit Colebrook-White, turbulent flow (Re >= 5000).
+    Validity: 5e3 <= Re <= 1e8, 1e-6 <= K/d <= 5e-2 (fluids.friction.Swamee_Jain_1976 notes);
+    warning outside (the smooth limit K/d < 1e-6 is not flagged: the formula tends to the smooth
+    pipe value)."""
+    if Re < 5e3 or Re > 1e8:
+        warnings.warn(f"Swamee-Jain friction factor: Re = {Re:.3g} outside 5e3-1e8: extrapolated.",
+                      ValidityRangeWarning, stacklevel=2)
+    if K / max(EPS, d_hyd) > 5e-2:
+        warnings.warn(f"Swamee-Jain friction factor: K/d = {K / d_hyd:.3g} above 5e-2: "
+                      "extrapolated.",
+                      ValidityRangeWarning, stacklevel=2)
     Re = max(EPS, Re)
     log_arg = K / max(EPS, d_hyd) / 3.7 + 5.74 / Re**0.9
     return 0.25 / (math.log10(max(EPS, log_arg))**2)
 
 
 def friction_factor_haaland(K, d_hyd, Re):
-    """Haaland (1983): explicit Colebrook-White, 4e3 <= Re <= 1e8, 1e-6 <= K/d <= 0.05."""
+    """Haaland (1983): explicit Colebrook-White, 4e3 <= Re <= 1e8, 1e-6 <= K/d <= 0.05
+    (also fluids.friction.Haaland notes); warning outside (the smooth limit K/d < 1e-6 is not
+    flagged: the formula tends to the smooth pipe value)."""
+    if Re < 4e3 or Re > 1e8:
+        warnings.warn(f"Haaland friction factor: Re = {Re:.3g} outside 4e3-1e8: extrapolated.",
+                      ValidityRangeWarning, stacklevel=2)
+    if K / d_hyd > 0.05:
+        warnings.warn(f"Haaland friction factor: K/d = {K / d_hyd:.3g} above 0.05: extrapolated.",
+                      ValidityRangeWarning, stacklevel=2)
     return (1.0 / (-1.8 * np.log10((K / (3.75 * d_hyd))**1.11 + 6.9 / Re)))**2
 
 
 def friction_factor_konakov(Re):
-    """Konakov: f = (1.8 log10 Re - 1.5)^-2, smooth pipes, 4e3 <= Re <= 3e6."""
+    """Konakov: f = (1.8 log10 Re - 1.5)^-2, smooth pipes, 4e3 <= Re <= 3e6 (warning outside)."""
+    if Re < 4e3 or Re > 3e6:
+        warnings.warn(f"Konakov friction factor: Re = {Re:.3g} outside 4e3-3e6: extrapolated.",
+                      ValidityRangeWarning, stacklevel=2)
     return (1.8 * math.log10(Re) - 1.5)**(-2)
 
 
 def friction_factor_petukhov(Re):
-    """Petukhov (1970): f = (0.79 ln Re - 1.64)^-2, smooth pipes, 3e3 <= Re <= 5e6."""
+    """Petukhov (1970): f = (0.79 ln Re - 1.64)^-2, smooth pipes, 3e3 <= Re <= 5e6 (warning
+    outside)."""
+    if Re < 3e3 or Re > 5e6:
+        warnings.warn(f"Petukhov friction factor: Re = {Re:.3g} outside 3e3-5e6: extrapolated.",
+                      ValidityRangeWarning, stacklevel=2)
     return (0.79 * np.log(Re) - 1.64)**(-2)
 
 
 def friction_factor_cheng_CO2(G, d_hyd, P, h, mu):
     """Cheng et al. (2024): supercritical CO2 in a horizontal tube (liquid-like / vapor-like / two-phase-like
     by the pseudo-vapor quality). D = 10 mm, G 496.7-1346.2 kg/m2/s, P 7.53-23.51 MPa, CO2 only.
-    Needs labothappy.correlations.properties.supercritical (pseudo_boiling_bounds, pseudo_critical_temperature_CO2)."""
+    Needs labothappy.correlations.properties.supercritical (pseudo_boiling_bounds, pseudo_critical_temperature_CO2).
+    Warning outside G 496.7-1346.2 kg/m2/s, P 7.53-23.51 MPa (ranges above), and for a diameter
+    outside 8-12 mm (single tested diameter 10 mm; 8-12 mm = window of the labothappy automatic
+    choice, select_pipe_DP)."""
+    if G < 496.7 or G > 1346.2:
+        warnings.warn(f"Cheng CO2 friction factor: G = {G:.4g} kg/m2/s outside 496.7-1346.2: "
+                      "extrapolated.",
+                      ValidityRangeWarning, stacklevel=2)
+    if P < 7.53e6 or P > 23.51e6:
+        warnings.warn(f"Cheng CO2 friction factor: P = {P / 1e6:.3g} MPa outside 7.53-23.51 MPa: "
+                      "extrapolated.", ValidityRangeWarning, stacklevel=2)
+    if d_hyd < 8e-3 or d_hyd > 12e-3:
+        warnings.warn(f"Cheng CO2 friction factor: D = {d_hyd * 1e3:.3g} mm, tested diameter "
+                      "10 mm: "
+                      "extrapolated.", ValidityRangeWarning, stacklevel=2)
     import CoolProp.CoolProp as CP
     from labothappy.correlations.properties.supercritical import (
         pseudo_boiling_bounds, pseudo_critical_temperature_CO2)
@@ -121,6 +161,7 @@ def pipe_haaland_SP_DP(AS, geom, cond):
 def _smooth_only(name, geom):
     if geom.get('K', 0.0) > 0:
         warnings.warn(f"K={geom['K']} was given but the {name!r} correlation is smooth-pipe-only: roughness ignored.",
+                      ValidityRangeWarning,
                       stacklevel=3)
 
 
@@ -174,9 +215,18 @@ def _friedel(G, x, s, D, L, K, cond):
 def _pipe_friedel_dp(AS, geom, cond):
     """Friedel (1979), separated flow, recommended for mu_l / mu_v < 1000: dP = Phi_lo^2 dP_lo.
     Churchill friction factors, homogeneous density in Fr and We. Needs the surface tension
-    (cond['sigma'] if CoolProp has none)."""
+    (cond['sigma'] if CoolProp has none).
+    Validity (fluids.two_phase.Friedel notes): works poorly when mu_l / mu_v > 1000; tested on
+    diameters down to 4 mm. Warning outside."""
     def model(G, x, s, D, L, K, c):
         _need_sigma(AS, s)
+        if s['mu_l'] / s['mu_v'] > 1000:
+            warnings.warn(f"Friedel two-phase DP: mu_l / mu_v = {s['mu_l'] / s['mu_v']:.0f} > 1000 "
+                          "(correlation known to work poorly there).", ValidityRangeWarning,
+                          stacklevel=4)
+        if D < 4e-3:
+            warnings.warn(f"Friedel two-phase DP: D = {D * 1e3:.2f} mm below 4 mm (smallest tested "
+                          "diameter): extrapolated.", ValidityRangeWarning, stacklevel=4)
         return _friedel(G, x, s, D, L, K, c)
     return _two_phase_dp(AS, geom, cond, model)
 
@@ -235,7 +285,15 @@ def _pipe_homogeneous_dp(AS, geom, cond):
 def _pipe_lockhart_martinelli_dp(AS, geom, cond):
     """Lockhart-Martinelli, Chisholm form: dP = Phi_l^2 dP_l, Phi_l^2 = 1 + C / X + 1 / X^2,
     X^2 = dP_l / dP_v (each phase alone). C = 20 (tt), 12 (vt), 10 (tv), 5 (vv); Re limit 2000.
-    cond['lm_C'] imposes C. Reference: Chisholm (1967); Lockhart & Martinelli (1949)."""
+    cond['lm_C'] imposes C. Reference: Chisholm (1967); Lockhart & Martinelli (1949).
+    Validity: developed for horizontal flow (fluids.two_phase.Lockhart_Martinelli notes): warning
+    if the tube is inclined (geom['gamma'] not 0)."""
+    if geom.get('gamma', 0.0) != 0.0:
+        warnings.warn(f"Lockhart-Martinelli two-phase DP: inclined tube "
+                      f"(gamma = {geom['gamma']} deg), "
+                      "the correlation was developed for horizontal flow.", ValidityRangeWarning,
+                      stacklevel=3)
+
     def model(G, x, s, D, L, K, c):
         G_l, G_v = G * (1 - x), G * x
         dP_l = _friction_dp(friction_factor_churchill(K, D, G_l * D / s['mu_l']), G_l, s['rho_l'], D, L)
@@ -628,14 +686,14 @@ def pipe_kim_mudawar_condensing_DP(AS, geom, cond):
     if D < 0.0695e-3 or D > 6.22e-3:
         warnings.warn(
             f"Kim-Mudawar condensing: D_h = {D*1000:.2f} mm outside validity range "
-            f"[0.0695, 6.22] mm",
+            f"[0.0695, 6.22] mm", ValidityRangeWarning,
             stacklevel=2
         )
     # Mass flux: 4-8528 kg/m2/s
     if G < 4 or G > 8528:
         warnings.warn(
             f"Kim-Mudawar condensing: G = {G:.1f} kg/m2/s outside validity range "
-            f"[4, 8528] kg/m2/s",
+            f"[4, 8528] kg/m2/s", ValidityRangeWarning,
             stacklevel=2
         )
     # Reduced pressure: 0.0052-0.91
@@ -644,7 +702,7 @@ def pipe_kim_mudawar_condensing_DP(AS, geom, cond):
     if p_red < 0.0052 or p_red > 0.91:
         warnings.warn(
             f"Kim-Mudawar condensing: reduced pressure p/p_crit = {p_red:.4f} "
-            f"outside validity range [0.0052, 0.91]",
+            f"outside validity range [0.0052, 0.91]", ValidityRangeWarning,
             stacklevel=2
         )
 

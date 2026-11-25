@@ -11,6 +11,8 @@ import CoolProp.CoolProp as CP
 from CoolProp.CoolProp import PropsSI
 import warnings
 from labothappy.correlations.properties.thermal_conductivity import conducticity_R1233zd
+from labothappy.correlations.convection.correlation_warnings import (
+    AssumedParameterWarning, ValidityRangeWarning)
 
 #%% HELPER fun
 
@@ -161,7 +163,7 @@ def BPHE_kumar_SP_HTC(AS, geom, cond):
     Re = G * Dh / mu
     if not 0.1 <= Re <= 10000 or not 30 <= beta <= 65:
         warnings.warn("Kumar HTC: outside the range of the data (0.1 <= Re <= 10000, "
-                      "30-65 deg): extrapolated or clamped.")
+                      "30-65 deg): extrapolated or clamped.", ValidityRangeWarning)
     angles = [a for a, _ in _KUMAR]
     Nu_tab = [_kumar_row(rows, Re) for _, rows in _KUMAR]
     Nu = np.interp(beta, angles, Nu_tab) * Pr**(1/3) * (mu / mu_w)**0.17
@@ -181,7 +183,8 @@ def BPHE_thonon_SP_HTC(AS, geom, cond):
 
     Re = G * Dh / mu
     if not 50 <= Re <= 15000:
-        warnings.warn(f"Re = {Re:.1f} outside the Thonon range [50, 15000]: extrapolated.")
+        warnings.warn(f"Re = {Re:.1f} outside the Thonon range [50, 15000]: extrapolated.",
+                      ValidityRangeWarning)
     angles = [a for a, _, _ in _THONON]
     Nu_tab = [C * Re**m for _, C, m in _THONON]
     Nu = np.interp(beta, angles, Nu_tab) * Pr**(1/3)
@@ -201,13 +204,14 @@ def BPHE_muley_manglik_SP_HTC(AS, geom, cond):
     Dh = geom['Dh']
     beta = chevron_deg(geom['beta'])
     if 'phi' not in geom:
-        warnings.warn("Muley-Manglik HTC: 'phi' not given in geom, using 1.17.")
+        warnings.warn("Muley-Manglik HTC: 'phi' not given in geom, using 1.17.",
+                      AssumedParameterWarning)
     phi = geom.get('phi', 1.17)
 
     Re = G * Dh / mu
     if Re < 1000 or not 30 <= beta <= 60 or not 1.0 <= phi <= 1.5:
         warnings.warn("Muley-Manglik HTC: outside the validated range (Re >= 1000, "
-                      "30-60 deg, 1 <= phi <= 1.5): extrapolated.")
+                      "30-60 deg, 1 <= phi <= 1.5): extrapolated.", ValidityRangeWarning)
 
     C = 0.2668 - 0.006967*beta + 7.244e-5*beta**2
     D = 20.7803 - 50.9372*phi + 41.1585*phi**2 - 10.1507*phi**3
@@ -231,7 +235,7 @@ def BPHE_martin_SP_HTC(AS, geom, cond):
     
     if not 200 <= Re <= 10000 or not 0 <= beta <= 80:
         warnings.warn("Martin HTC: outside the range of the data (200 <= Re <= 10000, "
-                      "0-80 deg): extrapolated.")
+                      "0-80 deg): extrapolated.", ValidityRangeWarning)
     zeta = _zeta_martin(Re, alpha)                       # log10 version
     visc = (mu / mu_w) ** (1/6) if mu_w else 1.0
     Nu = 0.122 * Pr**(1/3) * visc * (zeta * Re**2 * np.sin(2*alpha))**0.374
@@ -313,7 +317,8 @@ def BPHE_khan_khan_SP_HTC(AS, geom, cond):
     if not (500 <= Re <= 2500 and 30 <= beta <= 60 and 3.5 <= Pr <= 6):
         warnings.warn(
             "Khan-Khan HTC: outside validated range "
-            "(500 <= Re <= 2500, 30-60 deg, 3.5 <= Pr <= 6, water): extrapolated."
+            "(500 <= Re <= 2500, 30-60 deg, 3.5 <= Pr <= 6, water): extrapolated.",
+            ValidityRangeWarning
         )
 
     return h
@@ -364,6 +369,12 @@ def BPHE_amalfi_boiling_HTC(AS, geom, cond):
     Returns h [W/m2/K].
 
     TODO check: beta_max = 70 deg here; the ht library uses 45 deg.
+    Validity: ranges of the heat transfer database, Amalfi (2016) EPFL thesis 6856,
+    Table 7.3 (microscale, Bd < 4): Bo 2.97e-5-4.05e-3, Bd 1.89-3.76, rho* 77.5-1350,
+    We_m 0.0267-41.5, beta* 0.429-0.929;
+    Table 7.2 (macroscale, Bd >= 4): Bo 1.15e-4-3.75e-3, Bd 4.33-78.9, rho* 19.1-128,
+    Re_lo 83.8-5360, Re_v 7.94-34500, beta* 0.400-1.00. Warning outside (beta* compared at the 3
+    digits of the tables: 0.429 = 30/70 deg).
     """
     beta_max_deg=70.0
     g = 9.81
@@ -398,6 +409,21 @@ def BPHE_amalfi_boiling_HTC(AS, geom, cond):
 
     if Bd < 4.0:
         We = G**2 * Dh / (rho_m * sigma)
+        # Validity: microscale database (thesis Table 7.3)
+        out = []
+        if not 2.97e-5 <= Bo <= 4.05e-3:
+            out.append(f"Bo = {Bo:.3g} (2.97e-5-4.05e-3)")
+        if not 1.89 <= Bd <= 3.76:
+            out.append(f"Bd = {Bd:.3g} (1.89-3.76)")
+        if not 77.5 <= rho_star <= 1350:
+            out.append(f"rho* = {rho_star:.3g} (77.5-1350)")
+        if not 0.0267 <= We <= 41.5:
+            out.append(f"We_m = {We:.3g} (0.0267-41.5)")
+        if not 0.429 <= round(beta_star, 3) <= 0.929:
+            out.append(f"beta* = {beta_star:.3g} (0.429-0.929)")
+        if out:
+            warnings.warn("Amalfi boiling (microscale): outside the database: " + ", ".join(out)
+                          + ": extrapolated.", ValidityRangeWarning)
         Nu = 982.0 * beta_star**1.101 * We**0.315 * Bo**0.320 * rho_star**-0.224
     else:
         if not np.isfinite(mu_v):
@@ -405,6 +431,23 @@ def BPHE_amalfi_boiling_HTC(AS, geom, cond):
                              "not available for this fluid.")
         Re_g = G * x * Dh / mu_v
         Re_lo = G * Dh / mu_l
+        # Validity: macroscale database (thesis Table 7.2)
+        out = []
+        if not 1.15e-4 <= Bo <= 3.75e-3:
+            out.append(f"Bo = {Bo:.3g} (1.15e-4-3.75e-3)")
+        if not 4.33 <= Bd <= 78.9:
+            out.append(f"Bd = {Bd:.3g} (4.33-78.9)")
+        if not 19.1 <= rho_star <= 128:
+            out.append(f"rho* = {rho_star:.3g} (19.1-128)")
+        if not 83.8 <= Re_lo <= 5360:
+            out.append(f"Re_lo = {Re_lo:.3g} (83.8-5360)")
+        if not 7.94 <= Re_g <= 34500:
+            out.append(f"Re_v = {Re_g:.3g} (7.94-34500)")
+        if not 0.400 <= round(beta_star, 3) <= 1.00:
+            out.append(f"beta* = {beta_star:.3g} (0.400-1.00)")
+        if out:
+            warnings.warn("Amalfi boiling (macroscale): outside the database: " + ", ".join(out)
+                          + ": extrapolated.", ValidityRangeWarning)
         Nu = (18.495 * beta_star**0.248 * Re_g**0.135 * Re_lo**0.351
               * Bd**0.235 * Bo**0.198 * rho_star**-0.223)
     return Nu * k_l / Dh
@@ -506,17 +549,18 @@ def BPHE_han_lee_kim_boiling_HTC(AS, geom, cond):
     # 11) Validity warnings
     if not (13.0 <= G <= 34.0):
         warnings.warn(f"Han-Lee-Kim boiling: G = {G:.1f} kg/m2/s outside "
-                      "validated range [13, 34]: extrapolated.")
+                      "validated range [13, 34]: extrapolated.", ValidityRangeWarning)
     if not (0.15 <= x <= 0.9):
         warnings.warn(f"Han-Lee-Kim boiling: x = {x:.3f} outside "
-                      "validated range [0.15, 0.9]: extrapolated.")
+                      "validated range [0.15, 0.9]: extrapolated.", ValidityRangeWarning)
     if not (2500.0 <= q <= 8500.0):
         warnings.warn(f"Han-Lee-Kim boiling: q = {q:.0f} W/m2 outside "
-                      "validated range [2500, 8500]: extrapolated.")
+                      "validated range [2500, 8500]: extrapolated.", ValidityRangeWarning)
     theta_deg = np.degrees(theta)
     if not (45.0 <= theta_deg <= 70.0):
         warnings.warn(f"Han-Lee-Kim boiling: theta = {theta_deg:.1f} deg from flow "
-                      "direction outside validated range [45, 70]: extrapolated.")
+                      "direction outside validated range [45, 70]: extrapolated.",
+                      ValidityRangeWarning)
 
     return h
 
@@ -609,7 +653,7 @@ def BPHE_yan_lin_boiling_HTC(AS, geom, cond):
     if not (2000 <= Re_eq <= 10000):
         warnings.warn(
             f"Yan-Lin boiling: Re_eq = {Re_eq:.1f} outside the claimed range "
-            "[2000, 10000]. Correlation extrapolated."
+            "[2000, 10000]. Correlation extrapolated.", ValidityRangeWarning
         )
 
     return h
@@ -735,7 +779,7 @@ def BPHE_lee_kang_kim_boiling_HTC(AS, geom, cond):
     if warnings_list:
         msg = ("Lee-Kang-Kim boiling: outside validated range: " +
                "; ".join(warnings_list) + ". Fluid: water.")
-        warnings.warn(msg)
+        warnings.warn(msg, ValidityRangeWarning)
 
     return h
 
@@ -844,7 +888,7 @@ def BPHE_huang_sheer_boiling_HTC(AS, geom, cond):
     if not (1850.0 <= q <= 10750.0):
         warnings.warn(
             f"Huang-Sheer boiling: heat flux q = {q:.1f} W/m2 outside the "
-            f"validated range [1850, 10750] W/m2: extrapolated."
+            f"validated range [1850, 10750] W/m2: extrapolated.", ValidityRangeWarning
         )
     if not (275.05 <= T_sat <= 286.19):
         warnings.warn(
@@ -852,7 +896,7 @@ def BPHE_huang_sheer_boiling_HTC(AS, geom, cond):
             f"({T_sat - 273.15:.2f} degC) outside the validated range "
             f"[275.05, 286.19] K: extrapolated. "
             f"Correlation should be used with caution for fluids or temperatures "
-            f"far from the experimental data (mainly R134a, R507A)."
+            f"far from the experimental data (mainly R134a, R507A).", ValidityRangeWarning
         )
 
     return h
@@ -892,7 +936,7 @@ def BPHE_shah_condensing_HTC(AS, geom, cond):
     
     if not 2.3 <= G <= 165:
         warnings.warn("Shah condensation: mass flux outside the validated range "
-                      "(2.3-165 kg/m2/s): extrapolated.")
+                      "(2.3-165 kg/m2/s): extrapolated.", ValidityRangeWarning)
 
     # Saturated properties
     s = _sat_props(AS, p_sat)
@@ -942,7 +986,8 @@ def BPHE_han_condensing_HTC(AS, geom, cond):
                          "outside ]0, pi/2].")
     if not 13 <= G <= 34 or not 45 <= np.degrees(theta) <= 70:
         warnings.warn("Han condensation: outside the range of the data (G 13-34 kg/m2/s, "
-                      "plates of 45/55/70 deg from the flow direction): extrapolated.")
+                      "plates of 45/55/70 deg from the flow direction): extrapolated.",
+                      ValidityRangeWarning)
     
     # Saturated properties
     s = _sat_props(AS, p_sat)
@@ -991,7 +1036,8 @@ def BPHE_longo_condensing_HTC(AS, geom, cond):
         Nu = 60 * Pr_l ** (1 / 3)
     else:
         if Re_eq > 3000:
-            warnings.warn("Longo condensation: Re_eq > 3000, linear law extrapolated.")
+            warnings.warn("Longo condensation: Re_eq > 3000, linear law extrapolated.",
+                          ValidityRangeWarning)
         Nu = ((75 - 60) / (3000 - 1750) * (Re_eq - 1750) + 60) * Pr_l ** (1 / 3)
 
     return Nu * k_l / Dh

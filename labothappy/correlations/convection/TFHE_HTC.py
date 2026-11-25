@@ -20,6 +20,7 @@ from labothappy.correlations.convection.TFHE_HTC_correlation_bank import (
 from labothappy.correlations.convection.TFHE_HTC_correlation_bank import TFHE_wang_plain_fin_HTC
 from labothappy.correlations.convection.pipe_HTC_correlation_bank import _sat_props, _clamp_x
 from labothappy.correlations.convection.pipe_HTC import pipe_HTC
+from labothappy.correlations.convection.correlation_warnings import ValidityRangeWarning
 
 _TFHE_FIN_HTC = {'Pismennyi': TFHE_pismennyi_HTC,                       # routed on geom['fin_type']
                  'Pismennyi_Annular': TFHE_pismennyi_annular_HTC,       # forced fin shape
@@ -68,14 +69,16 @@ def TFHE_fin_HTC(AS, geom, cond, flow_state, choices=None):
         raise ValueError(f"TFHE finned side: flow state {flow_state!r}, expected 'SP', 'EVAP' or 'COND'.")
     if flow_state != 'SP':
         warnings.warn(f"TFHE finned side: no {flow_state} correlation, the gas correlation is used for a "
-                      f"{cond.get('phase')!r} cell (phase change ignored).", stacklevel=2)
+                      f"{cond.get('phase')!r} cell (phase change ignored).",
+                      ValidityRangeWarning, stacklevel=2)
     cond = _ensure_gas_props(AS, cond, flow_state)
     choice = (choices or {}).get(flow_state) or (choices or {}).get('SP')
     if choice in (None, 'auto'):
         choice = select_fin_HTC(geom, cond)
     elif choice in ('Pismennyi_Annular', 'Pismennyi_Square') and \
             str(geom.get('fin_type', '')).lower() != choice.split('_')[1].lower():
-        warnings.warn(f"TFHE: {choice!r} requested but geom['fin_type'] = {geom.get('fin_type')!r}.", stacklevel=2)
+        warnings.warn(f"TFHE: {choice!r} requested but geom['fin_type'] = {geom.get('fin_type')!r}.",
+                      ValidityRangeWarning, stacklevel=2)
     if choice not in _TFHE_FIN_HTC:
         raise ValueError(f"Unknown finned-side correlation {choice!r}: {sorted(_TFHE_FIN_HTC)}, 'Pismennyi' or None/'auto'.")
     return _TFHE_FIN_HTC[choice](AS, geom, cond)

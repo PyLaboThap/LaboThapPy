@@ -8,6 +8,7 @@ Created on Thu Nov  5 10:51:41 2026
 #%% IMPORTS
 import numpy as np
 import warnings
+from labothappy.correlations.convection.correlation_warnings import ValidityRangeWarning
 
 #%% HELPER fun
 
@@ -127,6 +128,13 @@ def BPHX_kumar_SP_DP(AS, geom, cond):
 
     Re = G * Dh / mu
 
+    # Validity: data on graph from Re = 0.1 to 10000, chevron angles 30 to 65 deg (fluids.friction.
+    # friction_plate_Kumar notes); beta is already in Kumar's convention here (converted by BPHX_DP)
+    if not 0.1 <= Re <= 10000 or not 30 <= beta <= 65:
+        warnings.warn(f"Kumar DP: outside the range of the data (0.1 <= Re <= 10000, 30-65 deg): "
+                      f"Re = {Re:.3g}, angle = {beta:.1f} deg, extrapolated or clamped.",
+                      ValidityRangeWarning)
+
     # Friction factor: evaluated at each tabulated angle, then interpolated
     angles = [a for a, _ in _KUMAR_F]
     f_tab = [_kumar_f_row(rows, Re) for _, rows in _KUMAR_F]
@@ -170,7 +178,8 @@ def BPHX_thonon_SP_DP(AS, geom, cond):
 
     Re = G * Dh / mu
     if not 50 <= Re <= 15000:
-        warnings.warn(f"Re = {Re:.1f} outside the Thonon range [50, 15000]: extrapolated.")
+        warnings.warn(f"Re = {Re:.1f} outside the Thonon range [50, 15000]: extrapolated.",
+                      ValidityRangeWarning)
 
     # Friction factor at each tabulated angle, then interpolation in angle
     angles = [a for a, *_ in _THONON_F]
@@ -211,7 +220,7 @@ def BPHX_muley_manglik_SP_DP(AS, geom, cond):
     Re = G * Dh / mu
     if Re < 1000 or not 30 <= beta <= 60:
         warnings.warn(f"Muley-Manglik DP: Re = {Re:.0f}, beta = {beta:.0f} deg "
-                      "hors du domaine (Re >= 1000, 30-60 deg): extrapolé.")
+                      "hors du domaine (Re >= 1000, 30-60 deg): extrapolé.", ValidityRangeWarning)
 
     C3 = 2.917 - 0.1277*beta + 2.016e-3*beta**2
     D4 = 5.474 - 19.02*phi + 18.93*phi**2 - 5.341*phi**3
@@ -240,6 +249,12 @@ def BPHX_martin_SP_DP(AS, geom, cond):
     beta = np.radians(chevron_deg(geom['beta']))
 
     Re = G * Dh / mu
+    # Validity: experimental data Re 200-10000, chevron angles 0-80 deg (fluids.friction.
+    # friction_plate_Martin_1999 notes)
+    if not 200 <= Re <= 10000 or not 0 <= np.degrees(beta) <= 80:
+        warnings.warn(f"Martin DP: outside the range of the data (200 <= Re <= 10000, 0-80 deg): "
+                      f"Re = {Re:.3g}, angle = {np.degrees(beta):.1f} deg, extrapolated.",
+                      ValidityRangeWarning)
     zeta = _zeta_martin(Re, beta)
     dp = zeta * (L / Dh) * G**2 / (2 * rho)
 
@@ -358,6 +373,22 @@ def BPHX_amalfi_boiling_DP(AS, geom, cond):
     Bd = (rho_l - rho_v) * g * Dh**2 / sigma
 
     We = G**2 * Dh / (rho_m * sigma)
+
+    # Validity: ranges of the pressure drop database, Amalfi (2016) EPFL thesis 6856, Table 7.1:
+    # Bd 2.40-49.1, rho* 19.1-1350, We_m 0.0267-150, beta* 0.429-0.929 (warning outside; beta* is
+    # compared at the 3 digits of the table: 0.429 = 30/70 deg)
+    if not 2.40 <= Bd <= 49.1:
+        warnings.warn(f"Amalfi DP: Bd = {Bd:.3g} outside 2.40-49.1 (database): extrapolated.",
+                      ValidityRangeWarning)
+    if not 19.1 <= rho_star <= 1350:
+        warnings.warn(f"Amalfi DP: rho_l/rho_v = {rho_star:.3g} outside 19.1-1350 (database): "
+                      "extrapolated.", ValidityRangeWarning)
+    if not 0.0267 <= We <= 150:
+        warnings.warn(f"Amalfi DP: We_m = {We:.3g} outside 0.0267-150 (database): extrapolated.",
+                      ValidityRangeWarning)
+    if not 0.429 <= round(beta_star, 3) <= 0.929:
+        warnings.warn(f"Amalfi DP: beta* = {beta_star:.3g} outside 0.429-0.929 (database): "
+                      "extrapolated.", ValidityRangeWarning)
     
     C = 2.125*beta_star**9.993 + 0.955
     f_tp = C * 15.698 * We**-0.475 * Bd**0.255 * rho_star**-0.571 # fanning friction factor
@@ -405,7 +436,7 @@ def BPHX_han_condensing_DP(AS, geom, cond):
                          "outside ]0, pi/2].")
     if not 13 <= G <= 34 or not 45 <= np.degrees(theta) <= 70:
         warnings.warn("Han condensation DP: outside the range of the Han data (G 13-34 kg/m2/s, "
-                      "45-70 deg from the flow direction): extrapolated.")
+                      "45-70 deg from the flow direction): extrapolated.", ValidityRangeWarning)
 
     # Saturated properties
     s = _sat_props(AS, p_sat)

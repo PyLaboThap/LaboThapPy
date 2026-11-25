@@ -14,6 +14,7 @@ cond : m_dot (WHOLE finned side), rho, mu (gas bulk properties)
 """
 import warnings
 import numpy as np
+from labothappy.correlations.convection.correlation_warnings import ValidityRangeWarning
 
 _NEEDED = ('D_t_o', 'L_t', 'D_f_o', 't_f', 'f_density', 'n_t', 'n_rows', 'n_passes', 'w',
            'P_V', 'P_H')
@@ -148,7 +149,7 @@ def TFHE_esdu_high_fin_DP(AS, geom, cond):
         warnings.warn(
             f"TFHE DP: ESDU 86022 correlation is for staggered tube banks only. "
             f"Received theta = {theta!r} deg.",
-            UserWarning
+            ValidityRangeWarning
         )
 
     # Step 2. Inputs (SI units)
@@ -190,21 +191,21 @@ def TFHE_esdu_high_fin_DP(AS, geom, cond):
         warnings.warn(
             f"TFHE DP: fin_density = {fin_density} [1/m] is outside the validity range "
             f"of [157.48, 433.07] [1/m].",
-            UserWarning
+            ValidityRangeWarning
         )
 
     if not (0.009525 <= D <= 0.0508):
         warnings.warn(
             f"TFHE DP: tube outer diameter D = {D} [m] is outside the validity range "
             f"of [0.009525, 0.0508] [m].",
-            UserWarning
+            ValidityRangeWarning
         )
 
     if not (0.008467 <= fin_height <= 0.015875):
         warnings.warn(
             f"TFHE DP: fin_height = {fin_height} [m] is outside the validity range "
             f"of [0.008467, 0.015875] [m].",
-            UserWarning
+            ValidityRangeWarning
         )
 
     D_fin_ratio = D_fin / D
@@ -212,14 +213,14 @@ def TFHE_esdu_high_fin_DP(AS, geom, cond):
         warnings.warn(
             f"TFHE DP: fin diameter ratio D_fin / D = {D_fin_ratio} is outside the "
             f"validity range of [1.2, 2.4].",
-            UserWarning
+            ValidityRangeWarning
         )
 
     if not (5000 <= Re <= 50000):
         warnings.warn(
             f"TFHE DP: Reynolds number Re = {Re} is outside the validity range "
             f"of [5000, 50000].",
-            UserWarning
+            ValidityRangeWarning
         )
 
     # Step 1 (specific to DP): Face area of the bank
@@ -310,7 +311,7 @@ def TFHE_wang_plain_fin_DP(AS, geom, cond):
     if fin_type != 'square':
         warnings.warn(
             "Wang plain fin: correlation for continuous plate fins (fin_type 'Square').",
-            UserWarning
+            ValidityRangeWarning
         )
 
     # Check tube arrangement
@@ -327,7 +328,7 @@ def TFHE_wang_plain_fin_DP(AS, geom, cond):
     if tube_arrang == 'inline':
         warnings.warn(
             "Wang plain fin: staggered banks only.",
-            UserWarning
+            ValidityRangeWarning
         )
 
     # Read geometry parameters in SI units

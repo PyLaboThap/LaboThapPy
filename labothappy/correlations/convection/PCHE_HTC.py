@@ -51,6 +51,8 @@ from labothappy.correlations.convection.PCHE_HTC_correlation_bank import (
     PCHE_chen_zigzag_HTC)
 from labothappy.correlations.convection.curved_pipe_HTC import curved_pipe_HTC
 from labothappy.correlations.convection.pipe_HTC import pipe_HTC
+from labothappy.correlations.convection.correlation_warnings import (
+    AssumedParameterWarning, ValidityRangeWarning)
 
 _PCHE_SP_HTC = {'Straight': PCHE_straight_HTC, 'Lee': PCHE_lee_zigzag_HTC, 'Bennett_Chen': PCHE_bennett_chen_HTC}
 _PCHE_SP_HTC['Jiang'] = PCHE_jiang_zigzag_HTC   # zigzag turbulent, 30 / 40 deg fits (explicit choice only)
@@ -98,7 +100,8 @@ def _equivalent_tube(geom):
     g.setdefault('L', g['L_t'])
     if 'R_curv' not in g:
         if str(g.get('type_channel', 'Straight')).lower() == 'zigzag':
-            warnings.warn("PCHE: zigzag channel without geom['R_curv']: curved pipe correlations run as a straight tube.")
+            warnings.warn("PCHE: zigzag channel without geom['R_curv']: curved pipe correlations run as a straight tube.",
+                          AssumedParameterWarning)
         g['R_curv'] = 1e6
     return g
 
@@ -107,10 +110,10 @@ def _pipe(AS, geom, cond, state, name):
     g = _equivalent_tube(geom)
     if name not in (None, 'auto') and g['D_t_i'] < _PIPE_MIN_D.get(name, 0.0):
         warnings.warn(f"PCHE: pipe correlation {name!r} used with D_h = {g['D_t_i']*1e3:.2f} mm, "
-                      "below the tube diameters it was established for.")
+                      "below the tube diameters it was established for.", ValidityRangeWarning)
     if state != 'SP' and g['D_t_i'] < _CONFINEMENT_D:
         warnings.warn(f"PCHE: two-phase flow in a D_h = {g['D_t_i']*1e3:.2f} mm channel: confinement "
-                      "effects are not in the tube correlations.")
+                      "effects are not in the tube correlations.", ValidityRangeWarning)
     # Two phase without a radius of curvature (straight channel, or zigzag without R_curv):
     # STRAIGHT pipe correlations (pipe_HTC, auto as pipe_HTC). The curved two-phase correlations
     # (e.g. Zakeralhoseini, Mori-Nakayama liquid Nu) are not valid at R_curv -> infinity
@@ -121,7 +124,8 @@ def _pipe(AS, geom, cond, state, name):
         return pipe_HTC(AS, g, {**cond, 'side': 'tube'}, state, {state: name})
     if state != 'SP' and 'R_curv' not in geom:
         warnings.warn(f"PCHE: curved-pipe correlation {name!r} on a channel without geom['R_curv'] "
-                      "(evaluated with R_curv = 1e6 m, outside its validity).")
+                      "(evaluated with R_curv = 1e6 m, outside its validity).",
+                      AssumedParameterWarning)
     return curved_pipe_HTC(AS, g, {**cond, 'side': 'tube'}, state, {state: name})
 
 

@@ -18,6 +18,7 @@ import numpy as np
 import CoolProp.CoolProp as CP
 
 from labothappy.correlations.convection.pipe_HTC_correlation_bank import _gnielinski_core, _sat_props, _clamp_x
+from labothappy.correlations.convection.correlation_warnings import ValidityRangeWarning
 
 #%% HELPERS
 
@@ -198,17 +199,17 @@ def curved_pipe_schmidt_SP_HTC(AS, geom, cond):
     if Re <= Re_crit:
         warnings.warn(
             f"curved_pipe_schmidt_SP_HTC: Re={Re:.0f} <= Re_crit={Re_crit:.0f} "
-            "(below turbulent regime of the correlation)."
+            "(below turbulent regime of the correlation).", ValidityRangeWarning
         )
     if Re >= 1.5e5:
         warnings.warn(
             f"curved_pipe_schmidt_SP_HTC: Re={Re:.0f} >= 1.5e5 "
-            "(above stated validity range of the turbulent correlation)."
+            "(above stated validity range of the turbulent correlation).", ValidityRangeWarning
         )
     if curv >= 0.14:
         warnings.warn(
             f"curved_pipe_schmidt_SP_HTC: curv={curv:.3f} >= 0.14 "
-            "(outside Schmidt's curvature range for Re_crit)."
+            "(outside Schmidt's curvature range for Re_crit).", ValidityRangeWarning
         )
 
     # --- Nusselt number correlation ------------------------------------------
@@ -300,7 +301,7 @@ def curved_pipe_mori_nakayama_SP_HTC(AS, geom, cond):
         warnings.warn(
             f"Re * curv**2 = {applicability_parameter} is <= 0.1. "
             "This is outside the validity range specified for the Mori & Nakayama correlation.",
-            UserWarning
+            ValidityRangeWarning
         )
 
     # 4. Calculate Nusselt number branches based on Prandtl number
@@ -388,16 +389,17 @@ def curved_pipe_xin_ebadian_SP_HTC(AS, geom, cond):
     if not (5e3 < Re < 1e5):
         warnings.warn(
             f"Xin & Ebadian SP HTC: Re = {Re:.2e} is outside the validity range (5e3 < Re < 1e5, "
-            "Eq. 6)."
+            "Eq. 6).", ValidityRangeWarning
         )
     if not (0.7 < Pr < 5.0):
         warnings.warn(
-            f"Xin & Ebadian SP HTC: Pr = {Pr:.2f} is outside the validity range (0.7 < Pr < 5)."
+            f"Xin & Ebadian SP HTC: Pr = {Pr:.2f} is outside the validity range (0.7 < Pr < 5).",
+            ValidityRangeWarning
         )
     if not (0.0267 < curv < 0.0884):
         warnings.warn(
             f"Xin & Ebadian SP HTC: curv = {curv:.4f} is outside the validity range "
-            "(0.0267 < curv < 0.0884)."
+            "(0.0267 < curv < 0.0884).", ValidityRangeWarning
         )
 
     # Step 4: Calculate Nusselt number using Xin & Ebadian (1997) equation
@@ -442,9 +444,10 @@ def curved_pipe_zakeralhoseini_condensing_HTC(AS, geom, cond):
     s = _sat_props(AS, p, cond)
     # Validity warnings (paper range)
     if not 95 <= G <= 285:
-        warnings.warn(f"Zakeralhoseini 2020: G = {G:.0f} kg/m2/s outside 95-285.")
+        warnings.warn(f"Zakeralhoseini 2020: G = {G:.0f} kg/m2/s outside 95-285.",
+                      ValidityRangeWarning)
     if not 0.1 <= x <= 0.8:
-        warnings.warn(f"Zakeralhoseini 2020: x = {x:.2f} outside 0.1-0.8.")
+        warnings.warn(f"Zakeralhoseini 2020: x = {x:.2f} outside 0.1-0.8.", ValidityRangeWarning)
     # Liquid Reynolds number, Eq. (23), and tube / coil diameter ratio
     Re_l = G * (1 - x) * D / s['mu_l']
     d_over_Dc = D / (2.0 * R)
@@ -455,10 +458,10 @@ def curved_pipe_zakeralhoseini_condensing_HTC(AS, geom, cond):
     if is_straight:
         warnings.warn(f"Zakeralhoseini 2020: d/(2R) = {curvature_ratio:.2e} <= 0.01, straight-tube "
                       "limit used (liquid h = straight Gnielinski core, Eq. (25) multiplier "
-                      "extrapolated from coil data).")
+                      "extrapolated from coil data).", ValidityRangeWarning)
     elif Pr_l <= 1 or Re_l * d_over_Dc ** 2.5 <= 0.4:
         warnings.warn("Zakeralhoseini 2020: Mori-Nakayama Eq. (22) used outside Pr_l > 1, "
-                      "Re_l (d/D)^2.5 > 0.4.")
+                      "Re_l (d/D)^2.5 > 0.4.", ValidityRangeWarning)
     if is_straight:
         # Liquid-only h of a straight tube at G (1 - x), i.e. at the Re_l of Eq. (23)
         G_liquid = G * (1 - x)
@@ -500,9 +503,11 @@ def curved_pipe_zhao_boiling_HTC(AS, geom, cond):
     D = _D(geom)
     # Validity warnings (paper range)
     if not 0.5e6 <= cond['p'] <= 3.5e6:
-        warnings.warn(f"Zhao 2003: p = {cond['p'] / 1e6:.2f} MPa outside 0.5-3.5 MPa (steam-water data).")
+        warnings.warn(f"Zhao 2003: p = {cond['p'] / 1e6:.2f} MPa outside 0.5-3.5 MPa (steam-water data).",
+                      ValidityRangeWarning)
     if not 236 <= cond['G'] <= 943:
-        warnings.warn(f"Zhao 2003: G = {cond['G']:.0f} kg/m2/s outside 236-943.")
+        warnings.warn(f"Zhao 2003: G = {cond['G']:.0f} kg/m2/s outside 236-943.",
+                      ValidityRangeWarning)
     # Zhao et al. (2003): h_lo for the total flow assumed liquid (Re = G d / mu_l, nomenclature)
     Re_lo = cond['G'] * D / s['mu_l']
     h_lo = 0.023 * Re_lo ** 0.8 * s['Pr_l'] ** 0.4 * s['k_l'] / D

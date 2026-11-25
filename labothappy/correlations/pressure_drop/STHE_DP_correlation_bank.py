@@ -18,6 +18,7 @@ import numpy as np
 from labothappy.correlations.convection.STHE_HTC_correlation_bank import (
     s_max_kern, s_max, s_L, d_h, bell_delaware_coefs)
 from labothappy.correlations.convection.pipe_HTC_correlation_bank import _sat_props
+from labothappy.correlations.convection.correlation_warnings import ValidityRangeWarning
 
 #%% HELPERS
 
@@ -239,7 +240,7 @@ def STHE_ishihara_two_phase_DP(AS, geom, cond):
     if x < 0.0 or x > 1.0:
         warnings.warn(
             f"Vapour quality x = {x} is out of the [0, 1] range. "
-            "It has been clipped."
+            "It has been clipped.", ValidityRangeWarning
         )
         x = np.clip(x, 0.0, 1.0)
 
@@ -259,7 +260,8 @@ def STHE_ishihara_two_phase_DP(AS, geom, cond):
     if G < 42.0:
         warnings.warn(
             f"Mass flux G = {G:.2f} kg/(m^2 s) is below 42 kg/(m^2 s). "
-            "The Ishihara method may underpredict pressure drop at low mass flux."
+            "The Ishihara method may underpredict pressure drop at low mass flux.",
+            ValidityRangeWarning
         )
 
     # Step 2: Saturated properties at pressure p

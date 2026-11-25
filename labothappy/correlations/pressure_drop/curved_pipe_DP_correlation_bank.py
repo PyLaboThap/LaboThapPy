@@ -22,15 +22,28 @@ import numpy as np
 
 from labothappy.correlations.pressure_drop.pipe_DP_correlation_bank import friction_factor_churchill
 from labothappy.correlations.convection.curved_pipe_HTC_correlation_bank import _D, _R_curv, _L, _need_cond
+from labothappy.correlations.convection.correlation_warnings import (
+    ValidityRangeWarning, FluidWarning)
 
 G_GRAVITY = 9.81
 
 
 def curved_friction_factor(Re, curv, K, D, f_lam_Re=64.0):
     """Darcy friction factor of a curved channel (see module docstring). f_lam_Re = f Re of the straight duct
-    in laminar flow (64 circular, 56.9 square, ...)."""
+    in laminar flow (64 circular, 56.9 square, ...).
+    Validity (warning outside): Ito critical Reynolds number recommended for 0.00116 < D/D_c < 0.067
+    (fluids.friction.helical_transition_Re_Ito notes; D/D_c = curv here); Ito turbulent factor
+    established for 0.034 < Re curv^2 < 300 (module docstring)."""
     De = Re * np.sqrt(curv)
     Re_cr = 20000.0 * curv ** 0.32
+    if not 0.00116 <= curv <= 0.067:
+        warnings.warn(f"Curved pipe friction (Ito): curvature ratio D/(2R) = {curv:.3g} outside "
+                      "0.00116-0.067 (range of the Ito transition): extrapolated.",
+                      ValidityRangeWarning, stacklevel=2)
+    if Re >= Re_cr and not 0.034 <= Re * curv ** 2 <= 300:
+        warnings.warn(f"Curved pipe friction (Ito turbulent): Re curv^2 = {Re * curv ** 2:.3g} "
+                      "outside "
+                      "0.034-300: extrapolated.", ValidityRangeWarning, stacklevel=2)
     if Re < Re_cr:
         ratio = 1.0
         if De >= 11.6:
@@ -83,12 +96,13 @@ def curved_pipe_sigalotti_SP_DP(AS, geom, cond):
     curv = D / (2.0 * R)
     De = Re * np.sqrt(curv)
     if not 0.001165 < curv < 0.0667:
-        warnings.warn(f"Sigalotti DP: curv = {curv:.4g} outside 0.001165-0.0667 (Re_cr, Eq. 12).")
+        warnings.warn(f"Sigalotti DP: curv = {curv:.4g} outside 0.001165-0.0667 (Re_cr, Eq. 12).",
+                      ValidityRangeWarning)
     if Re < 12730.0 * curv ** 0.2:
         # Laminar: White (1929), Sigalotti Eq. (16)
         if curv > 0.066 or De > 2000:
             warnings.warn(f"Sigalotti DP laminar: De = {De:.0f}, curv = {curv:.4g} outside "
-                          "De < 2000, curv <= 0.066 (White, Eq. 16).")
+                          "De < 2000, curv <= 0.066 (White, Eq. 16).", ValidityRangeWarning)
         if curv <= 0.066 and De > 11.6:
             f = 16.0 / (1.0 - (1.0 - (11.6 / De) ** 0.45) ** (1.0 / 0.45)) / Re
         else:
@@ -96,7 +110,8 @@ def curved_pipe_sigalotti_SP_DP(AS, geom, cond):
     else:
         # Turbulent: White (1932), Sigalotti Eq. (17), FANNING, valid 1.5e4 < Re < 1e5
         if Re < 1.5e4 or Re > 1.0e5:
-            warnings.warn(f"Sigalotti DP turbulent: Re = {Re:.3g} outside 1.5e4-1e5 (White, Eq. 17).")
+            warnings.warn(f"Sigalotti DP turbulent: Re = {Re:.3g} outside 1.5e4-1e5 (White, Eq. 17).",
+                          ValidityRangeWarning)
         f = 0.08 * Re ** -0.25 + 0.012 * np.sqrt(curv)
     return _dp_fanning(f, G, rho, L, D) + G_GRAVITY * rho * L * np.sin(np.radians(geom.get('gamma', 0.0)))
 
@@ -128,7 +143,7 @@ def curved_pipe_cioncolini_boiling_DP(AS, geom, cond, C=None):
         Re_go = G * D / s['mu_v']
         if Re_lo <= 2000:
             warnings.warn(f"Cioncolini 2008: Re_lo = {Re_lo:.0f} <= 2000, C not given by the paper "
-                          "(C = 20 used).")
+                          "(C = 20 used).", ValidityRangeWarning)
         if Re_go < 2000:
             C = 10.0
         else:
@@ -141,10 +156,25 @@ def curved_pipe_cioncolini_boiling_DP(AS, geom, cond, C=None):
 
 def curved_pipe_ruffell_boiling_DP(AS, geom, cond):
     """Ruffell (1974), after Fsadni & Whitty (2016): phi_lo^2 = (v_m / v_l)(1 + F), liquid only with Ito.
-    Steam-water, d = 10.7-18.6 mm, 6-18 MPa, G = 300-1800: far outside for most refrigerant cases."""
+    Steam-water, d = 10.7-18.6 mm, 6-18 MPa, G = 300-1800: far outside for most refrigerant cases.
+    Warning outside these ranges (catalogue CURVED.DP.2P.Ruffell) and for another fluid than
+    water."""
     _need_cond(cond, 'G', 'p', 'x')
     D, L, R = _D(geom), _L(geom), _R_curv(geom)
     G, x = cond['G'], min(max(cond['x'], 0.0), 1.0)
+    out = []
+    if not 10.7e-3 <= D <= 18.6e-3:
+        out.append(f"d = {D * 1e3:.2f} mm (10.7-18.6)")
+    if not 6e6 <= cond['p'] <= 18e6:
+        out.append(f"p = {cond['p'] / 1e6:.2f} MPa (6-18)")
+    if not 300 <= G <= 1800:
+        out.append(f"G = {G:.0f} kg/m2/s (300-1800)")
+    if out:
+        warnings.warn("Ruffell (1974): outside the steam-water data: " + ", ".join(out) + ".",
+                      ValidityRangeWarning)
+    if AS is not None and AS.fluid_names()[0].lower() not in ('water', 'h2o'):
+        warnings.warn(f"Ruffell (1974): fluid {AS.fluid_names()[0]!r}, correlation established for "
+                      "steam-water.", FluidWarning)
     s = _sat_props(AS, cond['p'], cond)
     v_m = x / s['rho_v'] + (1 - x) / s['rho_l']
     y, g = 2.0 * R / (100.0 * D), G / 1000.0

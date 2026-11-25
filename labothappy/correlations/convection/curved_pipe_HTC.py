@@ -18,6 +18,8 @@ from labothappy.correlations.convection.curved_pipe_HTC_correlation_bank import 
     _D, _R_curv)
 from labothappy.correlations.convection.pipe_HTC_correlation_bank import _sat_props
 from labothappy.correlations.convection.pipe_HTC import pipe_HTC
+from labothappy.correlations.convection.correlation_warnings import (
+    FluidWarning, ValidityRangeWarning)
 
 _HCHE = {'SP': {'Sigalotti': curved_pipe_sigalotti_SP_HTC,
                 'Schmidt': curved_pipe_schmidt_SP_HTC,               # turbulent, explicit choice
@@ -59,7 +61,9 @@ def curved_pipe_HTC(AS, geom, cond, flow_state, choices=None):
         choice = select_evap_HTC(AS, geom, cond) if flow_state == 'EVAP' else _AUTO[flow_state]
     if choice in _HCHE[flow_state]:
         if choice == 'Zakeralhoseini':
-            warnings.warn("HCHE: Zakeralhoseini condensation correlation established for R1234yf.")
+            warnings.warn("HCHE: Zakeralhoseini condensation correlation established for R1234yf.",
+                          FluidWarning)
         return _HCHE[flow_state][choice](AS, geom, cond)
-    warnings.warn(f"HCHE: pipe correlation {choice!r} on the straight equivalent tube (no curvature effect).")
+    warnings.warn(f"HCHE: pipe correlation {choice!r} on the straight equivalent tube (no curvature effect).",
+                  ValidityRangeWarning)
     return pipe_HTC(AS, _equivalent_tube(geom), cond, flow_state, {flow_state: choice})

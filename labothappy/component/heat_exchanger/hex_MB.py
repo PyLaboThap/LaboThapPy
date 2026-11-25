@@ -23,7 +23,11 @@ Differences with hex_MB_charge_sensitive.py (same public interface):
 * Automatic correlation choice (name None or 'auto'): ONE correlation per side and per cell phase
   (liquid, vapor, two-phase, transcritical), chosen at the state where the fluid enters the phase
   and kept for every cell of that phase (no switch from one cell to the next, continuous residual).
-  The names chosen are in self.auto_correlations after solve().
+  Every registered correlation is tried at that state: first the ones whose parameters are all
+  given, then the ones inside their validity range, then the ones established for the fluid
+  (choose_htc_correlation / choose_dp_correlation of the dispatchers).
+  After solve(), self.correlations gives every correlation used, automatic or given by the user,
+  e.g. {'hot liquid htc': 'Martin', 'cold two-phase dp': 'Amalfi', 'hot dp': 'User-Defined'}.
   params['corr_choice'] = 'per_cell' restores the previous behaviour (choice at every cell).
 """
 
@@ -49,9 +53,9 @@ from labothappy.correlations.void_fraction.void_fraction import (
 from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.hex_geometry import make_geometry, GEOMETRIES
 
 from labothappy.correlations.convection.heat_transfer_coefficient_dispatch import (
-    heat_transfer_coefficient, auto_htc_correlation)
+    heat_transfer_coefficient, choose_htc_correlation)
 from labothappy.correlations.pressure_drop.pressure_drop_dispatch import (
-    pressure_drop, port_pressure_drop, auto_dp_correlation)
+    pressure_drop, port_pressure_drop, choose_dp_correlation)
 from labothappy.correlations.properties.thermal_conductivity import conducticity_R1233zd
 
 # Bounds used by the external pinch analysis (kept from the original model)
@@ -277,6 +281,9 @@ class HexMB(BaseComponent):
         self.C = _Side('C')
         self.params['DP_type'] = None
         self.eval = 0
+        self.correlations = {}              # correlations used, filled by solve()
+        self._auto_choice = {}
+        self._Qmax_for_choice = np.nan
 
     # =========================================================================
     # INPUTS, PARAMETERS AND CORRELATION SETTINGS
@@ -792,28 +799,35 @@ class HexMB(BaseComponent):
           (no switch between cells).
         kind : 'htc' or 'dp'.
         params['corr_choice'] = 'per_cell': None / 'auto' is returned (automatic choice at every
-        cell, previous behaviour)."""
+        cell, previous behaviour).
+        Every name used is recorded in self.correlations ('hot liquid htc' -> name)."""
+        cell_phase = phase
         name = side.correlation(phase, kind)
+
         if name not in (None, 'auto'):
-            return name
-        if self.params.get('corr_choice', 'per_phase') == 'per_cell':
-            return name
+            used = name                                   # given by the user
+        elif self.params.get('corr_choice', 'per_phase') == 'per_cell':
+            used = name                                   # automatic choice at every cell
+        else:
+            # A 'vapor-wet' cell (superheated bulk, wet wall) condenses for the heat transfer and is
+            # single phase for the pressure drop: it takes the choice of the two-phase zone (htc) or
+            # of the vapor zone (dp) of the same side.
+            if phase == 'vapor-wet':
+                if kind == 'htc':
+                    phase = 'two-phase'
+                else:
+                    phase = 'vapor'
+            key = (side.name, phase, kind)
+            if key not in self._auto_choice:
+                self._auto_choice[key] = self._choose_at_phase_entry(side, phase, kind)
+            used = self._auto_choice[key]
 
-        # A 'vapor-wet' cell (superheated bulk, wet wall) condenses for the heat transfer and is
-        # single phase for the pressure drop: it takes the choice of the two-phase zone (htc) or of
-        # the vapor zone (dp) of the same side.
-        if phase == 'vapor-wet':
-            if kind == 'htc':
-                phase = 'two-phase'
-            else:
-                phase = 'vapor'
-
-        key = (side.name, phase, kind)
-        if key not in self._auto_choice:
-            chosen = self._choose_at_phase_entry(side, phase, kind)
-            self._auto_choice[key] = chosen
-            self.auto_correlations[f"{side.label} {phase} {kind}"] = chosen
-        return self._auto_choice[key]
+        # Record the correlation used for this side, cell phase and quantity
+        if used in (None, 'auto'):
+            self.correlations[f"{side.label} {cell_phase} {kind}"] = 'auto (per cell)'
+        else:
+            self.correlations[f"{side.label} {cell_phase} {kind}"] = used
+        return used
 
     def _phase_entry_state(self, side, phase):
         """Enthalpy [J/kg] and pressure [Pa] where the fluid of a side enters a phase.
@@ -846,15 +860,17 @@ class HexMB(BaseComponent):
         return side.h_bub_su - step, side.p_su                 # liquid
 
     def _choose_at_phase_entry(self, side, phase, kind):
-        """Name of the correlation that the automatic rules choose for a side and a phase,
-        evaluated ONCE at the state where the fluid enters the phase (_phase_entry_state).
+        """Name of the correlation chosen automatically for a side and a phase, ONCE, at the state
+        where the fluid enters the phase (_phase_entry_state): every registered correlation is tried
+        at this state and ranked (parameters given, then validity range, then fluid: see
+        choose_htc_correlation / choose_dp_correlation).
         Conditions of this state:
           mass flux of the side, inlet pressure,
           wall temperature = mean of the two inlet temperatures,
           heat flux q = Qmax / A of the side (mean flux at the maximum heat rate: an upper estimate,
           read by the rules that need q, e.g. the supercritical CO2 windows).
-        If the rules cannot choose at this state, None is returned (automatic choice at every
-        cell for this phase) with a warning."""
+        If no correlation can be computed at this state, None is returned (rule-based automatic
+        choice at every cell for this phase) with a warning."""
         h, p = self._phase_entry_state(side, phase)
         AS = self._state(side, h, p)
 
@@ -874,8 +890,8 @@ class HexMB(BaseComponent):
         AS = self._state(side, h, p)            # _cond_dict may move AS (wall viscosity)
         try:
             if kind == 'htc':
-                return auto_htc_correlation(AS, side.geom, cond_d)
-            return auto_dp_correlation(AS, side.geom, cond_d)
+                return choose_htc_correlation(AS, side.geom, cond_d)
+            return choose_dp_correlation(AS, side.geom, cond_d)
         except Exception as e:
             warnings.warn(f"{side.label} side, {phase}: the automatic {kind} correlation could "
                           f"not be chosen at the entry state of the phase "
@@ -887,12 +903,17 @@ class HexMB(BaseComponent):
         """Heat transfer coefficient of every cell, hot side first (the cold
         side may need the hot-side value, e.g. Han boiling correlation)."""
         n = self.n_cells
+        # self.correlations keeps the heat transfer correlations of the LAST evaluation only
+        # (the cells of the solution): the entries of the previous evaluations are removed
+        for label in [k for k in self.correlations if k.endswith(' htc')]:
+            del self.correlations[label]
         for side in (self.H, self.C):
             side.alpha = np.empty(n)
             for k in range(n):
                 phase = side.phases[k]
                 if side.htc_type == "User-Defined":
                     side.alpha[k] = side.htc_user[PHASE_TO_UD[phase]]
+                    self.correlations[f"{side.label} {phase} htc"] = 'User-Defined'
                     continue
                 other = self.H.alpha[k] if side is self.C else np.nan
                 cond = self._cell_conditions(side, k, alpha_other=other)
@@ -1000,6 +1021,7 @@ class HexMB(BaseComponent):
                 side.DP = 0.0
             elif DP_type == "User-Defined":
                 side.DP = side.dp_user
+                self.correlations[f"{side.label} dp"] = 'User-Defined'
             else:
                 side.DP = self._inlet_pressure_drop(side)
             side.DP = self._limit_DP(side, side.DP)
@@ -1027,6 +1049,10 @@ class HexMB(BaseComponent):
         cell; the port losses are added once per side, half in the cell of the inlet end and half in the
         cell of the outlet end."""
         frac = self.w / np.sum(self.w)          # length fraction of every cell
+        # self.correlations keeps the pressure drop correlations of the cells of the LAST evaluation
+        # (the entries of the inlet estimate and of the previous outer iterations are removed)
+        for label in [k for k in self.correlations if k.endswith(' dp')]:
+            del self.correlations[label]
         new = {}
         for side in (self.H, self.C):
             DPvec = np.empty(self.n_cells)
@@ -1082,7 +1108,9 @@ class HexMB(BaseComponent):
         # Automatic correlation choice, one per side and per phase (see _phase_correlation):
         # chosen again at every solve (the inputs may have changed)
         self._auto_choice = {}              # (side, phase, kind) -> correlation name
-        self.auto_correlations = {}         # same, readable: 'hot liquid htc' -> name
+        # Correlations used for the solution, automatic or given: 'hot liquid htc' -> name
+        # ('User-Defined' for constant values, 'auto (per cell)' with corr_choice = 'per_cell')
+        self.correlations = {}
         self._Qmax_for_choice = np.nan      # Qmax of the first outer iteration (heat flux estimate)
 
         self._init_pressure_drops()

@@ -31,11 +31,12 @@ def heat_transfer_coefficient(AS, geom, cond, correlation):
                 for sCO2); geom holds D_t_i (or D_t_o, t_t) and L_t.
     PCHE : SP (PCHE correlations 'Straight', 'Lee', 'Bennett_Chen', or any pipe correlation on the
            equivalent tube D = D_h) / EVAP / COND (pipe correlations). G (mass flux in ONE channel),
-           mu, k, Pr, T (+ T_in, p_in, p_other_in for 'Bennett_Chen'); geom holds D_c, L_c, alpha,
-           type_channel ('Straight' / 'Zigzag') and the equivalent tube (Dh, D_t_i, L_t, n_t).
+           mu, k, Pr, T (+ T_in, p_in, p_other_in for 'Bennett_Chen'); geom holds D_ch (or g_f, d_f
+           for ch_section 'rectangular'), L_ch, alpha, type_channel ('Straight' / 'Zigzag' / 'S_fin')
+           and the equivalent tube (Dh, D_t_i, L_t, n_t).
     HCHE : coil side SP 'Sigalotti' / EVAP 'Zhao','Nariai' / COND 'Zakeralhoseini'; geom: Dh, R_curv (or D_coil, P_coil), L.
     SCHE : same as HCHE (curved pipe correlations on the elliptical channel, D = D_h).
-    SPHE : SP 'Picon_Nunez','Rajavel','Curved_rect_duct','Rect_duct'; geom: Dh, R_curv, ch_w, H (or ch_b), L.
+    SPHE : SP 'Picon_Nunez','Rajavel','Curved_rect_duct','Rect_duct'; geom: Dh, R_curv, b (channel gap), H, L.
     TFHE ('Tube&Fins') : cond['side'] (or geom['side']) = 'fin' (gas side, single phase: Pismennyi, REDUCED
            coefficient referred to the total outer area) or 'tube' (pipe correlations). Fin side: m_dot (WHOLE
            side), rho, mu, k, Pr; geom holds the tube and fin geometry (D_f_o, t_f, f_density, k_f, w, ...)."""
@@ -166,3 +167,88 @@ def auto_htc_correlation(AS, geom, cond):
         return SPHE_AUTO[state]
 
     raise NotImplementedError(f"auto_htc_correlation: HTX_Type {htx!r} is not handled.")
+
+
+def htc_candidates(AS, geom, cond):
+    """Names of every registered heat transfer correlation usable for the case of cond
+    (heat exchanger type, side, flow state), in priority order: the rule-based automatic choice
+    (auto_htc_correlation) first, then the others in the order of the registry tables.
+    A function registered under several names (aliases) appears once."""
+    from labothappy.correlations.convection import BPHE_HTC, STHE_HTC, pipe_HTC, PCHE_HTC, TFHE_HTC
+    from labothappy.correlations.convection import curved_pipe_HTC, SPHE_HTC
+
+    htx = geom.get('HTX_Type')
+    state = cond.get('flow_state')
+    side = cond.get('side', geom.get('side'))
+    pipe_tables = {'SP': pipe_HTC._PIPE_SP_HTC, 'EVAP': pipe_HTC._PIPE_EVAP_HTC,
+                   'COND': pipe_HTC._PIPE_COND_HTC}
+
+    # Registry tables of the case
+    if htx == 'BPHE':
+        tables = [{'SP': BPHE_HTC._BPHX_SP_HTC, 'EVAP': BPHE_HTC._BPHX_EVAP_HTC,
+                   'COND': BPHE_HTC._BPHX_COND_HTC}[state]]
+    elif htx == 'STHE' and side == 'tube':
+        tables = [pipe_tables[state]]
+    elif htx == 'STHE':
+        tables = [{'SP': STHE_HTC._STHE_SP_HTC, 'EVAP': STHE_HTC._STHE_EVAP_HTC,
+                   'COND': STHE_HTC._STHE_COND_HTC}[state]]
+    elif htx in ('TFHE', 'Tube&Fins') and side == 'tube':
+        tables = [pipe_tables[state]]
+    elif htx in ('TFHE', 'Tube&Fins'):
+        tables = [TFHE_HTC._TFHE_FIN_HTC]
+    elif htx == 'PCHE' and state == 'SP':
+        tables = [PCHE_HTC._PCHE_SP_HTC]
+    elif htx == 'PCHE':
+        # two phase: PCHE correlations, then the tube correlations of the equivalent tube
+        # (curved pipe ones if the channel has a radius of curvature, straight pipe ones otherwise)
+        own = {'EVAP': PCHE_HTC._PCHE_EVAP_HTC, 'COND': PCHE_HTC._PCHE_COND_HTC}[state]
+        if 'R_curv' in geom:
+            tables = [own, curved_pipe_HTC._HCHE[state]]
+        else:
+            tables = [own, pipe_tables[state]]
+    elif htx in ('HCHE', 'SCHE'):
+        tables = [curved_pipe_HTC._HCHE[state]]
+    elif htx == 'SPHE':
+        tables = [SPHE_HTC._SPHE[state]]
+    else:
+        raise NotImplementedError(f"htc_candidates: HTX_Type {htx!r} is not handled.")
+
+    # Rule-based choice first, then the registry order, each function once
+    names = [auto_htc_correlation(AS, geom, cond)]
+    functions = []
+    for table in tables:
+        for name, function in table.items():
+            if name in names or function in functions:
+                continue
+            names.append(name)
+            functions.append(function)
+    return names
+
+
+def choose_htc_correlation(AS, geom, cond):
+    """Automatic choice of the heat transfer correlation for the state of cond, by TRYING every
+    registered candidate (htc_candidates) at this state: first the correlations whose parameters
+    are all given, then the ones inside their validity range, then the ones established for the
+    fluid (relaxed in the reverse order; see correlation_warnings.choose_by_trial).
+
+    Arguments: as heat_transfer_coefficient (AS set at the state of cond).
+    Returns: name of the correlation (a valid explicit choice for heat_transfer_coefficient).
+    Raises ValueError if no candidate can be computed at this state."""
+    import CoolProp.CoolProp as CP
+    from labothappy.correlations.convection.correlation_warnings import choose_by_trial
+
+    # The correlations may move AS (saturation properties): it is set back before every trial
+    h, p = AS.hmass(), AS.p()
+
+    def evaluate(name):
+        AS.update(CP.HmassP_INPUTS, h, p)
+        return heat_transfer_coefficient(AS, geom, cond, name)
+
+    side = cond.get('side', geom.get('side', ''))
+    label = f"{geom.get('HTX_Type')} {side} {cond.get('flow_state')} HTC"
+    names = htc_candidates(AS, geom, cond)
+    chosen, rejected = choose_by_trial(names, evaluate, label)
+    AS.update(CP.HmassP_INPUTS, h, p)
+    if chosen is None:
+        raise ValueError(f"{label}: no candidate correlation can be computed ({rejected}).")
+    return chosen

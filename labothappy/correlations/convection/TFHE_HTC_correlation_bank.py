@@ -18,6 +18,7 @@ cond : m_dot (WHOLE finned side), rho, mu, k, Pr   (bulk properties of the gas)
 import warnings
 import numpy as np
 from scipy.special import i0, i1, k0, k1      # Bessel functions (Kern & Kraus fin efficiency)
+from labothappy.correlations.convection.correlation_warnings import ValidityRangeWarning
 
 _NEEDED = ('D_t_o', 't_t', 'L_t', 'D_f_o', 't_f', 'f_density', 'k_f', 'n_t', 'n_rows',
            'n_passes', 'w')
@@ -204,7 +205,7 @@ def TFHE_briggs_young_HTC(AS, geom, cond):
         warnings.warn(
             "Briggs-Young: correlation for staggered (triangular pitch) banks, used here for "
             "an inline bank.",
-            UserWarning
+            ValidityRangeWarning
         )
 
     # Step 2. Inputs (SI units)
@@ -246,22 +247,22 @@ def TFHE_briggs_young_HTC(AS, geom, cond):
     # Validity checks (ranges of the ht notes): warning, then computed anyway
     if not (1000.0 < Re < 8000.0):
         warnings.warn(f"Briggs-Young: Re = {Re:.0f} outside the validity range (1000, 8000).",
-                      UserWarning)
+                      ValidityRangeWarning)
     if not (0.01113 < D < 0.04089):
         warnings.warn(f"Briggs-Young: D_t_o = {D * 1e3:.2f} mm outside the validity range "
-                      "(11.13 mm, 40.89 mm).", UserWarning)
+                      "(11.13 mm, 40.89 mm).", ValidityRangeWarning)
     if not (0.00142 < fin_height < 0.01657):
         warnings.warn(f"Briggs-Young: fin height = {fin_height * 1e3:.2f} mm outside the "
-                      "validity range (1.42 mm, 16.57 mm).", UserWarning)
+                      "validity range (1.42 mm, 16.57 mm).", ValidityRangeWarning)
     if not (0.00033 < t_fin < 0.00202):
         warnings.warn(f"Briggs-Young: fin thickness = {t_fin * 1e3:.3f} mm outside the "
-                      "validity range (0.33 mm, 2.02 mm).", UserWarning)
+                      "validity range (0.33 mm, 2.02 mm).", ValidityRangeWarning)
     if not (0.00130 < fin_interval < 0.00406):
         warnings.warn(f"Briggs-Young: fin pitch = {fin_interval * 1e3:.2f} mm outside the "
-                      "validity range (1.30 mm, 4.06 mm).", UserWarning)
+                      "validity range (1.30 mm, 4.06 mm).", ValidityRangeWarning)
     if not (0.02449 < pitch_normal < 0.111):
         warnings.warn(f"Briggs-Young: transverse pitch = {pitch_normal * 1e3:.2f} mm outside "
-                      "the validity range (24.49 mm, 111 mm).", UserWarning)
+                      "the validity range (24.49 mm, 111 mm).", ValidityRangeWarning)
 
     # Nusselt number, Briggs & Young (1963) (as ht h_Briggs_Young; Pr exponent 1/3)
     term_re = Re**0.681
@@ -384,14 +385,14 @@ def TFHE_esdu_high_fin_HTC(AS, geom, cond):
     if not (157.48 <= fin_density <= 433.07):
         warnings.warn(
             f"Fin density {fin_density} [1/m] is outside the validity range "
-            "[157.48, 433.07] [1/m] (ESDU 86022)."
+            "[157.48, 433.07] [1/m] (ESDU 86022).", ValidityRangeWarning
         )
 
     # Tube outer diameter range: 3/8 to 2 inch -> 9.525 mm to 50.8 mm
     if not (0.009525 <= D <= 0.0508):
         warnings.warn(
             f"Tube outer diameter {D} [m] is outside the validity range "
-            "[0.009525, 0.0508] [m] (ESDU 86022)."
+            "[0.009525, 0.0508] [m] (ESDU 86022).", ValidityRangeWarning
         )
 
     fin_height = (D_fin - D) / 2
@@ -399,7 +400,7 @@ def TFHE_esdu_high_fin_HTC(AS, geom, cond):
     if not (0.008467 <= fin_height <= 0.015875):
         warnings.warn(
             f"Fin height {fin_height} [m] is outside the validity range "
-            "[0.008467, 0.015875] [m] (ESDU 86022)."
+            "[0.008467, 0.015875] [m] (ESDU 86022).", ValidityRangeWarning
         )
 
     fin_ratio = D_fin / D
@@ -407,7 +408,7 @@ def TFHE_esdu_high_fin_HTC(AS, geom, cond):
     if not (1.2 <= fin_ratio <= 2.4):
         warnings.warn(
             f"Fin tip to root diameter ratio {fin_ratio} is outside the "
-            "validity range [1.2, 2.4] (ESDU 86022)."
+            "validity range [1.2, 2.4] (ESDU 86022).", ValidityRangeWarning
         )
 
     # Tube arrangement check: staggered banks only
@@ -424,7 +425,7 @@ def TFHE_esdu_high_fin_HTC(AS, geom, cond):
     if tube_arrang == 'inline':
         warnings.warn(
             "Tube arrangement is 'inline', but ESDU 86022 is valid for "
-            "staggered banks only."
+            "staggered banks only.", ValidityRangeWarning
         )
 
     # Step 3. Fin dimensions and areas of ONE tube (fin_height computed above)
@@ -448,7 +449,7 @@ def TFHE_esdu_high_fin_HTC(AS, geom, cond):
     if not (5000 <= Re <= 50000):
         warnings.warn(
             f"Reynolds number Re = {Re} is outside the validity range "
-            "[5000, 50000] (ESDU 86022)."
+            "[5000, 50000] (ESDU 86022).", ValidityRangeWarning
         )
 
     # ESDU 86022 (Hewitt et al. 1994)
@@ -726,7 +727,7 @@ def TFHE_wang_plain_fin_HTC(AS, geom, cond):
         warnings.warn(
             "Wang plain fin: correlation for continuous plate fins (fin_type 'Square'). "
             f"Received geom['fin_type'] = {geom.get('fin_type')!r}.",
-            UserWarning
+            ValidityRangeWarning
         )
 
     # Step 2. Check tube arrangement (staggered banks only)
@@ -744,7 +745,7 @@ def TFHE_wang_plain_fin_HTC(AS, geom, cond):
         warnings.warn(
             "Wang plain fin: staggered banks only. "
             f"Received geom['theta'] = {theta!r} deg (inline).",
-            UserWarning
+            ValidityRangeWarning
         )
 
     # Step 3. Read geometry parameters (SI units)

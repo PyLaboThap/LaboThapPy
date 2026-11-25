@@ -16,6 +16,8 @@ import warnings
 import numpy as np
 # Saturated properties for the two-phase PCHE pressure drop (Bae et al. 2019)
 from labothappy.correlations.convection.pipe_HTC_correlation_bank import _sat_props
+from labothappy.correlations.convection.correlation_warnings import (
+    AssumedParameterWarning, FluidWarning, ValidityRangeWarning)
 
 #%% SINGLE PHASE
 
@@ -78,14 +80,14 @@ def PCHE_lee_jiang_zigzag_SP_DP(AS, geom, cond):
         if Re < 300:
             warnings.warn(
                 f"PCHE_lee_jiang_zigzag_SP_DP: Re = {Re:.0f} below 300, lower limit of "
-                "Lee et al. (2024): extrapolated."
+                "Lee et al. (2024): extrapolated.", ValidityRangeWarning
             )
 
         # Warn if alpha outside 10-40 deg (range of Lee's CFD)
         if not (10 <= alpha <= 40):
             warnings.warn(
                 f"PCHE_lee_jiang_zigzag_SP_DP: bending angle {alpha} deg outside the range "
-                "10-40 deg of Lee et al. (2024): extrapolated."
+                "10-40 deg of Lee et al. (2024): extrapolated.", ValidityRangeWarning
             )
 
         # Lee et al. (2024) Eq. (2) for Fanning friction factor
@@ -100,14 +102,14 @@ def PCHE_lee_jiang_zigzag_SP_DP(AS, geom, cond):
         if Re > 20600:
             warnings.warn(
                 f"PCHE_lee_jiang_zigzag_SP_DP: Re = {Re:.0f} above 20600, upper limit of "
-                "Jiang et al. (2018): extrapolated."
+                "Jiang et al. (2018): extrapolated.", ValidityRangeWarning
             )
 
         # Warn if alpha is not 30 or 40 deg
         if alpha != 30 and alpha != 40:
             warnings.warn(
                 f"PCHE_lee_jiang_zigzag_SP_DP: Jiang et al. (2018) gives fits for 30 and 40 deg "
-                f"channels only, used here with alpha = {alpha} deg."
+                f"channels only, used here with alpha = {alpha} deg.", ValidityRangeWarning
             )
 
         # Select low angle (<= 35 deg) or high angle (> 35 deg) correlation
@@ -206,14 +208,14 @@ def PCHE_ngo_zigzag_SP_DP(AS, geom, cond):
     if Re < 3500 or Re > 22000:
         warnings.warn(
             f"PCHE_ngo_zigzag_SP_DP: Re = {Re:.0f} outside validity range "
-            "3500 - 22000 of Ngo et al. (2007): extrapolated."
+            "3500 - 22000 of Ngo et al. (2007): extrapolated.", ValidityRangeWarning
         )
 
     # Check fin angle against the single tested geometry
     if alpha != 52:
         warnings.warn(
             f"PCHE_ngo_zigzag_SP_DP: Ngo et al. (2007) tested a single geometry, "
-            f"fin angle 52 deg, used here with alpha = {alpha} deg."
+            f"fin angle 52 deg, used here with alpha = {alpha} deg.", ValidityRangeWarning
         )
 
     # Fanning pressure-drop factor, Ngo et al. (2007) Eq. (31) for zigzag fins
@@ -295,14 +297,14 @@ def PCHE_ngo_S_fin_SP_DP(AS, geom, cond):
     if Re < 3500 or Re > 23000:
         warnings.warn(
             f"PCHE_ngo_S_fin_SP_DP: Re = {Re:.0f} outside validity range "
-            "3500 - 23000 of Ngo et al. (2007): extrapolated."
+            "3500 - 23000 of Ngo et al. (2007): extrapolated.", ValidityRangeWarning
         )
 
     # Check fin angle against the single tested geometry
     if alpha != 52:
         warnings.warn(
             f"PCHE_ngo_S_fin_SP_DP: Ngo et al. (2007) tested a single geometry, "
-            f"fin angle 52 deg, used here with alpha = {alpha} deg."
+            f"fin angle 52 deg, used here with alpha = {alpha} deg.", ValidityRangeWarning
         )
 
     # Fanning pressure-drop factor, Ngo et al. (2007) Eq. (30) for S-shaped fins
@@ -371,7 +373,8 @@ def PCHE_kim_no_2012_zigzag_SP_DP(AS, geom, cond):
     if pitch is None:
         pitch = 24.6e-3
         warnings.warn(
-            "PCHE_kim_no_2012_zigzag_SP_DP: geom['P_zz'] not given: 24.6 mm assumed."
+            "PCHE_kim_no_2012_zigzag_SP_DP: geom['P_zz'] not given: 24.6 mm assumed.",
+            AssumedParameterWarning
         )
 
     # A zigzag needs 0 < alpha < 90 deg: otherwise raise ValueError
@@ -387,7 +390,7 @@ def PCHE_kim_no_2012_zigzag_SP_DP(AS, geom, cond):
     if Re > 2500:
         warnings.warn(
             f"PCHE_kim_no_2012_zigzag_SP_DP: Re = {Re:.0f} above the laminar CFD range of "
-            "Kim & No (2012) (Re up to 2500, Figs. 4-5): extrapolated."
+            "Kim & No (2012) (Re up to 2500, Figs. 4-5): extrapolated.", ValidityRangeWarning
         )
 
     # Table data from Kim & No (2012), Table 4
@@ -437,20 +440,20 @@ def PCHE_kim_no_2012_zigzag_SP_DP(AS, geom, cond):
     if abs(Dh - chosen_Dh) / chosen_Dh > 0.1 or abs(pitch - chosen_pitch) / chosen_pitch > 0.1:
         warnings.warn(
             "PCHE_kim_no_2012_zigzag_SP_DP: geometry outside the three CFD geometries of "
-            "Kim & No (2012): nearest table used."
+            "Kim & No (2012): nearest table used.", ValidityRangeWarning
         )
 
     # Handle angle limits and warnings
     if alpha < 5.0:
         warnings.warn(
             f"PCHE_kim_no_2012_zigzag_SP_DP: angle {alpha} deg outside 5-45 deg, "
-            "value at the nearest table angle (5 deg) used."
+            "value at the nearest table angle (5 deg) used.", ValidityRangeWarning
         )
         alpha_used = 5.0
     elif alpha > 45.0:
         warnings.warn(
             f"PCHE_kim_no_2012_zigzag_SP_DP: angle {alpha} deg outside 5-45 deg, "
-            "value at the nearest table angle (45 deg) used."
+            "value at the nearest table angle (45 deg) used.", ValidityRangeWarning
         )
         alpha_used = 45.0
     else:
@@ -558,14 +561,15 @@ def PCHE_kim_no_2011_zigzag_SP_DP(AS, geom, cond):
     if Re > 2500:
         warnings.warn(
             f"PCHE_kim_no_2011_zigzag_SP_DP: Re = {Re:.0f} above the range "
-            "of Kim & No (2011) (CFD up to Re 2500)."
+            "of Kim & No (2011) (CFD up to Re 2500).", ValidityRangeWarning
         )
 
     # Check bending angle against the single tested geometry
     if alpha != 15:
         warnings.warn(
             f"PCHE_kim_no_2011_zigzag_SP_DP: Kim & No (2011) studied a single geometry, "
-            f"angle 15 deg (Dh 0.922 mm, pitch 24.6 mm), used here with alpha = {alpha} deg."
+            f"angle 15 deg (Dh 0.922 mm, pitch 24.6 mm), used here with alpha = {alpha} deg.",
+            ValidityRangeWarning
         )
 
     # Fanning friction factor times Reynolds number, Kim & No (2011) Eq. (19)
@@ -630,7 +634,7 @@ def PCHE_liu_straight_SP_DP(AS, geom, cond):
     if Re < 3600 or Re > 36500:
         warnings.warn(
             f"PCHE_liu_straight_SP_DP: Re = {Re:.0f} outside validity range "
-            "3600 - 36500 of Liu et al. (2020): extrapolated."
+            "3600 - 36500 of Liu et al. (2020): extrapolated.", ValidityRangeWarning
         )
 
     # Fanning friction factor, Liu et al. (2020) Eq. (13)
@@ -699,7 +703,7 @@ def PCHE_meshram_zigzag_SP_DP(AS, geom, cond):
     if Re < 5000 or Re > 32000:
         warnings.warn(
             f"PCHE_meshram_zigzag_SP_DP: Re = {Re:.0f} outside validity range "
-            "5000 - 32000 of Meshram et al. (2016): extrapolated."
+            "5000 - 32000 of Meshram et al. (2016): extrapolated.", ValidityRangeWarning
         )
 
     # Warn if bulk temperature is outside the cold-fluid fit range (400 K to 520 K)
@@ -707,7 +711,7 @@ def PCHE_meshram_zigzag_SP_DP(AS, geom, cond):
         if T_bulk < 400 or T_bulk > 520:
             warnings.warn(
                 f"PCHE_meshram_zigzag_SP_DP: T = {T_bulk:.1f} K outside 400 - 520 K "
-                "range of the Meshram et al. (2016) cold-fluid zigzag fit."
+                "range of the Meshram et al. (2016) cold-fluid zigzag fit.", ValidityRangeWarning
             )
 
     # Fanning friction factor, Meshram et al. (2016) Table 5 (cold fluid) and Eq. (9)
@@ -775,7 +779,7 @@ def PCHE_katz_zigzag_SP_DP(AS, geom, cond):
     if alpha != 37:
         warnings.warn(
             f"PCHE_katz_zigzag_SP_DP: geometry angle {alpha} deg differs from the "
-            "37 deg angle of Katz et al. (2021): extrapolated."
+            "37 deg angle of Katz et al. (2021): extrapolated.", ValidityRangeWarning
         )
 
     # Reynolds number on the hydraulic diameter, Re = G Dh / mu
@@ -787,7 +791,7 @@ def PCHE_katz_zigzag_SP_DP(AS, geom, cond):
         if Re < 300 or Re > 3000:
             warnings.warn(
                 f"PCHE_katz_zigzag_SP_DP: Re = {Re:.0f} outside validity range "
-                "300 - 3000 for helium of Katz et al. (2021): extrapolated."
+                "300 - 3000 for helium of Katz et al. (2021): extrapolated.", ValidityRangeWarning
             )
 
         # Katz et al. (2021) Eq. (14), Model 2 for helium (term 1)
@@ -804,14 +808,14 @@ def PCHE_katz_zigzag_SP_DP(AS, geom, cond):
         if fluid != 'carbondioxide':
             warnings.warn(
                 f"PCHE_katz_zigzag_SP_DP: fluid '{fluid}' not explicitly recognized "
-                "as sCO2 or helium; sCO2 correlation applied."
+                "as sCO2 or helium; sCO2 correlation applied.", FluidWarning
             )
 
         # Warn if Re is outside the sCO2 validity range (500 to 16000)
         if Re < 500 or Re > 16000:
             warnings.warn(
                 f"PCHE_katz_zigzag_SP_DP: Re = {Re:.0f} outside validity range "
-                "500 - 16000 for sCO2 of Katz et al. (2021): extrapolated."
+                "500 - 16000 for sCO2 of Katz et al. (2021): extrapolated.", ValidityRangeWarning
             )
 
         # Katz et al. (2021) Eq. (13), Model 2 for sCO2 (term 1)
@@ -888,14 +892,15 @@ def PCHE_kim_sg_zigzag_SP_DP(AS, geom, cond):
         if Re < 2000 or Re > 58000:
             warnings.warn(
                 f"PCHE_kim_sg_zigzag_SP_DP: Re = {Re:.0f} outside validity range "
-                "2000 - 58000 for 32.5 deg of Kim S.G. et al. (2016): extrapolated."
+                "2000 - 58000 for 32.5 deg of Kim S.G. et al. (2016): extrapolated.",
+                ValidityRangeWarning
             )
 
         # Warn if alpha is more than 0.5 deg away from 32.5 deg
         if abs(alpha - 32.5) > 0.5:
             warnings.warn(
                 f"PCHE_kim_sg_zigzag_SP_DP: angle {alpha} deg is more than 0.5 deg "
-                "away from the fit angle 32.5 deg of Kim S.G. et al. (2016)."
+                "away from the fit angle 32.5 deg of Kim S.G. et al. (2016).", ValidityRangeWarning
             )
 
         # Fanning friction factor for 32.5 deg, Kim S.G. et al. (2016) Table 12
@@ -906,14 +911,15 @@ def PCHE_kim_sg_zigzag_SP_DP(AS, geom, cond):
         if Re < 2000 or Re > 55000:
             warnings.warn(
                 f"PCHE_kim_sg_zigzag_SP_DP: Re = {Re:.0f} outside validity range "
-                "2000 - 55000 for 40 deg of Kim S.G. et al. (2016): extrapolated."
+                "2000 - 55000 for 40 deg of Kim S.G. et al. (2016): extrapolated.",
+                ValidityRangeWarning
             )
 
         # Warn if alpha is more than 0.5 deg away from 40 deg
         if abs(alpha - 40.0) > 0.5:
             warnings.warn(
                 f"PCHE_kim_sg_zigzag_SP_DP: angle {alpha} deg is more than 0.5 deg "
-                "away from the fit angle 40.0 deg of Kim S.G. et al. (2016)."
+                "away from the fit angle 40.0 deg of Kim S.G. et al. (2016).", ValidityRangeWarning
             )
 
         # Fanning friction factor for 40 deg, Kim S.G. et al. (2016) Table 12
@@ -964,7 +970,7 @@ def PCHE_baik_zigzag_SP_DP(AS, geom, cond):
       Correlations from CFD (ANSYS CFX) validated on tests.
 
     AS : CoolProp abstract state (used to identify fluid name via AS.fluid_names()[0].lower())
-    geom : D_c [m] (optional, semicircular channel diameter), Dh [m] (fallback hydraulic diameter),
+    geom : D_ch [m] (optional, semicircular channel diameter), Dh [m] (fallback hydraulic diameter),
            L [m] (developed channel length), alpha [deg] (zigzag bending angle)
     cond : G [kg/m2/s] (mass flux in ONE channel), mu [Pa s], rho [kg/m3] (or D [kg/m3])
     """
@@ -989,14 +995,14 @@ def PCHE_baik_zigzag_SP_DP(AS, geom, cond):
         D_mod = geom['Dh']
         warnings.warn(
             "PCHE_baik_zigzag_SP_DP: 'D_ch' not found in geom; using geom['Dh'] "
-            "as D_mod, but Baik (2017) uses a modified hydraulic diameter."
+            "as D_mod, but Baik (2017) uses a modified hydraulic diameter.", AssumedParameterWarning
         )
 
     # Check bending angle against the single geometry tested by Baik (32.5 deg)
     if alpha != 32.5:
         warnings.warn(
             f"PCHE_baik_zigzag_SP_DP: bending angle {alpha} deg differs from "
-            "the 32.5 deg geometry of Baik et al. (2017)."
+            "the 32.5 deg geometry of Baik et al. (2017).", ValidityRangeWarning
         )
 
     # Reynolds number based on the modified hydraulic diameter
@@ -1011,7 +1017,7 @@ def PCHE_baik_zigzag_SP_DP(AS, geom, cond):
         if Re < 50 or Re > 200:
             warnings.warn(
                 f"PCHE_baik_zigzag_SP_DP: Re = {Re:.1f} outside the water validity range "
-                "50 - 200 of Baik et al. (2017): extrapolated."
+                "50 - 200 of Baik et al. (2017): extrapolated.", ValidityRangeWarning
             )
 
         # Fanning friction factor for water, Baik Table 3
@@ -1022,14 +1028,14 @@ def PCHE_baik_zigzag_SP_DP(AS, geom, cond):
         if fluid != 'carbondioxide':
             warnings.warn(
                 f"PCHE_baik_zigzag_SP_DP: fluid '{fluid}' is not 'carbondioxide'; "
-                "using the carbon dioxide correlation of Baik et al. (2017)."
+                "using the carbon dioxide correlation of Baik et al. (2017).", FluidWarning
             )
 
         # Warn if Re is outside the carbon dioxide validity range (15000 - 85000)
         if Re < 15000 or Re > 85000:
             warnings.warn(
                 f"PCHE_baik_zigzag_SP_DP: Re = {Re:.1f} outside the carbon dioxide validity "
-                "range 15000 - 85000 of Baik et al. (2017): extrapolated."
+                "range 15000 - 85000 of Baik et al. (2017): extrapolated.", ValidityRangeWarning
             )
 
         # Fanning friction factor for carbon dioxide, Baik Table 3
@@ -1096,7 +1102,7 @@ def PCHE_saeed_zigzag_SP_DP(AS, geom, cond):
     if alpha != 40:
         warnings.warn(
             f"PCHE_saeed_zigzag_SP_DP: bending angle {alpha} deg differs from the "
-            "40 deg geometry of Saeed et al. (2020)."
+            "40 deg geometry of Saeed et al. (2020).", ValidityRangeWarning
         )
 
     # Reynolds number on the hydraulic diameter, Re = G Dh / mu
@@ -1108,7 +1114,7 @@ def PCHE_saeed_zigzag_SP_DP(AS, geom, cond):
         if Re < 50 or Re > 15000:
             warnings.warn(
                 f"PCHE_saeed_zigzag_SP_DP: Re = {Re:.0f} outside water validity range "
-                "50 - 15000 of Saeed et al. (2020): extrapolated."
+                "50 - 15000 of Saeed et al. (2020): extrapolated.", ValidityRangeWarning
             )
 
         # Darcy friction factor for water, Saeed et al. (2020) Table 6
@@ -1119,14 +1125,14 @@ def PCHE_saeed_zigzag_SP_DP(AS, geom, cond):
         if fluid != 'carbondioxide':
             warnings.warn(
                 f"PCHE_saeed_zigzag_SP_DP: fluid '{fluid}' not explicitly tested in "
-                "Saeed et al. (2020) (tested: water, sCO2)."
+                "Saeed et al. (2020) (tested: water, sCO2).", FluidWarning
             )
 
         # Warn if Reynolds number is outside the sCO2 validity range (3000 - 60000)
         if Re < 3000 or Re > 60000:
             warnings.warn(
                 f"PCHE_saeed_zigzag_SP_DP: Re = {Re:.0f} outside sCO2 validity range "
-                "3000 - 60000 of Saeed et al. (2020): extrapolated."
+                "3000 - 60000 of Saeed et al. (2020): extrapolated.", ValidityRangeWarning
             )
 
         # Darcy friction factor for sCO2, Saeed et al. (2020) Table 6
@@ -1193,14 +1199,14 @@ def PCHE_chen_zigzag_SP_DP(AS, geom, cond):
     if fluid != "helium":
         warnings.warn(
             f"PCHE_chen_zigzag_SP_DP: fluid is '{fluid}', but Chen et al. (2016) "
-            "correlation was developed and tested for helium."
+            "correlation was developed and tested for helium.", FluidWarning
         )
 
     # Check zigzag bending angle
     if alpha != 15:
         warnings.warn(
             f"PCHE_chen_zigzag_SP_DP: alpha = {alpha} deg, but Chen et al. (2016) "
-            "tested strictly alpha = 15 deg."
+            "tested strictly alpha = 15 deg.", ValidityRangeWarning
         )
 
     # Reynolds number on the hydraulic diameter, Re = G Dh / mu
@@ -1210,7 +1216,7 @@ def PCHE_chen_zigzag_SP_DP(AS, geom, cond):
     if Re < 1400 or Re > 3558:
         warnings.warn(
             f"PCHE_chen_zigzag_SP_DP: Re = {Re:.1f} outside the validity range "
-            "1400 - 3558 of Chen et al. (2016): extrapolated."
+            "1400 - 3558 of Chen et al. (2016): extrapolated.", ValidityRangeWarning
         )
 
     # Fanning friction factor, Chen et al. (2016) Eq. (11)
@@ -1272,7 +1278,7 @@ def PCHE_bae_two_phase_DP(AS, geom, cond):
       The correction is 1 above p / p_crit = 0.931.
 
     AS : CoolProp abstract state of the fluid (moved to saturation by _sat_props).
-    geom : L [m] (developed channel length), D_c [m] (optional, channel diameter),
+    geom : L [m] (developed channel length), D_ch [m] (optional, channel diameter),
            Dh [m] (fallback hydraulic diameter)
     cond : G [kg/m2/s] (mass flux in ONE channel), p [Pa] (pressure),
            x [-] (vapour quality)
@@ -1294,7 +1300,7 @@ def PCHE_bae_two_phase_DP(AS, geom, cond):
     if fluid != 'carbondioxide':
         warnings.warn(
             f"PCHE_bae_two_phase_DP: fluid is '{fluid}', but correlation was developed "
-            "for carbon dioxide."
+            "for carbon dioxide.", FluidWarning
         )
 
     # Keep quality x in [0, 1]
@@ -1307,7 +1313,7 @@ def PCHE_bae_two_phase_DP(AS, geom, cond):
     if x < 0.77:
         warnings.warn(
             f"PCHE_bae_two_phase_DP: quality x = {x:.3f} outside validity range "
-            "0.77 - 1.0 of Bae et al. (2019): extrapolated."
+            "0.77 - 1.0 of Bae et al. (2019): extrapolated.", ValidityRangeWarning
         )
 
     # Read critical pressure first (before _sat_props moves AS)
@@ -1318,7 +1324,8 @@ def PCHE_bae_two_phase_DP(AS, geom, cond):
     if pressure_ratio < 0.89 or pressure_ratio > 0.95:
         warnings.warn(
             f"PCHE_bae_two_phase_DP: pressure ratio p/p_crit = {pressure_ratio:.3f} "
-            "outside validity range 0.89 - 0.95 of Bae et al. (2019): extrapolated."
+            "outside validity range 0.89 - 0.95 of Bae et al. (2019): extrapolated.",
+            ValidityRangeWarning
         )
 
     # Compute modified hydraulic diameter (Baik's modified diameter D = sqrt(4 * A / pi))
@@ -1329,7 +1336,8 @@ def PCHE_bae_two_phase_DP(AS, geom, cond):
         D_mod = geom['Dh']
         warnings.warn(
             "PCHE_bae_two_phase_DP: 'D_ch' not found in geom. Used geom['Dh'] as "
-            "D_mod, but Baik's modified diameter could not be precisely computed."
+            "D_mod, but Baik's modified diameter could not be precisely computed.",
+            AssumedParameterWarning
         )
 
     # Read saturated properties using library helper
@@ -1346,7 +1354,7 @@ def PCHE_bae_two_phase_DP(AS, geom, cond):
     if Re_go < 15000 or Re_go > 85000:
         warnings.warn(
             f"PCHE_bae_two_phase_DP: Re_go = {Re_go:.0f} outside validity range "
-            "15000 - 85000 of Baik's CO2 fit: extrapolated."
+            "15000 - 85000 of Baik's CO2 fit: extrapolated.", ValidityRangeWarning
         )
 
     # 2. Baik gas-only Darcy friction factor as quoted by Bae (Table 4)

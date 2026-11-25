@@ -14,6 +14,7 @@ from labothappy.correlations.pressure_drop.curved_pipe_DP_correlation_bank impor
     curved_pipe_ito_SP_DP, curved_pipe_sigalotti_SP_DP, curved_pipe_cioncolini_boiling_DP, curved_pipe_ruffell_boiling_DP,
     curved_pipe_fsadni_condensing_DP, D_over_2R)
 from labothappy.correlations.pressure_drop.pipe_DP import pipe_DP
+from labothappy.correlations.convection.correlation_warnings import ValidityRangeWarning
 
 _CURVED = {
     'SP': {'Sigalotti': curved_pipe_sigalotti_SP_DP, 'Ito': curved_pipe_ito_SP_DP},
@@ -44,5 +45,6 @@ def curved_pipe_DP(AS, geom, cond, flow_state, choices=None):
     if choice in table:
         return table[choice](AS, geom, cond)
     if flow_state == 'SP':
-        warnings.warn(f"Curved pipe DP: pipe correlation {choice!r} on the straight equivalent tube (no curvature).")
+        warnings.warn(f"Curved pipe DP: pipe correlation {choice!r} on the straight equivalent tube (no curvature).",
+                      ValidityRangeWarning)
     return pipe_DP(AS, _equivalent_tube(geom), cond, flow_state, {flow_state: choice})

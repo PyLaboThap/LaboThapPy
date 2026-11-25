@@ -14,6 +14,7 @@ from labothappy.correlations.pressure_drop.TFHE_DP_correlation_bank import TFHE_
 from labothappy.correlations.pressure_drop.TFHE_DP_correlation_bank import TFHE_wang_plain_fin_DP
 from labothappy.correlations.pressure_drop.pipe_DP import pipe_DP
 from labothappy.correlations.convection.TFHE_HTC import _ensure_gas_props
+from labothappy.correlations.convection.correlation_warnings import ValidityRangeWarning
 
 # same formula for both fin shapes: the names of the HTC dispatcher are accepted so that one set of names serves both
 _TFHE_FIN_DP = {'Pismennyi': TFHE_pismennyi_DP,
@@ -30,7 +31,8 @@ def TFHE_fin_DP(AS, geom, cond, flow_state, choices=None):
         raise ValueError(f"TFHE finned side: flow state {flow_state!r}, expected 'SP', 'EVAP' or 'COND'.")
     if flow_state != 'SP':
         warnings.warn(f"TFHE finned side: no {flow_state} pressure drop correlation, the gas correlation is used "
-                      f"for a {cond.get('phase')!r} cell (phase change ignored).", stacklevel=2)
+                      f"for a {cond.get('phase')!r} cell (phase change ignored).",
+                      ValidityRangeWarning, stacklevel=2)
     cond = _ensure_gas_props(AS, cond, flow_state)
     choice = (choices or {}).get(flow_state) or (choices or {}).get('SP')
     if choice in (None, 'auto'):

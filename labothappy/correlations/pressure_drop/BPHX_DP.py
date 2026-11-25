@@ -6,6 +6,7 @@ import warnings
 from labothappy.correlations.pressure_drop.BPHX_DP_correlation_bank import (
     chevron_deg, BPHX_sinnott_SP_DP, BPHX_martin_SP_DP, BPHX_kumar_SP_DP,
     BPHX_thonon_SP_DP, BPHX_muley_manglik_SP_DP)
+from labothappy.correlations.convection.correlation_warnings import AssumedParameterWarning
 
 _BPHX_SP_DP = {
     'Sinnott': BPHX_sinnott_SP_DP,
@@ -143,7 +144,8 @@ def BPHX_port_DP(geom, cond):
     elif 'D_port' in geom:
         G_port = cond['m_dot'] / (np.pi * geom['D_port']**2 / 4)
     else:
-        warnings.warn("BPHX_port_DP: no port size ('D_port' or 'G_port'): port loss set to 0.")
+        warnings.warn("BPHX_port_DP: no port size ('D_port' or 'G_port'): port loss set to 0.",
+                      AssumedParameterWarning)
         return 0.0
     return 1.3 * G_port**2 / (2 * cond['D']) * geom.get('n_passes', 1)
 

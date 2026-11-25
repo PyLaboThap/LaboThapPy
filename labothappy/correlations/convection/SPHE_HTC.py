@@ -12,6 +12,7 @@ from labothappy.correlations.convection.SPHE_HTC_correlation_bank import (
     SPHE_morimoto_hotta_HTC)
 from labothappy.correlations.convection.curved_pipe_HTC_correlation_bank import (
     curved_pipe_zhao_boiling_HTC, curved_pipe_nariai_boiling_HTC, curved_pipe_zakeralhoseini_condensing_HTC)
+from labothappy.correlations.convection.correlation_warnings import FluidWarning
 
 _SPHE = {
     'SP':   {'Picon_Nunez': SPHE_picon_nunez_HTC, 'Rajavel': SPHE_rajavel_HTC,
@@ -32,6 +33,7 @@ def SPHE_HTC(AS, geom, cond, flow_state, choices=None):
     if choice not in _SPHE[flow_state]:
         raise ValueError(f"SPHE HTC: unknown {flow_state} correlation {choice!r}; choose from {list(_SPHE[flow_state])}.")
     if choice == 'Zakeralhoseini':
-        warnings.warn("SPHE: Zakeralhoseini condensation correlation established for R1234yf in helical tubes.")
+        warnings.warn("SPHE: Zakeralhoseini condensation correlation established for R1234yf in helical tubes.",
+                      FluidWarning)
     return _SPHE[flow_state][choice](AS, geom, cond)
 

@@ -22,6 +22,8 @@ import warnings
 from CoolProp.CoolProp import PropsSI
 from scipy.optimize import fsolve
 import CoolProp.CoolProp as CP
+from labothappy.correlations.convection.correlation_warnings import (
+    ValidityRangeWarning, FluidWarning)
 
 #%% HELPERS
 
@@ -120,9 +122,11 @@ def _gnielinski_core(mu, Pr, mu_w, k, G, Dh, L):
         Nu = gnielinski_transition(Re)
 
     if Re >= 1e6 or Re <= 0:
-        warnings.warn('Gnielinski single-phase: Reynolds out of validity range !!!')
+        warnings.warn('Gnielinski single-phase: Reynolds out of validity range !!!',
+                      ValidityRangeWarning)
     if Pr >= Pr_max or Pr <= Pr_min:
-        warnings.warn('Gnielinski single-phase: Prandtl out of validity range !!!')
+        warnings.warn('Gnielinski single-phase: Prandtl out of validity range !!!',
+                      ValidityRangeWarning)
     return Nu * k / Dh
 
 
@@ -141,9 +145,18 @@ def pipe_dittus_boelter_SP_HTC(AS, geom, cond):
     """Dittus-Boelter, Nu = 0.023 Re^0.8 Pr^n, n = 0.4 (fluid heated) or 0.3 (fluid cooled).
     cond : G (or m_dot), mu, Pr, k, heating (bool, default True: tube fluid is heated)
     geom : D_t_i
-    Reference: Incropera, Fundamentals of heat transfer."""
+    Reference: Incropera, Fundamentals of heat transfer.
+    Validity: Re >= 10000, 0.6 <= Pr <= 160 (ht.conv_internal.turbulent_Dittus_Boelter notes);
+    warning outside."""
     D = _tube_ID(geom)
     Re = _tube_G(geom, cond) * D / cond['mu']
+    if Re < 1e4:
+        warnings.warn(f"Dittus-Boelter: Re = {Re:.0f} < 10000 (turbulent correlation): "
+                      "extrapolated.",
+                      ValidityRangeWarning)
+    if cond['Pr'] < 0.6 or cond['Pr'] > 160:
+        warnings.warn(f"Dittus-Boelter: Pr = {cond['Pr']:.3g} outside 0.6-160: extrapolated.",
+                      ValidityRangeWarning)
     n = 0.4 if cond.get('heating', True) else 0.3
     return 0.023 * Re**0.8 * cond['Pr']**n * cond['k'] / D
 
@@ -153,9 +166,25 @@ def pipe_meshram_HTC(AS, geom, cond):
     (Printed circuit heat exchanger correlation, kept here for convenience.)
     cond : G, mu, Pr, k      geom : Dh (or D_t_i)
     Reference: Meshram et al., Modeling and analysis of a printed circuit heat exchanger for
-    supercritical CO2 power cycle applications."""
+    supercritical CO2 power cycle applications.
+    Validity: Meshram et al. (2016) Appl. Therm. Eng. 109, 861-870, Table 5: this fit is the
+    ZIGZAG channel, cold fluid, 400 K < Tb < 520 K; Reynolds range of the zigzag study
+    5000-32000 (Sect. 4);
+    supercritical CO2 (CFD). Warning outside (Re, bulk temperature cond['T'] if given, fluid)."""
     Dh = geom.get('Dh', None) or _tube_ID(geom)
     Re = cond['G'] * Dh / cond['mu']
+    if Re < 5000 or Re > 32000:
+        warnings.warn(f"Meshram: Re = {Re:.0f} outside 5000-32000 (zigzag CFD range): "
+                      "extrapolated.",
+                      ValidityRangeWarning)
+    if cond.get('T') is not None and (cond['T'] < 400 or cond['T'] > 520):
+        warnings.warn(f"Meshram: bulk T = {cond['T']:.1f} K outside 400-520 K "
+                      "(cold-fluid zigzag fit).",
+                      ValidityRangeWarning)
+    if AS is not None and AS.fluid_names()[0].lower() not in ('co2', 'carbondioxide'):
+        warnings.warn(f"Meshram: fluid {AS.fluid_names()[0]!r}, correlation fitted on "
+                      "supercritical CO2.",
+                      FluidWarning)
     return 0.0177 * Re**0.871 * cond['Pr']**0.7 * cond['k'] / Dh
 
 #%% TRANSCRITICAL (sCO2 cooling)
@@ -177,11 +206,14 @@ def pipe_liu_sCO2_HTC(AS, geom, cond):
     G, rho, cp = _tube_G(geom, cond), cond['rho'], cond['cp']
     # Validity warnings (test matrix of Table 2)
     if not 7.5e6 <= cond['p'] <= 8.5e6:
-        warnings.warn(f"Liu 2014 sCO2: p = {cond['p'] / 1e6:.2f} MPa outside 7.5-8.5 MPa (Table 2).")
+        warnings.warn(f"Liu 2014 sCO2: p = {cond['p'] / 1e6:.2f} MPa outside 7.5-8.5 MPa (Table 2).",
+                      ValidityRangeWarning)
     if not 4e-3 <= D <= 10.7e-3:
-        warnings.warn(f"Liu 2014 sCO2: D = {D * 1e3:.2f} mm outside 4-10.7 mm (Table 2).")
+        warnings.warn(f"Liu 2014 sCO2: D = {D * 1e3:.2f} mm outside 4-10.7 mm (Table 2).",
+                      ValidityRangeWarning)
     if cond.get('T') is not None and cond['T_w'] > cond['T']:
-        warnings.warn("Liu 2014 sCO2: correlation for CO2 COOLING (wall colder than the bulk).")
+        warnings.warn("Liu 2014 sCO2: correlation for CO2 COOLING (wall colder than the bulk).",
+                      ValidityRangeWarning)
     AS.update(CP.PT_INPUTS, cond['p'], cond['T_w'])           # wall state (moves AS)
     rho_w, cp_w, mu_w, Pr_w = AS.rhomass(), AS.cpmass(), AS.viscosity(), AS.Prandtl()
     Re_w = G * D / mu_w
@@ -255,7 +287,8 @@ def pipe_cheng_sCO2_HTC(AS, geom, cond):
 
     Re = G * D_in / mu
     if not 6.18e4 <= Re <= 5.35e5:
-        warnings.warn(f"Cheng 2024 sCO2: Re_b = {Re:.3g} outside 6.18e4-5.35e5 (paper range).")
+        warnings.warn(f"Cheng 2024 sCO2: Re_b = {Re:.3g} outside 6.18e4-5.35e5 (paper range).",
+                      ValidityRangeWarning)
     # Bulk enthalpy and temperature of the cell (mean of inlet and outlet enthalpies)
     h_b = 0.5 * (h_in + h_out)
     T_b = PropsSI('T', 'H', h_b, 'P', P, fluid)
@@ -271,7 +304,8 @@ def pipe_cheng_sCO2_HTC(AS, geom, cond):
     g = 9.81
     Fr_VL_w = G**2 * x_ave**2 / (rho_w**2 * g * D_in)            # two-phase-like, Eq. (33)
     if not 7.58e-5 <= Fr_VL_w <= 1834:
-        warnings.warn(f"Cheng 2024 sCO2: Fr_VL,w = {Fr_VL_w:.3g} outside 7.58e-5-1834 (paper range).")
+        warnings.warn(f"Cheng 2024 sCO2: Fr_VL,w = {Fr_VL_w:.3g} outside 7.58e-5-1834 (paper range).",
+                      ValidityRangeWarning)
     Nu_top = 0.127 * (Re**1.065) * (Pr_ave**1.053) * (SBO_w**0.66) * (Fr_VL_w**(-0.012))
     Nu_bot = 1.512 * (Re**0.878) * (Pr_ave**0.685) * (SBO_w**0.69) * (Fr_VL_w**(-0.0213))
     return 0.5 * (Nu_top + Nu_bot) * k / D_in
@@ -369,7 +403,8 @@ def pipe_petukhov_supercritical_HTC(AS, geom, cond):
     if Re_b < 1e4:
         warnings.warn(
             'Petukhov supercritical HTC: Re_b = {:.0f} < 1e4. '
-            'Correlation is for turbulent flow; this limit is a labothappy safeguard.'.format(Re_b)
+            'Correlation is for turbulent flow; this limit is a labothappy safeguard.'.format(Re_b),
+            ValidityRangeWarning
         )
 
     return h
@@ -563,7 +598,7 @@ def pipe_el_hajal_flow_pattern(AS, geom, cond):
     if outside_validity:
         full_message = ("El Hajal flow pattern map: " + ", ".join(warning_messages)
                         + " (validity range exceeded): extrapolated.")
-        warnings.warn(full_message)
+        warnings.warn(full_message, ValidityRangeWarning)
 
     # 8. Return dictionary
     return {
@@ -648,7 +683,7 @@ def pipe_thome_condensing_HTC(AS, geom, cond):
         x = 0.99
     elif x < 0.01:
         warnings.warn(f"Thome condensing HTC: quality x = {x} below the lower limit of "
-                      "applicability x = 0.01 of Thome et al. (2003).")
+                      "applicability x = 0.01 of Thome et al. (2003).", ValidityRangeWarning)
         x = max(x, 1e-6)
 
     # 3. Saturated properties
@@ -724,13 +759,13 @@ def pipe_thome_condensing_HTC(AS, geom, cond):
     p_red = p / p_crit
     if G < 24 or G > 1022:
         warnings.warn(f"Thome condensing HTC: mass flux G = {G:.1f} kg/m2/s outside the "
-                      "tested range [24, 1022].")
+                      "tested range [24, 1022].", ValidityRangeWarning)
     if D < 0.0031 or D > 0.0214:
         warnings.warn(f"Thome condensing HTC: tube diameter D = {D * 1e3:.2f} mm outside the "
-                      "tested range [3.1, 21.4] mm.")
+                      "tested range [3.1, 21.4] mm.", ValidityRangeWarning)
     if p_red < 0.02 or p_red > 0.80:
         warnings.warn(f"Thome condensing HTC: reduced pressure p_red = {p_red:.3f} outside the "
-                      "tested range [0.02, 0.80].")
+                      "tested range [0.02, 0.80].", ValidityRangeWarning)
 
     return alpha_tp
 
@@ -739,10 +774,19 @@ def pipe_dobson_chato_condensing_HTC(AS, geom, cond):
     """Dobson & Chato: gravity-driven film (Nu = 0.555 [...]^0.25) for Re_v <= 35000, annular
     Nu = 0.023 Re_l^0.8 Pr_l^0.4 (1 + 2.22 / X_tt^0.89) above.
     cond : G, p, x, T_w      geom : D_t_i
-    Reference: Incropera, Principles of heat transfer."""
+    Reference: Incropera, Principles of heat transfer.
+    Validity: tubes 3-7 mm, G 25-800 kg/m2/s, R12 / R22 / R134a / R32-R125 (catalogue, from the
+    labothappy dispatcher comment; TODO: confirm with the Dobson & Chato paper). Warning outside
+    the diameter and mass flux ranges."""
     g = 9.81
     D_in = _tube_ID(geom)
     G, P_sat, x = _tube_G(geom, cond), cond['p'], min(max(cond['x'], 0.0), 1.0)
+    if D_in < 3e-3 or D_in > 7e-3:
+        warnings.warn(f"Dobson-Chato: D = {D_in * 1e3:.2f} mm outside 3-7 mm: extrapolated.",
+                      ValidityRangeWarning)
+    if G < 25 or G > 800:
+        warnings.warn(f"Dobson-Chato: G = {G:.1f} kg/m2/s outside 25-800: extrapolated.",
+                      ValidityRangeWarning)
     s = _sat_props(AS, P_sat, cond)
     rho_l, rho_v, mu_l, mu_v = s['rho_l'], s['rho_v'], s['mu_l'], s['mu_v']
     k_l, cp_l, Pr_l, h_fg, T_sat = s['k_l'], s['cp_l'], s['Pr_l'], s['h_lv'], s['T_sat']
@@ -861,7 +905,7 @@ def pipe_shah_condensing_HTC(AS, geom, cond):
     if outside_validity:
         full_message = ("Shah condensing HTC: " + ", ".join(warning_messages)
                         + " (validity range exceeded): extrapolated.")
-        warnings.warn(full_message)
+        warnings.warn(full_message, ValidityRangeWarning)
 
     return h
 
@@ -910,7 +954,7 @@ def pipe_cavallini_smith_zecchin_condensing_HTC(AS, geom, cond):
     # Validity safeguard: turbulent correlation form
     if Re_eq < 1000:
         warnings.warn('Cavallini-Smith-Zecchin: Re_eq < 1000, correlation is for turbulent '
-                      'annular flow.')
+                      'annular flow.', ValidityRangeWarning)
 
     # Step 6: Nusselt number (liquid properties, Dittus-Boelter type)
     Nu = 0.05 * Re_eq**0.8 * Pr_l**0.33
@@ -1017,7 +1061,7 @@ def pipe_steiner_taborek_boiling_HTC(AS, geom, cond):
     # Eq. (5) F_tp is given for x <= 0.6
     if x > 0.6:
         warnings.warn(f"Steiner-Taborek: x = {x:.2f} > 0.6, Eq. (5) F_tp used outside its stated "
-                      "range (Steiner & Taborek 1992).")
+                      "range (Steiner & Taborek 1992).", ValidityRangeWarning)
     if 'h_nb_o' in cond:
         h_nb_o = cond['h_nb_o']
     elif fluid == 'Cyclopentane':
@@ -1100,7 +1144,16 @@ def pipe_gungor_winterton_boiling_HTC(AS, geom, cond):
     and annuli, Int. J. Heat Mass Transfer 29(3), 351-358, Eqs. (2)-(12).
     Definitions: Re_l = G (1 - x) d / mu_l (liquid fraction) in h_l AND in the suppression factor S
     (Eq. 10); Fr = G^2 / (rho_l^2 g d); properties at saturation; returns h [W/m2/K].
-    (2026-11-21: S used a two-phase Re_tp = G d / mu_tp before; corrected to Re_l, Eq. 10.)"""
+    (2026-11-21: S used a two-phase Re_tp = G d / mu_tp before; corrected to Re_l, Eq. 10.)
+    Fluids of the database (paper abstract): water, refrigerants and ethylene glycol; warning for
+    another fluid. (The ranges of Table 1 could not be read reliably from the PDF text: not
+    checked.)"""
+    fluid = AS.fluid_names()[0].lower()
+    is_refrigerant = fluid.startswith('r') and len(fluid) > 1 and fluid[1].isdigit()
+    if fluid not in ('water', 'h2o') and not is_refrigerant and 'glycol' not in fluid:
+        warnings.warn(f"Gungor-Winterton: fluid {AS.fluid_names()[0]!r} is not in the database "
+                      "of the "
+                      "correlation (water, refrigerants, ethylene glycol).", FluidWarning)
     D_in = _tube_ID(geom)
     G, P_sat, q = _tube_G(geom, cond), cond['p'], cond['q']
     x = _clamp_x(cond['x'])
@@ -1279,7 +1332,8 @@ def pipe_chen_boiling_HTC(AS, geom, cond):
     if x < 0.01 or x > 0.71:
         warnings.warn(
             f"Chen boiling: quality x = {x:.3f} outside usual range 0.01-0.71 "
-            "(original water/hydrocarbon data range as usually reported; not given by ht)."
+            "(original water/hydrocarbon data range as usually reported; not given by ht).",
+            ValidityRangeWarning
         )
 
     return h
@@ -1348,7 +1402,8 @@ def pipe_liu_winterton_boiling_HTC(AS, geom, cond):
     p_crit = AS.p_critical()
     p_red = p / p_crit
     if p_red >= 0.95:
-        warnings.warn("Liu-Winterton boiling HTC: reduced pressure p_red >= 0.95 (validity limit).")
+        warnings.warn("Liu-Winterton boiling HTC: reduced pressure p_red >= 0.95 (validity limit).",
+                      ValidityRangeWarning)
 
     M = AS.molar_mass() * 1000.0
 
@@ -1471,7 +1526,7 @@ def pipe_shah_1982_boiling_HTC(AS, geom, cond):
     if abs(gamma) != 0.0 and abs(gamma) != 90.0:
         warnings.warn(
             f"Shah (1982) gives horizontal and vertical tubes only: inclined tube "
-            f"(gamma = {gamma} deg) treated as horizontal."
+            f"(gamma = {gamma} deg) treated as horizontal.", ValidityRangeWarning
         )
     if abs(gamma) == 90.0:
         N = Co                                  # vertical tube, all Fr_l (Eq. 13)

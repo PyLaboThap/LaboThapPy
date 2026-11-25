@@ -3,14 +3,16 @@
 Single-phase heat transfer correlations of Printed Circuit Heat Exchangers (semi-circular channels),
 (AS, geom, cond) formalism, prefix PCHE_..._HTC.
 
-geom : D_c (channel diameter), L_c (developed channel length), alpha (bending angle of a zigzag
-       channel [deg]); Dh (optional, default pi*D_c/(2+pi))
+geom : D_ch (channel diameter), L_ch (developed channel length), alpha (bending angle of a zigzag
+       channel [deg]); Dh (optional, default pi*D_ch/(2+pi))
 cond : G (mass flux in ONE channel), mu, k, Pr, rho, T (bulk), m_dot is not needed.
 """
 import warnings
 import numpy as np
 # Saturated properties for the two-phase PCHE correlations (Kwon et al. 2018)
 from labothappy.correlations.convection.pipe_HTC_correlation_bank import _sat_props
+from labothappy.correlations.convection.correlation_warnings import (
+    AssumedParameterWarning, FluidWarning, ValidityRangeWarning)
 
 
 def _dh(geom):
@@ -82,6 +84,25 @@ def PCHE_bennett_chen_hot_HTC(AS, geom, cond):
         T_in = cond['T_in']
     else:
         T_in = cond['T']
+    # Validity (Table 3 of the paper, as in the docstring): warning outside
+    out = []
+    if Re < 1200:
+        out.append(f"Re = {Re:.0f} (>= 1200)")
+    if not 84 <= np.degrees(th) <= 170:
+        out.append(f"bend angle = {np.degrees(th):.1f} deg (84-170)")
+    if not 500 <= T_in <= 900:
+        out.append(f"T_h,in = {T_in:.1f} K (500-900)")
+    p_hot_in = cond.get('p_in', cond.get('p'))
+    if p_hot_in is not None and not 2e6 <= p_hot_in <= 10e6:
+        out.append(f"p_h,in = {p_hot_in / 1e6:.2f} MPa (2-10)")
+    if not 2.5e-5 <= m <= 2.5e-4:
+        out.append(f"m = {m:.3g} kg/s per channel (2.5e-5-2.5e-4)")
+    if out:
+        warnings.warn("PCHE_bennett_chen_hot_HTC: outside the range of Bennett & Chen (2020): "
+                      + ", ".join(out) + ".", ValidityRangeWarning)
+    if AS.fluid_names()[0].lower() not in ('co2', 'carbondioxide'):
+        warnings.warn(f"PCHE_bennett_chen_hot_HTC: fluid {AS.fluid_names()[0]!r}, correlation "
+                      "fitted on supercritical CO2 (CFD).", FluidWarning)
     # Reduced inlet temperature (thesis p. 187)
     T_r = T_in / AS.T_critical()
     Nu = (-2.2631e6 * Re ** 1.0515e-3 * m ** 6.5405e-1 * th ** -2.0665e-4 * LD ** 8.0885e-5
@@ -114,6 +135,24 @@ def PCHE_bennett_chen_cold_HTC(AS, geom, cond):
         p_in = cond['p_in']
     else:
         p_in = cond['p']
+    # Validity (Table 3 of the paper, as in the docstring): warning outside
+    out = []
+    if not 84 <= np.degrees(th) <= 170:
+        out.append(f"bend angle = {np.degrees(th):.1f} deg (84-170)")
+    if not 305 <= T_in <= 450:
+        out.append(f"T_c,in = {T_in:.1f} K (305-450)")
+    if not 7.5e6 <= p_in <= 20e6:
+        out.append(f"p_c,in = {p_in / 1e6:.2f} MPa (7.5-20)")
+    if not 2e6 <= cond['p_other_in'] <= 10e6:
+        out.append(f"p_h,in = {cond['p_other_in'] / 1e6:.2f} MPa (2-10)")
+    if not 5e-5 <= m <= 5e-4:
+        out.append(f"m = {m:.3g} kg/s per channel (5e-5-5e-4)")
+    if out:
+        warnings.warn("PCHE_bennett_chen_cold_HTC: outside the range of Bennett & Chen (2020): "
+                      + ", ".join(out) + ".", ValidityRangeWarning)
+    if AS.fluid_names()[0].lower() not in ('co2', 'carbondioxide'):
+        warnings.warn(f"PCHE_bennett_chen_cold_HTC: fluid {AS.fluid_names()[0]!r}, correlation "
+                      "fitted on supercritical CO2 (CFD).", FluidWarning)
     # Reduced cold inlet temperature and pressure (thesis p. 195); hot inlet pressure in MPa
     T_r = T_in / AS.T_critical()
     p_r = p_in / AS.p_critical()
@@ -152,7 +191,7 @@ def PCHE_lee_zigzag_HTC(AS, geom, cond):
 
     Definitions: Re = G Dh / mu with Dh = pi D_c / (2 + pi) (Jiang Eq. 8; Lee does not state it),
     bulk properties of the cell; Nu on Dh.
-    geom : alpha [deg] (bending angle from the main flow direction), D_c [m] (or Dh [m])
+    geom : alpha [deg] (bending angle from the main flow direction), D_ch [m] (or Dh [m])
     cond : G [kg/m2/s] (one channel), mu [Pa s], k [W/m/K], Pr [-]
     Returns h [W/m2/K]. Outside the validity ranges: warning, value extrapolated."""
     _need(cond, 'G', 'mu', 'k', 'Pr')
@@ -170,10 +209,10 @@ def PCHE_lee_zigzag_HTC(AS, geom, cond):
         # Lee et al. (2024): range of the CFD data
         if not 10 <= alpha <= 40:
             warnings.warn(f"PCHE_lee_zigzag_HTC: bending angle {alpha} deg outside the range "
-                          "10-40 deg of Lee et al. (2024): extrapolated.")
+                          "10-40 deg of Lee et al. (2024): extrapolated.", ValidityRangeWarning)
         if Re < 300:
             warnings.warn(f"PCHE_lee_zigzag_HTC: Re = {Re:.0f} below 300, lower limit of "
-                          "Lee et al. (2024): extrapolated.")
+                          "Lee et al. (2024): extrapolated.", ValidityRangeWarning)
         # Amplitude over pitch of the zigzag, from the bending angle (Table I: h/p = tan(alpha)/2)
         h_over_p = np.tan(np.radians(alpha)) / 2
         # Lee et al. (2024), Eq. (3)
@@ -197,10 +236,10 @@ def PCHE_lee_zigzag_HTC(AS, geom, cond):
         # Jiang et al. (2018): fit of Heatric data, high-angle (40 deg) channel only
         if Re > 20600:
             warnings.warn(f"PCHE_lee_zigzag_HTC: Re = {Re:.0f} outside 3000-20600, range of "
-                          "Jiang et al. (2018) Eq. (23a): extrapolated.")
+                          "Jiang et al. (2018) Eq. (23a): extrapolated.", ValidityRangeWarning)
         if alpha != 40:
             warnings.warn(f"PCHE_lee_zigzag_HTC: Jiang et al. (2018) Eq. (23a) is for a 40 deg "
-                          f"channel, used here with alpha = {alpha} deg.")
+                          f"channel, used here with alpha = {alpha} deg.", ValidityRangeWarning)
         # Jiang et al. (2018), Eq. (23a)
         Nu = 0.0845 * Re ** 0.721 * Pr ** (1 / 3)
     return Nu * cond['k'] / Dh
@@ -265,12 +304,13 @@ def PCHE_jiang_zigzag_HTC(AS, geom, cond):
     # Validity warning for Reynolds number (Heatric data range)
     if Re < 3000 or Re > 20600:
         warnings.warn(f"PCHE_jiang_zigzag_HTC: Re = {Re:.0f} outside 3000-20600, "
-                      "range of Jiang et al. (2018) fit: extrapolated.")
+                      "range of Jiang et al. (2018) fit: extrapolated.", ValidityRangeWarning)
 
     # Validity warning for bending angle (Eq. 23a is the 40 deg fit)
     if alpha != 40:
         warnings.warn("PCHE_jiang_zigzag_HTC: Jiang et al. (2018) gives fits for 30 and 40 deg "
-                      f"only; the 40 deg fit (Eq. 23a) is used for every angle (alpha = {alpha} deg).")
+                      f"only; the 40 deg fit (Eq. 23a) is used for every angle (alpha = {alpha} deg).",
+                      ValidityRangeWarning)
 
     # Jiang et al. (2018), Eq. (23a): high-angle (40 deg) channel, used for EVERY angle.
     # 2026-11-23 (E21, Basile's choice): the low-angle fit Eq. (22a), Nu = 0.0176 Re^0.809 Pr^(1/3),
@@ -347,17 +387,18 @@ def PCHE_ngo_zigzag_HTC(AS, geom, cond):
     # Validity warning for Reynolds number (Eq. 29 range: 3500 to 22000)
     if Re < 3500 or Re > 22000:
         warnings.warn(f"PCHE_ngo_zigzag_HTC: Re = {Re:.0f} outside 3500-22000, "
-                      "range of Ngo et al. (2007) Eq. 29: extrapolated.")
+                      "range of Ngo et al. (2007) Eq. 29: extrapolated.", ValidityRangeWarning)
 
     # Validity warning for Prandtl number (Eq. 29 range: 0.75 to 2.2)
     if Pr < 0.75 or Pr > 2.2:
         warnings.warn(f"PCHE_ngo_zigzag_HTC: Pr = {Pr:.2f} outside 0.75-2.2, "
-                      "range of Ngo et al. (2007) Eq. 29: extrapolated.")
+                      "range of Ngo et al. (2007) Eq. 29: extrapolated.", ValidityRangeWarning)
 
     # Validity warning for fin angle (Ngo et al. tested a single geometry with 52 deg)
     if alpha != 52:
         warnings.warn(f"PCHE_ngo_zigzag_HTC: Ngo et al. (2007) tested a single geometry, "
-                      f"fin angle 52 deg (used here with alpha = {alpha} deg).")
+                      f"fin angle 52 deg (used here with alpha = {alpha} deg).",
+                      ValidityRangeWarning)
 
     # Nusselt number correlation for zigzag fins (Ngo et al. 2007, Eq. 29)
     term_re = Re ** 0.629
@@ -434,17 +475,18 @@ def PCHE_ngo_S_fin_HTC(AS, geom, cond):
     # Validity warning for Reynolds number (Eq. 28 range: 3500 to 23000)
     if Re < 3500 or Re > 23000:
         warnings.warn(f"PCHE_ngo_S_fin_HTC: Re = {Re:.0f} outside 3500-23000, "
-                      "range of Ngo et al. (2007) Eq. 28: extrapolated.")
+                      "range of Ngo et al. (2007) Eq. 28: extrapolated.", ValidityRangeWarning)
 
     # Validity warning for Prandtl number (Eq. 28 range: 0.75 to 2.2)
     if Pr < 0.75 or Pr > 2.2:
         warnings.warn(f"PCHE_ngo_S_fin_HTC: Pr = {Pr:.2f} outside 0.75-2.2, "
-                      "range of Ngo et al. (2007) Eq. 28: extrapolated.")
+                      "range of Ngo et al. (2007) Eq. 28: extrapolated.", ValidityRangeWarning)
 
     # Validity warning for fin angle (Ngo et al. tested a single geometry with 52 deg)
     if alpha != 52:
         warnings.warn(f"PCHE_ngo_S_fin_HTC: Ngo et al. (2007) tested a single geometry, "
-                      f"fin angle 52 deg (used here with alpha = {alpha} deg).")
+                      f"fin angle 52 deg (used here with alpha = {alpha} deg).",
+                      ValidityRangeWarning)
 
     # Nusselt number correlation for S-shaped fins (Ngo et al. 2007, Eq. 28)
     term_re = Re ** 0.593
@@ -514,7 +556,7 @@ def PCHE_kim_no_2012_zigzag_HTC(AS, geom, cond):
     if pitch is None:
         pitch = 24.6e-3
         warnings.warn("PCHE_kim_no_2012_zigzag_HTC: geom['P_zz'] not given: "
-                      "24.6 mm assumed")
+                      "24.6 mm assumed", AssumedParameterWarning)
 
     # Extract properties
     G = cond['G']
@@ -527,7 +569,7 @@ def PCHE_kim_no_2012_zigzag_HTC(AS, geom, cond):
     # Validity warning for Reynolds number (CFD range up to 2500)
     if Re > 2500:
         warnings.warn("PCHE_kim_no_2012_zigzag_HTC: Re = {:.0f} above the laminar CFD range of "
-                      "Kim & No (2012) (Re up to 2500, Figs. 4-5)".format(Re))
+                      "Kim & No (2012) (Re up to 2500, Figs. 4-5)".format(Re), ValidityRangeWarning)
 
     # Table 5 data: three geometries (a), (b), (c)
     # Angles [deg] (same for all three tables)
@@ -572,17 +614,17 @@ def PCHE_kim_no_2012_zigzag_HTC(AS, geom, cond):
     # Warn if geometry differs by more than 10% from chosen table
     if abs(Dh - Dh_table) / Dh_table > 0.1 or abs(pitch - pitch_table) / pitch_table > 0.1:
         warnings.warn("PCHE_kim_no_2012_zigzag_HTC: geometry outside the three CFD geometries of "
-                      "Kim & No (2012): nearest table used")
+                      "Kim & No (2012): nearest table used", ValidityRangeWarning)
 
     # Angle handling: clamp to 5-45 deg range
     alpha_used = alpha
     if alpha < 5:
         warnings.warn("PCHE_kim_no_2012_zigzag_HTC: bending angle {:.1f} deg outside 5-45 deg, "
-                      "value at the nearest table angle".format(alpha))
+                      "value at the nearest table angle".format(alpha), ValidityRangeWarning)
         alpha_used = 5
     elif alpha > 45:
         warnings.warn("PCHE_kim_no_2012_zigzag_HTC: bending angle {:.1f} deg outside 5-45 deg, "
-                      "value at the nearest table angle".format(alpha))
+                      "value at the nearest table angle".format(alpha), ValidityRangeWarning)
         alpha_used = 45
 
     # Find neighbouring table angles for linear interpolation
@@ -683,13 +725,13 @@ def PCHE_kim_no_2011_zigzag_HTC(AS, geom, cond):
     # Validity warning for Reynolds number (CFD range up to Re 2500)
     if Re > 2500:
         warnings.warn(f"PCHE_kim_no_2011_zigzag_HTC: Re = {Re:.0f} above the range of "
-                      "Kim & No (2011) (CFD up to Re 2500): extrapolated.")
+                      "Kim & No (2011) (CFD up to Re 2500): extrapolated.", ValidityRangeWarning)
 
     # Validity warning for bending angle (tested a single geometry with 15 deg)
     if alpha != 15:
         warnings.warn(f"PCHE_kim_no_2011_zigzag_HTC: Kim & No (2011) studied a single geometry, "
                       f"angle 15 deg (Dh 0.922 mm, pitch 24.6 mm), used here with "
-                      f"alpha = {alpha} deg.")
+                      f"alpha = {alpha} deg.", ValidityRangeWarning)
 
     # Nusselt number correlation (Kim & No 2011, Eq. 22)
     # 4.089 is the Nu of a straight semicircular duct, H1 condition
@@ -768,17 +810,17 @@ def PCHE_liu_straight_HTC(AS, geom, cond):
     # Validity warnings for Reynolds number (Eq. 19 range: 3600 to 36500)
     if Re < 3600 or Re > 36500:
         warnings.warn(f"PCHE_liu_straight_HTC: Re = {Re:.0f} outside 3600-36500, "
-                      "range of Liu et al. (2020) Eq. 19: extrapolated.")
+                      "range of Liu et al. (2020) Eq. 19: extrapolated.", ValidityRangeWarning)
 
     # Validity warnings for Prandtl number (Table 3 range: 0.9 to 10.6)
     if Pr < 0.9 or Pr > 10.6:
         warnings.warn(f"PCHE_liu_straight_HTC: Pr = {Pr:.2f} outside 0.9-10.6, "
-                      "range of Liu et al. (2020) Table 3: extrapolated.")
+                      "range of Liu et al. (2020) Table 3: extrapolated.", ValidityRangeWarning)
 
     # Validity warning for cooling mode (wall temperature should be lower than bulk temperature)
     if T_w > T:
         warnings.warn("PCHE_liu_straight_HTC: Liu et al. (2020) correlation is for sCO2 COOLING "
-                      "(wall colder than the bulk).")
+                      "(wall colder than the bulk).", ValidityRangeWarning)
 
     # 3. Liu et al. (2020) Eq. (19) Nusselt number calculation (one factor per line)
     term_re = 0.1229 * Re ** 0.6021
@@ -847,7 +889,7 @@ def PCHE_kwon_straight_HTC(AS, geom, cond):
     # Validity warning for Reynolds number (range of Kwon et al. (2018) Eq. 5)
     if Re < 8500 or Re > 17000:
         warnings.warn(f"PCHE_kwon_straight_HTC: Re = {Re:.0f} outside 8500-17000, "
-                      "range of Kwon et al. (2018) Eq. 5: extrapolated.")
+                      "range of Kwon et al. (2018) Eq. 5: extrapolated.", ValidityRangeWarning)
 
     # 2. Kwon et al. (2018) Eq. (5) Nusselt number (one factor per line)
     term_re = 0.0274 * Re ** 0.78
@@ -934,14 +976,15 @@ def PCHE_kwon_condensing_HTC(AS, geom, cond):
     # Validity warnings (Table 10 range)
     if Re_eq < 3100 or Re_eq > 6200:
         warnings.warn(f"PCHE_kwon_condensing_HTC: Re_eq = {Re_eq:.0f} outside 3100-6200, "
-                      "range of Kwon et al. (2018) Eq. (15): extrapolated.")
+                      "range of Kwon et al. (2018) Eq. (15): extrapolated.", ValidityRangeWarning)
     if x < 0.68:
         warnings.warn(f"PCHE_kwon_condensing_HTC: x = {x:.2f} below 0.68, "
-                      "the data cover only qualities 0.68-1.")
+                      "the data cover only qualities 0.68-1.", ValidityRangeWarning)
     p_red = p / p_crit
     if p_red < 0.08 or p_red > 0.11:
         warnings.warn(f"PCHE_kwon_condensing_HTC: reduced pressure p / p_crit = {p_red:.3f} "
-                      "outside 0.08-0.11, range of Kwon et al. (2018) (CO2 at 0.7 MPa).")
+                      "outside 0.08-0.11, range of Kwon et al. (2018) (CO2 at 0.7 MPa).",
+                      ValidityRangeWarning)
 
     # 2. Kwon et al. (2018) Eq. (15) liquid Nusselt number (one factor per line)
     term_re = 1.8 * Re_eq ** 0.29
@@ -1033,7 +1076,8 @@ def PCHE_kwon_film_boiling_HTC(AS, geom, cond):
         mu_w = AS.viscosity()
     else:
         warnings.warn("PCHE_kwon_film_boiling_HTC: no wall superheat (T_w <= T_sat): "
-                      "film boiling correlation not applicable; mu_w = mu_v used.")
+                      "film boiling correlation not applicable; mu_w = mu_v used.",
+                      ValidityRangeWarning)
         mu_w = mu_v
 
     # 1. Homogeneous two-phase Reynolds number, Kwon Eq. (7)
@@ -1043,12 +1087,12 @@ def PCHE_kwon_film_boiling_HTC(AS, geom, cond):
     # Validity warning for Re_tp (narrow range of Eq. 11)
     if Re_tp < 2100 or Re_tp > 2500:
         warnings.warn(f"PCHE_kwon_film_boiling_HTC: Re_tp = {Re_tp:.0f} outside 2100-2500, "
-                      "range of Kwon et al. (2018) Eq. 11: extrapolated.")
+                      "range of Kwon et al. (2018) Eq. 11: extrapolated.", ValidityRangeWarning)
 
     # Validity warning for quality (data from 0 to 0.61)
     if x > 0.61:
         warnings.warn(f"PCHE_kwon_film_boiling_HTC: x = {x:.2f} above 0.61, "
-                      "upper limit of Kwon et al. (2018) data: extrapolated.")
+                      "upper limit of Kwon et al. (2018) data: extrapolated.", ValidityRangeWarning)
 
     # 2. Kwon et al. (2018) Eq. (11) vapour Nusselt number (one factor per line)
     term_re = 1.22e-5 * Re_tp ** 1.89
@@ -1117,7 +1161,8 @@ def PCHE_katz_zigzag_HTC(AS, geom, cond):
     # Warn if geometry differs from the single tested geometry (alpha = 37 deg)
     if alpha != 37:
         warnings.warn(f"PCHE_katz_zigzag_HTC: geom['alpha'] = {alpha} deg, "
-                      "correlation is for a single geometry with alpha = 37 deg.")
+                      "correlation is for a single geometry with alpha = 37 deg.",
+                      ValidityRangeWarning)
 
     # Extract properties
     G = cond['G']
@@ -1136,10 +1181,11 @@ def PCHE_katz_zigzag_HTC(AS, geom, cond):
         # Validity warnings for helium
         if Re < 400 or Re > 3200:
             warnings.warn(f"PCHE_katz_zigzag_HTC: Re = {Re:.0f} outside 400-3200, "
-                          "helium range of Katz et al. (2021): extrapolated.")
+                          "helium range of Katz et al. (2021): extrapolated.", ValidityRangeWarning)
         if Pr < 0.6 or Pr > 0.7:
             warnings.warn(f"PCHE_katz_zigzag_HTC: Pr = {Pr:.2f} outside 0.6-0.7, "
-                          "helium Prandtl term absorbed in the constant: extrapolated.")
+                          "helium Prandtl term absorbed in the constant: extrapolated.",
+                          ValidityRangeWarning)
 
         # Katz et al. (2021), Table 7, helium correlation (Eq. 9 for helium)
         Nu = 0.8072 * Re ** 0.4359
@@ -1149,15 +1195,15 @@ def PCHE_katz_zigzag_HTC(AS, geom, cond):
         # Warn if fluid is not CO2 (the correlation was fitted on sCO2 data)
         if fluid not in ('carbondioxide', 'co2'):
             warnings.warn(f"PCHE_katz_zigzag_HTC: fluid = '{fluid}', "
-                          "sCO2 correlation used (fitted on supercritical CO2 data).")
+                          "sCO2 correlation used (fitted on supercritical CO2 data).", FluidWarning)
 
         # Validity warnings for sCO2
         if Re < 500 or Re > 18000:
             warnings.warn(f"PCHE_katz_zigzag_HTC: Re = {Re:.0f} outside 500-18000, "
-                          "sCO2 range of Katz et al. (2021): extrapolated.")
+                          "sCO2 range of Katz et al. (2021): extrapolated.", ValidityRangeWarning)
         if Pr < 0.66 or Pr > 1.25:
             warnings.warn(f"PCHE_katz_zigzag_HTC: Pr = {Pr:.2f} outside 0.66-1.25, "
-                          "sCO2 range of Katz et al. (2021): extrapolated.")
+                          "sCO2 range of Katz et al. (2021): extrapolated.", ValidityRangeWarning)
 
         # Katz et al. (2021), Table 7, sCO2 correlation (Eq. 9 for sCO2)
         Nu = 0.0261 * Re ** 0.8765 * Pr ** (1.0 / 3.0)
@@ -1253,17 +1299,17 @@ def PCHE_kim_sg_zigzag_HTC(AS, geom, cond):
     # Warn if alpha differs from the fit angle by more than 0.5 deg
     if abs(alpha - fit_angle) > 0.5:
         warnings.warn(f"PCHE_kim_sg_zigzag_HTC: fit for {fit_angle} deg used with "
-                      f"alpha = {alpha} deg (difference > 0.5 deg).")
+                      f"alpha = {alpha} deg (difference > 0.5 deg).", ValidityRangeWarning)
 
     # Warn if Reynolds number is outside the fit range
     if Re < re_min or Re > re_max:
         warnings.warn(f"PCHE_kim_sg_zigzag_HTC: Re = {Re:.0f} outside {re_min}-{re_max}, "
-                      f"range of the {fit_angle} deg fit: extrapolated.")
+                      f"range of the {fit_angle} deg fit: extrapolated.", ValidityRangeWarning)
 
     # Warn if Prandtl number is outside the validity range (0.7 < Pr < 1.0)
     if Pr < 0.7 or Pr > 1.0:
         warnings.warn(f"PCHE_kim_sg_zigzag_HTC: Pr = {Pr:.2f} outside 0.7-1.0, "
-                      "validity range of Kim et al. (2016): extrapolated.")
+                      "validity range of Kim et al. (2016): extrapolated.", ValidityRangeWarning)
 
     # Nusselt number from the chosen correlation (Table 12, no Pr term)
     Nu = coeff * Re ** exp_re
@@ -1335,7 +1381,8 @@ def PCHE_baik_zigzag_HTC(AS, geom, cond):
         D_mod = _dh(geom)
         warnings.warn(
             "PCHE_baik_zigzag_HTC: 'D_ch' not in geom, "
-            "modified diameter of Baik could not be computed from D_c; using geom['Dh']."
+            "modified diameter of Baik could not be computed from D_c; using geom['Dh'].",
+            AssumedParameterWarning
         )
 
     # Reynolds number based on the modified hydraulic diameter
@@ -1346,7 +1393,7 @@ def PCHE_baik_zigzag_HTC(AS, geom, cond):
     if alpha != 32.5:
         warnings.warn(
             f"PCHE_baik_zigzag_HTC: bending angle alpha = {alpha} deg differs from "
-            "the 32.5 deg geometry of Baik et al. (2017)."
+            "the 32.5 deg geometry of Baik et al. (2017).", ValidityRangeWarning
         )
 
     # Fluid name from CoolProp AbstractState
@@ -1361,7 +1408,7 @@ def PCHE_baik_zigzag_HTC(AS, geom, cond):
         if Re < 50 or Re > 200:
             warnings.warn(
                 f"PCHE_baik_zigzag_HTC: Re = {Re:.1f} outside the water validity range "
-                "50-200 of Baik et al. (2017): extrapolated."
+                "50-200 of Baik et al. (2017): extrapolated.", ValidityRangeWarning
             )
 
     else:
@@ -1372,20 +1419,20 @@ def PCHE_baik_zigzag_HTC(AS, geom, cond):
         if fluid not in ('carbondioxide',):
             warnings.warn(
                 f"PCHE_baik_zigzag_HTC: fluid '{fluid}' is not 'carbondioxide' "
-                "(correlations developed for CO2)."
+                "(correlations developed for CO2).", FluidWarning
             )
 
         # Validity checks for CO2 side
         if Re < 15000 or Re > 85000:
             warnings.warn(
                 f"PCHE_baik_zigzag_HTC: Re = {Re:.0f} outside the CO2 validity range "
-                "15000-85000 of Baik et al. (2017): extrapolated."
+                "15000-85000 of Baik et al. (2017): extrapolated.", ValidityRangeWarning
             )
 
         if Pr < 2 or Pr > 33:
             warnings.warn(
                 f"PCHE_baik_zigzag_HTC: Pr = {Pr:.2f} outside the CO2 validity range "
-                "2-33 of Baik et al. (2017): extrapolated."
+                "2-33 of Baik et al. (2017): extrapolated.", ValidityRangeWarning
             )
 
     # Heat transfer coefficient h = Nu * k / D_mod
@@ -1452,27 +1499,27 @@ def PCHE_saeed_zigzag_HTC(AS, geom, cond):
     # 2. Warn if geometry bending angle is not 40 deg
     if alpha != 40:
         warnings.warn(f"PCHE_saeed_zigzag_HTC: fin angle alpha = {alpha} deg (Saeed et al. 2020 "
-                      "correlations were derived for 40 deg).")
+                      "correlations were derived for 40 deg).", ValidityRangeWarning)
 
     # 3. Fluid-dependent Nusselt number correlation
     if fluid == 'water':
         # Water correlation: Saeed et al. (2020), Table 6
         if Re < 50 or Re > 15000:
             warnings.warn(f"PCHE_saeed_zigzag_HTC: Re = {Re:.0f} outside the validity range "
-                          "50-15000 for water (Saeed et al. 2020).")
+                          "50-15000 for water (Saeed et al. 2020).", ValidityRangeWarning)
         Nu = 0.08 * Re ** 0.77
 
     else:
         # sCO2 correlation (also used, with a warning, for any other fluid)
         if fluid not in ('carbondioxide', 'co2'):
             warnings.warn(f"PCHE_saeed_zigzag_HTC: fluid '{fluid}' not tested by Saeed et al. "
-                          "(2020) (water or sCO2): sCO2 correlation used.")
+                          "(2020) (water or sCO2): sCO2 correlation used.", FluidWarning)
         if Re < 3000 or Re > 60000:
             warnings.warn(f"PCHE_saeed_zigzag_HTC: Re = {Re:.0f} outside the validity range "
-                          "3000-60000 for sCO2 (Saeed et al. 2020).")
+                          "3000-60000 for sCO2 (Saeed et al. 2020).", ValidityRangeWarning)
         if Pr < 2 or Pr > 13:
             warnings.warn(f"PCHE_saeed_zigzag_HTC: Pr = {Pr:.2f} outside the validity range "
-                          "2-13 for sCO2 (Saeed et al. 2020).")
+                          "2-13 for sCO2 (Saeed et al. 2020).", ValidityRangeWarning)
         # Saeed et al. (2020) Table 6, sCO2
         Nu = 0.475 * Re ** 0.61 * Pr ** 0.17
 
@@ -1540,17 +1587,19 @@ def PCHE_chen_zigzag_HTC(AS, geom, cond):
     # 2. Fluid name check (CoolProp name, lower case)
     fluid = AS.fluid_names()[0].lower()
     if fluid not in ('helium',):
-        warnings.warn(f"PCHE_chen_zigzag_HTC: fluid is '{fluid}', correlation is for helium only.")
+        warnings.warn(f"PCHE_chen_zigzag_HTC: fluid is '{fluid}', correlation is for helium only.",
+                      FluidWarning)
 
     # 3. Validity warning for Reynolds number (Chen et al. 2016 range: 1400 to 3558)
     if Re < 1400 or Re > 3558:
         warnings.warn(f"PCHE_chen_zigzag_HTC: Re = {Re:.0f} outside 1400-3558, "
-                      "range of Chen et al. (2016) Eq. (12): extrapolated.")
+                      "range of Chen et al. (2016) Eq. (12): extrapolated.", ValidityRangeWarning)
 
     # 4. Validity warning for bending angle (tested geometry has alpha = 15 deg)
     if alpha != 15:
         warnings.warn(f"PCHE_chen_zigzag_HTC: Chen et al. (2016) tested a single geometry, "
-                      f"zigzag angle 15 deg (used here with alpha = {alpha} deg).")
+                      f"zigzag angle 15 deg (used here with alpha = {alpha} deg).",
+                      ValidityRangeWarning)
 
     # 5. Nusselt number from Chen et al. (2016), Eq. (12) - two branches
     if Re <= 2200:

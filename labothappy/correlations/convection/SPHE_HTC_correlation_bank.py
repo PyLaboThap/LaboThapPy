@@ -16,6 +16,8 @@ import numpy as np
 from labothappy.correlations.convection.pipe_HTC_correlation_bank import _gnielinski_core
 from labothappy.correlations.convection.curved_pipe_HTC_correlation_bank import (
     _curved_pipe_1P, _R_curv, _L, _D, _need_cond)
+from labothappy.correlations.convection.correlation_warnings import (
+    FluidWarning, ValidityRangeWarning)
 
 
 def _AR(geom):
@@ -93,7 +95,9 @@ def SPHE_picon_nunez_HTC(AS, geom, cond):
 
 def SPHE_rajavel_HTC(AS, geom, cond):
     """Rajavel (2014), experimental/numerical spiral plate HX: Nu = 0.02846 Re^0.828 Pr^0.336 (H/b)^-0.0871.
-    WATER ONLY, channels 4-6 mm, 50.6 < H/b < 76 (warning outside). The original returned nothing (missing return)."""
+    WATER ONLY, channels 4-6 mm, 50.6 < H/b < 76 (warning outside). The original returned nothing (missing return).
+    Validity of Eq. (2) (Rajavel 2014, Thermal Science 18, 1355): 2560 < Re < 11770,
+    2.82 < Pr < 4.39, 50.6 < H/b < 76, water, plate gaps 4, 5 and 6 mm. Warning outside."""
     import warnings
     _need_cond(cond, 'G', 'mu', 'k', 'Pr')
     D, G, mu, k, Pr = _D(geom), cond['G'], cond['mu'], cond['k'], cond['Pr']
@@ -101,8 +105,20 @@ def SPHE_rajavel_HTC(AS, geom, cond):
     if H is None or b is None:
         raise KeyError("SPHE Rajavel: geom needs 'H' and 'b'.")
     if AS is not None and 'water' not in str(AS.name()).lower():
-        warnings.warn("SPHE Rajavel: correlation established for water only.")
+        warnings.warn("SPHE Rajavel: correlation established for water only.", FluidWarning)
     Re = G * D / mu
+    out = []
+    if not 2560 <= Re <= 11770:
+        out.append(f"Re = {Re:.0f} (2560-11770)")
+    if not 2.82 <= Pr <= 4.39:
+        out.append(f"Pr = {Pr:.2f} (2.82-4.39)")
+    if not 50.6 <= H / b <= 76:
+        out.append(f"H/b = {H / b:.1f} (50.6-76)")
+    if not 4e-3 <= b <= 6e-3:
+        out.append(f"gap b = {b * 1e3:.2f} mm (4-6)")
+    if out:
+        warnings.warn("SPHE Rajavel: outside the range of Eq. (2): " + ", ".join(out) + ".",
+                      ValidityRangeWarning)
     Nu = 0.02846 * Re ** 0.828 * Pr ** 0.336 * (H / b) ** (-0.0871)
     return Nu * k / D
 
@@ -167,7 +183,7 @@ def SPHE_morimoto_hotta_HTC(AS, geom, cond):
     if Re < 2000:
         warnings.warn(
             "SPHE Morimoto & Hotta: Re < 2000. This lower limit is a labothappy "
-            "safeguard (turbulent-type correlation), not from the paper."
+            "safeguard (turbulent-type correlation), not from the paper.", ValidityRangeWarning
         )
 
     # Calculate Nusselt number using the Morimoto & Hotta (1986) correlation

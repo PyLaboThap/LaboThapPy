@@ -21,6 +21,7 @@ from labothappy.correlations.convection.pipe_HTC_correlation_bank import (
     pipe_chen_boiling_HTC, pipe_liu_winterton_boiling_HTC, pipe_petukhov_supercritical_HTC,
     pipe_shah_1982_boiling_HTC,
     _tube_ID, _tube_G, _A0_VDI)
+from labothappy.correlations.convection.correlation_warnings import ValidityRangeWarning
 
 #%% FLUID FAMILIES
 
@@ -90,7 +91,7 @@ def select_pipe_HTC(AS, geom, cond):
         if _has(cond, 'T_w', 'rho', 'cp') and 4e-3 <= D <= 10.7e-3 and 7.5e6 <= p <= 8.5e6 and 74 <= G <= 200:
             return 'Liu'
         warnings.warn("Supercritical CO2 outside the Cheng and Liu validity windows (or wall data missing): "
-                      "Gnielinski used, property variations not captured.")
+                      "Gnielinski used, property variations not captured.", ValidityRangeWarning)
     return 'Gnielinski' if 'L_t' in geom else 'Dittus_Boelter'
 
 
@@ -157,7 +158,8 @@ def select_pipe_evaporation_HTC(AS, geom, cond):
             return name
     for name in _PIPE_EVAP_HTC:                           # last resort: anything that can run
         if _evap_feasible(name, AS, geom, cond):
-            warnings.warn(f"Evaporation HTC: no priority correlation feasible for family {fam!r}: {name} used.")
+            warnings.warn(f"Evaporation HTC: no priority correlation feasible for family {fam!r}: {name} used.",
+                          ValidityRangeWarning)
             return name
     raise ValueError("Evaporation HTC: no feasible correlation (need cond p, x, q and, for "
                      "Steiner-Taborek / VDI, L_t and a_0 / h_nb_o for this fluid).")
