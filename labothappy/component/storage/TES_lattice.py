@@ -409,8 +409,8 @@ class TES_step(BaseComponent):
 
         # For R_PCM : application of R_1-R_m (eqs. 6 & 10) in Katsuno, A., & Murakami, T. (2023). https://doi.org/10.1109/ACCESS.2023.3339153
         dr2 = r_pcm_o**2 - r_alu_o**2
-        R1_pcm = 1/(4*np.pi*L_mesh*steps.lambda_eq) * (2*r_pcm_o**2/dr2*np.log(r_pcm_o/r_alu_o) - 1)
-        Rm_pcm = 1/(8*np.pi*L_mesh*steps.lambda_eq*dr2) * (-r_pcm_o**2 - r_alu_o**2
+        R1_pcm = 1/(4*np.pi*L_mesh*self.lambda_eq) * (2*r_pcm_o**2/dr2*np.log(r_pcm_o/r_alu_o) - 1)
+        Rm_pcm = 1/(8*np.pi*L_mesh*self.lambda_eq*dr2) * (-r_pcm_o**2 - r_alu_o**2
                                                                 + 4*r_alu_o**2*r_pcm_o**2/dr2*np.log(r_pcm_o/r_alu_o))
         R_pcm = R1_pcm + Rm_pcm
 
