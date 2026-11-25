@@ -5,12 +5,12 @@ Every function returns h [W/m2/K] for one channel (single phase).
 
 geom : Dh               hydraulic diameter of the channel [m]   (Dh = 2 b H / (b + H) for a rectangular channel)
        R_curv           mean radius of curvature of the channel [m]
-       ch_b  (or ch_w)  channel gap b = spacing between the plates [m] (the SPHE geometry sets ch_w = ch_b = b)
+       b                channel gap = spacing between the plates [m] (set by the SPHE geometry)
        H                plate height = channel height, direction of the spiral axis [m]
        L                developed length of the channel [m]
 cond : G [kg/m2/s] mass flux of ONE channel, mu, k, Pr (+ mu_w, default mu)
 
-In Picon-Nunez / Rajavel, 'ch_w' is the channel gap: curvature term (ch_w / 2R)^(1/6) and ratio H/ch_w.
+In Picon-Nunez / Rajavel, 'b' is the channel gap: curvature term (b / 2R)^(1/6) and ratio H/b.
 """
 import numpy as np
 from labothappy.correlations.convection.pipe_HTC_correlation_bank import _gnielinski_core
@@ -20,11 +20,11 @@ from labothappy.correlations.convection.curved_pipe_HTC_correlation_bank import 
 
 def _AR(geom):
     """Aspect ratio of the rectangular channel, short side / long side [-] (<= 1).
-    gap = geom['ch_b'] (or 'ch_w'), height = geom['H'] (plate height)."""
-    gap = geom.get('ch_b', geom.get('ch_w'))
+    gap = geom['b'], height = geom['H'] (plate height)."""
+    gap = geom.get('b')
     height = geom.get('H')
     if gap is None or height is None:
-        raise KeyError("SPHE rectangular duct: geom needs the gap 'ch_b' (or 'ch_w') "
+        raise KeyError("SPHE rectangular duct: geom needs the gap 'b' "
                        "and the plate height 'H'.")
     return min(gap, height) / max(gap, height)
 
@@ -72,7 +72,7 @@ def SPHE_curved_rect_duct_HTC(AS, geom, cond):
 
 def SPHE_picon_nunez_HTC(AS, geom, cond):
     """Shortcut design approach for spiral heat exchangers, Picon-Nunez et al. (2007), after Minton:
-    Re <  Re_c : h = 1.86 cp G Re^(-2/3) Pr^(-2/3) (ch_w / 2R)^(1/6)                 (laminar)
+    Re <  Re_c : h = 1.86 cp G Re^(-2/3) Pr^(-2/3) (b / 2R)^(1/6)                 (laminar)
     Re >= Re_c : h = (1 + 3.54 Dh/2R) 0.023 cp G Re^(-0.2) Pr^(-2/3)                 (turbulent)
     Re_c = 20000 (Dh/2R)^0.32.
     Regimes are SWAPPED vs the original file (laminar form was used above Re_cr, turbulent form below).
@@ -84,26 +84,26 @@ def SPHE_picon_nunez_HTC(AS, geom, cond):
     Re = G * D / mu
     cp = Pr * k / mu
     if Re < 20000 * curv ** 0.32:
-        ch_w = geom.get('ch_w')
-        if ch_w is None:
-            raise KeyError("SPHE Picon-Nunez laminar branch: geom needs 'ch_w'.")
-        return 1.86 * cp * G * Re ** (-2 / 3) * Pr ** (-2 / 3) * (ch_w / (2 * R)) ** (1 / 6)
+        b = geom.get('b')
+        if b is None:
+            raise KeyError("SPHE Picon-Nunez laminar branch: geom needs 'b'.")
+        return 1.86 * cp * G * Re ** (-2 / 3) * Pr ** (-2 / 3) * (b / (2 * R)) ** (1 / 6)
     return (1 + 3.54 * curv) * 0.023 * cp * G * Re ** (-0.2) * Pr ** (-2 / 3)
 
 
 def SPHE_rajavel_HTC(AS, geom, cond):
-    """Rajavel (2014), experimental/numerical spiral plate HX: Nu = 0.02846 Re^0.828 Pr^0.336 (H/ch_w)^-0.0871.
+    """Rajavel (2014), experimental/numerical spiral plate HX: Nu = 0.02846 Re^0.828 Pr^0.336 (H/b)^-0.0871.
     WATER ONLY, channels 4-6 mm, 50.6 < H/b < 76 (warning outside). The original returned nothing (missing return)."""
     import warnings
     _need_cond(cond, 'G', 'mu', 'k', 'Pr')
     D, G, mu, k, Pr = _D(geom), cond['G'], cond['mu'], cond['k'], cond['Pr']
-    H, ch_w = geom.get('H'), geom.get('ch_w')
-    if H is None or ch_w is None:
-        raise KeyError("SPHE Rajavel: geom needs 'H' and 'ch_w'.")
+    H, b = geom.get('H'), geom.get('b')
+    if H is None or b is None:
+        raise KeyError("SPHE Rajavel: geom needs 'H' and 'b'.")
     if AS is not None and 'water' not in str(AS.name()).lower():
         warnings.warn("SPHE Rajavel: correlation established for water only.")
     Re = G * D / mu
-    Nu = 0.02846 * Re ** 0.828 * Pr ** 0.336 * (H / ch_w) ** (-0.0871)
+    Nu = 0.02846 * Re ** 0.828 * Pr ** 0.336 * (H / b) ** (-0.0871)
     return Nu * k / D
 
 
@@ -117,7 +117,7 @@ def SPHE_morimoto_hotta_HTC(AS, geom, cond):
         Fluid state object (unused in correlation, but part of the signature).
     geom : dict
         Geometry dictionary containing:
-        - 'Dh' (or 'D', 'Tube_ID'): hydraulic diameter of the channel, 2 H b / (H + b) [m]
+        - 'Dh' (or 'D_t_i'): hydraulic diameter of the channel, 2 H b / (H + b) [m]
         - 'R_curv': mean radius of curvature of the spiral channel [m]
     cond : dict
         Condition dictionary containing flow properties:

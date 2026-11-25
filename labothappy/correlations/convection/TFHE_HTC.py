@@ -3,7 +3,7 @@
 Tube & fins (TFHE) HTC dispatcher: HX type -> side ('fin' / 'tube') -> flow state -> correlation,
 (AS, geom, cond) formalism.
 
-side 'fin'  : finned side (gas): 'Pismennyi' (= None / 'auto'), routed on geom['Fin_type'] ('Annular' or 'Square'),
+side 'fin'  : finned side (gas): 'Pismennyi' (= None / 'auto'), routed on geom['fin_type'] ('Annular' or 'Square'),
               or a forced shape 'Pismennyi_Annular' / 'Pismennyi_Square';
               circular fins only (explicit choice): 'Briggs_Young', 'ESDU_high_fin', 'Ganguli_VDI'.
               continuous plain plate fins ('Square', explicit choice): 'Wang_plain_fin'. Two-phase / 'vapor-wet' cells (EVAP / COND)
@@ -21,19 +21,19 @@ from labothappy.correlations.convection.TFHE_HTC_correlation_bank import TFHE_wa
 from labothappy.correlations.convection.pipe_HTC_correlation_bank import _sat_props, _clamp_x
 from labothappy.correlations.convection.pipe_HTC import pipe_HTC
 
-_TFHE_FIN_HTC = {'Pismennyi': TFHE_pismennyi_HTC,                       # routed on geom['Fin_type']
+_TFHE_FIN_HTC = {'Pismennyi': TFHE_pismennyi_HTC,                       # routed on geom['fin_type']
                  'Pismennyi_Annular': TFHE_pismennyi_annular_HTC,       # forced fin shape
                  'Pismennyi_Square': TFHE_pismennyi_square_HTC,
                  # circular (annular) fins only, explicit choice (Kern & Kraus fin efficiency)
                  'Briggs_Young': TFHE_briggs_young_HTC,                 # staggered banks
                  'ESDU_high_fin': TFHE_esdu_high_fin_HTC,               # staggered banks
                  'Ganguli_VDI': TFHE_ganguli_vdi_HTC}                   # inline or staggered
-# continuous plain plate fins (Fin_type 'Square'), staggered, explicit choice (Schmidt fin efficiency)
+# continuous plain plate fins (fin_type 'Square'), staggered, explicit choice (Schmidt fin efficiency)
 _TFHE_FIN_HTC['Wang_plain_fin'] = TFHE_wang_plain_fin_HTC
 
 
 def select_fin_HTC(geom, cond):
-    """Automatic choice: Pis'mennyi, routed on geom['Fin_type'] ('Annular' or 'Square')."""
+    """Automatic choice: Pis'mennyi, routed on geom['fin_type'] ('Annular' or 'Square')."""
     return 'Pismennyi'
 
 
@@ -74,8 +74,8 @@ def TFHE_fin_HTC(AS, geom, cond, flow_state, choices=None):
     if choice in (None, 'auto'):
         choice = select_fin_HTC(geom, cond)
     elif choice in ('Pismennyi_Annular', 'Pismennyi_Square') and \
-            str(geom.get('Fin_type', '')).lower() != choice.split('_')[1].lower():
-        warnings.warn(f"TFHE: {choice!r} requested but geom['Fin_type'] = {geom.get('Fin_type')!r}.", stacklevel=2)
+            str(geom.get('fin_type', '')).lower() != choice.split('_')[1].lower():
+        warnings.warn(f"TFHE: {choice!r} requested but geom['fin_type'] = {geom.get('fin_type')!r}.", stacklevel=2)
     if choice not in _TFHE_FIN_HTC:
         raise ValueError(f"Unknown finned-side correlation {choice!r}: {sorted(_TFHE_FIN_HTC)}, 'Pismennyi' or None/'auto'.")
     return _TFHE_FIN_HTC[choice](AS, geom, cond)

@@ -25,10 +25,10 @@ _CURVED = {
 
 def _equivalent_tube(geom):
     g = dict(geom)
-    D = g.get('Dh') or g.get('Tube_ID') or g.get('D')
-    g.update(Tube_ID=D, Dh=D, Tube_pass=1)
-    g.setdefault('Tube_L', g.get('L'))
-    g.setdefault('n_tubes', 1)
+    D = g.get('Dh') or g.get('D_t_i')
+    g.update(D_t_i=D, Dh=D, n_passes=1)
+    g.setdefault('L_t', g.get('L'))
+    g.setdefault('n_t', 1)
     return g
 
 

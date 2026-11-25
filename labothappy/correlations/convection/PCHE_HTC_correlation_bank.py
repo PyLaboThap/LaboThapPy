@@ -17,7 +17,7 @@ def _dh(geom):
     # Dh given (any channel section): use it; D_c is only read when Dh is missing (semicircle)
     if geom.get('Dh') is not None:
         return geom['Dh']
-    return np.pi * geom['D_c'] / (2 + np.pi)
+    return np.pi * geom['D_ch'] / (2 + np.pi)
 
 
 def _need(cond, *keys):
@@ -30,7 +30,7 @@ def PCHE_straight_HTC(AS, geom, cond):
     """Straight channel: Stephan-Preusser (Re < 2300) / Gnielinski (Re >= 2300).
     Ref: S.W. Lee et al. (2022), thermal-hydraulic performance of PCHE for SFR recuperators."""
     _need(cond, 'G', 'mu', 'k', 'Pr')
-    Dh, L = _dh(geom), geom['L_c']
+    Dh, L = _dh(geom), geom['L_ch']
     Re, Pr = cond['G'] * Dh / cond['mu'], cond['Pr']
     if Re < 2300:
         x = Re * Pr * Dh / L
@@ -51,11 +51,11 @@ def _bennett_chen_inputs(geom, cond):
     (Table 3: theta 84-170 deg <-> alpha 5-48 deg). Corrected 2026-11-23 (A2-bis, was pi - alpha);
     Lf/Dh : developed channel length over hydraulic diameter."""
     _need(cond, 'G', 'mu')
-    Dh, D_c = _dh(geom), geom['D_c']
+    Dh, D_c = _dh(geom), geom['D_ch']
     m_dot = cond['G'] * np.pi * D_c ** 2 / 8
     Re = cond['G'] * Dh / cond['mu']
     theta = np.pi - 2 * np.radians(geom['alpha'])
-    return m_dot, Re, theta, geom['L_c'] / Dh
+    return m_dot, Re, theta, geom['L_ch'] / Dh
 
 
 def PCHE_bennett_chen_hot_HTC(AS, geom, cond):
@@ -224,7 +224,7 @@ def PCHE_jiang_zigzag_HTC(AS, geom, cond):
         AS : not used (common interface).
         geom : dict with keys
             'alpha' [deg] : bending angle of the zigzag from the main flow direction (0 < alpha < 90).
-            'D_c' [m]   : channel diameter (used if 'Dh' not provided).
+            'D_ch' [m]   : channel diameter (used if 'Dh' not provided).
             'Dh'  [m]   : optional hydraulic diameter; default pi*D_c/(2+pi) (Jiang Eq. 8).
         cond : dict with bulk properties of the cell (single-phase)
             'G'   [kg/m2/s] : mass flux in ONE channel.
@@ -298,7 +298,7 @@ def PCHE_ngo_zigzag_HTC(AS, geom, cond):
         geom : dict with keys
             'alpha' [deg] : bending angle of the zigzag from the main flow direction
                             (same as Ngo's fin angle theta, Fig. 3b).
-            'D_c' [m]   : channel diameter (used if 'Dh' not provided).
+            'D_ch' [m]   : channel diameter (used if 'Dh' not provided).
             'Dh'  [m]   : optional hydraulic diameter; default pi*D_c/(2+pi).
         cond : dict with bulk properties of the cell (single-phase)
             'G'   [kg/m2/s] : mass flux in ONE channel.
@@ -385,7 +385,7 @@ def PCHE_ngo_S_fin_HTC(AS, geom, cond):
         geom : dict with keys
             'alpha' [deg] : fin angle from the main flow direction (0 < alpha < 90)
                             (Ngo's theta, Fig. 3a: straight middle part of the S fin).
-            'D_c' [m]   : channel diameter (used if 'Dh' not provided).
+            'D_ch' [m]   : channel diameter (used if 'Dh' not provided).
             'Dh'  [m]   : optional hydraulic diameter; default pi*D_c/(2+pi).
         cond : dict with bulk properties of the cell (single-phase)
             'G'   [kg/m2/s] : mass flux in ONE channel.
@@ -471,9 +471,9 @@ def PCHE_kim_no_2012_zigzag_HTC(AS, geom, cond):
         geom : dict with keys
             'alpha' [deg] : bending angle of the zigzag from the main flow direction
                             (0 < alpha < 90, paper Eq. 9).
-            'D_c' [m]   : channel diameter (used if 'Dh' not provided).
+            'D_ch' [m]   : channel diameter (used if 'Dh' not provided).
             'Dh'  [m]   : optional hydraulic diameter; default pi*D_c/(2+pi).
-            'zigzag_pitch' [m] : optional pitch of the zigzag (Kim & No Fig. 2).
+            'P_zz' [m] : optional pitch of the zigzag (Kim & No Fig. 2).
         cond : dict with bulk properties of the cell (single-phase)
             'G'   [kg/m2/s] : mass flux in ONE channel.
             'mu'  [Pa s]    : dynamic viscosity.
@@ -493,7 +493,7 @@ def PCHE_kim_no_2012_zigzag_HTC(AS, geom, cond):
     Definitions:
         Nu = h * Dh / k on the hydraulic diameter; Re = G * Dh / mu; G of one channel;
         bulk properties of the cell (the paper: local pitch-averaged properties).
-        alpha = angle of the zigzag from the main flow direction; zigzag_pitch as in Kim & No
+        alpha = angle of the zigzag from the main flow direction; P_zz as in Kim & No
         Fig. 2.
         Interpolation in angle and nearest-geometry choice: added in labothappy (not in the paper).
         Returns h [W/m2/K] on the channel wall. AS is not used.
@@ -510,10 +510,10 @@ def PCHE_kim_no_2012_zigzag_HTC(AS, geom, cond):
         raise ValueError(f"PCHE_kim_no_2012_zigzag_HTC: bending angle {alpha} deg outside ]0, 90[.")
 
     # Zigzag pitch (optional, default from paper geometry (a))
-    pitch = geom.get('zigzag_pitch')
+    pitch = geom.get('P_zz')
     if pitch is None:
         pitch = 24.6e-3
-        warnings.warn("PCHE_kim_no_2012_zigzag_HTC: geom['zigzag_pitch'] not given: "
+        warnings.warn("PCHE_kim_no_2012_zigzag_HTC: geom['P_zz'] not given: "
                       "24.6 mm assumed")
 
     # Extract properties
@@ -639,7 +639,7 @@ def PCHE_kim_no_2011_zigzag_HTC(AS, geom, cond):
         geom : dict with keys
             'alpha' [deg] : bending angle of the zigzag from the main flow
                             direction (0 < alpha < 90).
-            'D_c' [m]   : channel diameter (used if 'Dh' not provided).
+            'D_ch' [m]   : channel diameter (used if 'Dh' not provided).
             'Dh'  [m]   : optional hydraulic diameter; default pi*D_c/(2+pi).
         cond : dict with bulk properties of the cell (single-phase)
             'G'   [kg/m2/s] : mass flux in ONE channel.
@@ -716,7 +716,7 @@ def PCHE_liu_straight_HTC(AS, geom, cond):
     Arguments:
         AS : CoolProp AbstractState of the fluid (moved to the wall state during evaluation).
         geom : dict with keys
-            'D_c' [m]   : channel diameter (used if 'Dh' not provided).
+            'D_ch' [m]   : channel diameter (used if 'Dh' not provided).
             'Dh'  [m]   : optional hydraulic diameter; default pi*D_c/(2+pi).
         cond : dict with bulk properties of the cell and operating conditions
             'G'   [kg/m2/s] : mass flux in ONE channel.
@@ -805,7 +805,7 @@ def PCHE_kwon_straight_HTC(AS, geom, cond):
     Arguments:
         AS : not used (common interface).
         geom : dict with keys
-            'D_c' [m]   : channel diameter (used if 'Dh' not provided).
+            'D_ch' [m]   : channel diameter (used if 'Dh' not provided).
             'Dh'  [m]   : optional hydraulic diameter; default pi*D_c/(2+pi).
         cond : dict with bulk properties of the cell (single-phase)
             'G'   [kg/m2/s] : mass flux in ONE channel.
@@ -873,7 +873,7 @@ def PCHE_kwon_condensing_HTC(AS, geom, cond):
     Arguments:
         AS : CoolProp AbstractState of the fluid (moved to saturation by _sat_props).
         geom : dict with keys
-            'D_c' [m] : channel diameter (used if 'Dh' not provided).
+            'D_ch' [m] : channel diameter (used if 'Dh' not provided).
             'Dh'  [m] : optional hydraulic diameter; default pi*D_c/(2+pi).
         cond : dict with operating conditions
             'G'   [kg/m2/s] : total mass flux of ONE channel (both phases).
@@ -969,7 +969,7 @@ def PCHE_kwon_film_boiling_HTC(AS, geom, cond):
     Arguments:
         AS : CoolProp AbstractState of the fluid (moved to saturation, then to the wall state).
         geom : dict with keys
-            'D_c' [m] : channel diameter (used if 'Dh' not provided).
+            'D_ch' [m] : channel diameter (used if 'Dh' not provided).
             'Dh'  [m] : optional hydraulic diameter; default pi*D_c/(2+pi).
         cond : dict with operating conditions
             'G'   [kg/m2/s] : total mass flux of ONE channel.
@@ -1078,7 +1078,7 @@ def PCHE_katz_zigzag_HTC(AS, geom, cond):
         geom : dict with keys
             'alpha' [deg] : zigzag bending angle from the main flow direction
                             (labothappy convention; = fin angle / zigzag pitch angle).
-            'D_c' [m]   : channel diameter (used if 'Dh' not provided).
+            'D_ch' [m]   : channel diameter (used if 'Dh' not provided).
             'Dh'  [m]   : optional hydraulic diameter; default pi*D_c/(2+pi).
         cond : dict with bulk properties of the cell (single-phase)
             'G'   [kg/m2/s] : mass flux in ONE channel.
@@ -1184,7 +1184,7 @@ def PCHE_kim_sg_zigzag_HTC(AS, geom, cond):
             'alpha' [deg] : zigzag bending angle from the main flow direction
                             (labothappy convention; = "fin angle" / "zigzag pitch angle"
                             of the papers).
-            'D_c' [m]   : channel diameter (used if 'Dh' not provided).
+            'D_ch' [m]   : channel diameter (used if 'Dh' not provided).
             'Dh'  [m]   : optional hydraulic diameter; default pi*D_c/(2+pi).
         cond : dict with bulk properties of the cell (single-phase)
             'G'   [kg/m2/s] : mass flux in ONE channel.
@@ -1290,7 +1290,7 @@ def PCHE_baik_zigzag_HTC(AS, geom, cond):
         geom : dict with keys
             'alpha' [deg] : bending angle of the zigzag from the main flow direction
                             (KAIST S-CO2PE precooler design: 32.5 deg).
-            'D_c' [m]   : channel diameter (optional, used to compute modified diameter).
+            'D_ch' [m]   : channel diameter (optional, used to compute modified diameter).
             'Dh'  [m]   : optional hydraulic diameter (fallback if D_c not in geom).
         cond : dict with bulk properties of the cell (single-phase)
             'G'   [kg/m2/s] : mass flux in ONE channel.
@@ -1314,7 +1314,7 @@ def PCHE_baik_zigzag_HTC(AS, geom, cond):
         Baik uses a MODIFIED hydraulic diameter D_mod = sqrt(4 A / pi) (circle of the same
         flow area, 1.167 mm for their etched channel of 1.8 mm diameter, instead of
         4A/P = 0.973 mm) in BOTH Re = G * D_mod / mu and Nu = h * D_mod / k (and f).
-        In this implementation: if 'D_c' in geom, D_mod = geom['D_c'] / sqrt(2.0)
+        In this implementation: if 'D_ch' in geom, D_mod = geom['D_ch'] / sqrt(2.0)
         (ideal semicircle of diameter D_c: A = pi * D_c^2 / 8); otherwise geom['Dh'] is
         used with a warning that the modified diameter of Baik could not be computed.
         G is unchanged. Bulk properties of the cell; G of one channel.
@@ -1329,12 +1329,12 @@ def PCHE_baik_zigzag_HTC(AS, geom, cond):
     Pr = cond['Pr']
 
     # Modified hydraulic diameter D_mod (Baik et al. 2017, Fig. 8: same flow area)
-    if 'D_c' in geom:
-        D_mod = geom['D_c'] / np.sqrt(2.0)
+    if 'D_ch' in geom:
+        D_mod = geom['D_ch'] / np.sqrt(2.0)
     else:
         D_mod = _dh(geom)
         warnings.warn(
-            "PCHE_baik_zigzag_HTC: 'D_c' not in geom, "
+            "PCHE_baik_zigzag_HTC: 'D_ch' not in geom, "
             "modified diameter of Baik could not be computed from D_c; using geom['Dh']."
         )
 
@@ -1408,7 +1408,7 @@ def PCHE_saeed_zigzag_HTC(AS, geom, cond):
         AS : CoolProp AbstractState of the fluid (used to determine the fluid name).
         geom : dict with keys
             'alpha' [deg] : fin angle / zigzag bending angle from the main flow direction.
-            'D_c' [m]     : channel diameter (used if 'Dh' not provided).
+            'D_ch' [m]     : channel diameter (used if 'Dh' not provided).
             'Dh'  [m]     : optional hydraulic diameter; default pi*D_c/(2+pi).
         cond : dict with bulk properties of the cell (single-phase)
             'G'   [kg/m2/s] : mass flux in ONE channel.
@@ -1497,7 +1497,7 @@ def PCHE_chen_zigzag_HTC(AS, geom, cond):
         geom : dict with keys
             'alpha' [deg] : zigzag bending angle from the main flow direction
                             (labothappy convention).
-            'D_c' [m]   : channel diameter (used if 'Dh' not provided).
+            'D_ch' [m]   : channel diameter (used if 'Dh' not provided).
             'Dh'  [m]   : optional hydraulic diameter; default pi*D_c/(2+pi).
         cond : dict with bulk properties of the cell (single-phase)
             'G'   [kg/m2/s] : mass flux in ONE channel.

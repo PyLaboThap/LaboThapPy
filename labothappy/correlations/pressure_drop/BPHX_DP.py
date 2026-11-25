@@ -79,7 +79,7 @@ def BPHX_boiling_DP(AS, geom, cond, choice=None):
     choice: None/'auto' or the name of a correlation.
 
     cond : G (mass flux in ONE channel) [kg/m2/s], x (mean quality) [-], p (saturation pressure) [Pa]
-    geom : Dh, L, beta; optional lm_C and lm_plate_friction (Lockhart-Martinelli).
+    geom : Dh, L, beta; optional lm_C and lm_p_f (Lockhart-Martinelli).
     Amalfi reads geom['beta'] directly (from the main flow direction, deg or rad).
     Acceleration, gravity and port losses are not included."""
     if choice in (None, 'auto'):
@@ -99,12 +99,12 @@ _BPHX_COND_DP = {
 
 def select_plate_condensation_DP(geom, cond):
     """Automatic choice of the condensation friction correlation (heuristic).
-      - p_co and beta known, inside Han's data      -> Han (plate-specific: corrugation pitch and angle;
+      - Lambda and beta known, inside Han's data      -> Han (plate-specific: corrugation pitch and angle;
         range (G 13-34 kg/m2/s, 45-70 deg from the      data of R410A / R22 only), same rule as the
         flow direction)                                 Han condensation HTC
       - otherwise                                   -> Lockhart-Martinelli (separated flow model)
     """
-    if 'p_co' in geom and 'beta' in geom:
+    if 'Lambda' in geom and 'beta' in geom:
         theta = chevron_deg(geom['beta'])         # from the main flow direction
         if 13 <= cond['G'] <= 34 and 45 <= theta <= 70:
             return 'Han'
@@ -115,7 +115,7 @@ def BPHX_condensing_DP(AS, geom, cond, choice=None):
     choice: None/'auto' or the name of a correlation.
 
     cond : G (mass flux in ONE channel) [kg/m2/s], x (mean quality) [-], p (saturation pressure) [Pa]
-    geom : Dh, L, beta for both; p_co for Han; optional lm_C and lm_plate_friction (Lockhart-Martinelli).
+    geom : Dh, L, beta for both; Lambda for Han; optional lm_C and lm_p_f (Lockhart-Martinelli).
     Acceleration, gravity and port losses are not included."""
     if choice in (None, 'auto'):
         choice = select_plate_condensation_DP(geom, cond)

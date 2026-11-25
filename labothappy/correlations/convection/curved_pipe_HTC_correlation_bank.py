@@ -4,11 +4,11 @@ Heat transfer coefficients of curved (helically coiled) pipes, (AS, geom, cond) 
 Used for the coil side of helical coil heat exchangers (HCHE); the single-phase curved-pipe function is also
 the basis of the spiral plate bank (SPHE). Prefix HCHE_..._HTC; every function returns h [W/m2/K].
 
-geom : Dh (or D, Tube_ID)   hydraulic / inner diameter [m]
+geom : Dh (or D, D_t_i)   hydraulic / inner diameter [m]
        R_curv               radius of curvature of the flow path [m]
-                            (or D_coil = coil diameter [m] and, optionally, coil_pitch [m]: the curvature
+                            (or D_coil = coil diameter [m] and, optionally, P_coil [m]: the curvature
                             radius of a helix is R (1 + (pitch / (2 pi R))^2), R = D_coil / 2)
-       L                    developed length of the flow path [m]  (or Tube_L)
+       L                    developed length of the flow path [m]  (or L_t)
 cond : G [kg/m2/s]  mass flux in ONE tube
        single phase  : mu, k, Pr (+ mu_w, default mu)
        two phase     : p [Pa], x [-], q [W/m2] (boiling), optional mu_l, mu_v, k_l, k_v overrides
@@ -23,12 +23,12 @@ from labothappy.correlations.convection.pipe_HTC_correlation_bank import _gnieli
 
 
 def _D(geom):
-    for key in ('Dh', 'D', 'Tube_ID'):
+    for key in ('Dh', 'D_t_i'):
         if geom.get(key):
             return geom[key]
-    if 'Tube_OD' in geom and 'Tube_t' in geom:
-        return geom['Tube_OD'] - 2.0 * geom['Tube_t']
-    raise KeyError("Curved pipe HTC: geom needs 'Dh' (or 'D', 'Tube_ID').")
+    if 'D_t_o' in geom and 't_t' in geom:
+        return geom['D_t_o'] - 2.0 * geom['t_t']
+    raise KeyError("Curved pipe HTC: geom needs 'Dh' (or 'D_t_i').")
 
 
 def _R_curv(geom):
@@ -36,14 +36,14 @@ def _R_curv(geom):
         return geom['R_curv']
     if 'D_coil' in geom:
         R = geom['D_coil'] / 2.0
-        if 'coil_pitch' in geom:
-            R *= 1.0 + (geom['coil_pitch'] / (2.0 * np.pi * R)) ** 2      # helix curvature radius
+        if 'P_coil' in geom:
+            R *= 1.0 + (geom['P_coil'] / (2.0 * np.pi * R)) ** 2      # helix curvature radius
         return R
-    raise KeyError("Curved pipe HTC: geom needs 'R_curv' (or 'D_coil' and optionally 'coil_pitch').")
+    raise KeyError("Curved pipe HTC: geom needs 'R_curv' (or 'D_coil' and optionally 'P_coil').")
 
 
 def _L(geom):
-    for key in ('L', 'Tube_L'):
+    for key in ('L', 'L_t'):
         if geom.get(key):
             return geom[key]
     raise KeyError("Curved pipe HTC: geom needs the developed length 'L'.")
@@ -142,8 +142,8 @@ def curved_pipe_schmidt_SP_HTC(AS, geom, cond):
         Fluid state object (unused, kept for API consistency).
     geom : dict
         Geometry dictionary with keys:
-        - 'Dh' (or 'D', 'Tube_ID') : inner diameter [m]
-        - 'R_curv' (or 'D_coil' with optional 'coil_pitch') : radius of curvature [m]
+        - 'Dh' (or 'D_t_i') : inner diameter [m]
+        - 'R_curv' (or 'D_coil' with optional 'P_coil') : radius of curvature [m]
     cond : dict
         Flow conditions dictionary with keys:
         - 'G' : mass flux in ONE tube [kg/m2/s]
@@ -239,8 +239,8 @@ def curved_pipe_mori_nakayama_SP_HTC(AS, geom, cond):
         CoolProp abstract state or similar fluid property handler (not explicitly used
         for single-phase properties here, but kept for interface consistency).
     geom : dict
-        Geometry dictionary containing keys for diameter ('Dh', 'D', or 'Tube_ID') [m],
-        and curvature radius ('R_curv' or 'D_coil', optionally 'coil_pitch') [m].
+        Geometry dictionary containing keys for diameter ('Dh' or 'D_t_i') [m],
+        and curvature radius ('R_curv' or 'D_coil', optionally 'P_coil') [m].
     cond : dict
         Conditions dictionary containing:
         - G : mass flux in one tube [kg/m^2/s]
@@ -335,8 +335,8 @@ def curved_pipe_xin_ebadian_SP_HTC(AS, geom, cond):
         CoolProp abstract state object (or similar fluid property interface).
     geom : dict
         Geometry dictionary containing:
-        - 'Dh' (or 'D', 'Tube_ID') : inner diameter of the pipe [m]
-        - 'R_curv' (or 'D_coil' and optionally 'coil_pitch') : radius of curvature [m]
+        - 'Dh' (or 'D_t_i') : inner diameter of the pipe [m]
+        - 'R_curv' (or 'D_coil' and optionally 'P_coil') : radius of curvature [m]
     cond : dict
         Conditions dictionary containing:
         - 'G' : mass flux in ONE tube [kg/m2/s]

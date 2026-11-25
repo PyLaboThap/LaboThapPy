@@ -70,7 +70,7 @@ from labothappy.correlations.convection.BPHE_HTC_correlation_bank import (
 _BPHX_EVAP_HTC = {
     'Cooper': BPHE_cooper_boiling_HTC,
     'Amalfi': BPHE_amalfi_boiling_HTC,
-    'Han_Lee_Kim': BPHE_han_lee_kim_boiling_HTC,     # needs geom['p_co']
+    'Han_Lee_Kim': BPHE_han_lee_kim_boiling_HTC,     # needs geom['Lambda']
     'Yan_Lin': BPHE_yan_lin_boiling_HTC,
     'Lee_Kang_Kim': BPHE_lee_kang_kim_boiling_HTC,   # water data
     'Huang_Sheer': BPHE_huang_sheer_boiling_HTC,     # q and T_sat only
@@ -120,14 +120,14 @@ def select_plate_condensation_HTC(geom, cond):
     """Automatic choice of the condensation HTC correlation (heuristic).
       - enlargement factor phi known                -> Shah (wide database, gravity and
                                                        forced-convection regimes)
-      - p_co and beta known, inside Han's data      -> Han (plate-specific: corrugation pitch
+      - Lambda and beta known, inside Han's data      -> Han (plate-specific: corrugation pitch
         range (G 13-34 kg/m2/s, 45-70 deg from the      and angle; data of R410A / R22 only)
         flow direction)
       - otherwise                                   -> Longo (ACHP form: needs only Dh, G, x, p)
     """
     if 'phi' in geom:
         return 'Shah'
-    if 'p_co' in geom and 'beta' in geom:
+    if 'Lambda' in geom and 'beta' in geom:
         theta = chevron_deg(geom['beta'])         # from the main flow direction
         if 13 <= cond['G'] <= 34 and 45 <= theta <= 70:
             return 'Han'
@@ -140,7 +140,7 @@ def BPHE_condensing_HTC(AS, geom, cond, choice=None):
     cond : G (mass flux in ONE channel) [kg/m2/s], x (mean quality) [-],
            p (saturation pressure) [Pa]
     geom : Dh for all; phi (enlargement factor) for Shah (default 1.17, with a warning);
-           p_co (corrugation pitch) and beta (angle from the main flow direction,
+           Lambda (corrugation pitch) and beta (angle from the main flow direction,
            rad or deg) for Han.
     geom['beta'] stays in the library convention: Han converts it to its own
     convention inside its function, so it is not converted here."""

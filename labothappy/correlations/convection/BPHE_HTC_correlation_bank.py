@@ -425,7 +425,7 @@ def BPHE_han_lee_kim_boiling_HTC(AS, geom, cond):
     geom : dict
         Geometry dictionary with keys:
         - 'Dh' : hydraulic diameter [m]
-        - 'p_co' : corrugation pitch (wavelength) [m]
+        - 'Lambda' : corrugation pitch (wavelength) [m]
         - 'beta' : chevron angle from the main flow direction [rad or deg]
           (Han's paper measures its angle beta_H from the horizontal axis and writes
           (pi/2 - beta_H): that is exactly theta used here.)
@@ -461,7 +461,7 @@ def BPHE_han_lee_kim_boiling_HTC(AS, geom, cond):
 
     # 2) Read geometry
     Dh = geom['Dh']         # [m] hydraulic diameter
-    p_co = geom['p_co']     # [m] corrugation pitch (wavelength)
+    p_co = geom['Lambda']     # [m] corrugation pitch (wavelength)
     # Chevron angle from the main flow direction [rad]
     # Han's beta_H is from horizontal; theta = pi/2 - beta_H = angle from flow
     theta = np.radians(chevron_deg(geom['beta']))
@@ -923,7 +923,7 @@ def BPHE_han_condensing_HTC(AS, geom, cond):
     Condensation in brazed plate HX, Nu = Ge1 Re_eq^Ge2 Pr^(1/3).
 
     cond : G (mass flux in ONE channel) [kg/m2/s], x (mean quality) [-], p [Pa]
-    geom : Dh (hydraulic diameter) [m], p_co (corrugation pitch) [m],
+    geom : Dh (hydraulic diameter) [m], Lambda (corrugation pitch) [m],
            beta (chevron angle from the main flow direction, rad or deg;
            Han's own angle is measured from the horizontal axis: pi/2 - beta)
     Returns h [W/m2/K].
@@ -935,7 +935,7 @@ def BPHE_han_condensing_HTC(AS, geom, cond):
     Dh = geom['Dh']
     
     theta = np.radians(chevron_deg(geom["beta"]))   # from the flow direction = Han's pi/2 - beta
-    p_co = geom["p_co"]
+    p_co = geom["Lambda"]
 
     if not 0.0 < theta <= np.pi / 2:
         raise ValueError(f"Han condensation: angle {theta} rad from the flow direction "

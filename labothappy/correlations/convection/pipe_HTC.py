@@ -77,7 +77,7 @@ def select_pipe_HTC(AS, geom, cond):
            Cheng (D ~ 10 mm, G 497-1346, q 97-400 kW/m2, p 7.5-23.5 MPa; needs T_w, q, h_in/h_out), else
            Liu   (D 4-10.7 mm, p 7.5-8.5 MPa, G 74-200; needs T_w, rho, cp)
       2. otherwise Gnielinski (laminar Stephan-Preusser / transition Gnielinski / Sieder-Tate;
-         needs Tube_L), or Dittus-Boelter when Tube_L is not known.
+         needs L_t), or Dittus-Boelter when L_t is not known.
     Supercritical CO2 outside both windows falls back on Gnielinski, with a warning (the property
     variation is not captured). Meshram (PCHE) is never automatic: give it explicitly."""
     D = _D(geom)
@@ -91,7 +91,7 @@ def select_pipe_HTC(AS, geom, cond):
             return 'Liu'
         warnings.warn("Supercritical CO2 outside the Cheng and Liu validity windows (or wall data missing): "
                       "Gnielinski used, property variations not captured.")
-    return 'Gnielinski' if 'Tube_L' in geom else 'Dittus_Boelter'
+    return 'Gnielinski' if 'L_t' in geom else 'Dittus_Boelter'
 
 
 def pipe_SP_HTC(AS, geom, cond, choice=None):
@@ -142,7 +142,7 @@ def _evap_feasible(name, AS, geom, cond):
     if name == 'VDI':
         return _a0_known(AS, cond)
     if name == 'Steiner_Taborek':
-        return 'Tube_L' in geom and ('h_nb_o' in cond or fluid == 'Cyclopentane' or _a0_known(AS, cond))
+        return 'L_t' in geom and ('h_nb_o' in cond or fluid == 'Cyclopentane' or _a0_known(AS, cond))
     if name == 'Choi':
         return _D(geom) <= 3.5e-3                          # mini-tube data only
     return True                                           # Gungor_Winterton
@@ -160,13 +160,13 @@ def select_pipe_evaporation_HTC(AS, geom, cond):
             warnings.warn(f"Evaporation HTC: no priority correlation feasible for family {fam!r}: {name} used.")
             return name
     raise ValueError("Evaporation HTC: no feasible correlation (need cond p, x, q and, for "
-                     "Steiner-Taborek / VDI, Tube_L and a_0 / h_nb_o for this fluid).")
+                     "Steiner-Taborek / VDI, L_t and a_0 / h_nb_o for this fluid).")
 
 
 def pipe_boiling_HTC(AS, geom, cond, choice=None):
     """Evaporation in-tube heat transfer coefficient [W/m2/K]. choice: None/'auto' or a name of _PIPE_EVAP_HTC.
     cond : G (or m_dot), p, x, q [W/m2]; a_0 or h_nb_o for fluids missing from the VDI table.
-    geom : Tube_ID (or Tube_OD, Tube_t), Tube_L."""
+    geom : D_t_i (or D_t_o, t_t), L_t."""
     if choice in (None, 'auto'):
         choice = select_pipe_evaporation_HTC(AS, geom, cond)
     elif choice not in _PIPE_EVAP_HTC:
@@ -212,7 +212,7 @@ def select_pipe_condensation_HTC(AS, geom, cond):
 
 def pipe_condensing_HTC(AS, geom, cond, choice=None):
     """Condensation in-tube heat transfer coefficient [W/m2/K]. choice: None/'auto' or a name of _PIPE_COND_HTC.
-    cond : G (or m_dot), p, x, T_w [K].    geom : Tube_ID (or Tube_OD, Tube_t)."""
+    cond : G (or m_dot), p, x, T_w [K].    geom : D_t_i (or D_t_o, t_t)."""
     if choice in (None, 'auto'):
         choice = select_pipe_condensation_HTC(AS, geom, cond)
     elif choice not in _PIPE_COND_HTC:

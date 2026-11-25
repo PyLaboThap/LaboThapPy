@@ -7,11 +7,11 @@ geom['type_channel'] : 'Straight' (default), 'Zigzag' or 'S_fin' (S-shaped fins)
 SP    : PCHE correlation 'Lee_Jiang' (zigzag channel: Lee et al. 2024 for Re <= 2000, Jiang et al.
         2018 for Re >= 3000, linear blend in between; PCHE_DP_correlation_bank.py)
         or any pipe correlation name ('Churchill', 'Haaland', ...), evaluated by pipe_DP on the
-        equivalent tube (Tube_ID = D_h, L = channel length, G of one channel).
+        equivalent tube (D_t_i = D_h, L = channel length, G of one channel).
         'Ngo' (zigzag fins 52 deg, sCO2, 3500 < Re < 22000, Ngo et al. 2007): explicit choice only.
         'Ngo_S_fin' (S-shaped fins 52 deg, sCO2, 3500 < Re < 23000, Ngo et al. 2007).
         'Kim_No_2012' (zigzag, laminar Re < 2500, helium, angle 5-45 deg, Kim & No 2012; optional
-        geom['zigzag_pitch']), 'Kim_No_2011' (zigzag 15 deg, laminar, helium / water),
+        geom['P_zz']), 'Kim_No_2011' (zigzag 15 deg, laminar, helium / water),
         'Liu_straight' (straight, sCO2 cooling, 3600 < Re < 36500, Liu et al. 2020),
         'Meshram' (zigzag, sCO2, 5000 < Re < 32000, Meshram et al. 2016): explicit choice only.
         Zigzag, explicit choice only (2026-11-23): 'Katz' (37 deg, sCO2 / helium), 'Kim_SG_2016'

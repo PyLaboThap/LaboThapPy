@@ -20,10 +20,10 @@ _STHE_SP_HTC = {
 }
 
 # Geometry keys needed by each correlation (on top of the common ones: m_dot, mu, Pr, k/cp in cond)
-_KERN_KEYS = ('Tube_OD', 'pitch_ratio', 'Shell_ID', 'central_spacing', 'tube_layout')
-_DONOHUE_KEYS = _KERN_KEYS + ('Baffle_cut', 'n_tubes')
-_BELL_KEYS = _DONOHUE_KEYS + ('D_OTL', 'clear_TB', 'clear_BS', 'N_strips',
-                              'Tube_L', 'Tubesheet_t', 'inlet_spacing', 'outlet_spacing')
+_KERN_KEYS = ('D_t_o', 'PR', 'D_s', 'B', 'theta')
+_DONOHUE_KEYS = _KERN_KEYS + ('BC', 'n_t')
+_BELL_KEYS = _DONOHUE_KEYS + ('D_OTL', 'delta_TB', 'delta_BS', 'N_strips',
+                              'L_t', 'TS_t', 'B_i', 'B_o')
 _REQUIRED = {'Kern': _KERN_KEYS, 'Donohue': _DONOHUE_KEYS, 'Bell_Delaware': _BELL_KEYS}
 
 

@@ -5,11 +5,11 @@ BPHX and shell-side STHE correlations.  Every correlation returns h [W/(m^2 K)].
 
 AS   : CoolProp AbstractState of the fluid (it is moved by the saturation / wall property calls:
        build the bulk properties of the cell BEFORE calling).
-geom : Tube_ID [m]   (or Tube_OD and Tube_t [m] -> Tube_ID = Tube_OD - 2 Tube_t)
-       Tube_L [m]    straight tube length (Gnielinski / Steiner-Taborek entrance effect)
-       n_tubes, n_passes (only to build G from m_dot when cond has no 'G')
+geom : D_t_i [m]   (or D_t_o and t_t [m] -> D_t_i = D_t_o - 2 t_t)
+       L_t [m]    straight tube length (Gnielinski / Steiner-Taborek entrance effect)
+       n_t, n_passes (only to build G from m_dot when cond has no 'G')
        Ra [m]        wall roughness (VDI boiling, optional, default 3e-6)
-cond : G [kg/m2/s]   mass flux inside ONE tube (or m_dot [kg/s] of the whole side + geom n_tubes, n_passes)
+cond : G [kg/m2/s]   mass flux inside ONE tube (or m_dot [kg/s] of the whole side + geom n_t, n_passes)
        p [Pa], x [-], q [W/m2] (local heat flux), T_w [K], mu, mu_w, k, Pr, cp, rho (single phase)
 
 Naming: pipe_<author>_<phase>_HTC.  Pool boiling / film boiling / boiling curve (outside
@@ -26,11 +26,11 @@ import CoolProp.CoolProp as CP
 #%% HELPERS
 
 def _tube_ID(geom):
-    if 'Tube_ID' in geom:
-        return geom['Tube_ID']
-    if 'Tube_OD' in geom and 'Tube_t' in geom:
-        return geom['Tube_OD'] - 2.0 * geom['Tube_t']
-    raise KeyError("Tube-side HTC: geom needs 'Tube_ID' (or 'Tube_OD' and 'Tube_t').")
+    if 'D_t_i' in geom:
+        return geom['D_t_i']
+    if 'D_t_o' in geom and 't_t' in geom:
+        return geom['D_t_o'] - 2.0 * geom['t_t']
+    raise KeyError("Tube-side HTC: geom needs 'D_t_i' (or 'D_t_o' and 't_t').")
 
 
 def _tube_G(geom, cond):
@@ -38,7 +38,7 @@ def _tube_G(geom, cond):
     if 'G' in cond:
         return cond['G']
     D = _tube_ID(geom)
-    n_tubes_pass = geom['n_tubes'] / geom.get('n_passes', 1)
+    n_tubes_pass = geom['n_t'] / geom.get('n_passes', 1)
     return cond['m_dot'] / (n_tubes_pass * np.pi * D**2 / 4.0)
 
 
@@ -129,18 +129,18 @@ def _gnielinski_core(mu, Pr, mu_w, k, G, Dh, L):
 def pipe_gnielinski_SP_HTC(AS, geom, cond):
     """Gnielinski (transition) / Stephan-Preusser (laminar) / Sieder-Tate (turbulent).
     cond : G (or m_dot), mu, Pr, k, mu_w (optional, mu_w = mu if absent)
-    geom : Tube_ID, Tube_L
+    geom : D_t_i, L_t
     References: Ammar & Park, Validation of the Gnielinski correlation for enhanced tubes;
                 Caputo et al., Heat exchanger design based on economic optimisation."""
     mu = cond['mu']
     return _gnielinski_core(mu, cond['Pr'], cond.get('mu_w', mu), cond['k'],
-                            _tube_G(geom, cond), _tube_ID(geom), geom['Tube_L'])
+                            _tube_G(geom, cond), _tube_ID(geom), geom['L_t'])
 
 
 def pipe_dittus_boelter_SP_HTC(AS, geom, cond):
     """Dittus-Boelter, Nu = 0.023 Re^0.8 Pr^n, n = 0.4 (fluid heated) or 0.3 (fluid cooled).
     cond : G (or m_dot), mu, Pr, k, heating (bool, default True: tube fluid is heated)
-    geom : Tube_ID
+    geom : D_t_i
     Reference: Incropera, Fundamentals of heat transfer."""
     D = _tube_ID(geom)
     Re = _tube_G(geom, cond) * D / cond['mu']
@@ -151,7 +151,7 @@ def pipe_dittus_boelter_SP_HTC(AS, geom, cond):
 def pipe_meshram_HTC(AS, geom, cond):
     """Meshram et al., sCO2 in a printed circuit heat exchanger: Nu = 0.0177 Re^0.871 Pr^0.7.
     (Printed circuit heat exchanger correlation, kept here for convenience.)
-    cond : G, mu, Pr, k      geom : Dh (or Tube_ID)
+    cond : G, mu, Pr, k      geom : Dh (or D_t_i)
     Reference: Meshram et al., Modeling and analysis of a printed circuit heat exchanger for
     supercritical CO2 power cycle applications."""
     Dh = geom.get('Dh', None) or _tube_ID(geom)
@@ -167,7 +167,7 @@ def pipe_liu_sCO2_HTC(AS, geom, cond):
     and D 4 mm (8.0 MPa, 0.6 kg/min, T_in 32-53 C); Eq. (29) is presented for the 10.7 mm tube
     (most data within +-15 %).
     cond : G, p, T_w, k, rho, mu, cp  (bulk values); T (bulk, optional: cooling check)
-    geom : Tube_ID
+    geom : D_t_i
     Definitions: Nu_w = h d / lambda (Eq. 8: lambda of CO2, wall or bulk not stated; bulk k used here),
     Re_w = G d / mu_w, Pr_w, rho_w, cp_w at the wall temperature, rho_b, cp_b bulk.
     Reference: Liu, Z.-B., He, Y.-L., Yang, Y.-F., Fei, J.-Y. (2014) Experimental study on heat transfer
@@ -193,7 +193,7 @@ def pipe_cheng_sCO2_HTC(AS, geom, cond):
     """Cheng et al. (2024), sCO2 in a horizontal tube, Froude number analysis.
     Validity: D = 10 mm, G 496.7-1346.2 kg/m2/s, q 97.4-400.3 kW/m2, P 7.53-23.51 MPa, CO2.
     cond : G, q, T_w, p, mu, k, h_in, h_out (cell enthalpies; h if h_in/h_out absent)
-    geom : Tube_ID
+    geom : D_t_i
     References: Cheng, Xu, Cao, Zhou, Liu, Supercritical carbon dioxide heat transfer in horizontal
     tube based on the Froude number analysis (2024), Energy 294, 130980, Eqs. (28)-(33), (38)-(40);
     Banuti (2015, 2019) for T_minus / T_plus; Yang & Yang (2012) for the pseudo-critical temperature.
@@ -295,10 +295,10 @@ def pipe_petukhov_supercritical_HTC(AS, geom, cond):
         Fluid state object (will be moved to wall state (p, T_w)).
     geom : dict
         Geometry dictionary with keys:
-        - 'Tube_ID' [m]  (or 'Tube_OD' [m] and 'Tube_t' [m])
+        - 'D_t_i' [m]  (or 'D_t_o' [m] and 't_t' [m])
     cond : dict
         Operating conditions dictionary with keys:
-        - 'G' [kg/m2/s]  mass flux in ONE tube (or 'm_dot' [kg/s] + geom n_tubes, n_passes)
+        - 'G' [kg/m2/s]  mass flux in ONE tube (or 'm_dot' [kg/s] + geom n_t, n_passes)
         - 'p' [Pa]       bulk pressure
         - 'T_w' [K]      wall temperature
         - 'rho' [kg/m3]  bulk density
@@ -389,8 +389,8 @@ def pipe_el_hajal_flow_pattern(AS, geom, cond):
         Fluid state object (moved by saturation property calls).
     geom : dict
         Geometry dictionary with keys:
-        - 'Tube_ID' [m] (or 'Tube_OD' [m] and 'Tube_t' [m])
-        - 'n_tubes' [-], 'n_passes' [-] (optional, used if 'G' is absent in cond)
+        - 'D_t_i' [m] (or 'D_t_o' [m] and 't_t' [m])
+        - 'n_t' [-], 'n_passes' [-] (optional, used if 'G' is absent in cond)
     cond : dict
         Operating conditions dictionary with keys:
         - 'p' [Pa]       saturation pressure
@@ -588,14 +588,14 @@ def pipe_thome_condensing_HTC(AS, geom, cond):
         Fluid state object (will be moved by saturation and wall property calls).
     geom : dict
         Geometry dictionary containing:
-        - 'Tube_ID' [m] (or 'Tube_OD' [m] and 'Tube_t' [m])
-        - 'n_tubes' [-], 'n_passes' [-] (optional, used if 'G' is absent in cond)
+        - 'D_t_i' [m] (or 'D_t_o' [m] and 't_t' [m])
+        - 'n_t' [-], 'n_passes' [-] (optional, used if 'G' is absent in cond)
     cond : dict
         Conditions dictionary containing:
         - 'p' [Pa]       saturation pressure
         - 'x' [-]        thermodynamic vapor quality
         - 'T_w' [K]      inner wall temperature (required, raises KeyError if absent)
-        - 'G' [kg/m2/s]  mass flux inside ONE tube (or 'm_dot' [kg/s] + geom n_tubes, n_passes)
+        - 'G' [kg/m2/s]  mass flux inside ONE tube (or 'm_dot' [kg/s] + geom n_t, n_passes)
         - 'm_dot' [kg/s] total mass flow rate (optional, used if 'G' is absent)
 
     Returns
@@ -738,7 +738,7 @@ def pipe_thome_condensing_HTC(AS, geom, cond):
 def pipe_dobson_chato_condensing_HTC(AS, geom, cond):
     """Dobson & Chato: gravity-driven film (Nu = 0.555 [...]^0.25) for Re_v <= 35000, annular
     Nu = 0.023 Re_l^0.8 Pr_l^0.4 (1 + 2.22 / X_tt^0.89) above.
-    cond : G, p, x, T_w      geom : Tube_ID
+    cond : G, p, x, T_w      geom : D_t_i
     Reference: Incropera, Principles of heat transfer."""
     g = 9.81
     D_in = _tube_ID(geom)
@@ -778,8 +778,8 @@ def pipe_shah_condensing_HTC(AS, geom, cond):
     AS : CoolProp AbstractState
         Fluid state object.
     geom : dict
-        Geometry dictionary containing 'Tube_ID' [m] (or 'Tube_OD' [m] and 'Tube_t' [m]),
-        straight tube length 'Tube_L' [m] (if needed), and optionally 'n_tubes' [-]
+        Geometry dictionary containing 'D_t_i' [m] (or 'D_t_o' [m] and 't_t' [m]),
+        straight tube length 'L_t' [m] (if needed), and optionally 'n_t' [-]
         and 'n_passes' [-].
     cond : dict
         Conditions dictionary containing:
@@ -869,8 +869,8 @@ def pipe_shah_condensing_HTC(AS, geom, cond):
 def pipe_cavallini_smith_zecchin_condensing_HTC(AS, geom, cond):
     """Cavallini, Smith & Zecchin (1974) forced-convection condensation inside tubes.
     Single correlation for annular flow regime using an equivalent Reynolds number.
-    cond : G [kg/m2/s] (or m_dot [kg/s] + geom n_tubes, n_passes), p [Pa], x [-]
-    geom : Tube_ID [m] (or Tube_OD [m] and Tube_t [m])
+    cond : G [kg/m2/s] (or m_dot [kg/s] + geom n_t, n_passes), p [Pa], x [-]
+    geom : D_t_i [m] (or D_t_o [m] and t_t [m])
     Returns h [W/m2/K].
     Reference: Cavallini, A., Smith, J.R., Zecchin, R. (1974) A dimensionless correlation for
     heat transfer in forced convection condensation. 6th International Heat Transfer Conference,
@@ -961,7 +961,7 @@ def pipe_steiner_taborek_boiling_HTC(AS, geom, cond):
     cond : G, p, x, q (local heat flux); h_nb_o (optional, reference nucleate boiling HTC at the
            normalized heat flux q_o of the fluid group below and p_r = 0.1;
            default: VDI a_0 of the fluid, or the cyclopentane estimate of the original code)
-    geom : Tube_ID, Tube_L
+    geom : D_t_i, L_t
     Convective part: liquid-only (total flow) Gnielinski/Sieder-Tate HTC, no wall viscosity correction.
     Reference: Steiner, D., Taborek, J. (1992) Flow boiling heat transfer in vertical tubes correlated
     by an asymptotic model, Heat Transfer Engineering 13(2), 43-69, Eqs. (3)-(15), Tables 1-3.
@@ -972,7 +972,7 @@ def pipe_steiner_taborek_boiling_HTC(AS, geom, cond):
     branch Eq. (5a) (alpha_LO multiplier, exponent 0.01, density ratio placement); F(M) <= 2.5 and
     Table 3 values for H2, He, NH3; nf Eq. (10b) for cryogenics.)"""
     fluid = AS.fluid_names()[0]
-    D_in, L = _tube_ID(geom), geom['Tube_L']
+    D_in, L = _tube_ID(geom), geom['L_t']
     G, P_sat, x, q_act = _tube_G(geom, cond), cond['p'], _clamp_x(cond['x']), cond['q']
 
     s = _sat_props(AS, P_sat, cond)
@@ -1050,7 +1050,7 @@ def pipe_steiner_taborek_boiling_HTC(AS, geom, cond):
 def pipe_vdi_boiling_HTC(AS, geom, cond):
     """VDI Heat Atlas (2010) flow boiling in horizontal tubes (Gorenflo-type nucleate form).
     cond : G, p, x, q; a_0 (optional if the fluid is not in the VDI table)
-    geom : Tube_ID; Ra (wall roughness, default 3e-6 m)"""
+    geom : D_t_i; Ra (wall roughness, default 3e-6 m)"""
     fluid = AS.fluid_names()[0]
     D_in = _tube_ID(geom)
     G, P_sat, q = _tube_G(geom, cond), cond['p'], cond['q']
@@ -1095,7 +1095,7 @@ def pipe_vdi_boiling_HTC(AS, geom, cond):
 
 def pipe_gungor_winterton_boiling_HTC(AS, geom, cond):
     """Gungor & Winterton (1986): h = E h_l + S h_nb, h_nb = Cooper pool boiling.
-    cond : G, p, x, q      geom : Tube_ID
+    cond : G, p, x, q      geom : D_t_i
     Reference: Gungor, K.E., Winterton, R.H.S. (1986) A general correlation for flow boiling in tubes
     and annuli, Int. J. Heat Mass Transfer 29(3), 351-358, Eqs. (2)-(12).
     Definitions: Re_l = G (1 - x) d / mu_l (liquid fraction) in h_l AND in the suppression factor S
@@ -1134,7 +1134,7 @@ def pipe_gungor_winterton_boiling_HTC(AS, geom, cond):
 
 def pipe_choi_boiling_HTC(AS, geom, cond):
     """Choi-type flow boiling: h = E h_l + S F_m h_nb (Lockhart-Martinelli E, convection number S).
-    cond : G, p, x, q      geom : Tube_ID"""
+    cond : G, p, x, q      geom : D_t_i"""
     D_i = _tube_ID(geom)
     G, P_sat, q = _tube_G(geom, cond), cond['p'], cond['q']
     x = _clamp_x(cond['x'])
@@ -1172,9 +1172,9 @@ def pipe_chen_boiling_HTC(AS, geom, cond):
     ---------
     AS   : CoolProp AbstractState (will be moved by saturation / wall property calls).
     geom : dict with keys
-           'Tube_ID' [m]  (or 'Tube_OD' [m] and 'Tube_t' [m]).
+           'D_t_i' [m]  (or 'D_t_o' [m] and 't_t' [m]).
     cond : dict with keys
-           'G'       [kg/m2/s]  mass flux in ONE tube (or 'm_dot' [kg/s] + geom n_tubes, n_passes),
+           'G'       [kg/m2/s]  mass flux in ONE tube (or 'm_dot' [kg/s] + geom n_t, n_passes),
            'p'       [Pa]       saturation pressure,
            'x'       [-]        vapour quality (clamped to ]0, 1[),
            'T_w'     [K]        wall temperature (required),
@@ -1293,8 +1293,8 @@ def pipe_liu_winterton_boiling_HTC(AS, geom, cond):
     Arguments:
     AS   : CoolProp AbstractState of the fluid (modified in-place for saturation properties)
     geom : dict containing tube geometry with SI units:
-           'Tube_ID' [m] (or 'Tube_OD' [m] and 'Tube_t' [m])
-           'n_tubes' [-], 'n_passes' [-] (optional, used if 'G' is absent in cond)
+           'D_t_i' [m] (or 'D_t_o' [m] and 't_t' [m])
+           'n_t' [-], 'n_passes' [-] (optional, used if 'G' is absent in cond)
     cond : dict containing flow conditions with SI units:
            'p' [Pa] - saturation pressure
            'x' [-] - thermodynamic vapor quality
@@ -1395,8 +1395,8 @@ def pipe_shah_1982_boiling_HTC(AS, geom, cond):
         Fluid state object (will be moved by saturation property calls).
     geom : dict
         Geometry dictionary with keys:
-        - 'Tube_ID' [m] (or 'Tube_OD' [m] and 'Tube_t' [m])
-        - 'theta' [deg] (optional, tube inclination from the horizontal, default 0.0)
+        - 'D_t_i' [m] (or 'D_t_o' [m] and 't_t' [m])
+        - 'gamma' [deg] (optional, tube inclination from the horizontal, default 0.0)
     cond : dict
         Operating conditions dictionary with keys:
         - 'p' [Pa]       saturation pressure
@@ -1418,7 +1418,7 @@ def pipe_shah_1982_boiling_HTC(AS, geom, cond):
     --------------
     Validity range: not given by the reference implementations (TODO from Shah 1982);
     saturated boiling, water and refrigerants (Shah's database).
-    Inclined tubes (theta not 0 or 90 deg): not covered by Shah, treated as horizontal (warning).
+    Inclined tubes (gamma not 0 or 90 deg): not covered by Shah, treated as horizontal (warning).
 
     Definitions
     -----------
@@ -1442,7 +1442,7 @@ def pipe_shah_1982_boiling_HTC(AS, geom, cond):
     D = _tube_ID(geom)                          # tube inner diameter [m]
     p = cond['p']                               # saturation pressure [Pa]
     x = _clamp_x(cond['x'])                     # vapor quality [-]
-    theta = geom.get('theta', 0.0)              # tube inclination [deg]
+    gamma = geom.get('gamma', 0.0)              # tube inclination [deg]
 
     # 2. Saturated properties at pressure p
     s = _sat_props(AS, p, cond)
@@ -1468,12 +1468,12 @@ def pipe_shah_1982_boiling_HTC(AS, geom, cond):
     Fr_l = G**2 / (rho_l**2 * g * D)            # liquid Froude number [-]
 
     # 7. Parameter N, depends on the tube orientation
-    if abs(theta) != 0.0 and abs(theta) != 90.0:
+    if abs(gamma) != 0.0 and abs(gamma) != 90.0:
         warnings.warn(
             f"Shah (1982) gives horizontal and vertical tubes only: inclined tube "
-            f"(theta = {theta} deg) treated as horizontal."
+            f"(gamma = {gamma} deg) treated as horizontal."
         )
-    if abs(theta) == 90.0:
+    if abs(gamma) == 90.0:
         N = Co                                  # vertical tube, all Fr_l (Eq. 13)
     elif Fr_l >= 0.04:
         N = Co                                  # horizontal tube, Fr_l >= 0.04 (Eq. 13)

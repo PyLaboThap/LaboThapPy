@@ -263,7 +263,7 @@ def BPHX_lockhart_martinelli_DP(AS, geom, cond):
            beta (chevron angle from the main flow direction, rad or deg),
            optional: lm_C (Chisholm constant; None -> chosen from the laminar/turbulent
                      regime of each phase: 5, 10, 12 or 20),
-                     lm_plate_friction (default True: Martin's PHE friction factor for each phase,
+                     lm_p_f (default True: Martin's PHE friction factor for each phase,
                      C not refitted for plates; False: smooth tube friction factors, original method)
 
     Returns dp [Pa]: frictional two-phase pressure drop over the FULL flow length L
@@ -278,7 +278,7 @@ def BPHX_lockhart_martinelli_DP(AS, geom, cond):
 
     Dh, L = geom['Dh'], geom['L']
     C = geom.get('lm_C')
-    alpha = np.radians(chevron_deg(geom['beta'])) if geom.get('lm_plate_friction', True) else None
+    alpha = np.radians(chevron_deg(geom['beta'])) if geom.get('lm_p_f', True) else None
 
     # Saturated properties
     s = _sat_props(AS, p_sat)
@@ -380,7 +380,7 @@ def BPHX_han_condensing_DP(AS, geom, cond):
         dP_f = f (L/Dh) G^2 / rho_m
 
     cond : G (mass flux in ONE channel) [kg/m2/s], x (mean quality of the cell) [-], p [Pa]
-    geom : Dh [m], p_co (corrugation pitch) [m],
+    geom : Dh [m], Lambda (corrugation pitch) [m],
            beta (chevron angle from the main flow direction, rad or deg),
            L (TOTAL flow path length: plate length x number of passes) [m]
     Returns dP [Pa] over the FULL flow length.
@@ -398,7 +398,7 @@ def BPHX_han_condensing_DP(AS, geom, cond):
     x = min(max(cond['x'], 0.0), 1.0)
     p_sat = cond['p']
 
-    Dh, L, p_co = geom['Dh'], geom['L'], geom['p_co']
+    Dh, L, p_co = geom['Dh'], geom['L'], geom['Lambda']
     theta = np.radians(chevron_deg(geom['beta']))            # from the flow direction = Han's pi/2 - beta
     if not 0.0 < theta <= np.pi / 2:
         raise ValueError(f"Han condensation DP: angle {theta} rad from the flow direction "

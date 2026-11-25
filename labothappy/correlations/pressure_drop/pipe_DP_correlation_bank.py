@@ -5,14 +5,14 @@ Correlations and friction factors from the labothappy pipe pressure drop library
 without the AbstractState-based interface: the fluid state comes in `cond`.
 
 Each function returns the pressure drop over the FULL flow length geom['L'] [Pa]: friction + gravity
-(geom['theta'], default 0, positive = upward flow). No acceleration (it depends on the quality change of the
+(geom['gamma'], default 0, positive = upward flow). No acceleration (it depends on the quality change of the
 cell and cannot be scaled with the length fraction of the cell), no return bends or head losses.
 
-cond : G (mass flux in ONE tube) [kg/m2/s] (or m_dot + geom n_tubes, n_passes), mu [Pa s], rho or D [kg/m3]
+cond : G (mass flux in ONE tube) [kg/m2/s] (or m_dot + geom n_t, n_passes), mu [Pa s], rho or D [kg/m3]
        (single phase); p [Pa], x [-] (two-phase; optional cond['mu_l'], cond['mu_v'], cond['sigma'] overrides
        for fluids without a CoolProp transport / surface tension model)
-geom : Tube_ID (or Tube_OD and Tube_t), L (total tube flow path: straight length x passes) [m],
-       K (absolute roughness) [m], default 0; theta [deg], default 0
+geom : D_t_i (or D_t_o and t_t), L (total tube flow path: straight length x passes) [m],
+       K (absolute roughness) [m], default 0; gamma [deg] (inclination), default 0
 """
 
 import math
@@ -85,7 +85,7 @@ def friction_factor_cheng_CO2(G, d_hyd, P, h, mu):
 #%% HELPERS
 
 def _gravity(geom, rho):
-    return G_GRAVITY * rho * geom['L'] * math.sin(math.radians(geom.get('theta', 0.0)))
+    return G_GRAVITY * rho * geom['L'] * math.sin(math.radians(geom.get('gamma', 0.0)))
 
 
 def _friction_dp(f, G, rho, D, L):
@@ -260,13 +260,13 @@ def pipe_xu_fang_condensing_DP(AS, geom, cond):
         Fluid state (used for saturated properties at cond['p']).
     geom : dict
         Geometry dictionary with keys:
-        - 'Tube_ID' or ('Tube_OD', 'Tube_t') : tube inner diameter [m]
+        - 'D_t_i' or ('D_t_o', 't_t') : tube inner diameter [m]
         - 'L' : total flow length (straight length x passes) [m]
         - 'K' : absolute roughness [m], default 0.0
-        - 'theta' : inclination angle [deg], default 0.0 (positive = upward flow)
+        - 'gamma' : inclination angle [deg], default 0.0 (positive = upward flow)
     cond : dict
         Operating conditions with keys:
-        - 'G' : mass flux in ONE tube [kg/m2/s] (or 'm_dot' with geom 'n_tubes', 'n_passes')
+        - 'G' : mass flux in ONE tube [kg/m2/s] (or 'm_dot' with geom 'n_t', 'n_passes')
         - 'p' : saturation pressure [Pa]
         - 'x' : vapour quality [-] (clipped to [1e-6, 1-1e-6])
         - optional 'sigma' : surface tension [N/m] if CoolProp has no model
@@ -274,7 +274,7 @@ def pipe_xu_fang_condensing_DP(AS, geom, cond):
     Returns
     -------
     dp : float
-        Pressure drop [Pa] over geom['L'] = frictional + gravity (geom['theta']),
+        Pressure drop [Pa] over geom['L'] = frictional + gravity (geom['gamma']),
         no acceleration term (consistent with other pipe DP functions in this file).
 
     Reference
@@ -366,20 +366,20 @@ def pipe_chisholm_DP(AS, geom, cond):
         Fluid state object.
     geom : dict
         Geometry dictionary with keys:
-        - 'Tube_ID' [m] (or 'Tube_OD' [m] and 'Tube_t' [m])
+        - 'D_t_i' [m] (or 'D_t_o' [m] and 't_t' [m])
         - 'L' [m]: full flow length
         - 'K' [m]: absolute roughness (default 0)
-        - 'theta' [deg]: inclination angle (default 0, positive = upward)
+        - 'gamma' [deg]: inclination angle (default 0, positive = upward)
     cond : dict
         Condition dictionary with keys:
         - 'p' [Pa]: pressure
         - 'x' [-]: vapor quality
-        - 'G' [kg/m2/s]: mass flux in ONE tube (or 'm_dot' [kg/s] + geom n_tubes, n_passes)
+        - 'G' [kg/m2/s]: mass flux in ONE tube (or 'm_dot' [kg/s] + geom n_t, n_passes)
 
     Returns
     -------
     float
-        Total pressure drop over geom['L'] [Pa] = friction + gravity (geom['theta']),
+        Total pressure drop over geom['L'] [Pa] = friction + gravity (geom['gamma']),
         no acceleration.
 
     Reference
@@ -474,20 +474,20 @@ def pipe_gronnerud_boiling_DP(AS, geom, cond):
         AbstractState for the fluid (used only for saturation properties via _sat_props).
     geom : dict
         Geometry dictionary with keys:
-        - 'Tube_ID' or ('Tube_OD', 'Tube_t') : tube inner diameter [m]
+        - 'D_t_i' or ('D_t_o', 't_t') : tube inner diameter [m]
         - 'L' : total flow length (straight length x passes) [m]
         - 'K' : absolute roughness [m], default 0.0
-        - 'theta' : inclination angle [deg], default 0.0 (positive = upward flow)
+        - 'gamma' : inclination angle [deg], default 0.0 (positive = upward flow)
     cond : dict
         Operating conditions dictionary with keys:
-        - 'G' : mass flux in ONE tube [kg/m2/s] (or 'm_dot' with geom['n_tubes'], geom['n_passes'])
+        - 'G' : mass flux in ONE tube [kg/m2/s] (or 'm_dot' with geom['n_t'], geom['n_passes'])
         - 'x' : vapor quality [-] (clipped to [1e-6, 1-1e-6])
         - 'p' : saturation pressure [Pa]
 
     Returns
     -------
     dp : float
-        Total pressure drop [Pa] over geom['L'] = frictional (Gronnerud) + gravity (geom['theta']),
+        Total pressure drop [Pa] over geom['L'] = frictional (Gronnerud) + gravity (geom['gamma']),
         no acceleration term (consistent with the other pipe DP functions in this file).
 
     Reference
@@ -566,19 +566,19 @@ def pipe_kim_mudawar_condensing_DP(AS, geom, cond):
         Fluid state (used for critical pressure and saturation properties).
     geom : dict
         Geometry dictionary with keys:
-        - 'Tube_ID' or ('Tube_OD', 'Tube_t') : tube inner diameter [m]
+        - 'D_t_i' or ('D_t_o', 't_t') : tube inner diameter [m]
         - 'L' : total flow length [m]
-        - 'theta' : inclination angle [deg], default 0 (positive = upward)
+        - 'gamma' : inclination angle [deg], default 0 (positive = upward)
     cond : dict
         Flow conditions with keys:
-        - 'G' : mass flux in one tube [kg/m2/s] (or 'm_dot' with 'n_tubes', 'n_passes')
+        - 'G' : mass flux in one tube [kg/m2/s] (or 'm_dot' with 'n_t', 'n_passes')
         - 'x' : vapour quality [-]
         - 'p' : pressure [Pa]
 
     Returns
     -------
     dP : float
-        Total pressure drop over geom['L'] [Pa] = frictional + gravity (geom['theta']),
+        Total pressure drop over geom['L'] [Pa] = frictional + gravity (geom['gamma']),
         no acceleration term (consistent with other pipe DP functions in this file).
 
     Reference

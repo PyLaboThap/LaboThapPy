@@ -60,7 +60,7 @@ def select_pipe_DP(AS, geom, cond):
     Swamee_Jain, Haaland (turbulent), Konakov, Petukhov (turbulent, smooth) are explicit choices only."""
     p = cond.get('p')
     if p is not None and 'h' in cond and AS.fluid_names()[0] in ('CarbonDioxide', 'CO2') and p > AS.p_critical():
-        D = geom['D'] if 'D' in geom else geom['Tube_OD'] - 2 * geom['Tube_t']
+        D = geom['Dh'] if 'Dh' in geom else geom['D_t_o'] - 2 * geom['t_t']
         G = cond.get('G', 0.0)
         if 8e-3 <= D <= 12e-3 and 496.7 <= G <= 1346.2 and 7.5e6 <= p <= 23.51e6 and _cheng_available():
             return 'Cheng_CO2'

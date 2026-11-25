@@ -4,8 +4,8 @@ Frictional pressure drop in curved (helically / spirally coiled) channels, (AS, 
 Prefix HCHE_..._DP. Every function returns the pressure drop over the FULL flow length geom['L'] [Pa]
 (friction + gravity); no entrance / exit / bend losses, no acceleration.
 
-geom : Dh (or D, Tube_ID)  hydraulic diameter [m];  R_curv (or D_coil, coil_pitch) radius of curvature [m];
-       L developed length [m];  K roughness [m] (default 0);  theta [deg] (default 0)
+geom : Dh (or D, D_t_i)  hydraulic diameter [m];  R_curv (or D_coil, P_coil) radius of curvature [m];
+       L developed length [m];  K roughness [m] (default 0);  gamma [deg] (inclination, default 0)
 cond : G [kg/m2/s] mass flux of ONE channel, mu [Pa s], rho or D [kg/m3]
 
 Curved-channel friction (Darcy), curv = Dh / (2 R), Re = G Dh / mu, De = Re sqrt(curv):
@@ -46,7 +46,7 @@ def _curved_sp_dp(geom, cond, f_lam_Re=64.0):
     rho = cond['rho'] if 'rho' in cond else cond['D']
     G, Re = cond['G'], cond['G'] * D / cond['mu']
     f = curved_friction_factor(Re, D / (2.0 * R), geom.get('K', 0.0), D, f_lam_Re)
-    return f * (L / D) * G ** 2 / (2.0 * rho) + G_GRAVITY * rho * L * np.sin(np.radians(geom.get('theta', 0.0)))
+    return f * (L / D) * G ** 2 / (2.0 * rho) + G_GRAVITY * rho * L * np.sin(np.radians(geom.get('gamma', 0.0)))
 
 
 def curved_pipe_ito_SP_DP(AS, geom, cond):
@@ -98,7 +98,7 @@ def curved_pipe_sigalotti_SP_DP(AS, geom, cond):
         if Re < 1.5e4 or Re > 1.0e5:
             warnings.warn(f"Sigalotti DP turbulent: Re = {Re:.3g} outside 1.5e4-1e5 (White, Eq. 17).")
         f = 0.08 * Re ** -0.25 + 0.012 * np.sqrt(curv)
-    return _dp_fanning(f, G, rho, L, D) + G_GRAVITY * rho * L * np.sin(np.radians(geom.get('theta', 0.0)))
+    return _dp_fanning(f, G, rho, L, D) + G_GRAVITY * rho * L * np.sin(np.radians(geom.get('gamma', 0.0)))
 
 
 def _ito_turb_lo(G, D, mu, rho, L, curv):

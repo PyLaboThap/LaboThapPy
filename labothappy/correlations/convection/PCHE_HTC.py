@@ -14,7 +14,7 @@ SP    : PCHE correlations  'Straight', 'Lee' (zigzag), 'Bennett_Chen' (zigzag, s
         'Ngo_S_fin' (S-shaped fins 52 deg, sCO2, 3500 < Re < 23000, Ngo et al. 2007):
         auto for geom['type_channel'] = 'S_fin'.
         'Kim_No_2012' (zigzag, laminar Re < 2500, helium, angle 5-45 deg, Kim & No 2012; optional
-        geom['zigzag_pitch']), 'Kim_No_2011' (zigzag 15 deg, laminar, helium / water),
+        geom['P_zz']), 'Kim_No_2011' (zigzag 15 deg, laminar, helium / water),
         'Liu_straight' (straight, sCO2 cooling, 3600 < Re < 36500, needs cond T_w, p, cp):
         explicit choice only.
         'Kwon' (straight, nitrogen gas, 8500 < Re < 17000, Kwon et al. 2018): explicit choice only.
@@ -34,8 +34,8 @@ EVAP / COND : PCHE two-phase correlations (explicit choice only, Kwon et al. 201
 Every non-PCHE path uses the curved pipe functions (HCHE dispatcher): SP auto name -> 'Sigalotti'.
 geom['R_curv'] : radius of curvature of the channel bends [m]; absent -> straight tube (R -> infinity).
 
-The equivalent tube is read from geom: Tube_ID (= D_h), Tube_L (= developed channel length), n_tubes,
-Tube_pass; cond['G'] is the mass flux of one channel (the pipe bank uses it first).
+The equivalent tube is read from geom: D_t_i (= D_h), L_t (= developed channel length), n_t,
+n_passes; cond['G'] is the mass flux of one channel (the pipe bank uses it first).
 """
 import warnings
 from labothappy.correlations.convection.PCHE_HTC_correlation_bank import (
@@ -92,10 +92,10 @@ def select_PCHE_HTC(geom, cond):
 
 def _equivalent_tube(geom):
     g = dict(geom)
-    Dh = g.get('Dh') or g['Tube_ID']
-    g.update(Tube_ID=Dh, Dh=Dh, Tube_pass=1)
-    g.setdefault('Tube_L', g.get('L_c', g.get('L')))
-    g.setdefault('L', g['Tube_L'])
+    Dh = g.get('Dh') or g['D_t_i']
+    g.update(D_t_i=Dh, Dh=Dh, n_passes=1)
+    g.setdefault('L_t', g.get('L_ch', g.get('L')))
+    g.setdefault('L', g['L_t'])
     if 'R_curv' not in g:
         if str(g.get('type_channel', 'Straight')).lower() == 'zigzag':
             warnings.warn("PCHE: zigzag channel without geom['R_curv']: curved pipe correlations run as a straight tube.")
@@ -105,11 +105,11 @@ def _equivalent_tube(geom):
 
 def _pipe(AS, geom, cond, state, name):
     g = _equivalent_tube(geom)
-    if name not in (None, 'auto') and g['Tube_ID'] < _PIPE_MIN_D.get(name, 0.0):
-        warnings.warn(f"PCHE: pipe correlation {name!r} used with D_h = {g['Tube_ID']*1e3:.2f} mm, "
+    if name not in (None, 'auto') and g['D_t_i'] < _PIPE_MIN_D.get(name, 0.0):
+        warnings.warn(f"PCHE: pipe correlation {name!r} used with D_h = {g['D_t_i']*1e3:.2f} mm, "
                       "below the tube diameters it was established for.")
-    if state != 'SP' and g['Tube_ID'] < _CONFINEMENT_D:
-        warnings.warn(f"PCHE: two-phase flow in a D_h = {g['Tube_ID']*1e3:.2f} mm channel: confinement "
+    if state != 'SP' and g['D_t_i'] < _CONFINEMENT_D:
+        warnings.warn(f"PCHE: two-phase flow in a D_h = {g['D_t_i']*1e3:.2f} mm channel: confinement "
                       "effects are not in the tube correlations.")
     # Two phase without a radius of curvature (straight channel, or zigzag without R_curv):
     # STRAIGHT pipe correlations (pipe_HTC, auto as pipe_HTC). The curved two-phase correlations

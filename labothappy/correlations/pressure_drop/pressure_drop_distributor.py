@@ -33,19 +33,19 @@ def _darcy_weisbach(friction_factor):
     """Turn a friction factor f(AS, geom, G, Re) into a pressure drop function."""
     def dp(AS, geom, G, **extra):
         rho, mu = AS.rhomass(), AS.viscosity()
-        D, L = geom['D'], geom['L']
+        D, L = geom['Dh'], geom['L']
         Re = G * D / mu
         f = friction_factor(AS, geom, G, Re)
         return f * (L / D) * G**2 / (2 * rho)
     return dp
 
 FRICTION_FACTORS = {
-    "Churchill":   lambda geom, Re: friction_factor_churchill(geom.get('K', 0.0), geom['D'], Re),
-    "Swamee-Jain": lambda geom, Re: friction_factor_swamee_jain(geom.get('K', 0.0), geom['D'], Re),
-    "Haaland":     lambda geom, Re: friction_factor_haaland(geom.get('K', 0.0), geom['D'], Re),
+    "Churchill":   lambda geom, Re: friction_factor_churchill(geom.get('K', 0.0), geom['Dh'], Re),
+    "Swamee-Jain": lambda geom, Re: friction_factor_swamee_jain(geom.get('K', 0.0), geom['Dh'], Re),
+    "Haaland":     lambda geom, Re: friction_factor_haaland(geom.get('K', 0.0), geom['Dh'], Re),
     "Konakov":     lambda Re: friction_factor_konakov(Re),
     "Petukhov":    lambda Re: friction_factor_petukhov(Re),
-    "Cheng-CO2":   lambda AS, geom, G: friction_factor_cheng_CO2(G, geom['D'], AS.p(), AS.hmass(), AS.viscosity()),
+    "Cheng-CO2":   lambda AS, geom, G: friction_factor_cheng_CO2(G, geom['Dh'], AS.p(), AS.hmass(), AS.viscosity()),
 }
 
 
@@ -67,17 +67,17 @@ def _dp_shell_bell_delaware(AS, geom, G, m_dot, **extra):
 def _dp_friedel(AS, geom, G, **extra):
     s = get_saturated_phase_properties(AS)
     return pressure_drop_friedel(G, s['x'], s['rho_l'], s['rho_v'], s['mu_l'], s['mu_v'],
-                                 s['sigma'], geom['D'], geom['L'], K=geom.get('K', 0.0))
+                                 s['sigma'], geom['Dh'], geom['L'], K=geom.get('K', 0.0))
 
 def _dp_msh(AS, geom, G, **extra):
     s = get_saturated_phase_properties(AS)
     return pressure_drop_muller_steinhagen_heck(G, s['x'], s['rho_l'], s['rho_v'], s['mu_l'],
-                                                s['mu_v'], geom['D'], geom['L'], K=geom.get('K', 0.0))
+                                                s['mu_v'], geom['Dh'], geom['L'], K=geom.get('K', 0.0))
 
 def _dp_han_bphex(AS, geom, G, m_dot, **extra):
     s = get_saturated_phase_properties(AS)
-    return han_BPHEX_DP(s['mu_l'], G, geom['D'], geom['chevron_angle'], geom['pitch_co'],
-                        s['rho_v'], s['rho_l'], geom['L'], geom['n_canals'], m_dot, geom['D_port'])
+    return han_BPHEX_DP(s['mu_l'], G, geom['Dh'], geom['chevron_angle'], geom['pitch_co'],
+                        s['rho_v'], s['rho_l'], geom['L'], geom['n_ch_side'], m_dot, geom['D_port'])
 
 # _dp_choi(AS, geom, G, AS_ex, **extra): same idea, AS_ex passed as an extra
 

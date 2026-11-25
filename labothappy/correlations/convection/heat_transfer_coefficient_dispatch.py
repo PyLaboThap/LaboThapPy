@@ -25,20 +25,20 @@ def heat_transfer_coefficient(AS, geom, cond, correlation):
     STHE : cond['side'] (or geom['side']) selects the side of the shell & tube exchanger.
       'shell' : SP: m_dot (WHOLE side), mu, k, Pr, cp (+ mu_w optional);
                 EVAP / COND: m_dot, p, x, q, T_w;
-                geom holds the shell & tube parameters (Tube_OD, pitch_ratio, Shell_ID, ...).
+                geom holds the shell & tube parameters (D_t_o, PR, D_s, ...).
       'tube'  : SP / EVAP / COND, inside the tubes (pipe correlations). G (mass flux in ONE tube,
                 or m_dot of the whole side), p, x, q, T_w, mu, k, Pr (+ mu_w, rho, cp, h_in, h_out
-                for sCO2); geom holds Tube_ID (or Tube_OD, Tube_t) and Tube_L.
+                for sCO2); geom holds D_t_i (or D_t_o, t_t) and L_t.
     PCHE : SP (PCHE correlations 'Straight', 'Lee', 'Bennett_Chen', or any pipe correlation on the
            equivalent tube D = D_h) / EVAP / COND (pipe correlations). G (mass flux in ONE channel),
            mu, k, Pr, T (+ T_in, p_in, p_other_in for 'Bennett_Chen'); geom holds D_c, L_c, alpha,
-           type_channel ('Straight' / 'Zigzag') and the equivalent tube (Dh, Tube_ID, Tube_L, n_tubes).
-    HCHE : coil side SP 'Sigalotti' / EVAP 'Zhao','Nariai' / COND 'Zakeralhoseini'; geom: Dh, R_curv (or D_coil, coil_pitch), L.
+           type_channel ('Straight' / 'Zigzag') and the equivalent tube (Dh, D_t_i, L_t, n_t).
+    HCHE : coil side SP 'Sigalotti' / EVAP 'Zhao','Nariai' / COND 'Zakeralhoseini'; geom: Dh, R_curv (or D_coil, P_coil), L.
     SCHE : same as HCHE (curved pipe correlations on the elliptical channel, D = D_h).
     SPHE : SP 'Picon_Nunez','Rajavel','Curved_rect_duct','Rect_duct'; geom: Dh, R_curv, ch_w, H (or ch_b), L.
     TFHE ('Tube&Fins') : cond['side'] (or geom['side']) = 'fin' (gas side, single phase: Pismennyi, REDUCED
            coefficient referred to the total outer area) or 'tube' (pipe correlations). Fin side: m_dot (WHOLE
-           side), rho, mu, k, Pr; geom holds the tube and fin geometry (Fin_OD, Fin_t, Fin_per_m, k_fin, w, ...)."""
+           side), rho, mu, k, Pr; geom holds the tube and fin geometry (D_f_o, t_f, f_density, k_f, w, ...)."""
     htx = geom.get('HTX_Type')
 
     if htx in ('BPHE', 'STHE', 'PCHE', 'TFHE', 'Tube&Fins', 'HCHE', 'SCHE', 'SPHE'):

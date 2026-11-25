@@ -29,7 +29,7 @@ def pressure_drop(AS, geom, cond, correlation):
     TFHE : cond['side'] (or geom['side']) = 'fin' (gas side: Pismennyi bank pressure drop,
            TFHE_DP) or 'tube' (pipe_DP).
     PCHE : PCHE_DP (SP zigzag: 'Lee_Jiang', auto for geom['type_channel'] = 'Zigzag'; otherwise pipe_DP
-           names on the equivalent tube: geom D_h / Tube_ID, L, K; cond G of ONE channel); no port losses.
+           names on the equivalent tube: geom D_h / D_t_i, L, K; cond G of ONE channel); no port losses.
     SPHE : SPHE_DP (spiral plate: SP 'Picon_Nunez', 'Curved_rect_duct', 'Rect_duct', 'Sigalotti', 'Ito';
            two phase: curved pipe correlations on D_h and the cell R_curv).
     SCHE (SPCE), HCHE : curved_pipe_DP (curved pipes: SP 'Sigalotti', 'Ito'; EVAP 'Cioncolini', 'Ruffell';

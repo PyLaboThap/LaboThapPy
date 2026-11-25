@@ -332,7 +332,7 @@ def PCHE_kim_no_2012_zigzag_SP_DP(AS, geom, cond):
     - Bulk properties of the cell (the paper used local pitch-averaged properties).
     - Mass flux G of one channel.
     - alpha = angle of the zigzag from the main flow direction (paper Eq. 9: L = L_c * cos(alpha)).
-    - zigzag_pitch: pitch of the zigzag as in Kim & No Fig. 2 (24.6 mm for the tested PCHE).
+    - P_zz: pitch of the zigzag as in Kim & No Fig. 2 (24.6 mm for the tested PCHE).
     - Interpolation in angle and nearest-geometry choice: added in labothappy (not in the paper).
     - Returns the FRICTIONAL pressure drop [Pa] over L (no gravity, no acceleration, no ports).
 
@@ -350,7 +350,7 @@ def PCHE_kim_no_2012_zigzag_SP_DP(AS, geom, cond):
     - RMS error of each fit 0.8-3 % (Table 4).
 
     geom : Dh [m], L [m] (developed channel length), alpha [deg] (bending angle of the zigzag
-           from the main flow direction), zigzag_pitch [m] (optional)
+           from the main flow direction), P_zz [m] (optional)
     cond : G [kg/m2/s] (mass flux in ONE channel), mu [Pa s], rho [kg/m3] (or D [kg/m3])
     """
     # Read inputs
@@ -367,11 +367,11 @@ def PCHE_kim_no_2012_zigzag_SP_DP(AS, geom, cond):
         rho = cond['D']
 
     # Optional zigzag pitch, fallback to 24.6 mm with warning
-    pitch = geom.get('zigzag_pitch')
+    pitch = geom.get('P_zz')
     if pitch is None:
         pitch = 24.6e-3
         warnings.warn(
-            "PCHE_kim_no_2012_zigzag_SP_DP: geom['zigzag_pitch'] not given: 24.6 mm assumed."
+            "PCHE_kim_no_2012_zigzag_SP_DP: geom['P_zz'] not given: 24.6 mm assumed."
         )
 
     # A zigzag needs 0 < alpha < 90 deg: otherwise raise ValueError
@@ -939,7 +939,7 @@ def PCHE_baik_zigzag_SP_DP(AS, geom, cond):
       DP = 4 * f_fanning * (L / D_mod) * G^2 / (2 * rho). (Bae et al. 2019 quote the Darcy
       form of the CO2 fit, 0.2992 Re^-0.19 = 4 x 0.0748.)
     - Modified hydraulic diameter D_mod = sqrt(4 * A / pi) (circle of the same
-      flow area, Baik Fig. 8). If 'D_c' in geom, D_mod = geom['D_c'] / sqrt(2.0) (ideal
+      flow area, Baik Fig. 8). If 'D_ch' in geom, D_mod = geom['D_ch'] / sqrt(2.0) (ideal
       semicircle); otherwise D_mod = geom['Dh'] with a warning.
     - Re = G * D_mod / mu, based on the modified diameter.
     - Bulk properties of the cell.
@@ -983,12 +983,12 @@ def PCHE_baik_zigzag_SP_DP(AS, geom, cond):
         rho = cond['D']
 
     # Determine modified hydraulic diameter D_mod (Baik Fig. 8)
-    if 'D_c' in geom:
-        D_mod = geom['D_c'] / np.sqrt(2.0)
+    if 'D_ch' in geom:
+        D_mod = geom['D_ch'] / np.sqrt(2.0)
     else:
         D_mod = geom['Dh']
         warnings.warn(
-            "PCHE_baik_zigzag_SP_DP: 'D_c' not found in geom; using geom['Dh'] "
+            "PCHE_baik_zigzag_SP_DP: 'D_ch' not found in geom; using geom['Dh'] "
             "as D_mod, but Baik (2017) uses a modified hydraulic diameter."
         )
 
@@ -1240,7 +1240,7 @@ def PCHE_bae_two_phase_DP(AS, geom, cond):
     - Darcy friction factor f used in DP (explicitly stated: f_go = 0.2992 Re^-0.19,
       which is 4 x Baik's Fanning 0.0748).
     - Modified hydraulic diameter D_mod = sqrt(4 * A / pi) (circle of the same flow area).
-      If 'D_c' in geom: D_mod = geom['D_c'] / sqrt(2.0) (ideal semicircle of diameter D_c:
+      If 'D_ch' in geom: D_mod = geom['D_ch'] / sqrt(2.0) (ideal semicircle of diameter D_c:
       A = pi * D_c^2 / 8); otherwise use geom['Dh'] and warn that the modified diameter
       could not be computed. G is unchanged (same area). Bae does not restate the diameter:
       Baik's is assumed (same KAIST PCHE).
@@ -1322,13 +1322,13 @@ def PCHE_bae_two_phase_DP(AS, geom, cond):
         )
 
     # Compute modified hydraulic diameter (Baik's modified diameter D = sqrt(4 * A / pi))
-    if 'D_c' in geom:
-        D_c = geom['D_c']
+    if 'D_ch' in geom:
+        D_c = geom['D_ch']
         D_mod = D_c / np.sqrt(2.0)
     else:
         D_mod = geom['Dh']
         warnings.warn(
-            "PCHE_bae_two_phase_DP: 'D_c' not found in geom. Used geom['Dh'] as "
+            "PCHE_bae_two_phase_DP: 'D_ch' not found in geom. Used geom['Dh'] as "
             "D_mod, but Baik's modified diameter could not be precisely computed."
         )
 

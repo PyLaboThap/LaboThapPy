@@ -21,7 +21,7 @@ _TFHE_FIN_DP = {'Pismennyi': TFHE_pismennyi_DP,
                 'Pismennyi_Square': TFHE_pismennyi_DP,
                 # circular (annular) fins, staggered banks, explicit choice; includes entrance / exit
                 'ESDU_high_fin': TFHE_esdu_high_fin_DP}
-# continuous plain plate fins (Fin_type 'Square'), staggered, explicit choice; core friction only
+# continuous plain plate fins (fin_type 'Square'), staggered, explicit choice; core friction only
 _TFHE_FIN_DP['Wang_plain_fin'] = TFHE_wang_plain_fin_DP
 
 
