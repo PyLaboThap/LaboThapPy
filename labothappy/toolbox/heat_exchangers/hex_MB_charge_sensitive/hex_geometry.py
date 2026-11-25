@@ -243,10 +243,25 @@ def wall_resistance(htx, p, A=None, L=None, n_tot=1):
     return t / (k * A)
 
 
+def _sizing_parameter(sizing, p):
+    """Spirals (SPHE, SCHE): ONE of the sizing parameters (e.g. D_ext, n_turns) is needed.
+    Returns [the one given by the user] (values written by a previous solve are recognised
+    and ignored, as in solve), or [sizing[0]] if none is given (reported as missing)."""
+    p = p or {}
+    written = p.get('_spiral_written', {})
+    given = [k for k in sizing if p.get(k) is not None and p[k] != written.get(k)]
+    if given:
+        return given[:1]
+    return [sizing[0]]
+
+
 class HXGeometry:
     HTX_TYPE = None
 
-    def required_parameters(self, corr_1p=()):
+    def required_parameters(self, p=None):
+        """Geometry parameters needed by solve, for the geometry options set in p (parameter
+        dictionary of the model; None = options not set yet). The parameters needed by the
+        correlations are added by the model (HexMB.get_required_parameters)."""
         raise NotImplementedError
 
     def solve(self, p, m_h, m_c, n_s=1, n_p=1, K=0.0):
@@ -263,7 +278,7 @@ class HXGeometry:
 class BPHEGeometry(HXGeometry):
     HTX_TYPE = 'BPHE'
 
-    def required_parameters(self, corr_1p=()):
+    def required_parameters(self, p=None):
         return ['A_C', 'A_H', 'h', 'l', 'l_v', 'w', 'n_p', 't_p', 'n_ch_C', 'n_ch_H',
                 'beta', 'R_f']
 
@@ -331,14 +346,12 @@ class _TubeGeometry(HXGeometry):
 class STHEGeometry(_TubeGeometry):
     HTX_TYPE = 'STHE'
 
-    def required_parameters(self, corr_1p=()):
-        geometry = ['BC', 'D_s', 'L_t', 'D_t_o', 'n_passes', 't_t', 'B',
-                    'R_f_S', 'R_f_T', 'n_series', 'n_parallel', 'n_t', 'PR', 'k_wall',
-                    'theta', 'shell_side']
-        if 'Bell_Delaware' in corr_1p:
-            geometry += ['D_OTL', 'N_strips', 'TS_t', 'delta_BS', 'delta_TB', 'B_i',
-                         'B_o']
-        return geometry
+    def required_parameters(self, p=None):
+        # The Bell-Delaware leakage and bypass parameters (D_OTL, N_strips, ...) are added by the
+        # model when a Bell_Delaware correlation is chosen (tables of STHE_HTC / STHE_DP).
+        return ['BC', 'D_s', 'L_t', 'D_t_o', 'n_passes', 't_t', 'B',
+                'R_f_S', 'R_f_T', 'n_series', 'n_parallel', 'n_t', 'PR', 'k_wall',
+                'theta', 'shell_side']
 
     def solve(self, p, m_h, m_c, n_s=1, n_p=1, K=0.0):
         D_t_i, A_one, L_flow, A_flow = self._tube_basics(p, n_s, n_p)
@@ -368,7 +381,7 @@ class STHEGeometry(_TubeGeometry):
 class TFHEGeometry(_TubeGeometry):
     HTX_TYPE = 'TFHE'
 
-    def required_parameters(self, corr_1p=()):
+    def required_parameters(self, p=None):
         return ['A_flow', 'D_f_o', 'f_density', 't_f', 'fin_type', 'finned', 'L_t', 'D_t_o',
                 'k_wall', 't_t', 'R_f', 'h', 'k_f', 'n_passes', 'n_rows', 'n_series', 'n_parallel',
                 'n_t', 'P', 'PR', 'theta', 'w', 'fin_side']
@@ -429,10 +442,19 @@ class PCHEGeometry(HXGeometry):
     included, as in the semicircular case)."""
     HTX_TYPE = 'PCHE'
 
-    def required_parameters(self, corr_1p=()):
-        # D_ch (semicircular) or g_f, d_f (rectangular) are checked in solve: they depend on
-        # ch_section, which required_parameters does not see.
-        return ['alpha', 'k_wall', 'L_ch', 'n_ch_p', 'n_p', 'R_p', 't_2', 't_3']
+    def required_parameters(self, p=None):
+        p = p or {}
+        required = ['k_wall', 'L_ch', 'n_ch_p', 'n_p', 'R_p', 't_2', 't_3']
+        # channel section: semicircle of diameter D_ch, or rectangle g_f x d_f
+        if str(p.get('ch_section', 'semicircular')).lower() == 'rectangular':
+            required += ['g_f', 'd_f']
+        else:
+            required += ['D_ch']
+        # channel path: the bending angle alpha is needed for zigzag and S-fin channels
+        # (a correlation that needs alpha for straight channels adds it itself)
+        if str(p.get('type_channel', 'Straight')).lower() in ('zigzag', 's_fin'):
+            required += ['alpha']
+        return required
 
     def solve(self, p, m_h, m_c, n_s=1, n_p=1, K=0.0):
         section = str(p.get('ch_section', 'semicircular')).lower()
@@ -482,8 +504,8 @@ class SPHEGeometry(HXGeometry):
     HTX_TYPE = 'SPHE'
     SIZING = ('D_ext', 'n_turns', 'A_sp')
 
-    def required_parameters(self, corr_1p=()):
-        return ['H', 'b_H', 'b_C', 't', 'r0_in', 'inner_ch']   # + one of D_ext / n_turns / A_sp
+    def required_parameters(self, p=None):
+        return ['H', 'b_H', 'b_C', 't', 'r0_in', 'inner_ch'] + _sizing_parameter(self.SIZING, p)
 
     def solve(self, p, m_h, m_c, n_s=1, n_p=1, K=0.0):
         if n_s != 1:
@@ -552,9 +574,9 @@ class SCHEGeometry(HXGeometry):
     HTX_TYPE = 'SCHE'
     SIZING = ('D_ext', 'n_turns')
 
-    def required_parameters(self, corr_1p=()):
+    def required_parameters(self, p=None):
         return ['H', 'w_ch_C', 'h_ch_C', 'w_ch_H', 'h_ch_H', 'P_H', 'P_V', 'r0_in',
-                'inner_ch']
+                'inner_ch'] + _sizing_parameter(self.SIZING, p)
 
     @staticmethod
     def _ellipse(w, h):

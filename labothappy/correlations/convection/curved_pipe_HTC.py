@@ -67,3 +67,32 @@ def curved_pipe_HTC(AS, geom, cond, flow_state, choices=None):
     warnings.warn(f"HCHE: pipe correlation {choice!r} on the straight equivalent tube (no curvature effect).",
                   ValidityRangeWarning)
     return pipe_HTC(AS, _equivalent_tube(geom), cond, flow_state, {flow_state: choice})
+
+
+# =============================================================================
+# PARAMETERS NEEDED BY EACH CORRELATION IN ADDITION TO THE GEOMETRY
+# =============================================================================
+
+# Model parameters that each registered correlation needs IN ADDITION to the
+# parameters of the heat exchanger geometry (hex_geometry required_parameters): keys
+# that the geometry does not compute. () = the geometry parameters are enough.
+# Found on 2026-11-25 by removing the keys one at a time at hex_MB states
+# (correlation_warnings.parameters_by_removal) and by reading the code.
+_REQUIRED_PARAMETERS = {
+    'Sigalotti': (),
+    'Schmidt': (),
+    'Mori_Nakayama': (),
+    'Xin_Ebadian': (),
+    'Zhao': (),
+    'Nariai': (),
+    'Zakeralhoseini': (),
+}
+
+
+def required_parameters(name):
+    """Model parameters that the correlation `name` needs in addition to the geometry
+    parameters (tuple, empty if none). Raises KeyError for a name that is not registered here."""
+    if name not in _REQUIRED_PARAMETERS:
+        raise KeyError(f"curved_pipe_HTC: unknown correlation {name!r}; registered: "
+                       f"{list(_REQUIRED_PARAMETERS)}.")
+    return _REQUIRED_PARAMETERS[name]

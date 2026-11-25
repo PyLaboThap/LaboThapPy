@@ -169,49 +169,54 @@ def auto_htc_correlation(AS, geom, cond):
     raise NotImplementedError(f"auto_htc_correlation: HTX_Type {htx!r} is not handled.")
 
 
+def _htc_case_tables(htx, side, state, curved):
+    """Registry tables of the heat transfer correlations of a case, in priority order, as
+    (dispatcher module, table {name: function}).
+    htx: HTX_Type; side: 'shell' / 'tube' (STHE), 'fin' / 'tube' (TFHE), None otherwise;
+    state: 'SP', 'EVAP', 'COND'; curved: True if the channel has a radius of curvature."""
+    from labothappy.correlations.convection import BPHE_HTC, STHE_HTC, pipe_HTC, PCHE_HTC, TFHE_HTC
+    from labothappy.correlations.convection import curved_pipe_HTC, SPHE_HTC
+
+    pipe_tables = {'SP': pipe_HTC._PIPE_SP_HTC, 'EVAP': pipe_HTC._PIPE_EVAP_HTC,
+                   'COND': pipe_HTC._PIPE_COND_HTC}
+
+    if htx == 'BPHE':
+        return [(BPHE_HTC, {'SP': BPHE_HTC._BPHX_SP_HTC, 'EVAP': BPHE_HTC._BPHX_EVAP_HTC,
+                            'COND': BPHE_HTC._BPHX_COND_HTC}[state])]
+    if htx == 'STHE' and side == 'tube':
+        return [(pipe_HTC, pipe_tables[state])]
+    if htx == 'STHE':
+        return [(STHE_HTC, {'SP': STHE_HTC._STHE_SP_HTC, 'EVAP': STHE_HTC._STHE_EVAP_HTC,
+                            'COND': STHE_HTC._STHE_COND_HTC}[state])]
+    if htx in ('TFHE', 'Tube&Fins') and side == 'tube':
+        return [(pipe_HTC, pipe_tables[state])]
+    if htx in ('TFHE', 'Tube&Fins'):
+        return [(TFHE_HTC, TFHE_HTC._TFHE_FIN_HTC)]
+    if htx == 'PCHE' and state == 'SP':
+        return [(PCHE_HTC, PCHE_HTC._PCHE_SP_HTC)]
+    if htx == 'PCHE':
+        # two phase: PCHE correlations, then the tube correlations of the equivalent tube
+        # (curved pipe ones if the channel has a radius of curvature, straight pipe ones otherwise)
+        own = {'EVAP': PCHE_HTC._PCHE_EVAP_HTC, 'COND': PCHE_HTC._PCHE_COND_HTC}[state]
+        if curved:
+            return [(PCHE_HTC, own), (curved_pipe_HTC, curved_pipe_HTC._HCHE[state])]
+        return [(PCHE_HTC, own), (pipe_HTC, pipe_tables[state])]
+    if htx in ('HCHE', 'SCHE'):
+        return [(curved_pipe_HTC, curved_pipe_HTC._HCHE[state])]
+    if htx == 'SPHE':
+        return [(SPHE_HTC, SPHE_HTC._SPHE[state])]
+    raise NotImplementedError(f"htc_candidates: HTX_Type {htx!r} is not handled.")
+
+
 def htc_candidates(AS, geom, cond):
     """Names of every registered heat transfer correlation usable for the case of cond
     (heat exchanger type, side, flow state), in priority order: the rule-based automatic choice
     (auto_htc_correlation) first, then the others in the order of the registry tables.
     A function registered under several names (aliases) appears once."""
-    from labothappy.correlations.convection import BPHE_HTC, STHE_HTC, pipe_HTC, PCHE_HTC, TFHE_HTC
-    from labothappy.correlations.convection import curved_pipe_HTC, SPHE_HTC
-
     htx = geom.get('HTX_Type')
     state = cond.get('flow_state')
     side = cond.get('side', geom.get('side'))
-    pipe_tables = {'SP': pipe_HTC._PIPE_SP_HTC, 'EVAP': pipe_HTC._PIPE_EVAP_HTC,
-                   'COND': pipe_HTC._PIPE_COND_HTC}
-
-    # Registry tables of the case
-    if htx == 'BPHE':
-        tables = [{'SP': BPHE_HTC._BPHX_SP_HTC, 'EVAP': BPHE_HTC._BPHX_EVAP_HTC,
-                   'COND': BPHE_HTC._BPHX_COND_HTC}[state]]
-    elif htx == 'STHE' and side == 'tube':
-        tables = [pipe_tables[state]]
-    elif htx == 'STHE':
-        tables = [{'SP': STHE_HTC._STHE_SP_HTC, 'EVAP': STHE_HTC._STHE_EVAP_HTC,
-                   'COND': STHE_HTC._STHE_COND_HTC}[state]]
-    elif htx in ('TFHE', 'Tube&Fins') and side == 'tube':
-        tables = [pipe_tables[state]]
-    elif htx in ('TFHE', 'Tube&Fins'):
-        tables = [TFHE_HTC._TFHE_FIN_HTC]
-    elif htx == 'PCHE' and state == 'SP':
-        tables = [PCHE_HTC._PCHE_SP_HTC]
-    elif htx == 'PCHE':
-        # two phase: PCHE correlations, then the tube correlations of the equivalent tube
-        # (curved pipe ones if the channel has a radius of curvature, straight pipe ones otherwise)
-        own = {'EVAP': PCHE_HTC._PCHE_EVAP_HTC, 'COND': PCHE_HTC._PCHE_COND_HTC}[state]
-        if 'R_curv' in geom:
-            tables = [own, curved_pipe_HTC._HCHE[state]]
-        else:
-            tables = [own, pipe_tables[state]]
-    elif htx in ('HCHE', 'SCHE'):
-        tables = [curved_pipe_HTC._HCHE[state]]
-    elif htx == 'SPHE':
-        tables = [SPHE_HTC._SPHE[state]]
-    else:
-        raise NotImplementedError(f"htc_candidates: HTX_Type {htx!r} is not handled.")
+    tables = [table for _, table in _htc_case_tables(htx, side, state, 'R_curv' in geom)]
 
     # Rule-based choice first, then the registry order, each function once
     names = [auto_htc_correlation(AS, geom, cond)]
@@ -252,3 +257,82 @@ def choose_htc_correlation(AS, geom, cond):
     if chosen is None:
         raise ValueError(f"{label}: no candidate correlation can be computed ({rejected}).")
     return chosen
+
+
+# Keys that only route the call (type, side, state): not tested by the required-parameter search
+_ROUTING_KEYS = ('HTX_Type', 'side', 'flow_state', 'phase')
+
+
+def htc_required_parameters(AS, geom, cond, correlation=None):
+    """Parameters needed by a heat transfer correlation at the state of cond.
+
+    Each key of geom and cond is removed in turn and the correlation is evaluated again
+    (see correlation_warnings.parameters_by_removal): a key whose removal makes the evaluation
+    fail, or makes the correlation assume a value, is required; a key whose removal only
+    changes the value is optional. Routing keys (_ROUTING_KEYS) are not tested.
+
+    Arguments
+    ---------
+    AS          : CoolProp AbstractState set at the state of cond (h, p)
+    geom, cond  : as for heat_transfer_coefficient
+    correlation : name of the correlation (or dict {state: name}); None or 'auto' = the
+                  automatic choice (choose_htc_correlation)
+
+    Returns
+    -------
+    dict {'correlation': name,
+          'geom': {'required': [...], 'optional': [...]},
+          'cond': {'required': [...], 'optional': [...]}}
+    """
+    import CoolProp.CoolProp as CP
+    from labothappy.correlations.convection.correlation_warnings import parameters_by_removal
+
+    if correlation is None or correlation == 'auto':
+        correlation = choose_htc_correlation(AS, geom, cond)
+
+    # The correlations may move AS (saturation properties): it is set back before every trial
+    h, p = AS.hmass(), AS.p()
+
+    def evaluate(trial_geom, trial_cond):
+        AS.update(CP.HmassP_INPUTS, h, p)
+        return heat_transfer_coefficient(AS, trial_geom, trial_cond, correlation)
+
+    try:
+        result = parameters_by_removal(geom, cond, evaluate, skip=_ROUTING_KEYS)
+    finally:
+        AS.update(CP.HmassP_INPUTS, h, p)
+    result['correlation'] = correlation
+    return result
+
+def htc_correlation_parameters(htx, side, state, name=None, curved=False):
+    """Model parameters that a heat transfer correlation needs IN ADDITION to the parameters of the
+    geometry (tables _REQUIRED_PARAMETERS of the dispatchers of each type), for one case.
+
+    Arguments
+    ---------
+    htx    : HTX_Type ('BPHE', 'STHE', 'TFHE', 'PCHE', 'SPHE', 'SCHE', 'HCHE')
+    side   : 'shell' / 'tube' (STHE), 'fin' / 'tube' (TFHE), None for the other types
+    state  : 'SP', 'EVAP' or 'COND'
+    name   : correlation name; None or 'auto' = automatic choice: the parameters of the
+             registered correlation of the case that needs the FEWEST are returned (with the
+             trial choice, the solve can always fall back on it)
+    curved : True if the channel has a radius of curvature (PCHE two phase: curved pipe tables)
+
+    Returns
+    -------
+    tuple of parameter names. A name that is not registered for the case returns () (the
+    dispatcher raises the error at the first evaluation).
+    """
+    tables = _htc_case_tables(htx, side, state, curved)
+    if name is None or name == 'auto':
+        fewest = None
+        for module, table in tables:
+            for registered in table:
+                needed = module.required_parameters(registered)
+                if fewest is None or len(needed) < len(fewest):
+                    fewest = needed
+        return tuple(fewest or ())
+    for module, table in tables:
+        if name in table:
+            return tuple(module.required_parameters(name))
+    return ()

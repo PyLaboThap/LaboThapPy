@@ -53,9 +53,9 @@ from labothappy.correlations.void_fraction.void_fraction import (
 from labothappy.toolbox.heat_exchangers.hex_MB_charge_sensitive.hex_geometry import make_geometry, GEOMETRIES
 
 from labothappy.correlations.convection.heat_transfer_coefficient_dispatch import (
-    heat_transfer_coefficient, choose_htc_correlation)
+    heat_transfer_coefficient, choose_htc_correlation, htc_correlation_parameters)
 from labothappy.correlations.pressure_drop.pressure_drop_dispatch import (
-    pressure_drop, port_pressure_drop, choose_dp_correlation)
+    pressure_drop, port_pressure_drop, choose_dp_correlation, dp_correlation_parameters)
 from labothappy.correlations.properties.thermal_conductivity import conducticity_R1233zd
 
 # Bounds used by the external pinch analysis (kept from the original model)
@@ -293,11 +293,58 @@ class HexMB(BaseComponent):
         return ['P_su_H', 'T_su_H', 'm_dot_H', 'fluid_H', 'P_su_C', 'T_su_C', 'm_dot_C', 'fluid_C']
 
     def get_required_parameters(self):
+        """General parameters + geometry parameters (they depend on the geometry options, e.g.
+        PCHE ch_section / type_channel, see hex_geometry) + parameters needed by the
+        correlations in addition to the geometry (_correlation_parameters)."""
         general = ['Flow_Type', 'htc_type', 'n_disc']
-        corr_1p = {self.H.htc_corr.get('1P'), self.C.htc_corr.get('1P')}
+        geometry = self.geometry.required_parameters(self.params)
+        required = []
+        for name in general + geometry + self._correlation_parameters():
+            if name not in required:
+                required.append(name)
+        return required
 
-        geometry = self.geometry.required_parameters(corr_1p)
-        return general + geometry
+    def _correlation_parameters(self):
+        """Parameters needed by the heat transfer and pressure drop correlations of both sides in
+        addition to the geometry parameters (tables _REQUIRED_PARAMETERS of the dispatchers).
+        For each side and each correlation key ('1P', '2P', 'SC'; 'SC' falls back on '1P'):
+          - name given: the parameters of this correlation;
+          - None / 'auto': the parameters of the registered correlation of the case that needs
+            the fewest (the automatic choice can always fall back on it).
+        '2P' is condensation on the hot side and evaporation on the cold side. STHE / TFHE: the
+        side of each stream comes from shell_side / fin_side (not set yet: nothing added)."""
+        p = self.params
+        htx = self.HTX_Type
+        curved = htx in ('SPHE', 'SCHE')            # channels with a radius of curvature
+
+        # Which quantities use correlations
+        kinds = []
+        if p.get('htc_type') != 'User-Defined':
+            kinds.append(('htc', htc_correlation_parameters))
+        if p.get('DP_type') in ('Correlation_Global', 'Correlation_Disc'):
+            kinds.append(('dp', dp_correlation_parameters))
+
+        needed = []
+        for side in (self.H, self.C):
+            # Side of the stream for the dispatchers (STHE: shell / tube, TFHE: fin / tube)
+            if htx == 'STHE' or htx == 'TFHE':
+                outer_stream = p.get('shell_side') if htx == 'STHE' else p.get('fin_side')
+                if outer_stream is None:
+                    continue
+                outer = 'shell' if htx == 'STHE' else 'fin'
+                side_name = outer if outer_stream == side.name else 'tube'
+            else:
+                side_name = None
+            two_phase_state = 'COND' if side.name == 'H' else 'EVAP'
+
+            for kind, parameters in kinds:
+                table = side.htc_corr if kind == 'htc' else side.dp_corr
+                for key, state in (('1P', 'SP'), ('2P', two_phase_state), ('SC', 'SP')):
+                    name = table.get(key)
+                    if key == 'SC' and name is None:
+                        name = table.get('1P')
+                    needed += parameters(htx, side_name, state, name, curved)
+        return needed
 
     def set_htc(self, htc_type="Correlation", Corr_H=None, Corr_C=None, UD_H_HTC=None, UD_C_HTC=None):
         """

@@ -163,47 +163,54 @@ def auto_dp_correlation(AS, geom, cond):
     raise NotImplementedError(f"auto_dp_correlation: heat exchanger type {htx!r} is not handled.")
 
 
+def _dp_case_tables(htx, side, state, curved=False):
+    """Registry tables of the pressure drop correlations of a case, in priority order, as
+    (dispatcher module, table {name: function}).
+    htx: HTX_Type; side: 'shell' / 'tube' (STHE), 'fin' / 'tube' (TFHE), None otherwise;
+    state: 'SP', 'EVAP', 'COND' (a 'vapor-wet' cell is 'SP'); curved: not used (same
+    signature as _htc_case_tables)."""
+    from labothappy.correlations.pressure_drop import BPHX_DP, STHE_DP, pipe_DP, PCHE_DP, TFHE_DP
+    from labothappy.correlations.pressure_drop import curved_pipe_DP, SPHE_DP
+
+    pipe_tables = {'SP': pipe_DP._PIPE_SP_DP, 'EVAP': pipe_DP._PIPE_EVAP_DP,
+                   'COND': pipe_DP._PIPE_COND_DP}
+
+    if htx == 'BPHE':
+        return [(BPHX_DP, {'SP': BPHX_DP._BPHX_SP_DP, 'EVAP': BPHX_DP._BPHX_EVAP_DP,
+                           'COND': BPHX_DP._BPHX_COND_DP}[state])]
+    if htx in ('STHE', 'TFHE') and side == 'tube':
+        return [(pipe_DP, pipe_tables[state])]
+    if htx == 'STHE' and state == 'SP':
+        return [(STHE_DP, STHE_DP._STHE_SP_DP)]
+    if htx == 'STHE':
+        return [(STHE_DP, STHE_DP._STHE_2P_DP)]
+    if htx == 'TFHE':
+        return [(TFHE_DP, TFHE_DP._TFHE_FIN_DP)]
+    if htx == 'PCHE' and state == 'SP':
+        return [(PCHE_DP, PCHE_DP._PCHE_SP_DP), (pipe_DP, pipe_tables['SP'])]
+    if htx == 'PCHE':
+        return [(PCHE_DP, PCHE_DP._PCHE_2P_DP), (pipe_DP, pipe_tables[state])]
+    if htx == 'SPHE' and state == 'SP':
+        return [(SPHE_DP, SPHE_DP._SPHE_SP), (curved_pipe_DP, curved_pipe_DP._CURVED['SP'])]
+    if htx in ('SPHE',) + _CURVED_PIPE_TYPES and state != 'SP':
+        return [(curved_pipe_DP, curved_pipe_DP._CURVED[state]), (pipe_DP, pipe_tables[state])]
+    if htx in _CURVED_PIPE_TYPES:
+        return [(curved_pipe_DP, curved_pipe_DP._CURVED['SP'])]
+    raise NotImplementedError(f"dp_candidates: heat exchanger type {htx!r} is not handled.")
+
+
 def dp_candidates(AS, geom, cond):
     """Names of every registered pressure drop correlation usable for the case of cond
     (heat exchanger type, side, flow state; a 'vapor-wet' cell is single phase), in priority
     order: the rule-based automatic choice (auto_dp_correlation) first, then the others in the
     order of the registry tables. A function registered under several names appears once."""
-    from labothappy.correlations.pressure_drop import BPHX_DP, STHE_DP, pipe_DP, PCHE_DP, TFHE_DP
-    from labothappy.correlations.pressure_drop import curved_pipe_DP, SPHE_DP
-
     htx = geom.get('HTX_Type')
     if cond.get('phase') == 'vapor-wet':
         state = 'SP'
     else:
         state = cond.get('flow_state')
     side = cond.get('side', geom.get('side'))
-    pipe_tables = {'SP': pipe_DP._PIPE_SP_DP, 'EVAP': pipe_DP._PIPE_EVAP_DP,
-                   'COND': pipe_DP._PIPE_COND_DP}
-
-    # Registry tables of the case
-    if htx == 'BPHE':
-        tables = [{'SP': BPHX_DP._BPHX_SP_DP, 'EVAP': BPHX_DP._BPHX_EVAP_DP,
-                   'COND': BPHX_DP._BPHX_COND_DP}[state]]
-    elif htx in ('STHE', 'TFHE') and side == 'tube':
-        tables = [pipe_tables[state]]
-    elif htx == 'STHE' and state == 'SP':
-        tables = [STHE_DP._STHE_SP_DP]
-    elif htx == 'STHE':
-        tables = [STHE_DP._STHE_2P_DP]
-    elif htx == 'TFHE':
-        tables = [TFHE_DP._TFHE_FIN_DP]
-    elif htx == 'PCHE' and state == 'SP':
-        tables = [PCHE_DP._PCHE_SP_DP, pipe_tables['SP']]
-    elif htx == 'PCHE':
-        tables = [PCHE_DP._PCHE_2P_DP, pipe_tables[state]]
-    elif htx == 'SPHE' and state == 'SP':
-        tables = [SPHE_DP._SPHE_SP, curved_pipe_DP._CURVED['SP']]
-    elif htx in ('SPHE',) + _CURVED_PIPE_TYPES and state != 'SP':
-        tables = [curved_pipe_DP._CURVED[state], pipe_tables[state]]
-    elif htx in _CURVED_PIPE_TYPES:
-        tables = [curved_pipe_DP._CURVED['SP']]
-    else:
-        raise NotImplementedError(f"dp_candidates: heat exchanger type {htx!r} is not handled.")
+    tables = [table for _, table in _dp_case_tables(htx, side, state)]
 
     # Rule-based choice first, then the registry order, each function once
     names = [auto_dp_correlation(AS, geom, cond)]
@@ -244,3 +251,82 @@ def choose_dp_correlation(AS, geom, cond):
     if chosen is None:
         raise ValueError(f"{label}: no candidate correlation can be computed ({rejected}).")
     return chosen
+
+
+# Keys that only route the call (type, side, state): not tested by the required-parameter search
+_ROUTING_KEYS = ('HTX_Type', 'side', 'flow_state', 'phase')
+
+
+def dp_required_parameters(AS, geom, cond, correlation=None):
+    """Parameters needed by a pressure drop correlation at the state of cond.
+
+    Each key of geom and cond is removed in turn and the correlation is evaluated again
+    (see correlation_warnings.parameters_by_removal): a key whose removal makes the evaluation
+    fail, or makes the correlation assume a value, is required; a key whose removal only
+    changes the value is optional. Routing keys (_ROUTING_KEYS) are not tested.
+
+    Arguments
+    ---------
+    AS          : CoolProp AbstractState set at the state of cond (h, p)
+    geom, cond  : as for pressure_drop
+    correlation : name of the correlation (or dict {state: name}); None or 'auto' = the
+                  automatic choice (choose_dp_correlation)
+
+    Returns
+    -------
+    dict {'correlation': name,
+          'geom': {'required': [...], 'optional': [...]},
+          'cond': {'required': [...], 'optional': [...]}}
+    """
+    import CoolProp.CoolProp as CP
+    from labothappy.correlations.convection.correlation_warnings import parameters_by_removal
+
+    if correlation is None or correlation == 'auto':
+        correlation = choose_dp_correlation(AS, geom, cond)
+
+    # The correlations may move AS (saturation properties): it is set back before every trial
+    h, p = AS.hmass(), AS.p()
+
+    def evaluate(trial_geom, trial_cond):
+        AS.update(CP.HmassP_INPUTS, h, p)
+        return pressure_drop(AS, trial_geom, trial_cond, correlation)
+
+    try:
+        result = parameters_by_removal(geom, cond, evaluate, skip=_ROUTING_KEYS)
+    finally:
+        AS.update(CP.HmassP_INPUTS, h, p)
+    result['correlation'] = correlation
+    return result
+
+def dp_correlation_parameters(htx, side, state, name=None, curved=False):
+    """Model parameters that a pressure drop correlation needs IN ADDITION to the parameters of the
+    geometry (tables _REQUIRED_PARAMETERS of the dispatchers of each type), for one case.
+
+    Arguments
+    ---------
+    htx    : HTX_Type ('BPHE', 'STHE', 'TFHE', 'PCHE', 'SPHE', 'SCHE', 'HCHE')
+    side   : 'shell' / 'tube' (STHE), 'fin' / 'tube' (TFHE), None for the other types
+    state  : 'SP', 'EVAP' or 'COND'
+    name   : correlation name; None or 'auto' = automatic choice: the parameters of the
+             registered correlation of the case that needs the FEWEST are returned (with the
+             trial choice, the solve can always fall back on it)
+    curved : True if the channel has a radius of curvature (PCHE two phase: curved pipe tables)
+
+    Returns
+    -------
+    tuple of parameter names. A name that is not registered for the case returns () (the
+    dispatcher raises the error at the first evaluation).
+    """
+    tables = _dp_case_tables(htx, side, state, curved)
+    if name is None or name == 'auto':
+        fewest = None
+        for module, table in tables:
+            for registered in table:
+                needed = module.required_parameters(registered)
+                if fewest is None or len(needed) < len(fewest):
+                    fewest = needed
+        return tuple(fewest or ())
+    for module, table in tables:
+        if name in table:
+            return tuple(module.required_parameters(name))
+    return ()

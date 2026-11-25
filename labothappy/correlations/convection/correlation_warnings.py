@@ -88,3 +88,109 @@ def choose_by_trial(names, evaluate, label):
         warnings.warn(f"{label}: automatic choice '{best}' ({', '.join(relaxed)}): no candidate "
                       "meets every criterion.", stacklevel=3)
     return best, rejected
+
+
+def parameters_by_removal(geom, cond, evaluate, skip=()):
+    """Parameters a correlation needs, found by REMOVING them and evaluating it again.
+
+    The correlation is evaluated once with every parameter (reference value). A removal "fails"
+    when the evaluation raises an error (KeyError, ...) or a NEW AssumedParameterWarning (a
+    default value is then used).
+      1. Each key of geom and cond is removed alone:
+           failure                    -> REQUIRED (no other given key can replace it)
+           value changed, no failure  -> OPTIONAL (used, but not needed to run)
+      2. The other keys are removed one after the other, CUMULATIVELY, starting from the end of
+         the dictionaries (hex_MB puts the computed keys after the user ones): a key whose
+         removal then fails or changes the value is kept -> ALTERNATIVE (needed, but another
+         given key could give the same quantity, e.g. Dh / D_t_i / D_ch; one of them is needed).
+    REQUIRED + ALTERNATIVE is a minimal set of keys giving the same value.
+    The test sees everything the dispatcher and the correlation read, even through copies of
+    geom / cond.
+
+    Arguments
+    ---------
+    geom     : geometry dictionary of the side
+    cond     : condition dictionary of the state
+    evaluate : function (geom, cond) -> value (heat transfer coefficient or pressure drop)
+    skip     : keys not tested (routing keys such as HTX_Type, flow_state, side)
+
+    Returns
+    -------
+    dict {'geom': {'required': [...], 'alternative': [...], 'optional': [...]},
+          'cond': {'required': [...], 'alternative': [...], 'optional': [...]}}
+    (keys in the order of the dictionaries)
+    """
+    import math
+    import warnings
+
+    def trial(trial_geom, trial_cond):
+        """(failed, value) of one evaluation."""
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            try:
+                value = evaluate(trial_geom, trial_cond)
+            except Exception:
+                return True, None
+        assumed = {str(w.message) for w in caught
+                   if issubclass(w.category, AssumedParameterWarning)}
+        return bool(assumed - reference_assumed), value
+
+    def same_value(value):
+        if value == reference:
+            return True
+        if not (math.isfinite(value) and math.isfinite(reference)):
+            return False
+        return math.isclose(value, reference, rel_tol=1e-9, abs_tol=0.0)
+
+    # Reference evaluation with every parameter (an error here is raised to the caller)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        reference = evaluate(geom, cond)
+    reference_assumed = {str(w.message) for w in caught
+                         if issubclass(w.category, AssumedParameterWarning)}
+
+    result = {}
+    for part in ('geom', 'cond'):
+        result[part] = {'required': [], 'alternative': [], 'optional': []}
+    tested = [('geom', key) for key in geom if key not in skip]
+    tested += [('cond', key) for key in cond if key not in skip]
+
+    # 1. Each key removed alone
+    unused = []
+    for part, key in tested:
+        trial_geom = dict(geom)
+        trial_cond = dict(cond)
+        if part == 'geom':
+            del trial_geom[key]
+        else:
+            del trial_cond[key]
+        failed, value = trial(trial_geom, trial_cond)
+        if failed:
+            result[part]['required'].append(key)
+        elif not same_value(value):
+            result[part]['optional'].append(key)
+        else:
+            unused.append((part, key))
+
+    # 2. Keys not used alone: removed cumulatively (from the end), kept if still needed
+    kept_geom = dict(geom)
+    kept_cond = dict(cond)
+    for part, key in reversed(unused):
+        trial_geom = dict(kept_geom)
+        trial_cond = dict(kept_cond)
+        if part == 'geom':
+            del trial_geom[key]
+        else:
+            del trial_cond[key]
+        failed, value = trial(trial_geom, trial_cond)
+        if failed or not same_value(value):
+            result[part]['alternative'].append(key)
+        else:
+            kept_geom = trial_geom
+            kept_cond = trial_cond
+
+    # Order of the dictionaries
+    for part, data in (('geom', geom), ('cond', cond)):
+        order = list(data)
+        result[part]['alternative'].sort(key=order.index)
+    return result

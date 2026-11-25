@@ -148,3 +148,44 @@ def PCHE_HTC(AS, geom, cond, flow_state, choices=None):
     if flow_state in ('EVAP', 'COND'):
         return _pipe(AS, geom, cond, flow_state, choice)
     raise ValueError(f"PCHE HTC: flow_state {flow_state!r}: expected 'SP', 'EVAP' or 'COND'.")
+
+
+# =============================================================================
+# PARAMETERS NEEDED BY EACH CORRELATION IN ADDITION TO THE GEOMETRY
+# =============================================================================
+
+# Model parameters that each registered correlation needs IN ADDITION to the
+# parameters of the heat exchanger geometry (hex_geometry required_parameters): keys
+# that the geometry does not compute. () = the geometry parameters are enough.
+# Found on 2026-11-25 by removing the keys one at a time at hex_MB states
+# (correlation_warnings.parameters_by_removal) and by reading the code.
+# alpha: bending angle of the zigzag / S-fin channels (error without it or for 0 deg).
+# D_ch: semicircular channel diameter, read directly by Bennett_Chen; Baik assumes
+# D_mod = Dh without it (AssumedParameterWarning). The other correlations use Dh.
+_REQUIRED_PARAMETERS = {
+    'Straight': (),
+    'Lee': ('alpha',),
+    'Bennett_Chen': ('alpha', 'D_ch'),
+    'Jiang': ('alpha',),
+    'Ngo': ('alpha',),
+    'Ngo_S_fin': ('alpha',),
+    'Kim_No_2012': ('alpha',),
+    'Kim_No_2011': ('alpha',),
+    'Liu_straight': (),
+    'Kwon': (),
+    'Katz': ('alpha',),
+    'Kim_SG_2016': ('alpha',),
+    'Baik': ('D_ch',),
+    'Saeed': (),
+    'Chen_2016': ('alpha',),
+    'Kwon_film_boiling': (),
+}
+
+
+def required_parameters(name):
+    """Model parameters that the correlation `name` needs in addition to the geometry
+    parameters (tuple, empty if none). Raises KeyError for a name that is not registered here."""
+    if name not in _REQUIRED_PARAMETERS:
+        raise KeyError(f"PCHE_HTC: unknown correlation {name!r}; registered: "
+                       f"{list(_REQUIRED_PARAMETERS)}.")
+    return _REQUIRED_PARAMETERS[name]
