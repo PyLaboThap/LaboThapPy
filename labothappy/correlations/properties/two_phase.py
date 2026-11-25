@@ -8,13 +8,22 @@ EPS = 1e-12
 # SHARED TWO-PHASE PROPERTY EXTRACTION
 #=======================================================================
 
+# HEOS states used for the surface tension: one per fluid, created once and kept
+_HEOS_FOR_SIGMA = {}
+
+
 def _get_surface_tension(AS, P, x):
+    """Surface tension [N/m] at saturation pressure P, always from a HEOS state of the fluid
+    (AS itself if its backend is HEOS). The tabular backends (BICUBIC&HEOS) are not used: with
+    CoolProp 7.2 their surface_tension() raises or returns the value of the first state for every
+    later state. nan if CoolProp has no surface tension for the fluid."""
     try:
-        return AS.surface_tension()
-    except ValueError:
-        pass
-    try:
-        AS_s = CP.AbstractState("HEOS", AS.fluid_names()[0])
+        if AS.backend_name() == 'HelmholtzEOSBackend':
+            return AS.surface_tension()
+        fluid = AS.fluid_names()[0]
+        if fluid not in _HEOS_FOR_SIGMA:
+            _HEOS_FOR_SIGMA[fluid] = CP.AbstractState("HEOS", fluid)
+        AS_s = _HEOS_FOR_SIGMA[fluid]
         AS_s.update(CP.PQ_INPUTS, P, x)
         return AS_s.surface_tension()
     except ValueError:

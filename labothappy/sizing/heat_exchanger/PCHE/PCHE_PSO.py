@@ -10,7 +10,7 @@ import os
 # os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
 
 from labothappy.component.base_component import BaseComponent
-from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
+from labothappy.component.heat_exchanger.hex_MB import HexMB
 
 from labothappy.toolbox.heat_exchangers.PCHE.thicknesses import PCHE_thicknesses
 from labothappy.toolbox.economics.cpi_data import actualize_price
@@ -57,7 +57,7 @@ class PCHESizingOpt(BaseComponent):
     def __init__(self):
         super().__init__()
         
-        self.HX = HexMBChargeSensitive('PCHE')
+        self.HX = HexMB('PCHE')
         self.bounds = {}
         
         return
@@ -84,7 +84,7 @@ class PCHESizingOpt(BaseComponent):
         if c['htc_type'] == "Correlation":
             HX.set_htc(Corr_H=c['H_Corr'], Corr_C=c['C_Corr'])
         else:
-            HX.set_htc(UD_H_HTC=c['UD_H_HTC'], UD_C_HTC=c['UD_C_HTC'])
+            HX.set_htc(htc_type='User-Defined', UD_H_HTC=c['UD_H_HTC'], UD_C_HTC=c['UD_C_HTC'])
     
         HX.params['H_DP_ON'] = self.params['H_DP_ON']
         HX.params['C_DP_ON'] = self.params['C_DP_ON']
@@ -130,11 +130,11 @@ class PCHESizingOpt(BaseComponent):
             "P_su_C": self.inputs['P_su_C'],
 
             "alpha": self.params["alpha"],
-            "D_c": self.params["D_c"],
-            "k_cond": self.params["k_cond"],
-            "L_c": self.params["L_c"],            
-            "N_c": self.params["N_c"],
-            "N_p": self.params["N_p"],
+            "D_ch": self.params["D_ch"],
+            "k_wall": self.params["k_wall"],
+            "L_ch": self.params["L_ch"],            
+            "n_ch_p": self.params["n_ch_p"],
+            "n_p": self.params["n_p"],
             "R_p": self.params["R_p"],
             "t_2": self.params["t_2"],
             "t_3": self.params["t_3"],
@@ -152,16 +152,16 @@ class PCHESizingOpt(BaseComponent):
         P_max = max(self.inputs['P_su_H'], self.inputs['P_su_C'])*1.5
         T_max = max(self.inputs['T_su_H'], self.inputs['T_su_C'])*1.2
         
-        self.params['t_2'], self.params['t_3'] = t_2, t_3 = PCHE_thicknesses(self.params['D_c'], P_max, T_max)
-        self.params['L_c'] = L_c = self.params['L_x']/np.cos(np.pi*self.params['alpha']/180)
+        self.params['t_2'], self.params['t_3'] = t_2, t_3 = PCHE_thicknesses(self.params['D_ch'], P_max, T_max)
+        self.params['L_ch'] = L_ch = self.params['L_x']/np.cos(np.pi*self.params['alpha']/180)
         
-        self.params['N_p'] = N_p = np.floor((self.params['L_y']-t_3)/(self.params['D_c']/2 + t_3))
-        self.params['N_c'] = N_c = np.floor((self.params['L_z']-t_2)/(self.params['D_c'] + t_2))
+        self.params['n_p'] = n_p = np.floor((self.params['L_y']-t_3)/(self.params['D_ch']/2 + t_3))
+        self.params['n_ch_p'] = n_ch_p = np.floor((self.params['L_z']-t_2)/(self.params['D_ch'] + t_2))
         
-        V_channel = np.pi*self.params['D_c']**2 / 8 * L_c
+        V_channel = np.pi*self.params['D_ch']**2 / 8 * L_ch
         
-        self.params['C_V_tot'] = 1/(1+self.params['R_p']) * N_p * N_c * V_channel
-        self.params['H_V_tot'] = self.params['R_p']/(1+self.params['R_p']) * N_p * N_c * V_channel
+        self.params['C_V_tot'] = 1/(1+self.params['R_p']) * n_p * n_ch_p * V_channel
+        self.params['H_V_tot'] = self.params['R_p']/(1+self.params['R_p']) * n_p * n_ch_p * V_channel
         
         return
 
@@ -232,7 +232,7 @@ class PCHESizingOpt(BaseComponent):
         warnings.filterwarnings('ignore')
     
         alpha      = x[0]
-        D_c        = x[1]
+        D_ch        = x[1]
         L_x        = x[2]
         L_y        = x[3]
         L_z        = x[4]
@@ -242,15 +242,15 @@ class PCHESizingOpt(BaseComponent):
         P_max = max(self.inputs['P_su_H'], self.inputs['P_su_C']) * 1.5
         T_max = max(self.inputs['T_su_H'], self.inputs['T_su_C']) * 1.2
     
-        t_2, t_3 = PCHE_thicknesses(D_c, P_max, T_max)
-        L_c = L_x / np.cos(np.pi * alpha / 180)
-        N_p = int(np.floor((L_y - t_3) / (D_c / 2 + t_3)))
-        N_c = int(np.floor((L_z - t_2) / (D_c + t_2)))
+        t_2, t_3 = PCHE_thicknesses(D_ch, P_max, T_max)
+        L_ch = L_x / np.cos(np.pi * alpha / 180)
+        n_p = int(np.floor((L_y - t_3) / (D_ch / 2 + t_3)))
+        n_ch_p = int(np.floor((L_z - t_2) / (D_ch + t_2)))
     
-        V_channel = np.pi * D_c**2 / 8 * L_c
+        V_channel = np.pi * D_ch**2 / 8 * L_ch
         R_p = self.params['R_p']
-        C_V_tot = 1 / (1 + R_p) * N_p * N_c * V_channel
-        H_V_tot = R_p / (1 + R_p) * N_p * N_c * V_channel
+        C_V_tot = 1 / (1 + R_p) * n_p * n_ch_p * V_channel
+        H_V_tot = R_p / (1 + R_p) * n_p * n_ch_p * V_channel
     
         # ---- feasibility ----
         V_block = L_x * L_y * L_z
@@ -260,15 +260,15 @@ class PCHESizingOpt(BaseComponent):
         # ---- build local param dict ----
         local_params = {
             **self.params,
-            'alpha': alpha, 'D_c': D_c, 'L_x': L_x, 'L_y': L_y, 'L_z': L_z,
+            'alpha': alpha, 'D_ch': D_ch, 'L_x': L_x, 'L_y': L_y, 'L_z': L_z,
             'n_parallel': n_parallel,
-            't_2': t_2, 't_3': t_3, 'L_c': L_c,
-            'N_p': N_p, 'N_c': N_c,
+            't_2': t_2, 't_3': t_3, 'L_ch': L_ch,
+            'n_p': n_p, 'n_ch_p': n_ch_p,
             'C_V_tot': C_V_tot, 'H_V_tot': H_V_tot,
         }
     
         # ---- simulate ----
-        HX = HexMBChargeSensitive('PCHE')
+        HX = HexMB('PCHE')
         HX.set_inputs(**self.inputs)
         self._apply_corr(HX)
         HX.set_parameters(**local_params)
@@ -296,7 +296,7 @@ class PCHESizingOpt(BaseComponent):
     def design(self):
         
         # Choose a fixed order for variables
-        ORDER = ['alpha', 'D_c', 'L_x', 'L_y', 'L_z']
+        ORDER = ['alpha', 'D_ch', 'L_x', 'L_y', 'L_z']
         
         def bounds_dict_to_arrays(bounds_dict, order=ORDER):
             lb = np.array([bounds_dict[k][0] for k in order], dtype=float)
@@ -343,7 +343,7 @@ class PCHESizingOpt(BaseComponent):
                 print("Stopping early due to stagnation.")
                 break
     
-        self.best_pos = optimizer.swarm.best_pos
+        self.best_pos = best_pos = optimizer.swarm.best_pos
     
         # Final evaluation
         self.simulate_HX(best_pos)  # or best_params if simulateHX expects dict
@@ -356,7 +356,7 @@ class PCHESizingOpt(BaseComponent):
     
     def design_parallel(self, n_jobs=-1, backend="threading", chunksize="auto", n_particles = 30, max_iter = None, patience = 10):
         # ---- fixed order + bounds ----
-        ORDER = ['alpha', 'D_c', 'L_x', 'L_y', 'L_z', 'n_parallel']
+        ORDER = ['alpha', 'D_ch', 'L_x', 'L_y', 'L_z', 'n_parallel']
         def bounds_dict_to_arrays(bounds_dict, order=ORDER):
             lb = np.array([bounds_dict[k][0] for k in order], dtype=float)
             ub = np.array([bounds_dict[k][1] for k in order], dtype=float)
@@ -423,13 +423,13 @@ class PCHESizingOpt(BaseComponent):
         
         # Safe single-threaded final eval — write results to self
         self.params.update({
-            'alpha': best_pos[0], 'D_c': best_pos[1],
+            'alpha': best_pos[0], 'D_ch': best_pos[1],
             'L_x': best_pos[2],   'L_y': best_pos[3], 'L_z': best_pos[4],
             'n_parallel': np.round(best_pos[5]),
         })
         self.compute_geom()
         
-        self.HX = HexMBChargeSensitive('PCHE')
+        self.HX = HexMB('PCHE')
         self.HX.set_inputs(**self.inputs)
         self._apply_corr(self.HX)
         self.HX.set_parameters(**self.params)
@@ -450,7 +450,7 @@ class PCHESizingOpt(BaseComponent):
             print("\nBest Position")
             print("-------------")
             print(f"alpha : {round(self.params['alpha'],2)} [°]")
-            print(f"D_c : {round(self.params['D_c']*1e3,2)} [mm]")
+            print(f"D_ch : {round(self.params['D_ch']*1e3,2)} [mm]")
             print(f"L_x : {round(self.params['L_x'],3)} [m]")
             print(f"L_y : {round(self.params['L_y'],3)} [m]")
             print(f"L_z : {round(self.params['L_z'],3)} [m]")
@@ -506,7 +506,7 @@ if __name__ == "__main__":
          )
         
     HX_opt.set_parameters(
-        k_cond = 60, # plate conductivity
+        k_wall = 60, # plate conductivity
         R_p = 1, # n_hot_channel_row / n_cold_channel_row
         
         n_disc = 50,
@@ -532,7 +532,7 @@ if __name__ == "__main__":
     
     HX_opt.set_bounds(
         alpha = [10,40], # [°]
-        D_c = [1*1e-3, 3*1e-3], # [m]
+        D_ch = [1*1e-3, 3*1e-3], # [m]
         L_x = [0.2, 1.5], # [m] : 0.6 limit fixed by Heatric (PCHE manufacturer) : Fluid direction
         L_y = [0.3, 2.3], # [m] : 2.3 limit for shipping requirements : Vertical direction
         L_z = [0.2, 0.6], # [m] : 1.5 limit fixed by Heatric (PCHE manufacturer) : Width

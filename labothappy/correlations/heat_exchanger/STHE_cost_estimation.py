@@ -40,7 +40,7 @@ def total_STHE_cost(HX, n_y=10, h_per_y=7000, C_e=0.12, i=0.1, eta_pp=0.8):
     CAPEX = a_1 + a_2*max(HX.A_h, HX.A_c)**a_3
     
     # OPEX of year n
-    if HX.params['Shell_Side'] == 'H':
+    if HX.params['shell_side'] == 'H':
         DP_t = HX.DP_c
         DP_s = HX.DP_h
         

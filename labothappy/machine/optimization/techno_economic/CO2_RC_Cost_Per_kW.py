@@ -51,7 +51,7 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
             )
     
         REC_sizing.set_parameters(
-            k_cond = 20, # plate conductivity
+            k_wall = 20, # plate conductivity
             R_p = 1, # n_hot_channel_row / n_cold_channel_row
             
             n_disc = 50,
@@ -79,7 +79,7 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
     
         REC_sizing.set_bounds(
             alpha = [10,40], # [°]
-            D_c = [1*1e-3, 3*1e-3], # [m]
+            D_ch = [1*1e-3, 3*1e-3], # [m]
             L_x = L_x_bounds, # [m] : 1.5 limit fixed by Heatric (PCHE manufacturer) : Fluid direction
             L_y = L_y_bounds, # [m] : 2.3 limit for shipping requirements : Vertical direction
             L_z = L_z_bounds, # [m] : 0.6 limit fixed by Heatric (PCHE manufacturer) : Width
@@ -106,15 +106,15 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
         GH_model = RC.components['GasHeater'].model
         GH_sizing = RC.components['GasHeater'].sizing = ShellAndTubeSizingOpt()
                                  
-        GH_sizing.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'Tube_pass', 'tube_layout', 'Baffle_cut'])
+        GH_sizing.set_opt_vars(['D_t_o_inch', 'L_t', 'D_s_inch', 'B', 'n_passes', 'theta', 'BC'])
     
         choice_vectors = {
-                            'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
-                            # 'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
+                            'D_t_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
+                            # 'D_s_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
                             #     29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
-                            'Shell_ID_inch' : [25, 27, 29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
-                            'Tube_pass' : [1,2,4], # 6,8,10],
-                            'tube_layout' : [0,45,60],
+                            'D_s_inch' : [25, 27, 29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
+                            'n_passes' : [1,2,4], # 6,8,10],
+                            'theta' : [0,45,60],
                             'n_parallel' : [1,2,3,4,5,6]}
     
         GH_sizing.set_choice_vectors(choice_vectors)
@@ -139,12 +139,12 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
                                 n_series = 1, # [-]
                                 # OPTI -> Oui (regarder le papier pour déterminer ça)
     
-                                foul_t = 0.000176, # (m^2 * K/W)
-                                foul_s =  0.000176, # (m^2 * K/W)
-                                tube_cond = 20, # W/(m*K)
+                                R_f_T = 0.000176, # (m^2 * K/W)
+                                R_f_S =  0.000176, # (m^2 * K/W)
+                                k_wall = 20, # W/(m*K)
                                 Overdesign = 0,
                                 
-                                Shell_Side = 'H',
+                                shell_side = 'H',
     
                                 Flow_Type = 'Shell&Tube',
                                 H_DP_ON = True,
@@ -152,21 +152,21 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
                                 n_disc = 50
                               )
     
-        H_Corr = {"SC" : "Shell_Kern_HTC", "1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
-        C_Corr = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Flow_boiling"}
+        H_Corr = {"SC" : "Kern", "1P" : "Kern", "2P" : "auto"}
+        C_Corr = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "VDI"}
         
-        H_DP = {"SC" : "Shell_Kern_DP", "1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
-        C_DP = {"SC" : "Konakov", "1P" : "Konakov", "2P" : "Konakov"}
+        H_DP = {"SC" : "Kern", "1P" : "Kern", "2P" : "auto"}
+        C_DP = {"SC" : "Konakov", "1P" : "Konakov", "2P" : "auto"}
         
         GH_sizing.set_corr(H_Corr, C_Corr, H_DP, C_DP)
     
         bounds = {
-                    "L_shell" : [1,15], # 10],
-                    "D_o_inch" : [choice_vectors['D_o_inch'][0], choice_vectors['D_o_inch'][-1]],
-                    "Shell_ID_inch" : [choice_vectors['Shell_ID_inch'][0], choice_vectors['Shell_ID_inch'][-1]],
-                    "Tube_pass" : [choice_vectors['Tube_pass'][0], choice_vectors['Tube_pass'][-1]],
-                    "tube_layout" : [choice_vectors['tube_layout'][0], choice_vectors['tube_layout'][-1]],
-                    "Baffle_cut" : [15, 45]
+                    "L_t" : [1,15], # 10],
+                    "D_t_o_inch" : [choice_vectors['D_t_o_inch'][0], choice_vectors['D_t_o_inch'][-1]],
+                    "D_s_inch" : [choice_vectors['D_s_inch'][0], choice_vectors['D_s_inch'][-1]],
+                    "n_passes" : [choice_vectors['n_passes'][0], choice_vectors['n_passes'][-1]],
+                    "theta" : [choice_vectors['theta'][0], choice_vectors['theta'][-1]],
+                    "BC" : [15, 45]
                     }
     
         GH_sizing.set_bounds(bounds)
@@ -185,15 +185,15 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
         CD_model = RC.components['Condenser'].model
         CD_sizing = RC.components['Condenser'].sizing = ShellAndTubeSizingOpt()
                                  
-        CD_sizing.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'Tube_pass', 'tube_layout', 'Baffle_cut'])
+        CD_sizing.set_opt_vars(['D_t_o_inch', 'L_t', 'D_s_inch', 'B', 'n_passes', 'theta', 'BC'])
     
         choice_vectors = {
-                            'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
-                            # 'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
+                            'D_t_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
+                            # 'D_s_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
                             #     29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
-                            'Shell_ID_inch' : [25, 27, 29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
-                            'Tube_pass' : [1,2,4], # [1,2,4,6,8,10]
-                            'tube_layout' : [0,45,60],
+                            'D_s_inch' : [25, 27, 29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
+                            'n_passes' : [1,2,4], # [1,2,4,6,8,10]
+                            'theta' : [0,45,60],
                             'n_parallel' : [1,2,3,4,5,6,7,8,9,10]}
     
         CD_sizing.set_choice_vectors(choice_vectors)
@@ -218,12 +218,12 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
                                 n_series = 1, # [-]
                                 # OPTI -> Oui (regarder le papier pour déterminer ça)
     
-                                foul_t = 0.000176, # (m^2 * K/W)
-                                foul_s =  0.000176, # (m^2 * K/W)
-                                tube_cond = 20, # W/(m*K)
+                                R_f_T = 0.000176, # (m^2 * K/W)
+                                R_f_S =  0.000176, # (m^2 * K/W)
+                                k_wall = 20, # W/(m*K)
                                 Overdesign = 0,
                                 
-                                Shell_Side = 'C',
+                                shell_side = 'C',
     
                                 Flow_Type = 'Shell&Tube',
                                 H_DP_ON = True,
@@ -231,21 +231,21 @@ def TCO2_rec_comp_sizing(RC, turb_choice):
                                 n_disc = 50
                               )
     
-        H_Corr = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Thome_Condensation"}
-        C_Corr = {"SC" : "Shell_Kern_HTC", "1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
+        H_Corr = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Thome"}
+        C_Corr = {"SC" : "Kern", "1P" : "Kern", "2P" : "auto"}
 
         H_DP = {"SC" : "Konakov", "1P" : "Konakov", "2P" : "MSH"}
-        C_DP = {"SC" : "Shell_Kern_DP", "1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
+        C_DP = {"SC" : "Kern", "1P" : "Kern", "2P" : "auto"}
         
         CD_sizing.set_corr(H_Corr, C_Corr, H_DP, C_DP)
 
         bounds = {
-                    "L_shell" : [1,15], # 10],
-                    "D_o_inch" : [choice_vectors['D_o_inch'][0], choice_vectors['D_o_inch'][-1]],
-                    "Shell_ID_inch" : [choice_vectors['Shell_ID_inch'][0], choice_vectors['Shell_ID_inch'][-1]],
-                    "Tube_pass" : [choice_vectors['Tube_pass'][0], choice_vectors['Tube_pass'][-1]],
-                    "tube_layout" : [choice_vectors['tube_layout'][0], choice_vectors['tube_layout'][-1]],
-                    "Baffle_cut" : [15, 45]
+                    "L_t" : [1,15], # 10],
+                    "D_t_o_inch" : [choice_vectors['D_t_o_inch'][0], choice_vectors['D_t_o_inch'][-1]],
+                    "D_s_inch" : [choice_vectors['D_s_inch'][0], choice_vectors['D_s_inch'][-1]],
+                    "n_passes" : [choice_vectors['n_passes'][0], choice_vectors['n_passes'][-1]],
+                    "theta" : [choice_vectors['theta'][0], choice_vectors['theta'][-1]],
+                    "BC" : [15, 45]
                     }
 
         CD_sizing.set_bounds(bounds)

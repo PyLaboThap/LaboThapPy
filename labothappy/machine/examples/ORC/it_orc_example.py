@@ -8,7 +8,7 @@ from labothappy.connector.mass_connector import MassConnector
 from labothappy.component.expander.expander_semi_empirical import ExpanderSE
 from labothappy.component.expander.expander_csteff import ExpanderCstEff
 
-from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
+from labothappy.component.heat_exchanger.hex_MB import HexMB
 from labothappy.component.heat_exchanger.hex_cstpinch import HexCstPinch
 from labothappy.component.heat_exchanger.hex_csteff import HexCstEff
 
@@ -150,9 +150,9 @@ def off_design_orc(fluid, CSource, HSource, guesses, inputs, exp_params, evap_SW
     
     # 2) Create components 
     Expander = ExpanderSE()
-    Condenser = HexMBChargeSensitive('Plate')
+    Condenser = HexMB('BPHE')
     Pump = PumpCurveSimilarity()
-    Evaporator = HexMBChargeSensitive('Plate')
+    Evaporator = HexMB('BPHE')
 
     # 3) Set component parameters 
     # Expander
@@ -163,16 +163,16 @@ def off_design_orc(fluid, CSource, HSource, guesses, inputs, exp_params, evap_SW
     evaporator_geom.set_parameters(evap_SWEP_model)
 
     Evaporator.set_parameters(
-        # Set the geometry of the evaporator
-        A_c=evaporator_geom.A_c, A_h=evaporator_geom.A_h, h=evaporator_geom.h, l=evaporator_geom.l, l_v=evaporator_geom.l_v, w_v=evaporator_geom.w_v,
-        C_CS=evaporator_geom.C_CS, C_Dh=evaporator_geom.C_Dh, C_V_tot=evaporator_geom.C_V_tot, C_canal_t=evaporator_geom.C_canal_t, C_n_canals=evaporator_geom.C_n_canals, 
-        H_CS=evaporator_geom.H_CS, H_Dh=evaporator_geom.H_Dh, H_V_tot=evaporator_geom.H_V_tot, H_canal_t=evaporator_geom.H_canal_t, H_n_canals=evaporator_geom.H_n_canals,
-        casing_t=evaporator_geom.casing_t, chevron_angle=evaporator_geom.chevron_angle, fooling=evaporator_geom.fooling, 
-        n_plates=evaporator_geom.n_plates, plate_cond=evaporator_geom.plate_cond, plate_pitch_co=evaporator_geom.plate_pitch_co, t_plates=evaporator_geom.t_plates, w=evaporator_geom.w, 
-        amplitude=evaporator_geom.amplitude, phi=evaporator_geom.phi, Flow_Type='CounterFlow', H_DP_ON=True, C_DP_ON=True, n_disc=0,
+        # Set the geometry of the evaporator (BPHE parameters of HexMB)
+        A_C=evaporator_geom.A_c, A_H=evaporator_geom.A_h, h=evaporator_geom.h, l=evaporator_geom.l, l_v=evaporator_geom.l_v, w=evaporator_geom.w,
+        n_p=evaporator_geom.n_plates, t_p=evaporator_geom.t_plate, n_ch_C=evaporator_geom.n_channel_c, n_ch_H=evaporator_geom.n_channel_h,
+        beta=evaporator_geom.alpha_ch, R_f=evaporator_geom.fooling, k_wall=evaporator_geom.plate_cond,
+        V_H=evaporator_geom.H_V_tot, V_C=evaporator_geom.C_V_tot,
+        Flow_Type='CounterFlow', n_disc=0,
     )
 
-    Evaporator.set_htc(htc_type="Correlation", Corr_H={"1P": "water_plate_HTC"}, Corr_C={"1P": "martin_holger_plate_HTC", "2P": "amalfi_plate_HTC"}) # 'User-Defined' or 'Correlation' # 28
+    # Water side: Sinnott (with 'auto' = Martin the off-design iteration diverges, 2026-11-25)
+    Evaporator.set_htc(htc_type="Correlation", Corr_H={"1P": "Sinnott"}, Corr_C={"1P": "Martin", "2P": "Amalfi"}) # 'User-Defined' or 'Correlation' # 28
     Evaporator.set_DP()
 
     # Condenser
@@ -180,16 +180,15 @@ def off_design_orc(fluid, CSource, HSource, guesses, inputs, exp_params, evap_SW
     condenser_geom.set_parameters(cond_SWEP_model)
 
     Condenser.set_parameters(
-        # Set the geometry of the condenser
-        A_c=condenser_geom.A_c, A_h=condenser_geom.A_h, h=condenser_geom.h, l=condenser_geom.l, l_v=condenser_geom.l_v, w_v=condenser_geom.w_v,
-        C_CS=condenser_geom.C_CS, C_Dh=condenser_geom.C_Dh, C_V_tot=condenser_geom.C_V_tot, C_canal_t=condenser_geom.C_canal_t, C_n_canals=condenser_geom.C_n_canals,
-        H_CS=condenser_geom.H_CS, H_Dh=condenser_geom.H_Dh, H_V_tot=condenser_geom.H_V_tot, H_canal_t=condenser_geom.H_canal_t, H_n_canals=condenser_geom.H_n_canals,
-        casing_t=condenser_geom.casing_t, chevron_angle=condenser_geom.chevron_angle, fooling=condenser_geom.fooling,
-        n_plates=condenser_geom.n_plates, plate_cond=condenser_geom.plate_cond, plate_pitch_co=condenser_geom.plate_pitch_co, t_plates=condenser_geom.t_plates, w=condenser_geom.w,
-        amplitude=condenser_geom.amplitude, phi=condenser_geom.phi, Flow_Type='CounterFlow', H_DP_ON=True, C_DP_ON=True, n_disc=10,
+        # Set the geometry of the condenser (BPHE parameters of HexMB)
+        A_C=condenser_geom.A_c, A_H=condenser_geom.A_h, h=condenser_geom.h, l=condenser_geom.l, l_v=condenser_geom.l_v, w=condenser_geom.w,
+        n_p=condenser_geom.n_plates, t_p=condenser_geom.t_plate, n_ch_C=condenser_geom.n_channel_c, n_ch_H=condenser_geom.n_channel_h,
+        beta=condenser_geom.alpha_ch, R_f=condenser_geom.fooling, k_wall=condenser_geom.plate_cond,
+        V_H=condenser_geom.H_V_tot, V_C=condenser_geom.C_V_tot,
+        Flow_Type='CounterFlow', n_disc=10,
     )
 
-    Condenser.set_htc(htc_type="Correlation", Corr_H={"1P": "martin_holger_plate_HTC", "2P": "shah_condensation_plate_HTC"}, Corr_C={"1P": "water_plate_HTC"}) # 'User-Defined' or 'Correlation' # 28
+    Condenser.set_htc(htc_type="Correlation", Corr_H={"1P": "Martin", "2P": "Shah"}, Corr_C={"1P": "Sinnott"}) # 'User-Defined' or 'Correlation' # 28
     Condenser.set_DP()
 
     # Pump

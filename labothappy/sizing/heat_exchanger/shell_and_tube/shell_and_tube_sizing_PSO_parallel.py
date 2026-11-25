@@ -4,14 +4,14 @@ INDEPENDENT VARIABLES
 
 D_o possible values : [1/2, 3/4, 1, 1+1/4, 1+1/2]*25.4*1e-3 # [m]
 
-Shell_ID possible values : 
+D_s possible values : 
 [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27, 29, 31, 33, 35,
 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120]*25.4*1e-3 [m]
 
 Central Spacing Limited Values : 
-[Shell_ID/5; 74*D_o**0.75] # To put back in meters and computed with D_o in inches. 
+[D_s/5; 74*D_o**0.75] # To put back in meters and computed with D_o in inches. 
 
-L_shell has free values
+L_t has free values
 
 """
 
@@ -19,7 +19,7 @@ L_shell has free values
 COULD BE VARIABLES BUT FIXED
 ----------------------------
 
-Tube_pass = 2 # (or 1)
+n_passes = 2 # (or 1)
 
 Tube_layout_angle = 45 # [°] (or 60, 90) : 45 and 90 mean square / 60 means triangular
 
@@ -42,7 +42,7 @@ D_o = 1       [in] => Pitch_ratio = (1+1/4)/D_o
 D_o = 1 + 1/4 [in] => Pitch_ratio = (1+9/16)/D_o
 D_o = 1 + 1/2 [in] => Pitch_ratio = (1+7/8)/D_o
 
-Baffle_cut = 0.25 # Could be varied from 0.15 to 0.4 but 0.25 is usual value for liquid flow
+BC = 0.25 # Could be varied from 0.15 to 0.4 but 0.25 is usual value for liquid flow
 """
 
 # Connector import
@@ -50,7 +50,7 @@ from labothappy.connector.mass_connector import MassConnector
 
 # Component import
 from labothappy.component.base_component import BaseComponent
-from labothappy.component.heat_exchanger.hex_MB_charge_sensitive import HexMBChargeSensitive
+from labothappy.component.heat_exchanger.hex_MB import HexMB
 
 # Cost model import
 from labothappy.correlations.heat_exchanger.STHE_cost_estimation import HeatExchangerCost, total_STHE_cost, krishna_cost_correlation_STHE
@@ -161,61 +161,61 @@ class ShellAndTubeSizingOpt(BaseComponent):
             Compute rest of geometry
             """
 
-            # pitch_ratio
-            pitch_ratio = pitch_ratio_fun(self.position['D_o_inch'], self.position['tube_layout'])
+            # PR
+            PR = pitch_ratio_fun(self.position['D_t_o_inch'], self.position['theta'])
 
             # Pipe length
-            L_tube = self.position['L_shell']
+            L_tube = self.position['L_t']
                         
             # Cross Passes
-            Cross_Passes = round(self.position['L_shell']/self.position['Central_spac']) - 1
+            Cross_Passes = round(self.position['L_t']/self.position['B']) - 1
 
-            D_o = self.position['D_o_inch']*25.4*1e-3
+            D_o = self.position['D_t_o_inch']*25.4*1e-3
             
-            if self.params['Shell_Side'] == 'H':
+            if self.params['shell_side'] == 'H':
                 p_shell = opt_inputs['P_su_H']
             else:
                 p_shell = opt_inputs['P_su_C']
             
             # Pipe Thickness
             if Tube_t_flag == True: # Pipe thickness is pressure dependent
-                Tube_t = carbon_steel_pipe_thickness_mm(self.position['D_o_inch']*25.4/1e3, self.T_max_cycle, p_shell, self.P_max_cycle)
+                t_t = carbon_steel_pipe_thickness_mm(self.position['D_t_o_inch']*25.4/1e3, self.T_max_cycle, p_shell, self.P_max_cycle)
             else: # Reference assumption
-                Tube_t = D_o/10
+                t_t = D_o/10
             
-            # if self.position['D_o_inch'] == 1:
-            #     Tube_t = pipe_thickness['1']
+            # if self.position['D_t_o_inch'] == 1:
+            #     t_t = pipe_thickness['1']
             # else:
-            #     Tube_t = pipe_thickness[str(self.position['D_o_inch'])]
-            self.Tube_t = Tube_t
-            # Tube_t = D_o /10
+            #     t_t = pipe_thickness[str(self.position['D_t_o_inch'])]
+            self.t_t = t_t
+            # t_t = D_o /10
             
-            Shell_ID = self.position['Shell_ID_inch']*25.4*1e-3
+            D_s = self.position['D_s_inch']*25.4*1e-3
             
             # Number of tubes 
             min_tubes_in_row = 4 # 8
-            n_tubes = estimate_number_of_tubes(Shell_ID, D_o, pitch_ratio*D_o, self.position['tube_layout'], min_tubes_in_row)[0]
+            n_t = estimate_number_of_tubes(D_s, D_o, PR*D_o, self.position['theta'], min_tubes_in_row)[0]
 
             # HT Area and HTX volumes
-            A_eff = n_tubes*L_tube*np.pi*D_o
+            A = n_t*L_tube*np.pi*D_o
             
-            T_V_tot = L_tube*n_tubes*np.pi*((D_o - 2*Tube_t)/2)**2
+            V_T = L_tube*n_t*np.pi*((D_o - 2*t_t)/2)**2
 
-            T_V_out = np.pi*(D_o/2)**2*L_tube*n_tubes
-            S_V_tot = self.position['L_shell']*np.pi*(Shell_ID/2)**2 - T_V_out
+            T_V_out = np.pi*(D_o/2)**2*L_tube*n_t
+            V_S = self.position['L_t']*np.pi*(D_s/2)**2 - T_V_out
                 
             self.set_parameters( 
-                            A_eff = A_eff, S_V_tot = S_V_tot, Shell_ID = Shell_ID, T_V_tot = T_V_tot, Tube_L = L_tube, 
-                            Tube_OD = D_o, Tube_t = Tube_t, central_spacing = self.position['Central_spac'], Tube_pass = self.position["Tube_pass"],
-                            cross_passes = Cross_Passes, n_tubes = n_tubes, pitch_ratio = pitch_ratio, tube_layout = self.position["tube_layout"],
-                            Baffle_cut = self.position["Baffle_cut"], n_parallel = self.position['n_parallel']
+                            A = A, V_S = V_S, D_s = D_s, V_T = V_T, L_t = L_tube, 
+                            D_t_o = D_o, t_t = t_t, B = self.position['B'], n_passes = self.position["n_passes"],
+                            n_B = Cross_Passes, n_t = n_t, PR = PR, theta = self.position["theta"],
+                            BC = self.position["BC"], n_parallel = self.position['n_parallel']
                             ) 
                         
             return
 
         def HeatTransferRate(self, opt_inputs, opt_params):
                         
-            self.HX = HexMBChargeSensitive('Shell&Tube')
+            self.HX = HexMB('STHE')
 
             self.HX.set_inputs(**opt_inputs)
             
@@ -237,14 +237,14 @@ class ShellAndTubeSizingOpt(BaseComponent):
             "Parameters Setting"
                         
             self.HX.set_parameters(
-                A_eff = self.params['A_eff'], Baffle_cut = self.position['Baffle_cut'], S_V_tot = self.params['S_V_tot'],
-                Shell_ID = self.params['Shell_ID'], T_V_tot = self.params['T_V_tot'], Tube_L = self.params['Tube_L'], 
-                Tube_OD = self.params['Tube_OD'], Tube_pass = self.params['Tube_pass'], Tube_t = self.params['Tube_t'],
-                central_spacing = self.params['central_spacing'], cross_passes = self.params['cross_passes'], foul_s = self.params['foul_s'],
-                foul_t = self.params['foul_t'], n_series = self.params['n_series'], n_tubes = self.params['n_tubes'], n_parallel = self.params['n_parallel'],
-                pitch_ratio = self.params['pitch_ratio'], tube_cond = self.params['tube_cond'], tube_layout = self.params['tube_layout'],
+                A = self.params['A'], BC = self.position['BC'], V_S = self.params['V_S'],
+                D_s = self.params['D_s'], V_T = self.params['V_T'], L_t = self.params['L_t'], 
+                D_t_o = self.params['D_t_o'], n_passes = self.params['n_passes'], t_t = self.params['t_t'],
+                B = self.params['B'], n_B = self.params['n_B'], R_f_S = self.params['R_f_S'],
+                R_f_T = self.params['R_f_T'], n_series = self.params['n_series'], n_t = self.params['n_t'], n_parallel = self.params['n_parallel'],
+                PR = self.params['PR'], k_wall = self.params['k_wall'], theta = self.params['theta'],
 
-                Shell_Side = self.params['Shell_Side'],
+                shell_side = self.params['shell_side'],
 
                 Flow_Type = self.params['Flow_Type'], H_DP_ON = self.params['H_DP_ON'], C_DP_ON = self.params['C_DP_ON'], n_disc = self.params['n_disc']) 
 
@@ -254,7 +254,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
             # HX.set_DP(DP_type="User-Defined", UD_H_DP=1e4, UD_C_DP=1e4)
             self.HX.set_DP(DP_type = "Correlation_Disc", Corr_H=Corr_H_DP, Corr_C=Corr_C_DP)    
             
-            if self.HX.params['n_tubes'] == 0:
+            if self.HX.params['n_t'] == 0:
                 self.Q = 0
                 self.DP_h = 0
                 self.DP_c = 0
@@ -333,23 +333,23 @@ class ShellAndTubeSizingOpt(BaseComponent):
             return float(round(float(x) / step) * step)
     
         # quantize continuous vars
-        cs = q(pos['Central_spac'], 1e-2)   # 1 mm
-        L  = q(pos['L_shell'],    1e-2)     # 1 mm
+        cs = q(pos['B'], 1e-2)   # 1 mm
+        L  = q(pos['L_t'],    1e-2)     # 1 mm
     
         # derived integer feature
         cross = int(round(L / cs)) - 1
     
         return (
-            round(float(pos['D_o_inch']), 6),
-            round(float(pos['Shell_ID_inch']), 6),
-            int(round(float(pos['Tube_pass']))),
-            int(round(float(pos['tube_layout']))),
-            round(float(pos['Baffle_cut']), 1),  # 0.1% step
+            round(float(pos['D_t_o_inch']), 6),
+            round(float(pos['D_s_inch']), 6),
+            int(round(float(pos['n_passes']))),
+            int(round(float(pos['theta']))),
+            round(float(pos['BC']), 1),  # 0.1% step
             cs,
             L,
             cross,
             # include knobs that change physics (optional but recommended):
-            self.params.get('Shell_Side', 'H'),
+            self.params.get('shell_side', 'H'),
             tuple(sorted((self.H_htc_Corr or {}).items())),
             tuple(sorted((self.C_htc_Corr or {}).items())),
             tuple(sorted((self.H_DP_Corr or {}).items())),
@@ -436,27 +436,27 @@ class ShellAndTubeSizingOpt(BaseComponent):
 
             "n_series": self.best_particle.params["n_series"],
             "n_parallel": self.best_particle.params["n_parallel"],
-            "foul_t": self.best_particle.params["foul_t"],
-            "foul_s": self.best_particle.params["foul_s"],      
+            "R_f_T": self.best_particle.params["R_f_T"],
+            "R_f_S": self.best_particle.params["R_f_S"],      
             
-            "tube_cond": self.best_particle.params["tube_cond"],
+            "k_wall": self.best_particle.params["k_wall"],
             "Overdesign": self.best_particle.params["Overdesign"],
-            "Shell_Side": self.best_particle.params["Shell_Side"],
-            "S_V_tot": self.best_particle.params["S_V_tot"],
-            "T_V_tot": self.best_particle.params["T_V_tot"],
+            "shell_side": self.best_particle.params["shell_side"],
+            "V_S": self.best_particle.params["V_S"],
+            "V_T": self.best_particle.params["V_T"],
             
-            "A_eff": self.best_particle.params["A_eff"],
-            "Shell_ID": self.best_particle.params["Shell_ID"],
-            "Tube_L": self.best_particle.params["Tube_L"],
-            "Tube_OD": self.best_particle.params["Tube_OD"],
-            "Tube_t": self.best_particle.params["Tube_t"],
-            "central_spacing": self.best_particle.params["central_spacing"],
-            "Tube_pass": self.best_particle.params["Tube_pass"],
-            "cross_passes": self.best_particle.params["cross_passes"],
-            "n_tubes": self.best_particle.params["n_tubes"],
-            "pitch_ratio": self.best_particle.params["pitch_ratio"],
-            "tube_layout": self.best_particle.params["tube_layout"],
-            "Baffle_cut": self.best_particle.params["Baffle_cut"],
+            "A": self.best_particle.params["A"],
+            "D_s": self.best_particle.params["D_s"],
+            "L_t": self.best_particle.params["L_t"],
+            "D_t_o": self.best_particle.params["D_t_o"],
+            "t_t": self.best_particle.params["t_t"],
+            "B": self.best_particle.params["B"],
+            "n_passes": self.best_particle.params["n_passes"],
+            "n_B": self.best_particle.params["n_B"],
+            "n_t": self.best_particle.params["n_t"],
+            "PR": self.best_particle.params["PR"],
+            "theta": self.best_particle.params["theta"],
+            "BC": self.best_particle.params["BC"],
             
             "CAPEX": self.CAPEX,
         } 
@@ -476,7 +476,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
         - A random number between lower_bound and upper_bound that is a multiple of `multiple`.
         """
 
-        # L_shell shall be a multiple of the central spacing to get an integer value of cross_passes as a simplification 
+        # L_t shall be a multiple of the central spacing to get an integer value of n_B as a simplification 
 
         # Find the smallest multiple within the range
         start = np.ceil(lower_bound / multiple) * multiple
@@ -507,15 +507,15 @@ class ShellAndTubeSizingOpt(BaseComponent):
             else:
                 particle_position[key] = float(self.rng.choice(vec))
         
-        low_bound_central_spac = (particle_position['Shell_ID_inch']/5)*25.4*1e-3 # [m]
-        high_bound_central_spac = (74*particle_position['D_o_inch']**(0.75))*25.4*1e-3 # [m]
+        low_bound_central_spac = (particle_position['D_s_inch']/5)*25.4*1e-3 # [m]
+        high_bound_central_spac = (74*particle_position['D_t_o_inch']**(0.75))*25.4*1e-3 # [m]
         
-        low_bound_L_shell = max(self.bounds['L_shell'][0], particle_position['Shell_ID_inch']*25.4*1e-3*3)
-        high_bound_L_shell = min(self.bounds['L_shell'][-1], particle_position['Shell_ID_inch']*25.4*1e-3*15)
+        low_bound_L_shell = max(self.bounds['L_t'][0], particle_position['D_s_inch']*25.4*1e-3*3)
+        high_bound_L_shell = min(self.bounds['L_t'][-1], particle_position['D_s_inch']*25.4*1e-3*15)
         
-        particle_position['Central_spac'] = float(np.round(self.rng.uniform(low_bound_central_spac, high_bound_central_spac), 2))
-        particle_position['L_shell'] = float(np.round(self.random_multiple(low_bound_L_shell, high_bound_L_shell, particle_position['Central_spac']), 2))
-        particle_position['Baffle_cut'] = float(np.round(self.rng.uniform(self.bounds['Baffle_cut'][0], self.bounds['Baffle_cut'][1]), 2))
+        particle_position['B'] = float(np.round(self.rng.uniform(low_bound_central_spac, high_bound_central_spac), 2))
+        particle_position['L_t'] = float(np.round(self.random_multiple(low_bound_L_shell, high_bound_L_shell, particle_position['B']), 2))
+        particle_position['BC'] = float(np.round(self.rng.uniform(self.bounds['BC'][0], self.bounds['BC'][1]), 2))
     
     
         # Put these positions in the particles 
@@ -565,40 +565,40 @@ class ShellAndTubeSizingOpt(BaseComponent):
         
         "Shell Mass"
                 
-        shell_t = shell_thickness(HX_params['Shell_ID'], T_shell_m, self.P_max_cycle)        
+        shell_t = shell_thickness(HX_params['D_s'], T_shell_m, self.P_max_cycle)        
         HX_params['t_S'] = shell_t
         
-        Shell_OD = HX_params['Shell_ID'] + 2*shell_t       
-        Shell_volume = np.pi*((Shell_OD/2)**2 - (HX_params['Shell_ID']/2)**2)*HX_params['Tube_L'] + shell_t*np.pi*Shell_OD**2/4 
+        Shell_OD = HX_params['D_s'] + 2*shell_t       
+        Shell_volume = np.pi*((Shell_OD/2)**2 - (HX_params['D_s']/2)**2)*HX_params['L_t'] + shell_t*np.pi*Shell_OD**2/4 
         Shell_mass = Shell_volume*rho_carbon_steel*HX_params['n_parallel']
         
         "Tube Mass"
         
-        T_mass = np.pi*((HX_params['Tube_OD']/2)**2 - ((HX_params['Tube_OD']-2*HX_params['Tube_t'])/2)**2)*HX_params['Tube_L']*HX_params['n_tubes']*rho_carbon_steel*HX_params['n_series']*HX_params['n_parallel']
+        T_mass = np.pi*((HX_params['D_t_o']/2)**2 - ((HX_params['D_t_o']-2*HX_params['t_t'])/2)**2)*HX_params['L_t']*HX_params['n_t']*rho_carbon_steel*HX_params['n_series']*HX_params['n_parallel']
 
         "Tube Sheet Mass"
         
-        TS_t = tube_sheet_thickness(HX_params['Tube_OD'],HX_params['Tube_OD']*HX_params['pitch_ratio'], T_shell_m, self.P_max_cycle, HX_params["Shell_ID"]) # HX_params["Shell_ID"] assumed to be the gasket diameter
-        Full_Tube_sheet_A = np.pi*(HX_params["Shell_ID"]/2)**2
-        Tube_in_tube_sheet_A = HX_params["n_tubes"]*np.pi*(HX_params["Tube_OD"]/2)**2
+        TS_t = tube_sheet_thickness(HX_params['D_t_o'],HX_params['D_t_o']*HX_params['PR'], T_shell_m, self.P_max_cycle, HX_params["D_s"]) # HX_params["D_s"] assumed to be the gasket diameter
+        Full_Tube_sheet_A = np.pi*(HX_params["D_s"]/2)**2
+        Tube_in_tube_sheet_A = HX_params["n_t"]*np.pi*(HX_params["D_t_o"]/2)**2
         
         TS_mass = TS_t*(Full_Tube_sheet_A - Tube_in_tube_sheet_A)*rho_carbon_steel*2*HX_params['n_series']*HX_params['n_parallel']
         
         HX_params['t_TS'] = TS_t
         
         "Baffle Mass"
-        if self.params['Shell_Side'] == 'H':
+        if self.params['shell_side'] == 'H':
             rho_shell = HX.su_H.D
             T_shell = self.inputs['T_su_H']
         else:
             rho_shell = HX.su_C.D
             T_shell = self.inputs['T_su_C']
             
-        B_t = baffle_thickness(HX_params["Shell_ID"], HX_params["Baffle_cut"]/100, rho_shell, T_shell)
-        Full_Baffle_A = np.pi*(HX_params["Shell_ID"]/2)**2 * (1-HX_params["Baffle_cut"]/100)
-        Tube_in_Baffle_A = HX_params["n_tubes"]*(1-HX_params["Baffle_cut"]/100)*np.pi*(HX_params["Tube_OD"]/2)**2
+        B_t = baffle_thickness(HX_params["D_s"], HX_params["BC"]/100, rho_shell, T_shell)
+        Full_Baffle_A = np.pi*(HX_params["D_s"]/2)**2 * (1-HX_params["BC"]/100)
+        Tube_in_Baffle_A = HX_params["n_t"]*(1-HX_params["BC"]/100)*np.pi*(HX_params["D_t_o"]/2)**2
 
-        B_mass = HX_params["cross_passes"] * B_t * (Full_Baffle_A - Tube_in_Baffle_A)*rho_carbon_steel*HX_params['n_series']*HX_params['n_parallel']
+        B_mass = HX_params["n_B"] * B_t * (Full_Baffle_A - Tube_in_Baffle_A)*rho_carbon_steel*HX_params['n_series']*HX_params['n_parallel']
         
         HX_params['t_B'] = B_t
         
@@ -624,10 +624,10 @@ class ShellAndTubeSizingOpt(BaseComponent):
         a_2 = 259.2
         a_3 = 0.91
         
-        CAPEX = a_1 + a_2*(HX.params['A_eff'])**a_3
+        CAPEX = a_1 + a_2*(HX.params['A'])**a_3
         
         # OPEX of year n
-        if HX.params['Shell_Side'] == 'H':
+        if HX.params['shell_side'] == 'H':
             DP_t = HX.DP_c
             DP_s = HX.DP_h
             
@@ -849,7 +849,7 @@ class ShellAndTubeSizingOpt(BaseComponent):
                         pos = round(self.particles_all_pos[opt_var][i][iteration],2)
                         pos_previous = round(self.particles_all_pos[opt_var][i][iteration-1],2)
                         
-                        if opt_var == 'L_shell' or opt_var == 'Central_spac':
+                        if opt_var == 'L_t' or opt_var == 'B':
                             if abs(pos - pos_previous) < 0.3:
                                 self.particles[i].unmoved[opt_var] += 1
                             else:
@@ -875,9 +875,9 @@ class ShellAndTubeSizingOpt(BaseComponent):
                         r1 = u1 * scale
                         r2 = u2 * scale
                     elif opt_var in self.bounds.keys():
-                        if opt_var == 'L_shell':
+                        if opt_var == 'L_t':
                             scale = self.bounds[opt_var][0] * 5
-                        elif opt_var == 'Baffle_cut':
+                        elif opt_var == 'BC':
                             scale = 0.02
                         else:
                             scale = self.bounds[opt_var][0] * 3
@@ -899,11 +899,11 @@ class ShellAndTubeSizingOpt(BaseComponent):
                     self.particles[i].position[opt_var] += round(self.particles[i].velocity[opt_var],3)
                     
                         
-                    if opt_var == 'Central_spac':
-                        low_bound_central_spac = (self.particles[i].position['Shell_ID_inch']/5)*25.4*1e-3 # [m]
-                        high_bound_central_spac = (74*self.particles[i].position['D_o_inch']**(0.75))*25.4*1e-3 # [m]
+                    if opt_var == 'B':
+                        low_bound_central_spac = (self.particles[i].position['D_s_inch']/5)*25.4*1e-3 # [m]
+                        high_bound_central_spac = (74*self.particles[i].position['D_t_o_inch']**(0.75))*25.4*1e-3 # [m]
                         
-                        L_shell_divisors = find_divisors_between_bounds(self.particles[i].position['L_shell'],low_bound_central_spac,high_bound_central_spac)
+                        L_shell_divisors = find_divisors_between_bounds(self.particles[i].position['L_t'],low_bound_central_spac,high_bound_central_spac)
 
                         if len(L_shell_divisors) == 0:
                             self.particles[i].position[opt_var] = round(low_bound_central_spac,2)
@@ -927,15 +927,15 @@ class ShellAndTubeSizingOpt(BaseComponent):
                 # Enforce boundary conditions and handle discrete variables
                 for bound_key in self.bounds:
                     
-                    if bound_key == 'L_shell':
-                        low_bound_L_shell = max(self.bounds['L_shell'][0], self.particles[i].position['Shell_ID_inch']*25.4*1e-3*3)
-                        high_bound_L_shell = min(self.bounds['L_shell'][-1], self.particles[i].position['Shell_ID_inch']*25.4*1e-3*15)
+                    if bound_key == 'L_t':
+                        low_bound_L_shell = max(self.bounds['L_t'][0], self.particles[i].position['D_s_inch']*25.4*1e-3*3)
+                        high_bound_L_shell = min(self.bounds['L_t'][-1], self.particles[i].position['D_s_inch']*25.4*1e-3*15)
                     
                         if self.particles[i].position[bound_key] < low_bound_L_shell:
                             self.particles[i].position[bound_key] = low_bound_L_shell
-                            if low_bound_L_shell == self.particles[i].position['Shell_ID_inch']*25.4*1e-3*3:
-                                index = np.where(np.array(self.choice_vectors['Shell_ID_inch']) == self.particles[i].position['Shell_ID_inch'])[0]
-                                self.particles[i].position['Shell_ID_inch'] = self.choice_vectors['Shell_ID_inch'][int(index-1)]
+                            if low_bound_L_shell == self.particles[i].position['D_s_inch']*25.4*1e-3*3:
+                                index = np.where(np.array(self.choice_vectors['D_s_inch']) == self.particles[i].position['D_s_inch'])[0]
+                                self.particles[i].position['D_s_inch'] = self.choice_vectors['D_s_inch'][int(index-1)]
                                 self.particles[i].velocity[bound_key] = -0.5*self.particles[i].velocity[bound_key]
                             else:
                                 self.particles[i].velocity[bound_key] = -0.5*self.particles[i].velocity[bound_key]
@@ -999,13 +999,13 @@ class ShellAndTubeSizingOpt(BaseComponent):
     def cost_estimation(self):
         
         m_HX = self.best_particle.masses['Total']
-        n_tubes = self.best_particle.HX.params['n_tubes']
-        tube_L = self.best_particle.HX.params['Tube_L']
-        tube_OD = self.best_particle.HX.params['Tube_OD']
+        n_t = self.best_particle.HX.params['n_t']
+        tube_L = self.best_particle.HX.params['L_t']
+        tube_OD = self.best_particle.HX.params['D_t_o']
 
-        n_B = np.round(tube_L/self.best_particle.HX.params['central_spacing']) - 1
+        n_B = np.round(tube_L/self.best_particle.HX.params['B']) - 1
 
-        capex = krishna_cost_correlation_STHE(m_HX, n_B, n_tubes, tube_L, tube_OD)
+        capex = krishna_cost_correlation_STHE(m_HX, n_B, n_t, tube_L, tube_OD)
         
         self.CAPEX = {"HX" : actualize_price(capex, 2023, "USD"),
                       "Currency" : "USD"}
@@ -1042,19 +1042,19 @@ class ShellAndTubeSizingOpt(BaseComponent):
         if obj == 'mass':
             
             self.cost_calculator = HeatExchangerCost(
-                D_S_i=self.best_particle.HX.params['Shell_ID'],  
+                D_S_i=self.best_particle.HX.params['D_s'],  
                 t_S=self.best_particle.HX.params['t_S'], 
                 r=self.best_particle.HX.params['n_series'], 
-                L_B=self.best_particle.HX.params['central_spacing'], 
+                L_B=self.best_particle.HX.params['B'], 
                 t_B=self.best_particle.HX.params['t_B'], 
-                B_c = self.best_particle.HX.params['Baffle_cut']/100, 
+                B_c = self.best_particle.HX.params['BC']/100, 
                 N_TS=2, 
-                D_r=2*0.05/self.best_particle.HX.params['Shell_ID'], 
-                L_T=self.best_particle.HX.params['Tube_L'], 
-                D_T_o=self.best_particle.HX.params['Tube_OD'], 
-                D_T_i=self.best_particle.HX.params['Tube_OD']-2*self.best_particle.Tube_t, 
-                N_T=self.best_particle.HX.params['n_tubes'],
-                pitch_r=self.best_particle.HX.params['pitch_ratio'], 
+                D_r=2*0.05/self.best_particle.HX.params['D_s'], 
+                L_T=self.best_particle.HX.params['L_t'], 
+                D_T_o=self.best_particle.HX.params['D_t_o'], 
+                D_T_i=self.best_particle.HX.params['D_t_o']-2*self.best_particle.t_t, 
+                N_T=self.best_particle.HX.params['n_t'],
+                pitch_r=self.best_particle.HX.params['PR'], 
                 L_CH=0.3, 
                 N_CH=self.best_particle.HX.params['n_series']*2, 
                 t_TS=self.best_particle.HX.params['t_TS'], 
@@ -1063,9 +1063,9 @@ class ShellAndTubeSizingOpt(BaseComponent):
                 t_RC=self.best_particle.HX.params['t_S']*2,
                 D_SP_e=0.006*2, 
                 D_SP_i=0.006, 
-                N_TR=self.best_particle.HX.params['Tube_L']/0.72, 
+                N_TR=self.best_particle.HX.params['L_t']/0.72, 
                 D_TR=0.006, 
-                L_TR=self.best_particle.HX.params['Tube_L'], 
+                L_TR=self.best_particle.HX.params['L_t'], 
                 N_Bt=100
             )
     
@@ -1103,19 +1103,19 @@ def run_single_optimization(run_id, config, n_part, max_iter):
         Optimization related parameters/variables
         """
         
-        HX_test.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'Tube_pass', 'tube_layout', 'Baffle_cut'])
+        HX_test.set_opt_vars(['D_t_o_inch', 'L_t', 'D_s_inch', 'B', 'n_passes', 'theta', 'BC'])
         
         choice_vectors = {
-                            'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
-                            'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
+                            'D_t_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
+                            'D_s_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
                                 29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
-                            'Tube_pass' : Tube_p_opt,
-                            'tube_layout' : [0,45,60],
+                            'n_passes' : Tube_p_opt,
+                            'theta' : [0,45,60],
                             'n_parallel' : [1]}
         
         """
-        'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
-        'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
+        'D_t_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
+        'D_s_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
                                 29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78,
                                 84, 90, 96, 108, 120]
         """
@@ -1165,12 +1165,12 @@ def run_single_optimization(run_id, config, n_part, max_iter):
 
                                 # OPTI -> Oui (regarder le papier pour déterminer ça)
     
-                                foul_t = 0.0002, # (m^2 * K/W)
-                                foul_s = 0.00033, # (m^2 * K/W)
-                                tube_cond = 50, # W/(m*K)
+                                R_f_T = 0.0002, # (m^2 * K/W)
+                                R_f_S = 0.00033, # (m^2 * K/W)
+                                k_wall = 50, # W/(m*K)
                                 Overdesign = 0,
                                 
-                                Shell_Side = 'H',
+                                shell_side = 'H',
     
                                 Flow_Type = 'Shell&Tube',
                                 H_DP_ON = True,
@@ -1179,14 +1179,14 @@ def run_single_optimization(run_id, config, n_part, max_iter):
                                 Tube_t_flag = Tube_t_flag
                               )
     
-        H_Corr = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
-        C_Corr = {"1P" : "Gnielinski", "2P" : "Flow_boiling"}
+        H_Corr = {"1P" : "Kern", "2P" : "auto"}
+        C_Corr = {"1P" : "Gnielinski", "2P" : "VDI"}
         
-        # H_DP = "Shell_Kern_DP"
+        # H_DP = "Kern"
         # C_DP = "Konakov"
         
         C_DP = {"SC" : "Konakov", "1P" : "Konakov", "2P" : "MSH"}
-        H_DP = {"SC" : "Shell_Kern_DP", "1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
+        H_DP = {"SC" : "Kern", "1P" : "Kern", "2P" : "auto"}
         
         HX_test.set_corr(H_Corr, C_Corr, H_DP, C_DP)
     
@@ -1198,26 +1198,26 @@ def run_single_optimization(run_id, config, n_part, max_iter):
         Optimization related parameters/variables
         """
         
-        HX_test.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'Tube_pass', 'tube_layout', 'Baffle_cut'])
+        HX_test.set_opt_vars(['D_t_o_inch', 'L_t', 'D_s_inch', 'B', 'n_passes', 'theta', 'BC'])
         
         # choice_vectors = {
-        #                     'D_o_inch' : [0.25, 0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
-        #                     'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
+        #                     'D_t_o_inch' : [0.25, 0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
+        #                     'D_s_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
         #                      29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
-        #                     'Tube_pass' : Tube_p_opt, # [1,2,4,6,8,10]
-        #                     'tube_layout' : [0,45,60]}
+        #                     'n_passes' : Tube_p_opt, # [1,2,4,6,8,10]
+        #                     'theta' : [0,45,60]}
         
         choice_vectors = {
-                            'D_o_inch' : [0.375, 0.5],
-                            'Shell_ID_inch' : [8, 10, 12],
-                            'Tube_pass' : Tube_p_opt, # [1,2,4,6,8,10]
-                            'tube_layout' : [0,45,60],
+                            'D_t_o_inch' : [0.375, 0.5],
+                            'D_s_inch' : [8, 10, 12],
+                            'n_passes' : Tube_p_opt, # [1,2,4,6,8,10]
+                            'theta' : [0,45,60],
                             'n_parallel' : [1]}
         
         
         """
-        'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
-        'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
+        'D_t_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
+        'D_s_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
                                 29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78,
                                 84, 90, 96, 108, 120]
         """
@@ -1265,12 +1265,12 @@ def run_single_optimization(run_id, config, n_part, max_iter):
                                 n_series = 1, # [-]
                                 # OPTI -> Oui (regarder le papier pour déterminer ça)
     
-                                foul_t = 0.000176, # (m^2 * K/W)
-                                foul_s =  0.000176, # (m^2 * K/W)
-                                tube_cond = 50, # W/(m*K)
+                                R_f_T = 0.000176, # (m^2 * K/W)
+                                R_f_S =  0.000176, # (m^2 * K/W)
+                                k_wall = 50, # W/(m*K)
                                 Overdesign = 0,
                                 
-                                Shell_Side = 'H',
+                                shell_side = 'H',
     
                                 Flow_Type = 'Shell&Tube',
                                 H_DP_ON = True,
@@ -1279,14 +1279,14 @@ def run_single_optimization(run_id, config, n_part, max_iter):
                                 Tube_t_flag = Tube_t_flag
                               )
 
-        H_Corr = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
-        C_Corr = {"1P" : "Gnielinski", "2P" : "Flow_boiling"}
+        H_Corr = {"1P" : "Kern", "2P" : "auto"}
+        C_Corr = {"1P" : "Gnielinski", "2P" : "VDI"}
         
-        # H_DP = "Shell_Kern_DP"
+        # H_DP = "Kern"
         # C_DP = "MSH"
 
         C_DP = {"SC" : "Konakov", "1P" : "Konakov", "2P" : "MSH"}
-        H_DP = {"SC" : "Shell_Kern_DP", "1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
+        H_DP = {"SC" : "Kern", "1P" : "Kern", "2P" : "auto"}
         
         HX_test.set_corr(H_Corr, C_Corr, H_DP, C_DP)
     
@@ -1295,19 +1295,19 @@ def run_single_optimization(run_id, config, n_part, max_iter):
         Optimization related parameters/variables
         """
         
-        HX_test.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'Tube_pass', 'tube_layout', 'Baffle_cut'])
+        HX_test.set_opt_vars(['D_t_o_inch', 'L_t', 'D_s_inch', 'B', 'n_passes', 'theta', 'BC'])
         
         choice_vectors = {
-                            'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
-                            'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
+                            'D_t_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
+                            'D_s_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
                                 29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
-                            'Tube_pass' : [2], # [1,2,4,6,8,10]
-                            'tube_layout' : [0,45,60],
+                            'n_passes' : [2], # [1,2,4,6,8,10]
+                            'theta' : [0,45,60],
                             'n_parallel' : [1]} # [0,45,60]}
         
         """
-        'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
-        'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
+        'D_t_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
+        'D_s_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
                                 29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78,
                                 84, 90, 96, 108, 120]
         """
@@ -1356,12 +1356,12 @@ def run_single_optimization(run_id, config, n_part, max_iter):
 
                                 # OPTI -> Oui (regarder le papier pour déterminer ça)
     
-                                foul_t = 0.000176, # (m^2 * K/W)
-                                foul_s =  0.000176, # (m^2 * K/W)
-                                tube_cond = 50, # W/(m*K)
+                                R_f_T = 0.000176, # (m^2 * K/W)
+                                R_f_S =  0.000176, # (m^2 * K/W)
+                                k_wall = 50, # W/(m*K)
                                 Overdesign = 0,
                                 
-                                Shell_Side = 'C',
+                                shell_side = 'C',
     
                                 Flow_Type = 'Shell&Tube',
                                 H_DP_ON = True,
@@ -1369,15 +1369,15 @@ def run_single_optimization(run_id, config, n_part, max_iter):
                                 n_disc = 30
                               )
         
-        Corr_H = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Thome_Condensation"}
+        Corr_H = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Thome"}
         # Corr_H = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Gnielinski"}
-        Corr_C = {"SC" : "Shell_Kern_HTC", "1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
+        Corr_C = {"SC" : "Kern", "1P" : "Kern", "2P" : "auto"}
 
-        Corr_H_DP = "MSH"
-        Corr_C_DP = "Shell_Kern_DP"
+        Corr_H_DP = {"SC" : "auto", "1P" : "auto", "2P" : "MSH"}   # was "MSH" for every phase (old model)
+        Corr_C_DP = {"SC" : "Kern", "1P" : "Kern", "2P" : "auto"}   # was "Kern" for every phase (old model)
         
         # Corr_H_DP = {"SC" : "Konakov", "1P" : "Konakov", "2P" : "MSH"}
-        # Corr_C_DP = {"SC" : "Shell_Kern_DP", "1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
+        # Corr_C_DP = {"SC" : "Kern", "1P" : "Kern", "2P" : "auto"}
         
         HX_test.set_corr(Corr_H, Corr_C, Corr_H_DP, Corr_C_DP)
     
@@ -1386,19 +1386,19 @@ def run_single_optimization(run_id, config, n_part, max_iter):
         Optimization related parameters/variables
         """
         
-        HX_test.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'Tube_pass', 'tube_layout', 'Baffle_cut'])
+        HX_test.set_opt_vars(['D_t_o_inch', 'L_t', 'D_s_inch', 'B', 'n_passes', 'theta', 'BC'])
         
         choice_vectors = {
-                            'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
-                            'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
+                            'D_t_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
+                            'D_s_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
                                 29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
-                            'Tube_pass' : [2], # [1,2,4,6,8,10]
-                            'tube_layout' : [0,45,60],
+                            'n_passes' : [2], # [1,2,4,6,8,10]
+                            'theta' : [0,45,60],
                             'n_parallel' : [1]} # [0,45,60]}
         
         """
-        'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
-        'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
+        'D_t_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
+        'D_s_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
                                 29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78,
                                 84, 90, 96, 108, 120]
         """
@@ -1447,12 +1447,12 @@ def run_single_optimization(run_id, config, n_part, max_iter):
 
                                 # OPTI -> Oui (regarder le papier pour déterminer ça)
     
-                                foul_t = 0.000176, # (m^2 * K/W)
-                                foul_s =  0.000176, # (m^2 * K/W)
-                                tube_cond = 50, # W/(m*K)
+                                R_f_T = 0.000176, # (m^2 * K/W)
+                                R_f_S =  0.000176, # (m^2 * K/W)
+                                k_wall = 50, # W/(m*K)
                                 Overdesign = 0,
                                 
-                                Shell_Side = 'H',
+                                shell_side = 'H',
     
                                 Flow_Type = 'Shell&Tube',
                                 H_DP_ON = True,
@@ -1460,14 +1460,14 @@ def run_single_optimization(run_id, config, n_part, max_iter):
                                 n_disc = 30
                               )
         
-        Corr_H = {"SC" : "Shell_Kern_HTC", "1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
-        Corr_C = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Flow_boiling"}
+        Corr_H = {"SC" : "Kern", "1P" : "Kern", "2P" : "auto"}
+        Corr_C = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "VDI"}
         
-        Corr_H_DP = "Shell_Kern_DP"
-        Corr_C_DP = "Konakov"
+        Corr_H_DP = {"SC" : "Kern", "1P" : "Kern", "2P" : "auto"}   # was "Kern" for every phase (old model)
+        Corr_C_DP = {"SC" : "Konakov", "1P" : "Konakov", "2P" : "auto"}   # was "Konakov" for every phase (old model)
         
         # Corr_C_DP = {"SC" : "Konakov", "1P" : "Konakov", "2P" : "MSH"}
-        # Corr_H_DP = {"SC" : "Shell_Kern_DP", "1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
+        # Corr_H_DP = {"SC" : "Kern", "1P" : "Kern", "2P" : "auto"}
         
         HX_test.set_corr(Corr_H, Corr_C, Corr_H_DP, Corr_C_DP)
     
@@ -1476,12 +1476,12 @@ def run_single_optimization(run_id, config, n_part, max_iter):
     """
     
     bounds = {
-                "L_shell" : [1,15], # 10],
-                "D_o_inch" : [choice_vectors['D_o_inch'][0], choice_vectors['D_o_inch'][-1]],
-                "Shell_ID_inch" : [choice_vectors['Shell_ID_inch'][0], choice_vectors['Shell_ID_inch'][-1]],
-                "Tube_pass" : [choice_vectors['Tube_pass'][0], choice_vectors['Tube_pass'][-1]],
-                "tube_layout" : [choice_vectors['tube_layout'][0], choice_vectors['tube_layout'][-1]],
-                "Baffle_cut" : [15, 45]
+                "L_t" : [1,15], # 10],
+                "D_t_o_inch" : [choice_vectors['D_t_o_inch'][0], choice_vectors['D_t_o_inch'][-1]],
+                "D_s_inch" : [choice_vectors['D_s_inch'][0], choice_vectors['D_s_inch'][-1]],
+                "n_passes" : [choice_vectors['n_passes'][0], choice_vectors['n_passes'][-1]],
+                "theta" : [choice_vectors['theta'][0], choice_vectors['theta'][-1]],
+                "BC" : [15, 45]
                 }
     
     HX_test.set_bounds(bounds)
@@ -1513,24 +1513,24 @@ def run_single_optimization(run_id, config, n_part, max_iter):
         't_t_p_dep': bool(Tube_t_flag),
         'tube_pass_flag': bool(Tube_p_flag),
     
-        'D_s_i': float(HX_params['Shell_ID']),
-        'L_t': float(HX_params['Tube_L']),
-        'B': float(HX_params['central_spacing']),
-        'D_t_o': float(HX_params['Tube_OD']),
-        'p_r': float(HX_params['pitch_ratio']),
-        't_t': float(HX_params['Tube_t']),
-        'D_t_i': float(HX_params['Tube_OD']*2 - HX_params['Tube_t']),
-        'n_t': int(HX_params['n_tubes']),
-        'n_p': int(HX_params['Tube_pass']),
-        'BC': float(HX_params['Baffle_cut']),
-        'arrang': str(HX_params['tube_layout']),
-        'A_HX': float(HX_params['A_eff']),
+        'D_s_i': float(HX_params['D_s']),
+        'L_t': float(HX_params['L_t']),
+        'B': float(HX_params['B']),
+        'D_t_o': float(HX_params['D_t_o']),
+        'p_r': float(HX_params['PR']),
+        't_t': float(HX_params['t_t']),
+        'D_t_i': float(HX_params['D_t_o'] - 2*HX_params['t_t']),
+        'n_t': int(HX_params['n_t']),
+        'n_p': int(HX_params['n_passes']),
+        'BC': float(HX_params['BC']),
+        'arrang': str(HX_params['theta']),
+        'A_HX': float(HX_params['A']),
     
         'alpha_t': float((HX.w * HX.alpha_c).sum() / HX.w.sum()),
         'alpha_s': float((HX.w * HX.alpha_h).sum() / HX.w.sum()),
         'LMTD': float((HX.w * HX.LMTD).sum() / HX.w.sum()),
     
-        'Q_dot': float(HX.Q),
+        'Q_dot': float(HX.Q.Q_dot),
         'DP_t': float(HX.DP_c),
         'DP_s': float(HX.DP_h),
     
@@ -1541,10 +1541,10 @@ def run_single_optimization(run_id, config, n_part, max_iter):
         'm_B': float(best_particle.masses['Baffles']),
     
         'C_tot': float(best_particle.total_cost),
-        'A_HX_m_HX': float(HX_params['A_eff'] / best_particle.masses['Total']),
+        'A_HX_m_HX': float(HX_params['A'] / best_particle.masses['Total']),
         'A_HX_V_HX': float(
-            HX_params['A_eff'] /
-            (HX_params['Tube_L'] * 0.25 * np.pi * HX_params['Shell_ID']**2)
+            HX_params['A'] /
+            (HX_params['L_t'] * 0.25 * np.pi * HX_params['D_s']**2)
             )
         }
     except:
@@ -1746,19 +1746,19 @@ if __name__ == "__main__":
             Optimization related parameters/variables
             """
             
-            HX_test.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'Tube_pass', 'tube_layout', 'Baffle_cut'])
+            HX_test.set_opt_vars(['D_t_o_inch', 'L_t', 'D_s_inch', 'B', 'n_passes', 'theta', 'BC'])
             
             choice_vectors = {
-                                'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
-                                'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
+                                'D_t_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
+                                'D_s_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
                                     29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
-                                'Tube_pass' : [2], # [1,2,4,8]
-                                'tube_layout' : [0,45,60],
+                                'n_passes' : [2], # [1,2,4,8]
+                                'theta' : [0,45,60],
                                 'n_parallel' : [1,2,3]}
             
             """
-            'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
-            'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
+            'D_t_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
+            'D_s_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
                                     29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78,
                                     84, 90, 96, 108, 120]
             """
@@ -1808,12 +1808,12 @@ if __name__ == "__main__":
     
                                     # OPTI -> Oui (regarder le papier pour déterminer ça)
         
-                                    foul_t = 0.0002, # (m^2 * K/W)
-                                    foul_s = 0.00033, # (m^2 * K/W)
-                                    tube_cond = 50, # W/(m*K)
+                                    R_f_T = 0.0002, # (m^2 * K/W)
+                                    R_f_S = 0.00033, # (m^2 * K/W)
+                                    k_wall = 50, # W/(m*K)
                                     Overdesign = 0,
                                     
-                                    Shell_Side = 'H',
+                                    shell_side = 'H',
         
                                     Flow_Type = 'Shell&Tube',
                                     H_DP_ON = True,
@@ -1822,14 +1822,14 @@ if __name__ == "__main__":
                                     Tube_t_flag = Tube_t_flag
                                   )
         
-            H_Corr = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
-            C_Corr = {"1P" : "Gnielinski", "2P" : "Flow_boiling"}
+            H_Corr = {"1P" : "Kern", "2P" : "auto"}
+            C_Corr = {"1P" : "Gnielinski", "2P" : "VDI"}
             
-            # H_DP = "Shell_Kern_DP"
+            # H_DP = "Kern"
             # C_DP = "Konakov"
             
             C_DP = {"SC" : "Konakov", "1P" : "Konakov", "2P" : "MSH"}
-            H_DP = {"SC" : "Shell_Kern_DP", "1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
+            H_DP = {"SC" : "Kern", "1P" : "Kern", "2P" : "auto"}
             
             HX_test.set_corr(H_Corr, C_Corr, H_DP, C_DP)
         
@@ -1839,19 +1839,19 @@ if __name__ == "__main__":
             Optimization related parameters/variables
             """
             
-            HX_test.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'Tube_pass', 'tube_layout', 'Baffle_cut'])
+            HX_test.set_opt_vars(['D_t_o_inch', 'L_t', 'D_s_inch', 'B', 'n_passes', 'theta', 'BC'])
             
             choice_vectors = {
-                                'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
-                                'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
+                                'D_t_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
+                                'D_s_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
                                     29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
-                                'Tube_pass' : [2], # [1,2,4,8]
-                                'tube_layout' : [60],
+                                'n_passes' : [2], # [1,2,4,8]
+                                'theta' : [60],
                                 'n_parallel' : [1]} # [0,45,60]}
             
             """
-            'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
-            'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
+            'D_t_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
+            'D_s_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
                                     29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78,
                                     84, 90, 96, 108, 120]
             """
@@ -1899,12 +1899,12 @@ if __name__ == "__main__":
                                     n_series = 1, # [-]
                                     # OPTI -> Oui (regarder le papier pour déterminer ça)
         
-                                    foul_t = 0.000176, # (m^2 * K/W)
-                                    foul_s =  0.000176, # (m^2 * K/W)
-                                    tube_cond = 50, # W/(m*K)
+                                    R_f_T = 0.000176, # (m^2 * K/W)
+                                    R_f_S =  0.000176, # (m^2 * K/W)
+                                    k_wall = 50, # W/(m*K)
                                     Overdesign = 0,
                                     
-                                    Shell_Side = 'H',
+                                    shell_side = 'H',
         
                                     Flow_Type = 'Shell&Tube',
                                     H_DP_ON = True,
@@ -1913,11 +1913,11 @@ if __name__ == "__main__":
                                     Tube_t_flag = Tube_t_flag
                                   )
     
-            H_Corr = {"1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
-            C_Corr = {"1P" : "Gnielinski", "2P" : "Flow_boiling"}
+            H_Corr = {"1P" : "Kern", "2P" : "auto"}
+            C_Corr = {"1P" : "Gnielinski", "2P" : "VDI"}
     
             C_DP = {"SC" : "Konakov", "1P" : "Konakov", "2P" : "MSH"}
-            H_DP = {"SC" : "Shell_Kern_DP", "1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
+            H_DP = {"SC" : "Kern", "1P" : "Kern", "2P" : "auto"}
             
             HX_test.set_corr(H_Corr, C_Corr, H_DP, C_DP)
         
@@ -1926,19 +1926,19 @@ if __name__ == "__main__":
             Optimization related parameters/variables
             """
             
-            HX_test.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'Tube_pass', 'tube_layout', 'Baffle_cut'])
+            HX_test.set_opt_vars(['D_t_o_inch', 'L_t', 'D_s_inch', 'B', 'n_passes', 'theta', 'BC'])
             
             choice_vectors = {
-                                'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
-                                'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
+                                'D_t_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
+                                'D_s_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
                                     29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
-                                'Tube_pass' : [1,2,4], # 6,8,10],
-                                'tube_layout' : [0,45,60],
+                                'n_passes' : [1,2,4], # 6,8,10],
+                                'theta' : [0,45,60],
                                 'n_parallel' : [1,2,3]} 
             
             """
-            'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
-            'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
+            'D_t_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
+            'D_s_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
                                     29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78,
                                     84, 90, 96, 108, 120]
             """
@@ -1987,12 +1987,12 @@ if __name__ == "__main__":
     
                                     # OPTI -> Oui (regarder le papier pour déterminer ça)
         
-                                    foul_t = 0.000176, # (m^2 * K/W)
-                                    foul_s =  0.000176, # (m^2 * K/W)
-                                    tube_cond = 50, # W/(m*K)
+                                    R_f_T = 0.000176, # (m^2 * K/W)
+                                    R_f_S =  0.000176, # (m^2 * K/W)
+                                    k_wall = 50, # W/(m*K)
                                     Overdesign = 0,
                                     
-                                    Shell_Side = 'C',
+                                    shell_side = 'C',
         
                                     Flow_Type = 'Shell&Tube',
                                     H_DP_ON = True,
@@ -2000,11 +2000,11 @@ if __name__ == "__main__":
                                     n_disc = 30
                                   )
             
-            Corr_H = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Thome_Condensation"}
-            Corr_C = {"SC" : "Shell_Kern_HTC", "1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
+            Corr_H = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Thome"}
+            Corr_C = {"SC" : "Kern", "1P" : "Kern", "2P" : "auto"}
             
             Corr_H_DP = {"SC" : "Konakov", "1P" : "Konakov", "2P" : "MSH"}
-            Corr_C_DP = {"SC" : "Shell_Kern_DP", "1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
+            Corr_C_DP = {"SC" : "Kern", "1P" : "Kern", "2P" : "auto"}
             
             HX_test.set_corr(Corr_H, Corr_C, Corr_H_DP, Corr_C_DP)
         
@@ -2013,19 +2013,19 @@ if __name__ == "__main__":
             Optimization related parameters/variables
             """
             
-            HX_test.set_opt_vars(['D_o_inch', 'L_shell', 'Shell_ID_inch', 'Central_spac', 'Tube_pass', 'tube_layout', 'Baffle_cut'])
+            HX_test.set_opt_vars(['D_t_o_inch', 'L_t', 'D_s_inch', 'B', 'n_passes', 'theta', 'BC'])
             
             choice_vectors = {
-                                'D_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
-                                'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
+                                'D_t_o_inch' : [0.375, 0.5, 0.625, 0.75, 1, 1.25, 1.5],
+                                'D_s_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,        
                                     29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78, 84, 90, 96, 108, 120],
-                                'Tube_pass' : [1], #,2,4,6,8,10],
-                                'tube_layout' : [0,45,60],
+                                'n_passes' : [1], #,2,4,6,8,10],
+                                'theta' : [0,45,60],
                                 'n_parallel' : [1,2,3]}
             
             """
-            'D_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
-            'Shell_ID_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
+            'D_t_o_inch' : [0.5, 0.75, 1, 1.25, 1.5],
+            'D_s_inch' : [8, 10, 12, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25, 25, 27,
                                     29, 31, 33, 35, 37, 39, 42, 45, 48, 54, 60, 66, 72, 78,
                                     84, 90, 96, 108, 120]
             """
@@ -2074,12 +2074,12 @@ if __name__ == "__main__":
     
                                     # OPTI -> Oui (regarder le papier pour déterminer ça)
         
-                                    foul_t = 0.000176, # (m^2 * K/W)
-                                    foul_s =  0.000176, # (m^2 * K/W)
-                                    tube_cond = 50, # W/(m*K)
+                                    R_f_T = 0.000176, # (m^2 * K/W)
+                                    R_f_S =  0.000176, # (m^2 * K/W)
+                                    k_wall = 50, # W/(m*K)
                                     Overdesign = 0,
                                     
-                                    Shell_Side = 'H',
+                                    shell_side = 'H',
         
                                     Flow_Type = 'Shell&Tube',
                                     H_DP_ON = True,
@@ -2087,11 +2087,11 @@ if __name__ == "__main__":
                                     n_disc = 30
                                   )
             
-            Corr_H = {"SC" : "Shell_Kern_HTC", "1P" : "Shell_Kern_HTC", "2P" : "Shell_Kern_HTC"}
-            Corr_C = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "Flow_boiling"}
+            Corr_H = {"SC" : "Kern", "1P" : "Kern", "2P" : "auto"}
+            Corr_C = {"SC" : "Gnielinski", "1P" : "Gnielinski", "2P" : "VDI"}
             
             Corr_C_DP = {"SC" : "Konakov", "1P" : "Konakov", "2P" : "MSH"}
-            Corr_H_DP = {"SC" : "Shell_Kern_DP", "1P" : "Shell_Kern_DP", "2P" : "Shell_Kern_DP"}
+            Corr_H_DP = {"SC" : "Kern", "1P" : "Kern", "2P" : "auto"}
             
             HX_test.set_corr(Corr_H, Corr_C, Corr_H_DP, Corr_C_DP)
         
@@ -2100,12 +2100,12 @@ if __name__ == "__main__":
         """
         
         bounds = {
-                    "L_shell" : [1,15], # 10],
-                    "D_o_inch" : [choice_vectors['D_o_inch'][0], choice_vectors['D_o_inch'][-1]],
-                    "Shell_ID_inch" : [choice_vectors['Shell_ID_inch'][0], choice_vectors['Shell_ID_inch'][-1]],
-                    "Tube_pass" : [choice_vectors['Tube_pass'][0], choice_vectors['Tube_pass'][-1]],
-                    "tube_layout" : [choice_vectors['tube_layout'][0], choice_vectors['tube_layout'][-1]],
-                    "Baffle_cut" : [15, 45]
+                    "L_t" : [1,15], # 10],
+                    "D_t_o_inch" : [choice_vectors['D_t_o_inch'][0], choice_vectors['D_t_o_inch'][-1]],
+                    "D_s_inch" : [choice_vectors['D_s_inch'][0], choice_vectors['D_s_inch'][-1]],
+                    "n_passes" : [choice_vectors['n_passes'][0], choice_vectors['n_passes'][-1]],
+                    "theta" : [choice_vectors['theta'][0], choice_vectors['theta'][-1]],
+                    "BC" : [15, 45]
                     }
         
         HX_test.set_bounds(bounds)

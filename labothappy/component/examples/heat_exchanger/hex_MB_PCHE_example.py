@@ -76,6 +76,8 @@ if test_case == "test_CO2":
         alpha = params['alpha'], C_V_tot = params['C_V_tot'], H_V_tot = params['H_V_tot'], D_ch = params['D_ch'], k_wall = params['k_wall'], L_ch = params['L_ch'],
         n_ch_p = params['n_ch_p'], n_p = params['n_p'], R_p = params['R_p'], t_2 = params['t_2'], t_3 = params['t_3'], type_channel = params['type_channel'],
         
+        charge_compute = False,
+        
         Flow_Type = 'CounterFlow', H_DP_ON = True, C_DP_ON = True, n_disc = 50) # 27
 
 if test_case == "TCO2_recup":
@@ -124,6 +126,8 @@ if test_case == "TCO2_recup":
     HX.set_parameters(
         alpha = params['alpha'], C_V_tot = params['C_V_tot'], H_V_tot = params['H_V_tot'], D_ch = params['D_ch'], k_wall = params['k_wall'], L_ch = params['L_ch'], 
         n_ch_p = params['n_ch_p'], n_p = params['n_p'], R_p = params['R_p'], t_2 = params['t_2'], t_3 = params['t_3'],
+        
+        charge_compute = False,
         
         Flow_Type = 'CounterFlow', H_DP_ON = True, C_DP_ON = True, n_disc = 50) # 27
     

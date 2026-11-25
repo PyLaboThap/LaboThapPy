@@ -11,6 +11,7 @@ import CoolProp.CoolProp as CP
 from CoolProp.CoolProp import PropsSI
 import warnings
 from labothappy.correlations.properties.thermal_conductivity import conducticity_R1233zd
+from labothappy.correlations.convection.pipe_HTC_correlation_bank import _sigma
 from labothappy.correlations.convection.correlation_warnings import (
     AssumedParameterWarning, ValidityRangeWarning)
 
@@ -64,14 +65,14 @@ def _sat_props(AS, p_sat):
     return props
 
 def _compute_sat_props(AS, fluid, p):
+    # Surface tension from a HEOS state (pipe_HTC_correlation_bank._sigma): the tabular backends
+    # (BICUBIC&HEOS) return the value of their first state for every later state (CoolProp 7.2)
+    sigma = _sigma(AS, p)
+
     # Saturated liquid
     AS.update(CP.PQ_INPUTS, p, 0)
     T_sat = AS.T()
     rho_l, h_l, cp_l = AS.rhomass(), AS.hmass(), AS.cpmass()
-    try:
-        sigma = AS.surface_tension()
-    except ValueError:
-        sigma = PropsSI('surface_tension', 'P', p, 'Q', 0, fluid)
 
     if fluid in ('R1233zd(E)', 'R1233ZD(E)'):
         k_l = conducticity_R1233zd(T_sat, p)

@@ -821,12 +821,16 @@ class HexMB(BaseComponent):
         other = self.H if side is self.C else self.C
         d['T_in'], d['p_in'], d['p_other_in'] = side.T_su, side.p_su, other.p_su   # inlet values (PCHE Bennett & Chen)
         if phase == 'two-phase':
-            # surface tension of the saturated fluid, read from the AS already set at the cell state (h, p):
-            # no extra update. If the backend cannot give it (tabular), the correlations compute it (_sat_props).
-            try:
-                d['sigma'] = AS.surface_tension()
-            except Exception:
-                pass
+            # surface tension of the saturated fluid at the cell pressure, from the HEOS state of the side:
+            # the tabular backends (BICUBIC&HEOS) are not used, because with CoolProp 7.2 their
+            # surface_tension() raises or returns the value of the first state for every later state.
+            # If CoolProp has none for the fluid, the correlations ask for it (_sat_props).
+            if side.AS_heos is not None:
+                try:
+                    side.AS_heos.update(CP.PQ_INPUTS, cond.p, 0.5)
+                    d['sigma'] = side.AS_heos.surface_tension()
+                except Exception:
+                    pass
         if self.HTX_Type in ('BPHE', 'STHE', 'PCHE', 'TFHE', 'SPHE', 'SCHE') and (d['flow_state'] == 'SP' or phase == 'vapor-wet'):
             b = bulk_properties(AS, cond)                          # needs AS at (h, p)
             d.update(mu=b['mu'], k=b['k'], Pr=b['Pr'], cp=b['cp'], D=b['rho'], rho=b['rho'])

@@ -3,7 +3,7 @@ Author : Basile Chaudoir
 
 Sizing par optimisation (PSO) d'un échangeur à canaux spiralés empilés (SCHE),
 calqué sur SPHESizingOpt. Le modèle thermo-hydraulique est
-HexMBChargeSensitive('SCHE') (moving boundary, discrétisé), avec la résolution géométrique de
+HexMB('SCHE') (moving boundary, discrétisé), avec la résolution géométrique de
 hex_geometry.py (SCHEGeometry) et les corrélations curved_pipe_HTC / curved_pipe_DP.
 
 Noms de corrélations (clés '1P' / '2P') :
@@ -13,10 +13,10 @@ Noms de corrélations (clés '1P' / '2P') :
              ou 'Cioncolini', 'Ruffell', 'Fsadni'
 
 Géométrie (cf. setup_geom, branche SCHE) :
-    - canaux elliptiques complets, largeur *_canal_w, hauteur *_canal_h
-    - pitch_H / pitch_V : écarts centre à centre entre deux canaux du MÊME fluide
-    - chaud et froid en quinconce, décalés de (pitch_H/2, pitch_V/2)
-    - n_ch = floor(H / pitch_V) canaux de chaque fluide en parallèle
+    - canaux elliptiques complets, largeur w_ch_*, hauteur h_ch_*
+    - P_H / P_V : écarts centre à centre entre deux canaux du MÊME fluide
+    - chaud et froid en quinconce, décalés de (P_H/2, P_V/2)
+    - n_ch = floor(H / P_V) canaux de chaque fluide en parallèle
 
 Deux modes d'objectif (paramètre obj de sizing(), ou params['obj']) :
     obj = 'V' : V_tot = n_parallel * n_series * pi * D_ext^2 / 4 * H      [m^3]
@@ -35,12 +35,12 @@ guide l'essaim, alors que T_out - T_dew resterait à 0 pour un corps pur.
 Variables de design (ORDER) :
     D_ext       diamètre extérieur                         [m]
     H           hauteur de l'empilement                    [m]
-    C_canal_w   largeur du canal froid                     [m]
-    C_canal_h   hauteur du canal froid                     [m]
-    H_canal_w   largeur du canal chaud                     [m]
-    H_canal_h   hauteur du canal chaud                     [m]
-    pitch_H     pas radial (même fluide, centre à centre)  [m]
-    pitch_V     pas vertical (même fluide, centre à centre)[m]
+    w_ch_C   largeur du canal froid                     [m]
+    h_ch_C   hauteur du canal froid                     [m]
+    w_ch_H   largeur du canal chaud                     [m]
+    h_ch_H   hauteur du canal chaud                     [m]
+    P_H     pas radial (même fluide, centre à centre)  [m]
+    P_V     pas vertical (même fluide, centre à centre)[m]
     r0_in       rayon intérieur de départ de la spirale    [m]
     n_parallel  nombre d'unités en parallèle               [-] (entier)
     n_series    nombre d'unités en série                   [-] (entier)
@@ -50,7 +50,7 @@ Rapport d'aspect imposé : params C_aspect / H_aspect = h / w (ex. 1.0 = canal
 circulaire). La hauteur correspondante n'est alors plus une variable : h = aspect * w.
 
 Pas imposés par la tenue en pression (pitch_mode = 'pressure', défaut) :
-    pitch_H et pitch_V ne sont plus des variables : ils sont calculés pour chaque
+    P_H et P_V ne sont plus des variables : ils sont calculés pour chaque
     candidat comme les pas MINIMAUX qui tiennent la pression.
     - chaque canal est assimilé à un tube de diamètre intérieur max(w, h) ;
       son épaisseur requise t_x est la plus petite épaisseur telle que
@@ -64,7 +64,7 @@ Pas imposés par la tenue en pression (pitch_mode = 'pressure', défaut) :
       puis les deux pas sont multipliés par le même facteur s >= 1 (bisection)
       jusqu'à respecter la paroi diagonale.
     P de calcul = P_design_factor * P_su ; T de calcul = T_design ou max des T d'entrée.
-    pitch_mode = 'free' : ancien comportement (pitch_H, pitch_V optimisés).
+    pitch_mode = 'free' : ancien comportement (P_H, P_V optimisés).
 
 Faisabilité géométrique vérifiée AVANT le calcul HX (pénalité graduée) :
     - jeu entre deux canaux du même fluide >= min_wall (horizontal et vertical)
@@ -180,13 +180,13 @@ def required_thickness(D_in, p_int, p_ext, T, n_iter=40):
     return hi
 
 
-def pressure_pitches(C_canal_w, C_canal_h, H_canal_w, H_canal_h, P_h, P_c, T, min_wall=0.0):
+def pressure_pitches(w_ch_C, h_ch_C, w_ch_H, h_ch_H, P_h, P_c, T, min_wall=0.0):
     """
-    Pas minimaux (pitch_H, pitch_V) tenant la pression, et épaisseurs requises (t_C, t_H).
+    Pas minimaux (P_H, P_V) tenant la pression, et épaisseurs requises (t_C, t_H).
     Voir l'en-tête du module pour la méthode. Retourne des np.inf si la pression
     ne peut pas être tenue.
     """
-    Cw, Ch, Hw, Hh = C_canal_w, C_canal_h, H_canal_w, H_canal_h
+    Cw, Ch, Hw, Hh = w_ch_C, h_ch_C, w_ch_H, h_ch_H
     t_C = required_thickness(max(Cw, Ch), P_c, P_h, T)
     t_H = required_thickness(max(Hw, Hh), P_h, P_c, T)
     if not (np.isfinite(t_C) and np.isfinite(t_H)):
@@ -217,8 +217,8 @@ def pressure_pitches(C_canal_w, C_canal_h, H_canal_w, H_canal_h, P_h, P_c, T, mi
     return s*pH0, s*pV0, t_C, t_H
 
 
-def sche_geometry(D_ext, H, C_canal_w, C_canal_h, H_canal_w, H_canal_h,
-                  pitch_H, pitch_V, r0_in, inner_channel='hot', min_wall=0.0, exchange_frac=1.0):
+def sche_geometry(D_ext, H, w_ch_C, h_ch_C, w_ch_H, h_ch_H,
+                  P_H, P_V, r0_in, inner_ch='hot', min_wall=0.0, exchange_frac=1.0):
     """
     Géométrie simplifiée du SCHE, cohérente avec setup_geom (branche SCHE).
 
@@ -227,8 +227,8 @@ def sche_geometry(D_ext, H, C_canal_w, C_canal_h, H_canal_w, H_canal_h,
     somme des violations géométriques RELATIVES (0 = faisable), utilisée comme
     pénalité graduée pour guider l'essaim vers le domaine faisable.
     """
-    p, pv = pitch_H, pitch_V
-    Cw, Ch, Hw, Hh = C_canal_w, C_canal_h, H_canal_w, H_canal_h
+    p, pv = P_H, P_V
+    Cw, Ch, Hw, Hh = w_ch_C, h_ch_C, w_ch_H, h_ch_H
 
     gaps = {'C_gap_H': p - Cw, 'C_gap_V': pv - Ch, 'H_gap_H': p - Hw, 'H_gap_V': pv - Hh}
     viol = 0.0
@@ -242,7 +242,7 @@ def sche_geometry(D_ext, H, C_canal_w, C_canal_h, H_canal_w, H_canal_h,
     viol += max(min_wall - t_wall_min, 0.0) / min(p, pv)
 
     # Nombre de tours (même construction que setup_geom)
-    b_inner, b_outer = (Hw, Cw) if inner_channel == 'hot' else (Cw, Hw)
+    b_inner, b_outer = (Hw, Cw) if inner_ch == 'hot' else (Cw, Hw)
     c_in = 0.5 * b_inner
     g = max(0.5*p - 0.5*(Cw + Hw), 0.0)
     outer_offset = max(b_inner, c_in + 0.25*p + 0.5*g)
@@ -257,8 +257,8 @@ def sche_geometry(D_ext, H, C_canal_w, C_canal_h, H_canal_w, H_canal_h,
 
     return {
         **gaps, 't_wall_min': t_wall_min, 'overlap': overlap, 'viol': viol,
-        'N': N, 'n_ch': n_ch, 'L_ch': L_ch, 'A_ht': A_ht,
-        'C_Dh': Dh_c, 'H_Dh': Dh_h, 'C_A_flow': A_c * n_ch, 'H_A_flow': A_h * n_ch,
+        'n_turns': N, 'n_p': n_ch, 'L_ch': L_ch, 'A_ht': A_ht,
+        'Dh_C': Dh_c, 'Dh_H': Dh_h, 'A_flow_C': A_c * n_ch, 'A_flow_H': A_h * n_ch,
         'V_unit': np.pi * D_ext**2 / 4 * H,
     }
 
@@ -267,8 +267,8 @@ def plot_channel_section(HX, n_cols=4, max_layers=12, fName='', dpi=300):
     """
     Coupe (radiale x verticale) du SCHE : canaux elliptiques froids (bleu) et chauds (rouge) en quinconce.
     Froid en (i p, j pv), chaud décalé de (p/2, pv/2) (même construction que _diag_wall).
-    HX      : modèle résolu (paramètres C/H_canal_w/h, pitch_H, pitch_V, H, n_ch lus dans HX.params)
-    n_cols  : nombre de colonnes radiales dessinées (la coupe se répète tous les pitch_H)
+    HX      : modèle résolu (paramètres w_ch_C/H, h_ch_C/H, P_H, P_V, H, n_p lus dans HX.params)
+    n_cols  : nombre de colonnes radiales dessinées (la coupe se répète tous les P_H)
     max_layers : nombre maximal de couches dessinées (n_ch peut être grand ; la hauteur H complète est tracée)
     Les cotes sont en mm ; la paroi minimale chaud-froid est indiquée.
     """
@@ -276,9 +276,9 @@ def plot_channel_section(HX, n_cols=4, max_layers=12, fName='', dpi=300):
     from matplotlib.patches import Ellipse, Rectangle
 
     hp = HX.params
-    Cw, Ch, Hw, Hh = hp['C_canal_w'], hp['C_canal_h'], hp['H_canal_w'], hp['H_canal_h']
-    p, pv, H = hp['pitch_H'], hp['pitch_V'], hp['H']
-    n_ch = int(hp.get('n_ch', H // pv))
+    Cw, Ch, Hw, Hh = hp['w_ch_C'], hp['h_ch_C'], hp['w_ch_H'], hp['h_ch_H']
+    p, pv, H = hp['P_H'], hp['P_V'], hp['H']
+    n_ch = int(hp.get('n_p', H // pv))
     n_l = min(n_ch, max_layers)
     mm = 1e3
     z0 = 0.5 * (H - n_ch * pv)                       # empilement centré en hauteur
@@ -313,11 +313,11 @@ def plot_channel_section(HX, n_cols=4, max_layers=12, fName='', dpi=300):
 
 class SCHESizingOpt(BaseComponent):
 
-    ORDER = ['D_ext', 'H', 'C_canal_w', 'C_canal_h', 'H_canal_w', 'H_canal_h',
-             'pitch_H', 'pitch_V', 'r0_in', 'n_parallel', 'n_series']
+    ORDER = ['D_ext', 'H', 'w_ch_C', 'h_ch_C', 'w_ch_H', 'h_ch_H',
+             'P_H', 'P_V', 'r0_in', 'n_parallel', 'n_series']
 
-    _GEOM_KEYS = ['D_ext', 'H', 'C_canal_w', 'C_canal_h', 'H_canal_w', 'H_canal_h',
-                  'pitch_H', 'pitch_V', 'r0_in']
+    _GEOM_KEYS = ['D_ext', 'H', 'w_ch_C', 'h_ch_C', 'w_ch_H', 'h_ch_H',
+                  'P_H', 'P_V', 'r0_in']
 
     _CORR_KEYS = {
         'H_Corr', 'C_Corr', 'H_DP', 'C_DP',
@@ -340,19 +340,19 @@ class SCHESizingOpt(BaseComponent):
     DEFAULT_BOUNDS = {
         'D_ext':      [0.05, 0.40],
         'H':          [0.05, 0.40],
-        'C_canal_w':  [1e-3, 6e-3],
-        'C_canal_h':  [1e-3, 6e-3],
-        'H_canal_w':  [1e-3, 6e-3],
-        'H_canal_h':  [1e-3, 6e-3],
-        'pitch_H':    [2e-3, 1.2e-2],
-        'pitch_V':    [2e-3, 1.2e-2],
+        'w_ch_C':  [1e-3, 6e-3],
+        'h_ch_C':  [1e-3, 6e-3],
+        'w_ch_H':  [1e-3, 6e-3],
+        'h_ch_H':  [1e-3, 6e-3],
+        'P_H':    [2e-3, 1.2e-2],
+        'P_V':    [2e-3, 1.2e-2],
         'r0_in':      [5e-3, 5e-2],
         'n_parallel': [1, 1],     # figé par défaut (lb == ub)
         'n_series':   [1, 1],     # figé par défaut (lb == ub)
     }
 
     DEFAULT_PARAMETERS = {
-        'inner_channel': 'hot',
+        'inner_ch': 'hot',
         'n_disc':        50,
         'Flow_Type':     'CounterFlow',
         'k_wall':        16.0,           # conductivité de paroi [W/m.K] (inox) ; None -> paroi négligée
@@ -458,9 +458,9 @@ class SCHESizingOpt(BaseComponent):
         """Hauteurs liées à la largeur par un rapport d'aspect imposé."""
         tied = {}
         if self.params.get('C_aspect') is not None:
-            tied['C_canal_h'] = ('C_canal_w', float(self.params['C_aspect']))
+            tied['h_ch_C'] = ('w_ch_C', float(self.params['C_aspect']))
         if self.params.get('H_aspect') is not None:
-            tied['H_canal_h'] = ('H_canal_w', float(self.params['H_aspect']))
+            tied['h_ch_H'] = ('w_ch_H', float(self.params['H_aspect']))
         return tied
 
     def _pressure_mode(self):
@@ -492,7 +492,7 @@ class SCHESizingOpt(BaseComponent):
     def _prepare_variables(self):
         tied = self._tied()
         self._dc = self._design_conditions() if self._pressure_mode() else None
-        skip = set(tied) | ({'pitch_H', 'pitch_V'} if self._dc is not None else set())
+        skip = set(tied) | ({'P_H', 'P_V'} if self._dc is not None else set())
         keys = [k for k in self.ORDER if k not in skip]
 
         lb = np.array([self.bounds[k][0] for k in keys], dtype=float)
@@ -522,8 +522,8 @@ class SCHESizingOpt(BaseComponent):
             d[k] = aspect * d[ref]
         if self._dc is not None:                       # pas imposés par la pression
             P_h, P_c, T = self._dc
-            d['pitch_H'], d['pitch_V'], d['t_C_req'], d['t_H_req'] = pressure_pitches(
-                d['C_canal_w'], d['C_canal_h'], d['H_canal_w'], d['H_canal_h'],
+            d['P_H'], d['P_V'], d['t_C_req'], d['t_H_req'] = pressure_pitches(
+                d['w_ch_C'], d['h_ch_C'], d['w_ch_H'], d['h_ch_H'],
                 P_h, P_c, T, self.params['min_wall'])
         d['n_parallel'] = max(1, int(np.round(d['n_parallel'])))
         d['n_series'] = max(1, int(np.round(d['n_series'])))
@@ -531,7 +531,7 @@ class SCHESizingOpt(BaseComponent):
 
     def _geometry(self, d):
         return sche_geometry(**{k: d[k] for k in self._GEOM_KEYS},
-                             inner_channel=self.params['inner_channel'],
+                             inner_ch=self.params['inner_ch'],
                              min_wall=self.params['min_wall'],
                              exchange_frac=self.params['exchange_frac'])
 
@@ -635,14 +635,14 @@ class SCHESizingOpt(BaseComponent):
         warnings.filterwarnings('ignore')
 
         d = self._x_to_design(x)
-        if not (np.isfinite(d['pitch_H']) and np.isfinite(d['pitch_V'])):
+        if not (np.isfinite(d['P_H']) and np.isfinite(d['P_V'])):
             return 1e9                               # pression impossible à tenir pour ces canaux
         geom = self._geometry(d)
 
         # ---- faisabilité géométrique (avant tout calcul HX) ----
         viol = geom['viol']
-        viol += max(self.params['min_turns'] - geom['N'], 0.0)
-        viol += 0.0 if geom['n_ch'] >= 1 else 1.0
+        viol += max(self.params['min_turns'] - geom['n_turns'], 0.0)
+        viol += 0.0 if geom['n_p'] >= 1 else 1.0
         if viol > 0:
             return 1e6 * (1 + viol)                 # pénalité graduée
 
@@ -732,10 +732,10 @@ class SCHESizingOpt(BaseComponent):
         self.params.update(self._build_local_params(best))
         self.geom = self._geometry(best)
 
-        if self.geom['viol'] > 0 or self.geom['N'] < self.params['min_turns'] or self.geom['n_ch'] < 1:
+        if self.geom['viol'] > 0 or self.geom['n_turns'] < self.params['min_turns'] or self.geom['n_p'] < 1:
             raise RuntimeError(
                 f"SCHE sizing: aucune géométrie faisable trouvée (best_cost={best_cost:.3e}). "
-                f"Élargis les bornes de pitch_H / pitch_V ou réduis min_wall."
+                f"Élargis les bornes de P_H / P_V ou réduis min_wall."
             )
 
         self.HX = self._new_HX(self.params)
@@ -786,11 +786,11 @@ class SCHESizingOpt(BaseComponent):
         print("-------------")
         print(f"D_ext      : {p['D_ext']:.3f} [m]")
         print(f"H          : {p['H']:.3f} [m]")
-        print(f"Canal froid: {p['C_canal_w']*mm:.2f} x {p['C_canal_h']*mm:.2f} [mm]")
-        print(f"Canal chaud: {p['H_canal_w']*mm:.2f} x {p['H_canal_h']*mm:.2f} [mm]")
+        print(f"Canal froid: {p['w_ch_C']*mm:.2f} x {p['h_ch_C']*mm:.2f} [mm]")
+        print(f"Canal chaud: {p['w_ch_H']*mm:.2f} x {p['h_ch_H']*mm:.2f} [mm]")
         src = " (calculé : pression)" if self._dc is not None else ""
-        print(f"pitch_H    : {p['pitch_H']*mm:.2f} [mm]{src}")
-        print(f"pitch_V    : {p['pitch_V']*mm:.2f} [mm]{src}")
+        print(f"P_H        : {p['P_H']*mm:.2f} [mm]{src}")
+        print(f"P_V        : {p['P_V']*mm:.2f} [mm]{src}")
         if self._dc is not None:
             b = self.best_design
             P_h, P_c, T = self._dc
@@ -802,13 +802,13 @@ class SCHESizingOpt(BaseComponent):
 
         print("\nGéométrie")
         print("-------------")
-        print(f"N (tours)  : {hp.get('N', g['N']):.2f} [-]")
-        print(f"n_ch       : {hp.get('n_ch', g['n_ch'])} canaux / fluide, "
-              f"{hp.get('n_plates', 2*g['n_ch'] + 1)} plaques de {0.5*p['pitch_V']*mm:.2f} mm")
-        print(f"Dh froid   : {hp.get('C_Dh', g['C_Dh'])*mm:.2f} [mm]")
-        print(f"Dh chaud   : {hp.get('H_Dh', g['H_Dh'])*mm:.2f} [mm]")
-        if 'L_hot' in hp:
-            print(f"L chaud    : {hp['L_hot']:.2f} [m]   L froid : {hp['L_cold']:.2f} [m]")
+        print(f"N (tours)  : {hp.get('n_turns', g['n_turns']):.2f} [-]")
+        print(f"n_ch       : {hp.get('n_p', g['n_p'])} canaux / fluide, "
+              f"{hp.get('n_plates', 2*g['n_p'] + 1)} plaques de {0.5*p['P_V']*mm:.2f} mm")
+        print(f"Dh froid   : {hp.get('Dh_C', g['Dh_C'])*mm:.2f} [mm]")
+        print(f"Dh chaud   : {hp.get('Dh_H', g['Dh_H'])*mm:.2f} [mm]")
+        if 'L_H' in hp:
+            print(f"L chaud    : {hp['L_H']:.2f} [m]   L froid : {hp['L_C']:.2f} [m]")
         else:
             print(f"L canal    : {g['L_ch']:.2f} [m]   (estimation)")
         print(f"paroi min  : {g['t_wall_min']*mm:.2f} [mm] (min {p['min_wall']*mm:.2f} mm)")
@@ -831,7 +831,7 @@ class SCHESizingOpt(BaseComponent):
         out = {
             "type": "SCHE",
             "Flow_Type": self.params["Flow_Type"],
-            "inner_channel": self.params["inner_channel"],
+            "inner_ch": self.params["inner_ch"],
 
             "Q_dot": self.HX.Q.Q_dot,
             "DP_h": self.HX.DP_h,
@@ -858,7 +858,7 @@ class SCHESizingOpt(BaseComponent):
             "pitch_mode": self.params.get("pitch_mode"),
             "t_C_req": self.best_design.get('t_C_req'),
             "t_H_req": self.best_design.get('t_H_req'),
-            "n_ch": self.geom['n_ch'],
+            "n_p": self.geom['n_p'],
             "t_wall_min": self.geom['t_wall_min'],
             "obj": self.params["obj"],
             "V_unit": self.geom['V_unit'],
@@ -901,17 +901,17 @@ if __name__ == "__main__":      # indispensable sous Windows avec joblib
         HX_opt.set_bounds(
             D_ext     = [0.15, 0.25],
             H         = [0.02, 0.2],
-            C_canal_w = [0.5e-3, 0.5e-2],
-            H_canal_w = [0.5e-3, 0.5e-2],
-            pitch_H   = [2e-3, 1e-2],      # ignoré si pitch_mode = 'pressure'
-            pitch_V   = [2e-3, 1e-2],
+            w_ch_C = [0.5e-3, 0.5e-2],
+            w_ch_H = [0.5e-3, 0.5e-2],
+            P_H   = [2e-3, 1e-2],      # ignoré si pitch_mode = 'pressure'
+            P_V   = [2e-3, 1e-2],
             r0_in     = [3e-2, 3e-2],      # figé
         )
  
         HX_opt.set_parameters(
             obj = "A",
 
-            inner_channel = 'hot',
+            inner_ch = 'hot',
             n_disc = 100,
             C_aspect = 1.0,                # canaux circulaires
             H_aspect = 1.0,
@@ -958,17 +958,17 @@ if __name__ == "__main__":      # indispensable sous Windows avec joblib
         HX_opt.set_bounds(
             D_ext     = [0.15, 0.25],
             H         = [0.02, 0.15],
-            C_canal_w = [0.5e-3, 0.5e-2],
-            H_canal_w = [0.5e-3, 0.5e-2],
-            pitch_H   = [2e-3, 1e-2],      # ignoré si pitch_mode = 'pressure'
-            pitch_V   = [2e-3, 1e-2],
+            w_ch_C = [0.5e-3, 0.5e-2],
+            w_ch_H = [0.5e-3, 0.5e-2],
+            P_H   = [2e-3, 1e-2],      # ignoré si pitch_mode = 'pressure'
+            P_V   = [2e-3, 1e-2],
             r0_in     = [3e-2, 3e-2],      # figé
         )
  
         HX_opt.set_parameters(
             obj = "A",
 
-            inner_channel = 'hot',
+            inner_ch = 'hot',
             n_disc = 50,
             C_aspect = 1.0,                # canaux circulaires
             H_aspect = 1.0,
@@ -1012,17 +1012,17 @@ if __name__ == "__main__":      # indispensable sous Windows avec joblib
         HX_opt.set_bounds(
             D_ext     = [0.10, 0.30],
             H         = [0.02, 0.2],
-            C_canal_w = [0.5e-3, 0.5e-2],
-            H_canal_w = [0.5e-3, 0.4e-2],  # CO2 dense à haute pression : petits canaux
-            pitch_H   = [2e-3, 1e-2],      # ignoré si pitch_mode = 'pressure'
-            pitch_V   = [2e-3, 1e-2],
+            w_ch_C = [0.5e-3, 0.5e-2],
+            w_ch_H = [0.5e-3, 0.4e-2],  # CO2 dense à haute pression : petits canaux
+            P_H   = [2e-3, 1e-2],      # ignoré si pitch_mode = 'pressure'
+            P_V   = [2e-3, 1e-2],
             r0_in     = [3e-2, 3e-2],      # figé
         )
  
         HX_opt.set_parameters(
             obj = "A",
             
-            inner_channel = 'hot',
+            inner_ch = 'hot',
             n_disc = 100,                  # résoudre le pic de cp pseudo-critique (~45 °C à 100 bar)
             C_aspect = 1.0,                # canaux circulaires
             H_aspect = 1.0,

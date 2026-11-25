@@ -79,6 +79,8 @@ if case_study == 'Methanol':
     
         shell_side = params['shell_side'],
     
+        charge_compute = False,
+
         Flow_Type = params['Flow_Type'], n_disc = params['n_disc'])
     
     # "Correlation Loading"
@@ -137,6 +139,8 @@ if case_study == 'R134a':
         PR = params['PR'], k_wall = params['k_wall'], theta = params['theta'],
     
         shell_side = params['shell_side'],
+        
+        chare_compute = False,
     
         Flow_Type = params['Flow_Type'], n_disc = params['n_disc'])
     
@@ -193,6 +197,8 @@ if case_study == 'R134a_cond':
         PR = params['PR'], k_wall = params['k_wall'], theta = params['theta'],
     
         shell_side = params['shell_side'],
+    
+        charge_compute = False,
     
         Flow_Type = params['Flow_Type'], n_disc = params['n_disc'])
     
@@ -251,6 +257,8 @@ if case_study == 'R32':
     
         shell_side = params['shell_side'],
     
+        charge_compute = False,
+
         Flow_Type = params['Flow_Type'], n_disc = params['n_disc'])
     
     # "Correlation Loading"
@@ -312,6 +320,8 @@ if case_study == 'CO2_GasCooler_1':
     
         shell_side = params['shell_side'],
     
+        charge_compute = False,
+
         Flow_Type = params['Flow_Type'], n_disc = params['n_disc'])
     
     # "Correlation Loading"
@@ -369,6 +379,8 @@ if case_study == 'CO2_GasCooler_2':
     
         shell_side = params['shell_side'],
     
+        charge_compute = False,
+
         Flow_Type = params['Flow_Type'], n_disc = params['n_disc'])
     
     # "Correlation Loading"
@@ -430,6 +442,8 @@ if case_study == 'CO2_CD':
     
         shell_side = params['shell_side'],
     
+        charge_compute = False,
+
         Flow_Type = params['Flow_Type'], n_disc = params['n_disc'])
     
     # "Correlation Loading"

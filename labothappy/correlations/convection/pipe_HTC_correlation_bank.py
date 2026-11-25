@@ -44,15 +44,27 @@ def _tube_G(geom, cond):
     return cond['m_dot'] / (n_tubes_pass * np.pi * D**2 / 4.0)
 
 
+# HEOS states used by _sigma when AS has another backend: one per fluid, created once and kept
+# (PropsSI creates a new state at every call: about 1 ms per call)
+_HEOS_FOR_SIGMA = {}
+
+
 def _sigma(AS, p):
-    """Surface tension at saturation pressure p [N/m] (AS first, PropsSI as a fallback)."""
+    """Surface tension at saturation pressure p [N/m], always from a HEOS state of the fluid
+    (AS itself if its backend is HEOS). AS is moved to (p, x = 0.5), as before.
+    The tabular backends (BICUBIC&HEOS, default of hex_MB) are not used for the surface tension:
+    with CoolProp 7.2 their surface_tension() either raises or returns the value of the first
+    state for every later state (checked 2026-11-25, Propane at 5 / 10 / 20 bar: 0.00991 N/m each
+    time, HEOS 0.00991 / 0.00679 / 0.00336 N/m)."""
     AS.update(CP.PQ_INPUTS, p, 0.5)
-    try:
+    if AS.backend_name() == 'HelmholtzEOSBackend':
         return AS.surface_tension()
-    except ValueError:
-        # Tabular backends (BICUBIC&HEOS, used by hex_MB) can refuse surface_tension():
-        # same fallback as BPHE_HTC_correlation_bank._compute_sat_props
-        return PropsSI('surface_tension', 'P', p, 'Q', 0, AS.fluid_names()[0])
+    fluid = AS.fluid_names()[0]
+    if fluid not in _HEOS_FOR_SIGMA:
+        _HEOS_FOR_SIGMA[fluid] = CP.AbstractState('HEOS', fluid)
+    heos = _HEOS_FOR_SIGMA[fluid]
+    heos.update(CP.PQ_INPUTS, p, 0.5)
+    return heos.surface_tension()
 
 def _sat_props(AS, p, cond=None):
     """Saturated liquid / vapor properties at p (moves AS).

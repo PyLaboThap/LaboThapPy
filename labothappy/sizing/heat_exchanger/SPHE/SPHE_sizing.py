@@ -3,8 +3,8 @@ Author : Basile Chaudoir
 
 Sizing par optimisation (PSO) d'un échangeur à plaques spiralées (SPHE),
 calqué sur PCHESizingOpt. Le modèle thermo-hydraulique est
-HexMBChargeSensitive('SPHE') (moving boundary, discrétisé), avec la résolution
-géométrique de hex_geometry.py (SPHEGeometry : D_ext -> N tours, longueurs, A_unit)
+HexMB('SPHE') (moving boundary, discrétisé), avec la résolution
+géométrique de hex_geometry.py (SPHEGeometry : D_ext -> n_turns tours, longueurs, A_sp)
 et les corrélations SPHE_HTC / SPHE_DP.
 
 Noms de corrélations (clés '1P' / '2P') :
@@ -19,15 +19,15 @@ Deux modes d'objectif (paramètre obj de sizing(), ou params['obj']) :
                 V_tot = n_parallel * n_series * pi * D_ext^2 / 4 * H        [m^3]
     obj = 'A' : minimiser la surface d'échange totale
                 A_tot = n_parallel * n_series * A_unit                      [m^2]
-                A_unit = surface d'UNE spirale calculée par le modèle (params['A_unit']),
+                A_unit = surface d'UNE spirale calculée par le modèle (params['A_sp']),
                 sinon estimation spirale d'Archimède (2 * L_plate * H).
 sous contraintes de puissance (Q_dot) et de pertes de charge (DP_h, DP_c).
 
 Variables de design (ORDER) :
     D_ext       diamètre extérieur de la spirale        [m]
     H           hauteur (largeur des plaques)           [m]
-    C_canal_t   épaisseur (gap) du canal froid          [m]
-    H_canal_t   épaisseur (gap) du canal chaud          [m]
+    b_C   épaisseur (gap) du canal froid          [m]
+    b_H   épaisseur (gap) du canal chaud          [m]
     r0_in       rayon intérieur de départ de la spirale [m]
     n_parallel  nombre d'unités en parallèle            [-] (entier)
     n_series    nombre d'unités en série                [-] (entier)
@@ -70,16 +70,16 @@ def tqdm_joblib(tqdm_object):
 
 #%%
 
-def spiral_geometry(D_ext, H, C_canal_t, H_canal_t, r0_in, t):
+def spiral_geometry(D_ext, H, b_C, b_H, r0_in, t):
     """
     Géométrie simplifiée d'une spirale d'Archimède à deux plaques.
 
-    Pas radial par tour : p = C_canal_t + H_canal_t + 2t.
+    Pas radial par tour : p = b_C + b_H + 2t.
     V_unit = pi D_ext^2 / 4 * H : volume enveloppe d'une unité (objectif).
     n_turns sert à la faisabilité ; L_plate et A_ht sont informatifs.
     """
     R_ext = D_ext / 2
-    pitch = C_canal_t + H_canal_t + 2 * t
+    pitch = b_C + b_H + 2 * t
     n_turns = (R_ext - r0_in) / pitch
     L_plate = np.pi * (R_ext**2 - r0_in**2) / pitch
     A_ht = 2 * L_plate * H
@@ -95,7 +95,7 @@ def spiral_geometry(D_ext, H, C_canal_t, H_canal_t, r0_in, t):
 
 class SPHESizingOpt(BaseComponent):
 
-    ORDER = ['D_ext', 'H', 'C_canal_t', 'H_canal_t', 'r0_in', 'n_parallel', 'n_series']
+    ORDER = ['D_ext', 'H', 'b_C', 'b_H', 'r0_in', 'n_parallel', 'n_series']
 
     _CORR_KEYS = {
         'H_Corr', 'C_Corr', 'H_DP', 'C_DP',
@@ -119,8 +119,8 @@ class SPHESizingOpt(BaseComponent):
     DEFAULT_BOUNDS = {
         'D_ext':      [0.15, 1.2],
         'H':          [0.10, 1.5],
-        'C_canal_t':  [1e-3, 1e-2],
-        'H_canal_t':  [1e-3, 1e-2],
+        'b_C':  [1e-3, 1e-2],
+        'b_H':  [1e-3, 1e-2],
         'r0_in':      [1e-2, 1e-1],
         'n_parallel': [1, 1],     # figé par défaut (lb == ub)
         'n_series':   [1, 1],     # figé par défaut (lb == ub)
@@ -128,7 +128,7 @@ class SPHESizingOpt(BaseComponent):
 
     DEFAULT_PARAMETERS = {
         't':             0.002,          # épaisseur de plaque [m]
-        'inner_channel': 'cold',
+        'inner_ch': 'cold',
         'n_disc':        50,
         'Flow_Type':     'CounterFlow',
         'H_Corr': {"1P": "Picon_Nunez", "2P": "Zakeralhoseini"},
@@ -253,12 +253,12 @@ class SPHESizingOpt(BaseComponent):
     @staticmethod
     def _heat_transfer_area(HX, geom):
         """
-        Surface d'échange d'UNE spirale : params['A_unit'] écrit par la résolution géométrique
+        Surface d'échange d'UNE spirale : params['A_sp'] écrit par la résolution géométrique
         du modèle (hex_geometry.SPHEGeometry) si elle existe et est valide, sinon l'estimation
         spirale d'Archimède. (HX.A_h contient déjà le facteur n_parallel : il n'est pas utilisé ici.)
         Retourne (A_unit [m^2], source).
         """
-        A = getattr(HX, 'params', {}).get('A_unit')
+        A = getattr(HX, 'params', {}).get('A_sp')
         try:
             A = float(A)
             if np.isfinite(A) and A > 0:
@@ -336,7 +336,7 @@ class SPHESizingOpt(BaseComponent):
         return {
             **self.params,
             'D_ext': d['D_ext'], 'H': d['H'],
-            'C_canal_t': d['C_canal_t'], 'H_canal_t': d['H_canal_t'],
+            'b_C': d['b_C'], 'b_H': d['b_H'],
             'r0_in': d['r0_in'],
             'n_parallel': d['n_parallel'], 'n_series': d['n_series'],
         }
@@ -350,7 +350,7 @@ class SPHESizingOpt(BaseComponent):
 
         d = self._x_to_design(x)
         t = self.params['t']
-        geom = spiral_geometry(d['D_ext'], d['H'], d['C_canal_t'], d['H_canal_t'], d['r0_in'], t)
+        geom = spiral_geometry(d['D_ext'], d['H'], d['b_C'], d['b_H'], d['r0_in'], t)
 
         # ---- faisabilité : au moins min_turns tours de spirale ----
         if geom['n_turns'] < self.params['min_turns']:
@@ -450,8 +450,8 @@ class SPHESizingOpt(BaseComponent):
 
         # ---- reconstruction finale mono-thread ----
         self.params.update(self._build_local_params(best))
-        self.geom = spiral_geometry(best['D_ext'], best['H'], best['C_canal_t'],
-                                    best['H_canal_t'], best['r0_in'], self.params['t'])
+        self.geom = spiral_geometry(best['D_ext'], best['H'], best['b_C'],
+                                    best['b_H'], best['r0_in'], self.params['t'])
 
         self.HX = HexMB('SPHE')
         self.HX.set_inputs(**self.inputs)
@@ -504,8 +504,8 @@ class SPHESizingOpt(BaseComponent):
         print("-------------")
         print(f"D_ext      : {p['D_ext']:.3f} [m]")
         print(f"H          : {p['H']:.3f} [m]")
-        print(f"C_canal_t  : {p['C_canal_t']*1e3:.2f} [mm]")
-        print(f"H_canal_t  : {p['H_canal_t']*1e3:.2f} [mm]")
+        print(f"b_C        : {p['b_C']*1e3:.2f} [mm]")
+        print(f"b_H        : {p['b_H']*1e3:.2f} [mm]")
         print(f"r0_in      : {p['r0_in']*1e3:.1f} [mm]")
         print(f"t          : {p['t']*1e3:.2f} [mm] (fixe)")
         print(f"n_parallel : {p['n_parallel']} [-]")
@@ -514,10 +514,10 @@ class SPHESizingOpt(BaseComponent):
         print("\nGéométrie")
         print("-------------")
         hp = self.HX.params
-        print(f"n_turns    : {hp.get('N_turns', g['n_turns']):.2f} [-]   (modèle ; estimation {g['n_turns']:.2f})")
-        print(f"D_outer    : {hp.get('D_outer', float('nan')):.3f} [m]")
-        print(f"L_hot      : {hp.get('L_hot', float('nan')):.2f} [m]   L_cold : {hp.get('L_cold', float('nan')):.2f} [m]")
-        print(f"A_unit     : {hp.get('A_unit', g['A_ht']):.3f} [m^2] (modèle ; estimation Archimède {g['A_ht']:.2f})")
+        print(f"n_turns    : {hp.get('n_turns', g['n_turns']):.2f} [-]   (modèle ; estimation {g['n_turns']:.2f})")
+        print(f"D_ext      : {hp.get('D_ext', float('nan')):.3f} [m]   (modèle)")
+        print(f"L_H        : {hp.get('L_H', float('nan')):.2f} [m]   L_C : {hp.get('L_C', float('nan')):.2f} [m]")
+        print(f"A_sp       : {hp.get('A_sp', g['A_ht']):.3f} [m^2] (modèle ; estimation Archimède {g['A_ht']:.2f})")
         print(f"A_tot      : {self.A_tot:.3f} [m^2] (source : {self.A_source})")
         print(f"V_unit     : {g['V_unit']*1e3:.2f} [L]")
         print(f"V_tot      : {self.V_tot*1e3:.2f} [L]")
@@ -535,7 +535,7 @@ class SPHESizingOpt(BaseComponent):
         return {
             "type": "SPHE",
             "Flow_Type": self.params["Flow_Type"],
-            "inner_channel": self.params["inner_channel"],
+            "inner_ch": self.params["inner_ch"],
 
             "Q_dot": self.HX.Q.Q_dot,
             "DP_h": self.HX.DP_h,
@@ -553,8 +553,8 @@ class SPHESizingOpt(BaseComponent):
 
             "D_ext": self.params["D_ext"],
             "H": self.params["H"],
-            "C_canal_t": self.params["C_canal_t"],
-            "H_canal_t": self.params["H_canal_t"],
+            "b_C": self.params["b_C"],
+            "b_H": self.params["b_H"],
             "r0_in": self.params["r0_in"],
             "t": self.params["t"],
             "n_parallel": self.params["n_parallel"],
@@ -602,15 +602,15 @@ if __name__ == "__main__":
         HX_opt.set_bounds(
             D_ext     = [0.2, 0.3],
             H         = [0.05, 0.15],
-            C_canal_t = [1e-3, 4e-3],
-            H_canal_t = [1e-3, 2e-3],
+            b_C = [1e-3, 4e-3],
+            b_H = [1e-3, 2e-3],
             r0_in     = [2.49e-2, 2.51e-2],
         )
     
         # Seuls les paramètres différents des DEFAULT_PARAMETERS sont nécessaires
         HX_opt.set_parameters(
             t = 0.002,
-            inner_channel = 'cold',
+            inner_ch = 'cold',
             n_disc = 100,
             
             H_Corr = {"1P": "Picon_Nunez", "2P": "Zakeralhoseini"},
@@ -650,15 +650,15 @@ if __name__ == "__main__":
         HX_opt.set_bounds(
             D_ext     = [0.15, 0.3],
             H         = [0.05, 0.3],
-            C_canal_t = [1e-3, 5e-3],
-            H_canal_t = [1e-3, 5e-3],
+            b_C = [1e-3, 5e-3],
+            b_H = [1e-3, 5e-3],
             r0_in     = [2.49e-2, 2.51e-2],
         )
         
         # Seuls les paramètres différents des DEFAULT_PARAMETERS sont nécessaires
         HX_opt.set_parameters(
             t = 0.002,
-            inner_channel = 'hot',
+            inner_ch = 'hot',
             n_disc = 100,
             
             H_Corr = {"1P": "Picon_Nunez", "2P": "Zakeralhoseini"},
