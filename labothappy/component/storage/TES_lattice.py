@@ -407,9 +407,14 @@ class TES_step(BaseComponent):
 
         R_alu = np.log(r_alu_o / r_tube_o) / (2 * np.pi * self.lambda_alu * L_mesh)
 
-        R_pcm = np.log(r_pcm_o / r_alu_o) / (2 * np.pi * self.lambda_eq * L_mesh)
+        # For R_PCM : application of R_1-R_m (eqs. 6 & 10) in Katsuno, A., & Murakami, T. (2023). https://doi.org/10.1109/ACCESS.2023.3339153
+        dr2 = r_pcm_o**2 - r_alu_o**2
+        R1_pcm = 1/(4*np.pi*L_tubes_tot_m*steps.lambda_eq) * (2*r_pcm_o**2/dr2*np.log(r_pcm_o/r_alu_o) - 1)
+        Rm_pcm = 1/(8*np.pi*L_tubes_tot_m*steps.lambda_eq*dr2) * (-r_pcm_o**2 - r_alu_o**2
+                                                                + 4*r_alu_o**2*r_pcm_o**2/dr2*np.log(r_pcm_o/r_alu_o))
+        R_pcm = R1_pcm + Rm_pcm
 
-        R_tot = R_conv + R_tube + R_alu + R_pcm/2
+        R_tot = R_conv + R_tube + R_alu + R_pcm
 
         UA = 1 / R_tot
 
@@ -470,7 +475,6 @@ class TES_step(BaseComponent):
 
 
     def HTC_calculation_Hausen(self, h_HTF_bulk, T_wall, p_HTF, m_dot_tube, L_mesh):
-
 
         self.AS.update(CP.HmassP_INPUTS, h_HTF_bulk, p_HTF)
         mu_f = self.AS.viscosity()
@@ -806,8 +810,9 @@ class TES_lattice:
         TES = self.TES
         self.reset()
 
-        T_HTF_su = PropsSI("T", "H", TES.su.h, "P", TES.su.p, TES.su.fluid) # il faudrait remplacer ça par un abstractstate
-
+        self.AS.update(CP.HmassP_INPUTS, TES.su.h, TES.su.p)
+        T_HTF_su = self.AS.T()
+        
         self.time_list.append(TES.t)
         self.h_PCM_list.append(TES.h_PCM_state.copy())
         self.T_PCM_list.append(TES.T_PCM_state.copy())
