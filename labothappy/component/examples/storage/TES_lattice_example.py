@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Mon Nov 16 2026
 
@@ -147,17 +146,17 @@ elif campaign == "CEA_SoC_erythritol":
     # (nominal values of the test "2026-02-10 CH (80) 135 700kgh")
     fluid = "water"
     SIM.set_parameters(
-            T_PCM = 118.9 + 273.15,
-            cp_sol = 1.637e3,
-            cp_liq = 2.846e3,
-            Dh_latent = 335.5e3,
+            T_PCM = 118.7 + 273.15,
+            cp_sol = 1.72e3,
+            cp_liq = 2.74e3,
+            Dh_latent = 321.5e3,
             rho_PCM_sol = 1448.4,
             rho_PCM_liq = 1281.5,
-            lambda_eq = 8.7
+            lambda_eq = 9.55
             )
     T_HTF_su = 135 + 273.15 # K
     m_dot_tot = 700 / 3600 # kg/s
-    p_HTF = 5e5 # Pa
+    p_HTF = 5.5e5 # Pa
     T_PCM_eq_init = 80 + 273.15 # K
     T_target = None # no bypass in these tests
     duration_simu = 9*3600 # s
