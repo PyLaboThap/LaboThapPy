@@ -29,7 +29,7 @@ from labothappy.component.storage.TES_lattice import TES_simulation, create_resu
 # =============================================================================
 # Campaign: "Yvernault_charge", "Yvernault_discharge", "CEA_SoC_erythritol", "Zorlu_UC" or "Torrecid_charge_sizing"
 # or your own case (data in "Campaigns" below, with a template to copy)
-campaign = "CEA_SoC_erythritol"
+campaign = "Yvernault_charge"
 
 # Options
 do_sizing = False   # True: sizing of the number of modules first (campaigns with sizing data: "Zorlu_UC",
@@ -40,7 +40,7 @@ heat_losses = True  # losses to the ambient: Q_dot_loss = UA_amb * n_module * (T
 T_amb = 20 + 273.15 # [K] ambient temperature (only used if heat_losses)
 
 # Discretisation
-duration_simu_forced = 9*3600 # [s] (!) in SECONDS. None: duration of the campaign
+duration_simu_forced = None # [s] (!) in SECONDS. None: duration of the campaign
 dt = 20                       # [s] time step
 n_segment_module = 16         # number of cells along one module
 n_subsegment_cell = 5         # HTF sub-segments per cell (the PCM stays at one temperature per cell)
@@ -52,14 +52,18 @@ SIM.set_parameters(htc_correlation = 'Hausen') # HTF-side heat transfer: 'Gnieli
 show_plots = True
 save_results = False # True: figures (svg) + results (npz, txt) in a new folder in result_root
 result_root = r"C:\Users\titou\OneDrive - Universite de Liege\!SEHRENE\TES modelling\Results" # your folder
-run_name = "Erythritol_700kgh_135C_from80C" # name of the results folder, and suffix of the saved files
+run_name = "Yvernault_charge" # name of the results folder, and suffix of the saved files
 
 # Measurements on the figures (crosses), optional
 # exp_data: pandas DataFrame or dict of arrays with the columns
 #   t_h [h], Q_dot_kW (HTF side, > 0 in charge and discharge), Q_TES_kWh, T_HTF_ex_C,
 #   and optionally T_PCM_min_C, T_PCM_avg_C, T_PCM_max_C (thermocouples). Q_dot_smooth_kW is used if present.
 # e.g. exp_data = pandas.read_csv("my_test.csv") with the columns renamed as above. None: model only.
+# Campaigns "Yvernault_charge" / "Yvernault_discharge": if None, the digitized measurements of the paper are loaded
+# (titouanjanod_perso/TES_related/Yvernault_to_dataframe.py).
 exp_data = None
+skip_exp = 1           # only one measured point out of skip_exp is plotted (1: all; e.g. 60 for data every 5 s)
+dt_grid_Yvernault = 300 # [s] time step of the measurements of Yvernault after interpolation (None: digitized times)
 
 
 # =============================================================================
@@ -127,6 +131,15 @@ if campaign in ("Yvernault_charge", "Yvernault_discharge"):
     # Yvernault et al.: U = 1.06 W/(m2.K) on A = 2.5 m2, fitted on a standby period
     UA_amb_module = 1.06 * 2.5 # W/K
 
+    # measurements of the paper (digitized with WebPlotDigitizer), interpolated on a common time grid
+    if exp_data is None:
+        TES_RELATED_DIR = r"C:\Users\titou\Documents\GitHub\titouanjanod_perso\TES_related"
+        if TES_RELATED_DIR not in sys.path:
+            sys.path.append(TES_RELATED_DIR)
+        from Yvernault_to_dataframe import load_Yvernault
+        exp_data = load_Yvernault("charge" if campaign == "Yvernault_charge" else "discharge",
+                                  dt_grid_s=dt_grid_Yvernault)
+
 
 elif campaign == "CEA_SoC_erythritol":
     # CEA Grenoble campaign for the State of Charge (SoC) measurement (B. Champel), SEHRENE deliverable D4.7 https://doi.org/10.5281/zenodo.24496277
@@ -139,7 +152,7 @@ elif campaign == "CEA_SoC_erythritol":
             Dh_latent = 335.5e3,
             rho_PCM_sol = 1448.4,
             rho_PCM_liq = 1281.5,
-            lambda_eq = 8
+            lambda_eq = 8.7
             )
     T_HTF_su = 135 + 273.15 # K
     m_dot_tot = 700 / 3600 # kg/s
@@ -289,6 +302,7 @@ if SIM.TES.UA_amb > 0:
     print(f"Q_stored = Q_tot - Q_loss = {(history.Q_tot-history.Q_loss_tot)/3.6e6:.2f} kWh")
 print(f"Solving time = {history.solving_time:.2f} s")
 
+history.skip_exp = skip_exp
 figs = history.plot_all(exp=exp_data)
 
 if save_results:
