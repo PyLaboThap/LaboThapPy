@@ -29,7 +29,7 @@ from labothappy.component.storage.TES_lattice import TES_simulation, create_resu
 # =============================================================================
 # Campaign: "Yvernault_charge", "Yvernault_discharge", "CEA_SoC_erythritol", "Zorlu_UC" or "Torrecid_charge_sizing"
 # or your own case (data in "Campaigns" below, with a template to copy)
-campaign = "CEA_SoC_erythritol"
+campaign = "Yvernault_charge"
 
 # Options
 do_sizing = False   # True: sizing of the number of modules first (campaigns with sizing data: "Zorlu_UC",
