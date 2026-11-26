@@ -1199,7 +1199,22 @@ def pipe_gungor_winterton_boiling_HTC(AS, geom, cond):
 
 def pipe_choi_boiling_HTC(AS, geom, cond):
     """Choi-type flow boiling: h = E h_l + S F_m h_nb (Lockhart-Martinelli E, convection number S).
-    cond : G, p, x, q      geom : D_t_i"""
+    cond : G, p, x, q      geom : D_t_i
+    Reference (identified 2026-11-26): Choi, T.Y., Kim, Y.J., Kim, M.S., Ro, S.T. (2000) Evaporation
+    heat transfer of R-32, R-134a, R-32/134a, and R-32/125/134a inside a horizontal smooth tube.
+    Int. J. Heat Mass Transfer 43, 3651-3660, doi:10.1016/S0017-9310(00)00005-3. Eqs. (3)-(9),
+    constants of Table 2 (c1-c5 = 49.971, 0.383, -0.758, 0.909, 0.301; c_M = 0.039).
+    h_l = Dittus-Boelter with Re_l = G (1-x) D_i / mu_l (Eq. 4); h_nb = Stephan-Abdelsalam form of
+    Eq. (5a)-(5b) (beta = 35 deg); F_m = mixture factor of Eq. (9) (1 for pure fluids).
+    CORRECTED 2026-11-26 (LOGS proposed_changes E23, Basile's go): two differences with the paper:
+    (a) bd: was [2 sigma (rho_l - rho_v) / g]^0.5 (bd about 1 m, h_nb about 10 times too small),
+        now Eq. (5b) bd = 0.0146 beta [2 sigma / (g (rho_l - rho_v))]^0.5 (same form as
+        Stephan & Abdelsalam 1980 in the ht library, and BPHE_HTC_correlation_bank d_o);
+    (b) Co: exponent on (1-x)/x was 0.9, now 0.8 (paper nomenclature, Shah convection number).
+    Co and X_tt use rho_v / rho_l (the paper prints rho_l / rho_v in both: misprint for X_tt).
+    Validity (Table 1): horizontal smooth stainless tube D_i = 7.75 mm, R-22, R-134a, R-32,
+    R-32/134a, R-407C; G 240-1060 kg/m2/s, q 4.1-28.6 kW/m2, mean temperature -12 to 17 C
+    (p 200-1080 kPa). Warning outside the G, q and saturation temperature ranges."""
     D_i = _tube_ID(geom)
     G, P_sat, q = _tube_G(geom, cond), cond['p'], cond['q']
     x = _clamp_x(cond['x'])
@@ -1210,6 +1225,18 @@ def pipe_choi_boiling_HTC(AS, geom, cond):
                                                       s['k_l'], s['Pr_l'], s['cp_l'], s['h_lv'])
     T_sat_bubble, T_sat_dew, T_sat, sigma = s['T_bub'], s['T_dew'], s['T_sat'], s['sigma']
 
+    # Range of the data (Choi et al. 2000, Table 1)
+    out = []
+    if G < 240.0 or G > 1060.0:
+        out.append(f"G = {G:.4g} kg/m2/s (240-1060)")
+    if q < 4.1e3 or q > 28.6e3:
+        out.append(f"q = {q / 1e3:.3g} kW/m2 (4.1-28.6)")
+    if T_sat < 261.15 or T_sat > 290.15:
+        out.append(f"T_sat = {T_sat - 273.15:.1f} C (-12 to 17)")
+    if out:
+        warnings.warn("Choi (2000) flow boiling: outside the data range: " + ", ".join(out) + ".",
+                      ValidityRangeWarning, stacklevel=2)
+
     Re_l = G * (1 - x) * D_i / mu_l
     h_l = 0.023 * Re_l**0.8 * Pr_l**0.4 * (k_l / D_i)
 
@@ -1217,11 +1244,11 @@ def pipe_choi_boiling_HTC(AS, geom, cond):
     X_tt = ((1 - x) / x)**0.9 * (rho_v / rho_l)**0.5 * (mu_l / mu_v)**0.1
     E = 49.971 * Bo**0.383 * X_tt**(-0.758)
 
-    Co = ((1 - x) / x)**0.9 * (rho_v / rho_l)**0.5
+    Co = ((1 - x) / x)**0.8 * (rho_v / rho_l)**0.5             # Choi 2000 nomenclature (E23 b)
     S = 0.909 * Co**0.301
 
     g, beta = 9.81, 35                                         # beta: contact angle [deg]
-    bd = 0.0146 * beta * (2 * sigma * (rho_l - rho_v) / g)**0.5
+    bd = 0.0146 * beta * (2 * sigma / (g * (rho_l - rho_v)))**0.5  # Choi 2000 Eq. (5b) (E23 a)
     h_nb = 207 * k_l / bd * ((q * bd) / (k_l * T_sat))**0.674 * (rho_v / rho_l)**0.581 * Pr_l**0.533
 
     F_m = (1 + 0.039 * cp_l * (T_sat_dew - T_sat_bubble) / h_lv)**(-1)

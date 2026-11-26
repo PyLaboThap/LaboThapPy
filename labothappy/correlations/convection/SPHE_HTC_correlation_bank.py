@@ -54,7 +54,14 @@ def SPHE_rect_duct_HTC(AS, geom, cond):
 
 def SPHE_curved_rect_duct_HTC(AS, geom, cond):
     """Curved rectangular duct: Facao & Oliveira laminar (Re<2300), curved-pipe correlations otherwise.
-    Bug fixed vs original: curvature ratio is Dh/(2R), not Dh/2*R."""
+    Bug fixed vs original: curvature ratio is Dh/(2R), not Dh/2*R.
+    Laminar branch: Facao & Oliveira (2005), Numerical Heat Transfer, Eq. 7, Nu = 0.8508 De^0.5207
+    for De <= 1000, Nu about 38-39 for De > 1200. CFD, water 294-307 K, ONE duct of aspect ratio
+    7.14 (long side / short side), only the convex wall heated; 26 < Re < 2265, max De 1494.
+    Warning in the laminar branch for Re < 26, De > 1494, and for an aspect ratio (long / short)
+    outside 5-10: this 5-10 window around 7.14 is a LaboThapPy choice (Basile, 2026-11-26), the
+    paper gives no tolerance."""
+    import warnings
     _need_cond(cond, 'G', 'mu', 'k', 'Pr')
     D, L, R, G, mu, k, Pr = _D(geom), _L(geom), _R_curv(geom), cond['G'], cond['mu'], cond['k'], cond['Pr']
     mu_w = cond.get('mu_w', mu)
@@ -62,6 +69,18 @@ def SPHE_curved_rect_duct_HTC(AS, geom, cond):
     if Re >= 2300:
         return _curved_pipe_1P(mu, Pr, mu_w, k, G, D, L, R)
     De = Re * np.sqrt(D / (2 * R))
+    # Range of the Facao & Oliveira (2005) simulations (laminar branch only)
+    aspect_ratio = 1.0 / _AR(geom)                   # long side / short side [-]
+    out = []
+    if Re < 26:
+        out.append(f"Re = {Re:.0f} (26-2300)")
+    if De > 1494:
+        out.append(f"De = {De:.0f} (max simulated 1494)")
+    if aspect_ratio < 5 or aspect_ratio > 10:
+        out.append(f"aspect ratio = {aspect_ratio:.2f} (paper 7.14, LaboThapPy window 5-10)")
+    if out:
+        warnings.warn("SPHE Facao laminar: outside the simulated range: " + ", ".join(out) + ".",
+                      ValidityRangeWarning, stacklevel=2)
     Nu_1000, Nu_1200 = 0.8508 * 1000 ** 0.5207, 38.5
     if De < 1000:
         Nu = 0.8508 * De ** 0.5207
@@ -79,11 +98,18 @@ def SPHE_picon_nunez_HTC(AS, geom, cond):
     Re_c = 20000 (Dh/2R)^0.32.
     Regimes are SWAPPED vs the original file (laminar form was used above Re_cr, turbulent form below).
     Re_c: the 12730 (Dh/2R)^0.2 of Ito is a straight-pipe-like critical Re and is not what the source uses:
-    the Minton value is taken (check against the paper)."""
+    the Minton value is taken (check against the paper).
+    Validity: laminar branch valid for 100 < Re < Re_c (Picon-Nunez et al. 2007, Eqs. 1-7);
+    single phase. Warning for Re < 100."""
+    import warnings
     _need_cond(cond, 'G', 'mu', 'k', 'Pr')
     D, R, G, mu, k, Pr = _D(geom), _R_curv(geom), cond['G'], cond['mu'], cond['k'], cond['Pr']
     curv = D / (2 * R)
     Re = G * D / mu
+    # Lower limit of the Minton laminar equation (Picon-Nunez et al. 2007)
+    if Re < 100:
+        warnings.warn(f"SPHE Picon-Nunez HTC: Re = {Re:.0f} < 100 (lower limit of the Minton "
+                      "equations): extrapolated.", ValidityRangeWarning, stacklevel=2)
     cp = Pr * k / mu
     if Re < 20000 * curv ** 0.32:
         b = geom.get('b')

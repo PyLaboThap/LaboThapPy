@@ -19,6 +19,7 @@ import CoolProp.CoolProp as CP
 
 from labothappy.correlations.convection.pipe_HTC_correlation_bank import _gnielinski_core, _sat_props, _clamp_x
 from labothappy.correlations.convection.correlation_warnings import ValidityRangeWarning
+from labothappy.correlations.convection.correlation_warnings import FluidWarning
 
 #%% HELPERS
 
@@ -128,9 +129,30 @@ def curved_pipe_sigalotti_SP_HTC(AS, geom, cond):
     on the curvature ratio D/(2 R_curv); straight-pipe Gnielinski below 0.01.
     Reference: Sigalotti, Alvarado-Rodriguez, Rendon, Fluid flow in helically coiled pipes (2023), with
     Ito, Zhang et al., Nellis & Klein (Schmidt correction) and Di Piazza & Ciofalo.
-    cond : G, mu, k, Pr (+ mu_w)       geom : Dh, R_curv (or D_coil), L"""
+    cond : G, mu, k, Pr (+ mu_w)       geom : Dh, R_curv (or D_coil), L
+    Validity of the transition branch (Re_cr <= Re < 1e5 and 0.01 < D/(2R) <= 0.1):
+    Nu = 0.040 f Re^1.13 gamma^0.077 Pr^0.4 = Zhao et al. Eq. 57 in the Sigalotti (2023) review,
+    9.7e3 < Re < 1.4e5, 0.7 < Pr < 6, 0.012 < gamma < 0.177 (gamma = D/(2R)); warning outside.
+    The laminar 'Xhan' branch has no known source (no check)."""
     _need_cond(cond, 'G', 'mu', 'k', 'Pr')
     mu = cond['mu']
+    # Range of the transition branch (Zhao et al. Eq. 57, Sigalotti 2023 review)
+    D = _D(geom)
+    curv = D / (2.0 * _R_curv(geom))
+    Re = cond['G'] * D / mu
+    Re_cr = 12730.0 * curv ** 0.2
+    Pr = cond['Pr']
+    if Re_cr <= Re < 1e5 and 0.01 < curv <= 0.1:
+        out = []
+        if Re < 9.7e3 or Re > 1.4e5:
+            out.append(f"Re = {Re:.3g} (9.7e3-1.4e5)")
+        if Pr < 0.7 or Pr > 6.0:
+            out.append(f"Pr = {Pr:.3g} (0.7-6)")
+        if curv < 0.012 or curv > 0.177:
+            out.append(f"D/(2R) = {curv:.3g} (0.012-0.177)")
+        if out:
+            warnings.warn("Sigalotti curved pipe, transition branch: outside the range of Zhao "
+                          "Eq. 57: " + ", ".join(out) + ".", ValidityRangeWarning, stacklevel=2)
     return _curved_pipe_1P(mu, cond['Pr'], cond.get('mu_w', mu), cond['k'], cond['G'], _D(geom), _L(geom), _R_curv(geom))
 
 
@@ -518,8 +540,25 @@ def curved_pipe_zhao_boiling_HTC(AS, geom, cond):
 def curved_pipe_nariai_boiling_HTC(AS, geom, cond):
     """Boiling in a helical coil at subcritical conditions, small-scale solar ORC (Lazova et al. 2017, Nariai-type):
     Nu = 170 Re_lo^0.8 Pr_l^(1/3) (Bo + 0.00015 X_tt^-0.67), Re_lo = G D / mu_l (all liquid).
-    cond : G, p, x, q      geom : Dh"""
+    cond : G, p, x, q      geom : Dh
+    Validity: Nariai, Kobayashi & Matsuoka (1982), J. Nucl. Sci. Technol. 19, 936-947, as quoted by
+    Lazova et al. (2017), Energies 10, 619, Sec. 4.4, Table 4: WATER in a helical coil,
+    2 < p < 3.5 MPa, 150 < G < 850 kg/m2/s, +-30 % (heat flux range not given). Warning outside the
+    p and G ranges (ValidityRangeWarning) and for a fluid other than water (FluidWarning)."""
     s, x, inv_Xtt, Bo = _boiling_inputs(AS, geom, cond)
     D = _D(geom)
+    # Range of the Nariai data (Lazova et al. 2017, Table 4)
+    out = []
+    if cond['p'] < 2.0e6 or cond['p'] > 3.5e6:
+        out.append(f"p = {cond['p'] / 1e6:.3g} MPa (2-3.5)")
+    if cond['G'] < 150.0 or cond['G'] > 850.0:
+        out.append(f"G = {cond['G']:.4g} kg/m2/s (150-850)")
+    if out:
+        warnings.warn("Nariai curved-pipe boiling: outside the data range: " + ", ".join(out) + ".",
+                      ValidityRangeWarning, stacklevel=2)
+    # Fluid of the Nariai data: water
+    if AS is not None and AS.fluid_names()[0].lower() not in ('water', 'h2o'):
+        warnings.warn(f"Nariai curved-pipe boiling: fluid {AS.fluid_names()[0]!r}, correlation "
+                      "established for water.", FluidWarning, stacklevel=2)
     Re_lo = cond['G'] * D / s['mu_l']
     return 170 * Re_lo ** 0.8 * s['Pr_l'] ** (1 / 3) * (Bo + 0.00015 * inv_Xtt ** 0.67) * s['k_l'] / D

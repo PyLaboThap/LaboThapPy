@@ -242,7 +242,14 @@ def _msh(G, x, s, D, L, K, cond):
 def _pipe_msh_dp(AS, geom, cond):
     """Muller-Steinhagen & Heck (1986): empirical interpolation between liquid-only and vapor-only pressure drops
     (9300 points, D 4-392 mm). Churchill friction factors are used here instead of Swamee-Jain, which is
-    turbulent only (the liquid-only flow of a tube can be laminar). No surface tension needed."""
+    turbulent only (the liquid-only flow of a tube can be laminar). No surface tension needed.
+    Validity: tube diameters of the data bank 4-392 mm (Muller-Steinhagen & Heck 1986, Chem. Eng.
+    Process. 20, 297-308, Appendix A, Tables A-1 and A-2); warning outside."""
+    # Diameter range of the data bank (Appendix A of the paper)
+    D = _tube_ID(geom)
+    if D < 4e-3 or D > 392e-3:
+        warnings.warn(f"MSH two-phase DP: D = {D * 1e3:.3g} mm outside 4-392 mm (data bank): "
+                      "extrapolated.", ValidityRangeWarning, stacklevel=3)
     return _two_phase_dp(AS, geom, cond, _msh)
 
 
@@ -251,8 +258,22 @@ def _pipe_choi_dp(AS, geom, cond):
     Pierre): needs the quality change of the pipe, cond['x_out'] or cond['h_in'] and cond['h_out'], with cond['x']
     the inlet quality (cond['x_in'] if present). Written for a whole pipe: the quality change is that of the
     cell while L is the full flow length, so use it with a global evaluation (Correlation_Global), not cell by cell.
-    Raises ValueError if the quality does not change."""
+    Raises ValueError if the quality does not change.
+    Validity: NIST data of Choi et al. (2001) and Choi et al. (1999, NISTIR 6333, Tables 2 and 4):
+    D_h 4.3-11.1 mm, G 88-620 kg/m2/s, p 0.36-2.5 MPa, refrigerants R12, R22, R32, R125, R134a,
+    R407C, R410A, R32/R134a; warning outside the D_h, G and p ranges."""
     def model(G, x, s, D, L, K, c):
+        # Ranges of the NIST data (Choi 2001 p. 3-4; NISTIR 6333 Tables 2 and 4)
+        out = []
+        if D < 4.3e-3 or D > 11.1e-3:
+            out.append(f"D_h = {D * 1e3:.3g} mm (4.3-11.1)")
+        if G < 88.0 or G > 620.0:
+            out.append(f"G = {G:.4g} kg/m2/s (88-620)")
+        if c['p'] < 0.36e6 or c['p'] > 2.5e6:
+            out.append(f"p = {c['p'] / 1e6:.3g} MPa (0.36-2.5)")
+        if out:
+            warnings.warn("Choi two-phase DP: outside the NIST data: " + ", ".join(out) + ".",
+                          ValidityRangeWarning, stacklevel=4)
         x_su = c.get('x_in', c['x'])
         if 'x_out' in c:
             x_ex = c['x_out']
@@ -287,11 +308,19 @@ def _pipe_lockhart_martinelli_dp(AS, geom, cond):
     X^2 = dP_l / dP_v (each phase alone). C = 20 (tt), 12 (vt), 10 (tv), 5 (vv); Re limit 2000.
     cond['lm_C'] imposes C. Reference: Chisholm (1967); Lockhart & Martinelli (1949).
     Validity: developed for horizontal flow (fluids.two_phase.Lockhart_Martinelli notes): warning
-    if the tube is inclined (geom['gamma'] not 0)."""
+    if the tube is inclined (geom['gamma'] not 0).
+    Original data: air with benzene, kerosene, water and oils, pipe diameters 1.5-25.8 mm
+    (Xu et al. 2012, Nucl. Eng. Des., Table 1): warning outside this diameter range."""
     if geom.get('gamma', 0.0) != 0.0:
         warnings.warn(f"Lockhart-Martinelli two-phase DP: inclined tube "
                       f"(gamma = {geom['gamma']} deg), "
                       "the correlation was developed for horizontal flow.", ValidityRangeWarning,
+                      stacklevel=3)
+    # Diameter range of the original data (Xu et al. 2012, Table 1)
+    D_check = _tube_ID(geom)
+    if D_check < 1.5e-3 or D_check > 25.8e-3:
+        warnings.warn(f"Lockhart-Martinelli two-phase DP: D = {D_check * 1e3:.3g} mm outside "
+                      "1.5-25.8 mm (original data): extrapolated.", ValidityRangeWarning,
                       stacklevel=3)
 
     def model(G, x, s, D, L, K, c):
@@ -346,8 +375,11 @@ def pipe_xu_fang_condensing_DP(AS, geom, cond):
 
     Validity
     --------
-    Condensing flow, database of the paper (range not given in the reference library).
-    No explicit validity warning is emitted beyond those of the helper functions.
+    Condensing flow, database of the paper (Xu & Fang 2013, Sec. 2, Table 1, Table 2): 525 points,
+    R134a, NH3, R410A, R22, R236ea, R125, R32, R600a, R290; D_h 0.1-10.07 mm, G 20-800 kg/m2/s,
+    q 2-55.3 kW/m2, x 0-1; fitted parameters Y = sqrt(dp_vo / dp_lo) 2.05-7.29,
+    Fr_tp 0.28-95354, We_tp 5.31-12270 (homogeneous density). Warning outside the D, G, Y, Fr_tp
+    and We_tp ranges (q is not an input of this function).
 
     Notes
     -----
@@ -396,6 +428,23 @@ def pipe_xu_fang_condensing_DP(AS, geom, cond):
     # 7. Froude number (squared form, as in fluids library) and Weber number
     Fr = v_h**2 / (G_GRAVITY * D)
     We = v_h**2 * D * rho_h / sigma
+
+    # Range of the database (Xu & Fang 2013, Table 1 and text after Eq. 3, Table 2)
+    Y = Y2**0.5
+    out = []
+    if D < 0.1e-3 or D > 10.07e-3:
+        out.append(f"D = {D * 1e3:.3g} mm (0.1-10.07)")
+    if G < 20.0 or G > 800.0:
+        out.append(f"G = {G:.4g} kg/m2/s (20-800)")
+    if Y < 2.05 or Y > 7.29:
+        out.append(f"Y = {Y:.3g} (2.05-7.29)")
+    if Fr < 0.28 or Fr > 95354.0:
+        out.append(f"Fr_tp = {Fr:.3g} (0.28-95354)")
+    if We < 5.31 or We > 12270.0:
+        out.append(f"We_tp = {We:.3g} (5.31-12270)")
+    if out:
+        warnings.warn("Xu-Fang condensing DP: outside the database: " + ", ".join(out) + ".",
+                      ValidityRangeWarning, stacklevel=2)
 
     # 8. Two-phase multiplier phi_lo^2 (Xu & Fang 2013, as implemented in fluids)
     term_vapour = Y2 * x**3
@@ -449,6 +498,10 @@ def pipe_chisholm_DP(AS, geom, cond):
     Notes: Darcy friction factors from friction_factor_churchill (labothappy choice, as Friedel
     and MSH of this file); the fluids library uses its own Colebrook solution. Saturated
     properties at cond['p']; liquid-only / vapour-only flows with the total mass flux.
+
+    Validity: derived for TURBULENT flow in SMOOTH tubes (Blasius exponent n, Chisholm 1973,
+    abstract and Sec. 7); no numerical data range in the paper. Warning when the liquid-only flow
+    is laminar (Re_lo < 2300).
     """
     # 1. Read tube inner diameter [m], full length [m], and absolute roughness [m]
     D = _tube_ID(geom)
@@ -476,6 +529,12 @@ def pipe_chisholm_DP(AS, geom, cond):
     Re_lo = G * D / mu_l
     f_lo = friction_factor_churchill(K, D, Re_lo)
     dp_lo = _friction_dp(f_lo, G, rho_l, D, L)
+
+    # Chisholm (1973) is derived for turbulent flow: warning if the liquid-only flow is laminar
+    if Re_lo < 2300.0:
+        warnings.warn(f"Chisholm two-phase DP: Re_lo = {Re_lo:.0f} < 2300 (laminar liquid-only "
+                      "flow, outside the turbulent derivation).", ValidityRangeWarning,
+                      stacklevel=2)
 
     # 4. Vapour-only flow pressure drop calculation
     Re_vo = G * D / mu_v
@@ -556,7 +615,11 @@ def pipe_gronnerud_boiling_DP(AS, geom, cond):
 
     Validity
     --------
-    Developed for evaporators; 0 < x < 1 (fluids library notes). No range warning emitted.
+    Developed for evaporators; 0 < x < 1 (fluids library notes). The original range (IIR 1972) is
+    not available. Tested by Ould Didi, Kattan & Thome (2002, Int. J. Refrig. 25, 935-947):
+    D 10.92 and 12.0 mm, G 100-500 kg/m2/s, x 0.04-1, R134a, R123, R402A, R404A, R502.
+    Warning outside D 10-18 mm and G 100-500 kg/m2/s. The 10-18 mm diameter window is a
+    LaboThapPy choice (Basile, 2026-11-26), wider than the two tested diameters: no source.
 
     Notes
     -----
@@ -572,6 +635,16 @@ def pipe_gronnerud_boiling_DP(AS, geom, cond):
     G = _tube_G(geom, cond)                # mass flux in one tube [kg/m2/s]
     x = min(max(cond['x'], 1e-6), 1 - 1e-6)  # vapor quality [-], clipped
     p = cond['p']                          # saturation pressure [Pa]
+
+    # Validity: tested G range (Ould Didi 2002), D window 10-18 mm (LaboThapPy choice)
+    out = []
+    if D < 10e-3 or D > 18e-3:
+        out.append(f"D = {D * 1e3:.3g} mm (10-18)")
+    if G < 100.0 or G > 500.0:
+        out.append(f"G = {G:.4g} kg/m2/s (100-500)")
+    if out:
+        warnings.warn("Gronnerud two-phase DP: outside the tested range: " + ", ".join(out) + ".",
+                      ValidityRangeWarning, stacklevel=2)
 
     # --- 2. Saturated properties at pressure p ---
     s = _sat_props(AS, p, cond)            # dict with rho_l, rho_v, mu_l, mu_v (sigma not needed)

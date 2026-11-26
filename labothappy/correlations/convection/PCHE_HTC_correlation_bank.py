@@ -30,7 +30,10 @@ def _need(cond, *keys):
 
 def PCHE_straight_HTC(AS, geom, cond):
     """Straight channel: Stephan-Preusser (Re < 2300) / Gnielinski (Re >= 2300).
-    Ref: S.W. Lee et al. (2022), thermal-hydraulic performance of PCHE for SFR recuperators."""
+    Ref: S.W. Lee et al. (2022), thermal-hydraulic performance of PCHE for SFR recuperators.
+    Validity: Lee (2022) gives no range. Turbulent branch: warning for Re >= 1e6 or Pr outside
+    0.1-1000, the limits used by the labothappy Gnielinski (_gnielinski_core, pipe HTC bank).
+    Laminar branch: source of the formula still to find (no check)."""
     _need(cond, 'G', 'mu', 'k', 'Pr')
     Dh, L = _dh(geom), geom['L_ch']
     Re, Pr = cond['G'] * Dh / cond['mu'], cond['Pr']
@@ -38,6 +41,13 @@ def PCHE_straight_HTC(AS, geom, cond):
         x = Re * Pr * Dh / L
         Nu = 3.657 + 0.0677 * x ** 1.33 / (1 + 0.1 * Pr * (Re * Dh / L) ** 0.3)
     else:
+        # Same limits as the labothappy Gnielinski (_gnielinski_core)
+        if Re >= 1e6:
+            warnings.warn(f"PCHE straight (Gnielinski): Re = {Re:.3g} >= 1e6: extrapolated.",
+                          ValidityRangeWarning, stacklevel=2)
+        if Pr <= 0.1 or Pr >= 1000:
+            warnings.warn(f"PCHE straight (Gnielinski): Pr = {Pr:.3g} outside 0.1-1000: "
+                          "extrapolated.", ValidityRangeWarning, stacklevel=2)
         f = (1.82 * np.log10(Re) - 1.64) ** -2
         Nu = (f / 8 * (Re - 1000) * Pr / (1 + 12.7 * np.sqrt(f / 8) * (Pr ** (2 / 3) - 1))) \
             * (1 + (Dh / L) ** (2 / 3))

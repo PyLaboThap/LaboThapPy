@@ -59,10 +59,12 @@ def BPHX_SP_DP(AS, geom, cond, choice=None):
 
 from labothappy.correlations.pressure_drop.BPHX_DP_correlation_bank import (
     BPHX_lockhart_martinelli_DP, BPHX_amalfi_boiling_DP)
+from labothappy.correlations.pressure_drop.BPHX_DP_correlation_bank import BPHX_hsieh_lin_boiling_DP
 
 _BPHX_EVAP_DP = {
     'Lockhart_Martinelli': BPHX_lockhart_martinelli_DP,
     'Amalfi': BPHX_amalfi_boiling_DP,
+    'Hsieh_Lin': BPHX_hsieh_lin_boiling_DP,          # R410A data (Hsieh & Lin 2002)
 }
 
 def select_plate_evaporation_DP(geom, cond):
@@ -92,10 +94,14 @@ def BPHX_boiling_DP(AS, geom, cond, choice=None):
 #%% TWO-PHASE : CONDENSING
 
 from labothappy.correlations.pressure_drop.BPHX_DP_correlation_bank import BPHX_han_condensing_DP
+from labothappy.correlations.pressure_drop.BPHX_DP_correlation_bank import (
+    BPHX_kuo_condensing_DP, BPHX_yan_lio_lin_condensing_DP)
 
 _BPHX_COND_DP = {
     'Han': BPHX_han_condensing_DP,
     'Lockhart_Martinelli': BPHX_lockhart_martinelli_DP,
+    'Kuo': BPHX_kuo_condensing_DP,                   # R410A data (Kuo et al. 2005)
+    'Yan_Lio_Lin': BPHX_yan_lio_lin_condensing_DP,   # R134a data (Yan, Lio & Lin 1999)
 }
 
 def select_plate_condensation_DP(geom, cond):
@@ -200,6 +206,9 @@ _REQUIRED_PARAMETERS = {
     'Lockhart_Martinelli': (),
     'Amalfi': (),
     'Han': (),
+    'Hsieh_Lin': (),
+    'Kuo': (),
+    'Yan_Lio_Lin': (),
 }
 
 

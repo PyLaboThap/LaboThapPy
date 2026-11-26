@@ -66,6 +66,7 @@ def BPHE_SP_HTC(AS, geom, cond, choice=None):
 from labothappy.correlations.convection.BPHE_HTC_correlation_bank import (
     BPHE_cooper_boiling_HTC, BPHE_amalfi_boiling_HTC, BPHE_han_lee_kim_boiling_HTC,
     BPHE_yan_lin_boiling_HTC, BPHE_lee_kang_kim_boiling_HTC, BPHE_huang_sheer_boiling_HTC)
+from labothappy.correlations.convection.BPHE_HTC_correlation_bank import BPHE_hsieh_lin_boiling_HTC
 
 _BPHX_EVAP_HTC = {
     'Cooper': BPHE_cooper_boiling_HTC,
@@ -74,6 +75,7 @@ _BPHX_EVAP_HTC = {
     'Yan_Lin': BPHE_yan_lin_boiling_HTC,
     'Lee_Kang_Kim': BPHE_lee_kang_kim_boiling_HTC,   # water data
     'Huang_Sheer': BPHE_huang_sheer_boiling_HTC,     # q and T_sat only
+    'Hsieh_Lin': BPHE_hsieh_lin_boiling_HTC,         # R410A data (Hsieh & Lin 2002)
 }
 
 def select_plate_evaporation_HTC(geom, cond):
@@ -107,13 +109,17 @@ def BPHE_boiling_HTC(AS, geom, cond, choice=None):
 
 from labothappy.correlations.convection.BPHE_HTC_correlation_bank import (
     BPHE_shah_condensing_HTC, BPHE_han_condensing_HTC, BPHE_longo_condensing_HTC)
+from labothappy.correlations.convection.BPHE_HTC_correlation_bank import (
+    BPHE_kuo_condensing_HTC, BPHE_yan_lio_lin_condensing_HTC)
   
 _BPHX_COND_HTC = {
     'Shah': BPHE_shah_condensing_HTC,
     'Han': BPHE_han_condensing_HTC,
     'Longo': BPHE_longo_condensing_HTC,
+    'Kuo': BPHE_kuo_condensing_HTC,                  # R410A data (Kuo et al. 2005)
+    'Yan_Lio_Lin': BPHE_yan_lio_lin_condensing_HTC,  # R134a data (Yan, Lio & Lin 1999)
 }
- 
+
 #%% CONDENSATION : HTC
  
 def select_plate_condensation_HTC(geom, cond):
@@ -208,6 +214,9 @@ _REQUIRED_PARAMETERS = {
     'Shah': (),
     'Han': (),
     'Longo': (),
+    'Hsieh_Lin': (),
+    'Kuo': (),
+    'Yan_Lio_Lin': (),
 }
 
 

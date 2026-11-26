@@ -9,6 +9,7 @@ Created on Thu Nov  5 10:51:41 2026
 import numpy as np
 import warnings
 from labothappy.correlations.convection.correlation_warnings import ValidityRangeWarning
+from labothappy.correlations.convection.correlation_warnings import FluidWarning
 
 #%% HELPER fun
 
@@ -455,3 +456,346 @@ def BPHX_han_condensing_DP(AS, geom, cond):
     rho_m = 1.0 / (x / rho_v + (1.0 - x) / rho_l)
     return f * (L / Dh) * G**2 / rho_m
 
+
+
+#%% TWO-PHASE : PLATE CORRELATIONS OF THE NCTU GROUP (Kuo 2005, Yan-Lio-Lin 1999, Hsieh-Lin 2002)
+# Added 2026-11-26 (drafts written by gemini-flash-lite-latest, reviewed; equations checked
+# against the papers, see LOGS reports/plate_papers_check_2026-11-26.md)
+
+
+def BPHX_kuo_condensing_DP(AS, geom, cond):
+    """
+    Frictional pressure drop of a condensing flow in a vertical plate heat exchanger.
+    
+    Parameters:
+    - AS: CoolProp abstract state object [-]
+    - geom: dictionary containing geometry parameters
+        - 'Dh': hydraulic diameter [m]
+        - 'L': total flow path length [m]
+    - cond: dictionary containing operating conditions
+        - 'G': mass flux in ONE channel [kg/(m^2 s)]
+        - 'x': mean quality of the cell [-]
+        - 'q': heat flux [W/m^2]
+        - 'p': saturation pressure [Pa]
+
+    Returns:
+    - dP: frictional pressure drop over the full length L [Pa]
+
+    Reference:
+    Kuo, W.S., Lie, Y.M., Hsieh, Y.Y., Lin, T.F. (2005) Condensation heat transfer 
+    and pressure drop of refrigerant R-410A flow in a vertical plate heat exchanger. 
+    Int. J. Heat Mass Transfer 48, 5205-5220. doi:10.1016/j.ijheatmasstransfer.2005.07.023.
+    Equations (12), (15), (17), (21), (23), and (24).
+
+    Validity range:
+    - Mass flux G: 50 - 150 kg/(m^2 s)
+    - Heat flux q: 5000 - 20000 W/m^2
+    - Quality x: 0.10 - 0.80
+    - Fluid: R-410A (FluidWarning otherwise)
+    - State only (not checked): p_sat 1.44 - 1.95 MPa, chevron angle 60 deg
+    - Mean deviation: 23 % (f_tp)
+
+    Definitions:
+    - Fanning friction factor (f_tp): defined via Eq. (15),
+      dP_f = 2 * f_tp * G^2 * v_m * L / Dh.
+    - Reynolds number (Re_eq): based on equivalent mass flux G_eq and hydraulic diameter Dh,
+      using liquid dynamic viscosity mu_l.
+    - Mass flux G: defined for one channel.
+    - Quality x: cell mean quality.
+    - Heat flux q: absolute heat flux.
+    - Properties: saturated properties evaluated at saturation pressure p_sat.
+
+    Equations checked against the paper (LaboThapPy, 2026-11-26).
+    """
+    # 1) Inputs extraction and quality clamp (Common rules)
+    G = cond['G']
+    x_raw = cond['x']
+    if not np.isfinite(x_raw):
+        raise ValueError("Kuo condensing DP: cond['x'] must be finite.")
+    x = min(max(x_raw, 1e-4), 1.0 - 1e-4)
+    
+    q = abs(cond['q'])
+    p_sat = cond['p']
+    
+    Dh = geom['Dh']
+    L = geom['L']
+
+    # 2) Saturated properties
+    s = _sat_props(AS, p_sat)
+    rho_l = s["rho_l"]
+    rho_v = s["rho_v"]
+    mu_l = s["mu_l"]
+    h_lv = s["h_lv"]
+
+    # 3) Equivalent mass flux and Reynolds number (Eq. 24 and Eq. 23)
+    term_sqrt = np.sqrt(rho_l / rho_v)
+    G_eq = G * ((1.0 - x) + x * term_sqrt)
+    Re_eq = G_eq * Dh / mu_l
+
+    # 4) Boiling number (Eq. 21) with guard
+    Bo = q / (G * h_lv)
+    Bo = max(Bo, 1e-6)
+
+    # 5) Fanning friction factor (Eq. 17)
+    f_tp = 21500.0 * (Re_eq ** (-1.14)) * (Bo ** (-0.085))
+
+    # 6) Homogeneous specific volume (Eq. 12)
+    v_m = (x / rho_v) + ((1.0 - x) / rho_l)
+
+    # 7) Frictional pressure drop over the full length L (Eq. 15)
+    dP = 2.0 * f_tp * (G ** 2) * v_m * (L / Dh)
+
+    # Validity range checks and warnings
+    out = []
+    if G < 50.0 or G > 150.0:
+        out.append(f"G = {G:.4g} kg/m2/s (50-150)")
+    if q < 5000.0 or q > 20000.0:
+        out.append(f"q = {q:.4g} W/m2 (5000-20000)")
+    if x_raw < 0.10 or x_raw > 0.80:
+        out.append(f"x = {x_raw:.4g} (0.10-0.80)")
+
+    if out:
+        warnings.warn(
+            "BPHX_kuo_condensing_DP: outside the data of the paper: " + ", ".join(out) + ".",
+            ValidityRangeWarning
+        )
+
+    fluid_name = AS.fluid_names()[0].upper().replace('-', '')
+    if fluid_name != 'R410A':
+        warnings.warn(
+            f"BPHX_kuo_condensing_DP: fluid {AS.fluid_names()[0]}, "
+            "correlation established for R410A.",
+            FluidWarning
+        )
+
+    return dP
+
+
+def BPHX_yan_lio_lin_condensing_DP(AS, geom, cond):
+    """
+    Yan, Y.-Y., Lio, H.-C., Lin, T.-F. (1999) Condensation heat transfer and pressure drop of
+    refrigerant R-134a in a plate heat exchanger. Int. J. Heat Mass Transfer 42, 993-1006.
+    doi:10.1016/S0017-9310(98)00217-8
+
+    Frictional pressure drop of a condensing flow in a plate heat exchanger.
+    Port losses, gravity, and acceleration terms are NOT included.
+
+    Parameters
+    ----------
+    AS : CoolProp abstract state or equivalent
+         CoolProp fluid state object.
+    geom : dict
+         Geometry dictionary containing:
+         - 'Dh' : Hydraulic diameter [m] (Dh = 2 * b, where b is the channel gap).
+         - 'L' : Total flow path length [m].
+    cond : dict
+         Condition dictionary containing:
+         - 'G' : Mass flux in ONE channel [kg/m2/s].
+         - 'x' : Mean quality of the cell [-].
+         - 'q' : Heat flux [W/m2] (absolute value).
+         - 'p' : Saturation pressure [Pa].
+
+    Returns
+    -------
+    dP : float
+         Frictional pressure drop over the full flow length L [Pa].
+
+    Validity range
+    --------------
+    - Mass flux G : 60 to 120 kg/m2/s
+    - Heat flux q : 10000 to 18000 W/m2
+    - Fluid : R134a (FluidWarning otherwise)
+    - State only (not checked): saturation pressure 0.7 to 0.9 MPa, Re_eq about 2500 to
+      15000 (read on Fig. 11), chevron angle 60 deg
+
+    Definitions
+    -----------
+    - Fanning friction factor f_tp = dP_f * Dh / (2 * G^2 * v_m * L)
+    - Reynolds numbers based on hydraulic diameter Dh and liquid dynamic viscosity mu_l
+    - G is the mass flux in one channel
+    - Quality is the cell mean quality
+    - Properties are saturated at the saturation pressure p
+    - p_crit is read from the AbstractState independently of saturation property calls
+
+    Equations checked against the paper (LaboThapPy, 2026-11-26).
+    """
+    # 1) Inputs extraction and quality check
+    G = cond['G']
+    x_raw = cond['x']
+    q = abs(cond['q'])
+    p_sat = cond['p']
+    Dh = geom['Dh']
+    L = geom['L']
+
+    # Quality check: verify it is finite, then clamp
+    if not np.isfinite(x_raw):
+        raise ValueError("Yan Lio Lin condensing DP: cond['x'] must be finite.")
+    x = min(max(x_raw, 1e-4), 1.0 - 1e-4)
+
+    # 2) Critical pressure (independent of the state of AS)
+    p_crit = AS.p_critical()
+
+    # Saturated properties
+    s = _sat_props(AS, p_sat)
+    rho_l = s["rho_l"]
+    rho_v = s["rho_v"]
+    mu_l = s["mu_l"]
+    h_lv = s["h_lv"]
+
+    # 3) Equivalent mass flux and Reynolds number
+    term_sqrt = np.sqrt(rho_l / rho_v)
+    G_eq = G * ((1.0 - x) + (x * term_sqrt))
+    Re_eq = G_eq * Dh / mu_l
+
+    # 4) All-liquid Reynolds number
+    Re_l = G * Dh / mu_l
+
+    # 5) Boiling number with guard
+    Bo = q / (G * h_lv)
+    Bo = max(Bo, 1e-6)
+
+    # 6) Fanning friction factor (paper Fig. 11)
+    ratio_p = p_sat / p_crit
+    f_tp = 94.75 * (Re_eq ** (-0.0467)) * (Re_l ** (-0.4)) * (Bo ** 0.5) * (ratio_p ** 0.8)
+
+    # 7) Homogeneous specific volume
+    v_m = (x / rho_v) + ((1.0 - x) / rho_l)
+
+    # 8) Frictional pressure drop over the full length L [Pa]
+    dP = 2.0 * f_tp * (G ** 2) * v_m * L / Dh
+
+    # Validity range checks and warnings
+    out = []
+    if G < 60.0 or G > 120.0:
+        out.append(f"G = {G:.4g} kg/m2/s (60-120)")
+    if q < 10000.0 or q > 18000.0:
+        out.append(f"q = {q:.4g} W/m2 (10000-18000)")
+
+    if out:
+        warnings.warn(
+            "BPHX_yan_lio_lin_condensing_DP: outside the data of the paper: "
+            + ", ".join(out) + ".",
+            ValidityRangeWarning
+        )
+
+    # Fluid check
+    fluid_name = AS.fluid_names()[0].upper().replace('-', '')
+    if fluid_name != 'R134A':
+        warnings.warn(
+            f"BPHX_yan_lio_lin_condensing_DP: fluid {AS.fluid_names()[0]}, "
+            "correlation established for R134a.",
+            FluidWarning
+        )
+
+    return dP
+
+
+def BPHX_hsieh_lin_boiling_DP(AS, geom, cond):
+    """
+    Frictional pressure drop of a saturated boiling flow in a plate heat exchanger.
+    
+    Parameters
+    ----------
+    AS : CoolProp abstract state or fluid object
+        Working fluid state.
+    geom : dict
+        Plate geometry dictionary with keys:
+        - 'Dh' : hydraulic diameter [m] (Dh = 2 * b, where b is channel gap)
+        - 'L'  : total flow path length (plate length x number of passes) [m]
+    cond : dict
+        Operating conditions dictionary with keys:
+        - 'G'   : mass flux in ONE channel [kg/m^2/s]
+        - 'x'   : mean quality of the cell [-]
+        - 'q'   : heat flux [W/m^2] (the sign depends on the side)
+        - 'p'   : saturation pressure [Pa]
+
+    Returns
+    -------
+    float
+        Frictional pressure drop over the full length L [Pa].
+
+    Reference
+    ---------
+    Hsieh, Y.Y., Lin, T.F. (2002) Saturated flow boiling heat transfer and pressure drop
+    of refrigerant R-410A in a vertical plate heat exchanger.
+    Int. J. Heat Mass Transfer 45, 1033-1044.
+    doi:10.1016/S0017-9310(01)00219-8
+    Equations (22), (26), (27), and (28).
+
+    Validity
+    --------
+    - Mass flux G : 50 to 125 kg/m^2/s
+    - Heat flux q : 5000 to 35000 W/m^2
+    - Fluid : R-410A (FluidWarning otherwise)
+    - State only (not checked): saturation pressure 1.08 to 1.44 MPa, chevron angle 60 deg
+    - Accuracy : 85 % of the data within 20 %.
+
+    Definitions
+    -----------
+    - Fanning friction factor f_tp defined by Eq. (22): dP = 2 * f_tp * G**2 * v_m * L / Dh
+    - Reynolds number Re_eq based on equivalent mass flux G_eq and liquid viscosity mu_l
+    - G is the mass flux in one channel [kg/m^2/s]
+    - Quality x is the cell mean quality [-]
+    - Heat flux q is the absolute heat flux [W/m^2]
+    - Properties are saturated at pressure p
+
+    Equations checked against the paper (LaboThapPy, 2026-11-26).
+    """
+    # 1) Inputs extraction and quality check / clamp
+    G = cond['G']
+    x_input = cond['x']
+    if not np.isfinite(x_input):
+        raise ValueError("Hsieh-Lin boiling DP: cond['x'] must be finite "
+                         "(two-phase cell expected).")
+    
+    x = min(max(x_input, 1e-4), 1.0 - 1e-4)
+    q = abs(cond['q'])
+    p_sat = cond['p']
+
+    Dh = geom['Dh']
+    L = geom['L']
+
+    # 2) Saturated properties at p_sat
+    s = _sat_props(AS, p_sat)
+    rho_l = s["rho_l"]
+    rho_v = s["rho_v"]
+    mu_l = s["mu_l"]
+
+    # 3) Equivalent mass flux Eq. (28) and Reynolds number Eq. (27)
+    ratio_density_sqrt = np.sqrt(rho_l / rho_v)
+    term_quality_effect = (1.0 - x) + (x * ratio_density_sqrt)
+    G_eq = G * term_quality_effect
+    Re_eq = G_eq * Dh / mu_l
+
+    # 4) Fanning friction factor Eq. (26)
+    f_tp = 61000.0 * (Re_eq ** (-1.25))
+
+    # 5) Homogeneous specific volume (definition of v_m used in Eq. 22)
+    v_m = (x / rho_v) + ((1.0 - x) / rho_l)
+
+    # 6) Frictional pressure drop Eq. (22) over the full length L
+    dP = 2.0 * f_tp * (G ** 2) * v_m * (L / Dh)
+
+    # Validity range checks and warnings
+    out = []
+    if G < 50.0 or G > 125.0:
+        out.append(f"G = {G:.4g} kg/m2/s (50-125)")
+    if q < 5000.0 or q > 35000.0:
+        out.append(f"q = {q:.4g} W/m2 (5000-35000)")
+
+    if out:
+        warnings.warn(
+            "BPHX_hsieh_lin_boiling_DP: outside the data of the paper: " + ", ".join(out) + ".",
+            ValidityRangeWarning
+        )
+
+    # Fluid check
+    fluid_name = AS.fluid_names()[0].upper().replace('-', '')
+    if fluid_name != 'R410A':
+        warnings.warn(
+            f"BPHX_hsieh_lin_boiling_DP: fluid {AS.fluid_names()[0]}, "
+            "correlation established for R410A.",
+            FluidWarning
+        )
+
+    return dP

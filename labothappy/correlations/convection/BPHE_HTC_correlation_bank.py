@@ -14,6 +14,7 @@ from labothappy.correlations.properties.thermal_conductivity import conducticity
 from labothappy.correlations.convection.pipe_HTC_correlation_bank import _sigma
 from labothappy.correlations.convection.correlation_warnings import (
     AssumedParameterWarning, ValidityRangeWarning)
+from labothappy.correlations.convection.correlation_warnings import FluidWarning
 
 #%% HELPER fun
 
@@ -331,6 +332,10 @@ def BPHE_cooper_boiling_HTC(AS, geom, cond):
     Nucleate pool boiling heat transfer coefficient, after M.G. Cooper (1984),
     "Heat flow rates in saturated nucleate boiling - A wide-ranging examination
     using reduced properties", Advances in Heat Transfer, Vol. 16, pp. 157-239.
+
+    Validity: fully developed SATURATED NUCLEATE POOL boiling, > 5000 points, reduced pressure
+    p_r about 0.001-0.9 (Cooper 1984, Sec. VIII-IX, App. A, Fig. 7); molar mass about 2-200 g/mol.
+    Warning for p_r outside 0.001-0.9.
     """
     p_sat = cond['p']
     q = cond['q']
@@ -346,6 +351,10 @@ def BPHE_cooper_boiling_HTC(AS, geom, cond):
 
     if not 0.0 < p_red < 1.0:
         raise ValueError(f"Cooper: reduced pressure {p_red:.3f} outside ]0, 1[.")
+    # Reduced pressure range of the data (Cooper 1984, Sec. VIII-IX)
+    if p_red < 0.001 or p_red > 0.9:
+        warnings.warn(f"Cooper: reduced pressure p_r = {p_red:.3g} outside 0.001-0.9 (data of "
+                      "the correlation): extrapolated.", ValidityRangeWarning, stacklevel=2)
     if not (np.isfinite(q) and q > 0.0):
         raise ValueError(f"Cooper: heat flux q = {q} must be finite and > 0.")
     
@@ -1042,3 +1051,331 @@ def BPHE_longo_condensing_HTC(AS, geom, cond):
         Nu = ((75 - 60) / (3000 - 1750) * (Re_eq - 1750) + 60) * Pr_l ** (1 / 3)
 
     return Nu * k_l / Dh
+
+
+#%% TWO-PHASE : PLATE CORRELATIONS OF THE NCTU GROUP (Kuo 2005, Yan-Lio-Lin 1999, Hsieh-Lin 2002)
+# Added 2026-11-26 (drafts written by gemini-flash-lite-latest, reviewed; equations checked
+# against the papers, see LOGS reports/plate_papers_check_2026-11-26.md)
+
+
+def BPHE_kuo_condensing_HTC(AS, geom, cond):
+    """
+    Condensation heat transfer coefficient in a vertical plate heat exchanger,
+    after Kuo et al. (2005) for R-410A flow.
+
+    Parameters
+    ----------
+    AS : CoolProp.AbstractState
+        Fluid state object (left in a saturated state on return).
+    geom : dict
+        Geometry dictionary with key:
+        - 'Dh' : hydraulic diameter [m] (Dh = 2 * b, where b is the channel gap).
+    cond : dict
+        Operating conditions dictionary with keys:
+        - 'G' : mass flux in ONE channel [kg/m2/s]
+        - 'x' : mean vapour quality of the cell [-]
+        - 'q' : absolute heat flux [W/m2]
+        - 'p' : saturation pressure [Pa]
+        - 'mu_w' : dynamic viscosity of the fluid at the wall [Pa s] (optional,
+          defaults to bulk liquid viscosity if not provided).
+
+    Returns
+    -------
+    h : float
+        Two-phase condensation heat transfer coefficient [W/m2/K].
+
+    Reference
+    ---------
+    Kuo, W.S., Lie, Y.M., Hsieh, Y.Y., Lin, T.F. (2005). Condensation heat
+    transfer and pressure drop of refrigerant R-410A flow in a vertical plate
+    heat exchanger. Int. J. Heat Mass Transfer 48, 5205-5220.
+    doi:10.1016/j.ijheatmasstransfer.2005.07.023
+
+    Validity range and fluid
+    ------------------------
+    - Mass flux G: 50 - 150 kg/m2/s
+    - Heat flux q: 5000 - 20000 W/m2
+    - Quality x: 0.10 - 0.80
+    - Fluid: R-410A (FluidWarning emitted otherwise)
+    - State (not checked): saturation temperature 20 - 31.5 °C (p 1.44 - 1.95 MPa),
+      vertical PHE, chevron angle 60°, refrigerant downflow. Mean deviation 16% (HTC).
+
+    Definitions
+    -----------
+    - Reynolds number Re_l uses the total mass flux G as liquid.
+    - Properties are evaluated at saturation pressure p.
+    - Quality is the cell mean quality.
+    - Heat flux q is absolute.
+    - Equations checked against the paper (LaboThapPy, 2026-11-26).
+    """
+    # 1) Inputs and quality clamp
+    G = cond['G']
+    x = cond['x']
+    q = abs(cond['q'])
+    p_sat = cond['p']
+    Dh = geom['Dh']
+
+    if not np.isfinite(x):
+        raise ValueError("Kuo condensing: cond['x'] must be finite.")
+    x = min(max(x, 1e-4), 1.0 - 1e-4)
+
+    # 2) Saturated properties and wall viscosity
+    s = _sat_props(AS, p_sat)
+    rho_l = s["rho_l"]
+    rho_v = s["rho_v"]
+    mu_l = s["mu_l"]
+    k_l = s["k_l"]
+    Pr_l = s["Pr_l"]
+    h_lv = s["h_lv"]
+
+    mu_wall = cond.get('mu_w', mu_l)
+
+    # 3) All-liquid Reynolds number (Kuo nomenclature, total G as liquid)
+    Re_l = G * Dh / mu_l
+
+    # 4) All-liquid HTC, Eq. (18)
+    h_l = 0.2092 * (k_l / Dh) * Re_l ** 0.78 * Pr_l ** (1.0 / 3.0) * (mu_l / mu_wall) ** 0.14
+
+    # 5) Convection number, Eq. (19), printed WITHOUT square root
+    Co = (rho_v / rho_l) * ((1.0 - x) / x) ** 0.8
+
+    # 6) Liquid Froude number, Eq. (20)
+    Fr_l = G ** 2 / (rho_l ** 2 * 9.81 * Dh)
+
+    # 7) Boiling number, Eq. (21), with guard
+    Bo = q / (G * h_lv)
+    Bo = max(Bo, 1e-6)
+
+    # 8) Two-phase HTC, Eq. (16)
+    h = h_l * (0.25 * Co ** (-0.45) * Fr_l ** 0.25 + 75.0 * Bo ** 0.75)
+
+    # 9) Validity range and fluid warnings
+    out = []
+    if not (50.0 <= G <= 150.0):
+        out.append(f"G = {G:.4g} kg/m2/s (50-150)")
+    if not (5000.0 <= q <= 20000.0):
+        out.append(f"q = {q:.4g} W/m2 (5000-20000)")
+    if not (0.10 <= x <= 0.80):
+        out.append(f"x = {x:.4g} (0.10-0.80)")
+
+    if out:
+        warnings.warn(
+            "BPHE_kuo_condensing_HTC: outside the data of the paper: " + ", ".join(out) + ".",
+            ValidityRangeWarning
+        )
+
+    fluid_name = AS.fluid_names()[0].upper().replace('-', '')
+    if fluid_name != 'R410A':
+        warnings.warn(
+            f"BPHE_kuo_condensing_HTC: fluid {AS.fluid_names()[0]}, "
+            "correlation established for R410A.",
+            FluidWarning
+        )
+
+    return h
+
+
+def BPHE_yan_lio_lin_condensing_HTC(AS, geom, cond):
+    """
+    Condensation heat transfer coefficient in a plate heat exchanger, after
+    Yan, Y.-Y., Lio, H.-C., Lin, T.-F. (1999) Condensation heat transfer and pressure drop
+    of refrigerant R-134a in a plate heat exchanger. Int. J. Heat Mass Transfer 42, 993-1006.
+    doi:10.1016/S0017-9310(98)00217-8
+
+    Parameters
+    ----------
+    AS : CoolProp.AbstractState
+        Fluid state object (left in a saturated state on return).
+    geom : dict
+        Geometry dictionary with key:
+        - 'Dh' : hydraulic diameter [m] (Dh = 2 * b, where b is the channel gap).
+          (Chevron angle 'beta' is not used by this correlation as it is fixed at 60 deg).
+    cond : dict
+        Operating conditions with keys:
+        - 'G' : mass flux in ONE channel [kg/m2/s]
+        - 'x' : mean vapour quality of the cell [-]
+        - 'q' : local heat flux [W/m2] (absolute value is used for validity check)
+        - 'p' : saturation pressure [Pa]
+
+    Returns
+    -------
+    h : float
+        Condensation heat transfer coefficient [W/m2/K].
+
+    Validity range
+    --------------
+    - Mass flux G: 60 - 120 kg/m2/s
+    - Heat flux q: 10000 - 18000 W/m2
+    - Fluid: R134a (FluidWarning otherwise)
+    - State only (not checked):
+      P: 0.7 - 0.9 MPa, x: about 0.1 - 0.85, Re_eq: about 2500 - 15000.
+      Vertical PHE, chevron 60 deg, downflow. Data within +-15%.
+
+    Definitions
+    -----------
+    - G is the mass flux in ONE channel [kg/m2/s].
+    - Quality x is clamped between 1e-4 and 1.0 - 1e-4.
+    - Equivalent mass flux G_eq = G * ((1 - x) + x * (rho_l / rho_v)**0.5).
+    - Equivalent Reynolds number Re_eq = G_eq * Dh / mu_l.
+    - Saturated properties evaluated at saturation pressure p.
+    - Nusselt number from Fig. 10: Nu = 4.118 * Re_eq**0.4 * Pr_l**(1/3).
+    - Heat transfer coefficient h = Nu * k_l / Dh.
+
+    Equations checked against the paper (LaboThapPy, 2026-11-26).
+    """
+    # 1) Inputs and quality check/clamp
+    G = cond['G']
+    x = cond['x']
+    q = abs(cond['q'])
+    p_sat = cond['p']
+    Dh = geom['Dh']
+
+    if not np.isfinite(x):
+        raise ValueError("Yan-Lio-Lin condensing: cond['x'] must be finite "
+                         "(two-phase cell expected).")
+    x = min(max(x, 1e-4), 1.0 - 1e-4)
+
+    # 2) Saturated properties at p_sat
+    s = _sat_props(AS, p_sat)
+    rho_l = s["rho_l"]
+    rho_v = s["rho_v"]
+    mu_l = s["mu_l"]
+    k_l = s["k_l"]
+    Pr_l = s["Pr_l"]
+
+    # 3) Equivalent mass flux and Reynolds number
+    G_eq = G * ((1.0 - x) + x * (rho_l / rho_v) ** 0.5)
+    Re_eq = G_eq * Dh / mu_l
+
+    # 4) Nusselt number (Yan, Lio & Lin 1999, correlation of Fig. 10)
+    Nu = 4.118 * (Re_eq ** 0.4) * (Pr_l ** (1.0 / 3.0))
+
+    # 5) Heat transfer coefficient (multiply by k_l / Dh once)
+    h = Nu * k_l / Dh
+
+    # Validity checks and warnings
+    out = []
+    if G < 60.0 or G > 120.0:
+        out.append(f"G = {G:.4g} kg/m2/s (60-120)")
+    if q < 10000.0 or q > 18000.0:
+        out.append(f"q = {q:.4g} W/m2 (10000-18000)")
+    if out:
+        warnings.warn(
+            "BPHE_yan_lio_lin_condensing_HTC: outside the data of the paper: "
+            + ", ".join(out) + ".",
+            ValidityRangeWarning
+        )
+
+    fluid_name = AS.fluid_names()[0].upper().replace('-', '')
+    if fluid_name != 'R134A':
+        warnings.warn(
+            f"BPHE_yan_lio_lin_condensing_HTC: fluid {AS.fluid_names()[0]} is not R134a, "
+            "correlation established for R134a.",
+            FluidWarning
+        )
+
+    return h
+
+
+def BPHE_hsieh_lin_boiling_HTC(AS, geom, cond):
+    """
+    Saturated flow boiling heat transfer coefficient in a plate heat exchanger.
+    
+    Reference
+    ---------
+    Hsieh, Y.Y., Lin, T.F. (2002) Saturated flow boiling heat transfer and pressure drop
+    of refrigerant R-410A in a vertical plate heat exchanger. Int. J. Heat Mass Transfer 45,
+    1033-1044. doi:10.1016/S0017-9310(01)00219-8
+
+    Parameters
+    ----------
+    AS : CoolProp.AbstractState
+        Fluid state object (left in a saturated state on return).
+    geom : dict
+        Geometry dictionary with key:
+        - 'Dh' : hydraulic diameter [m] (Dh = 2 b, b = channel gap)
+    cond : dict
+        Operating conditions dictionary with keys:
+        - 'G' : mass flux in ONE channel [kg/m2/s]
+        - 'x' : mean vapour quality of the cell [-]
+        - 'q' : local heat flux [W/m2] (absolute value)
+        - 'p' : saturation pressure [Pa]
+        - 'mu_w' : dynamic viscosity at the wall [Pa s] (optional, defaults to mu_l)
+
+    Returns
+    -------
+    h : float
+        Saturated flow boiling heat transfer coefficient [W/m2/K].
+
+    Validity range and fluid
+    ------------------------
+    - Mass flux G: 50 - 125 kg/m2/s
+    - Heat flux q: 5000 - 35000 W/m2
+    - Fluid: R410A
+    - State (not checked): p 1.08 - 1.44 MPa (T_sat 10 - 20 degC), vertical PHE,
+      chevron 60 deg, upflow. Quality valid for the data (range not stated in paper).
+    - Mean deviation: 16.8 %
+
+    Definitions
+    -----------
+    - G is the mass flux in one channel.
+    - Re_l is the all-liquid Reynolds number based on Dh with saturated liquid viscosity.
+    - Bo is the boiling number based on G and h_lv.
+    - Saturated properties evaluated at saturation pressure p.
+    - Equations checked against the paper (LaboThapPy, 2026-11-26).
+    """
+    # 1) Inputs extraction and quality clamp
+    G = cond['G']
+    x = cond['x']
+    q = abs(cond['q'])
+    p_sat = cond['p']
+    Dh = geom['Dh']
+
+    if not np.isfinite(x):
+        raise ValueError("Hsieh-Lin boiling: cond['x'] must be finite (two-phase cell expected).")
+    x = min(max(x, 1e-4), 1.0 - 1e-4)
+
+    # 2) Saturated properties and wall viscosity
+    s = _sat_props(AS, p_sat)
+    mu_l = s["mu_l"]
+    k_l = s["k_l"]
+    Pr_l = s["Pr_l"]
+    h_lv = s["h_lv"]
+    mu_wall = cond.get('mu_w', mu_l)
+
+    # 3) All-liquid Reynolds number
+    Re_l = G * Dh / mu_l
+
+    # 4) All-liquid heat transfer coefficient, Eq. (24)
+    h_l = 0.2092 * (k_l / Dh) * Re_l**0.78 * Pr_l**(1/3) * (mu_l / mu_wall)**0.14
+
+    # 5) Boiling number, Eq. (25), with guard
+    Bo = q / (G * h_lv)
+    Bo = max(Bo, 1e-6)
+
+    # 6) Two-phase heat transfer coefficient, Eq. (23)
+    h = 88.0 * Bo**0.5 * h_l
+
+    # 7) Validity range checks and warnings
+    out = []
+    if G < 50.0 or G > 125.0:
+        out.append(f"G = {G:.4g} kg/m2/s (50-125)")
+    if q < 5000.0 or q > 35000.0:
+        out.append(f"q = {q:.4g} W/m2 (5000-35000)")
+
+    if out:
+        warnings.warn(
+            "BPHE_hsieh_lin_boiling_HTC: outside the data of the paper: " + ", ".join(out) + ".",
+            ValidityRangeWarning
+        )
+
+    fluid_name = AS.fluid_names()[0].upper().replace('-', '')
+    if fluid_name != 'R410A':
+        warnings.warn(
+            f"BPHE_hsieh_lin_boiling_HTC: fluid {AS.fluid_names()[0]}, "
+            "correlation established for R410A.",
+            FluidWarning
+        )
+
+    # 8) Return two-phase HTC
+    return h

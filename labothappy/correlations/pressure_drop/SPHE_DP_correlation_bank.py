@@ -11,7 +11,9 @@ Straight rectangular duct (Shah & London, laminar, Darcy):
     turbulent: Churchill with Dh and K. Curved: Ito factors of curved_pipe_DP_correlation_bank (base f Re above).
 No entrance / exit / turn losses (they matter in a spiral exchanger: not included).
 """
+import warnings
 import numpy as np
+from labothappy.correlations.convection.correlation_warnings import ValidityRangeWarning
 from labothappy.correlations.pressure_drop.pipe_DP_correlation_bank import friction_factor_churchill
 from labothappy.correlations.pressure_drop.curved_pipe_DP_correlation_bank import _curved_sp_dp, G_GRAVITY
 from labothappy.correlations.convection.curved_pipe_HTC_correlation_bank import _D, _L, _need_cond
@@ -42,7 +44,9 @@ def SPHE_rect_SP_DP(AS, geom, cond):
 def SPHE_picon_nunez_SP_DP(AS, geom, cond):
     """Picon-Nunez et al. (2007) after Minton (1970), your single_phase_spiral_plate_DP (SI-converted constants).
     geom : Dh, L, H (plate height), b (channel gap); cond : G of ONE channel (m_dot = G b H), mu, rho or D,
-    mu_w (default mu). Laminar below Re_cr = 12730 curv^0.2 (needs R_curv), turbulent above."""
+    mu_w (default mu). Laminar below Re_cr = 12730 curv^0.2 (needs R_curv), turbulent above.
+    Validity: Minton (1970) laminar equations valid for Re > 100 (Picon-Nunez et al. 2007,
+    Eqs. 1-7); single phase. Warning for Re < 100."""
     _need_cond(cond, 'G', 'mu')
     from labothappy.correlations.convection.curved_pipe_HTC_correlation_bank import _R_curv
     D, L, R = _D(geom), _L(geom), _R_curv(geom)
@@ -51,6 +55,10 @@ def SPHE_picon_nunez_SP_DP(AS, geom, cond):
     rho = cond['rho'] if 'rho' in cond else cond['D']
     m_dot = cond['G'] * b * H
     Re = cond['G'] * D / mu
+    # Lower limit of the Minton laminar equations (Picon-Nunez et al. 2007)
+    if Re < 100.0:
+        warnings.warn(f"SPHE Picon-Nunez DP: Re = {Re:.0f} < 100 (lower limit of the Minton "
+                      "equations): extrapolated.", ValidityRangeWarning, stacklevel=2)
     s = rho / 1000.0
     t1 = m_dot / (b * H)
     if Re <= 12730.0 * (D / (2.0 * R)) ** 0.2:
