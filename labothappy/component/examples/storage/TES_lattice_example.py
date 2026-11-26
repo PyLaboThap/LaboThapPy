@@ -36,7 +36,7 @@ do_sizing = False   # True: sizing of the number of modules first (campaigns wit
 bypass_on = False   # True: part of the HTF bypasses the TES, to keep the mixed outlet at T_target
 heat_losses = True  # losses to the ambient: Q_dot_loss = UA_amb * n_module * (T_PCM_mean - T_amb),
                     # UA_amb of ONE module given in "Campaigns" (0 if unknown). False: no loss
-T_amb = 20 + 273.15 # [K] ambient temperature (only used if heat_losses)
+T_amb = 15 + 273.15 # [K] ambient temperature (only used if heat_losses)
 
 # Discretisation
 duration_simu_forced = None # [s] (!) in SECONDS. None: duration of the campaign
@@ -45,13 +45,13 @@ n_segment_module = 16         # number of cells along one module
 n_subsegment_cell = 5         # HTF sub-segments per cell (the PCM stays at one temperature per cell)
 
 SIM = TES_simulation()
-SIM.set_parameters(htc_correlation = 'Hausen') # HTF-side heat transfer: 'Gnielinski' (default) or 'Hausen'
+# SIM.set_parameters(htc_correlation = 'Hausen') # HTF-side heat transfer: 'Gnielinski' (default) or 'Hausen'
 
 # Outputs
 show_plots = True
 save_results = False # True: figures (svg) + results (npz, txt) in a new folder in result_root
-result_root = r"C:\Users\titou\OneDrive - Universite de Liege\!SEHRENE\TES modelling\Results" # your folder
-run_name = "Yvernault_charge_newMASSES" # name of the results folder, and suffix of the saved files
+result_root = r"your_path" # your folder
+run_name = "Yvernault_charge" # name of the results folder, and suffix of the saved files
 
 # Measurements on the figures (crosses), optional
 # exp_data: pandas DataFrame or dict of arrays with the columns
@@ -202,7 +202,7 @@ elif campaign == "Zorlu_UC":
 
 
 elif campaign == "Torrecid_charge_sizing":
-    # Charge, initial data of SEHRENE deliverable D3.3
+    # Charge, initial data of SEHRENE deliverable D3.3 https://doi.org/10.5281/zenodo.24472466 
     fluid = "cyclopentane"
     SIM.set_parameters(
             T_PCM = 168 + 273.15,
