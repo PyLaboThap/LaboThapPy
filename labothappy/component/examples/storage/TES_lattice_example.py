@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Mon Nov 16 2026
 
@@ -10,14 +9,10 @@ Example of the PCM-TES lattice model (TES_lattice.py): simulation of the TES alo
 To run it: choose a campaign and the settings in "User choices", then run the file.
 The data of each campaign (PCM, HTF supply, number of modules...) are in "Campaigns" further down.
 To simulate your own case: copy the template at the top of "Campaigns".
-"Advanced" (measured HTF supply of the CEA tests) needs the CEA data files: an ordinary user can skip it.
 """
 
 import os
-import re
 import sys
-import warnings
-import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 
@@ -27,14 +22,13 @@ if LABOTHAPPY_PATH not in sys.path:
     sys.path.append(LABOTHAPPY_PATH)
 
 from labothappy.component.storage.TES_lattice import TES_simulation, create_result_folder
-from labothappy.component.storage.TES_lattice import skip_exp as skip_exp_default
 
 # =============================================================================
 # User choices
 # =============================================================================
 # Campaign: "Yvernault_charge", "Yvernault_discharge", "CEA_SoC_erythritol", "Zorlu_UC" or "Torrecid_charge_sizing"
 # or your own case (data in "Campaigns" below, with a template to copy)
-campaign = "CEA_SoC_erythritol"
+campaign = "Yvernault_charge"
 
 # Options
 do_sizing = False   # True: sizing of the number of modules first (campaigns with sizing data: "Zorlu_UC",
@@ -42,72 +36,33 @@ do_sizing = False   # True: sizing of the number of modules first (campaigns wit
 bypass_on = False   # True: part of the HTF bypasses the TES, to keep the mixed outlet at T_target
 heat_losses = True  # losses to the ambient: Q_dot_loss = UA_amb * n_module * (T_PCM_mean - T_amb),
                     # UA_amb of ONE module given in "Campaigns" (0 if unknown). False: no loss
-T_amb = 20 + 273.15 # [K] ambient temperature (only used if heat_losses)
+T_amb = 15 + 273.15 # [K] ambient temperature (only used if heat_losses)
 
 # Discretisation
-duration_simu_forced = 9*3600 # [s] (!) in SECONDS. None: duration of the campaign (or of the measured test)
+duration_simu_forced = None # [s] (!) in SECONDS. None: duration of the campaign
 dt = 20                       # [s] time step
 n_segment_module = 16         # number of cells along one module
 n_subsegment_cell = 5         # HTF sub-segments per cell (the PCM stays at one temperature per cell)
 
 SIM = TES_simulation()
-SIM.set_parameters(htc_correlation = 'Hausen') # HTF-side heat transfer: 'Gnielinski' (default) or 'Hausen'
+# SIM.set_parameters(htc_correlation = 'Hausen') # HTF-side heat transfer: 'Gnielinski' (default) or 'Hausen'
 
 # Outputs
 show_plots = True
 save_results = False # True: figures (svg) + results (npz, txt) in a new folder in result_root
 result_root = r"your_path" # your folder
-run_name = "Erythritol_700kgh_135C_from80C" # name of the results folder, and suffix of the saved files
+run_name = "Yvernault_charge" # name of the results folder, and suffix of the saved files
 
 # Measurements on the figures (crosses), optional
 # exp_data: pandas DataFrame or dict of arrays with the columns
 #   t_h [h], Q_dot_kW (HTF side, > 0 in charge and discharge), Q_TES_kWh, T_HTF_ex_C,
 #   and optionally T_PCM_min_C, T_PCM_avg_C, T_PCM_max_C (thermocouples). Q_dot_smooth_kW is used if present.
-# e.g. exp_data = pandas.read_csv("my_test.csv") with the columns renamed as above.
+# e.g. exp_data = pandas.read_csv("my_test.csv") with the columns renamed as above. None: model only.
+# Campaigns "Yvernault_charge" / "Yvernault_discharge": if None, the digitized measurements of the paper are loaded
+# (titouanjanod_perso/TES_related/Yvernault_to_dataframe.py).
 exp_data = None
-plot_exp = False # plot the measurements of the campaign, if it has some ("CEA_SoC_erythritol": needs the CEA files)
-
-
-# =============================================================================
-# Advanced: measured HTF supply of the CEA tests (needs the CEA data files and plots_tests_CEA.py)
-# =============================================================================
-# HTF_supply = "constant": T_HTF_su and m_dot_tot of "Campaigns" during the whole simulation (works for every campaign).
-#              For "CEA_SoC_erythritol", the crosses are the test "2026-02-10 CH (80) 135 700kgh" (same 135 °C, 700 kg/h).
-# HTF_supply = "measured": the model is fed at each time step with m_dot(t) and T_HTF,su(t) measured during CEA_test
-#              (every 5 s, linearly interpolated), PCM uniform at the measured T_PCM,avg at the start.
-#              Only for "CEA_SoC_erythritol", without sizing and without bypass.
-HTF_supply = "constant"
-
-# ---- only used if HTF_supply = "measured" ----
-CEA_test = "2026-02-10 CH (80) 135 700kgh" # xlsx file of the test (without .xlsx), in DATA_DIR of plots_tests_CEA.py
-
-# Start of the simulation:
-#   "raw"  : first row of the file, i.e. the pre-heating of the PCM to 80 °C by the CEA is simulated too
-#            (start of the real test = dotted vertical line on the figures vs time)
-#   "test" : start of the real test (pre-heating removed, t = 0 as in plots_tests_CEA.py). The real PCM is then
-#            not uniform anymore (warmer near the tubes), but it is taken uniform at T_PCM,avg in the model.
-measured_start = "test"
-
-# Zoom on the pre-heating (only with "raw"): Q_dot(t) and T(t) from t = 0 to (start of the test + zoom_after_start_h)
-zoom_preheating = False
-zoom_after_start_h = 0 # [h]
-skip_exp_zoom = 20     # one measured point out of skip_exp_zoom on the zoom (1 = every 5 s)
-
-dT_PCM_uniform_max = 5 # [K] warning if T_PCM,max - T_PCM,min > this at the start (uniform initial PCM too rough)
-
-
-# =============================================================================
-# Checks
-# =============================================================================
-if HTF_supply == "measured":
-    if campaign != "CEA_SoC_erythritol":
-        raise ValueError(f"HTF_supply = 'measured' only with the campaign 'CEA_SoC_erythritol', not '{campaign}'")
-    if do_sizing or bypass_on:
-        raise ValueError("HTF_supply = 'measured': no sizing and no bypass (do_sizing = bypass_on = False)")
-    if measured_start not in ("raw", "test"):
-        raise ValueError(f"Unknown measured_start: '{measured_start}' ('raw' or 'test')")
-elif HTF_supply != "constant":
-    raise ValueError(f"Unknown HTF_supply: '{HTF_supply}' ('constant' or 'measured')")
+skip_exp = 1           # only one measured point out of skip_exp is plotted (1: all; e.g. 60 for data every 5 s)
+dt_grid_Yvernault = 300 # [s] time step of the measurements of Yvernault after interpolation (None: digitized times)
 
 
 # =============================================================================
@@ -141,8 +96,6 @@ elif HTF_supply != "constant":
 #       Q_TES_predesign = ...*3600*1000 # energy to store [J]
 #       T_HTF_min = ...             # lowest / highest HTF temperature of the cycle [K]: the stored energy of one
 #       T_HTF_max = ...             # module is computed between them, to estimate the number of modules
-#
-# The measured HTF supply ("Advanced") only works with "CEA_SoC_erythritol".
 
 if campaign in ("Yvernault_charge", "Yvernault_discharge"):
     # Tests of Yvernault, L., Vesin, S., & Pouvreau, J. (2026) https://doi.org/10.1016/j.est.2026.120714
@@ -154,7 +107,8 @@ if campaign in ("Yvernault_charge", "Yvernault_discharge"):
             cp_sol = 2.4e3,
             rho_PCM_sol = 939,
             rho_PCM_liq = 858,
-            lambda_eq = 8
+            lambda_eq = 8,
+            lambda_tube = 45
             )
     p_HTF = 5e5 # Pa
     duration_simu = 8*3600 # s
@@ -177,23 +131,32 @@ if campaign in ("Yvernault_charge", "Yvernault_discharge"):
     # Yvernault et al.: U = 1.06 W/(m2.K) on A = 2.5 m2, fitted on a standby period
     UA_amb_module = 1.06 * 2.5 # W/K
 
+    # measurements of the paper (digitized with WebPlotDigitizer), interpolated on a common time grid
+    if exp_data is None:
+        TES_RELATED_DIR = r"C:\Users\titou\Documents\GitHub\titouanjanod_perso\TES_related"
+        if TES_RELATED_DIR not in sys.path:
+            sys.path.append(TES_RELATED_DIR)
+        from Yvernault_to_dataframe import load_Yvernault
+        exp_data = load_Yvernault("charge" if campaign == "Yvernault_charge" else "discharge",
+                                  dt_grid_s=dt_grid_Yvernault)
+
 
 elif campaign == "CEA_SoC_erythritol":
-    # CEA Grenoble campaign for the State of Charge (SoC) measurement (B. Champel), SEHRENE deliverable D4.7
+    # CEA Grenoble campaign for the State of Charge (SoC) measurement (B. Champel), SEHRENE deliverable D4.7 https://doi.org/10.5281/zenodo.24496277
+    # (nominal values of the test "2026-02-10 CH (80) 135 700kgh")
     fluid = "water"
     SIM.set_parameters(
-            T_PCM = 118.9 + 273.15,
-            cp_sol = 1.637e3,
-            cp_liq = 2.846e3,
-            Dh_latent = 335.5e3,
+            T_PCM = 118.7 + 273.15,
+            cp_sol = 1.72e3,
+            cp_liq = 2.74e3,
+            Dh_latent = 321.5e3,
             rho_PCM_sol = 1448.4,
             rho_PCM_liq = 1281.5,
-            lambda_eq = 8
+            lambda_eq = 9.55
             )
-    # constant supply: nominal values of the test "2026-02-10 CH (80) 135 700kgh" (not used if HTF_supply = "measured")
     T_HTF_su = 135 + 273.15 # K
     m_dot_tot = 700 / 3600 # kg/s
-    p_HTF = 5e5 # Pa
+    p_HTF = 5.5e5 # Pa
     T_PCM_eq_init = 80 + 273.15 # K
     T_target = None # no bypass in these tests
     duration_simu = 9*3600 # s
@@ -202,51 +165,8 @@ elif campaign == "CEA_SoC_erythritol":
     n_module_parallel = 1
     n_module_serie = 1
 
-    # CEA analysis of a 2.5-day standby after a charge (3 periods, "A" = 4.75 to 6 W/K): mean value.
-    # Fitted with T_shell - T_ext, here used with T_PCM_mean - T_amb (T_shell not available to us): to be refitted.
-    UA_amb_module = 5.3 # W/K
-
-    # measurements, loaded with titouanjanod_perso/TES_related/plots_tests_CEA.py
-    #   constant supply: test with the same nominal values as above, for the crosses on the figures
-    #   measured supply: test CEA_test, it gives the inputs of the model AND the crosses on the figures
-    if plot_exp or HTF_supply == "measured":
-        CEA_SCRIPT_DIR = r"C:\Users\titou\Documents\GitHub\titouanjanod_perso\TES_related"
-        if CEA_SCRIPT_DIR not in sys.path:
-            sys.path.append(CEA_SCRIPT_DIR)
-        from plots_tests_CEA import load_CEA_test, compute_derived
-
-        if HTF_supply == "measured":
-            test_name = CEA_test
-            # the rows before the start of the real test (pre-heating) are kept only with measured_start = "raw"
-            cut_preheating = (measured_start == "test")
-        else:
-            test_name = "2026-02-10 CH (80) 135 700kgh"
-            cut_preheating = True # the constant run starts at the start of the real test
-        # exp_data: DataFrame with t_s, t_h, m_dot_kg_s, T_HTF_su_C, T_HTF_ex_C, T_PCM_min/avg/max_C, Q_dot_kW,
-        # Q_dot_smooth_kW (moving average over 60 s), Q_TES_kWh (integral of the raw Q_dot from t = 0)...
-        exp_data = compute_derived(load_CEA_test(test_name, cut_preheating=cut_preheating))
-
-    if HTF_supply == "measured":
-        # initial state of the model: PCM uniform at the mean of the 48 thermocouples at t = 0
-        # (below the melting zone, h is linear in T -> same stored energy as the real non-uniform PCM)
-        T_PCM_eq_init = exp_data["T_PCM_avg_C"].iloc[0] + 273.15 # K
-        dT_PCM_init = exp_data["T_PCM_max_C"].iloc[0] - exp_data["T_PCM_min_C"].iloc[0] # K
-        if dT_PCM_init > dT_PCM_uniform_max:
-            warnings.warn(f"{CEA_test}: T_PCM,max - T_PCM,min = {dT_PCM_init:.1f} K at the start of the simulation "
-                          f"(> {dT_PCM_uniform_max} K), the uniform initial PCM temperature is a rough assumption")
-        duration_simu = exp_data["t_s"].iloc[-1] # s
-
-        # title of the figures: nominal values of the test (file name) and date (one test)
-        flow_nom = re.search(r"(\d+)\s*kgh", CEA_test)
-        title_parts = [exp_data.attrs["mode"].capitalize(),
-                       rf"$T_{{HTF,in}}$ = {exp_data.attrs['T_HTF_in_nom_C']:g} °C"]
-        if flow_nom:
-            title_parts.append(f"{flow_nom.group(1)} kg/h")
-        title_parts.append(exp_data.attrs["date"])
-        title_measured = " – ".join(title_parts)
-        # start of the real charge / discharge in the time of the simulation [h]
-        mode_test = exp_data.attrs["mode"]
-        t_start_test_h = exp_data.attrs["t_start_raw_s"]/3600 if measured_start == "raw" else 0.0
+    # fitted on a standby of the module (solid PCM, quasi-steady), with T_PCM_mean - T_amb
+    UA_amb_module = 5.4 # W/K
 
 
 elif campaign == "Zorlu_UC":
@@ -282,7 +202,7 @@ elif campaign == "Zorlu_UC":
 
 
 elif campaign == "Torrecid_charge_sizing":
-    # Charge, initial data of SEHRENE deliverable D3.3
+    # Charge, initial data of SEHRENE deliverable D3.3 https://doi.org/10.5281/zenodo.24472466 
     fluid = "cyclopentane"
     SIM.set_parameters(
             T_PCM = 168 + 273.15,
@@ -361,14 +281,8 @@ if do_sizing:
             for key in ("N_parallel", "N_series", "N_box", "margin", "index", "target_reached"):
                 f.write(f"{key} = {best_config[key]}\n")
 
-if HTF_supply == "measured":
-    # m_dot(t) and T_HTF,su(t) of the test, interpolated at each time step
-    history = SIM.simulate_measured(exp_data["t_s"], exp_data["m_dot_kg_s"], exp_data["T_HTF_su_C"] + 273.15,
-                                    dt, p_HTF, T_PCM_eq_init, fluid, duration_simu, T_amb=T_amb_simu)
-    history.title = title_measured
-else:
-    history = SIM.simulate(duration_simu, dt, m_dot_tot, T_HTF_su, p_HTF, T_PCM_eq_init, fluid, T_target, bypass_on,
-                           T_amb=T_amb_simu)
+history = SIM.simulate(duration_simu, dt, m_dot_tot, T_HTF_su, p_HTF, T_PCM_eq_init, fluid, T_target, bypass_on,
+                       T_amb=T_amb_simu)
 
 
 # =============================================================================
@@ -388,82 +302,13 @@ if SIM.TES.UA_amb > 0:
     print(f"Q_stored = Q_tot - Q_loss = {(history.Q_tot-history.Q_loss_tot)/3.6e6:.2f} kWh")
 print(f"Solving time = {history.solving_time:.2f} s")
 
-if HTF_supply == "measured":
-    # energy exchanged with the HTF since t = 0, model vs measurements [kWh] (> 0 in charge and in discharge)
-    sign = 1 if history.get_mode() == "charge" else -1
-    # Q_dot_tot[n] is the step n -> n+1: energy at time[n] = sum of the steps before
-    Q_TES_model_kWh = sign*np.concatenate(([0], history.Q_cum[:-1]))/3.6e6
-    t_end_h = history.time[-1]/3600
-
-    def Q_TES_at(t_h):
-        return (np.interp(t_h, history.time/3600, Q_TES_model_kWh),
-                np.interp(t_h, exp_data["t_h"], exp_data["Q_TES_kWh"]))
-
-    print("-----------")
-    print(f"Measured supply: {CEA_test}, start = '{measured_start}'")
-    print(f"T_PCM,init = {T_PCM_eq_init-273.15:.2f} °C (uniform, measured T_PCM,min/max = "
-          f"{exp_data['T_PCM_min_C'].iloc[0]:.2f} / {exp_data['T_PCM_max_C'].iloc[0]:.2f} °C)")
-    Q_start = Q_TES_at(t_start_test_h)
-    Q_end = Q_TES_at(t_end_h)
-    if measured_start == "raw":
-        print(f"Q_TES at the start of the {mode_test} (t = {t_start_test_h:.2f} h): "
-              f"model = {Q_start[0]:.2f} kWh, exp. = {Q_start[1]:.2f} kWh")
-    print(f"Q_TES at the end (t = {t_end_h:.2f} h): model = {Q_end[0]:.2f} kWh, exp. = {Q_end[1]:.2f} kWh")
-    print(f"Q_TES during the {mode_test} only: model = {Q_end[0]-Q_start[0]:.2f} kWh, "
-          f"exp. = {Q_end[1]-Q_start[1]:.2f} kWh")
-
-if not plot_exp:
-    exp_data = None
-
+history.skip_exp = skip_exp
 figs = history.plot_all(exp=exp_data)
-
-def autoscale_y_window(ax, x_max, margin=0.05):
-    """y limits of ax from the curves and points with x <= x_max (call before adding the vertical lines)."""
-    y = []
-    for line in ax.get_lines():
-        x_d, y_d = np.asarray(line.get_xdata(), float), np.asarray(line.get_ydata(), float)
-        y.append(y_d[x_d <= x_max])
-    for coll in ax.collections:
-        xy = np.asarray(coll.get_offsets(), float)
-        if xy.size:
-            y.append(xy[xy[:, 0] <= x_max, 1])
-    y = np.concatenate(y) if y else np.array([])
-    y = y[np.isfinite(y)]
-    if y.size:
-        dy = margin * max(y.max() - y.min(), 1e-9)
-        ax.set_ylim(y.min() - dy, y.max() + dy)
-
-
-# measured supply from the first row of the file: zoom on the pre-heating, start of the real charge / discharge
-if HTF_supply == "measured" and measured_start == "raw":
-    keys_time = ["Q_vs_t", "T_vs_t"]
-
-    if zoom_preheating:
-        t_zoom_h = t_start_test_h + zoom_after_start_h
-        history.skip_exp = skip_exp_zoom
-        figs["Q_vs_t_zoom"] = history.plot_Q_vs_t(exp=exp_data)
-        figs["T_vs_t_zoom"] = history.plot_T_vs_t(exp=exp_data)
-        history.skip_exp = skip_exp_default
-        for key in ("Q_vs_t_zoom", "T_vs_t_zoom"):
-            for ax in figs[key].axes:
-                ax.set_xlim(0, t_zoom_h)
-                autoscale_y_window(ax, t_zoom_h)
-        keys_time += ["Q_vs_t_zoom", "T_vs_t_zoom"]
-
-    color_start = "#3A3A3A"
-    for key in keys_time:
-        ax = figs[key].axes[0]
-        ax.axvline(t_start_test_h, color=color_start, lw=1.5, ls=":")
-        ax.text(t_start_test_h, 1.0, f" start of the {mode_test}",
-                transform=ax.get_xaxis_transform(), rotation=90, va="top", ha="right",
-                color=color_start, fontsize=14)
-    for ax in figs["heat_map"].axes[:2]:
-        ax.axhline(t_start_test_h, color="white", lw=1.5, ls=":")
 
 if save_results:
     for key, fig in figs.items():
         fig.savefig(Path(result_folder) / f"{key}-{run_name}.svg", bbox_inches="tight")
-    history.save_results(result_folder, run_name)
+    history.save_results(result_folder, run_name, exp=exp_data)
 
 if show_plots:
     plt.show()

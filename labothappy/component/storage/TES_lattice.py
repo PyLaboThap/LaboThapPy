@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Mon Nov 16 2026
 
@@ -222,7 +221,8 @@ class TES_step(BaseComponent):
 
         dt: Time step [s]
 
-        (optional) Geometry of the box (De_tube, thk_tube, L_tube, V_TES, volume fractions...), see __init__,
+        (optional) Geometry of the box (De_tube, thk_tube, L_tube...) and masses of one box (V_PCM_box or m_PCM_box,
+        m_lattice_box, m_coating_box, m_tube_box, m_shell_box, m_HTF_box; default: CEA module, D4.7 Table 5), see __init__,
         htc_correlation ('Gnielinski' or 'Hausen'),
         n_subsegment_cell (number of HTF sub-segments per cell in solve_h_HTF_ex, default 5),
         UA_amb (conductance between the PCM and the ambient of ONE box [W/K], default 0 = no heat loss. One value
@@ -283,7 +283,7 @@ class TES_step(BaseComponent):
 
         self.rho_tube = 7800 # kg/m^3
         self.cp_tube = 500 # J/kg/K
-        self.lambda_tube = 45 # W/(m*K) # 
+        self.lambda_tube = 15 # W/(m*K) # Matrix used in CEA SoC tests
         self.thk_tube = 2e-3 # m
         self.De_tube = 17.2e-3 # m
         self.L_tube = 1 #m
@@ -296,15 +296,40 @@ class TES_step(BaseComponent):
         self.cp_liq = None # J/kg/K
         self.Dh_latent = None # J/kg
         self.cp_sol = None # J/kg/K
-        self.thk_PCM = 58.9e-3 # m
+        self.thk_PCM = 58.924e-3 # m, so that A_PCM_cylindrical = A_PCM_real
         self.rho_PCM_sol = None # kg/m^3
         self.rho_PCM_liq = None # kg/m^3
 
-        self.V_frac_PCM = 78.7
-        self.V_frac_shell = 4.8
-        self.V_frac_alu = 14.9
-        self.V_frac_tube = 0.7
-        self.V_frac_HTF = 0.9
+        # --- OLD (until 26/11/2026): volume fractions of Yvernault et al. 2026 (Table 3), coating not distinguished
+        # from the lattice, shell given but excluded from V_TES -> 282 kg of PCM instead of 304 kg
+        # self.V_frac_PCM = 78.7
+        # self.V_frac_shell = 4.8
+        # self.V_frac_alu = 14.9
+        # self.V_frac_tube = 0.7
+        # self.V_frac_HTF = 0.9
+
+        # --- NEW: masses of ONE box (CEA module), SEHRENE D4.7 Table 5 (SoC tests, erythritol)
+        # PCM: volume available for the PCM in one box, = 304 kg of erythritol at its mean density
+        # (rho_sol + rho_liq)/2 = (1448.4 + 1281.5)/2, so that another PCM fills the same volume.
+        self.V_PCM_box = 304 / ((1448.4 + 1281.5) / 2) # m^3
+        self.m_PCM_box = None       # kg, optional: if given, used instead of V_PCM_box * rho_PCM_av
+        self.m_lattice_box = 108.9  # kg, aluminium lattice without the coating of the tubes
+        self.m_coating_box = 8.2    # kg, aluminium coating of the tubes (3 mm: 8.22 kg by geometry)
+        self.m_tube_box = 13.4      # kg, HTF tubes
+        self.m_shell_box = 180      # kg, shell (thermal capacity: see shell_capacity)
+        self.m_HTF_box = 2          # kg, water in the tubes (not in the thermal balance)
+
+        # Thermal capacity of the shell, "a thermal mass without model": no resistance, no extra state.
+        #   'local': the shell is shared equally by all the meshes and each part is at the temperature of its mesh
+        #            -> added to the equivalent material (m_PCM_mesh and cp_profile), treated implicitly by the
+        #            enthalpy method.
+        #   'mean' : the whole shell is at T_PCM_mean, the heat it takes is taken equally from all the meshes
+        #            (as the heat losses).
+        #   None   : shell ignored (as before 26/11/2026).
+        # Same total energy in the shell for 'local' and 'mean' (sum_i C/N*T_i = C*T_mean): same final state, only the
+        # distribution between the meshes during the transient changes.
+        self.shell_capacity = 'local'
+        self.cp_shell = 500         # J/(kg.K), D4.7 Table 5 (0.5 kJ/(kg.K))
 
         self.lambda_eq = None # W/m·K
 
@@ -358,18 +383,33 @@ class TES_step(BaseComponent):
         self.V_non_porosity = self.L_tube * self.n_tubes_box * self.De_alu**2/4 * np.pi
         self.rho_PCM_av = (self.rho_PCM_liq + self.rho_PCM_sol)/2
 
-        self.V_frac_wo_shell = self.V_frac_HTF + self.V_frac_tube + self.V_frac_alu + self.V_frac_PCM
+        # --- OLD (until 26/11/2026): volumes from the volume fractions of Yvernault et al. 2026
+        # self.V_frac_wo_shell = self.V_frac_HTF + self.V_frac_tube + self.V_frac_alu + self.V_frac_PCM
+        #
+        # self.V_PCM = self.V_TES / self.V_frac_wo_shell * self.V_frac_PCM
+        # self.V_alu = self.V_TES / self.V_frac_wo_shell * self.V_frac_alu
+        # self.V_tube = self.V_TES / self.V_frac_wo_shell * self.V_frac_tube
+        # self.V_HTF = self.V_TES / self.V_frac_wo_shell * self.V_frac_HTF
+        #
+        # self.V_alu_coating = self.L_tube * self.n_tubes_box * (self.De_alu**2/4 - self.De_tube**2/4) * np.pi
+        # self.V_foam = self.V_alu - self.V_alu_coating
+        #
+        # self.m_PCM = self.V_PCM * self.rho_PCM_av
+        # self.m_foam = self.V_foam * self.rho_alu
 
-        self.V_PCM = self.V_TES / self.V_frac_wo_shell * self.V_frac_PCM
-        self.V_alu = self.V_TES / self.V_frac_wo_shell * self.V_frac_alu
-        self.V_tube = self.V_TES / self.V_frac_wo_shell * self.V_frac_tube
-        self.V_HTF = self.V_TES / self.V_frac_wo_shell * self.V_frac_HTF
+        # --- NEW: masses of one box (SEHRENE D4.7 Table 5), volumes deduced from the densities
+        if self.m_PCM_box is not None:
+            self.m_PCM = self.m_PCM_box
+        else:
+            self.m_PCM = self.V_PCM_box * self.rho_PCM_av
+        self.m_foam = self.m_lattice_box # lattice without the coating
 
-        self.V_alu_coating = self.L_tube * self.n_tubes_box * (self.De_alu**2/4 - self.De_tube**2/4) * np.pi
-        self.V_foam = self.V_alu - self.V_alu_coating
-
-        self.m_PCM = self.V_PCM * self.rho_PCM_av
-        self.m_foam = self.V_foam * self.rho_alu
+        self.V_PCM = self.m_PCM / self.rho_PCM_av
+        self.V_foam = self.m_foam / self.rho_alu
+        self.V_alu_coating = self.m_coating_box / self.rho_alu
+        self.V_alu = self.V_foam + self.V_alu_coating
+        self.V_tube = self.m_tube_box / self.rho_tube
+        self.V_HTF = self.m_HTF_box / 1000 # water, ~1000 kg/m^3 (only informative)
 
         self.A_eq = np.pi * ((self.De_alu/2+self.thk_PCM)**2 - (self.De_alu/2)**2)
 
@@ -383,8 +423,17 @@ class TES_step(BaseComponent):
         self.L_mesh = self.L_tube * self.n_pass_box / self.n_segment_box
         # number of tube branches in parallel in the whole TES (only one is simulated)
         self.n_tubes_parallel = self.n_tubes_box/self.n_pass_box * self.n_box_parallel
-        m_PCM_branch = (self.m_PCM+self.m_foam)*(self.n_pass_box/self.n_tubes_box)*self.n_box_serie
+        # thermal mass of one box carried by the equivalent material (state h_PCM): PCM + lattice,
+        # + the shell if shell_capacity = 'local'
+        if self.shell_capacity not in ('local', 'mean', None):
+            raise ValueError(f"shell_capacity = '{self.shell_capacity}': 'local', 'mean' or None")
+        self.m_thermal = self.m_eq + (self.m_shell_box if self.shell_capacity == 'local' else 0)
+        # m_PCM_branch = (self.m_PCM+self.m_foam)*(self.n_pass_box/self.n_tubes_box)*self.n_box_serie   # OLD
+        m_PCM_branch = self.m_thermal*(self.n_pass_box/self.n_tubes_box)*self.n_box_serie
         self.m_PCM_mesh = m_PCM_branch / self.Nx
+        # heat capacity of the shell per mesh of one branch [J/K] (shared like UA_amb)
+        self.C_shell_mesh = (self.m_shell_box * self.cp_shell * self.n_box_serie * self.n_box_parallel
+                             / (self.n_tubes_parallel * self.Nx))
         # UA_amb of the whole TES shared equally by all the meshes of all the branches [W/K]
         self.UA_amb_mesh = self.UA_amb * self.n_box_serie * self.n_box_parallel / (self.n_tubes_parallel * self.Nx)
 
@@ -407,9 +456,14 @@ class TES_step(BaseComponent):
 
         R_alu = np.log(r_alu_o / r_tube_o) / (2 * np.pi * self.lambda_alu * L_mesh)
 
-        R_pcm = np.log(r_pcm_o / r_alu_o) / (2 * np.pi * self.lambda_eq * L_mesh)
+        # For R_PCM : application of R_1-R_m (eqs. 6 & 10) in Katsuno, A., & Murakami, T. (2023). https://doi.org/10.1109/ACCESS.2023.3339153
+        dr2 = r_pcm_o**2 - r_alu_o**2
+        R1_pcm = 1/(4*np.pi*L_mesh*self.lambda_eq) * (2*r_pcm_o**2/dr2*np.log(r_pcm_o/r_alu_o) - 1)
+        Rm_pcm = 1/(8*np.pi*L_mesh*self.lambda_eq*dr2) * (-r_pcm_o**2 - r_alu_o**2
+                                                                + 4*r_alu_o**2*r_pcm_o**2/dr2*np.log(r_pcm_o/r_alu_o))
+        R_pcm = R1_pcm + Rm_pcm
 
-        R_tot = R_conv + R_tube + R_alu + R_pcm/2
+        R_tot = R_conv + R_tube + R_alu + R_pcm
 
         UA = 1 / R_tot
 
@@ -453,7 +507,11 @@ class TES_step(BaseComponent):
         cp_PCM = cp_background + cp_latent
 
         # equivalent material: mass-weighted mean of the PCM and the aluminium lattice
-        cp_profile = (self.m_PCM * cp_PCM + self.m_foam * self.cp_alu) / (self.m_PCM + self.m_foam)
+        # (+ the shell if shell_capacity = 'local': h_PCM is then per kg of PCM + lattice + shell)
+        # cp_profile = (self.m_PCM * cp_PCM + self.m_foam * self.cp_alu) / (self.m_PCM + self.m_foam)   # OLD
+        m_shell = self.m_shell_box if self.shell_capacity == 'local' else 0
+        cp_profile = ((self.m_PCM * cp_PCM + self.m_foam * self.cp_alu + m_shell * self.cp_shell)
+                      / (self.m_PCM + self.m_foam + m_shell))
 
         # h(T) = integral of cp dT (h = 0 at the lowest T of the profile)
         h_profile = cumulative_trapezoid(cp_profile, T_profile, initial=0)
@@ -470,7 +528,6 @@ class TES_step(BaseComponent):
 
 
     def HTC_calculation_Hausen(self, h_HTF_bulk, T_wall, p_HTF, m_dot_tube, L_mesh):
-
 
         self.AS.update(CP.HmassP_INPUTS, h_HTF_bulk, p_HTF)
         mu_f = self.AS.viscosity()
@@ -694,6 +751,31 @@ class TES_step(BaseComponent):
             h_HTF[i+1] = h_HTF_ex_mesh
             T_HTF[i+1] = T_HTF_ex_mesh
 
+        # heat stored in the shell [W], one mesh of one branch (> 0 when the shell warms up)
+        if self.shell_capacity == 'mean':
+            # shell at T_PCM_mean: dT_mean = x over the step, with C*x/dt taken equally from every mesh.
+            # x solves  mean_i T(h_i* - C_mesh*x/m_mesh) - T_mean(t_n) = x   (implicit, one unknown)
+            h_star = self.h_PCM_new.copy()
+            T_mean_old = np.mean(self.T_PCM_state)
+
+            def residual(x):
+                h_x = h_star - self.C_shell_mesh * x / self.m_PCM_mesh
+                return np.mean(self.interpolate_T_PCM(h_x, self.h_profile, self.T_profile)) - T_mean_old - x
+
+            r0 = residual(0.0) # = dT_mean without the shell; the root is between 0 and r0 (residual decreasing in x)
+            x = 0.0 if abs(r0) < 1e-12 else brentq(residual, min(0.0, r0), max(0.0, r0), xtol=1e-9)
+
+            self.h_PCM_new = h_star - self.C_shell_mesh * x / self.m_PCM_mesh
+            self.T_PCM_new = self.interpolate_T_PCM(self.h_PCM_new, self.h_profile, self.T_profile)
+            self.Q_dot_shell_local = np.full(Nx, self.C_shell_mesh * x / self.dt)
+        elif self.shell_capacity == 'local':
+            # already in the equivalent material: only computed for information
+            self.Q_dot_shell_local = self.C_shell_mesh * (self.T_PCM_new - self.T_PCM_state) / self.dt
+        else:
+            self.Q_dot_shell_local = np.zeros(Nx)
+        # heat stored in the shell of the whole TES [W]
+        self.Q_dot_shell_tot = np.sum(self.Q_dot_shell_local) * self.n_tubes_parallel
+
         self.h_HTF_nodes = h_HTF
         self.T_HTF_nodes = T_HTF
         # heat given by the HTF to the whole TES [W]
@@ -806,8 +888,10 @@ class TES_lattice:
         TES = self.TES
         self.reset()
 
-        T_HTF_su = PropsSI("T", "H", TES.su.h, "P", TES.su.p, TES.su.fluid) # il faudrait remplacer ça par un abstractstate
-
+        AS = CP.AbstractState("BICUBIC&HEOS", TES.su.fluid)
+        AS.update(CP.HmassP_INPUTS, TES.su.h, TES.su.p)
+        T_HTF_su = AS.T()
+        
         self.time_list.append(TES.t)
         self.h_PCM_list.append(TES.h_PCM_state.copy())
         self.T_PCM_list.append(TES.T_PCM_state.copy())
@@ -884,8 +968,30 @@ class TES_lattice:
     # -------------------------------------------------------------------------
     # Save / load
     # -------------------------------------------------------------------------
-    def save_results(self, result_folder, name_simu=""):
-        """results.npz + simulation_parameters-<name_simu>.txt in result_folder."""
+    def Q_final_comparison(self, exp=None):
+        """
+        Energy exchanged with the HTF at the end of the simulation [kWh], > 0 in charge and in discharge:
+        Q_final_model, and if exp is given (column Q_TES_kWh, at the end time of the simulation):
+        Q_final_exp, dQ_final = model - exp [kWh] and dQ_final_pct = (model - exp) / exp [%].
+        """
+        sign = 1 if self.get_mode() == "charge" else -1
+        res = {"Q_final_model_kWh": sign * self.Q_tot / 3.6e6}
+        if exp is not None and "Q_TES_kWh" in exp and "t_h" in exp:
+            t_exp_h = np.asarray(exp["t_h"], dtype=float)
+            t_end_h = self.time[-1] / 3600
+            Q_exp = float(np.interp(t_end_h, t_exp_h, np.asarray(exp["Q_TES_kWh"], dtype=float)))
+            res.update(Q_final_exp_kWh=Q_exp, dQ_final_kWh=res["Q_final_model_kWh"] - Q_exp,
+                       dQ_final_pct=100 * (res["Q_final_model_kWh"] - Q_exp) / Q_exp if Q_exp != 0 else np.nan,
+                       t_end_h=t_end_h, exp_shorter=bool(t_exp_h[-1] < t_end_h))
+        return res
+
+
+    def save_results(self, result_folder, name_simu="", exp=None):
+        """
+        results.npz + simulation_parameters-<name_simu>.txt in result_folder.
+        exp (optional, same format as for the plots): the final energy of the measurements is written next to the
+        model one in the txt (see Q_final_comparison).
+        """
         TES = self.TES
         result_folder = Path(result_folder)
 
@@ -938,6 +1044,16 @@ class TES_lattice:
                 f.write(f"Q_loss_tot = {self.Q_loss_tot/3.6e6:.3f} kWh\n")
             else:
                 f.write("UA_amb = 0 (no heat loss)\n")
+
+            # energy exchanged with the HTF at the end, model vs measurements (> 0 in charge and in discharge)
+            Qf = self.Q_final_comparison(exp)
+            f.write("\n")
+            f.write(f"Q_final_model = {Qf['Q_final_model_kWh']:.3f} kWh (HTF side)\n")
+            if "Q_final_exp_kWh" in Qf:
+                f.write(f"Q_final_exp = {Qf['Q_final_exp_kWh']:.3f} kWh (at t = {Qf['t_end_h']:.3f} h)\n")
+                f.write(f"Q_final_model - Q_final_exp = {Qf['dQ_final_kWh']:+.3f} kWh ({Qf['dQ_final_pct']:+.2f} %)\n")
+                if Qf["exp_shorter"]:
+                    f.write("(!) the measurements end before the simulation: Q_final_exp = last measured value\n")
 
             if self.solving_time is not None:
                 f.write("\n")
@@ -1464,7 +1580,8 @@ class TES_simulation:
         h_min = TES.interpolate_h_PCM(T_HTF_min, h_profile, T_profile)
         h_max = TES.interpolate_h_PCM(T_HTF_max, h_profile, T_profile)
         Dh = h_max - h_min
-        Q_box = TES.m_eq * Dh # enthalpy difference multiplied by TES mass
+        # Q_box = TES.m_eq * Dh # OLD
+        Q_box = TES.m_thermal * Dh # enthalpy difference multiplied by the mass carried by h (+ shell if 'local')
 
         N_box_th = math.ceil(Q_TES_predesign/Q_box)
 
