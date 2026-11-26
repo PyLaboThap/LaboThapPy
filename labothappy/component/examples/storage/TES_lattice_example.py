@@ -29,7 +29,7 @@ from labothappy.component.storage.TES_lattice import TES_simulation, create_resu
 # =============================================================================
 # Campaign: "Yvernault_charge", "Yvernault_discharge", "CEA_SoC_erythritol", "Zorlu_UC" or "Torrecid_charge_sizing"
 # or your own case (data in "Campaigns" below, with a template to copy)
-campaign = "Yvernault_charge"
+campaign = "CEA_SoC_erythritol"
 
 # Options
 do_sizing = False   # True: sizing of the number of modules first (campaigns with sizing data: "Zorlu_UC",
@@ -52,7 +52,7 @@ SIM.set_parameters(htc_correlation = 'Hausen') # HTF-side heat transfer: 'Gnieli
 show_plots = True
 save_results = False # True: figures (svg) + results (npz, txt) in a new folder in result_root
 result_root = r"C:\Users\titou\OneDrive - Universite de Liege\!SEHRENE\TES modelling\Results" # your folder
-run_name = "Yvernault_charge" # name of the results folder, and suffix of the saved files
+run_name = "Yvernault_charge_newMASSES" # name of the results folder, and suffix of the saved files
 
 # Measurements on the figures (crosses), optional
 # exp_data: pandas DataFrame or dict of arrays with the columns
@@ -108,7 +108,8 @@ if campaign in ("Yvernault_charge", "Yvernault_discharge"):
             cp_sol = 2.4e3,
             rho_PCM_sol = 939,
             rho_PCM_liq = 858,
-            lambda_eq = 8
+            lambda_eq = 8,
+            lambda_tube = 45
             )
     p_HTF = 5e5 # Pa
     duration_simu = 8*3600 # s
