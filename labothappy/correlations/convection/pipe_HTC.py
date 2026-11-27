@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-In-pipe (tube-side) HTC dispatcher, same style as the BPHX / STHE dispatchers:
+In-pipe (tube-side) HTC dispatcher, same style as the BPHE / STHE dispatchers:
 flow state (SP / EVAP / COND) -> correlation, with the (AS, geom, cond) formalism.
 
 Automatic choice = fluid family priority list, filtered by what each correlation can actually
@@ -21,6 +21,10 @@ from labothappy.correlations.convection.pipe_HTC_correlation_bank import (
     pipe_chen_boiling_HTC, pipe_liu_winterton_boiling_HTC, pipe_petukhov_supercritical_HTC,
     pipe_shah_1982_boiling_HTC,
     _tube_ID, _tube_G, _A0_VDI)
+from labothappy.correlations.convection.pipe_HTC_correlation_bank import (
+    pipe_hausen_laminar_entry_HTC, pipe_baehr_stephan_laminar_entry_HTC)
+from labothappy.correlations.convection.pipe_HTC_correlation_bank import (
+    pipe_krasnoshchekov_protopopov_supercritical_HTC, pipe_jackson_supercritical_HTC)
 from labothappy.correlations.convection.correlation_warnings import ValidityRangeWarning
 
 #%% FLUID FAMILIES
@@ -64,6 +68,12 @@ _PIPE_SP_HTC = {
     'Liu': pipe_liu_sCO2_HTC,
     'Cheng': pipe_cheng_sCO2_HTC,
     'Petukhov_SC': pipe_petukhov_supercritical_HTC,   # needs cond T_w; explicit choice only
+    # supercritical (Pioro et al. 2004), need cond T, h, T_w, cp; explicit choice only
+    'Krasnoshchekov_Protopopov': pipe_krasnoshchekov_protopopov_supercritical_HTC,
+    'Jackson': pipe_jackson_supercritical_HTC,
+    # laminar entry, MEAN Nu over the whole tube length L_t; explicit choice only
+    'Hausen_laminar_entry': pipe_hausen_laminar_entry_HTC,
+    'Baehr_Stephan_laminar_entry': pipe_baehr_stephan_laminar_entry_HTC,
 }
 
 
@@ -269,6 +279,10 @@ _REQUIRED_PARAMETERS = {
     'Liu': (),
     'Cheng': (),
     'Petukhov_SC': (),
+    'Krasnoshchekov_Protopopov': (),
+    'Jackson': (),
+    'Hausen_laminar_entry': (),
+    'Baehr_Stephan_laminar_entry': (),
     'Steiner_Taborek': (),
     'VDI': (),
     'Gungor_Winterton': (),

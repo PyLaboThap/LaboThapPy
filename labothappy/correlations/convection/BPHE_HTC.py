@@ -11,7 +11,7 @@ from labothappy.correlations.convection.BPHE_HTC_correlation_bank import (
     chevron_deg, BPHE_sinnott_SP_HTC, BPHE_martin_SP_HTC, BPHE_kumar_SP_HTC,
     BPHE_thonon_SP_HTC, BPHE_muley_manglik_SP_HTC, BPHE_khan_khan_SP_HTC)
 
-_BPHX_SP_HTC = {
+_BPHE_SP_HTC = {
     'Sinnott': BPHE_sinnott_SP_HTC,
     'Kumar': BPHE_kumar_SP_HTC,
     'Thonon': BPHE_thonon_SP_HTC,
@@ -52,14 +52,14 @@ def BPHE_SP_HTC(AS, geom, cond, choice=None):
     correction is set to 1 (mu_w = mu), on a copy of cond."""
     if choice in (None, 'auto'):
         choice = select_plate_HTC(geom, cond)
-    elif choice not in _BPHX_SP_HTC:
-        raise ValueError(f"Unknown correlation {choice!r}: {sorted(_BPHX_SP_HTC)} or None/'auto'.")
+    elif choice not in _BPHE_SP_HTC:
+        raise ValueError(f"Unknown correlation {choice!r}: {sorted(_BPHE_SP_HTC)} or None/'auto'.")
     c = cond
     if choice in _NEEDS_MU_W and 'mu_w' not in cond:
         c = dict(cond)
         c['mu_w'] = cond['mu']
             
-    return _BPHX_SP_HTC[choice](AS, geom, c)
+    return _BPHE_SP_HTC[choice](AS, geom, c)
 
 #%% TWO-PHASE : BOILING 
 
@@ -68,7 +68,7 @@ from labothappy.correlations.convection.BPHE_HTC_correlation_bank import (
     BPHE_yan_lin_boiling_HTC, BPHE_lee_kang_kim_boiling_HTC, BPHE_huang_sheer_boiling_HTC)
 from labothappy.correlations.convection.BPHE_HTC_correlation_bank import BPHE_hsieh_lin_boiling_HTC
 
-_BPHX_EVAP_HTC = {
+_BPHE_EVAP_HTC = {
     'Cooper': BPHE_cooper_boiling_HTC,
     'Amalfi': BPHE_amalfi_boiling_HTC,
     'Han_Lee_Kim': BPHE_han_lee_kim_boiling_HTC,     # needs geom['Lambda']
@@ -101,9 +101,9 @@ def BPHE_boiling_HTC(AS, geom, cond, choice=None):
     fluid it raises an error, and choice='Cooper' must then be given explicitly."""
     if choice in (None, 'auto'):
         choice = select_plate_evaporation_HTC(geom, cond)
-    elif choice not in _BPHX_EVAP_HTC:
-        raise ValueError(f"Unknown correlation {choice!r}: {sorted(_BPHX_EVAP_HTC)} or None/'auto'.")
-    return _BPHX_EVAP_HTC[choice](AS, geom, cond)
+    elif choice not in _BPHE_EVAP_HTC:
+        raise ValueError(f"Unknown correlation {choice!r}: {sorted(_BPHE_EVAP_HTC)} or None/'auto'.")
+    return _BPHE_EVAP_HTC[choice](AS, geom, cond)
 
 #%% TWO-PHASE : CONDENSING 
 
@@ -112,7 +112,7 @@ from labothappy.correlations.convection.BPHE_HTC_correlation_bank import (
 from labothappy.correlations.convection.BPHE_HTC_correlation_bank import (
     BPHE_kuo_condensing_HTC, BPHE_yan_lio_lin_condensing_HTC)
   
-_BPHX_COND_HTC = {
+_BPHE_COND_HTC = {
     'Shah': BPHE_shah_condensing_HTC,
     'Han': BPHE_han_condensing_HTC,
     'Longo': BPHE_longo_condensing_HTC,
@@ -152,9 +152,9 @@ def BPHE_condensing_HTC(AS, geom, cond, choice=None):
     convention inside its function, so it is not converted here."""
     if choice in (None, 'auto'):
         choice = select_plate_condensation_HTC(geom, cond)
-    elif choice not in _BPHX_COND_HTC:
-        raise ValueError(f"Unknown correlation {choice!r}: {sorted(_BPHX_COND_HTC)} or None/'auto'.")
-    return _BPHX_COND_HTC[choice](AS, geom, cond)
+    elif choice not in _BPHE_COND_HTC:
+        raise ValueError(f"Unknown correlation {choice!r}: {sorted(_BPHE_COND_HTC)} or None/'auto'.")
+    return _BPHE_COND_HTC[choice](AS, geom, cond)
 
 #%% GLOBAL DISPATCHER
 

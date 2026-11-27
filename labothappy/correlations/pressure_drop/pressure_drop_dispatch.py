@@ -1,15 +1,26 @@
 # Adapt the import paths to where the dispatchers live.
-from labothappy.correlations.pressure_drop.BPHX_DP import BPHE_DP, BPHX_port_DP
+from labothappy.correlations.pressure_drop.BPHE_DP import BPHE_DP, BPHE_port_DP
 from labothappy.correlations.pressure_drop.STHE_DP import STHE_DP
 from labothappy.correlations.pressure_drop.pipe_DP import pipe_DP
 from labothappy.correlations.pressure_drop.TFHE_DP import TFHE_DP
 from labothappy.correlations.pressure_drop.curved_pipe_DP import curved_pipe_DP
 from labothappy.correlations.pressure_drop.SPHE_DP import SPHE_DP
 from labothappy.correlations.pressure_drop.PCHE_DP import PCHE_DP
+from labothappy.correlations.pressure_drop.bare_tube_bank_DP import (
+    bare_tube_bank_DP, select_bare_tube_bank_DP)
 
 _VALID_STATES = ('SP', 'EVAP', 'COND')
 _VALID_SIDES = ('shell', 'tube')
 _CURVED_PIPE_TYPES = ('SCHE', 'SPCE', 'HCHE')       # spiral channel / helical coil: curved pipes
+
+# Values of geom['finned'] that mean "no fins" (bare tubes)
+_NOT_FINNED = (0, False, '0', 'no', 'No', 'False', 'false')
+
+
+def _is_bare_tube_bank(htx, side, geom):
+    """True for the outer side of a TFHE whose tubes have no fins (geom['finned'] = 0 / False):
+    bank of bare tubes in crossflow, routed to bare_tube_bank_DP (2026-11-27)."""
+    return htx in ('TFHE', 'Tube&Fins') and side == 'fin' and geom.get('finned', 1) in _NOT_FINNED
 
 
 def pressure_drop(AS, geom, cond, correlation):
@@ -27,7 +38,8 @@ def pressure_drop(AS, geom, cond, correlation):
     BPHE : plate correlations (BPHE_DP).
     STHE : cond['side'] (or geom['side']) = 'shell' (SP, EVAP, COND: STHE_DP) or 'tube' (pipe_DP).
     TFHE : cond['side'] (or geom['side']) = 'fin' (gas side: Pismennyi bank pressure drop,
-           TFHE_DP) or 'tube' (pipe_DP).
+           TFHE_DP) or 'tube' (pipe_DP). geom['finned'] = 0 / False: outer side = bank of BARE
+           tubes (bare_tube_bank_DP: SP 'Zukauskas', EVAP / COND 'Ishihara').
     PCHE : PCHE_DP (SP zigzag: 'Lee_Jiang', auto for geom['type_channel'] = 'Zigzag'; otherwise pipe_DP
            names on the equivalent tube: geom Dh / D_t_i, L, K; cond G of ONE channel); no port losses.
     SPHE : SPHE_DP (spiral plate: SP 'Picon_Nunez', 'Curved_rect_duct', 'Rect_duct', 'Sigalotti', 'Ito';
@@ -55,6 +67,8 @@ def pressure_drop(AS, geom, cond, correlation):
             return float(curved_pipe_DP(AS, geom, cond, state, choices))
 
         if htx == 'TFHE':      # cond['side'] / geom['side'] = 'fin' or 'tube'
+            if _is_bare_tube_bank(htx, cond.get('side', geom.get('side')), geom):
+                return float(bare_tube_bank_DP(AS, geom, cond, state, choices))   # finned = 0
             return float(TFHE_DP(AS, geom, cond, state, choices))
 
         side = cond.get('side', geom.get('side'))
@@ -74,7 +88,7 @@ def port_pressure_drop(geom, cond):
     D_port and n_passes. Returns 0 (with a warning) when no port size is available.
     All other types (STHE, PCHE, TFHE, SPHE, SCHE, HCHE): 0 (nozzle, header and head losses are not modelled)."""
     if geom.get('HTX_Type') == 'BPHE':
-        return float(BPHX_port_DP(geom, cond))
+        return float(BPHE_port_DP(geom, cond))
     return 0.0
 
 
@@ -102,7 +116,7 @@ def auto_dp_correlation(AS, geom, cond):
     str : name of the correlation, valid as an explicit choice for pressure_drop.
     """
     # Selection functions of the dispatchers (imported here to keep this helper self-contained)
-    from labothappy.correlations.pressure_drop.BPHX_DP import (
+    from labothappy.correlations.pressure_drop.BPHE_DP import (
         select_plate_DP, select_plate_evaporation_DP, select_plate_condensation_DP)
     from labothappy.correlations.pressure_drop.STHE_DP import select_shell_DP
     from labothappy.correlations.pressure_drop.pipe_DP import (
@@ -140,6 +154,8 @@ def auto_dp_correlation(AS, geom, cond):
             if state == 'SP':
                 return select_pipe_DP(AS, geom, cond)
             return select_pipe_two_phase_DP(AS, geom, cond)
+        if _is_bare_tube_bank(htx, side, geom):
+            return select_bare_tube_bank_DP(geom, cond, state)
         return 'Pismennyi'                              # TFHE_fin_DP automatic choice
 
     if htx == 'PCHE':
@@ -163,27 +179,32 @@ def auto_dp_correlation(AS, geom, cond):
     raise NotImplementedError(f"auto_dp_correlation: heat exchanger type {htx!r} is not handled.")
 
 
-def _dp_case_tables(htx, side, state, curved=False):
+def _dp_case_tables(htx, side, state, curved=False, bare=False):
     """Registry tables of the pressure drop correlations of a case, in priority order, as
     (dispatcher module, table {name: function}).
     htx: HTX_Type; side: 'shell' / 'tube' (STHE), 'fin' / 'tube' (TFHE), None otherwise;
     state: 'SP', 'EVAP', 'COND' (a 'vapor-wet' cell is 'SP'); curved: not used (same
     signature as _htc_case_tables)."""
-    from labothappy.correlations.pressure_drop import BPHX_DP, STHE_DP, pipe_DP, PCHE_DP, TFHE_DP
+    from labothappy.correlations.pressure_drop import BPHE_DP as BPHE_DP_module
+    from labothappy.correlations.pressure_drop import STHE_DP, pipe_DP, PCHE_DP, TFHE_DP
     from labothappy.correlations.pressure_drop import curved_pipe_DP, SPHE_DP
+    from labothappy.correlations.pressure_drop import bare_tube_bank_DP as bare_bank
 
     pipe_tables = {'SP': pipe_DP._PIPE_SP_DP, 'EVAP': pipe_DP._PIPE_EVAP_DP,
                    'COND': pipe_DP._PIPE_COND_DP}
 
     if htx == 'BPHE':
-        return [(BPHX_DP, {'SP': BPHX_DP._BPHX_SP_DP, 'EVAP': BPHX_DP._BPHX_EVAP_DP,
-                           'COND': BPHX_DP._BPHX_COND_DP}[state])]
+        return [(BPHE_DP_module, {'SP': BPHE_DP_module._BPHE_SP_DP,
+                                  'EVAP': BPHE_DP_module._BPHE_EVAP_DP,
+                                  'COND': BPHE_DP_module._BPHE_COND_DP}[state])]
     if htx in ('STHE', 'TFHE') and side == 'tube':
         return [(pipe_DP, pipe_tables[state])]
     if htx == 'STHE' and state == 'SP':
         return [(STHE_DP, STHE_DP._STHE_SP_DP)]
     if htx == 'STHE':
         return [(STHE_DP, STHE_DP._STHE_2P_DP)]
+    if htx == 'TFHE' and bare:          # outer side of a TFHE without fins (bare tube bank)
+        return [(bare_bank, bare_bank._TABLES[state])]
     if htx == 'TFHE':
         return [(TFHE_DP, TFHE_DP._TFHE_FIN_DP)]
     if htx == 'PCHE' and state == 'SP':
@@ -210,7 +231,8 @@ def dp_candidates(AS, geom, cond):
     else:
         state = cond.get('flow_state')
     side = cond.get('side', geom.get('side'))
-    tables = [table for _, table in _dp_case_tables(htx, side, state)]
+    bare = _is_bare_tube_bank(htx, side, geom)
+    tables = [table for _, table in _dp_case_tables(htx, side, state, bare=bare)]
 
     # Rule-based choice first, then the registry order, each function once
     names = [auto_dp_correlation(AS, geom, cond)]
@@ -298,7 +320,7 @@ def dp_required_parameters(AS, geom, cond, correlation=None):
     result['correlation'] = correlation
     return result
 
-def dp_correlation_parameters(htx, side, state, name=None, curved=False):
+def dp_correlation_parameters(htx, side, state, name=None, curved=False, bare=False):
     """Model parameters that a pressure drop correlation needs IN ADDITION to the parameters of the
     geometry (tables _REQUIRED_PARAMETERS of the dispatchers of each type), for one case.
 
@@ -311,13 +333,14 @@ def dp_correlation_parameters(htx, side, state, name=None, curved=False):
              registered correlation of the case that needs the FEWEST are returned (with the
              trial choice, the solve can always fall back on it)
     curved : True if the channel has a radius of curvature (PCHE two phase: curved pipe tables)
+    bare   : True for the outer side of a TFHE without fins (geom['finned'] = 0): bare tube bank
 
     Returns
     -------
     tuple of parameter names. A name that is not registered for the case returns () (the
     dispatcher raises the error at the first evaluation).
     """
-    tables = _dp_case_tables(htx, side, state, curved)
+    tables = _dp_case_tables(htx, side, state, curved, bare)
     if name is None or name == 'auto':
         fewest = None
         for module, table in tables:

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Shell-side heat transfer coefficient of shell & tube heat exchangers, in the
-(AS, geom, cond) formalism of the BPHX correlations.
+(AS, geom, cond) formalism of the BPHE correlations.
 
 cond : dictionary of the cell conditions built by the model (_cond_dict). The shell correlations read
        m_dot (flow of the whole side), mu, mu_w (optional: without it mu_w = mu), Pr, k, cp.
@@ -16,6 +16,7 @@ import numpy as np
 from labothappy.correlations.convection.pipe_HTC_correlation_bank import _sat_props
 from labothappy.correlations.convection.BPHE_HTC_correlation_bank import BPHE_cooper_boiling_HTC
 from labothappy.correlations.convection.correlation_warnings import ValidityRangeWarning
+from labothappy.correlations.convection.correlation_warnings import AssumedParameterWarning
 
 #%% GEOMETRY HELPERS
 
@@ -521,6 +522,192 @@ def STHE_mostinski_boiling_HTC(AS, geom, cond):
 
     # 8) Return the heat transfer coefficient
     return h
+# VDI Heat Atlas 2010, H2 Table 1, column alpha_0,exp (update 2009), fluids without superscript d/f
+_ALPHA_0_GORENFLO = {
+    'methane': 7200.0,
+    'ethylene': 4200.0,
+    'ethane': 4600.0,
+    'propylene': 4200.0,
+    'n-propane': 4300.0,
+    'n-butane': 3600.0,
+    'isobutane': 3700.0,
+    'n-pentane': 3300.0,
+    'isopentane': 3200.0,
+    'n-hexane': 3200.0,
+    'cyclohexane': 3000.0,
+    'n-heptane': 2900.0,
+    'methanol': 5400.0,
+    'ethanol': 4350.0,
+    'acetone': 3300.0,
+    'carbondioxide': 5500.0,
+    'r23': 4800.0,
+    'r32': 5000.0,
+    'r125': 4400.0,
+    'r134a': 4200.0,
+    'r143a': 4700.0,
+    'r152a': 4600.0,
+    'r227ea': 4100.0,
+    'r507a': 4200.0,
+    'water': 5600.0,
+    'ammonia': 7000.0,
+}
+
+
+def STHE_gorenflo_boiling_HTC(AS, geom, cond):
+    """
+    Nucleate pool boiling heat transfer coefficient on the outer surface of a single tube
+    (shell side of a shell & tube evaporator, no tube-bundle factor) using the VDI Heat Atlas
+    method of Gorenflo (2010).
+
+    Parameters
+    ----------
+    AS : CoolProp AbstractState
+        CoolProp abstract state object for property evaluation.
+    geom : dict
+        Geometry dictionary containing:
+        - Ra : arithmetic mean roughness of the heated surface [m]
+          (optional, default 0.4e-6 m = VDI reference Ra_0, with an AssumedParameterWarning).
+        - b_wall : thermal effusivity (k rho c)^0.5 of the wall material [W s^0.5 / (m^2 K)]
+          (optional, default copper 35350, with an AssumedParameterWarning).
+    cond : dict
+        Condition dictionary containing:
+        - p : saturation pressure [Pa].
+        - q : local heat flux on the outer tube surface [W/m^2].
+
+    Returns
+    -------
+    h : float
+        Nucleate pool boiling heat transfer coefficient on the outer tube surface [W/(m^2 K)],
+        defined with the mean wall superheat (Eq. 1 of H2).
+
+    Reference
+    ---------
+    Gorenflo, D., Kenning, D. (2010) H2 Pool Boiling. In: VDI Heat Atlas, 2nd ed., Springer,
+    Berlin Heidelberg, pp. 757-792, doi:10.1007/978-3-540-77877-6_34. Section 3 (Nucleate
+    boiling of pure substances), Eqs. (5), (6), (6a), (6b), (7), (7a), (7b), (8), (9a), (9b),
+    (9c), Table 1.
+
+    Fluids: alpha_0 from Table 1 (alpha_0,exp, update 2009) for the fluids of _ALPHA_0_GORENFLO,
+    otherwise from Eq. (8) with CoolProp properties. Water: Eqs. (6b), (7b). Cryogenic fluids
+    (N2, O2, Ar, Ne, H2): former equations of Fig. 8 (not updated). All other fluids: updated
+    Eqs. (6a), (7a). Helium: not covered (ValueError).
+
+    Accuracy & Validity
+    -------------------
+    - Accuracy: alpha_0,calc within about +-10 % mean deviation (+-15 % for fluids not updated).
+    - q must stay well below the critical heat flux (not checked).
+    - Single horizontal tube, no bundle effect.
+    - Validity limits checked: reduced pressure p_red <= 0.9, pressure p >= 1.0e4 Pa,
+      roughness Ra within [0.1e-6, 10e-6] m, wall effusivity b_wall <= b_Cu.
+
+    Definitions
+    -----------
+    - q = heat flux on the outer tube surface (per unit outer area), local.
+    - p = saturation pressure.
+    - properties for Eq. (8) evaluated at p* = 0.1 (not at the operating pressure).
+    """
+    # 1) Read saturation pressure and local heat flux, obtain critical pressure and fluid name
+    p = cond['p']
+    q = cond['q']
+    p_crit = AS.p_critical()
+    p_red = p / p_crit
+    fluid = AS.fluid_names()[0].lower()
+
+    # Helium check
+    if fluid == 'helium':
+        raise ValueError("Gorenflo: helium is not covered (reference heat flux 1 kW/m^2).")
+
+    # Check reduced pressure range and heat flux finiteness/positivity
+    if not 0.0 < p_red < 1.0:
+        raise ValueError(f"Gorenflo: reduced pressure p_red = {p_red:.3f} outside ]0, 1[.")
+    if not (np.isfinite(q) and q > 0.0):
+        raise ValueError(f"Gorenflo: heat flux q = {q} must be finite and > 0.")
+
+    # 2) Reference heat transfer coefficient alpha_0 [W/(m^2 K)]
+    if fluid in _ALPHA_0_GORENFLO:
+        alpha_0 = _ALPHA_0_GORENFLO[fluid]
+    else:
+        p_ref = 0.1 * p_crit
+        # Eq. (8): properties at the reference pressure p* = 0.1 (cond overrides not used: they
+        # belong to the operating pressure)
+        ref_props = _sat_props(AS, p_ref)
+        rho_l = ref_props['rho_l']
+        rho_v = ref_props['rho_v']
+        h_lv = ref_props['h_lv']
+        T_sat = ref_props['T_sat']
+        sigma = ref_props['sigma']
+        if sigma is None:
+            raise ValueError(f"Gorenflo: no surface tension for fluid '{fluid}'.")
+        dp_dT = h_lv / (T_sat * (1.0 / rho_v - 1.0 / rho_l))
+        P_f = dp_dT / sigma
+        P_f_um = P_f * 1e-6
+        alpha_0 = 3.58e3 * (P_f_um ** 0.6)
+
+    # 3) Exponent n and pressure function F_p (three fluid groups)
+    if fluid == 'water':
+        # Water: Eq. (6b) and Eq. (7b)
+        n = 0.9 - 0.3 * (p_red ** 0.15)
+        F_p = 1.73 * (p_red ** 0.27) + (6.1 + 0.68 / (1.0 - p_red ** 2)) * (p_red ** 2)
+    elif fluid in ('nitrogen', 'oxygen', 'argon', 'neon', 'hydrogen'):
+        # Cryogenic fluids: former equations, not updated (H2 Fig. 8)
+        n = 0.9 - 0.3 * (p_red ** 0.3)
+        F_p = 1.2 * (p_red ** 0.27) + (2.5 + 1.0 / (1.0 - p_red)) * p_red
+    else:
+        # All other fluids: updated Eq. (6a) and Eq. (7a)
+        n = 0.95 - 0.3 * (p_red ** 0.3)
+        F_p = 0.7 * (p_red ** 0.2) + 4.0 * p_red + 1.4 * p_red / (1.0 - p_red)
+
+    # 4) Heat flux function F_q (Eq. 6)
+    q_0 = 20000.0
+    F_q = (q / q_0) ** n
+
+    # 5) Wall function F_W (Eqs. 9a, 9b, 9c)
+    Ra_0 = 0.4e-6
+    b_Cu = 35350.0
+
+    if 'Ra' in geom:
+        Ra = geom['Ra']
+    else:
+        Ra = Ra_0
+        warnings.warn(
+            "Gorenflo: geom['Ra'] not given, Ra = 0.4 um (VDI reference) assumed",
+            AssumedParameterWarning
+        )
+
+    if 'b_wall' in geom:
+        b_wall = geom['b_wall']
+    else:
+        b_wall = b_Cu
+        warnings.warn(
+            "Gorenflo: geom['b_wall'] not given, copper wall assumed (F_WM = 1); "
+            "steel walls give lower values (about x 0.62 for mild steel)",
+            AssumedParameterWarning
+        )
+
+    F_WR = (Ra / Ra_0) ** (2.0 / 15.0)
+    F_WM = (b_wall / b_Cu) ** 0.5
+    F_W = F_WR * F_WM
+
+    # 6) Eq. (5): nucleate pool boiling heat transfer coefficient
+    h = alpha_0 * F_q * F_p * F_W
+
+    # Validity checks (single ValidityRangeWarning collecting problems)
+    out = []
+    if p_red > 0.9:
+        out.append(f"Reduced pressure p_red = {p_red:.4f} > 0.9 (upper limit of Eqs. 6-7).")
+    if p < 1.0e4:
+        out.append(f"Pressure p = {p:.1f} Pa < 1.0e4 Pa (recommended lower limit 0.1 bar).")
+    if not (0.1e-6 <= Ra <= 10e-6):
+        out.append(f"Roughness Ra = {Ra:.2e} m outside valid range [0.1e-6, 10e-6] m.")
+    if b_wall > b_Cu:
+        out.append(f"Wall effusivity b_wall = {b_wall:.1f} > b_Cu = {b_Cu} W s^0.5/(m^2 K).")
+
+    if out:
+        warnings.warn("Gorenflo validity range exceeded: " + " ".join(out), ValidityRangeWarning)
+
+    return h
+
+
 #%% TWO-PHASE : SHELL-SIDE CONDENSATION AND BUNDLE BOILING
 
 def STHE_rose_kern_condensing_HTC(AS, geom, cond):

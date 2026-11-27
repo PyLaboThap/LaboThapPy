@@ -553,7 +553,8 @@ def TFHE_ganguli_vdi_HTC(AS, geom, cond):
 
     Validity
     --------
-    Validity range: unknown (not given in ht / VDI summary); air.
+    Validity range: VDI Heat Atlas (2010) M1 (Eqs. 15-18): 1e3 < Re_d < 1e5,
+    5 <= A/A_t0 <= 30 (accuracy +-10 % to +-25 %), industrial data; warning outside. Air.
     """
     # Step 1. Check the fin shape
     fin_type = str(geom.get('fin_type', 'Annular')).strip().lower()
@@ -650,7 +651,17 @@ def TFHE_ganguli_vdi_HTC(AS, geom, cond):
 
     h_reduced = (eta_fin * A_fin + A_tube_showing) / A_total * h
 
-    # TODO: validity range from Ganguli et al. (1985)
+    # Range of validity: VDI Heat Atlas (2010) M1, Eqs. (15)-(16) "fitted within +-10 % to +-25 %
+    # for 1e3 < Re_d < 1e5 and 5 <= A/A_t0 <= 30" (Re_d on d_0 and the velocity in the smallest
+    # cross section, as here). Range check added 2026-11-27 (warning only).
+    out = []
+    if Re < 1e3 or Re > 1e5:
+        out.append(f"Re_d = {Re:.4g} outside 1e3-1e5")
+    if A_increase < 5 or A_increase > 30:
+        out.append(f"A/A_t0 = {A_increase:.3g} outside 5-30")
+    if out:
+        warnings.warn("Ganguli VDI (VDI Heat Atlas M1): outside the range of validity: "
+                      + ", ".join(out) + ".", ValidityRangeWarning)
 
     return h_reduced
 

@@ -3,17 +3,17 @@ import warnings
 
 #%% SINGLE PHASE : FRICTION DP
 
-from labothappy.correlations.pressure_drop.BPHX_DP_correlation_bank import (
-    chevron_deg, BPHX_sinnott_SP_DP, BPHX_martin_SP_DP, BPHX_kumar_SP_DP,
-    BPHX_thonon_SP_DP, BPHX_muley_manglik_SP_DP)
+from labothappy.correlations.pressure_drop.BPHE_DP_correlation_bank import (
+    chevron_deg, BPHE_sinnott_SP_DP, BPHE_martin_SP_DP, BPHE_kumar_SP_DP,
+    BPHE_thonon_SP_DP, BPHE_muley_manglik_SP_DP)
 from labothappy.correlations.convection.correlation_warnings import AssumedParameterWarning
 
-_BPHX_SP_DP = {
-    'Sinnott': BPHX_sinnott_SP_DP,
-    'Kumar': BPHX_kumar_SP_DP,
-    'Thonon': BPHX_thonon_SP_DP,
-    'Muley_Manglik': BPHX_muley_manglik_SP_DP,
-    'Martin': BPHX_martin_SP_DP,
+_BPHE_SP_DP = {
+    'Sinnott': BPHE_sinnott_SP_DP,
+    'Kumar': BPHE_kumar_SP_DP,
+    'Thonon': BPHE_thonon_SP_DP,
+    'Muley_Manglik': BPHE_muley_manglik_SP_DP,
+    'Martin': BPHE_martin_SP_DP,
 }
 _PERP_CONVENTION = {'Kumar', 'Thonon'}   # angle from the perpendicular (to be verified)
 
@@ -35,7 +35,7 @@ def select_plate_DP(geom, cond):
         return 'Kumar'
     return 'Martin'
 
-def BPHX_SP_DP(AS, geom, cond, choice=None):
+def BPHE_SP_DP(AS, geom, cond, choice=None):
     """Single-phase friction pressure drop of one side [Pa], over the full flow length.
     choice: None/'auto' or the name of a correlation.
 
@@ -47,24 +47,24 @@ def BPHX_SP_DP(AS, geom, cond, choice=None):
     the angle themselves: it is converted here, to the perpendicular convention, on a copy of geom."""
     if choice in (None, 'auto'):
         choice = select_plate_DP(geom, cond)
-    elif choice not in _BPHX_SP_DP:
-        raise ValueError(f"Unknown correlation {choice!r}: {sorted(_BPHX_SP_DP)} or None/'auto'.")
+    elif choice not in _BPHE_SP_DP:
+        raise ValueError(f"Unknown correlation {choice!r}: {sorted(_BPHE_SP_DP)} or None/'auto'.")
     g = geom
     if choice in _PERP_CONVENTION:
         g = dict(geom)
         g['beta'] = np.radians(90.0 - chevron_deg(geom['beta']))
-    return _BPHX_SP_DP[choice](AS, g, cond)
+    return _BPHE_SP_DP[choice](AS, g, cond)
 
 #%% TWO-PHASE : BOILING
 
-from labothappy.correlations.pressure_drop.BPHX_DP_correlation_bank import (
-    BPHX_lockhart_martinelli_DP, BPHX_amalfi_boiling_DP)
-from labothappy.correlations.pressure_drop.BPHX_DP_correlation_bank import BPHX_hsieh_lin_boiling_DP
+from labothappy.correlations.pressure_drop.BPHE_DP_correlation_bank import (
+    BPHE_lockhart_martinelli_DP, BPHE_amalfi_boiling_DP)
+from labothappy.correlations.pressure_drop.BPHE_DP_correlation_bank import BPHE_hsieh_lin_boiling_DP
 
-_BPHX_EVAP_DP = {
-    'Lockhart_Martinelli': BPHX_lockhart_martinelli_DP,
-    'Amalfi': BPHX_amalfi_boiling_DP,
-    'Hsieh_Lin': BPHX_hsieh_lin_boiling_DP,          # R410A data (Hsieh & Lin 2002)
+_BPHE_EVAP_DP = {
+    'Lockhart_Martinelli': BPHE_lockhart_martinelli_DP,
+    'Amalfi': BPHE_amalfi_boiling_DP,
+    'Hsieh_Lin': BPHE_hsieh_lin_boiling_DP,          # R410A data (Hsieh & Lin 2002)
 }
 
 def select_plate_evaporation_DP(geom, cond):
@@ -77,7 +77,7 @@ def select_plate_evaporation_DP(geom, cond):
         return 'Amalfi'
     return 'Lockhart_Martinelli'
 
-def BPHX_boiling_DP(AS, geom, cond, choice=None):
+def BPHE_boiling_DP(AS, geom, cond, choice=None):
     """Evaporation friction pressure drop of one side [Pa], over the full flow length.
     choice: None/'auto' or the name of a correlation.
 
@@ -87,21 +87,21 @@ def BPHX_boiling_DP(AS, geom, cond, choice=None):
     Acceleration, gravity and port losses are not included."""
     if choice in (None, 'auto'):
         choice = select_plate_evaporation_DP(geom, cond)
-    elif choice not in _BPHX_EVAP_DP:
-        raise ValueError(f"Unknown correlation {choice!r}: {sorted(_BPHX_EVAP_DP)} or None/'auto'.")
-    return _BPHX_EVAP_DP[choice](AS, geom, cond)
+    elif choice not in _BPHE_EVAP_DP:
+        raise ValueError(f"Unknown correlation {choice!r}: {sorted(_BPHE_EVAP_DP)} or None/'auto'.")
+    return _BPHE_EVAP_DP[choice](AS, geom, cond)
 
 #%% TWO-PHASE : CONDENSING
 
-from labothappy.correlations.pressure_drop.BPHX_DP_correlation_bank import BPHX_han_condensing_DP
-from labothappy.correlations.pressure_drop.BPHX_DP_correlation_bank import (
-    BPHX_kuo_condensing_DP, BPHX_yan_lio_lin_condensing_DP)
+from labothappy.correlations.pressure_drop.BPHE_DP_correlation_bank import BPHE_han_condensing_DP
+from labothappy.correlations.pressure_drop.BPHE_DP_correlation_bank import (
+    BPHE_kuo_condensing_DP, BPHE_yan_lio_lin_condensing_DP)
 
-_BPHX_COND_DP = {
-    'Han': BPHX_han_condensing_DP,
-    'Lockhart_Martinelli': BPHX_lockhart_martinelli_DP,
-    'Kuo': BPHX_kuo_condensing_DP,                   # R410A data (Kuo et al. 2005)
-    'Yan_Lio_Lin': BPHX_yan_lio_lin_condensing_DP,   # R134a data (Yan, Lio & Lin 1999)
+_BPHE_COND_DP = {
+    'Han': BPHE_han_condensing_DP,
+    'Lockhart_Martinelli': BPHE_lockhart_martinelli_DP,
+    'Kuo': BPHE_kuo_condensing_DP,                   # R410A data (Kuo et al. 2005)
+    'Yan_Lio_Lin': BPHE_yan_lio_lin_condensing_DP,   # R134a data (Yan, Lio & Lin 1999)
 }
 
 def select_plate_condensation_DP(geom, cond):
@@ -117,7 +117,7 @@ def select_plate_condensation_DP(geom, cond):
             return 'Han'
     return 'Lockhart_Martinelli'
 
-def BPHX_condensing_DP(AS, geom, cond, choice=None):
+def BPHE_condensing_DP(AS, geom, cond, choice=None):
     """Condensation friction pressure drop of one side [Pa], over the full flow length.
     choice: None/'auto' or the name of a correlation.
 
@@ -126,13 +126,13 @@ def BPHX_condensing_DP(AS, geom, cond, choice=None):
     Acceleration, gravity and port losses are not included."""
     if choice in (None, 'auto'):
         choice = select_plate_condensation_DP(geom, cond)
-    elif choice not in _BPHX_COND_DP:
-        raise ValueError(f"Unknown correlation {choice!r}: {sorted(_BPHX_COND_DP)} or None/'auto'.")
-    return _BPHX_COND_DP[choice](AS, geom, cond)
+    elif choice not in _BPHE_COND_DP:
+        raise ValueError(f"Unknown correlation {choice!r}: {sorted(_BPHE_COND_DP)} or None/'auto'.")
+    return _BPHE_COND_DP[choice](AS, geom, cond)
 
 #%% PORT DP
 
-def BPHX_port_DP(geom, cond):
+def BPHE_port_DP(geom, cond):
     """
     Port / manifold pressure loss of ONE side of a plate heat exchanger [Pa],
     for the whole exchanger (inlet + outlet ports together, not per cell).
@@ -150,7 +150,7 @@ def BPHX_port_DP(geom, cond):
     elif 'D_port' in geom:
         G_port = cond['m_dot'] / (np.pi * geom['D_port']**2 / 4)
     else:
-        warnings.warn("BPHX_port_DP: no port size ('D_port' or 'G_port'): port loss set to 0.",
+        warnings.warn("BPHE_port_DP: no port size ('D_port' or 'G_port'): port loss set to 0.",
                       AssumedParameterWarning)
         return 0.0
     return 1.3 * G_port**2 / (2 * cond['D']) * geom.get('n_passes', 1)
@@ -158,14 +158,14 @@ def BPHX_port_DP(geom, cond):
 #%% GLOBAL DISPATCHER
 
 _STATE_DISPATCH_DP = {
-    'SP': BPHX_SP_DP,
-    'EVAP': BPHX_boiling_DP,
-    'COND': BPHX_condensing_DP,
+    'SP': BPHE_SP_DP,
+    'EVAP': BPHE_boiling_DP,
+    'COND': BPHE_condensing_DP,
 }
 
 def BPHE_DP(AS, geom, cond, flow_state, choices=None):
     """Perte de charge par frottement d'un côté d'un échangeur à plaques brasées [Pa],
-    sur toute la longueur d'écoulement (les pertes aux ports sont à part : BPHX_port_DP).
+    sur toute la longueur d'écoulement (les pertes aux ports sont à part : BPHE_port_DP).
     flow_state : 'SP', 'EVAP' ou 'COND'
     choices    : dict {'SP': nom, 'EVAP': nom, 'COND': nom}.
                  None, vide, 'auto' (ou valeur vide / 'auto' pour un état) = sélection automatique."""
@@ -216,6 +216,6 @@ def required_parameters(name):
     """Model parameters that the correlation `name` needs in addition to the geometry
     parameters (tuple, empty if none). Raises KeyError for a name that is not registered here."""
     if name not in _REQUIRED_PARAMETERS:
-        raise KeyError(f"BPHX_DP: unknown correlation {name!r}; registered: "
+        raise KeyError(f"BPHE_DP: unknown correlation {name!r}; registered: "
                        f"{list(_REQUIRED_PARAMETERS)}.")
     return _REQUIRED_PARAMETERS[name]

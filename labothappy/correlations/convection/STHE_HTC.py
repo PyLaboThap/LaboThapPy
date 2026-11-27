@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Shell-side HTC dispatcher of shell & tube heat exchangers, same style as BPHX_HTC_dispatcher:
+Shell-side HTC dispatcher of shell & tube heat exchangers, same style as BPHE_HTC_dispatcher:
 HX type -> flow state (SP / EVAP / COND) -> correlation, with the (AS, geom, cond) formalism.
 Implemented: SP (Kern, Donohue, Bell-Delaware) and EVAP (Cooper, Mostinski pool boiling, no
 tube-bundle factor).
@@ -65,11 +65,13 @@ from labothappy.correlations.convection.STHE_HTC_correlation_bank import STHE_mo
 from labothappy.correlations.convection.BPHE_HTC_correlation_bank import BPHE_cooper_boiling_HTC
 from labothappy.correlations.convection.STHE_HTC_correlation_bank import (
     STHE_shah_bundle_boiling_HTC, STHE_rose_kern_condensing_HTC)
+from labothappy.correlations.convection.STHE_HTC_correlation_bank import STHE_gorenflo_boiling_HTC
 
 _STHE_EVAP_HTC = {
     'Cooper': BPHE_cooper_boiling_HTC,          # Cooper (1984) pool boiling, needs p, q (+ roughness)
     'Mostinski': STHE_mostinski_boiling_HTC,    # Mostinski (1963) reduced-pressure method, p, q
     'Shah': STHE_shah_bundle_boiling_HTC,       # Shah (2017) tube bundle, m_dot, p, x, q + Kern geometry
+    'Gorenflo': STHE_gorenflo_boiling_HTC,      # VDI Heat Atlas 2010 H2 pool boiling, p, q (+ Ra, b_wall)
 }
 
 def select_shell_evaporation_HTC(geom, cond):
@@ -162,6 +164,7 @@ _REQUIRED_PARAMETERS = {
     'Mostinski': (),
     'Shah': (),
     'Rose_Kern': (),
+    'Gorenflo': (),    # optional geom 'Ra', 'b_wall' (assumed with a warning when absent)
 }
 
 

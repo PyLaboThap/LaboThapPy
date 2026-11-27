@@ -56,7 +56,7 @@ def _fanning_tube(Re):
 
 #%% SINGLE PHASE : Friction DP
 
-def BPHX_sinnott_SP_DP(AS, geom, cond):
+def BPHE_sinnott_SP_DP(AS, geom, cond):
     """
     Coulson & Richardson's Chemical Engineering Design Vol. 6
     
@@ -90,7 +90,7 @@ def BPHX_sinnott_SP_DP(AS, geom, cond):
 
     return DP_f
 
-def BPHX_kumar_SP_DP(AS, geom, cond):
+def BPHE_kumar_SP_DP(AS, geom, cond):
     """
     Kumar, H., The Plate Heat Exchanger: Construction and Design,
     IChemE Symp. Ser. 86, 1275-1288, 1984.
@@ -130,7 +130,7 @@ def BPHX_kumar_SP_DP(AS, geom, cond):
     Re = G * Dh / mu
 
     # Validity: data on graph from Re = 0.1 to 10000, chevron angles 30 to 65 deg (fluids.friction.
-    # friction_plate_Kumar notes); beta is already in Kumar's convention here (converted by BPHX_DP)
+    # friction_plate_Kumar notes); beta is already in Kumar's convention here (converted by BPHE_DP)
     if not 0.1 <= Re <= 10000 or not 30 <= beta <= 65:
         warnings.warn(f"Kumar DP: outside the range of the data (0.1 <= Re <= 10000, 30-65 deg): "
                       f"Re = {Re:.3g}, angle = {beta:.1f} deg, extrapolated or clamped.",
@@ -146,7 +146,7 @@ def BPHX_kumar_SP_DP(AS, geom, cond):
 
     return DP_f
 
-def BPHX_thonon_SP_DP(AS, geom, cond):
+def BPHE_thonon_SP_DP(AS, geom, cond):
     """
     Thonon, B., Design Method for Plate Evaporators and Condensers,
     BHR Group Conf. Ser. 18, 37-47, 1995.
@@ -195,7 +195,7 @@ def BPHX_thonon_SP_DP(AS, geom, cond):
 
     return DP_f
 
-def BPHX_muley_manglik_SP_DP(AS, geom, cond):
+def BPHE_muley_manglik_SP_DP(AS, geom, cond):
     """
     Muley, A. & Manglik, R.M. (1999). J. Heat Transfer 121(1):110-117.
 
@@ -232,7 +232,7 @@ def BPHX_muley_manglik_SP_DP(AS, geom, cond):
 
     return DP_f
 
-def BPHX_martin_SP_DP(AS, geom, cond):
+def BPHE_martin_SP_DP(AS, geom, cond):
     """
     Martin, H. (1996), Chem. Eng. Process. 35, 301-310; VDI Heat Atlas N6.
     Frictional pressure drop over the full flow length. Port losses are NOT
@@ -263,7 +263,7 @@ def BPHX_martin_SP_DP(AS, geom, cond):
 
 #%% TWO-PHASE : BOILING + CONDENSING
 
-def BPHX_lockhart_martinelli_DP(AS, geom, cond):
+def BPHE_lockhart_martinelli_DP(AS, geom, cond):
     """
     Two-phase FRICTIONAL pressure drop with the Lockhart-Martinelli separated
     flow model, in the analytical form of Chisholm (1967).
@@ -340,7 +340,7 @@ def BPHX_lockhart_martinelli_DP(AS, geom, cond):
 
 from labothappy.correlations.convection.BPHE_HTC_correlation_bank import _sat_props
 
-def BPHX_amalfi_boiling_DP(AS, geom, cond):
+def BPHE_amalfi_boiling_DP(AS, geom, cond):
     """
     Amalfi, Vakili-Farahani & Thome (2016), international journal of refrigeration 61 (2016) 185 – 203
     Flow boiling and frictional pressure gradients in plate heat exchangers. Part 2: Comparison of literature methods to database and new prediction methods
@@ -400,7 +400,7 @@ def BPHX_amalfi_boiling_DP(AS, geom, cond):
 
 #%% TWO-PHASE : CONDENSING 
 
-def BPHX_han_condensing_DP(AS, geom, cond):
+def BPHE_han_condensing_DP(AS, geom, cond):
     """
     Han, Lee & Kim (2003), J. Korean Phys. Soc. 43(1), 66-73 (to be checked).
     Frictional pressure drop of a condensing flow in a brazed plate heat exchanger.
@@ -463,7 +463,7 @@ def BPHX_han_condensing_DP(AS, geom, cond):
 # against the papers, see LOGS reports/plate_papers_check_2026-11-26.md)
 
 
-def BPHX_kuo_condensing_DP(AS, geom, cond):
+def BPHE_kuo_condensing_DP(AS, geom, cond):
     """
     Frictional pressure drop of a condensing flow in a vertical plate heat exchanger.
     
@@ -556,14 +556,14 @@ def BPHX_kuo_condensing_DP(AS, geom, cond):
 
     if out:
         warnings.warn(
-            "BPHX_kuo_condensing_DP: outside the data of the paper: " + ", ".join(out) + ".",
+            "BPHE_kuo_condensing_DP: outside the data of the paper: " + ", ".join(out) + ".",
             ValidityRangeWarning
         )
 
     fluid_name = AS.fluid_names()[0].upper().replace('-', '')
     if fluid_name != 'R410A':
         warnings.warn(
-            f"BPHX_kuo_condensing_DP: fluid {AS.fluid_names()[0]}, "
+            f"BPHE_kuo_condensing_DP: fluid {AS.fluid_names()[0]}, "
             "correlation established for R410A.",
             FluidWarning
         )
@@ -571,7 +571,7 @@ def BPHX_kuo_condensing_DP(AS, geom, cond):
     return dP
 
 
-def BPHX_yan_lio_lin_condensing_DP(AS, geom, cond):
+def BPHE_yan_lio_lin_condensing_DP(AS, geom, cond):
     """
     Yan, Y.-Y., Lio, H.-C., Lin, T.-F. (1999) Condensation heat transfer and pressure drop of
     refrigerant R-134a in a plate heat exchanger. Int. J. Heat Mass Transfer 42, 993-1006.
@@ -673,7 +673,7 @@ def BPHX_yan_lio_lin_condensing_DP(AS, geom, cond):
 
     if out:
         warnings.warn(
-            "BPHX_yan_lio_lin_condensing_DP: outside the data of the paper: "
+            "BPHE_yan_lio_lin_condensing_DP: outside the data of the paper: "
             + ", ".join(out) + ".",
             ValidityRangeWarning
         )
@@ -682,7 +682,7 @@ def BPHX_yan_lio_lin_condensing_DP(AS, geom, cond):
     fluid_name = AS.fluid_names()[0].upper().replace('-', '')
     if fluid_name != 'R134A':
         warnings.warn(
-            f"BPHX_yan_lio_lin_condensing_DP: fluid {AS.fluid_names()[0]}, "
+            f"BPHE_yan_lio_lin_condensing_DP: fluid {AS.fluid_names()[0]}, "
             "correlation established for R134a.",
             FluidWarning
         )
@@ -690,7 +690,7 @@ def BPHX_yan_lio_lin_condensing_DP(AS, geom, cond):
     return dP
 
 
-def BPHX_hsieh_lin_boiling_DP(AS, geom, cond):
+def BPHE_hsieh_lin_boiling_DP(AS, geom, cond):
     """
     Frictional pressure drop of a saturated boiling flow in a plate heat exchanger.
     
@@ -785,7 +785,7 @@ def BPHX_hsieh_lin_boiling_DP(AS, geom, cond):
 
     if out:
         warnings.warn(
-            "BPHX_hsieh_lin_boiling_DP: outside the data of the paper: " + ", ".join(out) + ".",
+            "BPHE_hsieh_lin_boiling_DP: outside the data of the paper: " + ", ".join(out) + ".",
             ValidityRangeWarning
         )
 
@@ -793,7 +793,7 @@ def BPHX_hsieh_lin_boiling_DP(AS, geom, cond):
     fluid_name = AS.fluid_names()[0].upper().replace('-', '')
     if fluid_name != 'R410A':
         warnings.warn(
-            f"BPHX_hsieh_lin_boiling_DP: fluid {AS.fluid_names()[0]}, "
+            f"BPHE_hsieh_lin_boiling_DP: fluid {AS.fluid_names()[0]}, "
             "correlation established for R410A.",
             FluidWarning
         )

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Tube-side (in-tube) heat transfer coefficients, in the (AS, geom, cond) formalism of the
-BPHX and shell-side STHE correlations.  Every correlation returns h [W/(m^2 K)].
+BPHE and shell-side STHE correlations.  Every correlation returns h [W/(m^2 K)].
 
 AS   : CoolProp AbstractState of the fluid (it is moved by the saturation / wall property calls:
        build the bulk properties of the cell BEFORE calling).
@@ -24,6 +24,7 @@ from scipy.optimize import fsolve
 import CoolProp.CoolProp as CP
 from labothappy.correlations.convection.correlation_warnings import (
     ValidityRangeWarning, FluidWarning)
+from labothappy.correlations.properties.supercritical import pseudo_critical_temperature
 
 #%% HELPERS
 
@@ -198,6 +199,184 @@ def pipe_meshram_HTC(AS, geom, cond):
                       "supercritical CO2.",
                       FluidWarning)
     return 0.0177 * Re**0.871 * cond['Pr']**0.7 * cond['k'] / Dh
+
+def pipe_hausen_laminar_entry_HTC(AS, geom, cond):
+    """
+    Mean Nusselt number and heat transfer coefficient for laminar single-phase flow
+    inside a circular tube in the thermal entrance region (Hausen 1943).
+
+    Labothappy choice: the correlation gives the mean Nusselt number between the
+    tube inlet and the length L; the model works cell by cell, so L = geom['L_t']
+    (the whole tube) is used for every cell: every cell gets the same mean value
+    (for the same properties).
+
+    Arguments
+    ---------
+    AS : CoolProp AbstractState
+        Fluid state object (not used by this correlation, kept for interface consistency).
+    geom : dict
+        Geometry dictionary with keys:
+        - 'D_t_i' [m]  (or 'D_t_o' [m] and 't_t' [m]) through _tube_ID(geom)
+        - 'L_t' [m]    total tube length
+        - 'n_t' [-], 'n_passes' [-] (optional, used if 'G' is absent in cond)
+    cond : dict
+        Operating conditions dictionary with keys:
+        - 'G' [kg/m2/s]  mass flux inside ONE tube (or 'm_dot' [kg/s] + geom n_t, n_passes)
+        - 'm_dot' [kg/s] total mass flow rate (optional, used if 'G' is absent)
+        - 'mu' [Pa s]    bulk dynamic viscosity
+        - 'Pr' [-]       bulk Prandtl number
+        - 'k' [W/m/K]    bulk thermal conductivity
+
+    Returns
+    -------
+    h : float
+        Mean heat transfer coefficient over length L [W/m2/K].
+
+    Reference
+    ---------
+    Hausen, H. (1943) Darstellung des Waermeueberganges in Rohren durch verallgemeinerte
+    Potenzbeziehungen. Z. VDI Beiheft Verfahrenstechnik 4, 91-98; as shown by Kays (1955)
+    and given in Bergman, Lavine, Incropera, DeWitt, Introduction to Heat Transfer,
+    6th ed., Wiley 2011.
+
+    Implementation follows the independent implementation in the ht library (C. Bell),
+    ht.conv_internal.laminar_entry_thermal_Hausen, which cites the references above.
+
+    Validity range and definitions
+    ------------------------------
+    - Flow regime: laminar flow; thermal entry length with a fully developed velocity
+      profile (also valid for a developing velocity profile when Pr >> 1, about Pr > 5);
+      uniform wall temperature; tends to 3.66 for long tubes.
+    - Numerical Re / Gz range: unknown (not given in the sources at hand).
+    - Inner diameter D used in Re, Gz, and h. Bulk properties (mu, Pr, k) used.
+    """
+    # 1. Geometry and mass flux
+    D = _tube_ID(geom)                          # inner diameter [m]
+    L = geom['L_t']                             # total tube length [m]
+    G = _tube_G(geom, cond)                     # mass flux inside one tube [kg/m2/s]
+
+    # 2. Bulk properties
+    mu = cond['mu']                             # bulk dynamic viscosity [Pa s]
+    Pr = cond['Pr']                             # bulk Prandtl number [-]
+    k = cond['k']                               # bulk thermal conductivity [W/m/K]
+
+    # 3. Inner Reynolds number
+    Re = G * D / mu                             # Reynolds number [-]
+
+    # 4. Graetz number
+    Gz = (D / L) * Re * Pr                      # Graetz number [-]
+
+    # 5. Mean Nusselt number (Hausen 1943, Incropera Eq. 8.57)
+    numerator_hausen = 0.0668 * Gz
+    denominator_hausen = 1.0 + 0.04 * Gz ** (2.0 / 3.0)
+    Nu = 3.66 + numerator_hausen / denominator_hausen  # mean Nusselt number [-]
+
+    # 6. Heat transfer coefficient
+    h = Nu * k / D                              # heat transfer coefficient [W/m2/K]
+
+    # 7. Validity check
+    if Re > 2300.0:
+        warnings.warn(
+            f"Hausen laminar entry HTC: laminar correlation used at Re = {Re:.1f} > 2300.",
+            ValidityRangeWarning
+        )
+
+    return h
+
+
+def pipe_baehr_stephan_laminar_entry_HTC(AS, geom, cond):
+    """
+    Mean Nusselt number and heat transfer coefficient for laminar single-phase flow
+    inside a circular tube in the combined hydrodynamic and thermal entrance region
+    (Baehr & Stephan 2011/2013).
+
+    Labothappy choice: the correlation gives the mean Nusselt number between the
+    tube inlet and the length L; the model works cell by cell, so L = geom['L_t']
+    (the whole tube) is used for every cell: every cell gets the same mean value
+    (for the same properties).
+
+    Arguments
+    ---------
+    AS : CoolProp AbstractState
+        Fluid state object (not used by this correlation, kept for interface consistency).
+    geom : dict
+        Geometry dictionary with keys:
+        - 'D_t_i' [m]  (or 'D_t_o' [m] and 't_t' [m]) through _tube_ID(geom)
+        - 'L_t' [m]    total tube length
+        - 'n_t' [-], 'n_passes' [-] (optional, used if 'G' is absent in cond)
+    cond : dict
+        Operating conditions dictionary with keys:
+        - 'G' [kg/m2/s]  mass flux inside ONE tube (or 'm_dot' [kg/s] + geom n_t, n_passes)
+        - 'm_dot' [kg/s] total mass flow rate (optional, used if 'G' is absent)
+        - 'mu' [Pa s]    bulk dynamic viscosity
+        - 'Pr' [-]       bulk Prandtl number
+        - 'k' [W/m/K]    bulk thermal conductivity
+
+    Returns
+    -------
+    h : float
+        Mean heat transfer coefficient over length L [W/m2/K].
+
+    Reference
+    ---------
+    Baehr, H.D., Stephan, K. (2011/2013) Heat and Mass Transfer, Springer (equation number
+    unknown); also given in Bergman et al., Introduction to Heat Transfer, 6th ed.
+
+    Implementation follows the independent implementation in the ht library (C. Bell),
+    ht.conv_internal.laminar_entry_Baehr_Stephan, which cites the references above.
+
+    Validity range and definitions
+    ------------------------------
+    - Flow regime: laminar flow; combined (hydrodynamic + thermal) entry; uniform wall
+      temperature; tends to 3.657 for long tubes.
+    - Numerical Re / Pr / Gz range: unknown.
+    - Inner diameter D used in Re, Gz, and h. Bulk properties (mu, Pr, k) used.
+    """
+    # 1. Geometry and mass flux
+    D = _tube_ID(geom)                          # inner diameter [m]
+    L = geom['L_t']                             # total tube length [m]
+    G = _tube_G(geom, cond)                     # mass flux inside one tube [kg/m2/s]
+
+    # 2. Bulk properties
+    mu = cond['mu']                             # bulk dynamic viscosity [Pa s]
+    Pr = cond['Pr']                             # bulk Prandtl number [-]
+    k = cond['k']                               # bulk thermal conductivity [W/m/K]
+
+    # 3. Inner Reynolds number
+    Re = G * D / mu                             # Reynolds number [-]
+
+    # 4. Graetz number
+    Gz = (D / L) * Re * Pr                      # Graetz number [-]
+
+    # 5. Intermediate calculation terms (Baehr & Stephan correlation)
+    term_1_arg = 2.264 * Gz ** (-1.0 / 3.0) + 1.7 * Gz ** (-2.0 / 3.0)
+    term_1_hyperbolic = np.tanh(term_1_arg)
+    term_1 = 3.657 / term_1_hyperbolic
+
+    term_2_hyperbolic = np.tanh(1.0 / Gz)
+    term_2 = 0.0499 * Gz * term_2_hyperbolic
+
+    numerator = term_1 + term_2
+
+    denominator_arg = 2.432 * Pr ** (1.0 / 6.0) * Gz ** (-1.0 / 6.0)
+    denominator = np.tanh(denominator_arg)
+
+    # 6. Mean Nusselt number
+    Nu = numerator / denominator                # mean Nusselt number [-]
+
+    # 7. Heat transfer coefficient
+    h = Nu * k / D                              # heat transfer coefficient [W/m2/K]
+
+    # 8. Validity check
+    if Re > 2300.0:
+        warnings.warn(
+            f"Baehr-Stephan laminar entry HTC: laminar correlation used at Re = {Re:.1f}"
+            " > 2300.",
+            ValidityRangeWarning
+        )
+
+    return h
+
 
 #%% TRANSCRITICAL (sCO2 cooling)
 
@@ -417,6 +596,305 @@ def pipe_petukhov_supercritical_HTC(AS, geom, cond):
             'Petukhov supercritical HTC: Re_b = {:.0f} < 1e4. '
             'Correlation is for turbulent flow; this limit is a labothappy safeguard.'.format(Re_b),
             ValidityRangeWarning
+        )
+
+    return h
+
+def pipe_krasnoshchekov_protopopov_supercritical_HTC(AS, geom, cond):
+    """
+    Heat transfer coefficient for single-phase forced convection inside a circular tube
+    at supercritical pressure, using the Krasnoshchekov-Protopopov correlation.
+
+    Arguments
+    ---------
+    AS : CoolProp AbstractState
+        Fluid state object (will be moved to the wall state (p, T_w)).
+    geom : dict
+        Geometry dictionary containing:
+        - 'D_t_i' [m] (or 'D_t_o' [m] and 't_t' [m])
+    cond : dict
+        Operating conditions dictionary containing:
+        - 'G' [kg/m2/s]  mass flux inside ONE tube (or 'm_dot' [kg/s] + geom n_t, n_passes)
+        - 'p' [Pa]       bulk pressure
+        - 'T' [K]        bulk temperature
+        - 'h' [J/kg]     bulk specific enthalpy
+        - 'T_w' [K]      wall temperature
+        - 'mu' [Pa s]    bulk dynamic viscosity
+        - 'k' [W/m/K]    bulk thermal conductivity
+        - 'cp' [J/kg/K]  bulk specific heat capacity
+        - 'Pr' [-]       bulk Prandtl number
+
+    Returns
+    -------
+    h : float
+        Heat transfer coefficient [W/m2/K] on the inner surface.
+
+    Reference
+    ---------
+    Krasnoshchekov, E.A., Protopopov, V.S. (1959) Heat transfer at supercritical region
+    in flow of carbon dioxide and water in tubes. Thermal Engineering 12, 26-30;
+    (1960) and Petukhov, Krasnoshchekov, Protopopov (1961); as given in
+    Pioro, I.L., Khartabil, H.F., Duffey, R.B. (2004) Heat transfer to supercritical fluids
+    flowing in channels - empirical correlations (survey). Nuclear Engineering and Design 230,
+    69-91, doi:10.1016/j.nucengdes.2003.10.010. Eqs. (4)-(6), pp. 77-78.
+
+    Validity range and fluids tested
+    --------------------------------
+    - 2e4 < Re_b < 8.6e5
+    - 0.85 < Pr_b < 65
+    - 0.90 < mu_b / mu_w < 3.60
+    - 1.00 < k_b / k_w < 6.00
+    - 0.07 < cp_mean / cp_b < 4.50
+    - Accuracy: +-15%
+    - Fluids tested: water (22.3-32 MPa) and carbon dioxide (8.3 MPa), heating in tubes.
+
+    Definitions
+    -----------
+    - Re_b = G * D / mu_b (inner diameter, bulk properties)
+    - Pr_b : bulk Prandtl number
+    - cp_mean = (H_w - H_b) / (T_w - T_b) integral average between wall and bulk
+    - Pr_mean = cp_mean * mu_b / k_b (modified Prandtl number)
+    - xi = Darcy friction factor (Filonenko equation)
+    - Wall properties evaluated at (p, T_w)
+    - Returns h [W/m2/K] on the inner surface, Nu based on D with k_b.
+    """
+    # 1. Read geometry, mass flux, pressure, bulk temperature, enthalpy, and bulk properties
+    D = _tube_ID(geom)
+    G = _tube_G(geom, cond)
+    p = cond['p']
+    T_b = cond['T']
+    H_b = cond['h']
+    T_w = cond['T_w']
+    mu_b = cond['mu']
+    k_b = cond['k']
+    cp_b = cond['cp']
+    Pr_b = cond['Pr']
+
+    # 2. Wall properties (move AS to wall state)
+    AS.update(CP.PT_INPUTS, p, T_w)
+    mu_w = AS.viscosity()
+    k_w = AS.conductivity()
+    H_w = AS.hmass()
+
+    # 3. Bulk Reynolds number
+    Re_b = G * D / mu_b
+
+    # 4. Averaged specific heat (Pioro nomenclature)
+    if abs(T_w - T_b) < 1e-6:
+        cp_mean = cp_b
+    else:
+        cp_mean = (H_w - H_b) / (T_w - T_b)
+
+    # Modified Prandtl number
+    Pr_mean = cp_mean * mu_b / k_b
+
+    # 5. Krasnoshchekov-Protopopov correlation (Pioro 2004 Eqs. 4-6)
+    # Darcy friction factor (Filonenko equation, Eq. 6)
+    xi = 1.0 / (1.82 * np.log10(Re_b) - 1.64)**2
+
+    # Initial Nusselt number Nu_0 (Eq. 5)
+    nu_0_num = (xi / 8.0) * Re_b * Pr_mean
+    nu_0_den = 12.7 * (xi / 8.0)**0.5 * (Pr_mean**(2.0 / 3.0) - 1.0) + 1.07
+    Nu_0 = nu_0_num / nu_0_den
+
+    # Final Nusselt number with property variations (Eq. 4)
+    # Ratios are mu_b / mu_w and k_b / k_w exactly as written
+    nu_correction_mu = (mu_b / mu_w)**0.11
+    nu_correction_k = (k_b / k_w)**(-0.33)
+    nu_correction_cp = (cp_mean / cp_b)**0.35
+    Nu = Nu_0 * nu_correction_mu * nu_correction_k * nu_correction_cp
+
+    # 6. Heat transfer coefficient
+    h = Nu * k_b / D
+
+    # Validity checks and warnings
+    out = []
+    if p <= AS.p_critical():
+        p_MPa = p / 1e6
+        out.append(f"p = {p_MPa:.3f} MPa not supercritical")
+
+    if Re_b <= 2e4 or Re_b >= 8.6e5:
+        out.append(f"Re_b = {Re_b:.3g} outside [2e4, 8.6e5]")
+
+    if Pr_b <= 0.85 or Pr_b >= 65:
+        out.append(f"Pr_b = {Pr_b:.3g} outside [0.85, 65]")
+
+    mu_ratio = mu_b / mu_w
+    if mu_ratio <= 0.90 or mu_ratio >= 3.60:
+        out.append(f"mu_b/mu_w = {mu_ratio:.3g} outside [0.90, 3.60]")
+
+    k_ratio = k_b / k_w
+    if k_ratio <= 1.00 or k_ratio >= 6.00:
+        out.append(f"k_b/k_w = {k_ratio:.3g} outside [1.00, 6.00]")
+
+    cp_ratio = cp_mean / cp_b
+    if cp_ratio <= 0.07 or cp_ratio >= 4.50:
+        out.append(f"cp_mean/cp_b = {cp_ratio:.3g} outside [0.07, 4.50]")
+
+    if out:
+        warnings.warn(
+            "pipe_krasnoshchekov_protopopov_supercritical_HTC: outside the range of the "
+            "correlation: "
+            + ", ".join(out) + ".", ValidityRangeWarning
+        )
+
+    fluid_name = AS.fluid_names()[0].lower()
+    if fluid_name not in ('water', 'carbondioxide', 'co2'):
+        warnings.warn(
+            f"pipe_krasnoshchekov_protopopov_supercritical_HTC: fluid {AS.fluid_names()[0]!r}, "
+            "correlation fitted on water and CO2.", FluidWarning
+        )
+
+    return h
+
+
+def pipe_jackson_supercritical_HTC(AS, geom, cond):
+    """
+    Heat transfer coefficient for single-phase forced convection inside a circular tube
+    at supercritical pressure, using the Jackson correlation.
+
+    Arguments
+    ---------
+    AS : CoolProp AbstractState
+        Fluid state object (will be moved to the wall state (p, T_w)).
+    geom : dict
+        Geometry dictionary containing:
+        - 'D_t_i' [m] (or 'D_t_o' [m] and 't_t' [m])
+    cond : dict
+        Operating conditions dictionary containing:
+        - 'G' [kg/m2/s]  mass flux inside ONE tube (or 'm_dot' [kg/s] + geom n_t, n_passes)
+        - 'p' [Pa]       bulk pressure
+        - 'T' [K]        bulk temperature
+        - 'h' [J/kg]     bulk specific enthalpy
+        - 'T_w' [K]      wall temperature
+        - 'rho' [kg/m3]  bulk density
+        - 'mu' [Pa s]    bulk dynamic viscosity
+        - 'k' [W/m/K]    bulk thermal conductivity
+        - 'cp' [J/kg/K]  bulk specific heat capacity
+        - 'Pr' [-]       bulk Prandtl number
+
+    Returns
+    -------
+    h : float
+        Heat transfer coefficient [W/m2/K] on the inner surface.
+
+    Reference
+    ---------
+    Jackson, J.D. (2002) Consideration of the heat transfer properties of supercritical pressure
+    water in connection with the cooling of advanced nuclear reactors. Proc. 13th Pacific Basin
+    Nuclear Conference, Shenzhen, China, October 21-25; as given in
+    Pioro, I.L., Khartabil, H.F., Duffey, R.B. (2004) Heat transfer to supercritical fluids
+    flowing in channels - empirical correlations (survey). Nuclear Engineering and Design 230,
+    69-91, doi:10.1016/j.nucengdes.2003.10.010. Eq. (32), p. 81-82.
+    Independent check: ht.conv_supercritical.Nu_Jackson (C. Bell) gives the same value for
+    heating (tests 2026-11-27).
+
+    Validity range and fluids tested
+    --------------------------------
+    - Correlation built on Krasnoshchekov et al. (1967) Eq. (11) (Pioro p. 78):
+      8e4 < Re_b < 5e5, 0.85 < Pr_b < 65, 0.09 < rho_w / rho_b < 1.0,
+      0.02 < cp_mean / cp_b < 4.0, 0.9 < T_w / T_pc < 2.5.
+    - Data: water and carbon dioxide, heating.
+
+    Definitions
+    -----------
+    - Re_b = G * D / mu_b (inner diameter, bulk properties)
+    - Pr_b : bulk Prandtl number
+    - cp_mean = (H_w - H_b) / (T_w - T_b) integral average between wall and bulk
+    - Wall properties evaluated at (p, T_w)
+    - Returns h [W/m2/K] on the inner surface, Nu based on D with k_b.
+    """
+    # Pseudocritical temperature at bulk pressure (called before step 2 as specified)
+    T_pc = pseudo_critical_temperature(cond['p'], AS.fluid_names()[0])
+
+    # 1. Read geometry, mass flux, pressure, bulk temperature, enthalpy, and bulk properties
+    D = _tube_ID(geom)
+    G = _tube_G(geom, cond)
+    p = cond['p']
+    T_b = cond['T']
+    H_b = cond['h']
+    T_w = cond['T_w']
+    rho_b = cond['rho']
+    mu_b = cond['mu']
+    k_b = cond['k']
+    cp_b = cond['cp']
+    Pr_b = cond['Pr']
+
+    # 2. Wall properties (move AS to wall state)
+    AS.update(CP.PT_INPUTS, p, T_w)
+    rho_w = AS.rhomass()
+    H_w = AS.hmass()
+
+    # 3. Bulk Reynolds number
+    Re_b = G * D / mu_b
+
+    # 4. Averaged specific heat (Pioro nomenclature)
+    if abs(T_w - T_b) < 1e-6:
+        cp_mean = cp_b
+    else:
+        cp_mean = (H_w - H_b) / (T_w - T_b)
+
+    # 5. Jackson correlation (Pioro 2004 Eq. 32)
+    # Exponent n (Pioro 2004 p. 82)
+    if T_w < T_b:
+        n = 0.4
+        cooled_warning = True
+    else:
+        cooled_warning = False
+        if (T_b <= T_w and T_w <= T_pc) or (1.2 * T_pc <= T_b and T_b <= T_w):
+            n = 0.4
+        elif T_b < T_pc and T_pc < T_w:
+            n = 0.4 + 0.2 * (T_w / T_pc - 1.0)
+        elif T_pc <= T_b and T_b <= 1.2 * T_pc and T_b < T_w:
+            n = 0.4 + 0.2 * (T_w / T_pc - 1.0) * (1.0 - 5.0 * (T_b / T_pc - 1.0))
+        else:
+            # not reached for T_b <= T_w (the three cases above cover it): kept for safety
+            n = 0.4
+
+    # Jackson Nusselt number equation (Eq. 32)
+    Nu = 0.0183 * Re_b**0.82 * Pr_b**0.5 * (rho_w / rho_b)**0.3 * (cp_mean / cp_b)**n
+
+    # 6. Heat transfer coefficient
+    h = Nu * k_b / D
+
+    # Validity checks and warnings (Krasnoshchekov et al. 1967 Eq. 11 range)
+    out = []
+    if p <= AS.p_critical():
+        p_MPa = p / 1e6
+        out.append(f"p = {p_MPa:.3f} MPa not supercritical")
+
+    if cooled_warning:
+        out.append("fluid cooled (T_w < T_b): n not defined, 0.4 used")
+
+    if Re_b <= 8e4 or Re_b >= 5e5:
+        out.append(f"Re_b = {Re_b:.3g} outside [8e4, 5e5]")
+
+    if Pr_b <= 0.85 or Pr_b >= 65:
+        out.append(f"Pr_b = {Pr_b:.3g} outside [0.85, 65]")
+
+    rho_ratio = rho_w / rho_b
+    if rho_ratio <= 0.09 or rho_ratio >= 1.0:
+        out.append(f"rho_w/rho_b = {rho_ratio:.3g} outside [0.09, 1.0]")
+
+    cp_ratio = cp_mean / cp_b
+    if cp_ratio <= 0.02 or cp_ratio >= 4.0:
+        out.append(f"cp_mean/cp_b = {cp_ratio:.3g} outside [0.02, 4.0]")
+
+    Tw_Tpc = T_w / T_pc
+    if Tw_Tpc <= 0.9 or Tw_Tpc >= 2.5:
+        out.append(f"T_w/T_pc = {Tw_Tpc:.3g} outside [0.9, 2.5]")
+
+    if out:
+        warnings.warn(
+            "pipe_jackson_supercritical_HTC: outside the range of the correlation: "
+            + ", ".join(out) + ".", ValidityRangeWarning
+        )
+
+    fluid_name = AS.fluid_names()[0].lower()
+    if fluid_name not in ('water', 'carbondioxide', 'co2'):
+        warnings.warn(
+            f"pipe_jackson_supercritical_HTC: fluid {AS.fluid_names()[0]!r}, "
+            "correlation fitted on water and CO2.", FluidWarning
         )
 
     return h
@@ -1106,7 +1584,13 @@ def pipe_steiner_taborek_boiling_HTC(AS, geom, cond):
 def pipe_vdi_boiling_HTC(AS, geom, cond):
     """VDI Heat Atlas (2010) flow boiling in horizontal tubes (Gorenflo-type nucleate form).
     cond : G, p, x, q; a_0 (optional if the fluid is not in the VDI table)
-    geom : D_t_i; Ra (wall roughness, default 3e-6 m)"""
+    geom : D_t_i; Ra (wall roughness, default 3e-6 m)
+    Validity (VDI Heat Atlas 2010, H3.4, range of Eq. (31)): 0.005 <= p* <= 0.85 (0.03-0.93 for
+    cryogenic fluids), 4 <= d <= 25 mm, 0.05 <= Ra <= 5 um, C_F <= 2.5; warning outside.
+    Returns the NUCLEATE boiling term alpha(z)_B of VDI H3.4 Eq. (31) only (the convective term of
+    Eq. (39) is not included: proposed_changes.md E24 point 4).
+    2026-11-27 (E24 points 1-3): F(p*) coefficient 1.6 (Eq. 27), cryogenic exponent n (Eq. 29),
+    C_F from Table 3 for H2 (para), H2O, Ne, N2, Ar, R22, R12, R11."""
     fluid = AS.fluid_names()[0]
     D_in = _tube_ID(geom)
     G, P_sat, q = _tube_G(geom, cond), cond['p'], cond['q']
@@ -1133,10 +1617,26 @@ def pipe_vdi_boiling_HTC(AS, geom, cond):
     sigma_01 = 0.010449499360652493 if fluid == 'R134a' else _sigma(AS, P_01)
 
     P_star = P_sat / P_crit
-    n = 0.9 - 0.36 * P_star**0.13
+    # Exponent n (corrected 2026-11-27, proposed_changes.md E24 point 2): VDI H3.4 Eq. (28)
+    # for inorganic substances, hydrocarbons and halocarbons, Eq. (29) for cryogenic fluids
+    cryogenic_fluids = ('H2', 'N2', 'Neon', 'Air', 'O2', 'Ar', 'Hydrogen', 'ParaHydrogen',
+                        'Nitrogen', 'Oxygen', 'Argon', 'Helium', 'He')
+    if fluid in cryogenic_fluids:
+        n = 0.9 - 0.44 * P_star**0.085
+    else:
+        n = 0.9 - 0.36 * P_star**0.13
+    # Factor C_F (corrected 2026-11-27, E24 point 3): measured values of VDI H3.4 Table 3
+    # (lambda_w s >= 0.7 W/K) for the listed substances, Eq. (32) for the others
+    C_F_table_3 = {'ParaHydrogen': 0.79, 'Water': 0.72, 'Neon': 0.95, 'Nitrogen': 1.67,
+                   'Argon': 0.93, 'R22': 1.23, 'R12': 1.06, 'R11': 1.87}
     MM_H2 = 0.00201588
-    C_F = 0.789 * (MM_fluid / MM_H2)**0.11
-    F_p = 2.692 * P_star**0.43 + (1.65 * P_star**6.5 / (1 - P_star**4.4))
+    if fluid in C_F_table_3:
+        C_F = C_F_table_3[fluid]
+    else:
+        C_F = 0.789 * (MM_fluid / MM_H2)**0.11
+    # Pressure function F(p*), VDI H3.4 Eq. (27) / (31): coefficient 1.6 (was 1.65 before
+    # 2026-11-27, E24 point 1)
+    F_p = 2.692 * P_star**0.43 + (1.6 * P_star**6.5 / (1 - P_star**4.4))
     F_d = (1e-2 / D_in)**0.5
     F_W = (geom.get('Ra', 3e-6) / 1e-6)**0.133
     F_G = (G / 100.0)**0.25
@@ -1145,6 +1645,30 @@ def pipe_vdi_boiling_HTC(AS, geom, cond):
     q_cr_01 = 0.13 * (h_v_01 - h_l_01) * rho_v_01**0.5 * (sigma_01 * g * (rho_l_01 - rho_v_01))**0.25
     q_cr_PB = 2.79 * q_cr_01 * P_star**0.4 * (1 - P_star)
     F_x = 1 - P_star**0.1 * (q / q_cr_PB)**0.3 * x
+
+    # Range of validity of VDI Heat Atlas (2010) H3.4 Eq. (31) (horizontal tubes, p. 824-825):
+    # 0.03 <= p* <= 0.93 (cryogenic fluids), 0.005 <= p* <= 0.85 (all other liquids),
+    # 4 <= d <= 25 mm, 0.05 <= Ra <= 5 um; upper limit C_F <= 2.5 "should be observed" (Eq. 32).
+    # Range check added 2026-11-27 (warning only); cryogenic_fluids defined above (exponent n).
+    out = []
+    if fluid in cryogenic_fluids:
+        P_star_min = 0.03
+        P_star_max = 0.93
+    else:
+        P_star_min = 0.005
+        P_star_max = 0.85
+    if P_star < P_star_min or P_star > P_star_max:
+        out.append(f"p* = {P_star:.3g} outside {P_star_min}-{P_star_max}")
+    if D_in < 4e-3 or D_in > 25e-3:
+        out.append(f"d = {D_in * 1e3:.2f} mm outside 4-25 mm")
+    Ra = geom.get('Ra', 3e-6)
+    if Ra < 0.05e-6 or Ra > 5e-6:
+        out.append(f"Ra = {Ra * 1e6:.3g} um outside 0.05-5 um")
+    if C_F > 2.5:
+        out.append(f"C_F = {C_F:.3g} > 2.5 (VDI upper limit, not applied here)")
+    if out:
+        warnings.warn("VDI flow boiling (H3.4 Eq. 31): outside the range of validity: "
+                      + ", ".join(out) + ".", ValidityRangeWarning)
 
     return a_0 * C_F * (q / q_0)**n * F_p * F_d * F_W * F_G * F_x
 

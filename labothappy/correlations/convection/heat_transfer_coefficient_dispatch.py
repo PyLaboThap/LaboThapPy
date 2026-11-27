@@ -7,9 +7,19 @@ from labothappy.correlations.convection.PCHE_HTC import PCHE_HTC
 from labothappy.correlations.convection.TFHE_HTC import TFHE_HTC
 from labothappy.correlations.convection.curved_pipe_HTC import curved_pipe_HTC
 from labothappy.correlations.convection.SPHE_HTC import SPHE_HTC
+from labothappy.correlations.convection.bare_tube_bank_HTC import bare_tube_bank_HTC
 
 _VALID_STATES = ('SP', 'EVAP', 'COND')
 _VALID_SIDES = ('shell', 'tube')
+
+# Values of geom['finned'] that mean "no fins" (bare tubes)
+_NOT_FINNED = (0, False, '0', 'no', 'No', 'False', 'false')
+
+
+def _is_bare_tube_bank(htx, side, geom):
+    """True for the outer side of a TFHE whose tubes have no fins (geom['finned'] = 0 / False):
+    bank of bare tubes in crossflow, routed to bare_tube_bank_HTC (2026-11-27)."""
+    return htx in ('TFHE', 'Tube&Fins') and side == 'fin' and geom.get('finned', 1) in _NOT_FINNED
 
 
 def _choices(correlation, state):
@@ -39,7 +49,9 @@ def heat_transfer_coefficient(AS, geom, cond, correlation):
     SPHE : SP 'Picon_Nunez','Rajavel','Curved_rect_duct','Rect_duct'; geom: Dh, R_curv, b (channel gap), H, L.
     TFHE ('Tube&Fins') : cond['side'] (or geom['side']) = 'fin' (gas side, single phase: Pismennyi, REDUCED
            coefficient referred to the total outer area) or 'tube' (pipe correlations). Fin side: m_dot (WHOLE
-           side), rho, mu, k, Pr; geom holds the tube and fin geometry (D_f_o, t_f, f_density, k_f, w, ...)."""
+           side), rho, mu, k, Pr; geom holds the tube and fin geometry (D_f_o, t_f, f_density, k_f, w, ...).
+           geom['finned'] = 0 / False: outer side = bank of BARE tubes in crossflow (bare_tube_bank_HTC:
+           SP 'Zukauskas' / 'ESDU_73031', EVAP 'Shah', COND 'Rose_Kern' / 'Nusselt_single_tube')."""
     htx = geom.get('HTX_Type')
 
     if htx in ('BPHE', 'STHE', 'PCHE', 'TFHE', 'Tube&Fins', 'HCHE', 'SCHE', 'SPHE'):
@@ -61,6 +73,8 @@ def heat_transfer_coefficient(AS, geom, cond, correlation):
             return float(SPHE_HTC(AS, geom, cond, state, choices))
 
         if htx in ('TFHE', 'Tube&Fins'):      # cond['side'] / geom['side'] = 'fin' or 'tube'
+            if _is_bare_tube_bank(htx, cond.get('side', geom.get('side')), geom):
+                return float(bare_tube_bank_HTC(AS, geom, cond, state, choices))   # finned = 0
             return float(TFHE_HTC(AS, geom, cond, state, choices))
 
         side = cond.get('side', geom.get('side'))
@@ -144,6 +158,10 @@ def auto_htc_correlation(AS, geom, cond):
     if htx in ('TFHE', 'Tube&Fins'):
         if side == 'tube':
             return pipe_rules[state](AS, geom, cond)
+        if _is_bare_tube_bank(htx, side, geom):
+            from labothappy.correlations.convection.bare_tube_bank_HTC import (
+                select_bare_tube_bank_HTC)
+            return select_bare_tube_bank_HTC(geom, cond, state)
         return select_fin_HTC(geom, cond)       # finned side: same correlation for every state
 
     if htx == 'PCHE':
@@ -169,20 +187,22 @@ def auto_htc_correlation(AS, geom, cond):
     raise NotImplementedError(f"auto_htc_correlation: HTX_Type {htx!r} is not handled.")
 
 
-def _htc_case_tables(htx, side, state, curved):
+def _htc_case_tables(htx, side, state, curved, bare=False):
     """Registry tables of the heat transfer correlations of a case, in priority order, as
     (dispatcher module, table {name: function}).
     htx: HTX_Type; side: 'shell' / 'tube' (STHE), 'fin' / 'tube' (TFHE), None otherwise;
-    state: 'SP', 'EVAP', 'COND'; curved: True if the channel has a radius of curvature."""
+    state: 'SP', 'EVAP', 'COND'; curved: True if the channel has a radius of curvature;
+    bare: True for the outer side of a TFHE without fins (bank of bare tubes)."""
     from labothappy.correlations.convection import BPHE_HTC, STHE_HTC, pipe_HTC, PCHE_HTC, TFHE_HTC
     from labothappy.correlations.convection import curved_pipe_HTC, SPHE_HTC
+    from labothappy.correlations.convection import bare_tube_bank_HTC as bare_bank
 
     pipe_tables = {'SP': pipe_HTC._PIPE_SP_HTC, 'EVAP': pipe_HTC._PIPE_EVAP_HTC,
                    'COND': pipe_HTC._PIPE_COND_HTC}
 
     if htx == 'BPHE':
-        return [(BPHE_HTC, {'SP': BPHE_HTC._BPHX_SP_HTC, 'EVAP': BPHE_HTC._BPHX_EVAP_HTC,
-                            'COND': BPHE_HTC._BPHX_COND_HTC}[state])]
+        return [(BPHE_HTC, {'SP': BPHE_HTC._BPHE_SP_HTC, 'EVAP': BPHE_HTC._BPHE_EVAP_HTC,
+                            'COND': BPHE_HTC._BPHE_COND_HTC}[state])]
     if htx == 'STHE' and side == 'tube':
         return [(pipe_HTC, pipe_tables[state])]
     if htx == 'STHE':
@@ -190,6 +210,8 @@ def _htc_case_tables(htx, side, state, curved):
                             'COND': STHE_HTC._STHE_COND_HTC}[state])]
     if htx in ('TFHE', 'Tube&Fins') and side == 'tube':
         return [(pipe_HTC, pipe_tables[state])]
+    if htx in ('TFHE', 'Tube&Fins') and bare:
+        return [(bare_bank, bare_bank._TABLES[state])]
     if htx in ('TFHE', 'Tube&Fins'):
         return [(TFHE_HTC, TFHE_HTC._TFHE_FIN_HTC)]
     if htx == 'PCHE' and state == 'SP':
@@ -216,7 +238,8 @@ def htc_candidates(AS, geom, cond):
     htx = geom.get('HTX_Type')
     state = cond.get('flow_state')
     side = cond.get('side', geom.get('side'))
-    tables = [table for _, table in _htc_case_tables(htx, side, state, 'R_curv' in geom)]
+    bare = _is_bare_tube_bank(htx, side, geom)
+    tables = [table for _, table in _htc_case_tables(htx, side, state, 'R_curv' in geom, bare)]
 
     # Rule-based choice first, then the registry order, each function once
     names = [auto_htc_correlation(AS, geom, cond)]
@@ -304,7 +327,7 @@ def htc_required_parameters(AS, geom, cond, correlation=None):
     result['correlation'] = correlation
     return result
 
-def htc_correlation_parameters(htx, side, state, name=None, curved=False):
+def htc_correlation_parameters(htx, side, state, name=None, curved=False, bare=False):
     """Model parameters that a heat transfer correlation needs IN ADDITION to the parameters of the
     geometry (tables _REQUIRED_PARAMETERS of the dispatchers of each type), for one case.
 
@@ -317,13 +340,14 @@ def htc_correlation_parameters(htx, side, state, name=None, curved=False):
              registered correlation of the case that needs the FEWEST are returned (with the
              trial choice, the solve can always fall back on it)
     curved : True if the channel has a radius of curvature (PCHE two phase: curved pipe tables)
+    bare   : True for the outer side of a TFHE without fins (geom['finned'] = 0): bare tube bank
 
     Returns
     -------
     tuple of parameter names. A name that is not registered for the case returns () (the
     dispatcher raises the error at the first evaluation).
     """
-    tables = _htc_case_tables(htx, side, state, curved)
+    tables = _htc_case_tables(htx, side, state, curved, bare)
     if name is None or name == 'auto':
         fewest = None
         for module, table in tables:
